@@ -18,7 +18,7 @@ contract LibProposeInputCodecTest is Test {
             proposalHeadContainerBlock: 1234,
             finalizationHead: 38,
             synchronizationHead: 35,
-            finalizationHeadTransitionHash: bytes27(uint216(98765432109876)),
+            finalizationHeadTransitionHash: bytes27(uint216(98_765_432_109_876)),
             aggregatedBondInstructionsHash: bytes32(uint256(0xABCDEF123456789))
         });
 
@@ -60,9 +60,7 @@ contract LibProposeInputCodecTest is Test {
         // Verify all fields are correctly encoded/decoded
         assertEq(decoded.deadline, input.deadline, "Deadline mismatch");
         assertEq(
-            decoded.coreState.proposalHead,
-            input.coreState.proposalHead,
-            "ProposalHead mismatch"
+            decoded.coreState.proposalHead, input.coreState.proposalHead, "ProposalHead mismatch"
         );
         assertEq(
             decoded.coreState.proposalHeadContainerBlock,
@@ -104,9 +102,7 @@ contract LibProposeInputCodecTest is Test {
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "Blob offset mismatch");
 
         assertEq(
-            decoded.transitions.length,
-            input.transitions.length,
-            "Transitions length mismatch"
+            decoded.transitions.length, input.transitions.length, "Transitions length mismatch"
         );
         assertEq(
             decoded.checkpoint.blockNumber,
@@ -318,9 +314,7 @@ contract LibProposeInputCodecTest is Test {
 
         // Verify all CoreState fields including synchronizationHead
         assertEq(
-            decoded.coreState.proposalHead,
-            input.coreState.proposalHead,
-            "Proposal head mismatch"
+            decoded.coreState.proposalHead, input.coreState.proposalHead, "Proposal head mismatch"
         );
         assertEq(
             decoded.coreState.proposalHeadContainerBlock,
@@ -381,9 +375,7 @@ contract LibProposeInputCodecTest is Test {
 
         assertEq(decoded.deadline, type(uint40).max, "Max deadline should be preserved");
         assertEq(
-            decoded.coreState.proposalHead,
-            type(uint40).max,
-            "Max proposalHead should be preserved"
+            decoded.coreState.proposalHead, type(uint40).max, "Max proposalHead should be preserved"
         );
         assertEq(
             decoded.blobReference.blobStartIndex,
@@ -412,8 +404,7 @@ contract LibProposeInputCodecTest is Test {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            bondInstructionHash: bytes32(uint256(4)),
-            checkpointHash: bytes32(uint256(5))
+            bondInstructionHash: bytes32(uint256(4)), checkpointHash: bytes32(uint256(5))
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({

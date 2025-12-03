@@ -41,8 +41,7 @@ contract LibProveInputCodecFuzzTest is Test {
                 stateRoot: bytes32(uint256(555))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xAAAA),
-                actualProver: address(0xBBBB)
+                designatedProver: address(0xAAAA), actualProver: address(0xBBBB)
             }),
             parentTransitionHash: bytes27(uint216(666))
         });
@@ -81,13 +80,10 @@ contract LibProveInputCodecFuzzTest is Test {
                 parentProposalHash: bytes32(uint256(333))
             }),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
-                blockHash: blockHash,
-                stateRoot: stateRoot
+                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xAAAA),
-                actualProver: address(0xBBBB)
+                designatedProver: address(0xAAAA), actualProver: address(0xBBBB)
             }),
             parentTransitionHash: bytes27(uint216(666))
         });
@@ -126,8 +122,7 @@ contract LibProveInputCodecFuzzTest is Test {
                 stateRoot: bytes32(uint256(555))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: designatedProver,
-                actualProver: actualProver
+                designatedProver: designatedProver, actualProver: actualProver
             }),
             parentTransitionHash: bytes27(uint216(666))
         });
@@ -159,8 +154,7 @@ contract LibProveInputCodecFuzzTest is Test {
                 stateRoot: bytes32(uint256(555))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xAAAA),
-                actualProver: address(0xBBBB)
+                designatedProver: address(0xAAAA), actualProver: address(0xBBBB)
             }),
             parentTransitionHash: parentTransitionHash
         });
@@ -355,5 +349,4 @@ contract LibProveInputCodecFuzzTest is Test {
             "LibProveInputCodec should produce smaller output than ABI encoding"
         );
     }
-
 }

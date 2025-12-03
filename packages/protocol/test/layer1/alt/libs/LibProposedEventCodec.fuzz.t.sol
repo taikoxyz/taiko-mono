@@ -172,9 +172,7 @@ contract LibProposedEventCodecFuzzTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: offset,
-                timestamp: timestamp
+                blobHashes: blobHashes, offset: offset, timestamp: timestamp
             })
         });
 
@@ -286,9 +284,7 @@ contract LibProposedEventCodecFuzzTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 100,
-                timestamp: 1_700_000_000
+                blobHashes: blobHashes, offset: 100, timestamp: 1_700_000_000
             })
         });
 
@@ -437,7 +433,9 @@ contract LibProposedEventCodecFuzzTest is Test {
                 proposalHeadContainerBlock: proposalId - 1,
                 finalizationHead: proposalId > 5 ? proposalId - 5 : 0,
                 synchronizationHead: proposalId > 10 ? proposalId - 10 : 0,
-                finalizationHeadTransitionHash: bytes27(keccak256(abi.encodePacked("finHash", proposalId))),
+                finalizationHeadTransitionHash: bytes27(
+                    keccak256(abi.encodePacked("finHash", proposalId))
+                ),
                 aggregatedBondInstructionsHash: keccak256(abi.encodePacked("bonds", proposalId))
             }),
             transitions: new IInbox.Transition[](0)

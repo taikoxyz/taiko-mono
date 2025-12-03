@@ -100,9 +100,7 @@ contract LibProposedEventCodecTest is Test {
 
         // Verify core state fields
         assertEq(
-            decoded.coreState.proposalHead,
-            payload.coreState.proposalHead,
-            "ProposalHead mismatch"
+            decoded.coreState.proposalHead, payload.coreState.proposalHead, "ProposalHead mismatch"
         );
         assertEq(
             decoded.coreState.proposalHeadContainerBlock,
@@ -133,9 +131,7 @@ contract LibProposedEventCodecTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes1,
-                offset: 100,
-                timestamp: 1_700_000_000
+                blobHashes: blobHashes1, offset: 100, timestamp: 1_700_000_000
             })
         });
 
@@ -145,7 +141,9 @@ contract LibProposedEventCodecTest is Test {
 
         sources[1] = IInbox.DerivationSource({
             isForcedInclusion: true,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes2, offset: 200, timestamp: 1_700_000_001 })
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes2, offset: 200, timestamp: 1_700_000_001
+            })
         });
 
         IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
@@ -184,7 +182,9 @@ contract LibProposedEventCodecTest is Test {
 
         // Verify first source
         assertEq(
-            decoded.derivation.sources[0].isForcedInclusion, false, "Source 0 isForcedInclusion mismatch"
+            decoded.derivation.sources[0].isForcedInclusion,
+            false,
+            "Source 0 isForcedInclusion mismatch"
         );
         assertEq(
             decoded.derivation.sources[0].blobSlice.blobHashes.length,
@@ -203,12 +203,16 @@ contract LibProposedEventCodecTest is Test {
         );
         assertEq(decoded.derivation.sources[0].blobSlice.offset, 100, "Source 0 offset mismatch");
         assertEq(
-            decoded.derivation.sources[0].blobSlice.timestamp, 1_700_000_000, "Source 0 timestamp mismatch"
+            decoded.derivation.sources[0].blobSlice.timestamp,
+            1_700_000_000,
+            "Source 0 timestamp mismatch"
         );
 
         // Verify second source
         assertEq(
-            decoded.derivation.sources[1].isForcedInclusion, true, "Source 1 isForcedInclusion mismatch"
+            decoded.derivation.sources[1].isForcedInclusion,
+            true,
+            "Source 1 isForcedInclusion mismatch"
         );
         assertEq(
             decoded.derivation.sources[1].blobSlice.blobHashes.length,
@@ -222,7 +226,9 @@ contract LibProposedEventCodecTest is Test {
         );
         assertEq(decoded.derivation.sources[1].blobSlice.offset, 200, "Source 1 offset mismatch");
         assertEq(
-            decoded.derivation.sources[1].blobSlice.timestamp, 1_700_000_001, "Source 1 timestamp mismatch"
+            decoded.derivation.sources[1].blobSlice.timestamp,
+            1_700_000_001,
+            "Source 1 timestamp mismatch"
         );
     }
 
@@ -235,9 +241,7 @@ contract LibProposedEventCodecTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: type(uint24).max,
-                timestamp: type(uint40).max
+                blobHashes: blobHashes, offset: type(uint24).max, timestamp: type(uint40).max
             })
         });
 
@@ -354,7 +358,9 @@ contract LibProposedEventCodecTest is Test {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 100, timestamp: 1_700_000_000 })
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes, offset: 100, timestamp: 1_700_000_000
+            })
         });
 
         IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({

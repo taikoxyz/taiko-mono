@@ -27,24 +27,36 @@ contract LibProveInputCodecTest is Test {
 
         inputs[0] = IInbox.ProveInput({
             proposal: IInbox.Proposal({
-                id: 12345,
+                id: 12_345,
                 timestamp: 1_699_500_000,
                 endOfSubmissionWindowTimestamp: 1_699_500_012,
                 proposer: address(0xaabBccDdEe11223344556677889900aaBBccDDEE),
-                coreStateHash: bytes32(uint256(0x1111111111111111111111111111111111111111111111111111111111111111)),
-                derivationHash: bytes32(uint256(0x2222222222222222222222222222222222222222222222222222222222222222)),
-                parentProposalHash: bytes32(uint256(0x3333333333333333333333333333333333333333333333333333333333333333))
+                coreStateHash: bytes32(
+                    uint256(0x1111111111111111111111111111111111111111111111111111111111111111)
+                ),
+                derivationHash: bytes32(
+                    uint256(0x2222222222222222222222222222222222222222222222222222222222222222)
+                ),
+                parentProposalHash: bytes32(
+                    uint256(0x3333333333333333333333333333333333333333333333333333333333333333)
+                )
             }),
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 18_500_000,
-                blockHash: bytes32(uint256(0x4444444444444444444444444444444444444444444444444444444444444444)),
-                stateRoot: bytes32(uint256(0x5555555555555555555555555555555555555555555555555555555555555555))
+                blockHash: bytes32(
+                    uint256(0x4444444444444444444444444444444444444444444444444444444444444444)
+                ),
+                stateRoot: bytes32(
+                    uint256(0x5555555555555555555555555555555555555555555555555555555555555555)
+                )
             }),
             metadata: IInbox.TransitionMetadata({
                 designatedProver: address(0x1234567890123456789012345678901234567890),
                 actualProver: address(0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD)
             }),
-            parentTransitionHash: bytes27(uint216(0x6666666666666666666666666666666666666666666666666666))
+            parentTransitionHash: bytes27(
+                uint216(0x6666666666666666666666666666666666666666666666666666)
+            )
         });
 
         // Encode and decode
@@ -55,7 +67,7 @@ contract LibProveInputCodecTest is Test {
         assertEq(decoded.length, 1, "Decoded array length mismatch");
 
         // Verify proposal
-        assertEq(decoded[0].proposal.id, 12345, "Proposal ID mismatch");
+        assertEq(decoded[0].proposal.id, 12_345, "Proposal ID mismatch");
         assertEq(decoded[0].proposal.timestamp, 1_699_500_000, "Proposal timestamp mismatch");
         assertEq(
             decoded[0].proposal.endOfSubmissionWindowTimestamp,
@@ -237,8 +249,7 @@ contract LibProveInputCodecTest is Test {
                 stateRoot: bytes32(uint256(555))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xAAAA),
-                actualProver: address(0xBBBB)
+                designatedProver: address(0xAAAA), actualProver: address(0xBBBB)
             }),
             parentTransitionHash: bytes27(uint216(666))
         });
@@ -307,8 +318,7 @@ contract LibProveInputCodecTest is Test {
                 stateRoot: bytes32(uint256(555))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xAAAA),
-                actualProver: address(0xBBBB)
+                designatedProver: address(0xAAAA), actualProver: address(0xBBBB)
             }),
             parentTransitionHash: bytes27(uint216(666))
         });

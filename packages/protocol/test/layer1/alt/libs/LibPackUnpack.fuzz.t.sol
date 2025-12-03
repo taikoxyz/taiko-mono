@@ -198,8 +198,7 @@ contract LibPackUnpackFuzzTest is Test {
     // ---------------------------------------------------------------
 
     function testFuzz_simpleStruct(uint8 flag, uint16 counter, uint24 value) public pure {
-        SimpleStruct memory original =
-            SimpleStruct({ flag: flag, counter: counter, value: value });
+        SimpleStruct memory original = SimpleStruct({ flag: flag, counter: counter, value: value });
 
         bytes memory buffer = new bytes(100);
         uint256 ptr = LibPackUnpack.dataPtr(buffer);
@@ -482,9 +481,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint256 pos = ptr;
         for (uint256 i = 0; i < numElements; i++) {
             SimpleStruct memory testStruct = SimpleStruct({
-                flag: uint8(i % 256),
-                counter: uint16(i % 65_536),
-                value: uint24(i % 16_777_216)
+                flag: uint8(i % 256), counter: uint16(i % 65_536), value: uint24(i % 16_777_216)
             });
             pos = packSimpleStruct(pos, testStruct);
         }

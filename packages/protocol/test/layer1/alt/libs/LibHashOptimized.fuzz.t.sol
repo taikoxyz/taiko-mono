@@ -25,9 +25,7 @@ contract LibHashOptimizedFuzzTest is Test {
         pure
     {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber,
-            blockHash: blockHash,
-            stateRoot: stateRoot
+            blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
         });
 
         bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint);
@@ -48,15 +46,11 @@ contract LibHashOptimizedFuzzTest is Test {
         vm.assume(blockNumber1 != blockNumber2);
 
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber1,
-            blockHash: blockHash,
-            stateRoot: stateRoot
+            blockNumber: blockNumber1, blockHash: blockHash, stateRoot: stateRoot
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: blockNumber2,
-            blockHash: blockHash,
-            stateRoot: stateRoot
+            blockNumber: blockNumber2, blockHash: blockHash, stateRoot: stateRoot
         });
 
         bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint1);
@@ -170,7 +164,9 @@ contract LibHashOptimizedFuzzTest is Test {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: isForcedInclusion,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: offset, timestamp: timestamp })
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes, offset: offset, timestamp: timestamp
+            })
         });
 
         IInbox.Derivation memory derivation = IInbox.Derivation({
@@ -267,8 +263,7 @@ contract LibHashOptimizedFuzzTest is Test {
         pure
     {
         IInbox.Transition memory transition = IInbox.Transition({
-            bondInstructionHash: bondInstructionHash,
-            checkpointHash: checkpointHash
+            bondInstructionHash: bondInstructionHash, checkpointHash: checkpointHash
         });
 
         bytes27 hash1 = LibHashOptimized.hashTransition(transition);
@@ -288,13 +283,11 @@ contract LibHashOptimizedFuzzTest is Test {
         vm.assume(bondInstructionHash1 != bondInstructionHash2);
 
         IInbox.Transition memory transition1 = IInbox.Transition({
-            bondInstructionHash: bondInstructionHash1,
-            checkpointHash: checkpointHash
+            bondInstructionHash: bondInstructionHash1, checkpointHash: checkpointHash
         });
 
         IInbox.Transition memory transition2 = IInbox.Transition({
-            bondInstructionHash: bondInstructionHash2,
-            checkpointHash: checkpointHash
+            bondInstructionHash: bondInstructionHash2, checkpointHash: checkpointHash
         });
 
         bytes27 hash1 = LibHashOptimized.hashTransition(transition1);
@@ -320,10 +313,7 @@ contract LibHashOptimizedFuzzTest is Test {
         LibBonds.BondType bondType = LibBonds.BondType(bondTypeRaw);
 
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: bondType,
-            payer: payer,
-            payee: payee
+            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
         });
 
         bytes32 hash1 = LibHashOptimized.hashBondInstruction(instruction);
@@ -368,12 +358,10 @@ contract LibHashOptimizedFuzzTest is Test {
         pure
     {
         bytes32 result1 = LibHashOptimized.hashAggregatedBondInstructionsHash(
-            aggregatedBondInstructionsHash,
-            bondInstructionHash
+            aggregatedBondInstructionsHash, bondInstructionHash
         );
         bytes32 result2 = LibHashOptimized.hashAggregatedBondInstructionsHash(
-            aggregatedBondInstructionsHash,
-            bondInstructionHash
+            aggregatedBondInstructionsHash, bondInstructionHash
         );
 
         assertEq(result1, result2, "Hash should be deterministic");

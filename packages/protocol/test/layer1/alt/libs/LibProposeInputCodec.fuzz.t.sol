@@ -114,7 +114,10 @@ contract LibProposeInputCodecFuzzTest is Test {
         assertEq(decoded.headProposalAndProof[0].id, proposalId);
         assertEq(decoded.headProposalAndProof[0].proposer, proposer);
         assertEq(decoded.headProposalAndProof[0].timestamp, timestamp);
-        assertEq(decoded.headProposalAndProof[0].endOfSubmissionWindowTimestamp, endOfSubmissionWindowTimestamp);
+        assertEq(
+            decoded.headProposalAndProof[0].endOfSubmissionWindowTimestamp,
+            endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.headProposalAndProof[0].coreStateHash, coreStateHash);
         assertEq(decoded.headProposalAndProof[0].derivationHash, derivationHash);
         assertEq(decoded.headProposalAndProof[0].parentProposalHash, parentProposalHash);
@@ -130,8 +133,7 @@ contract LibProposeInputCodecFuzzTest is Test {
     {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            bondInstructionHash: bondInstructionHash,
-            checkpointHash: checkpointHash
+            bondInstructionHash: bondInstructionHash, checkpointHash: checkpointHash
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
@@ -233,9 +235,7 @@ contract LibProposeInputCodecFuzzTest is Test {
         // Verify basic properties
         assertEq(decoded.deadline, 999_999, "Deadline mismatch");
         assertEq(decoded.headProposalAndProof.length, proposalCount, "Proposals length mismatch");
-        assertEq(
-            decoded.transitions.length, transitionCount, "Transitions length mismatch"
-        );
+        assertEq(decoded.transitions.length, transitionCount, "Transitions length mismatch");
 
         // Verify proposal details
         for (uint256 i = 0; i < proposalCount; i++) {
@@ -244,7 +244,9 @@ contract LibProposeInputCodecFuzzTest is Test {
                 decoded.headProposalAndProof[i].proposer, proposals[i].proposer, "Proposer mismatch"
             );
             assertEq(
-                decoded.headProposalAndProof[i].timestamp, proposals[i].timestamp, "Timestamp mismatch"
+                decoded.headProposalAndProof[i].timestamp,
+                proposals[i].timestamp,
+                "Timestamp mismatch"
             );
             assertEq(
                 decoded.headProposalAndProof[i].coreStateHash,
@@ -286,8 +288,7 @@ contract LibProposeInputCodecFuzzTest is Test {
         transitionCount = uint8(bound(transitionCount, 1, 10));
 
         // Create test data
-        IInbox.ProposeInput memory input =
-            _createTestData(proposalCount, transitionCount);
+        IInbox.ProposeInput memory input = _createTestData(proposalCount, transitionCount);
 
         // Encode with both methods
         bytes memory abiEncoded = abi.encode(input);
@@ -304,18 +305,14 @@ contract LibProposeInputCodecFuzzTest is Test {
         IInbox.ProposeInput memory decoded = LibProposeInputCodec.decode(libEncoded);
 
         assertEq(decoded.deadline, input.deadline, "Deadline mismatch after decode");
-        assertEq(
-            decoded.coreState.proposalHead, input.coreState.proposalHead, "CoreState mismatch"
-        );
+        assertEq(decoded.coreState.proposalHead, input.coreState.proposalHead, "CoreState mismatch");
         assertEq(
             decoded.headProposalAndProof.length,
             input.headProposalAndProof.length,
             "Proposals length mismatch"
         );
         assertEq(
-            decoded.transitions.length,
-            input.transitions.length,
-            "Transitions length mismatch"
+            decoded.transitions.length, input.transitions.length, "Transitions length mismatch"
         );
     }
 
@@ -407,14 +404,19 @@ contract LibProposeInputCodecFuzzTest is Test {
 
         // Verify all CoreState fields including synchronizationHead
         assertEq(decoded.coreState.proposalHead, input.coreState.proposalHead);
-        assertEq(decoded.coreState.proposalHeadContainerBlock, input.coreState.proposalHeadContainerBlock);
+        assertEq(
+            decoded.coreState.proposalHeadContainerBlock, input.coreState.proposalHeadContainerBlock
+        );
         assertEq(decoded.coreState.finalizationHead, input.coreState.finalizationHead);
         assertEq(decoded.coreState.synchronizationHead, input.coreState.synchronizationHead);
         assertEq(
             decoded.coreState.finalizationHeadTransitionHash,
             input.coreState.finalizationHeadTransitionHash
         );
-        assertEq(decoded.coreState.aggregatedBondInstructionsHash, input.coreState.aggregatedBondInstructionsHash);
+        assertEq(
+            decoded.coreState.aggregatedBondInstructionsHash,
+            input.coreState.aggregatedBondInstructionsHash
+        );
     }
 
     /// @notice Fuzz test for checkpoint fields
@@ -440,9 +442,7 @@ contract LibProposeInputCodecFuzzTest is Test {
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitions: new IInbox.Transition[](0),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
-                blockHash: blockHash,
-                stateRoot: stateRoot
+                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
             numForcedInclusions: 3
         });
@@ -506,9 +506,7 @@ contract LibProposeInputCodecFuzzTest is Test {
             }),
             headProposalAndProof: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({
-                blobStartIndex: blobStartIndex,
-                numBlobs: numBlobs,
-                offset: offset
+                blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
             }),
             transitions: new IInbox.Transition[](0),
             checkpoint: ICheckpointStore.Checkpoint({

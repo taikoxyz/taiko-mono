@@ -41,9 +41,7 @@ contract LibProvedEventCodecFuzzTest is Test {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
-                blockHash: blockHash,
-                stateRoot: stateRoot
+                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
             bondInstructions: new LibBonds.BondInstruction[](0)
         });
@@ -72,10 +70,7 @@ contract LibProvedEventCodecFuzzTest is Test {
 
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](1);
         bondInstructions[0] = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: bondType,
-            payer: payer,
-            payee: payee
+            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
@@ -103,7 +98,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         // Bound to reasonable values
         bondCount = uint8(bound(bondCount, 0, 10));
 
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(100 + i),
@@ -142,7 +138,8 @@ contract LibProvedEventCodecFuzzTest is Test {
 
         uint256 calculatedSize = LibProvedEventCodec.calculateProvedEventSize(bondCount);
 
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(100 + i),
@@ -180,7 +177,8 @@ contract LibProvedEventCodecFuzzTest is Test {
     {
         bondCount = uint8(bound(bondCount, 0, 5));
 
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(100 + i),
@@ -193,9 +191,7 @@ contract LibProvedEventCodecFuzzTest is Test {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             finalizationDeadline: finalizationDeadline,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
-                blockHash: blockHash,
-                stateRoot: stateRoot
+                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
             bondInstructions: bondInstructions
         });
@@ -215,7 +211,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         // Bound to reasonable values
         bondCount = uint8(bound(bondCount, 1, 5));
 
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(100 + i),
@@ -273,9 +270,7 @@ contract LibProvedEventCodecFuzzTest is Test {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             finalizationDeadline: finalizationDeadline,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: blockNumber,
-                blockHash: blockHash,
-                stateRoot: stateRoot
+                blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
             bondInstructions: bondInstructions
         });

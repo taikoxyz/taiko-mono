@@ -35,13 +35,9 @@ contract LibProvedEventCodecTest is Test {
             "FinalizationDeadline mismatch"
         );
         assertEq(
-            decoded.checkpoint.blockNumber,
-            payload.checkpoint.blockNumber,
-            "Block number mismatch"
+            decoded.checkpoint.blockNumber, payload.checkpoint.blockNumber, "Block number mismatch"
         );
-        assertEq(
-            decoded.checkpoint.blockHash, payload.checkpoint.blockHash, "Block hash mismatch"
-        );
+        assertEq(decoded.checkpoint.blockHash, payload.checkpoint.blockHash, "Block hash mismatch");
         assertEq(decoded.checkpoint.stateRoot, payload.checkpoint.stateRoot, "State root mismatch");
         assertEq(decoded.bondInstructions.length, 0, "Bond instructions should be empty");
     }
@@ -139,7 +135,9 @@ contract LibProvedEventCodecTest is Test {
 
         // Verify all bond types
         assertEq(
-            uint8(decoded.bondInstructions[0].bondType), uint8(LibBonds.BondType.NONE), "NONE mismatch"
+            uint8(decoded.bondInstructions[0].bondType),
+            uint8(LibBonds.BondType.NONE),
+            "NONE mismatch"
         );
         assertEq(
             uint8(decoded.bondInstructions[1].bondType),
@@ -183,9 +181,7 @@ contract LibProvedEventCodecTest is Test {
             "Max finalizationDeadline should be preserved"
         );
         assertEq(
-            decoded.checkpoint.blockNumber,
-            type(uint48).max,
-            "Max block number should be preserved"
+            decoded.checkpoint.blockNumber, type(uint48).max, "Max block number should be preserved"
         );
         // Note: proposalId is encoded as uint40 in LibProvedEventCodec, not uint48
         // So we expect truncation for max uint48 values

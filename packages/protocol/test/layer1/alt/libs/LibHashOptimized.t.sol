@@ -18,9 +18,7 @@ contract LibHashOptimizedTest is Test {
 
     function test_hashCheckpoint_simple() public pure {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 1000,
-            blockHash: bytes32(uint256(111)),
-            stateRoot: bytes32(uint256(222))
+            blockNumber: 1000, blockHash: bytes32(uint256(111)), stateRoot: bytes32(uint256(222))
         });
 
         bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint);
@@ -32,15 +30,11 @@ contract LibHashOptimizedTest is Test {
 
     function test_hashCheckpoint_different_inputs() public pure {
         ICheckpointStore.Checkpoint memory checkpoint1 = ICheckpointStore.Checkpoint({
-            blockNumber: 1000,
-            blockHash: bytes32(uint256(111)),
-            stateRoot: bytes32(uint256(222))
+            blockNumber: 1000, blockHash: bytes32(uint256(111)), stateRoot: bytes32(uint256(222))
         });
 
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
-            blockNumber: 1001,
-            blockHash: bytes32(uint256(111)),
-            stateRoot: bytes32(uint256(222))
+            blockNumber: 1001, blockHash: bytes32(uint256(111)), stateRoot: bytes32(uint256(222))
         });
 
         bytes32 hash1 = LibHashOptimized.hashCheckpoint(checkpoint1);
@@ -123,9 +117,7 @@ contract LibHashOptimizedTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 100,
-                timestamp: 1_700_000_000
+                blobHashes: blobHashes, offset: 100, timestamp: 1_700_000_000
             })
         });
 
@@ -225,8 +217,7 @@ contract LibHashOptimizedTest is Test {
 
     function test_hashTransition_simple() public pure {
         IInbox.Transition memory transition = IInbox.Transition({
-            bondInstructionHash: bytes32(uint256(111)),
-            checkpointHash: bytes32(uint256(222))
+            bondInstructionHash: bytes32(uint256(111)), checkpointHash: bytes32(uint256(222))
         });
 
         bytes27 hash1 = LibHashOptimized.hashTransition(transition);
@@ -292,8 +283,12 @@ contract LibHashOptimizedTest is Test {
         bytes32 hashProvability = LibHashOptimized.hashBondInstruction(instructionProvability);
         bytes32 hashLiveness = LibHashOptimized.hashBondInstruction(instructionLiveness);
 
-        assertNotEq(hashNone, hashProvability, "Different bond types should produce different hashes");
-        assertNotEq(hashProvability, hashLiveness, "Different bond types should produce different hashes");
+        assertNotEq(
+            hashNone, hashProvability, "Different bond types should produce different hashes"
+        );
+        assertNotEq(
+            hashProvability, hashLiveness, "Different bond types should produce different hashes"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -323,8 +318,7 @@ contract LibHashOptimizedTest is Test {
         bytes32 newInstructionHash = bytes32(uint256(222));
 
         bytes32 result = LibHashOptimized.hashAggregatedBondInstructionsHash(
-            aggregatedHash,
-            newInstructionHash
+            aggregatedHash, newInstructionHash
         );
 
         assertNotEq(result, bytes32(0), "Result should not be zero");
@@ -408,8 +402,7 @@ contract LibHashOptimizedTest is Test {
                 stateRoot: bytes32(uint256(555))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xAAAA),
-                actualProver: address(0xBBBB)
+                designatedProver: address(0xAAAA), actualProver: address(0xBBBB)
             }),
             parentTransitionHash: bytes27(uint216(666))
         });
