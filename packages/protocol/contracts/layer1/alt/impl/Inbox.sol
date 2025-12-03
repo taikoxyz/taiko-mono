@@ -299,7 +299,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _checkProposalHash(inputs[i].proposal);
 
                 LibBonds.BondInstruction[] memory bondInstructions =
-                    _calculateBondInstructions(inputs[i].proposal.id, inputs[i].metadata);
+                    _calculateBondInstructions(inputs[i].proposal, inputs[i].metadata);
 
                 Transition memory transition = Transition({
                     bondInstructionHash: bondInstructions.length == 0
@@ -824,18 +824,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(checkpointHash == _lastVerifiedCheckpointHash, CheckpointMismatch());
         _checkpointStore.saveCheckpoint(_checkpoint);
 
-        // // Signal bond instruction changes to L2 if any occurred
-        // if (_coreState.bondInstructionsHashOld == _coreState.bondInstructionsHashNew) return;
-
-        // BondInstructionHashChange memory hashChange = BondInstructionHashChange({
-        //     lastFinalizedProposalId: _coreState.lastFinalizedProposalId,
-        //     bondInstructionsHashOld: _coreState.bondInstructionsHashOld,
-        //     bondInstructionsHashNew: _coreState.bondInstructionsHashNew
-        // });
-
-        // _signalService.sendSignal(hashBondInstructionHashChange(hashChange));
-
-        // _coreState.bondInstructionsHashOld = _coreState.bondInstructionsHashNew;
+        // Signal bond instruction changes to L2 if any occurred
+        if (_coreState.bondInstructionsHash!= 0) {
+            _signalService.sendSignal(_coreState.bondInstructionsHash);
+             _coreState.bondInstructionsHash= bytes32(0);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -849,37 +842,37 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///           designated
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
     ///           differs from proposer
-    /// @param _proposalId The proposal ID
+    /// @param _proposal The proposal
     /// @param _metadata The transition metadata containing timing and prover info
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
     function _calculateBondInstructions(
-        uint40 _proposalId,
-        IInbox.metadata memory _metadata
+        IInbox.Proposal memory _proposal,
+        IInbox.TransitionMetadata memory _metadata
     )
         private
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
-        uint256 windowEnd = _metadata.proposalTimestamp + _provingWindow;
+        uint256 windowEnd = block.timestamp + _provingWindow;
         if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
 
-        uint256 extendedWindowEnd = _metadata.proposalTimestamp + _extendedProvingWindow;
+        uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
         bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
         bool needsBondInstruction = isWithinExtendedWindow
             ? (_metadata.actualProver != _metadata.designatedProver)
-            : (_metadata.actualProver != _metadata.proposer);
+            : (_metadata.actualProver != _proposal.proposer);
 
         if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
 
         bondInstructions_ = new LibBonds.BondInstruction[](1);
         bondInstructions_[0] = LibBonds.BondInstruction({
-            proposalId: _proposalId,
+            proposalId: _proposal.id,
             bondType: isWithinExtendedWindow
                 ? LibBonds.BondType.LIVENESS
                 : LibBonds.BondType.PROVABILITY,
-            payer: isWithinExtendedWindow ? _metadata.designatedProver : _metadata.proposer,
+            payer: isWithinExtendedWindow ? _metadata.designatedProver : _proposal.proposer,
             payee: _metadata.actualProver
         });
     }
@@ -889,28 +882,28 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      1. New proposal ID: overwrite the reusable slot.
     ///      2. Same ID and parent: update accordingly.
     ///      3. Same ID but different parent: fall back to the composite key mapping.
-    /// @param _startProposalId The proposal ID for this transition record
+    /// @param _proposalId The proposal ID
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _record The finalization metadata to persist
     function _storeTransitionRecord(
-        uint40 _startProposalId,
+        uint40 _proposalId,
         bytes27 _parentTransitionHash,
         TransitionRecord memory _record
     )
         private
     {
         FirstTransitionRecord storage firstRecord =
-            _firstTransitionRecords[_startProposalId % _ringBufferSize];
+            _firstTransitionRecords[_proposalId % _ringBufferSize];
 
-        if (firstRecord.proposalId != _startProposalId) {
+        if (firstRecord.proposalId != _proposalId) {
             // New proposal, overwrite slot
-            firstRecord.proposalId = _startProposalId;
+            firstRecord.proposalId = _proposalId;
             firstRecord.parentTransitionHash = _parentTransitionHash;
             firstRecord.record = _record;
         } else if (firstRecord.parentTransitionHash != _parentTransitionHash) {
             // Collision: fallback to composite key mapping
             TransitionRecord storage record =
-                _transitionRecordFor(_startProposalId, _parentTransitionHash);
+                _transitionRecordFor(_proposalId, _parentTransitionHash);
 
             if (record.transitionHash != 0) {
                 record.transitionHash = _record.transitionHash;

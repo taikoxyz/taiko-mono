@@ -102,15 +102,13 @@ library LibProveInputDecoder {
     /// @notice Encode a single ProofMetadata
     function _encodeProofMetadata(
         uint256 _ptr,
-        IInbox.metadata memory _metadata
+        IInbox.TransitionMetadata memory _metadata
     )
         private
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packAddress(_ptr, _metadata.proposer);
-        newPtr_ = P.packUint40(newPtr_, _metadata.proposalTimestamp);
-        newPtr_ = P.packAddress(newPtr_, _metadata.designatedProver);
+        newPtr_ = P.packAddress(_ptr, _metadata.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
     }
 
@@ -154,11 +152,9 @@ library LibProveInputDecoder {
     function _decodeTransitionMetadata(uint256 _ptr)
         private
         pure
-        returns (IInbox.metadata memory metadata_, uint256 newPtr_)
+        returns (IInbox.TransitionMetadata memory metadata_, uint256 newPtr_)
     {
-        (metadata_.proposer, newPtr_) = P.unpackAddress(_ptr);
-        (metadata_.proposalTimestamp, newPtr_) = P.unpackUint40(newPtr_);
-        (metadata_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (metadata_.designatedProver, newPtr_) = P.unpackAddress(_ptr);
         (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
 

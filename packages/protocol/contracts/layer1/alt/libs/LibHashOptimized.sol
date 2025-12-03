@@ -287,14 +287,12 @@ library LibHashOptimized {
     /// @dev Internal helper to hash metadata struct
     /// @param _metadata The metadata to hash
     /// @return The hash of the metadata
-    function _hashTransitionMetadata(IInbox.metadata memory _metadata)
+    function _hashTransitionMetadata(IInbox.TransitionMetadata memory _metadata)
         private
         pure
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(uint160(_metadata.proposer))),
-            bytes32(uint256(_metadata.proposalTimestamp)),
             bytes32(uint256(uint160(_metadata.designatedProver))),
             bytes32(uint256(uint160(_metadata.actualProver)))
         );

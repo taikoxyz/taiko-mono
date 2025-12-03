@@ -104,9 +104,7 @@ interface IInbox {
 
     /// @notice Metadata about the proving of a transition
     /// @dev Separated from Transition to enable out-of-order proving
-    struct metadata {
-        address proposer;
-        uint40 proposalTimestamp;
+    struct TransitionMetadata {
         /// @notice The designated prover for this transition.
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
@@ -163,7 +161,7 @@ interface IInbox {
     struct ProveInput {
         Proposal proposal;
         ICheckpointStore.Checkpoint checkpoint;
-        metadata metadata;
+        TransitionMetadata metadata;
         bytes27 parentTransitionHash;
     }
 
