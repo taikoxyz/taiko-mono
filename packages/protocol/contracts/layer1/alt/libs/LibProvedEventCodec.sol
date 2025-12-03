@@ -102,7 +102,7 @@ library LibProvedEventCodec {
     }
 
     /// @notice Calculates the exact byte size needed for encoding a ProvedEventPayload.
-    /// @dev Fixed size is 82 bytes (finalizationDeadline + checkpoint + array length) plus
+    /// @dev Fixed size is 77 bytes (finalizationDeadline + checkpoint + array length) plus
     /// 46 bytes per bond instruction.
     /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding).
     /// @return size_ The total byte size needed for the encoded payload.
@@ -112,17 +112,15 @@ library LibProvedEventCodec {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 109 bytes
-            // startProposalId: 5
-            // parentTransitionHash: 27
-            // finalizationDeadline: 5
-            // Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
-            // bondInstructions array length: 2
-            // Total fixed: 5 + 27 + 5 + 70 + 2 = 109
+            // Fixed size: 77 bytes
+            // finalizationDeadline: 5 (uint40)
+            // Checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32) = 70
+            // bondInstructions array length: 2 (uint16)
+            // Total fixed: 5 + 70 + 2 = 77
 
             // Variable size: each bond instruction is 46 bytes
             // proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
-            size_ = 82 + _bondInstructionsCount * 46;
+            size_ = 77 + _bondInstructionsCount * 46;
         }
     }
 
