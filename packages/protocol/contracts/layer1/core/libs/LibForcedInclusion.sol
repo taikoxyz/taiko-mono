@@ -29,6 +29,7 @@ library LibForcedInclusion {
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will
         /// be dequeued.
         uint48 head;
+        // TODO: change to uint40?
         /// @notice The index of the next free slot in the queue. This is where items will be
         /// enqueued.
         uint48 tail;

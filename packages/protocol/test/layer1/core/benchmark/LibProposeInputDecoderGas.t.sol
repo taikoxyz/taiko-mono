@@ -154,7 +154,8 @@ contract LibProposeInputDecoderGas is Test {
                 timestamp: uint48(1_000_000 + i * 10),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: keccak256(abi.encodePacked("parentProposalHash", i))
             });
         }
 
@@ -189,10 +190,9 @@ contract LibProposeInputDecoderGas is Test {
             }
 
             input.transitionRecords[i] = IInbox.TransitionRecord({
-                span: uint8(1 + (i % 3)),
+                bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
-                checkpointHash: keccak256(abi.encodePacked("end_header", i)),
-                bondInstructions: bondInstructions
+                checkpointHash: keccak256(abi.encodePacked("end_header", i))
             });
         }
 

@@ -71,7 +71,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
         address proposer,
         uint48 timestamp,
         bytes32 coreStateHash,
-        bytes32 derivationHash
+        bytes32 derivationHash,
+        bytes32 parentProposalHash
     )
         public
         pure
@@ -83,7 +84,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: coreStateHash,
-            derivationHash: derivationHash
+            derivationHash: derivationHash,
+            parentProposalHash: parentProposalHash
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
@@ -118,14 +120,11 @@ contract LibProposeInputDecoderFuzzTest is Test {
     /// @notice Fuzz test for transition records with bond instructions
     function testFuzz_encodeDecodeTransitionRecord(
         bytes32 transitionHash,
-        bytes32 checkpointHash,
-        uint8 span
+        bytes32 checkpointHash
     )
         public
         pure
     {
-        span = uint8(bound(span, 1, 9));
-
         LibBonds.BondInstruction[] memory bonds = new LibBonds.BondInstruction[](1);
         bonds[0] = LibBonds.BondInstruction({
             proposalId: 100,
@@ -136,10 +135,7 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         IInbox.TransitionRecord[] memory transitions = new IInbox.TransitionRecord[](1);
         transitions[0] = IInbox.TransitionRecord({
-            span: span,
-            bondInstructions: bonds,
-            transitionHash: transitionHash,
-            checkpointHash: checkpointHash
+            bondInstructions: bonds, transitionHash: transitionHash, checkpointHash: checkpointHash
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
@@ -166,7 +162,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         // Verify
         assertEq(decoded.transitionRecords.length, 1);
-        assertEq(decoded.transitionRecords[0].span, span);
         assertEq(decoded.transitionRecords[0].transitionHash, transitionHash);
         assertEq(decoded.transitionRecords[0].checkpointHash, checkpointHash);
     }
@@ -207,7 +202,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
                 coreStateHash: keccak256(abi.encodePacked("state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
             });
         }
 
@@ -229,7 +225,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
             }
 
             transitionRecords[i] = IInbox.TransitionRecord({
-                span: uint8(1 + (i % 3)),
                 bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
                 checkpointHash: keccak256(abi.encodePacked("endBlock", i))
@@ -286,11 +281,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
 
         // Verify transition record details
         for (uint256 i = 0; i < transitionCount; i++) {
-            assertEq(
-                decoded.transitionRecords[i].span,
-                transitionRecords[i].span,
-                "TransitionRecord span mismatch"
-            );
             assertEq(
                 decoded.transitionRecords[i].bondInstructions.length,
                 bondInstructionCount,
@@ -374,7 +364,8 @@ contract LibProposeInputDecoderFuzzTest is Test {
                 timestamp: uint48(1_000_000 + i * 10),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
+                derivationHash: keccak256(abi.encodePacked("derivation", i)),
+                parentProposalHash: keccak256(abi.encodePacked("parentProposal", i))
             });
         }
 
@@ -407,7 +398,6 @@ contract LibProposeInputDecoderFuzzTest is Test {
             }
 
             input.transitionRecords[i] = IInbox.TransitionRecord({
-                span: uint8(1 + (i % 3)),
                 bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
                 checkpointHash: keccak256(abi.encodePacked("endBlock", i))

@@ -486,7 +486,6 @@ abstract contract AbstractFinalizeTest is InboxTestHelper {
         });
 
         IInbox.TransitionRecord memory record;
-        record.span = 1;
         record.bondInstructions = LibBondInstruction.calculateBondInstructions(
             provingWindow, extendedProvingWindow, proposal, metadata
         );

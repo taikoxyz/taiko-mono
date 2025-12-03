@@ -134,7 +134,8 @@ contract LibProposeInputDecoderTest is Test {
             endOfSubmissionWindowTimestamp: 1000,
             proposer: address(0x1234),
             coreStateHash: bytes32(uint256(111)),
-            derivationHash: bytes32(uint256(222))
+            derivationHash: bytes32(uint256(222)),
+            parentProposalHash: bytes32(uint256(333))
         });
 
         parentProposals[1] = IInbox.Proposal({
@@ -143,7 +144,8 @@ contract LibProposeInputDecoderTest is Test {
             endOfSubmissionWindowTimestamp: 1050,
             proposer: address(0x5678),
             coreStateHash: bytes32(uint256(333)),
-            derivationHash: bytes32(uint256(444))
+            derivationHash: bytes32(uint256(444)),
+            parentProposalHash: bytes32(uint256(555))
         });
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -213,7 +215,6 @@ contract LibProposeInputDecoderTest is Test {
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = IInbox.TransitionRecord({
-            span: 5,
             bondInstructions: bondInstructions,
             transitionHash: bytes32(uint256(777)),
             checkpointHash: bytes32(uint256(888))
@@ -246,7 +247,6 @@ contract LibProposeInputDecoderTest is Test {
 
         // Verify transition records
         assertEq(decoded.transitionRecords.length, 1, "Transition records length mismatch");
-        assertEq(decoded.transitionRecords[0].span, 5, "Transition record span mismatch");
         assertEq(
             decoded.transitionRecords[0].bondInstructions.length,
             2,

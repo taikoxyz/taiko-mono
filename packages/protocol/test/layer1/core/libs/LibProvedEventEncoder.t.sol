@@ -37,7 +37,6 @@ contract LibProvedEventEncoderTest is Test {
         });
 
         IInbox.TransitionRecord memory transitionRecord = IInbox.TransitionRecord({
-            span: 1,
             bondInstructions: bondInstructions,
             transitionHash: bytes32(uint256(131_415)),
             checkpointHash: bytes32(uint256(161_718))
@@ -89,11 +88,6 @@ contract LibProvedEventEncoderTest is Test {
         );
 
         // Verify transition record
-        assertEq(
-            decoded.transitionRecord.span,
-            original.transitionRecord.span,
-            "Transition record span mismatch"
-        );
         assertEq(
             decoded.transitionRecord.bondInstructions.length, 1, "Bond instructions length mismatch"
         );
@@ -163,7 +157,6 @@ contract LibProvedEventEncoderTest is Test {
                 })
             }),
             transitionRecord: IInbox.TransitionRecord({
-                span: 5,
                 bondInstructions: bondInstructions,
                 transitionHash: bytes32(uint256(2004)),
                 checkpointHash: bytes32(uint256(2005))
@@ -226,7 +219,6 @@ contract LibProvedEventEncoderTest is Test {
                 })
             }),
             transitionRecord: IInbox.TransitionRecord({
-                span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: bytes32(uint256(3004)),
                 checkpointHash: bytes32(uint256(3005))
@@ -245,40 +237,6 @@ contract LibProvedEventEncoderTest is Test {
             "Should have empty bond instructions array"
         );
         assertEq(decoded.proposalId, 30, "Proposal ID should match");
-        assertEq(decoded.transitionRecord.span, 1, "Span should match");
-    }
-
-    function test_encode_decode_large_span() public pure {
-        // Test with larger span value
-        IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            proposalId: 100,
-            transition: IInbox.Transition({
-                proposalHash: bytes32(uint256(10_000)),
-                parentTransitionHash: bytes32(uint256(10_001)),
-                checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 10_000,
-                    blockHash: bytes32(uint256(10_002)),
-                    stateRoot: bytes32(uint256(10_003))
-                })
-            }),
-            transitionRecord: IInbox.TransitionRecord({
-                span: 255, // Maximum uint8 value
-                bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: bytes32(uint256(10_004)),
-                checkpointHash: bytes32(uint256(10_005))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: address(0xBBBB), actualProver: address(0xCCCC)
-            })
-        });
-
-        bytes memory encoded = LibProvedEventEncoder.encode(payload);
-        IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded);
-
-        assertEq(
-            decoded.transitionRecord.span, 255, "Large span should be encoded/decoded correctly"
-        );
-        assertEq(decoded.proposalId, 100, "Proposal ID should match");
     }
 
     function test_encoding_determinism() public pure {
@@ -295,7 +253,6 @@ contract LibProvedEventEncoderTest is Test {
                 })
             }),
             transitionRecord: IInbox.TransitionRecord({
-                span: 3,
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: bytes32(uint256(4204)),
                 checkpointHash: bytes32(uint256(4205))

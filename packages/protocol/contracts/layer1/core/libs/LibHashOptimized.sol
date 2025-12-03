@@ -147,7 +147,8 @@ library LibHashOptimized {
                 packedFields,
                 bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
                 _proposal.coreStateHash,
-                _proposal.derivationHash
+                _proposal.derivationHash,
+                _proposal.parentProposalHash
             );
         }
     }
@@ -207,7 +208,6 @@ library LibHashOptimized {
             }
 
             bytes32 fullHash = EfficientHashLib.hash(
-                bytes32(uint256(_transitionRecord.span)),
                 bondInstructionsHash,
                 _transitionRecord.transitionHash,
                 _transitionRecord.checkpointHash
@@ -272,23 +272,17 @@ library LibHashOptimized {
     /// @notice Computes optimized composite key for transition record storage
     /// @dev Creates unique identifier using efficient hashing
     /// @param _proposalId The ID of the proposal
-    /// @param _compositeKeyVersion Version identifier for key generation
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return The composite key for storage mapping
     function composeTransitionKey(
         uint48 _proposalId,
-        uint16 _compositeKeyVersion,
         bytes32 _parentTransitionHash
     )
         internal
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_proposalId)),
-            bytes32(uint256(_compositeKeyVersion)),
-            _parentTransitionHash
-        );
+        return EfficientHashLib.hash(bytes32(uint256(_proposalId)), _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------

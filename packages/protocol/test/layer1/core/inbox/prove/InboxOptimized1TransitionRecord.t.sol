@@ -5,6 +5,7 @@ import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title InboxOptimized1TransitionRecord
@@ -64,8 +65,8 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
     // Test Case 2: Same Proposal & Partial Parent - Duplicate Detection
     // ---------------------------------------------------------------
 
-    /// @notice Tests duplicate transition record detection with ring buffer
-    /// @dev InboxOptimized1 specific: partialParentHash match, recordHash == _recordHash
+    /// @notice Tests duplicate transition record handling with ring buffer
+    /// @dev InboxOptimized1 specific: partialParentHash match, recordHash == _recordHash, reverts
     function test_storeTransitionRecord_duplicateDetection_ringBuffer() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
@@ -78,22 +79,10 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
 
-        // Get the stored record hash for verification
-        (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-
-        // Expect TransitionDuplicateDetected event on second prove
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionDuplicateDetected();
-
-        // Second prove with identical data - should detect duplicate via ring buffer
+        // Second prove with identical data should revert
         vm.prank(currentProver);
+        vm.expectRevert(Inbox.CannotOverwriteTransitionRecord.selector);
         inbox.prove(proveData, proof);
-
-        // Verify the record hash is unchanged
-        (, bytes26 secondRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(secondRecordHash, firstRecordHash, "Record hash should remain unchanged");
     }
 
     // ---------------------------------------------------------------
@@ -101,63 +90,44 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
     // ---------------------------------------------------------------
 
     /// @notice Tests conflicting transition record detection with ring buffer
-    /// @dev InboxOptimized1 specific: partialParentHash match, recordHash != _recordHash
+    /// @dev InboxOptimized1 specific: partialParentHash match, recordHash != _recordHash, reverts
     function test_storeTransitionRecord_conflictDetection_ringBuffer() public {
         // Create and propose a new proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
 
-        // Create first prove input
-        bytes memory proveData1 = _createProveInput(proposal);
-        bytes memory proof1 = _createValidProof();
-
         // First prove - should succeed
-        vm.prank(currentProver);
-        inbox.prove(proveData1, proof1);
-
-        // Get the stored deadline before conflict
-        (, bytes26 firstRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+        {
+            bytes memory proveData1 = _createProveInput(proposal);
+            vm.prank(currentProver);
+            inbox.prove(proveData1, _createValidProof());
+        }
 
         // Create second prove input with different checkpoint (causes conflict)
-        IInbox.Transition memory transition = _createTransitionForProposal(proposal);
-        transition.checkpoint.stateRoot = bytes32(uint256(999)); // Different state root
+        bytes memory proveData2;
+        {
+            IInbox.Transition memory transition = _createTransitionForProposal(proposal);
+            transition.checkpoint.stateRoot = bytes32(uint256(999)); // Different state root
 
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
-        transitions[0] = transition;
+            IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+            transitions[0] = transition;
 
-        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
-        metadata[0] = _createMetadataForTransition(currentProver, currentProver);
+            IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](1);
+            metadata[0] = _createMetadataForTransition(currentProver, currentProver);
 
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = proposal;
+            IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+            proposals[0] = proposal;
 
-        IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals, transitions: transitions, metadata: metadata
-        });
+            IInbox.ProveInput memory input = IInbox.ProveInput({
+                proposals: proposals, transitions: transitions, metadata: metadata
+            });
 
-        bytes memory proveData2 = _codec().encodeProveInput(input);
-        bytes memory proof2 = _createValidProof();
+            proveData2 = _codec().encodeProveInput(input);
+        }
 
-        // Expect TransitionConflictDetected event
-        vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected();
-
-        // Second prove with conflicting data
+        // Second prove with conflicting data should revert
         vm.prank(currentProver);
-        inbox.prove(proveData2, proof2);
-
-        // Verify conflict state was set
-        assertTrue(inbox.conflictingTransitionDetected(), "Conflict flag should be set");
-
-        // Verify finalization deadline was set to max via ring buffer
-        (uint48 conflictDeadline, bytes26 conflictRecordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertEq(conflictDeadline, type(uint48).max, "Deadline should be set to max on conflict");
-        assertEq(
-            conflictRecordHash,
-            firstRecordHash,
-            "Original record hash should remain (not overwritten)"
-        );
+        vm.expectRevert(Inbox.CannotOverwriteTransitionRecord.selector);
+        inbox.prove(proveData2, _createValidProof());
     }
 
     // ---------------------------------------------------------------
@@ -316,7 +286,7 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
     // ---------------------------------------------------------------
 
     /// @notice Tests scenario where first 26 bytes match but full hashes differ
-    /// @dev This is an edge case where partial parent hash matches but full hash is different
+    /// @dev Partial hash collision triggers the update path which reverts since record exists
     function test_storeTransitionRecord_partialHashMatch_fullHashDifferent() public {
         // Create a proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
@@ -344,16 +314,14 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
         (, bytes26 recordHash1) = inbox.getTransitionRecordHash(proposal.id, parent1);
         assertTrue(recordHash1 != bytes26(0), "First transition stored");
 
-        // Store second transition with partial hash collision
-        // This should trigger composite key fallback despite partial hash match
+        // Second prove with partial hash collision reverts because:
+        // - The ring buffer uses partial parent hash (first 26 bytes) for lookup
+        // - Since partial hashes match, it tries to update the existing record
+        // - But a record already exists so it reverts with CannotOverwriteTransitionRecord
         bytes memory proveData2 = _createProveInputWithParent(proposal, parent2);
         vm.prank(currentProver);
+        vm.expectRevert(Inbox.CannotOverwriteTransitionRecord.selector);
         inbox.prove(proveData2, _createValidProof());
-
-        // Note: Due to partial hash collision, this may overwrite ring buffer entry
-        // The behavior depends on whether full hash is checked in ring buffer lookup
-        (, bytes26 recordHash2) = inbox.getTransitionRecordHash(proposal.id, parent2);
-        assertTrue(recordHash2 != bytes26(0), "Second transition should be stored");
     }
 
     // ---------------------------------------------------------------
@@ -546,5 +514,19 @@ contract InboxOptimized1TransitionRecord is InboxTestHelper {
                 count++;
             }
         }
+    }
+
+    function _decodeLastProvedEvent(Vm.Log[] memory logs)
+        internal
+        view
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
+        for (uint256 i = logs.length; i > 0; i--) {
+            if (logs[i - 1].topics[0] == keccak256("Proved(bytes)")) {
+                bytes memory eventData = abi.decode(logs[i - 1].data, (bytes));
+                return _codec().decodeProvedEvent(eventData);
+            }
+        }
+        revert("Proved event not found");
     }
 }

@@ -64,6 +64,7 @@ library LibProposedEventEncoder {
 
         ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
         ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
+        ptr = P.packBytes32(ptr, _payload.proposal.parentProposalHash);
 
         // Encode core state
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
@@ -133,6 +134,7 @@ library LibProposedEventEncoder {
 
         (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
         (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.parentProposalHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode core state
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
@@ -174,19 +176,19 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 233 bytes (without blob data)
+            // Fixed size: 265 bytes (without blob data)
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
             // 38
             // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
             // Sources array length: 2 (uint16)
-            // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
+            // Proposal hashes: coreStateHash(32) + derivationHash(32) + parentProposalHash(32) = 96
             // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
             //           lastCheckpointTimestamp(6) + lastFinalizedTransitionHash(32) +
             //           bondInstructionsHash(32) = 88
             // Bond instructions length prefix: 2
-            // Total fixed: 38 + 39 + 2 + 64 + 88 + 2 = 233
+            // Total fixed: 38 + 39 + 2 + 96 + 88 + 2 = 265
 
-            size_ = 233;
+            size_ = 265;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {

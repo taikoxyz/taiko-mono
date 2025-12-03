@@ -18,7 +18,8 @@ contract LibProposedEventEncoderTest is Test {
             endOfSubmissionWindowTimestamp: 1500,
             proposer: address(0x1234567890123456789012345678901234567890),
             coreStateHash: bytes32(uint256(111)),
-            derivationHash: bytes32(uint256(222))
+            derivationHash: bytes32(uint256(222)),
+            parentProposalHash: bytes32(uint256(333))
         });
 
         // Create derivation with new structure (with sources array)
@@ -181,7 +182,8 @@ contract LibProposedEventEncoderTest is Test {
                 endOfSubmissionWindowTimestamp: 6000,
                 proposer: address(0x9999),
                 coreStateHash: bytes32(uint256(777)),
-                derivationHash: bytes32(uint256(888))
+                derivationHash: bytes32(uint256(888)),
+                parentProposalHash: bytes32(uint256(999))
             }),
             derivation: IInbox.Derivation({
                 originBlockNumber: 1000,
@@ -237,7 +239,8 @@ contract LibProposedEventEncoderTest is Test {
                 endOfSubmissionWindowTimestamp: 3000,
                 proposer: address(0xABCD),
                 coreStateHash: bytes32(uint256(1313)),
-                derivationHash: bytes32(uint256(1414))
+                derivationHash: bytes32(uint256(1414)),
+                parentProposalHash: bytes32(uint256(1010))
             }),
             derivation: IInbox.Derivation({
                 originBlockNumber: 500,
@@ -292,7 +295,8 @@ contract LibProposedEventEncoderTest is Test {
                 endOfSubmissionWindowTimestamp: 2000,
                 proposer: address(0x1111),
                 coreStateHash: bytes32(uint256(2222)),
-                derivationHash: bytes32(uint256(3333))
+                derivationHash: bytes32(uint256(3333)),
+                parentProposalHash: bytes32(uint256(4444))
             }),
             derivation: IInbox.Derivation({
                 originBlockNumber: 100,
@@ -326,7 +330,8 @@ contract LibProposedEventEncoderTest is Test {
                 endOfSubmissionWindowTimestamp: 3000,
                 proposer: address(0xABCD),
                 coreStateHash: bytes32(uint256(4444)),
-                derivationHash: bytes32(uint256(5555))
+                derivationHash: bytes32(uint256(5555)),
+                parentProposalHash: bytes32(uint256(6666))
             }),
             derivation: IInbox.Derivation({
                 originBlockNumber: 500,
@@ -390,7 +395,8 @@ contract LibProposedEventEncoderTest is Test {
                 endOfSubmissionWindowTimestamp: 2000,
                 proposer: address(0x1234),
                 coreStateHash: bytes32(uint256(1111)),
-                derivationHash: bytes32(uint256(2222))
+                derivationHash: bytes32(uint256(2222)),
+                parentProposalHash: bytes32(uint256(3333))
             }),
             derivation: IInbox.Derivation({
                 originBlockNumber: 100,
