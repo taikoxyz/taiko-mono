@@ -126,7 +126,9 @@ library LibHashOptimized {
     /// @param _transition The transition to hash
     /// @return The hash truncated to bytes27 for storage optimization
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes27) {
-        return bytes27(EfficientHashLib.hash(_transition.bondInstructionsHash, _transition.checkpointHash));
+        return bytes27(
+            EfficientHashLib.hash(_transition.bondInstructionsHash, _transition.checkpointHash)
+        );
     }
 
     /// @notice Optimized hashing for BondInstructionHashChange structs
@@ -341,10 +343,7 @@ library LibHashOptimized {
             }
 
             if (length == 1) {
-                return
-                    EfficientHashLib.hash(
-                        bytes32(length), _hashProofMetadata(_metadatas[0])
-                    );
+                return EfficientHashLib.hash(bytes32(length), _hashProofMetadata(_metadatas[0]));
             }
 
             if (length == 2) {
