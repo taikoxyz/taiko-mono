@@ -7,7 +7,6 @@ import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1Ve
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
@@ -174,10 +173,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
-        // Get dependencies
-        address bondToken =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
-
+        // Get signal service dependency
         address signalService;
         bool signalServiceExists = true;
         try IResolver(sharedResolver)
@@ -200,13 +196,11 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("SignalService deployed:", signalService);
         }
 
-        address codec = address(new CodecOptimized());
-
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+                new DevnetInbox(proofVerifier, whitelist, signalService, signalService)
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });

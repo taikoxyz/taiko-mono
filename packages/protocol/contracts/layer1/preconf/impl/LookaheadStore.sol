@@ -62,7 +62,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         bytes calldata _lookaheadData
     )
         external
-        returns (uint48)
+        returns (uint40)
     {
         require(msg.sender == inbox, NotInbox());
 
@@ -92,7 +92,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         // Validate the next lookahead evidence and update the store if required
         _handleNextEpochLookahead(nextEpochTimestamp, context, data);
 
-        return uint48(context.submissionWindowEnd);
+        return uint40(context.submissionWindowEnd);
     }
 
     /// @dev Validates that the slot index is valid.

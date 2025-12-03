@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
@@ -11,7 +11,7 @@ import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetInbox is InboxOptimized2 {
+contract DevnetInbox is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -31,18 +31,17 @@ contract DevnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _codec,
         address _proofVerifier,
         address _proposerChecker,
-        address _taikoToken,
-        address _checkpointStore
+        address _checkpointStore,
+        address _signalService
     )
-        InboxOptimized2(IInbox.Config({
-                bondToken: _taikoToken,
-                checkpointStore: _checkpointStore,
-                codec: _codec,
+        Inbox(
+            IInbox.Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                checkpointStore: _checkpointStore,
+                signalService: _signalService,
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
                 maxFinalizationCount: 16,
@@ -53,9 +52,10 @@ contract DevnetInbox is InboxOptimized2 {
                 forcedInclusionDelay: 0,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
-                minCheckpointDelay: 384 seconds, // 1 epoch
+                minSyncDelay: 32, // minimum proposals between syncs
                 permissionlessInclusionMultiplier: 5
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------
@@ -69,10 +69,4 @@ contract DevnetInbox is InboxOptimized2 {
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidCoreState();
 }

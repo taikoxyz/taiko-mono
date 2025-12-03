@@ -29,19 +29,19 @@ contracts_shared=(
 
 # Layer 1 contracts
 contracts_layer1=(
-"contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/alt/impl/Inbox.sol:Inbox"
+"contracts/layer1/core/impl/Inbox.sol:Inbox"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
+"contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
 "contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
+"contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
-"contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
 # Layer 2 contracts
