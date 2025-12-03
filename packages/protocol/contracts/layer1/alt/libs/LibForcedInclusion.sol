@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
-import { LibBlobs } from "src/layer1/alt/libs/LibBlobs.sol";
+import { LibBlobs } from "./LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title LibForcedInclusion

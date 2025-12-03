@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBlobs } from "src/layer1/alt/libs/LibBlobs.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz

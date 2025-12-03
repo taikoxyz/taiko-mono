@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBlobs } from "src/layer1/alt/libs/LibBlobs.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
@@ -11,8 +11,6 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 interface IInbox {
     /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
-        /// @notice The codec used for encoding and hashing
-        address codec;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -48,8 +46,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice The maximum number of head forwarding iterations during prove
-        uint8 maxHeadForwardingCount;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -182,14 +178,10 @@ interface IInbox {
         Derivation derivation;
         /// @notice The core state after the proposal.
         CoreState coreState;
-        /// @notice Bond instructions finalized while processing this proposal.
-        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
-        /// @notice The proposal ID that was proven.
-        uint40 proposalId;
         bytes27 parentTransitionHash;
         uint40 finalizationDeadline;
         ICheckpointStore.Checkpoint checkpoint;
@@ -201,24 +193,25 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
+    /// @param proposalId The ID of the proposed proposal
     /// @param data The encoded ProposedEventPayload
-    event Proposed(bytes data);
+    event Proposed(uint40 indexed proposalId, bytes data);
 
     /// @notice Emitted when a proof is submitted
+    /// @param proposalId The ID of the proven proposal
     /// @param data The encoded ProvedEventPayload
-    event Proved(bytes data);
+    event Proved(uint40 indexed proposalId, bytes data);
 
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks.
+    /// @notice Proposes new proposals that contains L2 blocks.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
-    /// @notice Proves a transition about some properties of a proposal, including its state
-    /// transition.
+    /// @notice Proves state transitions for one or more proposals. The proposals proved do not need to be consecutive.
     /// @param _data The encoded ProveInput struct.
     /// @param _proof Validity proof for the transitions.
     function prove(bytes calldata _data, bytes calldata _proof) external;

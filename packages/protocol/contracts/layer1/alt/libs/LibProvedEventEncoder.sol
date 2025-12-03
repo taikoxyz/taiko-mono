@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibPackUnpack as P } from "src/layer1/core/libs/LibPackUnpack.sol";
+import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder
@@ -27,9 +27,6 @@ library LibProvedEventEncoder {
 
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
-
-        // Encode startProposalId (uint40)
-        ptr = P.packUint40(ptr, _payload.proposalId);
 
         // Encode parentTransitionHash
         ptr = P.packBytes27(ptr, _payload.parentTransitionHash);
@@ -65,9 +62,6 @@ library LibProvedEventEncoder {
     {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
-
-        // Decode startProposalId (uint40)
-        (payload_.proposalId, ptr) = P.unpackUint40(ptr);
 
         // Decode parentTransitionHash
         (payload_.parentTransitionHash, ptr) = P.unpackBytes27(ptr);
