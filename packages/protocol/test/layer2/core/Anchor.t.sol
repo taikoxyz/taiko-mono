@@ -14,6 +14,7 @@ contract AnchorTest is Test {
     uint256 private constant PROVABILITY_BOND = 7 ether;
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
+    address private constant L1_INBOX = address(0xBEEF);
     address private constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 private constant INITIAL_PROPOSER_BOND = 100 ether;
     uint256 private constant INITIAL_PROVER_BOND = 50 ether;
@@ -38,20 +39,30 @@ contract AnchorTest is Test {
     function setUp() external {
         token = new TestERC20("Mock", "MOCK");
 
-        BondManager bondManagerImpl = new BondManager(address(this), address(token), 0, 0);
-        bondManager = BondManager(
-            address(
-                new ERC1967Proxy(
-                    address(bondManagerImpl), abi.encodeCall(BondManager.init, (address(this)))
-                )
-            )
-        );
-
         SignalService signalServiceImpl = new SignalService(address(this), address(0x1234));
         signalService = SignalService(
             address(
                 new ERC1967Proxy(
                     address(signalServiceImpl), abi.encodeCall(SignalService.init, (address(this)))
+                )
+            )
+        );
+
+        BondManager bondManagerImpl = new BondManager(
+            address(token),
+            0,
+            0,
+            address(this),
+            signalService,
+            L1_INBOX,
+            L1_CHAIN_ID,
+            LIVENESS_BOND,
+            PROVABILITY_BOND
+        );
+        bondManager = BondManager(
+            address(
+                new ERC1967Proxy(
+                    address(bondManagerImpl), abi.encodeCall(BondManager.init, (address(this)))
                 )
             )
         );
@@ -62,7 +73,17 @@ contract AnchorTest is Test {
             address(new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this)))))
         );
 
-        BondManager anchorBondManagerImpl = new BondManager(address(anchor), address(token), 0, 0);
+        BondManager anchorBondManagerImpl = new BondManager(
+            address(token),
+            0,
+            0,
+            address(anchor),
+            signalService,
+            L1_INBOX,
+            L1_CHAIN_ID,
+            LIVENESS_BOND,
+            PROVABILITY_BOND
+        );
         bondManager.upgradeTo(address(anchorBondManagerImpl));
 
         SignalService anchorSignalServiceImpl = new SignalService(address(anchor), address(0x1234));
