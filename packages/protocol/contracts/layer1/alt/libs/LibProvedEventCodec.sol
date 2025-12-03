@@ -5,17 +5,27 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
-/// @title LibProvedEventEncoder
-/// @notice Library for encoding and decoding ProvedEventPayload structures for IInbox
+/// @title LibProvedEventCodec
+/// @notice Compact binary codec for ProvedEventPayload structures emitted by IInbox.
+/// @dev Provides gas-efficient encoding/decoding of Proved event data using LibPackUnpack.
+/// The encoded format is optimized for L1 calldata costs while maintaining deterministic
+/// ordering consistent with struct field definitions.
+///
+/// Encoding format (variable length):
+/// - finalizationDeadline(5) + Checkpoint(70) + bondInstructions array
+/// - Each bond instruction: proposalId(5) + bondType(1) + payer(20) + payee(20) = 46 bytes
+///
 /// @custom:security-contact security@taiko.xyz
-library LibProvedEventEncoder {
+library LibProvedEventCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes a ProvedEventPayload into bytes using compact encoding
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return encoded_ The encoded bytes
+    /// @notice Encodes a ProvedEventPayload into compact binary format.
+    /// @dev Allocates exact buffer size via calculateProvedEventSize, then sequentially
+    /// packs all fields using LibPackUnpack. Field order matches struct definitions.
+    /// @param _payload The ProvedEventPayload containing proof result data.
+    /// @return encoded_ The compact binary encoding of the payload.
     function encode(IInbox.ProvedEventPayload memory _payload)
         internal
         pure
@@ -49,9 +59,11 @@ library LibProvedEventEncoder {
         }
     }
 
-    /// @notice Decodes bytes into a ProvedEventPayload using compact encoding
-    /// @param _data The bytes to decode
-    /// @return payload_ The decoded ProvedEventPayload
+    /// @notice Decodes compact binary data into a ProvedEventPayload struct.
+    /// @dev Sequentially unpacks all fields using LibPackUnpack in the same order as encode.
+    /// Validates bondType enum values during decoding.
+    /// @param _data The compact binary encoding produced by encode().
+    /// @return payload_ The reconstructed ProvedEventPayload struct.
     function decode(bytes memory _data)
         internal
         pure
@@ -89,9 +101,11 @@ library LibProvedEventEncoder {
         }
     }
 
-    /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload
-    /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)
-    /// @return size_ The total byte size needed for encoding
+    /// @notice Calculates the exact byte size needed for encoding a ProvedEventPayload.
+    /// @dev Fixed size is 82 bytes (finalizationDeadline + checkpoint + array length) plus
+    /// 46 bytes per bond instruction.
+    /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding).
+    /// @return size_ The total byte size needed for the encoded payload.
     function calculateProvedEventSize(uint256 _bondInstructionsCount)
         internal
         pure
@@ -116,5 +130,6 @@ library LibProvedEventEncoder {
     // Errors
     // ---------------------------------------------------------------
 
+    /// @notice Thrown when decoding encounters an invalid BondType enum value.
     error InvalidBondType();
 }

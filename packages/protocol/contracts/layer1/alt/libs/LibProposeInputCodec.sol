@@ -3,20 +3,30 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-/// @title LibProposeInputDecoder
-/// @notice Library for encoding and decoding propose input data for IInbox
+/// @title LibProposeInputCodec
+/// @notice Compact binary codec for ProposeInput structures used by IInbox.propose().
+/// @dev Provides gas-efficient encoding/decoding of proposal submission calldata using LibPackUnpack.
+/// The encoded format is optimized for L1 calldata costs while maintaining deterministic
+/// ordering consistent with struct field definitions.
+///
+/// Encoding format (variable length):
+/// - deadline(5) + CoreState(79) + proposals array + BlobReference(7) + transitions array
+/// - Checkpoint with isEmpty optimization (1 byte flag + optional 70 bytes)
+/// - numForcedInclusions(1)
+///
 /// @custom:security-contact security@taiko.xyz
-library LibProposeInputDecoder {
+library LibProposeInputCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes propose input data using compact encoding
-    /// @param _input The ProposeInput to encode
-    /// @return encoded_ The encoded data
+    /// @notice Encodes a ProposeInput into compact binary format.
+    /// @dev Allocates exact buffer size via _calculateProposeDataSize, then sequentially
+    /// packs all fields using LibPackUnpack. Empty checkpoints are optimized to 1 byte.
+    /// @param _input The ProposeInput containing deadline, core state, proposals, and transitions.
+    /// @return encoded_ The compact binary encoding of the input.
     function encode(IInbox.ProposeInput memory _input)
         internal
         pure
@@ -35,11 +45,11 @@ library LibProposeInputDecoder {
         ptr = P.packUint40(ptr, _input.deadline);
 
         // 2. Encode CoreState
-        ptr = P.packUint40(ptr, _input.coreState.nextProposalId);
-        ptr = P.packUint40(ptr, _input.coreState.lastProposalBlockId);
-        ptr = P.packUint40(ptr, _input.coreState.lastFinalizedProposalId);
-        ptr = P.packUint40(ptr, _input.coreState.lastSyncProposalId);
-        ptr = P.packBytes27(ptr, _input.coreState.lastFinalizedTransitionHash);
+        ptr = P.packUint40(ptr, _input.coreState.proposalHead);
+        ptr = P.packUint40(ptr, _input.coreState.proposalHeadContainerBlock);
+        ptr = P.packUint40(ptr, _input.coreState.finalizationHead);
+        ptr = P.packUint40(ptr, _input.coreState.synchronizationHead);
+        ptr = P.packBytes27(ptr, _input.coreState.finalizationHeadTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.aggregatedBondInstructionsHash);
 
         // 3. Encode head proposals array
@@ -78,9 +88,11 @@ library LibProposeInputDecoder {
         ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
 
-    /// @notice Decodes propose input data using optimized operations
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProposeInput
+    /// @notice Decodes compact binary data into a ProposeInput struct.
+    /// @dev Sequentially unpacks all fields using LibPackUnpack in the same order as encode.
+    /// Handles the isEmpty optimization for checkpoints.
+    /// @param _data The compact binary encoding produced by encode().
+    /// @return input_ The reconstructed ProposeInput struct.
     function decode(bytes memory _data) internal pure returns (IInbox.ProposeInput memory input_) {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
@@ -89,11 +101,11 @@ library LibProposeInputDecoder {
         (input_.deadline, ptr) = P.unpackUint40(ptr);
 
         // 2. Decode CoreState
-        (input_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastSyncProposalId, ptr) = P.unpackUint40(ptr);
-        (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes27(ptr);
+        (input_.coreState.proposalHead, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.proposalHeadContainerBlock, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.finalizationHead, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.synchronizationHead, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.finalizationHeadTransitionHash, ptr) = P.unpackBytes27(ptr);
         (input_.coreState.aggregatedBondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
         // 3. Decode head proposals array
@@ -117,11 +129,7 @@ library LibProposeInputDecoder {
             (input_.transitions[i], ptr) = _decodeTransition(ptr);
         }
 
-        // 6. Decode BondInstructions 2D array
-        uint16 bondInstructionsOuterLength;
-        (bondInstructionsOuterLength, ptr) = P.unpackUint16(ptr);
-
-        // 7. Decode Checkpoint with optimization for empty header
+        // 6. Decode Checkpoint with optimization for empty header
         uint8 headerFlag;
         (headerFlag, ptr) = P.unpackUint8(ptr);
 
@@ -131,7 +139,7 @@ library LibProposeInputDecoder {
             (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         }
 
-        // 8. Decode numForcedInclusions
+        // 7. Decode numForcedInclusions
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
     }
 
@@ -139,7 +147,12 @@ library LibProposeInputDecoder {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encode a single Proposal
+    /// @notice Encodes a single Proposal struct at the given memory position.
+    /// @dev Packs fields in definition order: id, timestamp, endOfSubmissionWindowTimestamp,
+    /// proposer, coreStateHash, derivationHash, parentProposalHash (131 bytes total).
+    /// @param _ptr The memory position to start writing at.
+    /// @param _proposal The Proposal struct to encode.
+    /// @return newPtr_ The updated memory position after encoding.
     function _encodeProposal(
         uint256 _ptr,
         IInbox.Proposal memory _proposal
@@ -157,7 +170,11 @@ library LibProposeInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
     }
 
-    /// @notice Encode a single Transition
+    /// @notice Encodes a single Transition struct at the given memory position.
+    /// @dev Packs bondInstructionHash and checkpointHash (64 bytes total).
+    /// @param _ptr The memory position to start writing at.
+    /// @param _transition The Transition struct to encode.
+    /// @return newPtr_ The updated memory position after encoding.
     function _encodeTransition(
         uint256 _ptr,
         IInbox.Transition memory _transition
@@ -170,22 +187,12 @@ library LibProposeInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpointHash);
     }
 
-    /// @notice Encode a single BondInstruction
-    function _encodeBondInstruction(
-        uint256 _ptr,
-        LibBonds.BondInstruction memory _bondInstruction
-    )
-        private
-        pure
-        returns (uint256 newPtr_)
-    {
-        newPtr_ = P.packUint40(_ptr, uint40(_bondInstruction.proposalId));
-        newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
-        newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
-        newPtr_ = P.packAddress(newPtr_, _bondInstruction.payee);
-    }
-
-    /// @notice Decode a single Proposal
+    /// @notice Decodes a single Proposal struct from the given memory position.
+    /// @dev Unpacks fields in definition order: id, timestamp, endOfSubmissionWindowTimestamp,
+    /// proposer, coreStateHash, derivationHash, parentProposalHash (131 bytes total).
+    /// @param _ptr The memory position to start reading from.
+    /// @return proposal_ The decoded Proposal struct.
+    /// @return newPtr_ The updated memory position after decoding.
     function _decodeProposal(uint256 _ptr)
         private
         pure
@@ -200,7 +207,11 @@ library LibProposeInputDecoder {
         (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Decode a single Transition
+    /// @notice Decodes a single Transition struct from the given memory position.
+    /// @dev Unpacks bondInstructionHash and checkpointHash (64 bytes total).
+    /// @param _ptr The memory position to start reading from.
+    /// @return transition_ The decoded Transition struct.
+    /// @return newPtr_ The updated memory position after decoding.
     function _decodeTransition(uint256 _ptr)
         private
         pure
@@ -210,25 +221,13 @@ library LibProposeInputDecoder {
         (transition_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Decode a single BondInstruction
-    function _decodeBondInstruction(uint256 _ptr)
-        private
-        pure
-        returns (LibBonds.BondInstruction memory bondInstruction_, uint256 newPtr_)
-    {
-        uint40 temp;
-        (temp, newPtr_) = P.unpackUint40(_ptr);
-        bondInstruction_.proposalId = temp;
-
-        uint8 bondType;
-        (bondType, newPtr_) = P.unpackUint8(newPtr_);
-        bondInstruction_.bondType = LibBonds.BondType(bondType);
-
-        (bondInstruction_.payer, newPtr_) = P.unpackAddress(newPtr_);
-        (bondInstruction_.payee, newPtr_) = P.unpackAddress(newPtr_);
-    }
-
-    /// @notice Calculate the size needed for encoding
+    /// @notice Calculates the exact byte size needed for encoding a ProposeInput.
+    /// @dev Fixed base size is 131 bytes. Adds 131 bytes per proposal, 64 bytes per transition,
+    /// and 70 bytes for non-empty checkpoints.
+    /// @param _proposals Array of head proposals to calculate size for.
+    /// @param _transitions Array of transitions to calculate size for.
+    /// @param _checkpoint The checkpoint to check for isEmpty optimization.
+    /// @return size_ The total byte size needed for the encoded input.
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.Transition[] memory _transitions,
