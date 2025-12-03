@@ -343,11 +343,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Decodes `ProverAuth` calldata; kept public so `validateProverAuth` can try/catch via
     /// `this.decodeProverAuth` to avoid reverting on malformed encodings.
-    function decodeProverAuth(bytes calldata _proverAuth)
-        public
-        pure
-        returns (ProverAuth memory)
-    {
+    function decodeProverAuth(bytes calldata _proverAuth) public pure returns (ProverAuth memory) {
         return abi.decode(_proverAuth, (ProverAuth));
     }
 
@@ -585,11 +581,7 @@ contract Anchor is EssentialContract {
 
     /// @dev Decodes `ProverAuth` calldata; kept public so `validateProverAuth` can try/catch via
     /// `this._decodeProverAuth` to swallow malformed encodings.
-    function _decodeProverAuth(bytes calldata _proverAuth)
-        public
-        pure
-        returns (ProverAuth memory)
-    {
+    function _decodeProverAuth(bytes calldata _proverAuth) public pure returns (ProverAuth memory) {
         return abi.decode(_proverAuth, (ProverAuth));
     }
 
