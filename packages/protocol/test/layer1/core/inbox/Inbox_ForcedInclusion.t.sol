@@ -144,7 +144,7 @@ contract InboxForcedInclusionTest is InboxTestHelper {
             numForcedInclusions: 1
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -186,7 +186,7 @@ contract InboxForcedInclusionTest is InboxTestHelper {
             numForcedInclusions: 0 // Not processing forced inclusion
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
         vm.prank(currentProposer);
@@ -232,7 +232,7 @@ contract InboxForcedInclusionTest is InboxTestHelper {
             numForcedInclusions: 1 // Must still process the forced inclusion
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         // Emma is not whitelisted but should be able to propose
         vm.prank(Emma);
@@ -279,7 +279,7 @@ contract InboxForcedInclusionTest is InboxTestHelper {
             numForcedInclusions: 1
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);

@@ -32,11 +32,13 @@ contract MainnetInbox is Inbox {
     // ---------------------------------------------------------------
 
     constructor(
+        address _codec,
         address _proofVerifier,
         address _proposerChecker,
         address _signalService
     )
         Inbox(IInbox.Config({
+                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 checkpointStore: LibL1Addrs.SIGNAL_SERVICE,

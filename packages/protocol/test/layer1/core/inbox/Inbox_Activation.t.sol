@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 import { InboxTestHelper } from "./common/InboxTestHelper.sol";
@@ -129,7 +128,7 @@ contract InboxActivationTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = freshInbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
         vm.prank(currentProposer);
