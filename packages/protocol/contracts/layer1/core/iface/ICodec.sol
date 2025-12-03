@@ -133,10 +133,7 @@ interface ICodec {
     /// @notice Computes truncated hash of a Transition struct
     /// @param _transition The transition to hash
     /// @return The keccak256 hash truncated to 27 bytes for storage optimization
-    function hashTransition(IInbox.Transition calldata _transition)
-        external
-        pure
-        returns (bytes27);
+    function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes27);
 
     /// @notice Computes hash of a BondInstruction struct
     /// @param _bondInstruction The bond instruction to hash

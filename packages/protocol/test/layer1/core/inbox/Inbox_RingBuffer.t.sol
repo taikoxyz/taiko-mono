@@ -253,7 +253,8 @@ contract InboxRingBufferTest is InboxTestHelper {
         assertEq(payload3.proposal.id, 3, "Third proposal should be id 3");
 
         // Prove proposal 1 (but don't finalize it yet - finalization happens during propose)
-        ProvenProposal memory proven1 = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven1 =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Wait for finalization grace period to pass
         vm.warp(proven1.finalizationDeadline + 1);
@@ -367,7 +368,8 @@ contract InboxRingBufferTest is InboxTestHelper {
         assertEq(payload3.proposal.id, 3, "Third proposal should be id 3");
 
         // Prove proposal 1 with correct transition from genesis
-        ProvenProposal memory proven1 = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven1 =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Wait for finalization grace period to pass so proposal 1 can be finalized
         vm.warp(proven1.finalizationDeadline + 1);
@@ -406,7 +408,9 @@ contract InboxRingBufferTest is InboxTestHelper {
 
         // Verify finalization head advanced (proposal 1 was finalized)
         assertEq(
-            payload4.coreState.finalizationHead, 1, "Finalization head should advance to 1 after finalizing proposal 1"
+            payload4.coreState.finalizationHead,
+            1,
+            "Finalization head should advance to 1 after finalizing proposal 1"
         );
     }
 

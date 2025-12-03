@@ -43,8 +43,9 @@ contract InboxProveTest is InboxTestHelper {
         IInbox.ProposedEventPayload[] memory payloads = _createConsecutiveProposals(2);
 
         // Prove all proposals
-        IInbox.ProveInput[] memory inputs =
-            _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
+        IInbox.ProveInput[] memory inputs = _createProveInputForMultipleProposals(
+            _extractProposals(payloads), _getGenesisTransitionHash(), true
+        );
         bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.prank(currentProver);
@@ -60,8 +61,9 @@ contract InboxProveTest is InboxTestHelper {
     function test_prove_threeConsecutiveProposals() public {
         IInbox.ProposedEventPayload[] memory payloads = _createConsecutiveProposals(3);
 
-        IInbox.ProveInput[] memory inputs =
-            _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
+        IInbox.ProveInput[] memory inputs = _createProveInputForMultipleProposals(
+            _extractProposals(payloads), _getGenesisTransitionHash(), true
+        );
         bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.prank(currentProver);
@@ -123,7 +125,8 @@ contract InboxProveTest is InboxTestHelper {
             parentProposalHash: bytes32(uint256(333))
         });
 
-        IInbox.ProveInput[] memory inputs = _createProveInput(fakeProposal, _getGenesisTransitionHash());
+        IInbox.ProveInput[] memory inputs =
+            _createProveInput(fakeProposal, _getGenesisTransitionHash());
         bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
