@@ -29,13 +29,17 @@ contract DeployPreconfContracts is BaseScript {
         deploy(
             LibStrings.B_PRECONF_WHITELIST,
             address(new PreconfWhitelist()),
-            abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2, 2))
+            abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2, 2, vm.envUint("GENESIS_TIMESTAMP")))
         );
 
         // Deploy PreconfRouter
         deploy(
             "preconf_router",
-            address(new PreconfRouter(taikoWrapper, preconfWhitelist, fallbackPreconf)),
+            address(
+                new PreconfRouter(
+                    taikoWrapper, preconfWhitelist, fallbackPreconf, type(uint64).max
+                )
+            ),
             abi.encodeCall(PreconfRouter.init, (contractOwner))
         );
     }

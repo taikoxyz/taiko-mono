@@ -53,7 +53,8 @@ contract PreconfRouterForkTest is ForkTestBase {
         address owner = Ownable2StepUpgradeable(MAINNET_ROUTER).owner();
 
         // Deploy optimized implementations
-        PreconfRouter routerImpl = new PreconfRouter(MAINNET_WRAPPER, MAINNET_WHITELIST, address(0));
+        PreconfRouter routerImpl =
+            new PreconfRouter(MAINNET_WRAPPER, MAINNET_WHITELIST, address(0), type(uint64).max);
         TaikoWrapper wrapperImpl =
             new TaikoWrapper(MAINNET_INBOX, MAINNET_FORCED_INCLUSION, MAINNET_ROUTER);
         address forkImpl =
@@ -100,7 +101,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         operators[2] = David;
         addOperators(operators);
 
-        vm.chainId(1);
+        // vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 currentEpoch = epochOneStart
             + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -150,7 +151,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         operators[2] = David;
         addOperators(operators);
 
-        vm.chainId(1);
+        // vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 currentEpoch = epochOneStart
             + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -171,7 +172,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         operators[2] = David;
         addOperators(operators);
 
-        vm.chainId(1);
+        // vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 currentEpoch = epochOneStart
             + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;

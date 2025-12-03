@@ -73,7 +73,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             deploy({
                 name: "preconf_whitelist",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2, 0))
             })
         );
 
@@ -105,7 +105,12 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             deploy({
                 name: "preconf_router",
                 impl: address(
-                    new PreconfRouter(address(taikoWrapper), address(whitelist), fallbackPreconfer)
+                    new PreconfRouter(
+                        address(taikoWrapper),
+                        address(whitelist),
+                        fallbackPreconfer,
+                        type(uint64).max
+                    )
                 ),
                 data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
