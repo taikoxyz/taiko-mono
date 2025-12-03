@@ -35,13 +35,13 @@ library LibProposeInputDecoder {
         uint256 ptr = P.dataPtr(encoded_);
 
         // 1. Encode deadline
-        ptr = P.packUint48(ptr, _input.deadline);
+        ptr = P.packUint40(ptr, _input.deadline);
 
         // 2. Encode CoreState
-        ptr = P.packUint48(ptr, _input.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _input.coreState.lastProposalBlockId);
-        ptr = P.packUint48(ptr, _input.coreState.lastFinalizedProposalId);
-        ptr = P.packUint48(ptr, _input.coreState.lastSyncTimestamp);
+        ptr = P.packUint40(ptr, _input.coreState.nextProposalId);
+        ptr = P.packUint40(ptr, _input.coreState.lastProposalBlockId);
+        ptr = P.packUint40(ptr, _input.coreState.lastFinalizedProposalId);
+        ptr = P.packUint40(ptr, _input.coreState.lastSyncTimestamp);
         ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHashOld);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHashNew);
@@ -101,20 +101,13 @@ library LibProposeInputDecoder {
         uint256 ptr = P.dataPtr(_data);
 
         // 1. Decode deadline
-        uint48 deadline;
-        (deadline, ptr) = P.unpackUint48(ptr);
-        input_.deadline = uint40(deadline);
+        (input_.deadline, ptr) = P.unpackUint40(ptr);
 
         // 2. Decode CoreState
-        uint48 temp;
-        (temp, ptr) = P.unpackUint48(ptr);
-        input_.coreState.nextProposalId = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        input_.coreState.lastProposalBlockId = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        input_.coreState.lastFinalizedProposalId = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        input_.coreState.lastSyncTimestamp = uint40(temp);
+        (input_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
+        (input_.coreState.lastSyncTimestamp, ptr) = P.unpackUint40(ptr);
         (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHashOld, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHashNew, ptr) = P.unpackBytes32(ptr);
@@ -180,9 +173,9 @@ library LibProposeInputDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packUint48(_ptr, _proposal.id);
-        newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
-        newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
+        newPtr_ = P.packUint40(_ptr, _proposal.id);
+        newPtr_ = P.packUint40(newPtr_, _proposal.timestamp);
+        newPtr_ = P.packUint40(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
@@ -211,7 +204,7 @@ library LibProposeInputDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packUint48(_ptr, _bondInstruction.proposalId);
+        newPtr_ = P.packUint40(_ptr, uint40(_bondInstruction.proposalId));
         newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payee);
@@ -223,13 +216,9 @@ library LibProposeInputDecoder {
         pure
         returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
     {
-        uint48 temp;
-        (temp, newPtr_) = P.unpackUint48(_ptr);
-        proposal_.id = uint40(temp);
-        (temp, newPtr_) = P.unpackUint48(newPtr_);
-        proposal_.timestamp = uint40(temp);
-        (temp, newPtr_) = P.unpackUint48(newPtr_);
-        proposal_.endOfSubmissionWindowTimestamp = uint40(temp);
+        (proposal_.id, newPtr_) = P.unpackUint40(_ptr);
+        (proposal_.timestamp, newPtr_) = P.unpackUint40(newPtr_);
+        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint40(newPtr_);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
@@ -252,9 +241,9 @@ library LibProposeInputDecoder {
         pure
         returns (LibBonds.BondInstruction memory bondInstruction_, uint256 newPtr_)
     {
-        uint48 temp;
-        (temp, newPtr_) = P.unpackUint48(_ptr);
-        bondInstruction_.proposalId = uint40(temp);
+        uint40 temp;
+        (temp, newPtr_) = P.unpackUint40(_ptr);
+        bondInstruction_.proposalId = temp;
 
         uint8 bondType;
         (bondType, newPtr_) = P.unpackUint8(newPtr_);
@@ -277,13 +266,13 @@ library LibProposeInputDecoder {
     {
         unchecked {
             // Fixed sizes:
-            // deadline: 6 bytes (uint48)
-            // CoreState: 6 + 6 + 6 + 6 + 32 + 32 + 32 = 120 bytes
+            // deadline: 5 bytes (uint40)
+            // CoreState: 5 + 5 + 5 + 5 + 32 + 32 + 32 = 116 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 2 + 2 + 2 = 6 bytes (proposals, transitions, bondInstructions outer)
             // Checkpoint flag: 1 byte
             // numForcedInclusions: 1 byte (uint8)
-            size_ = 141;
+            size_ = 136;
 
             // Add Checkpoint size if not empty
             bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
@@ -295,10 +284,10 @@ library LibProposeInputDecoder {
             }
 
             // Proposals - each has fixed size
-            // Fixed proposal fields: id(6) + timestamp(6) +
-            // endOfSubmissionWindowTimestamp(6) + proposer(20) + coreStateHash(32) +
-            // derivationHash(32) + parentProposalHash(32) = 134
-            size_ += _proposals.length * 134;
+            // Fixed proposal fields: id(5) + timestamp(5) +
+            // endOfSubmissionWindowTimestamp(5) + proposer(20) + coreStateHash(32) +
+            // derivationHash(32) + parentProposalHash(32) = 131
+            size_ += _proposals.length * 131;
 
             // Transitions - each has fixed size
             // bondInstructionsHash(32) + checkpointHash(32) = 64
@@ -308,8 +297,8 @@ library LibProposeInputDecoder {
             for (uint256 i; i < _bondInstructions.length; ++i) {
                 // Inner array length: 2 bytes
                 size_ += 2;
-                // Each bond instruction: proposalId(6) + bondType(1) + payer(20) + payee(20) = 47
-                size_ += _bondInstructions[i].length * 47;
+                // Each bond instruction: proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
+                size_ += _bondInstructions[i].length * 46;
             }
         }
     }

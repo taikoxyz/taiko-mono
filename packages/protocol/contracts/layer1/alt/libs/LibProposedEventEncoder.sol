@@ -30,11 +30,11 @@ library LibProposedEventEncoder {
         uint256 ptr = P.dataPtr(encoded_);
 
         // Encode Proposal
-        ptr = P.packUint48(ptr, _payload.proposal.id);
+        ptr = P.packUint40(ptr, _payload.proposal.id);
         ptr = P.packAddress(ptr, _payload.proposal.proposer);
-        ptr = P.packUint48(ptr, _payload.proposal.timestamp);
-        ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
-        ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
+        ptr = P.packUint40(ptr, _payload.proposal.timestamp);
+        ptr = P.packUint40(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
+        ptr = P.packUint40(ptr, _payload.derivation.originBlockNumber);
         ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
         ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
 
@@ -66,10 +66,10 @@ library LibProposedEventEncoder {
         ptr = P.packBytes32(ptr, _payload.proposal.parentProposalHash);
 
         // Encode core state
-        ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastProposalBlockId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastSyncTimestamp);
+        ptr = P.packUint40(ptr, _payload.coreState.nextProposalId);
+        ptr = P.packUint40(ptr, _payload.coreState.lastProposalBlockId);
+        ptr = P.packUint40(ptr, _payload.coreState.lastFinalizedProposalId);
+        ptr = P.packUint40(ptr, _payload.coreState.lastSyncTimestamp);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHashOld);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHashNew);
@@ -80,7 +80,7 @@ library LibProposedEventEncoder {
 
         for (uint256 i; i < bondInstructionsLength; ++i) {
             LibBonds.BondInstruction memory instruction = _payload.bondInstructions[i];
-            ptr = P.packUint48(ptr, instruction.proposalId);
+            ptr = P.packUint40(ptr, uint40(instruction.proposalId));
             ptr = P.packUint8(ptr, uint8(instruction.bondType));
             ptr = P.packAddress(ptr, instruction.payer);
             ptr = P.packAddress(ptr, instruction.payee);
@@ -99,18 +99,13 @@ library LibProposedEventEncoder {
         uint256 ptr = P.dataPtr(_data);
 
         // Decode Proposal
-        uint48 temp;
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.proposal.id = uint40(temp);
+        (payload_.proposal.id, ptr) = P.unpackUint40(ptr);
         (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.proposal.timestamp = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.proposal.endOfSubmissionWindowTimestamp = uint40(temp);
+        (payload_.proposal.timestamp, ptr) = P.unpackUint40(ptr);
+        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint40(ptr);
 
         // Decode derivation fields
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.derivation.originBlockNumber = uint40(temp);
+        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint40(ptr);
         (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
@@ -142,14 +137,10 @@ library LibProposedEventEncoder {
         (payload_.proposal.parentProposalHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode core state
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.coreState.nextProposalId = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.coreState.lastProposalBlockId = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.coreState.lastFinalizedProposalId = uint40(temp);
-        (temp, ptr) = P.unpackUint48(ptr);
-        payload_.coreState.lastSyncTimestamp = uint40(temp);
+        (payload_.coreState.nextProposalId, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.lastProposalBlockId, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint40(ptr);
+        (payload_.coreState.lastSyncTimestamp, ptr) = P.unpackUint40(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHashOld, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHashNew, ptr) = P.unpackBytes32(ptr);
@@ -161,8 +152,9 @@ library LibProposedEventEncoder {
             payload_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
 
             for (uint256 i; i < bondInstructionsLength; ++i) {
-                (temp, ptr) = P.unpackUint48(ptr);
-                payload_.bondInstructions[i].proposalId = uint40(temp);
+                uint40 temp;
+                (temp, ptr) = P.unpackUint40(ptr);
+                payload_.bondInstructions[i].proposalId = temp;
 
                 uint8 bondType;
                 (bondType, ptr) = P.unpackUint8(ptr);
@@ -188,18 +180,18 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 297 bytes (without blob data)
-            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) = 38
-            // Derivation: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1) = 39
+            // Fixed size: 289 bytes (without blob data)
+            // Proposal: id(5) + proposer(20) + timestamp(5) + endOfSubmissionWindowTimestamp(5) = 35
+            // Derivation: originBlockNumber(5) + originBlockHash(32) + basefeeSharingPctg(1) = 38
             // Sources array length: 2 (uint16)
             // Proposal hashes: coreStateHash(32) + derivationHash(32) + parentProposalHash(32) = 96
-            // CoreState: nextProposalId(6) + lastProposalBlockId(6) + lastFinalizedProposalId(6) +
-            //           lastSyncTimestamp(6) + lastFinalizedTransitionHash(32) +
-            //           bondInstructionsHashOld(32) + bondInstructionsHashNew(32) = 120
+            // CoreState: nextProposalId(5) + lastProposalBlockId(5) + lastFinalizedProposalId(5) +
+            //           lastSyncTimestamp(5) + lastFinalizedTransitionHash(32) +
+            //           bondInstructionsHashOld(32) + bondInstructionsHashNew(32) = 116
             // Bond instructions length prefix: 2
-            // Total fixed: 38 + 39 + 2 + 96 + 120 + 2 = 297
+            // Total fixed: 35 + 38 + 2 + 96 + 116 + 2 = 289
 
-            size_ = 297;
+            size_ = 289;
 
             // Variable size: each source contributes its encoding size
             for (uint256 i; i < _sources.length; ++i) {
@@ -209,8 +201,8 @@ library LibProposedEventEncoder {
                 size_ += 12 + (_sources[i].blobSlice.blobHashes.length * 32);
             }
 
-            // Bond instruction: proposalId(6) + bondType(1) + payer(20) + payee(20) = 47
-            size_ += _bondInstructions.length * 47;
+            // Bond instruction: proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
+            size_ += _bondInstructions.length * 46;
         }
     }
 

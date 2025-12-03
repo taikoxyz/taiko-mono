@@ -97,6 +97,24 @@ library LibPackUnpack {
         }
     }
 
+    /// @notice Pack uint40 (5 bytes) at position using big-endian encoding
+    /// @dev Optimized to use mstore instead of 5 individual mstore8 operations.
+    /// Common use case: proposal IDs and timestamps.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The uint40 value to pack (0-1099511627775)
+    /// @return newPos_ Updated position after writing (pos + 5)
+    function packUint40(uint256 _pos, uint40 _value) internal pure returns (uint256 newPos_) {
+        assembly {
+            // Shift value left by 27 bytes (216 bits) to align at the start of a 32-byte word
+            let shifted := shl(216, _value)
+
+            // Store the shifted value at position
+            mstore(_pos, shifted)
+
+            newPos_ := add(_pos, 5)
+        }
+    }
+
     /// @notice Pack uint48 (6 bytes) at position using big-endian encoding
     /// @dev Optimized to use mstore instead of 6 individual mstore8 operations.
     /// Common use case: block numbers that exceed uint32 range.
@@ -233,6 +251,19 @@ library LibPackUnpack {
             // Load full word and shift right by 224 bits (28 bytes) to get the 4 bytes we need
             value_ := shr(224, mload(_pos))
             newPos_ := add(_pos, 4)
+        }
+    }
+
+    /// @notice Unpack uint40 (5 bytes) from position using big-endian encoding
+    /// @dev Optimized to use 1 mload operation instead of 5 byte reads.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked uint40 value
+    /// @return newPos_ Updated position after reading (pos + 5)
+    function unpackUint40(uint256 _pos) internal pure returns (uint40 value_, uint256 newPos_) {
+        assembly {
+            // Load full word and shift right by 216 bits (27 bytes) to get the 5 bytes we need
+            value_ := shr(216, mload(_pos))
+            newPos_ := add(_pos, 5)
         }
     }
 

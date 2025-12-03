@@ -90,10 +90,10 @@ library LibProveInputDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packUint48(_ptr, _proposal.id);
+        newPtr_ = P.packUint40(_ptr, _proposal.id);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
-        newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
-        newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
+        newPtr_ = P.packUint40(newPtr_, _proposal.timestamp);
+        newPtr_ = P.packUint40(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
@@ -109,7 +109,7 @@ library LibProveInputDecoder {
         returns (uint256 newPtr_)
     {
         newPtr_ = P.packAddress(_ptr, _metadata.proposer);
-        newPtr_ = P.packUint48(newPtr_, _metadata.proposalTimestamp);
+        newPtr_ = P.packUint40(newPtr_, _metadata.proposalTimestamp);
         newPtr_ = P.packAddress(newPtr_, _metadata.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
     }
@@ -141,14 +141,10 @@ library LibProveInputDecoder {
         pure
         returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
     {
-        uint48 temp;
-        (temp, newPtr_) = P.unpackUint48(_ptr);
-        proposal_.id = uint40(temp);
+        (proposal_.id, newPtr_) = P.unpackUint40(_ptr);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
-        (temp, newPtr_) = P.unpackUint48(newPtr_);
-        proposal_.timestamp = uint40(temp);
-        (temp, newPtr_) = P.unpackUint48(newPtr_);
-        proposal_.endOfSubmissionWindowTimestamp = uint40(temp);
+        (proposal_.timestamp, newPtr_) = P.unpackUint40(newPtr_);
+        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint40(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
@@ -160,10 +156,8 @@ library LibProveInputDecoder {
         pure
         returns (IInbox.ProposalProofMetadata memory metadata_, uint256 newPtr_)
     {
-        uint48 temp;
         (metadata_.proposer, newPtr_) = P.unpackAddress(_ptr);
-        (temp, newPtr_) = P.unpackUint48(newPtr_);
-        metadata_.proposalTimestamp = uint40(temp);
+        (metadata_.proposalTimestamp, newPtr_) = P.unpackUint40(newPtr_);
         (metadata_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
@@ -179,19 +173,19 @@ library LibProveInputDecoder {
             size_ = 2;
 
             for (uint256 i; i < _inputs.length; ++i) {
-                // Proposal: id(6) + proposer(20) + timestamp(6) +
-                // endOfSubmissionWindowTimestamp(6) + coreStateHash(32) +
-                // derivationHash(32) + parentProposalHash(32) = 134
+                // Proposal: id(5) + proposer(20) + timestamp(5) +
+                // endOfSubmissionWindowTimestamp(5) + coreStateHash(32) +
+                // derivationHash(32) + parentProposalHash(32) = 131
 
                 // Checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32) = 70
 
-                // ProposalProofMetadata: proposer(20) + proposalTimestamp(6) + designatedProver(20) +
-                // actualProver(20) = 66
+                // ProposalProofMetadata: proposer(20) + proposalTimestamp(5) + designatedProver(20) +
+                // actualProver(20) = 65
 
                 // parentTransitionHash: 32
 
-                // Per ProveInput: 134 + 70 + 66 + 32 = 302
-                size_ += 302;
+                // Per ProveInput: 131 + 70 + 65 + 32 = 298
+                size_ += 298;
             }
         }
     }

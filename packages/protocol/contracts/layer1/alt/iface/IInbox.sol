@@ -102,7 +102,7 @@ interface IInbox {
     /// @notice Struct for storing transition record metadata (H=Hash, D=Deadline, S=Span).
     /// @dev Stores transition record hash, finalization deadline, and span.
     struct TransitionRecord {
-        bytes26 transitionHash;
+        bytes27 transitionHash;
         uint40 finalizationDeadline;
     }
 

@@ -35,6 +35,7 @@ import "src/layer1/alt/impl/Inbox_Layout.sol"; // DO NOT DELETE
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
+    using LibMath for uint40;
     using LibMath for uint48;
     using LibMath for uint256;
 
@@ -57,8 +58,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
     struct FirstTransitionRecord {
-        uint48 proposalId;
-        bytes26 partialParentTransitionHash;
+        uint40 proposalId;
+        bytes27 parentTransitionHash;
         TransitionRecord record;
     }
 
@@ -534,7 +535,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Transition struct.
     /// @param _transition The transition record to hash.
     /// @return The hash of the transition record.
-    function hashTransition(Transition memory _transition) public pure returns (bytes26) {
+    function hashTransition(Transition memory _transition) public pure returns (bytes27) {
         return LibHashOptimized.hashTransition(_transition);
     }
 
@@ -930,7 +931,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _record The finalization metadata to persist
     function _storeTransitionRecord(
-        uint48 _startProposalId,
+        uint40 _startProposalId,
         bytes32 _parentTransitionHash,
         TransitionRecord memory _record
     )
@@ -938,17 +939,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         FirstTransitionRecord storage firstRecord =
             _firstTransitionRecords[_startProposalId % _ringBufferSize];
-        // Truncation keeps 208 bits of Keccak security; practical collision risk within the proving
+        // Truncation keeps 216 bits of Keccak security; practical collision risk within the proving
         // horizon is negligible.
-        // See ../../../docs/analysis/InboxOptimized1-bytes26-Analysis.md for detailed analysis
-        bytes26 partialParentHash = bytes26(_parentTransitionHash);
+        bytes27 parentTransitionHash = bytes27(_parentTransitionHash);
 
         if (firstRecord.proposalId != _startProposalId) {
             // New proposal, overwrite slot
             firstRecord.proposalId = _startProposalId;
-            firstRecord.partialParentTransitionHash = partialParentHash;
+            firstRecord.parentTransitionHash = parentTransitionHash;
             firstRecord.record = _record;
-        } else if (firstRecord.partialParentTransitionHash != partialParentHash) {
+        } else if (firstRecord.parentTransitionHash != parentTransitionHash) {
             // Collision: fallback to composite key mapping
             TransitionRecord storage record =
                 _transitionRecordFor(_startProposalId, _parentTransitionHash);
@@ -967,7 +967,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads proposal hash from storage.
     /// @param _proposalId The proposal identifier.
     /// @return proposalHash_ The proposal hash.
-    function _loadProposalHash(uint48 _proposalId) private view returns (bytes32 proposalHash_) {
+    function _loadProposalHash(uint40 _proposalId) private view returns (bytes32 proposalHash_) {
         return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
@@ -981,7 +981,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash Parent transition hash for verification
     /// @return record_ The transition record metadata.
     function _loadTransitionRecord(
-        uint48 _proposalId,
+        uint40 _proposalId,
         bytes32 _parentTransitionHash
     )
         private
@@ -993,7 +993,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (firstRecord.proposalId != _proposalId) {
             return TransitionRecord({ transitionHash: 0, finalizationDeadline: 0 });
-        } else if (firstRecord.partialParentTransitionHash == bytes26(_parentTransitionHash)) {
+        } else if (firstRecord.parentTransitionHash == bytes27(_parentTransitionHash)) {
             return firstRecord.record;
         } else {
             return _transitionRecordFor(_proposalId, _parentTransitionHash);
@@ -1015,7 +1015,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     function _transitionRecordFor(
-        uint48 _proposalId,
+        uint40 _proposalId,
         bytes32 _parentTransitionHash
     )
         private
@@ -1032,7 +1032,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return _ Keccak256 hash of encoded parameters
     function _composeTransitionKey(
-        uint48 _proposalId,
+        uint40 _proposalId,
         bytes32 _parentTransitionHash
     )
         private

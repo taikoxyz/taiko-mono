@@ -124,11 +124,9 @@ library LibHashOptimized {
     /// @notice Optimized hashing for Transition structs
     /// @dev Uses EfficientHashLib to hash transition fields
     /// @param _transition The transition to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes26) {
-        bytes32 fullHash =
-            EfficientHashLib.hash(_transition.bondInstructionsHash, _transition.checkpointHash);
-        return bytes26(fullHash);
+    /// @return The hash truncated to bytes27 for storage optimization
+    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes27) {
+        return bytes27(EfficientHashLib.hash(_transition.bondInstructionsHash, _transition.checkpointHash));
     }
 
     /// @notice Optimized hashing for BondInstructionHashChange structs
@@ -275,7 +273,7 @@ library LibHashOptimized {
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return The composite key for storage mapping
     function composeTransitionKey(
-        uint48 _proposalId,
+        uint40 _proposalId,
         bytes32 _parentTransitionHash
     )
         internal
