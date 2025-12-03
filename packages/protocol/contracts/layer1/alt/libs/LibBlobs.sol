@@ -6,13 +6,6 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibBlobs {
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-    uint256 internal constant FIELD_ELEMENT_BYTES = 32;
-    uint256 internal constant BLOB_FIELD_ELEMENTS = 4096;
-    uint256 internal constant BLOB_BYTES = BLOB_FIELD_ELEMENTS * FIELD_ELEMENT_BYTES;
-
-    // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 

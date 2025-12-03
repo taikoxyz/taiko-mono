@@ -5,16 +5,28 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProveInputCodec
-/// @notice Library for encoding and decoding prove input data for IInbox
+/// @notice Compact binary codec for ProveInput arrays used by IInbox.prove().
+/// @dev Provides gas-efficient encoding/decoding of proof submission calldata using LibPackUnpack.
+/// The encoded format is optimized for L1 calldata costs while maintaining deterministic
+/// ordering consistent with struct field definitions.
+///
+/// Encoding format per ProveInput (293 bytes fixed):
+/// - Proposal: id(5) + timestamp(5) + endOfSubmissionWindowTimestamp(5) + proposer(20) + hashes(96)
+/// - Checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32)
+/// - Metadata: designatedProver(20) + actualProver(20)
+/// - parentTransitionHash(27)
+///
 /// @custom:security-contact security@taiko.xyz
 library LibProveInputCodec {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes prove input data using compact encoding
-    /// @param _inputs The ProveInput array to encode
-    /// @return encoded_ The encoded data
+    /// @notice Encodes a ProveInput array into compact binary format.
+    /// @dev Allocates exact buffer size via _calculateProveDataSize, then sequentially
+    /// packs all fields using LibPackUnpack. Each ProveInput is 293 bytes fixed.
+    /// @param _inputs Array of ProveInput structs containing proposals and their proof data.
+    /// @return encoded_ The compact binary encoding of the inputs.
     function encode(IInbox.ProveInput[] memory _inputs)
         internal
         pure
@@ -36,9 +48,11 @@ library LibProveInputCodec {
         }
     }
 
-    /// @notice Decodes prove input data using optimized operations
-    /// @param _data The encoded data
-    /// @return inputs_ The decoded ProveInput array
+    /// @notice Decodes compact binary data into a ProveInput array.
+    /// @dev Sequentially unpacks all fields using LibPackUnpack in the same order as encode.
+    /// Allocates new array based on length prefix.
+    /// @param _data The compact binary encoding produced by encode().
+    /// @return inputs_ The reconstructed ProveInput array.
     function decode(bytes memory _data) internal pure returns (IInbox.ProveInput[] memory inputs_) {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
@@ -57,7 +71,11 @@ library LibProveInputCodec {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encode a single ProveInput
+    /// @notice Encodes a single ProveInput struct at the given memory position.
+    /// @dev Packs proposal, checkpoint, metadata, and parentTransitionHash in order (293 bytes).
+    /// @param _ptr The memory position to start writing at.
+    /// @param _input The ProveInput struct to encode.
+    /// @return newPtr_ The updated memory position after encoding.
     function _encodeProveInput(
         uint256 _ptr,
         IInbox.ProveInput memory _input
@@ -81,7 +99,12 @@ library LibProveInputCodec {
         newPtr_ = P.packBytes27(newPtr_, _input.parentTransitionHash);
     }
 
-    /// @notice Encode a single Proposal
+    /// @notice Encodes a single Proposal struct at the given memory position.
+    /// @dev Packs fields in definition order: id, timestamp, endOfSubmissionWindowTimestamp,
+    /// proposer, coreStateHash, derivationHash, parentProposalHash (131 bytes total).
+    /// @param _ptr The memory position to start writing at.
+    /// @param _proposal The Proposal struct to encode.
+    /// @return newPtr_ The updated memory position after encoding.
     function _encodeProposal(
         uint256 _ptr,
         IInbox.Proposal memory _proposal
@@ -91,15 +114,19 @@ library LibProveInputCodec {
         returns (uint256 newPtr_)
     {
         newPtr_ = P.packUint40(_ptr, _proposal.id);
-        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint40(newPtr_, _proposal.timestamp);
         newPtr_ = P.packUint40(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
+        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
     }
 
-    /// @notice Encode a single ProofMetadata
+    /// @notice Encodes a single TransitionMetadata struct at the given memory position.
+    /// @dev Packs designatedProver and actualProver addresses (40 bytes total).
+    /// @param _ptr The memory position to start writing at.
+    /// @param _metadata The TransitionMetadata struct to encode.
+    /// @return newPtr_ The updated memory position after encoding.
     function _encodeProofMetadata(
         uint256 _ptr,
         IInbox.TransitionMetadata memory _metadata
@@ -112,7 +139,11 @@ library LibProveInputCodec {
         newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
     }
 
-    /// @notice Decode a single ProveInput
+    /// @notice Decodes a single ProveInput struct from the given memory position.
+    /// @dev Unpacks proposal, checkpoint, metadata, and parentTransitionHash in order (293 bytes).
+    /// @param _ptr The memory position to start reading from.
+    /// @return input_ The decoded ProveInput struct.
+    /// @return newPtr_ The updated memory position after decoding.
     function _decodeProveInput(uint256 _ptr)
         private
         pure
@@ -133,22 +164,31 @@ library LibProveInputCodec {
         (input_.parentTransitionHash, newPtr_) = P.unpackBytes27(newPtr_);
     }
 
-    /// @notice Decode a single Proposal
+    /// @notice Decodes a single Proposal struct from the given memory position.
+    /// @dev Unpacks fields in definition order: id, timestamp, endOfSubmissionWindowTimestamp,
+    /// proposer, coreStateHash, derivationHash, parentProposalHash (131 bytes total).
+    /// @param _ptr The memory position to start reading from.
+    /// @return proposal_ The decoded Proposal struct.
+    /// @return newPtr_ The updated memory position after decoding.
     function _decodeProposal(uint256 _ptr)
         private
         pure
         returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
     {
         (proposal_.id, newPtr_) = P.unpackUint40(_ptr);
-        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.timestamp, newPtr_) = P.unpackUint40(newPtr_);
         (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint40(newPtr_);
+        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Decode a single ProofMetadata
+    /// @notice Decodes a single TransitionMetadata struct from the given memory position.
+    /// @dev Unpacks designatedProver and actualProver addresses (40 bytes total).
+    /// @param _ptr The memory position to start reading from.
+    /// @return metadata_ The decoded TransitionMetadata struct.
+    /// @return newPtr_ The updated memory position after decoding.
     function _decodeTransitionMetadata(uint256 _ptr)
         private
         pure
@@ -158,7 +198,10 @@ library LibProveInputCodec {
         (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
 
-    /// @notice Calculate the size needed for encoding
+    /// @notice Calculates the exact byte size needed for encoding a ProveInput array.
+    /// @dev Fixed size is 2 bytes for array length plus 293 bytes per ProveInput.
+    /// @param _inputs Array of ProveInput structs to calculate size for.
+    /// @return size_ The total byte size needed for the encoded array.
     function _calculateProveDataSize(IInbox.ProveInput[] memory _inputs)
         private
         pure
