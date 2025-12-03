@@ -129,7 +129,7 @@ contract InboxActivationTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = freshInbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
         vm.prank(currentProposer);

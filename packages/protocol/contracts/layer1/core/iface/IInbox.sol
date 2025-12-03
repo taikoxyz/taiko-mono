@@ -217,20 +217,6 @@ interface IInbox {
     /// @param data ABI-encoded ProvedEventPayload containing proof details.
     event Proved(uint40 indexed proposalId, bytes27 indexed parentTransitionHash, bytes data);
 
-    /// @notice Emitted when two different proofs are submitted for the same transition.
-    /// @dev Conflicting transitions have their finalizationDeadline set to max to prevent
-    /// finalization.
-    /// @param proposalId The ID of the proposal with conflicting transitions.
-    /// @param parentTransitionHash The parent transition hash where the conflict occurred.
-    /// @param existingRecord The previously stored transition record.
-    /// @param newRecord The conflicting new transition record.
-    event ConflictingTransition(
-        uint40 indexed proposalId,
-        bytes27 indexed parentTransitionHash,
-        TransitionRecord existingRecord,
-        TransitionRecord newRecord
-    );
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

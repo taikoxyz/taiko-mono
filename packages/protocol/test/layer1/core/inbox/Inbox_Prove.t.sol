@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Vm } from "forge-std/src/Vm.sol";
-
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -47,7 +45,7 @@ contract InboxProveTest is InboxTestHelper {
         // Prove all proposals
         IInbox.ProveInput[] memory inputs =
             _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
@@ -64,7 +62,7 @@ contract InboxProveTest is InboxTestHelper {
 
         IInbox.ProveInput[] memory inputs =
             _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
@@ -106,7 +104,7 @@ contract InboxProveTest is InboxTestHelper {
 
     function test_prove_RevertWhen_EmptyInputs() public {
         IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](0);
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.expectRevert(Inbox.EmptyProveInputs.selector);
         vm.prank(currentProver);
@@ -126,7 +124,7 @@ contract InboxProveTest is InboxTestHelper {
         });
 
         IInbox.ProveInput[] memory inputs = _createProveInput(fakeProposal, _getGenesisTransitionHash());
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
         vm.prank(currentProver);
@@ -140,7 +138,7 @@ contract InboxProveTest is InboxTestHelper {
 
         IInbox.ProveInput[] memory inputs =
             _createProveInput(payload.proposal, _getGenesisTransitionHash());
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.expectRevert("MockProofVerifier: invalid proof");
         vm.prank(currentProver);
@@ -335,11 +333,16 @@ contract InboxProveTest is InboxTestHelper {
     // Conflicting Transition Tests
     // ---------------------------------------------------------------
 
-    function test_prove_conflictingTransition_emitsEvent() public {
+    /// @dev Tests that when a conflicting transition is submitted, the original is kept unchanged
+    function test_prove_conflictingTransition_keepsOriginal() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // First proof
-        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+        IInbox.ProvedEventPayload memory firstProved =
+            _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        IInbox.TransitionRecord memory originalRecord =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         // Second proof with different checkpoint (conflict)
         IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
@@ -357,52 +360,24 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: _getGenesisTransitionHash()
         });
 
-        bytes memory proveData = inbox.encodeProveInput(conflictInputs);
-
-        vm.recordLogs();
-        vm.prank(currentProver);
-        inbox.prove(proveData, _createValidProof());
-
-        // Check for ConflictingTransition event
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertTrue(_hasConflictingTransitionEvent(logs), "Should emit ConflictingTransition event");
-    }
-
-    function test_prove_conflictingTransition_setsMaxDeadline() public {
-        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
-
-        // First proof
-        _proveProposal(payload.proposal, _getGenesisTransitionHash());
-
-        // Second proof with different checkpoint (conflict)
-        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
-        conflictInputs[0] = IInbox.ProveInput({
-            proposal: payload.proposal,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint40(block.number + 100),
-                blockHash: bytes32(uint256(999)),
-                stateRoot: bytes32(uint256(888))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
-            }),
-            parentTransitionHash: _getGenesisTransitionHash()
-        });
-
-        bytes memory proveData = inbox.encodeProveInput(conflictInputs);
+        bytes memory proveData = codex.encodeProveInput(conflictInputs);
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
 
-        // Check that finalization deadline is set to max
-        IInbox.TransitionRecord memory record =
+        // Check that the original record is kept unchanged
+        IInbox.TransitionRecord memory recordAfterConflict =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         assertEq(
-            record.finalizationDeadline,
-            type(uint40).max,
-            "Conflicting transition should have max deadline"
+            recordAfterConflict.transitionHash,
+            originalRecord.transitionHash,
+            "Transition hash should remain unchanged after conflicting proof"
+        );
+        assertEq(
+            recordAfterConflict.finalizationDeadline,
+            firstProved.finalizationDeadline,
+            "Finalization deadline should remain unchanged after conflicting proof"
         );
     }
 
@@ -457,7 +432,7 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: alternateParentHash
         });
 
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
 
@@ -473,8 +448,8 @@ contract InboxProveTest is InboxTestHelper {
         );
     }
 
-    /// @dev Tests conflicting transition on fallback mapping path
-    function test_prove_conflictingTransition_fallbackMapping() public {
+    /// @dev Tests conflicting transition on fallback mapping path - original is kept unchanged
+    function test_prove_conflictingTransition_fallbackMapping_keepsOriginal() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // First proof with genesis transition hash
@@ -498,9 +473,13 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: alternateParentHash
         });
 
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
+
+        // Record the original transition
+        IInbox.TransitionRecord memory originalRecord =
+            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
 
         // Now submit a conflicting proof with same alternate parent but different checkpoint
         IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
@@ -518,20 +497,24 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: alternateParentHash
         });
 
-        bytes memory conflictProveData = inbox.encodeProveInput(conflictInputs);
+        bytes memory conflictProveData = codex.encodeProveInput(conflictInputs);
 
-        vm.recordLogs();
         vm.prank(currentProver);
         inbox.prove(conflictProveData, _createValidProof());
 
-        // Verify ConflictingTransition event was emitted
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertTrue(_hasConflictingTransitionEvent(logs), "Should emit ConflictingTransition event on fallback mapping");
-
-        // Verify max deadline is set
-        IInbox.TransitionRecord memory record =
+        // Verify original record is kept unchanged
+        IInbox.TransitionRecord memory recordAfterConflict =
             inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
-        assertEq(record.finalizationDeadline, type(uint40).max, "Should set max deadline for conflict");
+        assertEq(
+            recordAfterConflict.transitionHash,
+            originalRecord.transitionHash,
+            "Transition hash should remain unchanged"
+        );
+        assertEq(
+            recordAfterConflict.finalizationDeadline,
+            originalRecord.finalizationDeadline,
+            "Finalization deadline should remain unchanged"
+        );
     }
 
     // ---------------------------------------------------------------

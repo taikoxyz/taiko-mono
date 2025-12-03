@@ -24,7 +24,7 @@
 | 233-235 | B4.1   | `hashCoreState == coreStateHash` (pass)                            | YES      | All successful propose tests                              |
 | 233-235 | B4.2   | `hashCoreState != coreStateHash` (revert)                          | YES      | test_propose_RevertWhen_InvalidState                      |
 | 242     | B5.1   | `_getAvailableCapacity > 0` (pass)                                 | YES      | All successful propose tests                              |
-| 242     | B5.2   | `_getAvailableCapacity == 0` (revert)                              | **NO**   | NotEnoughCapacity hard to trigger                         |
+| 242     | B5.2   | `_getAvailableCapacity == 0` (revert)                              | **NO**   | NoCapacity hard to trigger                                |
 | 257     | B6.1   | `!result.allowsPermissionless` (check proposer)                    | YES      | Most propose tests                                        |
 | 257     | B6.2   | `result.allowsPermissionless` (skip proposer check)                | YES      | test_propose_becomesPermissionless_whenForcedInclusionOld |
 
@@ -135,7 +135,7 @@
 
 ### High Priority (Error paths):
 
-1. **B5.2** - NotEnoughCapacity (hard to trigger, MissingProofProposal fires first)
+1. **B5.2** - NoCapacity (hard to trigger, MissingProofProposal fires first)
 2. ~~**B3.6** - InvalidLastProposalProof (ring buffer wrap scenario)~~ - COVERED
 3. ~~**B3.7** - NextProposalHashMismatch (ring buffer wrap scenario)~~ - COVERED
 
@@ -200,4 +200,4 @@
 
 ## Dead Code Analysis
 
-1. **NotEnoughCapacity error**: Analyzed and confirmed as unreachable code. The `MissingProofProposal` error always fires first in wrap-around scenarios (the only way to reach 0 capacity).
+1. **NoCapacity error**: Analyzed and confirmed as unreachable code. The `MissingProofProposal` error always fires first in wrap-around scenarios (the only way to reach 0 capacity).

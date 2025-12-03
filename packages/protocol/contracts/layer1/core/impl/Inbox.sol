@@ -6,7 +6,7 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibHashOptimized as H } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
@@ -215,7 +215,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             // Decode and validate input data
-            ProposeInput memory input = decodeProposeInput(_data);
+            ProposeInput memory input = LibProposeInputCodec.decode(_data);
 
             // Validate proposal input data
             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
@@ -227,17 +227,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 CannotProposeInCurrentBlock()
             );
 
-            // Verify parentProposals[0] is the head proposal. This will also veirfy there is
-            // at least one slot available in the ring buffer for a new proposal.
+            // Verify parentProposals[0] is the head proposal
             bytes32 headProposalHash = _verifyHeadProposal(input.headProposalAndProof);
 
             require(
-                hashCoreState(input.coreState) == input.headProposalAndProof[0].coreStateHash,
+                H.hashCoreState(input.coreState)
+                    == input.headProposalAndProof[0].coreStateHash,
                 InvalidState()
             );
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
             CoreState memory coreState = _finalize(input);
+
+            // Verify capacity for new proposals
+            require(_getAvailableCapacity(coreState) > 0, NoCapacity());
 
 
             // Consume forced inclusions (validation happens inside)
@@ -277,12 +280,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 timestamp: uint40(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                coreStateHash: hashCoreState(coreState),
-                derivationHash: hashDerivation(derivation),
+                coreStateHash: H.hashCoreState(coreState),
+                derivationHash: H.hashDerivation(derivation),
                 parentProposalHash: headProposalHash
             });
 
-            _proposalHashes[proposal.id % _ringBufferSize] = hashProposal(proposal);
+            _proposalHashes[proposal.id % _ringBufferSize] = H.hashProposal(proposal);
             _emitProposedEvent(proposal, derivation, coreState, input.transitions);
         }
     }
@@ -290,7 +293,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-            ProveInput[] memory inputs = decodeProveInput(_data);
+            ProveInput[] memory inputs = LibProveInputCodec.decode(_data);
             require(inputs.length != 0, EmptyProveInputs());
             uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
 
@@ -302,15 +305,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 bytes32 bondInstructionHash = bondInstructions.length == 0
                     ? bytes32(0)
-                    : hashBondInstruction(bondInstructions[0]);
+                    : H.hashBondInstruction(bondInstructions[0]);
 
                 Transition memory transition = Transition({
                     bondInstructionHash: bondInstructionHash,
-                    checkpointHash: hashCheckpoint(inputs[i].checkpoint)
+                    checkpointHash: H.hashCheckpoint(inputs[i].checkpoint)
                 });
 
                 TransitionRecord memory record = TransitionRecord({
-                    transitionHash: hashTransition(transition),
+                    transitionHash: H.hashTransition(transition),
                     finalizationDeadline: finalizationDeadline
                 });
 
@@ -326,7 +329,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 proposalAge = block.timestamp - inputs[0].proposal.timestamp;
             }
 
-            _proofVerifier.verifyProof(proposalAge, hashProveInputArray(inputs), _proof);
+            _proofVerifier.verifyProof(
+                proposalAge, H.hashProveInputArray(inputs), _proof
+            );
         }
     }
 
@@ -428,178 +433,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // External & Public Pure Functions - Codec
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes ProposeInput struct into compact bytes format.
-    /// @param _input The ProposeInput struct to encode.
-    /// @return Encoded bytes suitable for calldata.
-    function encodeProposeInput(ProposeInput memory _input) external pure returns (bytes memory) {
-        return LibProposeInputCodec.encode(_input);
-    }
-
-    /// @notice Decodes compact bytes into ProposeInput struct.
-    /// @param _data The encoded data to decode.
-    /// @return The decoded ProposeInput struct.
-    function decodeProposeInput(bytes calldata _data) public pure returns (ProposeInput memory) {
-        return LibProposeInputCodec.decode(_data);
-    }
-
-    /// @notice Encodes ProveInput array into compact bytes format.
-    /// @param _inputs The ProveInput array to encode.
-    /// @return Encoded bytes suitable for calldata.
-    function encodeProveInput(ProveInput[] memory _inputs) external pure returns (bytes memory) {
-        return LibProveInputCodec.encode(_inputs);
-    }
-
-    /// @notice Decodes compact bytes into ProveInput array.
-    /// @param _data The encoded data to decode.
-    /// @return The decoded ProveInput array.
-    function decodeProveInput(bytes calldata _data) public pure returns (ProveInput[] memory) {
-        return LibProveInputCodec.decode(_data);
-    }
-
-    /// @notice Encodes ProposedEventPayload into compact bytes for event emission.
-    /// @param _payload The payload to encode.
-    /// @return Encoded bytes emitted in Proposed event.
-    function encodeProposedEventData(ProposedEventPayload memory _payload)
-        public
-        pure
-        returns (bytes memory)
-    {
-        return LibProposedEventCodec.encode(_payload);
-    }
-
-    /// @notice Decodes Proposed event data into ProposedEventPayload struct.
-    /// @param _data The encoded event data to decode.
-    /// @return The decoded ProposedEventPayload struct.
-    function decodeProposedEventData(bytes calldata _data)
-        external
-        pure
-        returns (ProposedEventPayload memory)
-    {
-        return LibProposedEventCodec.decode(_data);
-    }
-
-    /// @notice Encodes ProvedEventPayload into compact bytes for event emission.
-    /// @param _payload The payload to encode.
-    /// @return Encoded bytes emitted in Proved event.
-    function encodeProvedEventData(ProvedEventPayload memory _payload)
-        public
-        pure
-        returns (bytes memory)
-    {
-        return LibProvedEventCodec.encode(_payload);
-    }
-
-    /// @notice Decodes Proved event data into ProvedEventPayload struct.
-    /// @param _data The encoded event data to decode.
-    /// @return The decoded ProvedEventPayload struct.
-    function decodeProvedEventData(bytes calldata _data)
-        external
-        pure
-        returns (ProvedEventPayload memory)
-    {
-        return LibProvedEventCodec.decode(_data);
-    }
-
-    // ---------------------------------------------------------------
-    // Public Pure Functions - Hashing
-    // ---------------------------------------------------------------
-
-    /// @notice Computes hash of a Checkpoint struct.
-    /// @param _checkpoint The checkpoint to hash.
-    /// @return The keccak256 hash of the checkpoint fields.
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashCheckpoint(_checkpoint);
-    }
-
-    /// @notice Computes hash of a CoreState struct.
-    /// @param _coreState The core state to hash.
-    /// @return The keccak256 hash of the core state fields.
-    function hashCoreState(CoreState memory _coreState) public pure returns (bytes32) {
-        return LibHashOptimized.hashCoreState(_coreState);
-    }
-
-    /// @notice Computes hash of a Derivation struct.
-    /// @param _derivation The derivation to hash.
-    /// @return The keccak256 hash of the derivation fields.
-    function hashDerivation(Derivation memory _derivation) public pure returns (bytes32) {
-        return LibHashOptimized.hashDerivation(_derivation);
-    }
-
-    /// @notice Computes hash of a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return The keccak256 hash of the proposal fields.
-    function hashProposal(Proposal memory _proposal) public pure returns (bytes32) {
-        return LibHashOptimized.hashProposal(_proposal);
-    }
-
-    /// @notice Computes truncated hash of a Transition struct.
-    /// @param _transition The transition to hash.
-    /// @return The keccak256 hash truncated to 27 bytes for storage optimization.
-    function hashTransition(Transition memory _transition) public pure returns (bytes27) {
-        return LibHashOptimized.hashTransition(_transition);
-    }
-
-    /// @notice Computes hash of a BondInstruction struct.
-    /// @param _bondInstruction The bond instruction to hash.
-    /// @return The keccak256 hash of the bond instruction fields.
-    function hashBondInstruction(LibBonds.BondInstruction memory _bondInstruction)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashBondInstruction(_bondInstruction);
-    }
-
-    /// @notice Computes hash of a BondInstructionMessage for L2 signaling.
-    /// @param _change The bond instruction message to hash.
-    /// @return The keccak256 hash used as signal service message.
-    function hashBondInstructionMessage(BondInstructionMessage memory _change)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashBondInstructionMessage(_change);
-    }
-
-    /// @notice Aggregates a bond instruction hash into the rolling hash.
-    /// @param _aggregatedBondInstructionHash The current aggregated hash.
-    /// @param _bondInstructionHash The new bond instruction hash to include.
-    /// @return The new aggregated hash.
-    function hashAggregatedBondInstructionsHash(
-        bytes32 _aggregatedBondInstructionHash,
-        bytes32 _bondInstructionHash
-    )
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashAggregatedBondInstructionsHash(
-            _aggregatedBondInstructionHash, _bondInstructionHash
-        );
-    }
-
-    /// @notice Computes hash of a blob hashes array.
-    /// @param _blobHashes The array of blob hashes to hash.
-    /// @return The keccak256 hash including array length for collision resistance.
-    function hashBlobHashesArray(bytes32[] memory _blobHashes) public pure returns (bytes32) {
-        return LibHashOptimized.hashBlobHashesArray(_blobHashes);
-    }
-
-    /// @notice Computes hash of ProveInput array for proof verification.
-    /// @param _inputs The array of prove inputs to hash.
-    /// @return The keccak256 hash passed to the proof verifier.
-    function hashProveInputArray(ProveInput[] memory _inputs) public pure returns (bytes32) {
-        return LibHashOptimized.hashProveInputArray(_inputs);
-    }
-
-    // ---------------------------------------------------------------
     // Private Functions - Activation
     // ---------------------------------------------------------------
 
@@ -613,7 +446,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         checkpoint.blockHash = _lastPacayaBlockHash;
 
         Transition memory transition;
-        transition.checkpointHash = hashCheckpoint(checkpoint);
+        transition.checkpointHash = H.hashCheckpoint(checkpoint);
 
         CoreState memory coreState;
         coreState.proposalHead = 0;
@@ -623,15 +456,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
         coreState.proposalHeadContainerBlock = 1;
-        coreState.finalizationHeadTransitionHash = hashTransition(transition);
+        coreState.finalizationHeadTransitionHash = H.hashTransition(transition);
 
         Proposal memory proposal;
-        proposal.coreStateHash = hashCoreState(coreState);
+        proposal.coreStateHash = H.hashCoreState(coreState);
 
         Derivation memory derivation;
-        proposal.derivationHash = hashDerivation(derivation);
+        proposal.derivationHash = H.hashDerivation(derivation);
 
-        _proposalHashes[0] = hashProposal(proposal);
+        _proposalHashes[0] = H.hashProposal(proposal);
 
         _emitProposedEvent(proposal, derivation, coreState, new Transition[](0));
     }
@@ -672,11 +505,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 require(_headProposalAndProof.length == 2, MissingProofProposal());
                 Proposal memory proofProposal = _headProposalAndProof[1];
                 require(headProposal.id > proofProposal.id, InvalidLastProposalProof());
-                require(nextSlotHash == hashProposal(proofProposal), NextProposalHashMismatch());
+                require(
+                    nextSlotHash == H.hashProposal(proofProposal),
+                    NextProposalHashMismatch()
+                );
             }
         }
     }
 
+    
+    /// @dev Calculates remaining capacity for new proposals
+    /// Subtracts unfinalized proposals from total capacity
+    /// @param _coreState Current state with proposal counters
+    /// @return _ Number of additional proposals that can be submitted
+    function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
+        unchecked {
+            return _ringBufferSize + _coreState.finalizationHead - _coreState.proposalHead- 1;
+        }
+    }
 
     // -------------------------------  --------------------------------
     // Private Functions - Forced Inclusion Flow
@@ -813,7 +659,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     _loadTransitionRecord(proposalId, coreState_.finalizationHeadTransitionHash);
 
                 if (record.transitionHash == 0) break;
-                if (record.finalizationDeadline == type(uint40).max) break;
 
                 if (i >= transitionCount) {
                     require(block.timestamp < record.finalizationDeadline, TransitionNotProvided());
@@ -821,7 +666,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 }
 
                 require(
-                    hashTransition(_input.transitions[i]) == record.transitionHash,
+                    H.hashTransition(_input.transitions[i]) == record.transitionHash,
                     TransitionHashMismatchWithStorage()
                 );
 
@@ -830,10 +675,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
-                    coreState_.aggregatedBondInstructionsHash = hashAggregatedBondInstructionsHash(
-                        coreState_.aggregatedBondInstructionsHash,
-                        _input.transitions[i].bondInstructionHash
-                    );
+                    coreState_.aggregatedBondInstructionsHash =
+                        H.hashAggregatedBondInstructionsHash(
+                            coreState_.aggregatedBondInstructionsHash,
+                            _input.transitions[i].bondInstructionHash
+                        );
                 }
 
                 proposalId += 1;
@@ -852,7 +698,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
             } else {
                 // Validate and checkpoint
-                bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
+                bytes32 checkpointHash = H.hashCheckpoint(_input.checkpoint);
                 require(
                     checkpointHash == _input.transitions[lastFinalizedIdx].checkpointHash,
                     CheckpointMismatch()
@@ -880,18 +726,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         unchecked {
-        _checkpointStore.saveCheckpoint(_checkpoint);
+            _checkpointStore.saveCheckpoint(_checkpoint);
 
-        // Signal bond instruction changes to L2 if any occurred
-        if (_coreState.aggregatedBondInstructionsHash != 0) {
-            BondInstructionMessage memory message = BondInstructionMessage({
-                firstProposalId: _coreState.synchronizationHead + 1,
-                lastProposalId: _coreState.finalizationHead,
-                aggregatedBondInstructionsHash: _coreState.aggregatedBondInstructionsHash
-            });
-            _signalService.sendSignal(hashBondInstructionMessage(message));
-            _coreState.aggregatedBondInstructionsHash = 0;
-        }
+            // Signal bond instruction changes to L2 if any occurred
+            if (_coreState.aggregatedBondInstructionsHash != 0) {
+                BondInstructionMessage memory message = BondInstructionMessage({
+                    firstProposalId: _coreState.synchronizationHead + 1,
+                    lastProposalId: _coreState.finalizationHead,
+                    aggregatedBondInstructionsHash: _coreState.aggregatedBondInstructionsHash
+                });
+                _signalService.sendSignal(H.hashBondInstructionMessage(message));
+                _coreState.aggregatedBondInstructionsHash = 0;
+            }
 
             _coreState.synchronizationHead = _coreState.finalizationHead;
         }
@@ -967,40 +813,37 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             firstRecord.parentTransitionHash = _parentTransitionHash;
             firstRecord.record = _record;
         } else if (firstRecord.parentTransitionHash == _parentTransitionHash) {
-            _updateTransitionRecord(firstRecord.record, _record, _proposalId, _parentTransitionHash);
+            // Same proposal and same parent - update the existing record
+            _updateTransitionRecord(firstRecord.record, _record);
         } else {
             // The first record is used with a different parentTransitionHash
             TransitionRecord storage existingRecord =
                 _transitionRecordFor(_proposalId, _parentTransitionHash);
-            _updateTransitionRecord(existingRecord, _record, _proposalId, _parentTransitionHash);
+            _updateTransitionRecord(existingRecord, _record);
         }
     }
 
-    /// @dev Updates an existing transition record, handling conflict detection.
-    ///      If a conflict is detected (different transition hash), emits ConflictingTransition
-    ///      and sets finalizationDeadline to max to prevent finalization.
+    /// @dev Updates an existing transition record.
+    ///      If the existing record is empty, stores the new record.
+    ///      If the new record has a different transition hash, the existing record is kept unchanged.
+    ///      If the transition hash matches, updates the finalization deadline.
     /// @param _existingRecord The storage pointer to the existing record
     /// @param _newRecord The new record data to apply
-    /// @param _proposalId The proposal ID (for event emission)
-    /// @param _parentTransitionHash The parent transition hash (for event emission)
     function _updateTransitionRecord(
         TransitionRecord storage _existingRecord,
-        TransitionRecord memory _newRecord,
-        uint40 _proposalId,
-        bytes27 _parentTransitionHash
+        TransitionRecord memory _newRecord
     )
         private
     {
-        if (_existingRecord.transitionHash != _newRecord.transitionHash) {
-            emit ConflictingTransition(
-                _proposalId, _parentTransitionHash, _existingRecord, _newRecord
-            );
-            // Conflict detected - prevent finalization by setting deadline to max
-            _existingRecord.finalizationDeadline = type(uint40).max;
-        } else {
+        if (_existingRecord.transitionHash == 0) {
+            // Empty slot - store the new record
+            _existingRecord.transitionHash = _newRecord.transitionHash;
+            _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
+        } else if (_existingRecord.transitionHash == _newRecord.transitionHash) {
+            // Same transition - update the finalization deadline
             _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
         }
-        _existingRecord.transitionHash = _newRecord.transitionHash;
+        // Different non-empty transition - keep the existing record unchanged
     }
 
     // ---------------------------------------------------------------
@@ -1052,7 +895,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (bytes32 proposalHash_)
     {
-        proposalHash_ = hashProposal(_proposal);
+        proposalHash_ = H.hashProposal(_proposal);
         bytes32 storedProposalHash = _loadProposalHash(_proposal.id);
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
@@ -1082,7 +925,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.composeTransitionKey(_proposalId, _parentTransitionHash);
+        return H.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
@@ -1108,7 +951,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             coreState: _coreState,
             transitions: _transitions
         });
-        emit Proposed(_proposal.id, encodeProposedEventData(payload));
+        emit Proposed(_proposal.id, LibProposedEventCodec.encode(payload));
     }
 
     /// @dev Emits a Proved event when a transition proof is submitted.
@@ -1128,7 +971,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             checkpoint: _input.checkpoint,
             bondInstructions: _bondInstructions
         });
-        emit Proved(_input.proposal.id, _input.parentTransitionHash, encodeProvedEventData(payload));
+        emit Proved(
+            _input.proposal.id, _input.parentTransitionHash, LibProvedEventCodec.encode(payload)
+        );
     }
 
     // ---------------------------------------------------------------
@@ -1149,6 +994,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error MissingProofProposal();
     error NextProposalHashMismatch();
     error NoProposalExists();
+    error NoCapacity();
     error ProposalHashMismatch();
     error RingBufferSizeZero();
     error TooManyProofProposals();

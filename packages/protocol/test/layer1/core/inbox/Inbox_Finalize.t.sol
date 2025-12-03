@@ -29,7 +29,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -109,7 +109,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload2.coreState,
                 _buildParentArray(payload2.proposal),
@@ -149,7 +149,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             checkpointHash: bytes32(uint256(888))
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -180,7 +180,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -207,7 +207,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         ICheckpointStore.Checkpoint memory wrongCheckpoint = proven.checkpoint;
         wrongCheckpoint.stateRoot = bytes32(uint256(999)); // Wrong state root
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -237,7 +237,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         transitions[0] = proven.transition;
         transitions[1] = proven.transition; // Extra transition
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload2.coreState,
                 _buildParentArray(payload2.proposal),
@@ -285,7 +285,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = inbox.encodeProposeInput(
+        bytes memory proposeData = codex.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -306,7 +306,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         for (uint256 i = logs.length; i > 0; --i) {
             if (logs[i - 1].topics.length > 0 && logs[i - 1].topics[0] == PROPOSED_EVENT_TOPIC) {
                 bytes memory eventData = abi.decode(logs[i - 1].data, (bytes));
-                finalizedPayload = inbox.decodeProposedEventData(eventData);
+                finalizedPayload = codex.decodeProposedEventData(eventData);
                 break;
             }
         }
@@ -325,116 +325,6 @@ contract InboxFinalizeTest is InboxTestHelper {
             finalizedPayload.coreState.synchronizationHead,
             0,
             "SynchronizationHead should remain 0 when sync is skipped"
-        );
-    }
-
-    // ---------------------------------------------------------------
-    // Conflicting Transition Finalization Tests
-    // ---------------------------------------------------------------
-
-    function test_finalize_stopsAtConflictingTransition() public {
-        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
-
-        // First proof - result not needed, just need to prove to create transition record
-        _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
-
-        // Create conflict by proving with different checkpoint
-        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
-        conflictInputs[0] = IInbox.ProveInput({
-            proposal: payload.proposal,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint40(block.number + 100),
-                blockHash: bytes32(uint256(999)),
-                stateRoot: bytes32(uint256(888))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
-            }),
-            parentTransitionHash: _getGenesisTransitionHash()
-        });
-
-        bytes memory proveData = inbox.encodeProveInput(conflictInputs);
-        vm.prank(currentProver);
-        inbox.prove(proveData, _createValidProof());
-
-        // Verify record has max deadline (unfinalizable)
-        IInbox.TransitionRecord memory record =
-            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
-        assertEq(
-            record.finalizationDeadline,
-            type(uint40).max,
-            "Conflicting transition should be unfinalizable"
-        );
-    }
-
-    /// @dev Tests that finalization breaks when encountering a conflicting transition (max deadline)
-    /// @notice Branch B16.3 - actually triggers the break when finalizationDeadline == max
-    function test_finalize_breaksAtConflictingTransition_duringFinalization() public {
-        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
-
-        // Prove the proposal (we don't need the result, just need transition record stored)
-        _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
-
-        // Create a conflict by proving with different checkpoint
-        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
-        conflictInputs[0] = IInbox.ProveInput({
-            proposal: payload.proposal,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint40(block.number + 100),
-                blockHash: bytes32(uint256(999)),
-                stateRoot: bytes32(uint256(888))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
-            }),
-            parentTransitionHash: _getGenesisTransitionHash()
-        });
-
-        bytes memory proveData = inbox.encodeProveInput(conflictInputs);
-        vm.prank(currentProver);
-        inbox.prove(proveData, _createValidProof());
-
-        // Verify record has max deadline (conflict occurred)
-        IInbox.TransitionRecord memory record =
-            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
-        assertEq(record.finalizationDeadline, type(uint40).max, "Should have max deadline from conflict");
-
-        // Now try to finalize - this should break at the max deadline check (B16.3)
-        // and NOT finalize the proposal (finalizationHead should remain 0)
-        _setupBlobHashes();
-        _rollOneBlock();
-
-        bytes memory proposeData = inbox.encodeProposeInput(
-            _buildFinalizeInput(
-                payload.coreState,
-                _buildParentArray(payload.proposal),
-                new IInbox.Transition[](0), // No transitions - finalization will break before checking
-                ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
-            )
-        );
-
-        vm.recordLogs();
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), proposeData);
-
-        // Decode Proposed event from logs
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        IInbox.ProposedEventPayload memory finalizedPayload;
-        for (uint256 i = logs.length; i > 0; --i) {
-            if (logs[i - 1].topics.length > 0 && logs[i - 1].topics[0] == PROPOSED_EVENT_TOPIC) {
-                bytes memory eventData = abi.decode(logs[i - 1].data, (bytes));
-                finalizedPayload = inbox.decodeProposedEventData(eventData);
-                break;
-            }
-        }
-
-        // Finalization should NOT have occurred because it broke at max deadline
-        assertEq(
-            finalizedPayload.coreState.finalizationHead,
-            0,
-            "Finalization should have stopped at conflicting transition (max deadline)"
         );
     }
 
@@ -485,7 +375,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             parentTransitionHash: _getGenesisTransitionHash()
         });
 
-        bytes memory proveData = inbox.encodeProveInput(inputs);
+        bytes memory proveData = codex.encodeProveInput(inputs);
 
         vm.recordLogs();
         vm.prank(currentProver);
@@ -497,10 +387,10 @@ contract InboxFinalizeTest is InboxTestHelper {
         assertEq(provedPayload.bondInstructions.length, 1, "Should have bond instruction");
 
         // Build the transition with bond instruction hash
-        bytes32 bondInstructionHash = inbox.hashBondInstruction(provedPayload.bondInstructions[0]);
+        bytes32 bondInstructionHash = codex.hashBondInstruction(provedPayload.bondInstructions[0]);
         IInbox.Transition memory transition = IInbox.Transition({
             bondInstructionHash: bondInstructionHash,
-            checkpointHash: inbox.hashCheckpoint(checkpoint)
+            checkpointHash: codex.hashCheckpoint(checkpoint)
         });
 
         // Finalize via next propose
@@ -523,7 +413,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -563,7 +453,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             stateRoot: bytes32(uint256(456))
         });
 
-        bytes memory proposeData = inbox.encodeProposeInput(input);
+        bytes memory proposeData = codex.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.InvalidCheckpoint.selector);
         vm.prank(currentProposer);
