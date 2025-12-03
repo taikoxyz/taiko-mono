@@ -12,6 +12,7 @@ forge bind \
   --select '^Inbox$' \
   --select '^CodecOptimized$' \
   --select '^Anchor$' \
+  --select '^LookaheadStore$' \
   --bindings-path crates/bindings \
   --crate-name bindings \
   --overwrite \
