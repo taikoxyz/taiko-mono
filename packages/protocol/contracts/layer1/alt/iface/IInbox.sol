@@ -110,7 +110,7 @@ interface IInbox {
         address actualProver;
     }
 
-    struct BondInstructionHashMessage { 
+    struct BondInstructionHashMessage {
         /// @notice The start proposal ID when the change occurred.
         uint40 startProposalId;
         /// @notice The end proposal ID when the change occurred.
@@ -171,7 +171,7 @@ interface IInbox {
         /// @notice The core state after the proposal.
         CoreState coreState;
         bytes27 parentTransitionHash;
-         Transition[] transitions;
+        Transition[] transitions;
     }
 
     /// @notice Payload data emitted in the Proved event

@@ -235,7 +235,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
-        bytes27 prevLastFinalizedTransitionHash = input.coreState.lastFinalizedTransitionHash;  
+            bytes27 prevLastFinalizedTransitionHash = input.coreState.lastFinalizedTransitionHash;
             CoreState memory coreState = _finalize(input);
 
             coreState.lastProposalBlockId = uint40(block.number);
@@ -285,7 +285,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             _proposalHashes[proposal.id % _ringBufferSize] = hashProposal(proposal);
-            _emitProposedEvent(proposal, derivation, coreState, prevLastFinalizedTransitionHash, input.transitions);
+            _emitProposedEvent(
+                proposal, derivation, coreState, prevLastFinalizedTransitionHash, input.transitions
+            );
         }
     }
 
@@ -535,8 +537,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibHashOptimized.hashBondInstructionHashMessage(_change);
     }
 
-    function hashAggregatedBondInstructionsHash(bytes32 _aggregatedBondInstructionHash, bytes32 _bondInstructionHash) public pure returns (bytes32) {
-        return LibHashOptimized.hashAggregatedBondInstructionsHash(_aggregatedBondInstructionHash, _bondInstructionHash);
+    function hashAggregatedBondInstructionsHash(
+        bytes32 _aggregatedBondInstructionHash,
+        bytes32 _bondInstructionHash
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return LibHashOptimized.hashAggregatedBondInstructionsHash(
+            _aggregatedBondInstructionHash, _bondInstructionHash
+        );
     }
 
     /// @dev Hashes blob hashes array.
@@ -792,12 +803,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
-                    coreState_.aggregatedBondInstructionsHash = (
-                        hashAggregatedBondInstructionsHash(
-                          coreState_.aggregatedBondInstructionsHash,
+                    coreState_.aggregatedBondInstructionsHash = (hashAggregatedBondInstructionsHash(
+                            coreState_.aggregatedBondInstructionsHash,
                             _input.transitions[i].bondInstructionHash
-                        )
-                    );
+                        ));
                 }
 
                 proposalId += 1;
@@ -833,9 +842,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         // Rate limit: skip if minimum delay hasn't elapsed since last sync
-        if (_coreState.lastSyncProposalId + _minSyncDelay < _coreState.lastFinalizedProposalId) return;
-
-       
+        if (_coreState.lastSyncProposalId + _minSyncDelay < _coreState.lastFinalizedProposalId) {
+            return;
+        }
 
         // Validate and persist checkpoint
         bytes32 checkpointHash = hashCheckpoint(_checkpoint);
@@ -854,7 +863,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _coreState.aggregatedBondInstructionsHash = bytes32(0);
         }
 
-         _coreState.lastSyncProposalId = _coreState.lastFinalizedProposalId;
+        _coreState.lastSyncProposalId = _coreState.lastFinalizedProposalId;
     }
 
     // ---------------------------------------------------------------
@@ -1039,10 +1048,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal, 
-            derivation: _derivation, 
-            coreState: _coreState, 
-            parentTransitionHash: _parentTransitionHash, 
+            proposal: _proposal,
+            derivation: _derivation,
+            coreState: _coreState,
+            parentTransitionHash: _parentTransitionHash,
             transitions: _transitions
         });
         emit Proposed(_proposal.id, encodeProposedEventData(payload));
