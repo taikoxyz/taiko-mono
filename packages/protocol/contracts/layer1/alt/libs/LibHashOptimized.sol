@@ -318,18 +318,18 @@ library LibHashOptimized {
     function _hashProveInput(IInbox.ProveInput memory _input) private pure returns (bytes32) {
         bytes32 proposalHash = hashProposal(_input.proposal);
         bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
-        bytes32 metadataHash = _hashProposalProofMetadata(_input.proofMetadata);
+        bytes32 metadataHash = _hashProofMetadata(_input.proofMetadata);
 
         return EfficientHashLib.hash(
             proposalHash, checkpointHash, metadataHash, _input.parentTransitionHash
         );
     }
 
-    /// @notice Hashes an array of ProposalProofMetadata efficiently
-    /// @dev Internal helper to hash ProposalProofMetadata array
+    /// @notice Hashes an array of ProofMetadata efficiently
+    /// @dev Internal helper to hash ProofMetadata array
     /// @param _metadatas The metadata array to hash
     /// @return The hash of the metadata array
-    function _hashProposalProofMetadataArray(IInbox.ProposalProofMetadata[] memory _metadatas)
+    function _hashProofMetadataArray(IInbox.ProofMetadata[] memory _metadatas)
         private
         pure
         returns (bytes32)
@@ -343,15 +343,15 @@ library LibHashOptimized {
             if (length == 1) {
                 return
                     EfficientHashLib.hash(
-                        bytes32(length), _hashProposalProofMetadata(_metadatas[0])
+                        bytes32(length), _hashProofMetadata(_metadatas[0])
                     );
             }
 
             if (length == 2) {
                 return EfficientHashLib.hash(
                     bytes32(length),
-                    _hashProposalProofMetadata(_metadatas[0]),
-                    _hashProposalProofMetadata(_metadatas[1])
+                    _hashProofMetadata(_metadatas[0]),
+                    _hashProofMetadata(_metadatas[1])
                 );
             }
 
@@ -359,7 +359,7 @@ library LibHashOptimized {
             EfficientHashLib.set(buffer, 0, bytes32(length));
 
             for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(buffer, i + 1, _hashProposalProofMetadata(_metadatas[i]));
+                EfficientHashLib.set(buffer, i + 1, _hashProofMetadata(_metadatas[i]));
             }
 
             bytes32 result = EfficientHashLib.hash(buffer);
@@ -368,11 +368,11 @@ library LibHashOptimized {
         }
     }
 
-    /// @notice Hashes a single ProposalProofMetadata efficiently
-    /// @dev Internal helper to hash ProposalProofMetadata struct
+    /// @notice Hashes a single ProofMetadata efficiently
+    /// @dev Internal helper to hash ProofMetadata struct
     /// @param _metadata The metadata to hash
     /// @return The hash of the metadata
-    function _hashProposalProofMetadata(IInbox.ProposalProofMetadata memory _metadata)
+    function _hashProofMetadata(IInbox.ProofMetadata memory _metadata)
         private
         pure
         returns (bytes32)

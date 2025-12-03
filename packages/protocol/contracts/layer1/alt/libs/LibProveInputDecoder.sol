@@ -75,7 +75,7 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.stateRoot);
 
         // Encode proofMetadatas array
-        newPtr_ = _encodeProposalProofMetadata(newPtr_, _input.proofMetadata);
+        newPtr_ = _encodeProofMetadata(newPtr_, _input.proofMetadata);
 
         // Encode parentTransitionHash
         newPtr_ = P.packBytes32(newPtr_, _input.parentTransitionHash);
@@ -99,10 +99,10 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
     }
 
-    /// @notice Encode a single ProposalProofMetadata
-    function _encodeProposalProofMetadata(
+    /// @notice Encode a single ProofMetadata
+    function _encodeProofMetadata(
         uint256 _ptr,
-        IInbox.ProposalProofMetadata memory _metadata
+        IInbox.ProofMetadata memory _metadata
     )
         private
         pure
@@ -129,7 +129,7 @@ library LibProveInputDecoder {
         (input_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode proofMetadatas array
-        (input_.proofMetadata, newPtr_) = _decodeProposalProofMetadata(newPtr_);
+        (input_.proofMetadata, newPtr_) = _decodeProofMetadata(newPtr_);
 
         // Decode parentTransitionHash
         (input_.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
@@ -150,11 +150,11 @@ library LibProveInputDecoder {
         (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Decode a single ProposalProofMetadata
-    function _decodeProposalProofMetadata(uint256 _ptr)
+    /// @notice Decode a single ProofMetadata
+    function _decodeProofMetadata(uint256 _ptr)
         private
         pure
-        returns (IInbox.ProposalProofMetadata memory metadata_, uint256 newPtr_)
+        returns (IInbox.ProofMetadata memory metadata_, uint256 newPtr_)
     {
         (metadata_.proposer, newPtr_) = P.unpackAddress(_ptr);
         (metadata_.proposalTimestamp, newPtr_) = P.unpackUint40(newPtr_);
@@ -179,7 +179,7 @@ library LibProveInputDecoder {
 
                 // Checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32) = 70
 
-                // ProposalProofMetadata: proposer(20) + proposalTimestamp(5) + designatedProver(20) +
+                // ProofMetadata: proposer(20) + proposalTimestamp(5) + designatedProver(20) +
                 // actualProver(20) = 65
 
                 // parentTransitionHash: 32

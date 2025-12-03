@@ -891,7 +891,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// prover)
     function _calculateBondInstructions(
         uint40 _proposalId,
-        IInbox.ProposalProofMetadata memory _proofMetadata
+        IInbox.ProofMetadata memory _proofMetadata
     )
         private
         view
