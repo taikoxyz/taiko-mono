@@ -124,6 +124,18 @@ impl Default for NetworkConfig {
     }
 }
 
+/// Logical grouping for the resolved connection caps and dial factor returned by
+/// `NetworkConfig::resolve_connection_caps`.
+pub type ConnectionCaps = (
+    Option<u32>, // pending inbound cap
+    Option<u32>, // pending outbound cap
+    Option<u32>, // established inbound cap
+    Option<u32>, // established outbound cap
+    Option<u32>, // total established cap
+    Option<u32>, // established per peer cap
+    u8,          // dial concurrency factor
+);
+
 impl NetworkConfig {
     /// Convenience constructor that sets `chain_id` and keeps all other defaults.
     pub fn for_chain(chain_id: u64) -> Self {
@@ -131,9 +143,7 @@ impl NetworkConfig {
     }
 
     /// Apply the connection preset, returning the resolved limits and dial factor.
-    pub(crate) fn resolve_connection_caps(
-        &self,
-    ) -> (Option<u32>, Option<u32>, Option<u32>, Option<u32>, Option<u32>, Option<u32>, u8) {
+    pub(crate) fn resolve_connection_caps(&self) -> ConnectionCaps {
         let (pend_in, pend_out, est_in, est_out, est_total, per_peer, dial) = match self
             .connection_preset
         {

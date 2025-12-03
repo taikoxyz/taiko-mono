@@ -62,6 +62,8 @@ impl NetBehaviour {
             // Align max frame size with preconfirmation_types::MAX_GOSSIP_SIZE_BYTES (spec cap).
             .max_transmit_size(MAX_GOSSIP_SIZE_BYTES)
             .heartbeat_interval(cfg.gossipsub_heartbeat)
+            // Keep permissive to allow anonymous messages in tests; app-level validation still
+            // enforced.
             .validation_mode(gossipsub::ValidationMode::Permissive)
             .build()
             .map_err(|e| anyhow::anyhow!("gossipsub config: {e}"))?;
@@ -75,10 +77,18 @@ impl NetBehaviour {
             .subscribe(&topics.1)
             .map_err(|e| anyhow::anyhow!("subscribe raw txlists: {e}"))?;
 
+        // Reuse kona_peers light preset (keeps Kona tuning) and override thresholds to the spec
+        // values. We keep ValidationMode permissive/unsigned for test stability; signed/strict
+        // validation should be enabled upstream once transport/signing policy is settled.
         use kona_peers::PeerScoreLevel;
         let topic_hashes = vec![topics.0.hash().clone(), topics.1.hash().clone()];
         if let Some(params) = PeerScoreLevel::Light.to_params(topic_hashes, true, 2) {
-            let thresholds = PeerScoreLevel::thresholds();
+            let mut thresholds = PeerScoreLevel::thresholds();
+            thresholds.gossip_threshold = -1.0;
+            thresholds.publish_threshold = -2.0;
+            thresholds.graylist_threshold = -5.0;
+            thresholds.accept_px_threshold = 0.0;
+            thresholds.opportunistic_graft_threshold = 0.5;
             let _ = gossipsub.with_peer_score(params, thresholds);
         }
 

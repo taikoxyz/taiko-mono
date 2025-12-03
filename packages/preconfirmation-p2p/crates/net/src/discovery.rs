@@ -5,8 +5,7 @@
 //! configuration for discovery, the events it can emit, and a function
 //! to spawn the discovery service.
 
-use std::net::SocketAddr;
-use std::time::Instant;
+use std::{net::SocketAddr, time::Instant};
 
 use crate::config::DiscoveryPreset;
 use discv5::ListenConfig;

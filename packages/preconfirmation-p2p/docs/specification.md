@@ -51,8 +51,8 @@ Preconfirmation := container {
   coinbase: Bytes20,                       # fee recipient for the block
   anchorBlockNumber: uint256,              # L1 block number chosen as the anchor
   rawTxListHash: Bytes32,                  # keccak256(rawTxList(this block))
-  parentPreconfirmationHash: Bytes32,      # keccak256(SSZ(PreconfCommitment(parent)))
-  submissionWindowEnd: uint256,            # unix timestamp of the end of the L2 slot
+  parentPreconfirmationHash: Bytes32,      # keccak256(SSZ(Preconfirmation(parent)))
+  submissionWindowEnd: uint256,            # unix timestamp of the end of the preconf window of the current preconfer
   proverAuth: Bytes20,                     # prover authorization for the block
   proposalId: uint256                      # proposal identifier for the block
 }
@@ -60,9 +60,9 @@ Preconfirmation := container {
 
 Notes:
 
-- `eop=true` denotes an EOP-only preconf if no txlist will be executed for this slot by the preconfer.
+- `eop=true` denotes an EOP-only preconf **iff** no transaction list is provided for the slot (`rawTxListHash == 0x00`).
 - `anchorBlockNumber` is the L1 block number (anchor ID) selected for this block’s anchor transaction.
-- `parentPreconfirmationHash` links to the parent commitment and is computed as `keccak256(SSZ(PreconfCommitment(parent)))` (excluding the parent signature). It is part of the signing preimage for this block.
+- `parentPreconfirmationHash` links to the parent commitment and is computed as `keccak256(SSZ(Preconfirmation(parent)))` (excluding the parent signature). It is part of the signing preimage for this block.
 - The additional block parameters (`timestamp`, `gasLimit`, `coinbase`, `proverAuth`, `proposalId`) are part of the commitment and subject to slashing if contradicted on L1.
 
 ### 3.2 PreconfCommitment
@@ -137,7 +137,7 @@ MUST REJECT if any of the following hold:
     - `p.timestamp`, `p.gasLimit`, `p.coinbase`, `p.proverAuth`, or `p.proposalId` violate the chain’s derivation rules (e.g., timestamp drift bounds, gas limit progression, correct coinbase/prover authorization per lookahead/URC configuration).
 
 EOP-only handling:
-- If `p.eop == true` and the local sidecar has no intention to execute a block for this slot, the sidecar MUST treat this as a handoff signal (advance the expected preconfer to the next committer per schedule). Any further non-EOP preconfs by the same committer for the same window SHOULD be considered misbehavior (basis for slashing evidence; outside this P2P scope).
+- If `p.eop == true` and the local sidecar does not expect a transaction list for this slot (`rawTxListHash == 0x00`), the sidecar MUST treat this as a handoff signal (advance the expected preconfer to the next committer per schedule). Any further non-EOP preconfs by the same committer for the same window SHOULD be considered misbehavior (basis for slashing evidence; outside this P2P scope).
 
 Client execution checks (out of P2P):
 - Before executing the L2 block, the client MUST ensure that `keccak256(txlist) == p.rawTxListHash` and MUST use the L1 anchor corresponding to `p.anchorBlockNumber` to construct the anchor transaction.
@@ -159,11 +159,14 @@ Ordering: Sidecars MAY publish the txlist first (or concurrently) and the commit
 Upon receiving a `SignedCommitment`:
 
 1. Validate per section 5.
-    - If the local lookahead schedule for `p.submissionWindowEnd` is not yet available (e.g., still syncing the lookahead), implementations MAY buffer the commitment as “pending schedule”; during this ph
-    ase they SHOULD only enforce hash‑chain linkage via `parentPreconfirmationHash` and defer all other validation until the schedule is known (or drop per local policy). No on‑chain lookups are required in
+    - If the local lookahead schedule for `p.submissionWindowEnd` is not yet available (e.g., still syncing the lookahead), implementations MAY buffer the commitment as “pending schedule”; during this phase they SHOULD only enforce hash‑chain linkage via `parentPreconfirmationHash` and defer all other validation until the schedule is known (or drop per local policy). No on‑chain lookups are required in
     the hot path.
 2. If valid and `eop=false`, the client SHOULD look up the txlist by `p.rawTxListHash` in its local cache (populated by `/rawTxLists`) or via §12, verify the hash, reconstruct the L2 block (anchorTx from `p.anchorBlockNumber` + txlist) using the committed block parameters (`timestamp`, `gasLimit`, `coinbase`, `proverAuth`, `proposalId`), execute, and advance local L2 head.
-3. If valid and `eop=true`, update local schedule state to reflect handoff to the next committer for subsequent slots.
+3. If valid and `eop=true` and:
+    1.  **`rawTxListHash != 0x0`, d**o the same execution flow as in step (2), **and then** update local schedule state to reflect handoff to the next committer.
+    
+    2. **`rawTxListHash == 0x00`**, no execution is required. Update local schedule state to reflect handoff to the next committer for subsequent slots.
+    
 
 Startup and catch‑up:
 - After beacon‑syncing the L2 execution engine to the latest on‑chain tip, sidecars SHOULD synchronize missing preconfirmation metadata via the req/resp commitment sync (§11), then subscribe for live updates on `/preconfirmationCommitments`.
@@ -181,6 +184,21 @@ On L1 reorgs affecting any `anchorBlockNumber` in the executed range, implementa
 - Deduplication: Implementations SHOULD deduplicate commitments per `(slot, signer)` and per `(blockNumber, rawTxListHash)`; txlists per `rawTxListHash`.
 - Size caps: Implementations MUST enforce a maximum txlist size and discard oversized `RawTxListGossip` messages.
 - Self‑messages: Implementations MUST ignore messages originating from the local sidecar.
+- Peer scoring: Implementations MUST integrate gossipsub peer scoring feedback to penalize peers whose messages fail validation (e.g., wrong signer for the slot), to reduce repeated spam from misbehaving peers.
+
+### 7.1 Gossipsub Scoring Profile
+
+The following scoring profile is normative for all preconfirmation topics unless overridden by network configuration:
+
+- Enable gossipsub v1.1 scoring with application feedback.
+- App feedback MUST apply a negative delta on validation failure (bad signature, wrong slot signer, hash mismatch, oversized txlist) and a small positive delta on acceptance/forward; defaults: ‑0.5 per failure (cap ‑2 per 10s per peer), +0.05 per acceptance (with a cap).
+- Parameters (defaults to be exposed/configurable but supported):
+    - decay: ~0.9 per 10s tick; `appScore` clamp: [‑10, +10]; `topicWeight` : 1.0.
+    - `invalidMessageDeliveriesWeight`: 1.0; `invalidMessageDeliveriesDecay`: 0.99; cap at ‑10.
+    - `firstMessageDeliveriesWeight`: 0.5; `firstMessageDeliveriesDecay`: 0.999; cap at 20.
+    - `timeInMeshQuantum`: 1s; `timeInMeshCap`: 3600s.
+- Enforcement MUST drop peers below score ‑1, prune below ‑2, and ban (disconnect + ignore) below ‑5 sustained >30s (or stricter).
+- Implementations MUST NOT penalize buffered commitments awaiting lookahead availability; only score once validation can definitively succeed/fail.
 
 ## 8. Parameters and Constants
 
@@ -193,18 +211,18 @@ On L1 reorgs affecting any `anchorBlockNumber` in the executed range, implementa
 - Permissionless mode MUST NOT publish to legacy preconf block topics. Sidecars MAY continue to subscribe during migration but SHOULD treat them as deprecated.
 - The `preconfirmationCommitments` topic is the primary and sufficient channel for permissionless preconf metadata.
 
-## 11. Req/Resp Preconfirmation Sync
+## 10. Req/Resp Preconfirmation Sync
 
 This section defines a libp2p stream‑based request/response commitment catch‑up mechanism for sidecars that start or rejoin the network after missing preconfirmation gossip. It transfers only preconfirmation metadata (SignedCommitment), not txlists.
 
-### 11.1 Protocol IDs
+### 10.1 Protocol IDs
 
 All requests are libp2p stream-based req/resp methods (eth-like). Suggested protocol ID namespace:
 
 - `/taiko/<chainID>/preconf/1/get_head`
 - `/taiko/<chainID>/preconf/1/get_commitments_by_number`
 
-### 11.2 Messages (SSZ)
+### 10.2 Messages (SSZ)
 
 GetHead (no request body):
 
@@ -236,13 +254,13 @@ Constraints:
 - Responders MUST cap `maxCount` and the total response bytes.
 - Receivers MUST validate each `SignedCommitment` per §5.
 
-### 11.2.1 Transport Framing and Encoding
+### 10.2.1 Transport Framing and Encoding
 
 - Each request and response is a single SSZ container, sent as one length‑delimited frame on the libp2p stream. A varint length prefix (per libp2p) MUST bound the frame size.
 - Default encoding is raw SSZ. Networks MAY negotiate SSZ+compression (e.g., ssz_snappy) as an extension; if enabled, both request and response MUST use the same encoding.
 - Chunking: Responses SHOULD fit within a single frame under the configured `MAX_COMMITMENTS_PER_RESPONSE` and byte caps. If chunking is implemented, each chunk MUST be a valid `GetCommitmentsByNumberResponse` with a non‑overlapping subrange.
 
-### 11.3 Behavior
+### 10.3 Behavior
 
 Requester (catch‑up):
 - After beacon‑sync, call `get_head` to discover peer preconf head P.
@@ -252,20 +270,20 @@ Requester (catch‑up):
 Responder:
 - Rate‑limit per peer; deduplicate repeated requests; respond with ordered commitments up to limits.
 
-### 11.4 DoS and Limits
+### 10.4 DoS and Limits
 
 - Apply per‑peer rate limits and response byte caps.
 - Ignore stale/malformed ranges.
 
-## 12. Req/Resp RawTxList Retrieval
+## 11. Req/Resp RawTxList Retrieval
 
 This section defines a libp2p stream‑based request/response txlist catch‑up mechanism for sidecars that missed raw txlists while offline. It retrieves only txlists by their content hash. Live operation SHOULD rely on the preconfer’s publication of txlists; this mechanism is for backfill.
 
-### 12.1 Protocol ID
+### 11.1 Protocol ID
 
 - `/taiko/<chainID>/preconf/1/get_raw_txlist`
 
-### 12.2 Messages
+### 11.2 Messages
 
 GetRawTxList (request):
 
@@ -289,13 +307,13 @@ Constraints:
 - Responders MUST ensure `keccak256(txlist) == rawTxListHash` before serving.
 - Responders SHOULD cap the maximum response size per chain config (e.g., `BlockMaxTxListBytes`).
 
-### 12.2.1 Transport Framing and Encoding
+### 11.2.1 Transport Framing and Encoding
 
 - Each request and response is a single SSZ container (request) or length‑delimited binary (response) on the libp2p stream.
 - The `txlist` field carries compressed RLP bytes; compression algorithm is defined by chain configuration (e.g., zlib). The outer message is not additionally compressed unless peers negotiate a compression extension (e.g., ssz_snappy for the container sans `txlist`).
 - A varint length prefix (per libp2p) MUST bound each frame.
 
-### 12.3 Behavior
+### 11.3 Behavior
 
 Requester:
 - For each validated commitment lacking a local txlist, call `get_raw_txlist{ rawTxListHash }`.
@@ -304,7 +322,7 @@ Requester:
 Responder:
 - Serve available txlists keyed by hash; rate‑limit and deduplicate per peer/hash.
 
-### 12.4 DoS and Limits
+### 11.4 DoS and Limits
 
 - Apply per‑peer rate limits and response byte caps.
 - Reject malformed/oversized responses.

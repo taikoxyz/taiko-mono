@@ -4340,6 +4340,7 @@ dependencies = [
  "libp2p",
  "preconfirmation-net",
  "preconfirmation-types",
+ "secp256k1 0.30.0",
  "serde",
  "thiserror 2.0.17",
  "tokio",

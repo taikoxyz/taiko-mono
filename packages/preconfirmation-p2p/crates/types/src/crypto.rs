@@ -17,7 +17,7 @@ use sha3::{Digest, Keccak256};
 use ssz_rs::prelude::*;
 
 use crate::{
-    types::{Bytes65, PreconfCommitment, SignedCommitment},
+    types::{Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment},
     validation::CryptoError,
 };
 
@@ -50,6 +50,12 @@ pub fn keccak256_bytes(data: impl AsRef<[u8]>) -> B256 {
 /// if SSZ serialization fails.
 pub fn keccak256_ssz<T: SimpleSerialize>(value: &T) -> Result<B256, CryptoError> {
     keccak256_ssz_with_domain(value, &crate::constants::DOMAIN_PRECONF)
+}
+
+/// Keccak-256 hash of a `Preconfirmation` (used for parent linkage).
+/// The message is SSZ-serialized without any domain separation per spec §3.1.
+pub fn preconfirmation_hash(preconf: &Preconfirmation) -> Result<B256, CryptoError> {
+    Ok(keccak256_bytes(ssz_rs::serialize(preconf).map_err(CryptoError::Ssz)?))
 }
 
 /// Keccak-256 hash of SSZ bytes with an explicit 32-byte domain separator.

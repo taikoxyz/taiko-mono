@@ -4,31 +4,33 @@
 
 use preconfirmation_service::{NetworkConfig, P2pService};
 use preconfirmation_types::{
-    Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
+    Bytes20, Bytes32, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
+    sign_commitment,
 };
+use secp256k1::SecretKey;
 use tokio::time::{Duration, sleep};
 
 // Helper to build a dummy signed commitment (signature bytes zeroed for demo only).
 fn dummy_commitment() -> SignedCommitment {
-    SignedCommitment {
-        commitment: PreconfCommitment {
-            preconf: Preconfirmation {
-                eop: false,
-                block_number: Uint256::from(1u64),
-                timestamp: Uint256::from(1u64),
-                gas_limit: Uint256::from(1u64),
-                coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
-                anchor_block_number: Uint256::from(1u64),
-                raw_tx_list_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
-                parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
-                submission_window_end: Uint256::from(1u64),
-                prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
-                proposal_id: Uint256::from(1u64),
-            },
-            slasher_address: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+    let commitment = PreconfCommitment {
+        preconf: Preconfirmation {
+            eop: false,
+            block_number: Uint256::from(1u64),
+            timestamp: Uint256::from(1u64),
+            gas_limit: Uint256::from(1u64),
+            coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+            anchor_block_number: Uint256::from(1u64),
+            raw_tx_list_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+            submission_window_end: Uint256::from(1u64),
+            prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+            proposal_id: Uint256::from(1u64),
         },
-        signature: Bytes65::try_from(vec![0u8; 65]).unwrap(),
-    }
+        slasher_address: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+    };
+    let sk = SecretKey::from_slice(&[7u8; 32]).expect("secret key");
+    let signature = sign_commitment(&commitment, &sk).expect("sign");
+    SignedCommitment { commitment, signature }
 }
 
 #[tokio::main]

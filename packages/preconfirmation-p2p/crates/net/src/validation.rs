@@ -14,8 +14,8 @@ use libp2p::PeerId;
 
 use preconfirmation_types::{
     GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
-    validate_commitments_response, validate_head_response, validate_raw_txlist_gossip,
-    validate_raw_txlist_response, verify_signed_commitment,
+    validate_commitments_response, validate_head_response, validate_preconfirmation_basic,
+    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment,
 };
 
 /// Adapter trait for validating inbound gossip and request/response payloads.
@@ -66,7 +66,9 @@ impl ValidationAdapter for LocalValidationAdapter {
         _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        verify_signed_commitment(msg).map(|_| ()).map_err(|e| e.to_string())
+        verify_signed_commitment(msg).map_err(|e| e.to_string()).and_then(|_| {
+            validate_preconfirmation_basic(&msg.commitment.preconf).map_err(|e| e.to_string())
+        })
     }
 
     /// Validate a raw txlist gossip message using local SSZ/size rules.

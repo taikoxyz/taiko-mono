@@ -33,7 +33,7 @@ pub enum NetworkCommand {
         /// the request can be sent to any connected peer.
         peer: Option<PeerId>,
     },
-    /// Request the peer's current preconfirmation head (spec §11) from a specific
+    /// Request the peer's current preconfirmation head (spec §10) from a specific
     /// `peer` (if specified) or any suitable peer.
     RequestHead {
         /// The `PeerId` of the specific peer to send the request to. If `None`,
@@ -45,5 +45,17 @@ pub enum NetworkCommand {
     UpdateHead {
         /// The new `PreconfHead` to be served.
         head: preconfirmation_types::PreconfHead,
+    },
+    /// TODO: lookahead wiring temporarily disabled; retained for API compatibility.
+    SetScheduleReady {
+        /// True when schedule data is available for validation.
+        ready: bool,
+    },
+    /// TODO: lookahead wiring temporarily disabled; retained for API compatibility.
+    UpsertParentPreconf {
+        /// Hash of the parent preconfirmation.
+        hash: Bytes32,
+        /// Parent preconfirmation body.
+        preconf: preconfirmation_types::Preconfirmation,
     },
 }

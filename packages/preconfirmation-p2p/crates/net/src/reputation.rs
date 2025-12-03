@@ -12,7 +12,7 @@
 //! management, while this module focuses on application-level reputation.
 
 use libp2p::PeerId;
-use reth_network_types::peers::reputation::{BANNED_REPUTATION, ReputationChangeWeights};
+use reth_network_types::peers::reputation::ReputationChangeWeights;
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, Instant},
@@ -36,9 +36,9 @@ pub enum PeerAction {
 }
 
 pub type PeerScore = f64;
-const DEFAULT_BAN_THRESHOLD: PeerScore = BANNED_REPUTATION as PeerScore;
-const DEFAULT_GREYLIST_THRESHOLD: PeerScore = DEFAULT_BAN_THRESHOLD / 2.0;
-const SUCCESS_REWARD: PeerScore = 1.0;
+const DEFAULT_BAN_THRESHOLD: PeerScore = -5.0; // spec ban threshold
+const DEFAULT_GREYLIST_THRESHOLD: PeerScore = -2.0; // spec prune/grey threshold
+const SUCCESS_REWARD: PeerScore = 0.05; // acceptance delta
 
 /// Represents the current reputation score of a peer.
 #[derive(Debug, Clone)]
@@ -243,8 +243,9 @@ pub struct ReputationEvent {
 
 fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerScore {
     match action {
-        // Gossip scoring is handled by Kona gossipsub; ignore locally to avoid double-counting.
-        PeerAction::GossipValid | PeerAction::GossipInvalid => 0.0,
+        // Apply lightweight app feedback per spec §7.1
+        PeerAction::GossipValid => SUCCESS_REWARD,
+        PeerAction::GossipInvalid => -0.5,
         // Reward successful RPCs modestly so decay can heal peers.
         PeerAction::ReqRespSuccess => SUCCESS_REWARD,
         PeerAction::ReqRespError => weights

@@ -11,10 +11,10 @@ use thiserror::Error;
 
 use crate::{
     constants::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES},
-    crypto::keccak256_bytes,
+    crypto::{keccak256_bytes, preconfirmation_hash},
     types::{
         Bytes32, GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
-        GetRawTxListResponse, PreconfHead, RawTxListGossip, TxListBytes,
+        GetRawTxListResponse, PreconfHead, Preconfirmation, RawTxListGossip, TxListBytes,
     },
 };
 
@@ -34,6 +34,12 @@ pub enum ValidationError {
     /// Indicates that a txlist hash does not match the advertised hash.
     #[error("txlist hash mismatch: expected {expected}, got {actual}")]
     TxListHashMismatch { expected: String, actual: String },
+    /// Indicates an invalid combination of EOP flag and raw tx list hash.
+    #[error("eop flag requires raw_tx_list_hash to be zero or non-zero consistently")]
+    EopTxListMismatch,
+    /// Indicates the supplied parent hash does not match the computed preconfirmation hash.
+    #[error("parent_preconfirmation_hash mismatch")]
+    ParentPreconfirmationHashMismatch,
 }
 
 /// Errors raised during crypto/hash/sign operations.
@@ -130,6 +136,29 @@ pub fn validate_commitments_response(
     let len = resp.commitments.len();
     if len > MAX_COMMITMENTS_PER_RESPONSE {
         return Err(ValidationError::TooManyCommitments(len, MAX_COMMITMENTS_PER_RESPONSE));
+    }
+    Ok(())
+}
+
+/// Validate basic preconfirmation invariants that do not require chain context.
+/// - EOP must be set iff the raw tx list hash is all zeros (spec §3.1 notes).
+pub fn validate_preconfirmation_basic(preconf: &Preconfirmation) -> Result<(), ValidationError> {
+    let is_zero_hash = preconf.raw_tx_list_hash.iter().all(|b| *b == 0);
+    if preconf.eop != is_zero_hash {
+        return Err(ValidationError::EopTxListMismatch);
+    }
+    Ok(())
+}
+
+/// Validate that a supplied parent hash matches the computed hash of the parent preconfirmation.
+pub fn validate_parent_hash(
+    parent_preconfirmation_hash: &Bytes32,
+    parent: &Preconfirmation,
+) -> Result<(), ValidationError> {
+    let expected = preconfirmation_hash(parent)
+        .map_err(|_| ValidationError::ParentPreconfirmationHashMismatch)?;
+    if expected.as_slice() != parent_preconfirmation_hash.as_ref() {
+        return Err(ValidationError::ParentPreconfirmationHashMismatch);
     }
     Ok(())
 }

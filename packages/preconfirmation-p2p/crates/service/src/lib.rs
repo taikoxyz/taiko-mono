@@ -170,6 +170,14 @@ impl P2pService {
                 format!("invalid commitment signature: {e}"),
             )
         })?;
+        preconfirmation_types::validate_preconfirmation_basic(&msg.commitment.preconf).map_err(
+            |e| {
+                NetworkError::new(
+                    NetworkErrorKind::ReqRespValidation,
+                    format!("invalid commitment body: {e}"),
+                )
+            },
+        )?;
         self.command_tx.send(NetworkCommand::PublishCommitment(msg)).await.map_err(|e| {
             NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
         })
@@ -349,7 +357,7 @@ impl P2pService {
     }
 
     /// Requests a peer's preconfirmation head using the `get_head` request-response protocol (spec
-    /// §11).
+    /// §10).
     ///
     /// If `peer` is `None`, the network driver selects a suitable peer.
     /// This sends a `RequestHead` command to the network driver.
@@ -587,8 +595,10 @@ mod tests {
             fanout_handle: None,
         };
 
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
 
         struct CountingHandler {
             seen: Arc<AtomicUsize>,

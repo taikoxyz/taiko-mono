@@ -19,5 +19,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 clap = { workspace = true, features = ["derive", "env"] }
+secp256k1.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber.workspace = true

@@ -78,9 +78,9 @@ pub struct RawTxListGossip {
     pub txlist: TxListBytes, // compressed RLP(tx list)
 }
 
-// ---------- Req/Resp (spec §11, §12) ----------
+// ---------- Req/Resp (spec §10, §11) ----------
 
-/// Represents the current head of preconfirmations, used in `get_head` response (spec §11.2).
+/// Represents the current head of preconfirmations, used in `get_head` response (spec §10.2).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct PreconfHead {
     /// The block number of the current preconfirmation head.
@@ -89,7 +89,7 @@ pub struct PreconfHead {
     pub submission_window_end: Uint256,
 }
 
-/// Empty container used as the request body for `get_head` req/resp (spec §11.1).
+/// Empty container used as the request body for `get_head` req/resp (spec §10.1).
 ///
 /// Kept as an SSZ container with a zero-capacity list to satisfy SSZ shape requirements
 /// while carrying no data.
@@ -100,7 +100,7 @@ pub struct GetHeadRequest {
     pub reserved: List<u8, 0>,
 }
 
-/// Request for commitments by block number (spec §12.1).
+/// Request for commitments by block number (spec §10.1).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetCommitmentsByNumberRequest {
     /// Starting block number from which to request commitments.
@@ -109,7 +109,7 @@ pub struct GetCommitmentsByNumberRequest {
     pub max_count: u32,
 }
 
-/// Response for commitments by block number (spec §12.2).
+/// Response for commitments by block number (spec §10.2).
 #[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetCommitmentsByNumberResponse {
@@ -117,14 +117,14 @@ pub struct GetCommitmentsByNumberResponse {
     pub commitments: CommitmentList,
 }
 
-/// Request for a raw transaction list by hash (spec §12.3).
+/// Request for a raw transaction list by hash (spec §11.2).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetRawTxListRequest {
     /// Hash of the raw transaction list being requested.
     pub raw_tx_list_hash: Bytes32,
 }
 
-/// Response for a raw transaction list (spec §12.4).
+/// Response for a raw transaction list (spec §11.3).
 #[allow(clippy::collapsible_if)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct GetRawTxListResponse {
