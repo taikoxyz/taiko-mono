@@ -5,7 +5,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
-import { ICodex } from "src/layer1/core/iface/ICodex.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codex } from "src/layer1/core/impl/Codex.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
