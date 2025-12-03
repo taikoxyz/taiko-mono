@@ -275,6 +275,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	}
 
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
+		p.ctx,
 		baseLevelProofProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,

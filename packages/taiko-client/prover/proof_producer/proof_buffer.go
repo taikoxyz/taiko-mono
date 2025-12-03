@@ -114,6 +114,9 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 
 	pb.buffer = newBuffer
 	pb.isAggregating = false
+	if len(pb.buffer) == 0 {
+		pb.firstItemAt = time.Time{}
+	}
 	return clearedCount
 }
 
