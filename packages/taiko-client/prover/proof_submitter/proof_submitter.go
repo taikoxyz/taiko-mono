@@ -111,7 +111,7 @@ func NewProofSubmitterPacaya(
 		proofPollingInterval:      proofPollingInterval,
 	}
 
-	proofSubmitter.StartProofBufferMonitors(ctx)
+	proofSubmitter.startProofBufferMonitors(ctx)
 
 	return proofSubmitter, nil
 }
@@ -282,8 +282,8 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	return false
 }
 
-// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation.
-func (s *ProofSubmitterPacaya) StartProofBufferMonitors(ctx context.Context) {
+// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation, only be called once during initialization.
+func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
 	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
 }
 
