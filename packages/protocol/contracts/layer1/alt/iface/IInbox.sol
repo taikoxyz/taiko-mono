@@ -170,7 +170,6 @@ interface IInbox {
         Derivation derivation;
         /// @notice The core state after the proposal.
         CoreState coreState;
-        bytes27 parentTransitionHash;
         Transition[] transitions;
     }
 

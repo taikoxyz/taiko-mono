@@ -235,7 +235,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // Finalize proposals before proposing a new one to free ring buffer space and prevent deadlock
-            bytes27 prevLastFinalizedTransitionHash = input.coreState.lastFinalizedTransitionHash;
             CoreState memory coreState = _finalize(input);
 
             coreState.lastProposalBlockId = uint40(block.number);
@@ -286,7 +285,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             _proposalHashes[proposal.id % _ringBufferSize] = hashProposal(proposal);
             _emitProposedEvent(
-                proposal, derivation, coreState, prevLastFinalizedTransitionHash, input.transitions
+                proposal, derivation, coreState, input.transitions
             );
         }
     }
@@ -598,7 +597,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _proposalHashes[0] = hashProposal(proposal);
 
-        _emitProposedEvent(proposal, derivation, coreState, bytes27(0), new Transition[](0));
+        _emitProposedEvent(proposal, derivation, coreState, new Transition[](0));
     }
 
     // ---------------------------------------------------------------
@@ -1042,7 +1041,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         Proposal memory _proposal,
         Derivation memory _derivation,
         CoreState memory _coreState,
-        bytes27 _parentTransitionHash,
         Transition[] memory _transitions
     )
         private
@@ -1051,7 +1049,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proposal: _proposal,
             derivation: _derivation,
             coreState: _coreState,
-            parentTransitionHash: _parentTransitionHash,
             transitions: _transitions
         });
         emit Proposed(_proposal.id, encodeProposedEventData(payload));
