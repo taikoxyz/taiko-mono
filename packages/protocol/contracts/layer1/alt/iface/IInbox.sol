@@ -116,7 +116,7 @@ interface IInbox {
         /// @notice The end proposal ID when the change occurred.
         uint40 endProposalId;
         /// @notice The hash of the bond instructions.
-        bytes32 bondInstructionsHash;
+        bytes32 aggregatedBondInstructionsHash;
     }
 
     /// @notice Represents the core state of the inbox.

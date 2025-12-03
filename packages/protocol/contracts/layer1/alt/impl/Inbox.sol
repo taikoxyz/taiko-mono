@@ -873,10 +873,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             BondInstructionMessage memory message = BondInstructionMessage({
                 startProposalId: _coreState.synchronizationHead + 1,
                 endProposalId: _coreState.finalizationHead,
-                bondInstructionsHash: _coreState.aggregatedBondInstructionsHash
+                aggregatedBondInstructionsHash: _coreState.aggregatedBondInstructionsHash
             });
             _signalService.sendSignal(hashBondInstructionMessage(message));
-            _coreState.aggregatedBondInstructionsHash = bytes32(0);
+            _coreState.aggregatedBondInstructionsHash = 0;
         }
 
         _coreState.synchronizationHead = _coreState.finalizationHead;
