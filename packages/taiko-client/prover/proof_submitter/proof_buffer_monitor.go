@@ -20,9 +20,6 @@ func startProofBufferMonitors(
 	}
 
 	for proofType, buffer := range proofBuffers {
-		proofType := proofType
-		buffer := buffer
-
 		go monitorProofBuffer(ctx, proofType, buffer, forceBatchProvingInterval, tryAggregate)
 	}
 }
