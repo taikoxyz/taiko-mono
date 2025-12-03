@@ -365,8 +365,8 @@ func (s *ProofSubmitterShasta) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	if !buffer.IsAggregating() &&
 		(uint64(buffer.Len()) >= buffer.MaxLength ||
 			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.batchAggregationNotify <- proofType
 		buffer.MarkAggregating()
+		s.batchAggregationNotify <- proofType
 		return true
 	}
 	return false
