@@ -300,7 +300,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _checkProposalHash(inputs[i].proposal);
 
                 LibBonds.BondInstruction[] memory bondInstructions =
-                    _calculateBondInstructions(inputs[i].proposal.id, inputs[i].proofMetadata);
+                    _calculateBondInstructions(inputs[i].proposal.id, inputs[i].metadata);
 
                 Transition memory transition = Transition({
                     bondInstructionsHash: hashBondInstructionArray(bondInstructions),
@@ -853,26 +853,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
     ///           differs from proposer
     /// @param _proposalId The proposal ID
-    /// @param _proofMetadata The proof metadata containing timing and prover info
+    /// @param _metadata The transition metadata containing timing and prover info
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
     function _calculateBondInstructions(
         uint40 _proposalId,
-        IInbox.ProofMetadata memory _proofMetadata
+        IInbox.metadata memory _metadata
     )
         private
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
-        uint256 windowEnd = _proofMetadata.proposalTimestamp + _provingWindow;
+        uint256 windowEnd = _metadata.proposalTimestamp + _provingWindow;
         if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
 
-        uint256 extendedWindowEnd = _proofMetadata.proposalTimestamp + _extendedProvingWindow;
+        uint256 extendedWindowEnd = _metadata.proposalTimestamp + _extendedProvingWindow;
         bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
         bool needsBondInstruction = isWithinExtendedWindow
-            ? (_proofMetadata.actualProver != _proofMetadata.designatedProver)
-            : (_proofMetadata.actualProver != _proofMetadata.proposer);
+            ? (_metadata.actualProver != _metadata.designatedProver)
+            : (_metadata.actualProver != _metadata.proposer);
 
         if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
 
@@ -883,9 +883,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 ? LibBonds.BondType.LIVENESS
                 : LibBonds.BondType.PROVABILITY,
             payer: isWithinExtendedWindow
-                ? _proofMetadata.designatedProver
-                : _proofMetadata.proposer,
-            payee: _proofMetadata.actualProver
+                ? _metadata.designatedProver
+                : _metadata.proposer,
+            payee: _metadata.actualProver
         });
     }
 

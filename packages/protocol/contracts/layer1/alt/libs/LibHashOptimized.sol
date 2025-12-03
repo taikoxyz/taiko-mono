@@ -320,58 +320,19 @@ library LibHashOptimized {
     function _hashProveInput(IInbox.ProveInput memory _input) private pure returns (bytes32) {
         bytes32 proposalHash = hashProposal(_input.proposal);
         bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
-        bytes32 metadataHash = _hashProofMetadata(_input.proofMetadata);
+        bytes32 metadataHash = _hashmetadata(_input.metadata);
 
         return EfficientHashLib.hash(
             proposalHash, checkpointHash, metadataHash, bytes32(_input.parentTransitionHash)
         );
     }
 
-    /// @notice Hashes an array of ProofMetadata efficiently
-    /// @dev Internal helper to hash ProofMetadata array
-    /// @param _metadatas The metadata array to hash
-    /// @return The hash of the metadata array
-    function _hashProofMetadataArray(IInbox.ProofMetadata[] memory _metadatas)
-        private
-        pure
-        returns (bytes32)
-    {
-        unchecked {
-            uint256 length = _metadatas.length;
-            if (length == 0) {
-                return EMPTY_BYTES_HASH;
-            }
 
-            if (length == 1) {
-                return EfficientHashLib.hash(bytes32(length), _hashProofMetadata(_metadatas[0]));
-            }
-
-            if (length == 2) {
-                return EfficientHashLib.hash(
-                    bytes32(length),
-                    _hashProofMetadata(_metadatas[0]),
-                    _hashProofMetadata(_metadatas[1])
-                );
-            }
-
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
-            EfficientHashLib.set(buffer, 0, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(buffer, i + 1, _hashProofMetadata(_metadatas[i]));
-            }
-
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
-        }
-    }
-
-    /// @notice Hashes a single ProofMetadata efficiently
-    /// @dev Internal helper to hash ProofMetadata struct
+    /// @notice Hashes a single metadata efficiently
+    /// @dev Internal helper to hash metadata struct
     /// @param _metadata The metadata to hash
     /// @return The hash of the metadata
-    function _hashProofMetadata(IInbox.ProofMetadata memory _metadata)
+    function _hashmetadata(IInbox.metadata memory _metadata)
         private
         pure
         returns (bytes32)

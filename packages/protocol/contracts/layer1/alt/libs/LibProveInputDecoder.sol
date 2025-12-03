@@ -74,8 +74,8 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _input.checkpoint.stateRoot);
 
-        // Encode proofMetadatas array
-        newPtr_ = _encodeProofMetadata(newPtr_, _input.proofMetadata);
+        // Encode metadata 
+        newPtr_ = _encodeProofMetadata(newPtr_, _input.metadata);
 
         // Encode parentTransitionHash
         newPtr_ = P.packBytes27(newPtr_, _input.parentTransitionHash);
@@ -102,7 +102,7 @@ library LibProveInputDecoder {
     /// @notice Encode a single ProofMetadata
     function _encodeProofMetadata(
         uint256 _ptr,
-        IInbox.ProofMetadata memory _metadata
+        IInbox.metadata memory _metadata
     )
         private
         pure
@@ -128,8 +128,8 @@ library LibProveInputDecoder {
         (input_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (input_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
 
-        // Decode proofMetadatas array
-        (input_.proofMetadata, newPtr_) = _decodeProofMetadata(newPtr_);
+        // Decode metadata 
+        (input_.metadata, newPtr_) = _decodeTransitionMetadata(newPtr_);
 
         // Decode parentTransitionHash
         (input_.parentTransitionHash, newPtr_) = P.unpackBytes27(newPtr_);
@@ -151,10 +151,10 @@ library LibProveInputDecoder {
     }
 
     /// @notice Decode a single ProofMetadata
-    function _decodeProofMetadata(uint256 _ptr)
+    function _decodeTransitionMetadata(uint256 _ptr)
         private
         pure
-        returns (IInbox.ProofMetadata memory metadata_, uint256 newPtr_)
+        returns (IInbox.metadata memory metadata_, uint256 newPtr_)
     {
         (metadata_.proposer, newPtr_) = P.unpackAddress(_ptr);
         (metadata_.proposalTimestamp, newPtr_) = P.unpackUint40(newPtr_);
