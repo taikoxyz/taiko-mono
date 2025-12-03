@@ -33,6 +33,9 @@ func monitorProofBuffer(
 	forceBatchProvingInterval time.Duration,
 	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
 ) {
+	if tryAggregate == nil {
+		return
+	}
 	ticker := time.NewTicker(forceBatchProvingInterval)
 	defer ticker.Stop()
 
