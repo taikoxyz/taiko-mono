@@ -60,10 +60,10 @@ library LibHashOptimized {
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
         unchecked {
-            // Pack origin block number and basefee sharing percentage
+            // Pack origin block number (uint40 = 40 bits) and basefee sharing percentage (uint8 = 8 bits)
             bytes32 packedFields = bytes32(
-                (uint256(_derivation.originBlockNumber) << 208)
-                    | (uint256(_derivation.basefeeSharingPctg) << 192)
+                (uint256(_derivation.originBlockNumber) << 216)
+                    | (uint256(_derivation.basefeeSharingPctg) << 208)
             );
 
             // Hash the sources array
@@ -105,10 +105,10 @@ library LibHashOptimized {
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
         unchecked {
-            // Pack numeric fields together
+            // Pack numeric fields together (each uint40 = 40 bits)
             bytes32 packedFields = bytes32(
-                (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                    | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
+                (uint256(_proposal.id) << 216) | (uint256(_proposal.timestamp) << 176)
+                    | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 136)
             );
 
             return EfficientHashLib.hash(
