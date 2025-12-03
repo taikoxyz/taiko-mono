@@ -823,10 +823,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Aggregate bond instruction hash
                 if (_input.transitions[i].bondInstructionHash != 0) {
-                    coreState_.aggregatedBondInstructionsHash = (hashAggregatedBondInstructionsHash(
+                    coreState_.aggregatedBondInstructionsHash = hashAggregatedBondInstructionsHash(
                             coreState_.aggregatedBondInstructionsHash,
                             _input.transitions[i].bondInstructionHash
-                        ));
+                        );
                 }
 
                 proposalId += 1;
@@ -837,10 +837,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(finalizedCount == transitionCount, IncorrectTransitionCount());
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
-            if (finalizedCount > 0) {
-                Transition memory lastFinalizedTransition = _input.transitions[lastFinalizedIdx];
+            if (finalizedCount > 0 && coreState_.finalizationHead > coreState_.synchronizationHead + _minSyncDelay) {
+                   // Validate and checkpoint
+        bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
+        require(checkpointHash == _input.transitions[lastFinalizedIdx].checkpointHash, CheckpointMismatch());
 
-                _syncToLayer2(_input.checkpoint, lastFinalizedTransition.checkpointHash, coreState_);
+                _syncToLayer2(_input.checkpoint,  coreState_);
             }
         }
     }
@@ -852,24 +854,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      2. Validates and persists checkpoint to checkpoint store
     ///      3. If bond instructions changed, sends signal to L2 via signal service
     /// @param _checkpoint The checkpoint data to persist
-    /// @param _lastVerifiedCheckpointHash Expected hash for checkpoint validation
     /// @param _coreState Core state to update (synchronizationHead, aggregatedBondInstructionsHash)
     function _syncToLayer2(
         ICheckpointStore.Checkpoint memory _checkpoint,
-        bytes32 _lastVerifiedCheckpointHash,
         CoreState memory _coreState
     )
         private
     {
-        // Rate limit: skip if minimum delay hasn't elapsed since last sync
-        if (_coreState.synchronizationHead + _minSyncDelay < _coreState.finalizationHead) {
-            return;
-        }
-
-        // Validate and persist checkpoint
-        bytes32 checkpointHash = hashCheckpoint(_checkpoint);
-        require(checkpointHash == _lastVerifiedCheckpointHash, CheckpointMismatch());
-
+     
         _checkpointStore.saveCheckpoint(_checkpoint);
 
         // Signal bond instruction changes to L2 if any occurred
