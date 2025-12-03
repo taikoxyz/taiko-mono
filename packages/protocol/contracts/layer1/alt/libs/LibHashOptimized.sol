@@ -356,5 +356,4 @@ library LibHashOptimized {
             bytes32(uint256(uint160(_metadata.actualProver)))
         );
     }
-
 }
