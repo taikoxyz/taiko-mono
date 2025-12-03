@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ICodex } from "../iface/ICodex.sol";
+import { ICodec } from "../iface/ICodec.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized as H } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
@@ -11,15 +11,15 @@ import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-/// @title Codex
+/// @title Codec
 /// @notice Codec contract wrapping lib functions for encoding, decoding, and hashing
 /// @custom:security-contact security@taiko.xyz
-contract Codex is ICodex {
+contract Codec is ICodec {
     // ---------------------------------------------------------------
     // ProposeInput Codec Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function encodeProposeInput(IInbox.ProposeInput calldata _input)
         external
         pure
@@ -28,7 +28,7 @@ contract Codex is ICodex {
         return LibProposeInputCodec.encode(_input);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function decodeProposeInput(bytes calldata _data)
         external
         pure
@@ -41,7 +41,7 @@ contract Codex is ICodex {
     // ProveInput Codec Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function encodeProveInput(IInbox.ProveInput[] calldata _inputs)
         external
         pure
@@ -50,7 +50,7 @@ contract Codex is ICodex {
         return LibProveInputCodec.encode(_inputs);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function decodeProveInput(bytes calldata _data)
         external
         pure
@@ -63,7 +63,7 @@ contract Codex is ICodex {
     // ProposedEvent Codec Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function encodeProposedEventData(IInbox.ProposedEventPayload calldata _payload)
         external
         pure
@@ -72,7 +72,7 @@ contract Codex is ICodex {
         return LibProposedEventCodec.encode(_payload);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function decodeProposedEventData(bytes calldata _data)
         external
         pure
@@ -85,7 +85,7 @@ contract Codex is ICodex {
     // ProvedEvent Codec Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function encodeProvedEventData(IInbox.ProvedEventPayload calldata _payload)
         external
         pure
@@ -94,7 +94,7 @@ contract Codex is ICodex {
         return LibProvedEventCodec.encode(_payload);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function decodeProvedEventData(bytes calldata _data)
         external
         pure
@@ -107,7 +107,7 @@ contract Codex is ICodex {
     // Hashing Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         pure
@@ -116,12 +116,12 @@ contract Codex is ICodex {
         return H.hashCheckpoint(_checkpoint);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
         return H.hashCoreState(_coreState);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashDerivation(IInbox.Derivation calldata _derivation)
         external
         pure
@@ -130,12 +130,12 @@ contract Codex is ICodex {
         return H.hashDerivation(_derivation);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return H.hashProposal(_proposal);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashTransition(IInbox.Transition calldata _transition)
         external
         pure
@@ -144,7 +144,7 @@ contract Codex is ICodex {
         return H.hashTransition(_transition);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
         external
         pure
@@ -153,7 +153,7 @@ contract Codex is ICodex {
         return H.hashBondInstruction(_bondInstruction);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashBondInstructionMessage(IInbox.BondInstructionMessage calldata _change)
         external
         pure
@@ -162,7 +162,7 @@ contract Codex is ICodex {
         return H.hashBondInstructionMessage(_change);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashAggregatedBondInstructionsHash(
         bytes32 _aggregatedBondInstructionHash,
         bytes32 _bondInstructionHash
@@ -176,12 +176,12 @@ contract Codex is ICodex {
         );
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashBlobHashesArray(bytes32[] calldata _blobHashes) external pure returns (bytes32) {
         return H.hashBlobHashesArray(_blobHashes);
     }
 
-    /// @inheritdoc ICodex
+    /// @inheritdoc ICodec
     function hashProveInputArray(IInbox.ProveInput[] calldata _inputs)
         external
         pure

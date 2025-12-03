@@ -6,7 +6,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Codex } from "src/layer1/core/impl/Codex.sol";
+import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -73,7 +73,7 @@ abstract contract InboxTestHelper is CommonTest {
     // ---------------------------------------------------------------
 
     Inbox public inbox;
-    Codex public codex;
+    Codec public codec;
     MockProofVerifier public proofVerifier;
     MockProposerChecker public proposerChecker;
     SignalService public signalService;
@@ -124,8 +124,8 @@ abstract contract InboxTestHelper is CommonTest {
     }
 
     function _deployDependencies() internal {
-        // Deploy codex for encoding/decoding/hashing
-        codex = new Codex();
+        // Deploy codec for encoding/decoding/hashing
+        codec = new Codec();
 
         // Deploy mock proof verifier
         proofVerifier = new MockProofVerifier();
@@ -159,7 +159,7 @@ abstract contract InboxTestHelper is CommonTest {
 
     function _createDefaultConfig() internal view returns (IInbox.Config memory) {
         return IInbox.Config({
-            codec: address(codex),
+            codec: address(codec),
             proofVerifier: address(proofVerifier),
             proposerChecker: address(proposerChecker),
             checkpointStore: address(checkpointStore),
@@ -192,7 +192,7 @@ abstract contract InboxTestHelper is CommonTest {
 
     function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         IInbox.Transition memory transition;
-        transition.checkpointHash = codex.hashCheckpoint(
+        transition.checkpointHash = codec.hashCheckpoint(
             ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0
             })
@@ -203,19 +203,19 @@ abstract contract InboxTestHelper is CommonTest {
             proposalHeadContainerBlock: 1,
             finalizationHead: 0,
             synchronizationHead: 0,
-            finalizationHeadTransitionHash: codex.hashTransition(transition),
+            finalizationHeadTransitionHash: codec.hashTransition(transition),
             aggregatedBondInstructionsHash: bytes32(0)
         });
     }
 
     function _getGenesisTransitionHash() internal view returns (bytes27) {
         IInbox.Transition memory transition;
-        transition.checkpointHash = codex.hashCheckpoint(
+        transition.checkpointHash = codec.hashCheckpoint(
             ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: GENESIS_BLOCK_HASH, stateRoot: 0
             })
         );
-        return codex.hashTransition(transition);
+        return codec.hashTransition(transition);
     }
 
     function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
@@ -227,8 +227,8 @@ abstract contract InboxTestHelper is CommonTest {
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
             proposer: address(0),
-            coreStateHash: codex.hashCoreState(coreState),
-            derivationHash: codex.hashDerivation(derivation),
+            coreStateHash: codec.hashCoreState(coreState),
+            derivationHash: codec.hashDerivation(derivation),
             parentProposalHash: bytes32(0)
         });
     }
@@ -460,9 +460,9 @@ abstract contract InboxTestHelper is CommonTest {
                 // Chain transitions for consecutive proposals
                 IInbox.Transition memory transition = IInbox.Transition({
                     bondInstructionHash: bytes32(0),
-                    checkpointHash: codex.hashCheckpoint(checkpoint)
+                    checkpointHash: codec.hashCheckpoint(checkpoint)
                 });
-                parentHash = codex.hashTransition(transition);
+                parentHash = codec.hashTransition(transition);
             }
         }
 
@@ -483,7 +483,7 @@ abstract contract InboxTestHelper is CommonTest {
             vm.roll(2);
         }
 
-        bytes memory proposeData = codex.encodeProposeInput(_createFirstProposeInput());
+        bytes memory proposeData = codec.encodeProposeInput(_createFirstProposeInput());
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -501,7 +501,7 @@ abstract contract InboxTestHelper is CommonTest {
 
         IInbox.ProposeInput memory input =
             _createConsecutiveProposeInput(_prevPayload.proposal, _prevPayload.coreState);
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -537,7 +537,7 @@ abstract contract InboxTestHelper is CommonTest {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -576,7 +576,7 @@ abstract contract InboxTestHelper is CommonTest {
             Vm.Log memory entry = logs[i - 1];
             if (entry.topics.length > 0 && entry.topics[0] == PROPOSED_EVENT_TOPIC) {
                 bytes memory eventData = abi.decode(entry.data, (bytes));
-                return codex.decodeProposedEventData(eventData);
+                return codec.decodeProposedEventData(eventData);
             }
         }
 
@@ -590,7 +590,7 @@ abstract contract InboxTestHelper is CommonTest {
             Vm.Log memory entry = logs[i - 1];
             if (entry.topics.length > 0 && entry.topics[0] == PROVED_EVENT_TOPIC) {
                 bytes memory eventData = abi.decode(entry.data, (bytes));
-                return codex.decodeProvedEventData(eventData);
+                return codec.decodeProvedEventData(eventData);
             }
         }
 
@@ -607,7 +607,7 @@ abstract contract InboxTestHelper is CommonTest {
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics.length > 0 && logs[i].topics[0] == PROVED_EVENT_TOPIC) {
                 bytes memory eventData = abi.decode(logs[i].data, (bytes));
-                payloads[index++] = codex.decodeProvedEventData(eventData);
+                payloads[index++] = codec.decodeProvedEventData(eventData);
             }
         }
 
@@ -652,7 +652,7 @@ abstract contract InboxTestHelper is CommonTest {
         returns (IInbox.ProvedEventPayload memory)
     {
         IInbox.ProveInput[] memory inputs = _createProveInput(_proposal, _parentTransitionHash);
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.recordLogs();
         vm.prank(currentProver);
@@ -673,7 +673,7 @@ abstract contract InboxTestHelper is CommonTest {
         IInbox.ProveInput[] memory inputs = _createProveInputWithMetadata(
             _proposal, _parentTransitionHash, _designatedProver, _actualProver
         );
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.recordLogs();
         vm.prank(_actualProver);
@@ -690,7 +690,7 @@ abstract contract InboxTestHelper is CommonTest {
         returns (ProvenProposal memory)
     {
         IInbox.ProveInput[] memory inputs = _createProveInput(_proposal, _parentTransitionHash);
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.recordLogs();
         vm.prank(currentProver);
@@ -700,14 +700,14 @@ abstract contract InboxTestHelper is CommonTest {
 
         IInbox.Transition memory transition = IInbox.Transition({
             bondInstructionHash: bytes32(0),
-            checkpointHash: codex.hashCheckpoint(provedPayload.checkpoint)
+            checkpointHash: codec.hashCheckpoint(provedPayload.checkpoint)
         });
 
         return ProvenProposal({
             proposal: _proposal,
             transition: transition,
             checkpoint: provedPayload.checkpoint,
-            transitionHash: codex.hashTransition(transition),
+            transitionHash: codec.hashTransition(transition),
             finalizationDeadline: provedPayload.finalizationDeadline
         });
     }

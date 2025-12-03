@@ -30,7 +30,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -111,7 +111,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload2.coreState,
                 _buildParentArray(payload2.proposal),
@@ -151,7 +151,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             checkpointHash: bytes32(uint256(888))
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -183,7 +183,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -211,7 +211,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         ICheckpointStore.Checkpoint memory wrongCheckpoint = proven.checkpoint;
         wrongCheckpoint.stateRoot = bytes32(uint256(999)); // Wrong state root
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -242,7 +242,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         transitions[0] = proven.transition;
         transitions[1] = proven.transition; // Extra transition
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload2.coreState,
                 _buildParentArray(payload2.proposal),
@@ -291,7 +291,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         _setupBlobHashes();
         _rollOneBlock();
 
-        bytes memory proposeData = codex.encodeProposeInput(
+        bytes memory proposeData = codec.encodeProposeInput(
             _buildFinalizeInput(
                 payload.coreState,
                 _buildParentArray(payload.proposal),
@@ -312,7 +312,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         for (uint256 i = logs.length; i > 0; --i) {
             if (logs[i - 1].topics.length > 0 && logs[i - 1].topics[0] == PROPOSED_EVENT_TOPIC) {
                 bytes memory eventData = abi.decode(logs[i - 1].data, (bytes));
-                finalizedPayload = codex.decodeProposedEventData(eventData);
+                finalizedPayload = codec.decodeProposedEventData(eventData);
                 break;
             }
         }
@@ -384,7 +384,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             parentTransitionHash: _getGenesisTransitionHash()
         });
 
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.recordLogs();
         vm.prank(currentProver);
@@ -396,10 +396,10 @@ contract InboxFinalizeTest is InboxTestHelper {
         assertEq(provedPayload.bondInstructions.length, 1, "Should have bond instruction");
 
         // Build the transition with bond instruction hash
-        bytes32 bondInstructionHash = codex.hashBondInstruction(provedPayload.bondInstructions[0]);
+        bytes32 bondInstructionHash = codec.hashBondInstruction(provedPayload.bondInstructions[0]);
         IInbox.Transition memory transition = IInbox.Transition({
             bondInstructionHash: bondInstructionHash,
-            checkpointHash: codex.hashCheckpoint(checkpoint)
+            checkpointHash: codec.hashCheckpoint(checkpoint)
         });
 
         // Finalize via next propose
@@ -422,7 +422,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -462,7 +462,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             stateRoot: bytes32(uint256(456))
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.InvalidCheckpoint.selector);
         vm.prank(currentProposer);
