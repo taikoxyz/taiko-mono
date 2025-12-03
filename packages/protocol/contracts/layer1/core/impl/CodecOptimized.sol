@@ -144,15 +144,6 @@ contract CodecOptimized is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function hashTransitionRecord(IInbox.TransitionRecord calldata _transitionRecord)
-        external
-        pure
-        returns (bytes26)
-    {
-        return LibHashOptimized.hashTransitionRecord(_transitionRecord);
-    }
-
-    /// @inheritdoc ICodec
     function hashTransitions(IInbox.Transition[] calldata _transitions)
         external
         pure

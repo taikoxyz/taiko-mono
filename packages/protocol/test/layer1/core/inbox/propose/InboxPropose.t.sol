@@ -171,7 +171,6 @@ abstract contract ProposeTestBase is InboxTestBase {
         state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
         state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
         state_.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
-        state_.bondInstructionsHash = _stateBefore.bondInstructionsHash;
     }
 
     function _assertStateEqual(IInbox.CoreState memory _actual, IInbox.CoreState memory _expected) internal pure {
@@ -181,7 +180,6 @@ abstract contract ProposeTestBase is InboxTestBase {
         assertEq(_actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts");
         assertEq(_actual.lastCheckpointTimestamp, _expected.lastCheckpointTimestamp, "state checkpoint ts");
         assertEq(_actual.lastFinalizedTransitionHash, _expected.lastFinalizedTransitionHash, "state transition hash");
-        assertEq(_actual.bondInstructionsHash, _expected.bondInstructionsHash, "state bond hash");
     }
 }
 

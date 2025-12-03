@@ -134,15 +134,6 @@ interface ICodec {
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes32);
 
-    /// @notice Hashing for TransitionRecord structs
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    /// @dev Truncation to bytes26 reduces collision resistance compared to full bytes32
-    function hashTransitionRecord(IInbox.TransitionRecord calldata _transitionRecord)
-        external
-        pure
-        returns (bytes26);
-
     /// @notice Hashing for arrays of Transitions
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array

@@ -7,19 +7,17 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
-/// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
-/// prover designation and checkpoint management.
+/// @notice Implements the Shasta fork's anchoring mechanism with prover designation and checkpoint
+/// management.
 /// @dev This contract implements:
-///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
-///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
+///      - Anchoring of L1 checkpoints for cross-chain verification
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract {
     using LibAddress for address;
@@ -43,8 +41,6 @@ contract Anchor is EssentialContract {
         uint48 proposalId; // Unique identifier of the proposal
         address proposer; // Address of the entity that proposed this batch
         bytes proverAuth; // Encoded ProverAuth for prover designation
-        bytes32 bondInstructionsHash; // Expected hash of bond instructions
-        LibBonds.BondInstruction[] bondInstructions; // Bond credit instructions to process
     }
 
     /// @notice Block-level data specific to a single block within a proposal.
@@ -56,7 +52,6 @@ contract Anchor is EssentialContract {
 
     /// @notice Stored proposal-level state for the ongoing batch.
     struct ProposalState {
-        bytes32 bondInstructionsHash;
         address designatedProver;
         bool isLowBondProposal;
         uint48 proposalId;
@@ -148,7 +143,6 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     event Anchored(
-        bytes32 bondInstructionsHash,
         address designatedProver,
         bool isLowBondProposal,
         bool isNewProposal,
@@ -211,12 +205,10 @@ contract Anchor is EssentialContract {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Processes a block within a proposal, handling bond instructions and L1 data
-    /// anchoring.
+    /// @notice Processes a block within a proposal and anchors L1 data.
     /// @dev Core function that processes blocks sequentially within a proposal:
     ///      1. Designates prover when a new proposal starts (i.e. the first block of a proposal)
-    ///      2. Processes bond transfers with cumulative hash verification
-    ///      3. Anchors L1 block data for cross-chain verification
+    ///      2. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _blockParams Block-level parameters specific to this block in the proposal.
     function anchorV4(
@@ -246,7 +238,6 @@ contract Anchor is EssentialContract {
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            _proposalState.bondInstructionsHash,
             _proposalState.designatedProver,
             _proposalState.isLowBondProposal,
             isNewProposal,
@@ -398,12 +389,6 @@ contract Anchor is EssentialContract {
             bondManager.creditBond(_proposalState.designatedProver, proverFee);
         }
 
-        _proposalState.bondInstructionsHash = _processBondInstructions(
-            _proposalState.bondInstructionsHash,
-            _proposalParams.bondInstructions,
-            _proposalParams.bondInstructionsHash
-        );
-
         _proposalState.proposalId = _proposalParams.proposalId;
     }
 
@@ -428,48 +413,6 @@ contract Anchor is EssentialContract {
             );
             _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
-    }
-
-    /// @dev Processes bond instructions with cumulative hash verification.
-    /// @param _currentHash Current cumulative hash from storage.
-    /// @param _bondInstructions Bond instructions to process.
-    /// @param _expectedHash Expected cumulative hash after processing.
-    /// @return newHash_ The new cumulative hash.
-    function _processBondInstructions(
-        bytes32 _currentHash,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        bytes32 _expectedHash
-    )
-        private
-        returns (bytes32 newHash_)
-    {
-        newHash_ = _currentHash;
-
-        uint256 length = _bondInstructions.length;
-        for (uint256 i; i < length; ++i) {
-            LibBonds.BondInstruction calldata instruction = _bondInstructions[i];
-
-            uint256 bondAmount = _bondAmountFor(instruction.bondType);
-            if (bondAmount != 0) {
-                uint256 bondDebited = bondManager.debitBond(instruction.payer, bondAmount);
-                bondManager.creditBond(instruction.payee, bondDebited);
-            }
-
-            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
-        }
-
-        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
-    }
-
-    /// @dev Maps a bond type to the configured bond amount in Wei.
-    function _bondAmountFor(LibBonds.BondType _bondType) private view returns (uint256) {
-        if (_bondType == LibBonds.BondType.LIVENESS) {
-            return livenessBond;
-        }
-        if (_bondType == LibBonds.BondType.PROVABILITY) {
-            return provabilityBond;
-        }
-        return 0;
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
@@ -565,7 +508,6 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     error AncestorsHashMismatch();
-    error BondInstructionsHashMismatch();
     error InvalidAddress();
     error InvalidAnchorBlockNumber();
     error InvalidBlockIndex();

@@ -1,6 +1,6 @@
 {
-  "propose_after_ring_buffer_wrap_Inbox": "35648",
-  "propose_after_ring_buffer_wrap_InboxOptimized": "31172",
+  "propose_after_ring_buffer_wrap_Inbox": "35511",
+  "propose_after_ring_buffer_wrap_InboxOptimized": "31526",
   "propose_forced_inclusion_Inbox": "52424",
   "propose_forced_inclusion_InboxOptimized": "48076",
   "propose_single_Inbox": "52331",

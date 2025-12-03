@@ -35,14 +35,15 @@ abstract contract ProveTestBase is InboxTestBase {
 
         bool reverted = vm.revertTo(snap);
         assertTrue(reverted, "revertTo snapshot");
-        _proveAndDecodeWithGas(proveInput, "shasta-finalize", "finalize_single");
-
+        IInbox.ProvedEventPayload memory provedPayload =
+            _proveAndDecodeWithGas(proveInput, "shasta-finalize", "finalize_single");
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, proposed.proposal.id, "finalized id");
         assertEq(state.lastFinalizedTransitionHash, _hashTransition(transition), "transition hash");
-        assertEq(state.bondInstructionsHash, bytes32(0), "bond hash");
+        assertEq(uint8(provedPayload.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+        assertEq(provedPayload.bondSignal, bytes32(0), "bond signal");
 
-        ICheckpointStore.Checkpoint memory saved = checkpointStore.getCheckpoint(checkpoint.blockNumber);
+        ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(checkpoint.blockNumber);
         assertEq(saved.blockHash, checkpoint.blockHash, "checkpoint hash");
         assertEq(saved.stateRoot, checkpoint.stateRoot, "checkpoint root");
     }
@@ -141,7 +142,7 @@ abstract contract ProveTestBase is InboxTestBase {
         inbox.prove(_encodeProveInput(proveInput), bytes(""));
     }
 
-    function test_prove_batch_updatesBondHash() public {
+    function test_prove_batch_emitsBondSignal() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
@@ -158,8 +159,7 @@ abstract contract ProveTestBase is InboxTestBase {
             checkpoint: t2.checkpoint
         });
 
-        vm.prank(prover);
-        inbox.prove(_encodeProveInput(proveInput), bytes(""));
+        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveInput);
 
         IInbox.CoreState memory state = inbox.getState();
         LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
@@ -168,12 +168,20 @@ abstract contract ProveTestBase is InboxTestBase {
             payer: p1.proposal.proposer,
             payee: prover
         });
-        bytes32 expectedHash = LibBonds.aggregateBondInstruction(bytes32(0), expectedInstruction);
-        assertEq(state.bondInstructionsHash, expectedHash, "bond hash");
+        bytes32 expectedSignal = _bondSignal(expectedInstruction);
         assertEq(state.lastFinalizedProposalId, p2.proposal.id, "finalized span");
+        assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
+        assertEq(
+            uint8(provedPayload.bondInstruction.bondType),
+            uint8(LibBonds.BondType.PROVABILITY),
+            "bond type"
+        );
+        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal sent");
+        assertEq(provedPayload.bondInstruction.payer, expectedInstruction.payer, "payer");
+        assertEq(provedPayload.bondInstruction.payee, expectedInstruction.payee, "payee");
     }
 
-    function test_prove_lateWithinExtendedWindow_emitsLivenessBondInstruction() public {
+    function test_prove_lateWithinExtendedWindow_emitsLivenessBondSignal() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
         // Make the proof late but still inside the extended proving window.
@@ -202,14 +210,12 @@ abstract contract ProveTestBase is InboxTestBase {
             payer: proposer,
             payee: prover
         });
-        bytes32 expectedHash = LibBonds.aggregateBondInstruction(bytes32(0), expectedInstruction);
-        assertEq(inbox.getState().bondInstructionsHash, expectedHash, "bond hash");
-        assertEq(provedPayload.transitionRecord.bondInstructions.length, 1, "bond instruction count");
-
-        LibBonds.BondInstruction memory instruction = provedPayload.transitionRecord.bondInstructions[0];
-        assertEq(uint8(instruction.bondType), uint8(LibBonds.BondType.LIVENESS), "bond type");
-        assertEq(instruction.payer, proposer, "payer");
-        assertEq(instruction.payee, prover, "payee");
+        bytes32 expectedSignal = _bondSignal(expectedInstruction);
+        assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
+        assertEq(uint8(provedPayload.bondInstruction.bondType), uint8(LibBonds.BondType.LIVENESS), "bond type");
+        assertEq(provedPayload.bondInstruction.payer, proposer, "payer");
+        assertEq(provedPayload.bondInstruction.payee, prover, "payee");
+        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal recorded");
     }
 
     /// forge-config: default.isolate = true
@@ -236,7 +242,8 @@ abstract contract ProveTestBase is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(state.bondInstructionsHash, bytes32(0), "bond hash");
+        assertEq(proved.bondSignal, bytes32(0), "bond signal");
+        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
     }
 
     /// forge-config: default.isolate = true
@@ -269,7 +276,8 @@ abstract contract ProveTestBase is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p5.proposal.id, "finalized id");
-        assertEq(state.bondInstructionsHash, bytes32(0), "bond hash");
+        assertEq(proved.bondSignal, bytes32(0), "bond signal");
+        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
     }
 
     function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
@@ -303,6 +311,10 @@ abstract contract ProveTestBase is InboxTestBase {
             designatedProver: _designatedProver,
             actualProver: _actualProver
         });
+    }
+
+    function _bondSignal(LibBonds.BondInstruction memory _instruction) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_instruction));
     }
 
     function _advanceBlock() internal {

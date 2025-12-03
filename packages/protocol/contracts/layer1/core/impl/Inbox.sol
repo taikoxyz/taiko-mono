@@ -16,6 +16,7 @@ import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./Inbox_Layout.sol"; // DO NOT DELETE
 
@@ -106,8 +107,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
-    /// @notice Checkpoint store responsible for checkpoints
-    ICheckpointStore internal immutable _checkpointStore;
+    /// @notice Signal service responsible for checkpoints and bond signals.
+    ISignalService internal immutable _signalService;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -137,14 +138,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
-        require(_config.checkpointStore != address(0), ZERO_ADDRESS());
+        require(_config.signalService != address(0), ZERO_ADDRESS());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
         _codec = _config.codec;
         _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _checkpointStore = ICheckpointStore(_config.checkpointStore);
+        _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _ringBufferSize = _config.ringBufferSize;
@@ -256,9 +257,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(input.proposals.length == input.transitions.length, InconsistentParams());
 
         CoreState memory newState;
-        TransitionRecord memory record;
         uint48 firstReadyTimestamp;
-        (newState, record, firstReadyTimestamp) = _processProof(_state, input);
+        LibBonds.BondInstruction memory bondInstruction;
+        (newState, bondInstruction, firstReadyTimestamp) = _processProof(_state, input);
 
         uint256 proposalAge;
         if (input.proposals.length == 1) {
@@ -271,13 +272,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
 
+        bytes32 bondSignal;
+        if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+            bondSignal = _sendBondSignal(bondInstruction);
+        }
 
         // TODO: we removed span, should we still include a way for off-chain
         // software to know how many proposals were proven?
         ProvedEventPayload memory payload = ProvedEventPayload({
             proposalId: input.proposals[0].id,
             transition: input.transitions[0],
-            transitionRecord: record
+            bondInstruction: bondInstruction,
+            bondSignal: bondSignal
         });
         emit Proved(_encodeProvedEventData(payload));
     }
@@ -345,7 +351,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
             bondToken: address(_bondToken),
-            checkpointStore: address(_checkpointStore),
+            signalService: address(_signalService),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -402,13 +408,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _stateBefore The state before the proof is processed
     /// @param _input The input containing the proposals and transitions
     /// @return newState_ The new state after the proof is processed
-    /// @return record_ The transition record containing the bond instructions and hashes
+    /// @return bondInstruction_ Bond instruction to be signaled to L2 (BondType.NONE when unused)
     /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
     function _processProof(CoreState memory _stateBefore, ProveInput memory _input)
         private
         returns (
             CoreState memory newState_,
-            TransitionRecord memory record_,
+            LibBonds.BondInstruction memory bondInstruction_,
             uint48 firstReadyTimestamp_
         )
     {
@@ -442,22 +448,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Only the first proposal in a sequential prove can be late; later proposals
             // become proveable when the previous one finalizes within this transaction.
-            LibBonds.BondInstruction[] memory bondInstructions =
-                LibBondInstruction.calculateBondInstructions(
-                    _provingWindow,
-                    _extendedProvingWindow,
-                    _input.proposals[0],
-                    _input.transitions[0],
-                    firstReadyTimestamp_
-                );
-
-            record_.bondInstructions = bondInstructions;
-
-            if (bondInstructions.length != 0) {
-                newState_.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                    newState_.bondInstructionsHash, bondInstructions[0]
-                );
-            }
+            bondInstruction_ = LibBondInstruction.calculateBondInstruction(
+                _provingWindow,
+                _extendedProvingWindow,
+                _input.proposals[0],
+                _input.transitions[0],
+                firstReadyTimestamp_
+            );
 
             newState_.lastFinalizedProposalId = expectedId - 1;
             newState_.lastFinalizedTransitionHash = parentHash;
@@ -466,9 +463,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 checkpointHash =
                 _hashCheckpoint(_input.transitions[_input.transitions.length - 1].checkpoint);
             _syncCheckpointIfNeeded(_input.checkpoint, checkpointHash, newState_);
-
-            record_.transitionHash = parentHash;
-            record_.checkpointHash = checkpointHash;
         }
     }
 
@@ -595,18 +589,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes32)
     {
         return LibHashSimple.hashTransition(_transition);
-    }
-
-    /// @dev Hashes a TransitionRecord struct.
-    /// @param _transitionRecord The transition record to hash.
-    /// @return _ The hash of the transition record.
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
-        internal
-        view
-        virtual
-        returns (bytes26)
-    {
-        return LibHashSimple.hashTransitionRecord(_transitionRecord);
     }
 
     /// @dev Hashes an array of Transitions.
@@ -737,7 +719,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
             require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
 
-            _checkpointStore.saveCheckpoint(_checkpoint);
+            _signalService.saveCheckpoint(_checkpoint);
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
         } else {
             require(
@@ -745,6 +727,28 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 CheckpointNotProvided()
             );
         }
+    }
+
+    /// @dev Sends a bond instruction signal to L2.
+    /// @param _bondInstruction The bond instruction to encode into the signal.
+    /// @return signal_ The signal hash emitted to the signal service.
+    function _sendBondSignal(LibBonds.BondInstruction memory _bondInstruction)
+        private
+        returns (bytes32 signal_)
+    {
+        signal_ = _bondSignalHash(_bondInstruction);
+        _signalService.sendSignal(signal_);
+    }
+
+    /// @dev Calculates the bond signal hash for a bond instruction.
+    /// @param _bondInstruction The bond instruction to hash.
+    /// @return The hash of the bond instruction.
+    function _bondSignalHash(LibBonds.BondInstruction memory _bondInstruction)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_bondInstruction));
     }
 
     /// @dev Calculates remaining capacity for new proposals

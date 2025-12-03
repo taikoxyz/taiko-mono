@@ -73,19 +73,6 @@ library LibHashSimple {
         return keccak256(abi.encode(_transition));
     }
 
-    /// @notice Simple hashing for TransitionRecord structs
-    /// @dev Uses standard keccak256(abi.encode(...)) for the transition record
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes26)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
-    }
-
     /// @notice Simple hashing for arrays of Transitions
     /// @dev Uses standard keccak256(abi.encode(...)) for the transitions array
     /// @param _transitions The transitions array to hash

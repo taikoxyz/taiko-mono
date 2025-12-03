@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
@@ -184,50 +183,6 @@ library LibHashOptimized {
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transition));
-    }
-
-    /// @notice Optimized hashing for TransitionRecord structs
-    /// @dev Efficiently hashes transition records with variable-length bond instructions
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes26)
-    {
-        unchecked {
-            LibBonds.BondInstruction[] memory instructions = _transitionRecord.bondInstructions;
-            uint256 instructionsLength = instructions.length;
-
-            // abi.encode(_transitionRecord) layout:
-            // [0] offset to struct (0x20)
-            // [1] offset to bondInstructions tail (0x60)
-            // [2] transitionHash
-            // [3] checkpointHash
-            // [4] bondInstructions length
-            // [5..] flattened bond instructions (proposalId, bondType, payer, payee)
-            uint256 totalWords = 5 + (instructionsLength << 2);
-            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
-
-            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
-            EfficientHashLib.set(buffer, 1, bytes32(uint256(0x60)));
-            EfficientHashLib.set(buffer, 2, _transitionRecord.transitionHash);
-            EfficientHashLib.set(buffer, 3, _transitionRecord.checkpointHash);
-            EfficientHashLib.set(buffer, 4, bytes32(instructionsLength));
-
-            uint256 cursor = 5;
-            for (uint256 i; i < instructionsLength; ++i) {
-                LibBonds.BondInstruction memory instruction = instructions[i];
-                EfficientHashLib.set(buffer, cursor++, bytes32(uint256(instruction.proposalId)));
-                EfficientHashLib.set(buffer, cursor++, bytes32(uint256(uint8(instruction.bondType))));
-                EfficientHashLib.set(buffer, cursor++, bytes32(uint256(uint160(instruction.payer))));
-                EfficientHashLib.set(buffer, cursor++, bytes32(uint256(uint160(instruction.payee))));
-            }
-
-            bytes32 fullHash = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return bytes26(fullHash);
-        }
     }
 
     /// @notice Memory-optimized hashing for arrays of Transitions

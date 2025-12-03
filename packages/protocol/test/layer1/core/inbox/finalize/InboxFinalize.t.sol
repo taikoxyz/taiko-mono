@@ -31,7 +31,6 @@ abstract contract FinalizeTestBase is ProveTestBase {
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedTimestamp, uint48(block.timestamp), "finalized timestamp");
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
-        assertEq(state.bondInstructionsHash, bytes32(0), "bond hash unchanged");
     }
 
     function test_finalize_RevertWhen_CheckpointMissing() public {

@@ -16,7 +16,7 @@ interface IInbox {
         /// @notice The token used for bonds
         address bondToken;
         /// @notice The signal service contract address
-        address checkpointStore;
+        address signalService;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -97,16 +97,6 @@ interface IInbox {
         address actualProver;
     }
 
-    /// @notice Represents a record of a transition with additional metadata.
-    struct TransitionRecord {
-        /// @notice The bond instructions.
-        LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the last transition in the batch.
-        bytes32 transitionHash;
-        /// @notice The hash of the last checkpoint in the batch.
-        bytes32 checkpointHash;
-    }
-
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
@@ -122,8 +112,6 @@ interface IInbox {
         uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
-        /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHash;
     }
 
     /// @notice Input data for the propose function
@@ -162,8 +150,10 @@ interface IInbox {
         uint48 proposalId;
         /// @notice The transition that was proven.
         Transition transition;
-        /// @notice The transition record containing additional metadata.
-        TransitionRecord transitionRecord;
+        /// @notice The bond instruction associated with the proof (BondType.NONE when unused).
+        LibBonds.BondInstruction bondInstruction;
+        /// @notice Signal hash emitted to L2 for bond processing (zero when unused).
+        bytes32 bondSignal;
     }
 
     // ---------------------------------------------------------------

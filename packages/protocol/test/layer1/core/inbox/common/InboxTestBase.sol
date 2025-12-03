@@ -14,7 +14,7 @@ import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDeco
 import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
 import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
 import { LibProvedEventEncoder } from "src/layer1/core/libs/LibProvedEventEncoder.sol";
-import { MockCheckpointStore, MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { MockERC20, MockProofVerifier, MockSignalService } from "../mocks/MockContracts.sol";
 import { MockProposerChecker } from "../mocks/MockProposerChecker.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -32,7 +32,7 @@ abstract contract InboxTestBase is CommonTest {
 
     MockERC20 internal token;
     MockProofVerifier internal verifier;
-    MockCheckpointStore internal checkpointStore;
+    MockSignalService internal signalService;
     MockProposerChecker internal proposerChecker;
 
     address internal proposer = Bob;
@@ -49,7 +49,7 @@ abstract contract InboxTestBase is CommonTest {
 
         token = new MockERC20();
         verifier = new MockProofVerifier();
-        checkpointStore = new MockCheckpointStore();
+        signalService = new MockSignalService();
         proposerChecker = new MockProposerChecker();
 
         config = _buildConfig();
@@ -64,7 +64,7 @@ abstract contract InboxTestBase is CommonTest {
         return IInbox.Config({
             bondToken: address(token),
             codec: address(new CodecOptimized()), // preserved for compatibility
-            checkpointStore: address(checkpointStore),
+            signalService: address(signalService),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
             provingWindow: 2 hours,

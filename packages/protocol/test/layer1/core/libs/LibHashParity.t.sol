@@ -6,19 +6,17 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
 import { LibHashSimple } from "src/layer1/core/libs/LibHashSimple.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibHashParityTest is Test {
-    function test_simple_and_optimized_hashes_match() public {
+    function test_simple_and_optimized_hashes_match() public pure {
         IInbox.CoreState memory core = IInbox.CoreState({
             nextProposalId: 3,
             lastProposalBlockId: 10,
             lastFinalizedProposalId: 1,
             lastFinalizedTimestamp: 77,
             lastCheckpointTimestamp: 70,
-            lastFinalizedTransitionHash: bytes32(uint256(1)),
-            bondInstructionsHash: bytes32(uint256(2))
+            lastFinalizedTransitionHash: bytes32(uint256(1))
         });
 
         LibBlobs.BlobSlice memory slice0 = LibBlobs.BlobSlice({
@@ -61,20 +59,6 @@ contract LibHashParityTest is Test {
             actualProver: address(0xBBBB)
         });
 
-        LibBonds.BondInstruction[] memory instructions = new LibBonds.BondInstruction[](1);
-        instructions[0] = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: address(0x1234),
-            payee: address(0x5678)
-        });
-
-        IInbox.TransitionRecord memory record = IInbox.TransitionRecord({
-            bondInstructions: instructions,
-            transitionHash: bytes32(uint256(7)),
-            checkpointHash: bytes32(uint256(8))
-        });
-
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = transition;
 
@@ -82,11 +66,6 @@ contract LibHashParityTest is Test {
         assertEq(LibHashSimple.hashDerivation(derivation), LibHashOptimized.hashDerivation(derivation), "derivation hash");
         assertEq(LibHashSimple.hashProposal(proposal), LibHashOptimized.hashProposal(proposal), "proposal hash");
         assertEq(LibHashSimple.hashTransition(transition), LibHashOptimized.hashTransition(transition), "transition hash");
-        assertEq(
-            LibHashSimple.hashTransitionRecord(record),
-            LibHashOptimized.hashTransitionRecord(record),
-            "transition record hash"
-        );
         assertEq(
             LibHashSimple.hashTransitions(transitions),
             LibHashOptimized.hashTransitions(transitions),

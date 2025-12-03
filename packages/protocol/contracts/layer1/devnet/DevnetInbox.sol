@@ -34,13 +34,13 @@ contract DevnetInbox is InboxOptimized {
         address _proofVerifier,
         address _proposerChecker,
         address _taikoToken,
-        address _checkpointStore,
+        address _signalService,
         address _codec
     )
         InboxOptimized(IInbox.Config({
                 bondToken: _taikoToken,
                 codec: _codec,
-                checkpointStore: _checkpointStore,
+                signalService: _signalService,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,

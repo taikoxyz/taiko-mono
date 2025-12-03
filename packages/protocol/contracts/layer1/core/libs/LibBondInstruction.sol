@@ -23,9 +23,9 @@ library LibBondInstruction {
     /// @param _firstTransition The transition for the first proposal.
     /// @param _readyTimestamp Timestamp when the first proposal became proveable (max of the first
     ///        proposal timestamp and the parent finalization time).
-    /// @return bondInstructions_ Array of bond transfer instructions (at most one entry). An array
-    ///         is returned to keep the transition record shape unchanged.
-    function calculateBondInstructions(
+    /// @return bondInstruction_ A bond transfer instruction, or a BondType.NONE instruction when
+    ///         no transfer is required.
+    function calculateBondInstruction(
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         IInbox.Proposal memory _firstProposal,
@@ -34,7 +34,7 @@ library LibBondInstruction {
     )
         internal
         view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
+        returns (LibBonds.BondInstruction memory bondInstruction_)
     {
         unchecked {
             uint256 proofTimestamp = block.timestamp;
@@ -42,7 +42,7 @@ library LibBondInstruction {
 
             // On-time proof - no bond instructions needed.
             if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
+                return bondInstruction_;
             }
 
             uint256 extendedWindowEnd = uint256(_readyTimestamp) + _extendedProvingWindow;
@@ -54,11 +54,10 @@ library LibBondInstruction {
 
             // If payer and payee are identical, there is no bond movement.
             if (payer == payee) {
-                return new LibBonds.BondInstruction[](0);
+                return bondInstruction_;
             }
 
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
+            bondInstruction_ = LibBonds.BondInstruction({
                 proposalId: _firstProposal.id,
                 bondType: isWithinExtendedWindow
                     ? LibBonds.BondType.LIVENESS

@@ -39,7 +39,7 @@ contract MainnetInbox is InboxOptimized {
         InboxOptimized(IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 codec: _codec,
-                checkpointStore: LibL1Addrs.SIGNAL_SERVICE,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 4 hours,

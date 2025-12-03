@@ -15,9 +15,7 @@ library LibProvedEventEncoder {
         pure
         returns (bytes memory encoded_)
     {
-        uint256 bufferSize =
-            calculateProvedEventSize(_payload.transitionRecord.bondInstructions.length);
-        encoded_ = new bytes(bufferSize);
+        encoded_ = new bytes(calculateProvedEventSize());
 
         uint256 ptr = P.dataPtr(encoded_);
 
@@ -31,17 +29,12 @@ library LibProvedEventEncoder {
         ptr = P.packAddress(ptr, _payload.transition.designatedProver);
         ptr = P.packAddress(ptr, _payload.transition.actualProver);
 
-        ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
-        ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
+        ptr = P.packUint48(ptr, _payload.bondInstruction.proposalId);
+        ptr = P.packUint8(ptr, uint8(_payload.bondInstruction.bondType));
+        ptr = P.packAddress(ptr, _payload.bondInstruction.payer);
+        ptr = P.packAddress(ptr, _payload.bondInstruction.payee);
 
-        P.checkArrayLength(_payload.transitionRecord.bondInstructions.length);
-        ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
-        for (uint256 i; i < _payload.transitionRecord.bondInstructions.length; ++i) {
-            ptr = P.packUint48(ptr, _payload.transitionRecord.bondInstructions[i].proposalId);
-            ptr = P.packUint8(ptr, uint8(_payload.transitionRecord.bondInstructions[i].bondType));
-            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payer);
-            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payee);
-        }
+        P.packBytes32(ptr, _payload.bondSignal);
     }
 
     /// @notice Decodes bytes into a ProvedEventPayload using compact encoding.
@@ -62,42 +55,26 @@ library LibProvedEventEncoder {
         (payload_.transition.designatedProver, ptr) = P.unpackAddress(ptr);
         (payload_.transition.actualProver, ptr) = P.unpackAddress(ptr);
 
-        (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.bondInstruction.proposalId, ptr) = P.unpackUint48(ptr);
 
-        uint16 arrayLength;
-        (arrayLength, ptr) = P.unpackUint16(ptr);
+        uint8 bondTypeValue;
+        (bondTypeValue, ptr) = P.unpackUint8(ptr);
+        require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
+        payload_.bondInstruction.bondType = LibBonds.BondType(bondTypeValue);
 
-        payload_.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
-        for (uint256 i; i < arrayLength; ++i) {
-            (payload_.transitionRecord.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.bondInstruction.payer, ptr) = P.unpackAddress(ptr);
+        (payload_.bondInstruction.payee, ptr) = P.unpackAddress(ptr);
 
-            uint8 bondTypeValue;
-            (bondTypeValue, ptr) = P.unpackUint8(ptr);
-            require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
-            payload_.transitionRecord.bondInstructions[i].bondType =
-                LibBonds.BondType(bondTypeValue);
-
-            (payload_.transitionRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
-            (payload_.transitionRecord.bondInstructions[i].payee, ptr) = P.unpackAddress(ptr);
-        }
+        (payload_.bondSignal, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload.
-    function calculateProvedEventSize(uint256 _bondInstructionsCount)
-        internal
-        pure
-        returns (uint256 size_)
-    {
-        unchecked {
-            // Fixed size: 246 bytes
-            // proposalId: 6
-            // Transition: 174
-            // TransitionRecord (without bond instructions): transitionHash(32) +
-            //   checkpointHash(32) = 64
-            // Bond instructions length: 2
-            size_ = 246 + (_bondInstructionsCount * 47);
-        }
+    function calculateProvedEventSize() internal pure returns (uint256 size_) {
+        // proposalId: 6
+        // Transition: 174
+        // BondInstruction: 47
+        // bondSignal: 32
+        size_ = 259;
     }
 
     // ---------------------------------------------------------------
