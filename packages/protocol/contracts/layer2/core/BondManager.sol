@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
+import { IBondProcessor } from "./IBondProcessor.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -14,7 +15,7 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Standard deposit/withdraw logic with optional minimum bond and withdrawal delay.
 ///      - Processes proved L1 bond signals (provability/liveness) with best-effort debits/credits.
 /// @custom:security-contact security@taiko.xyz
-contract BondManager is EssentialContract, IBondManager {
+contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -198,7 +199,7 @@ contract BondManager is EssentialContract, IBondManager {
         _withdraw(msg.sender, _to, _amount);
     }
 
-     /// @inheritdoc IBondManager
+    /// @inheritdoc IBondProcessor
     function processBondSignal(LibBonds.BondInstruction calldata _instruction, bytes calldata _proof)
         external
         nonReentrant

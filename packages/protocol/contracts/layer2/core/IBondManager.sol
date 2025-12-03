@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
-
 /// @title IBondManager
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
@@ -52,11 +50,6 @@ interface IBondManager {
 
     /// @notice Emitted when a withdrawal request is cancelled
     event WithdrawalCancelled(address indexed account);
-
-    /// @notice Emitted when a bond signal is processed.
-    event BondSignalProcessed(
-        bytes32 indexed signal, LibBonds.BondInstruction instruction, uint256 debitedAmount
-    );
 
     // ---------------------------------------------------------------
     // External Functions
@@ -121,10 +114,4 @@ interface IBondManager {
     /// @notice Cancel withdrawal request to reactivate the account
     /// @dev Can be called during or after the withdrawal delay period
     function cancelWithdrawal() external;
-
-    /// @notice Processes a proved bond signal from L1 with best-effort debits/credits.
-    /// @param _instruction Bond instruction tied to the signal.
-    /// @param _proof Merkle proof that the signal was sent on L1.
-    function processBondSignal(LibBonds.BondInstruction calldata _instruction, bytes calldata _proof)
-        external;
 }
