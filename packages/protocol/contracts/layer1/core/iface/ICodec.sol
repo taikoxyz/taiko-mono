@@ -5,7 +5,7 @@ import { IInbox } from "./IInbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-/// @title ICodex
+/// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
 /// @dev Input validation assumptions:
 /// - All decode functions may revert on malformed input data
@@ -18,7 +18,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// - Codec implementations cannot be used interchangeably
 /// - System upgrades between codec types require careful migration planning
 /// @custom:security-contact security@taiko.xyz
-interface ICodex {
+interface ICodec {
     // ---------------------------------------------------------------
     // ProposeInput Codec Functions
     // ---------------------------------------------------------------

@@ -45,7 +45,7 @@ contract InboxProveTest is InboxTestHelper {
         // Prove all proposals
         IInbox.ProveInput[] memory inputs =
             _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
@@ -62,7 +62,7 @@ contract InboxProveTest is InboxTestHelper {
 
         IInbox.ProveInput[] memory inputs =
             _createProveInputForMultipleProposals(_extractProposals(payloads), _getGenesisTransitionHash(), true);
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
@@ -104,7 +104,7 @@ contract InboxProveTest is InboxTestHelper {
 
     function test_prove_RevertWhen_EmptyInputs() public {
         IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](0);
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.expectRevert(Inbox.EmptyProveInputs.selector);
         vm.prank(currentProver);
@@ -124,7 +124,7 @@ contract InboxProveTest is InboxTestHelper {
         });
 
         IInbox.ProveInput[] memory inputs = _createProveInput(fakeProposal, _getGenesisTransitionHash());
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
         vm.prank(currentProver);
@@ -138,7 +138,7 @@ contract InboxProveTest is InboxTestHelper {
 
         IInbox.ProveInput[] memory inputs =
             _createProveInput(payload.proposal, _getGenesisTransitionHash());
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
 
         vm.expectRevert("MockProofVerifier: invalid proof");
         vm.prank(currentProver);
@@ -356,7 +356,7 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: _getGenesisTransitionHash()
         });
 
-        bytes memory proveData = codex.encodeProveInput(conflictInputs);
+        bytes memory proveData = codec.encodeProveInput(conflictInputs);
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
@@ -427,7 +427,7 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: alternateParentHash
         });
 
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
 
@@ -467,7 +467,7 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: alternateParentHash
         });
 
-        bytes memory proveData = codex.encodeProveInput(inputs);
+        bytes memory proveData = codec.encodeProveInput(inputs);
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
 
@@ -490,7 +490,7 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: alternateParentHash
         });
 
-        bytes memory conflictProveData = codex.encodeProveInput(conflictInputs);
+        bytes memory conflictProveData = codec.encodeProveInput(conflictInputs);
 
         vm.prank(currentProver);
         inbox.prove(conflictProveData, _createValidProof());

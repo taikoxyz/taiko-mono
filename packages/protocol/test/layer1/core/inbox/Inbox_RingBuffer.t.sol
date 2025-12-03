@@ -158,7 +158,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(inputInvalid);
+        bytes memory proposeData = codec.encodeProposeInput(inputInvalid);
 
         vm.expectRevert(Inbox.InvalidLastProposalProof.selector);
         vm.prank(currentProposer);
@@ -203,7 +203,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeDataWrong = codex.encodeProposeInput(inputWrong);
+        bytes memory proposeDataWrong = codec.encodeProposeInput(inputWrong);
 
         vm.expectRevert(Inbox.NextProposalHashMismatch.selector);
         vm.prank(currentProposer);
@@ -279,7 +279,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData4 = codex.encodeProposeInput(input4);
+        bytes memory proposeData4 = codec.encodeProposeInput(input4);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -316,7 +316,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData5 = codex.encodeProposeInput(input5);
+        bytes memory proposeData5 = codec.encodeProposeInput(input5);
 
         // Should revert because there's no capacity left
         // (only proposal 1 is finalized, but we have proposals 1-4, need more finalizations)
@@ -395,7 +395,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(input4);
+        bytes memory proposeData = codec.encodeProposeInput(input4);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -445,7 +445,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(input5);
+        bytes memory proposeData = codec.encodeProposeInput(input5);
 
         vm.recordLogs();
         vm.prank(currentProposer);

@@ -24,7 +24,7 @@ contract InboxProposeTest is InboxTestHelper {
         vm.roll(2);
 
         IInbox.ProposeInput memory input = _createFirstProposeInput();
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -48,7 +48,7 @@ contract InboxProposeTest is InboxTestHelper {
         assertEq(secondPayload.proposal.id, 2, "Second proposal should have id 2");
         assertEq(
             secondPayload.proposal.parentProposalHash,
-            codex.hashProposal(firstPayload.proposal),
+            codec.hashProposal(firstPayload.proposal),
             "Parent hash should match first proposal"
         );
     }
@@ -67,7 +67,7 @@ contract InboxProposeTest is InboxTestHelper {
         vm.roll(2);
 
         IInbox.ProposeInput memory input = _createProposeInputWithBlobs(3, 100);
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -82,7 +82,7 @@ contract InboxProposeTest is InboxTestHelper {
         uint40 deadline = uint40(block.timestamp + 100);
 
         IInbox.ProposeInput memory input = _createProposeInputWithDeadline(deadline);
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -97,7 +97,7 @@ contract InboxProposeTest is InboxTestHelper {
         vm.warp(INITIAL_TIMESTAMP);
 
         IInbox.ProposeInput memory input = _createFirstProposeInput();
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.recordLogs();
         vm.prank(currentProposer);
@@ -121,7 +121,7 @@ contract InboxProposeTest is InboxTestHelper {
         uint40 deadline = uint40(block.timestamp - 1);
 
         IInbox.ProposeInput memory input = _createProposeInputWithDeadline(deadline);
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.DeadlineExceeded.selector);
         vm.prank(currentProposer);
@@ -144,7 +144,7 @@ contract InboxProposeTest is InboxTestHelper {
             timestamp: uint40(block.timestamp),
             endOfSubmissionWindowTimestamp: 0,
             proposer: currentProposer,
-            coreStateHash: codex.hashCoreState(coreState),
+            coreStateHash: codec.hashCoreState(coreState),
             derivationHash: bytes32(0),
             parentProposalHash: inbox.getProposalHash(0)
         });
@@ -159,7 +159,7 @@ contract InboxProposeTest is InboxTestHelper {
             numForcedInclusions: 0
         });
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.CannotProposeInCurrentBlock.selector);
         vm.prank(currentProposer);
@@ -173,7 +173,7 @@ contract InboxProposeTest is InboxTestHelper {
         IInbox.ProposeInput memory input = _createFirstProposeInput();
         input.headProposalAndProof = new IInbox.Proposal[](0);
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.EmptyProposals.selector);
         vm.prank(currentProposer);
@@ -188,7 +188,7 @@ contract InboxProposeTest is InboxTestHelper {
         // Tamper with core state - wrong proposalHead
         input.coreState.proposalHead = 999;
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.InvalidState.selector);
         vm.prank(currentProposer);
@@ -200,7 +200,7 @@ contract InboxProposeTest is InboxTestHelper {
         vm.roll(2);
 
         IInbox.ProposeInput memory input = _createFirstProposeInput();
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         // Eve is not an allowed proposer
         vm.expectRevert(IProposerChecker.InvalidProposer.selector);
@@ -216,7 +216,7 @@ contract InboxProposeTest is InboxTestHelper {
         // Tamper with parent proposal
         input.headProposalAndProof[0].timestamp = 999;
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.ProposalHashMismatch.selector);
         vm.prank(currentProposer);
@@ -230,7 +230,7 @@ contract InboxProposeTest is InboxTestHelper {
         IInbox.ProposeInput memory input = _createFirstProposeInput();
         input.blobReference = _createBlobRef(0, 0, 0);
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(LibBlobs.NoBlobs.selector);
         vm.prank(currentProposer);
@@ -251,7 +251,7 @@ contract InboxProposeTest is InboxTestHelper {
 
         // Verify proposal hash is stored
         bytes32 storedHash = inbox.getProposalHash(1);
-        bytes32 computedHash = codex.hashProposal(payload1.proposal);
+        bytes32 computedHash = codec.hashProposal(payload1.proposal);
         assertEq(storedHash, computedHash, "Stored hash should match computed hash");
     }
 
@@ -271,7 +271,7 @@ contract InboxProposeTest is InboxTestHelper {
         twoProposals[1] = input.headProposalAndProof[0];
         input.headProposalAndProof = twoProposals;
 
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.TooManyProofProposals.selector);
         vm.prank(currentProposer);
@@ -306,7 +306,7 @@ contract InboxProposeTest is InboxTestHelper {
 
         IInbox.ProposeInput memory input =
             _createConsecutiveProposeInput(payload.proposal, payload.coreState);
-        bytes memory proposeData = codex.encodeProposeInput(input);
+        bytes memory proposeData = codec.encodeProposeInput(input);
 
         vm.expectRevert(Inbox.MissingProofProposal.selector);
         vm.prank(currentProposer);
