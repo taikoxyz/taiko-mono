@@ -321,6 +321,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     inputs[i].proposal.id, inputs[i].parentTransitionHash, record
                 );
 
+
                 _emitProvedEvent(inputs[i], finalizationDeadline, bondInstructions);
             }
 
@@ -812,41 +813,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             firstRecord.proposalId = _proposalId;
             firstRecord.parentTransitionHash = _parentTransitionHash;
             firstRecord.record = _record;
-        } else if (firstRecord.parentTransitionHash == _parentTransitionHash) {
-            // Same proposal and same parent - update the existing record
-            _updateTransitionRecord(firstRecord.record, _record);
-        } else {
+            return ;
+        }
+        
+         if (firstRecord.parentTransitionHash == _parentTransitionHash) return ;
+         
             // The first record is used with a different parentTransitionHash
             TransitionRecord storage existingRecord =
                 _transitionRecordFor(_proposalId, _parentTransitionHash);
-            _updateTransitionRecord(existingRecord, _record);
-        }
+
+        if (existingRecord.transitionHash != 0) return ;
+            existingRecord.transitionHash = _record.transitionHash;
+            existingRecord.finalizationDeadline = _record.finalizationDeadline;
     }
 
-    /// @dev Updates an existing transition record.
-    ///      If the existing record is empty, stores the new record.
-    ///      If the new record has a different transition hash, the existing record is kept unchanged.
-    ///      If the transition hash matches, updates the finalization deadline.
-    /// @param _existingRecord The storage pointer to the existing record
-    /// @param _newRecord The new record data to apply
-    function _updateTransitionRecord(
-        TransitionRecord storage _existingRecord,
-        TransitionRecord memory _newRecord
-    )
-        private
-    {
-        if (_existingRecord.transitionHash == 0) {
-            // Empty slot - store the new record
-            _existingRecord.transitionHash = _newRecord.transitionHash;
-            _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
-        } else if (_existingRecord.transitionHash == _newRecord.transitionHash) {
-            // Same transition - update the finalization deadline
-            _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
-        }
-        // Different non-empty transition - keep the existing record unchanged
-    }
-
-    // ---------------------------------------------------------------
+     // ---------------------------------------------------------------
     // Private Functions - Storage Access
     // ---------------------------------------------------------------
 

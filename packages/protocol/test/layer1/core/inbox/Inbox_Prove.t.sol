@@ -298,7 +298,8 @@ contract InboxProveTest is InboxTestHelper {
         assertTrue(record.transitionHash != bytes27(0), "Transition should be stored in ring buffer");
     }
 
-    function test_prove_updatesExistingTransition_sameHash() public {
+    /// @dev Tests that re-proving with same transition keeps original record unchanged
+    function test_prove_sameTransition_keepsOriginal() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // First proof
@@ -321,11 +322,11 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should remain the same"
         );
 
-        // Finalization deadline should be updated
-        assertGt(
+        // Finalization deadline should remain unchanged (first proof wins)
+        assertEq(
             secondRecord.finalizationDeadline,
             firstRecord.finalizationDeadline,
-            "Deadline should be updated"
+            "Deadline should remain unchanged"
         );
     }
 
