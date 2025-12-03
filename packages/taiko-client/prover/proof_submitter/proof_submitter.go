@@ -63,7 +63,9 @@ type SenderOptions struct {
 }
 
 // NewProofSubmitterPacaya creates a new ProofSubmitter instance.
+
 func NewProofSubmitterPacaya(
+	ctx context.Context,
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
@@ -81,7 +83,7 @@ func NewProofSubmitterPacaya(
 		return nil, err
 	}
 
-	return &ProofSubmitterPacaya{
+	proofSubmitter := &ProofSubmitterPacaya{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProver,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -103,7 +105,11 @@ func NewProofSubmitterPacaya(
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofPollingInterval:      proofPollingInterval,
-	}, nil
+	}
+
+	proofSubmitter.startProofBufferMonitors(ctx)
+
+	return proofSubmitter, nil
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -262,13 +268,46 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	if !buffer.IsAggregating() &&
 		(uint64(buffer.Len()) >= buffer.MaxLength ||
 			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.batchAggregationNotify <- proofType
 		buffer.MarkAggregating()
+		s.batchAggregationNotify <- proofType
 
 		return true
 	}
 
 	return false
+}
+
+func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
+	if s.forceBatchProvingInterval <= 0 {
+		return
+	}
+	for proofType, buffer := range s.proofBuffers {
+		proofType := proofType
+		buffer := buffer
+		go s.monitorProofBuffer(ctx, proofType, buffer)
+	}
+}
+
+func (s *ProofSubmitterPacaya) monitorProofBuffer(
+	ctx context.Context,
+	proofType proofProducer.ProofType,
+	buffer *proofProducer.ProofBuffer,
+) {
+	interval := s.forceBatchProvingInterval
+	if interval <= 0 {
+		interval = 30 * time.Minute
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.TryAggregate(buffer, proofType)
+		}
+	}
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
