@@ -105,7 +105,7 @@ interface IInbox {
     struct TransitionRecord {
         /// @notice Truncated hash of the transition (first 27 bytes).
         bytes27 transitionHash;
-        /// @notice Timestamp deadline for finalization; type(uint40).max indicates a conflict.
+        /// @notice Timestamp deadline for finalization.
         uint40 finalizationDeadline;
     }
 
