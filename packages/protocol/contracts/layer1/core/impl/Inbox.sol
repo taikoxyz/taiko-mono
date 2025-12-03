@@ -196,49 +196,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             ProposeInput memory input = _decodeProposeInput(_data);
-            _validateProposeInput(input);
+            require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
 
             uint48 nextProposalId = _state.nextProposalId;
             uint48 lastProposalBlockId = _state.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _state.lastFinalizedProposalId;
 
-            // Enforce one propose call per Ethereun block to prevent spam attacks that could
-            // deplete the ring buffer
-            require(block.number > lastProposalBlockId, CannotProposeInCurrentBlock());
-            require(_getAvailableCapacity(nextProposalId, lastFinalizedProposalId) > 0, NotEnoughCapacity());
-
-            // Consume forced inclusions (validation happens inside)
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
-
-            // Add normal proposal source in last slot
-            result.sources[result.sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
-
-            // If forced inclusion is old enough, allow anyone to propose
-            // and set endOfSubmissionWindowTimestamp = 0
-            // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
-                ? 0
-                : _proposerChecker.checkProposer(msg.sender, _lookahead);
-
-            // Create single proposal with multi-source derivation
-            // Use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
-            Derivation memory derivation = Derivation({
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
-            });
-
-            Proposal memory proposal = Proposal({
-                id: nextProposalId,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                derivationHash: _hashDerivation(derivation)
-            });
+            (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
+                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+            );
 
             _state.nextProposalId = nextProposalId + 1;
             _state.lastProposalBlockId = uint48(block.number);
@@ -408,6 +374,64 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _setProposalHash(0, _hashProposal(proposal));
 
         _emitProposedEvent(proposal, derivation);
+    }
+
+    /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
+    /// @param _input The propose input data.
+    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
+    /// @param _nextProposalId The proposal ID to assign.
+    /// @param _lastProposalBlockId The last block number where a proposal was made.
+    /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
+    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp and derivation hash set.
+    /// @return derivation_ The derivation data for the proposal.
+    function _buildProposal(
+        ProposeInput memory _input,
+        bytes calldata _lookahead,
+        uint48 _nextProposalId,
+        uint48 _lastProposalBlockId,
+        uint48 _lastFinalizedProposalId
+    )
+        private
+        returns (Proposal memory proposal_, Derivation memory derivation_)
+    {
+        unchecked {
+            // Enforce one propose call per Ethereum block to prevent spam attacks that could
+            // deplete the ring buffer
+            require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
+            require(
+                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0, NotEnoughCapacity()
+            );
+
+            ConsumptionResult memory result =
+                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+
+            result.sources[result.sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+
+            // If forced inclusion is old enough, allow anyone to propose
+            // and set endOfSubmissionWindowTimestamp = 0
+            // Otherwise, only the current preconfer can propose
+            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
+                ? 0
+                : _proposerChecker.checkProposer(msg.sender, _lookahead);
+
+            // Use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+            derivation_ = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: result.sources
+            });
+
+            proposal_ = Proposal({
+                id: _nextProposalId,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                derivationHash: _hashDerivation(derivation_)
+            });
+        }
     }
 
     /// @dev Processes sequential proofs, updates state, and builds the transition record.
@@ -796,12 +820,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _nextProposalId - _lastFinalizedProposalId - 1;
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
-    }
-
-    /// @dev Validates propose function inputs
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
     // ---------------------------------------------------------------

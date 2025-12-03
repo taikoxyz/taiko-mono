@@ -172,7 +172,7 @@ interface IInbox {
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks.
+    /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
