@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 import { InboxTestHelper } from "./common/InboxTestHelper.sol";
