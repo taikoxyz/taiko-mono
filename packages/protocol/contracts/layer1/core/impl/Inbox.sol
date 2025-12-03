@@ -791,10 +791,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Stores transition record hash with optimized slot reuse.
-    ///      Storage strategy:
-    ///      1. New proposal ID: overwrite the reusable slot.
-    ///      2. Same ID and parent: update accordingly.
-    ///      3. Same ID but different parent: fall back to the composite key mapping.
     /// @param _proposalId The proposal ID
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _record The finalization metadata to persist
@@ -817,14 +813,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
         
          if (firstRecord.parentTransitionHash == _parentTransitionHash) return ;
-         
-            // The first record is used with a different parentTransitionHash
-            TransitionRecord storage existingRecord =
-                _transitionRecordFor(_proposalId, _parentTransitionHash);
 
-        if (existingRecord.transitionHash != 0) return ;
+        TransitionRecord storage existingRecord =
+            _transitionRecordFor(_proposalId, _parentTransitionHash);
+
+        if (existingRecord.transitionHash == 0)  {
             existingRecord.transitionHash = _record.transitionHash;
             existingRecord.finalizationDeadline = _record.finalizationDeadline;
+        }
+        
     }
 
      // ---------------------------------------------------------------
