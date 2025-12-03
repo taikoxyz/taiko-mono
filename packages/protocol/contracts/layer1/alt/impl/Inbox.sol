@@ -270,8 +270,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
-             coreState.proposalHeadContainerBlock = uint40(block.number);
-             coreState.proposalHead += 1;
+            coreState.proposalHeadContainerBlock = uint40(block.number);
+            coreState.proposalHead += 1;
 
             Proposal memory proposal = Proposal({
                 id: coreState.proposalHead,
