@@ -837,12 +837,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(finalizedCount == transitionCount, IncorrectTransitionCount());
 
             // Update checkpoint if any proposals were finalized and minimum delay has passed
-            if (finalizedCount > 0 && coreState_.finalizationHead > coreState_.synchronizationHead + _minSyncDelay) {
-                   // Validate and checkpoint
-        bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
-        require(checkpointHash == _input.transitions[lastFinalizedIdx].checkpointHash, CheckpointMismatch());
-
-                _syncToLayer2(_input.checkpoint,  coreState_);
+            if (finalizedCount == 0 ) {
+                require(_input.checkpoint.blockNumber == 0 && _input.checkpoint.blockHash ==0 && _input.checkpoint.stateRoot == 0, InvalidCheckpoint());
+            } else {
+                // Validate and checkpoint
+                bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
+                require(checkpointHash == _input.transitions[lastFinalizedIdx].checkpointHash, CheckpointMismatch());
+            
+                if ( coreState_.finalizationHead > coreState_.synchronizationHead + _minSyncDelay){
+                    _syncToLayer2(_input.checkpoint,  coreState_);
+                }
             }
         }
     }
@@ -1095,6 +1099,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error DeadlineExceeded();
     error EmptyProposals();
     error EmptyProveInputs();
+    error InvalidCheckpoint();
     error IncorrectProposalCount();
     error IncorrectTransitionCount();
     error InvalidLastPacayaBlockHash();
