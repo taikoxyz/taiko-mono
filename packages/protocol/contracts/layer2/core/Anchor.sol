@@ -334,6 +334,16 @@ contract Anchor is EssentialContract {
         return _proverAuthDomainSeparator();
     }
 
+    /// @dev Decodes `ProverAuth` calldata; kept public so `validateProverAuth` can try/catch via
+    /// `this.decodeProverAuth` to avoid reverting on malformed encodings.
+    function decodeProverAuth(bytes calldata _proverAuth)
+        public
+        pure
+        returns (ProverAuth memory)
+    {
+        return abi.decode(_proverAuth, (ProverAuth));
+    }
+
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
     /// @param _proposer The proposer address to validate against.
@@ -354,7 +364,8 @@ contract Anchor is EssentialContract {
         }
 
         ProverAuth memory proverAuth;
-        try _decodeProverAuth(_proverAuth) returns (ProverAuth memory decoded) {
+        // We use try/catch to avoid the anchor from reverting
+        try this.decodeProverAuth(_proverAuth) returns (ProverAuth memory decoded) {
             proverAuth = decoded;
         } catch {
             return (_proposer, 0);
@@ -565,7 +576,8 @@ contract Anchor is EssentialContract {
         /// forge-lint: disable-end
     }
 
-    /// @dev Decodes `ProverAuth` calldata; isolated for safe try/catch in `validateProverAuth`.
+    /// @dev Decodes `ProverAuth` calldata; kept public so `validateProverAuth` can try/catch via
+    /// `this._decodeProverAuth` to swallow malformed encodings.
     function _decodeProverAuth(bytes calldata _proverAuth)
         public
         pure
