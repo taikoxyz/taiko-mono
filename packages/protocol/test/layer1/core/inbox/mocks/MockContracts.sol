@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 
 /// @title MockProofVerifier
 /// @notice Mock proof verifier that always accepts proofs

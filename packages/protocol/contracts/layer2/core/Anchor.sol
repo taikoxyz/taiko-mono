@@ -419,8 +419,6 @@ contract Anchor is EssentialContract {
         }
     }
 
-
-
     /// @dev Maps a bond type to the configured bond amount in Wei.
     function _bondAmountFor(LibBonds.BondType _bondType) private view returns (uint256) {
         if (_bondType == LibBonds.BondType.LIVENESS) {

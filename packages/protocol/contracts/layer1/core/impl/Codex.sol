@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ICodex } from "../iface/ICodex.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibHashOptimized as H } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
@@ -113,12 +113,12 @@ contract Codex is ICodex {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashCheckpoint(_checkpoint);
+        return H.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc ICodex
     function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
-        return LibHashOptimized.hashCoreState(_coreState);
+            return H.hashCoreState(_coreState);
     }
 
     /// @inheritdoc ICodex
@@ -127,12 +127,12 @@ contract Codex is ICodex {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashDerivation(_derivation);
+        return H.hashDerivation(_derivation);
     }
 
     /// @inheritdoc ICodex
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
-        return LibHashOptimized.hashProposal(_proposal);
+        return H.hashProposal(_proposal);
     }
 
     /// @inheritdoc ICodex
@@ -141,7 +141,7 @@ contract Codex is ICodex {
         pure
         returns (bytes27)
     {
-        return LibHashOptimized.hashTransition(_transition);
+        return H.hashTransition(_transition);
     }
 
     /// @inheritdoc ICodex
@@ -150,7 +150,7 @@ contract Codex is ICodex {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashBondInstruction(_bondInstruction);
+        return H.hashBondInstruction(_bondInstruction);
     }
 
     /// @inheritdoc ICodex
@@ -159,7 +159,7 @@ contract Codex is ICodex {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashBondInstructionMessage(_change);
+        return H.hashBondInstructionMessage(_change);
     }
 
     /// @inheritdoc ICodex
@@ -171,14 +171,14 @@ contract Codex is ICodex {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashAggregatedBondInstructionsHash(
+        return H.hashAggregatedBondInstructionsHash(
             _aggregatedBondInstructionHash, _bondInstructionHash
         );
     }
 
     /// @inheritdoc ICodex
     function hashBlobHashesArray(bytes32[] calldata _blobHashes) external pure returns (bytes32) {
-        return LibHashOptimized.hashBlobHashesArray(_blobHashes);
+        return H.hashBlobHashesArray(_blobHashes);
     }
 
     /// @inheritdoc ICodex
@@ -187,6 +187,6 @@ contract Codex is ICodex {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashProveInputArray(_inputs);
+        return H.hashProveInputArray(_inputs);
     }
 }

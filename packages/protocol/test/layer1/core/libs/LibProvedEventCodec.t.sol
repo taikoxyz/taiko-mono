@@ -181,9 +181,7 @@ contract LibProvedEventCodecTest is Test {
             "Max finalizationDeadline should be preserved"
         );
         assertEq(
-            decoded.checkpoint.blockNumber,
-            type(uint40).max,
-            "Max block number should be preserved"
+            decoded.checkpoint.blockNumber, type(uint40).max, "Max block number should be preserved"
         );
         // Note: proposalId is encoded as uint40 in LibProvedEventCodec, not uint48
         // So we expect truncation for max uint48 values

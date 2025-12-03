@@ -36,8 +36,7 @@ contract DevnetInbox is Inbox {
         address _checkpointStore,
         address _signalService
     )
-        Inbox(
-            IInbox.Config({
+        Inbox(IInbox.Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 checkpointStore: _checkpointStore,
@@ -54,8 +53,7 @@ contract DevnetInbox is Inbox {
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minSyncDelay: 32, // minimum proposals between syncs
                 permissionlessInclusionMultiplier: 5
-            })
-        )
+            }))
     { }
 
     // ---------------------------------------------------------------

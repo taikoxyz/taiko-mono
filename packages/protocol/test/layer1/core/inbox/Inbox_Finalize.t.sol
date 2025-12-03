@@ -23,7 +23,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // Prove
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
 
         // Finalize via next propose
         _setupBlobHashes();
@@ -56,12 +57,12 @@ contract InboxFinalizeTest is InboxTestHelper {
         // First proposal -> prove -> finalize via second propose
         IInbox.ProposedEventPayload memory payload1 = _proposeAndGetPayload();
 
-        ProvenProposal memory proven1 = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven1 =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Finalize first proposal via second propose
-        IInbox.ProposedEventPayload memory payload2 = _proposeConsecutiveWithTransitions(
-            payload1, proven1.transition, proven1.checkpoint
-        );
+        IInbox.ProposedEventPayload memory payload2 =
+            _proposeConsecutiveWithTransitions(payload1, proven1.transition, proven1.checkpoint);
 
         // Verify first proposal was finalized
         assertEq(
@@ -103,7 +104,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload2 = _proposeConsecutive(payload1);
 
         // Only prove first proposal
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Try to finalize - should only finalize first
         _setupBlobHashes();
@@ -171,7 +173,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // Prove
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
 
         // Advance past finalization grace period
         vm.warp(proven.finalizationDeadline + 1);
@@ -198,7 +201,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // Prove
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
 
         // Finalize with wrong checkpoint
         _setupBlobHashes();
@@ -227,7 +231,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload2 = _proposeConsecutive(payload1);
 
         // Prove first proposal only
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Try to provide 2 transitions when only 1 can be finalized
         _setupBlobHashes();
@@ -279,7 +284,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
         // Prove
-        ProvenProposal memory proven = _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
 
         // Finalize via next propose
         _setupBlobHashes();
@@ -311,7 +317,10 @@ contract InboxFinalizeTest is InboxTestHelper {
             }
         }
 
-        assertFalse(_hasCheckpointSavedEvent(logs), "CheckpointSaved should NOT be emitted when below minSyncDelay");
+        assertFalse(
+            _hasCheckpointSavedEvent(logs),
+            "CheckpointSaved should NOT be emitted when below minSyncDelay"
+        );
 
         // Verify finalization did happen (finalizationHead was updated)
         assertEq(
@@ -369,7 +378,7 @@ contract InboxFinalizeTest is InboxTestHelper {
             proposal: payload.proposal,
             checkpoint: checkpoint,
             metadata: IInbox.TransitionMetadata({
-                designatedProver: David,  // Different from actual prover
+                designatedProver: David, // Different from actual prover
                 actualProver: currentProver
             }),
             parentTransitionHash: _getGenesisTransitionHash()

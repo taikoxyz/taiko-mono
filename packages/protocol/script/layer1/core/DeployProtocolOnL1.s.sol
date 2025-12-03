@@ -199,9 +199,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
-            impl: address(
-                new DevnetInbox(proofVerifier, whitelist, signalService, signalService)
-            ),
+            impl: address(new DevnetInbox(proofVerifier, whitelist, signalService, signalService)),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
 

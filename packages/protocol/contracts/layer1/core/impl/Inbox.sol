@@ -242,7 +242,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Verify capacity for new proposals
             require(_getAvailableCapacity(coreState) > 0, NoCapacity());
 
-
             // Consume forced inclusions (validation happens inside)
             ConsumptionResult memory result =
                 _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
@@ -514,18 +513,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    
     /// @dev Calculates remaining capacity for new proposals
     /// Subtracts unfinalized proposals from total capacity
     /// @param _coreState Current state with proposal counters
     /// @return _ Number of additional proposals that can be submitted
     function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
         unchecked {
-            return _ringBufferSize + _coreState.finalizationHead - _coreState.proposalHead- 1;
+            return _ringBufferSize + _coreState.finalizationHead - _coreState.proposalHead - 1;
         }
     }
 
-    // -------------------------------  --------------------------------
+    // ---------------------------------------------------------------
     // Private Functions - Forced Inclusion Flow
     // ---------------------------------------------------------------
 
@@ -601,35 +599,35 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint40 oldestTimestamp_, uint40 head_, uint40 lastProcessedAt_)
     {
         unchecked {
-        if (_toProcess > 0) {
-            // Process inclusions and accumulate fees
-            uint256 totalFees;
+            if (_toProcess > 0) {
+                // Process inclusions and accumulate fees
+                uint256 totalFees;
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                     _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
                 }
 
-            // Transfer accumulated fees
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                // Transfer accumulated fees
+                if (totalFees > 0) {
+                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                }
+
+                // Oldest timestamp is max of first inclusion timestamp and last processed time
+                oldestTimestamp_ = uint40(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+                // Update queue position and last processed time
+                head_ = _head + uint40(_toProcess);
+                lastProcessedAt_ = uint40(block.timestamp);
+
+                // Write to storage once
+                ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
+            } else {
+                // No inclusions processed
+                oldestTimestamp_ = type(uint40).max;
+                head_ = _head;
+                lastProcessedAt_ = _lastProcessedAt;
             }
-
-            // Oldest timestamp is max of first inclusion timestamp and last processed time
-            oldestTimestamp_ = uint40(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
-
-            // Update queue position and last processed time
-            head_ = _head + uint40(_toProcess);
-            lastProcessedAt_ = uint40(block.timestamp);
-
-            // Write to storage once
-            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
-        } else {
-            // No inclusions processed
-            oldestTimestamp_ = type(uint40).max;
-            head_ = _head;
-            lastProcessedAt_ = _lastProcessedAt;
-        }
         }
     }
 
@@ -764,28 +762,28 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
         unchecked {
-        uint256 windowEnd = _input.proposal.timestamp + _provingWindow;
-        if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
+            uint256 windowEnd = _input.proposal.timestamp + _provingWindow;
+            if (block.timestamp <= windowEnd) return new LibBonds.BondInstruction[](0);
 
-        uint256 extendedWindowEnd = _input.proposal.timestamp + _extendedProvingWindow;
-        bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
+            uint256 extendedWindowEnd = _input.proposal.timestamp + _extendedProvingWindow;
+            bool isWithinExtendedWindow = block.timestamp <= extendedWindowEnd;
 
-        bool needsBondInstruction = isWithinExtendedWindow
-            ? (_input.metadata.actualProver != _input.metadata.designatedProver)
-            : (_input.metadata.actualProver != _input.proposal.proposer);
+            bool needsBondInstruction = isWithinExtendedWindow
+                ? (_input.metadata.actualProver != _input.metadata.designatedProver)
+                : (_input.metadata.actualProver != _input.proposal.proposer);
 
-        if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
+            if (!needsBondInstruction) return new LibBonds.BondInstruction[](0);
 
-        bondInstructions_ = new LibBonds.BondInstruction[](1);
-        bondInstructions_[0] = LibBonds.BondInstruction({
-            proposalId: _input.proposal.id,
-            bondType: isWithinExtendedWindow
-                ? LibBonds.BondType.LIVENESS
-                : LibBonds.BondType.PROVABILITY,
-            payer: isWithinExtendedWindow
-                ? _input.metadata.designatedProver
-                : _input.proposal.proposer,
-            payee: _input.metadata.actualProver
+            bondInstructions_ = new LibBonds.BondInstruction[](1);
+            bondInstructions_[0] = LibBonds.BondInstruction({
+                proposalId: _input.proposal.id,
+                bondType: isWithinExtendedWindow
+                    ? LibBonds.BondType.LIVENESS
+                    : LibBonds.BondType.PROVABILITY,
+                payer: isWithinExtendedWindow
+                    ? _input.metadata.designatedProver
+                    : _input.proposal.proposer,
+                payee: _input.metadata.actualProver
             });
         }
     }

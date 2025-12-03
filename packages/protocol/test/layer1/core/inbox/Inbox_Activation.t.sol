@@ -155,5 +155,8 @@ contract TestInboxWithConfig is Inbox {
     constructor(IInbox.Config memory _config) Inbox(_config) { }
 
     function _storeReentryLock(uint8) internal override { }
-    function _loadReentryLock() internal pure override returns (uint8) { return 1; }
+
+    function _loadReentryLock() internal pure override returns (uint8) {
+        return 1;
+    }
 }

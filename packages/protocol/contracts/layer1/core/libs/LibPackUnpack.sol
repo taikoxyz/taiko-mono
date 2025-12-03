@@ -221,7 +221,6 @@ library LibPackUnpack {
         }
     }
 
-
     /// @notice Unpack bytes27 from position
     /// @dev Reads 27 bytes for truncated transition hashes.
     /// @param _pos Absolute memory position to read from

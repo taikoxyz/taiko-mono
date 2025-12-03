@@ -201,14 +201,10 @@ contract InboxProveTest is InboxTestHelper {
             "Bond type should be LIVENESS"
         );
         assertEq(
-            provedPayload.bondInstructions[0].payer,
-            David,
-            "Payer should be designated prover"
+            provedPayload.bondInstructions[0].payer, David, "Payer should be designated prover"
         );
         assertEq(
-            provedPayload.bondInstructions[0].payee,
-            currentProver,
-            "Payee should be actual prover"
+            provedPayload.bondInstructions[0].payee, currentProver, "Payee should be actual prover"
         );
     }
 
@@ -258,9 +254,7 @@ contract InboxProveTest is InboxTestHelper {
             "Payer should be proposer"
         );
         assertEq(
-            provedPayload.bondInstructions[0].payee,
-            currentProver,
-            "Payee should be actual prover"
+            provedPayload.bondInstructions[0].payee, currentProver, "Payee should be actual prover"
         );
     }
 
@@ -295,7 +289,9 @@ contract InboxProveTest is InboxTestHelper {
         IInbox.TransitionRecord memory record =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
-        assertTrue(record.transitionHash != bytes27(0), "Transition should be stored in ring buffer");
+        assertTrue(
+            record.transitionHash != bytes27(0), "Transition should be stored in ring buffer"
+        );
     }
 
     /// @dev Tests that re-proving with same transition keeps original record unchanged
@@ -355,8 +351,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(888))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: _getGenesisTransitionHash()
         });
@@ -427,8 +422,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(666))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: alternateParentHash
         });
@@ -468,8 +462,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(666))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: alternateParentHash
         });
@@ -492,8 +485,7 @@ contract InboxProveTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(999))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: alternateParentHash
         });

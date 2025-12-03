@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -28,16 +28,11 @@ contract InboxForcedInclusionTest is InboxTestHelper {
 
         vm.deal(David, 1 ether);
         vm.expectEmit(false, false, false, false);
-        emit IForcedInclusionStore.ForcedInclusionSaved(
-            IForcedInclusionStore.ForcedInclusion({
+        emit IForcedInclusionStore
+            .ForcedInclusionSaved(IForcedInclusionStore.ForcedInclusion({
                 feeInGwei: uint64(fee),
                 blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: new bytes32[](0),
-                    offset: 0,
-                    timestamp: 0
-                })
-            })
-        );
+                    blobHashes: new bytes32[](0), offset: 0, timestamp: 0 }) }));
 
         vm.prank(David);
         inbox.saveForcedInclusion{ value: fee * 1 gwei }(blobRef);
@@ -64,9 +59,7 @@ contract InboxForcedInclusionTest is InboxTestHelper {
 
         uint256 balanceAfter = David.balance;
         assertEq(
-            balanceBefore - balanceAfter,
-            fee * 1 gwei,
-            "Only fee should be deducted, rest refunded"
+            balanceBefore - balanceAfter, fee * 1 gwei, "Only fee should be deducted, rest refunded"
         );
     }
 

@@ -18,11 +18,9 @@ pragma solidity ^0.8.24;
 //   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   activationTimestamp            | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
+//   activationTimestamp            | uint40                                             | Slot: 251  | Offset: 0    | Bytes: 5   
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
-//   _firstTransitionRecord         | mapping(uint256 => struct InboxOptimized1.FirstTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[49]                                        | Slot: 294  | Offset: 0    | Bytes: 1568
-//   __gap                          | uint256[50]                                        | Slot: 343  | Offset: 0    | Bytes: 1600
+//   _firstTransitionRecords        | mapping(uint256 => struct Inbox.FirstTransitionRecord) | Slot: 253  | Offset: 0    | Bytes: 32  
+//   _transitionRecords             | mapping(bytes32 => struct IInbox.TransitionRecord) | Slot: 254  | Offset: 0    | Bytes: 32  
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
+//   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
