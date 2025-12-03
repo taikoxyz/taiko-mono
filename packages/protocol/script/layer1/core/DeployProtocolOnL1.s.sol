@@ -7,6 +7,7 @@ import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1Ve
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import { Codex } from "src/layer1/core/impl/Codex.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
@@ -196,10 +197,14 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("SignalService deployed:", signalService);
         }
 
+        // Deploy codec
+        address codec = address(new Codex());
+        console2.log("Codex deployed:", codec);
+
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
-            impl: address(new DevnetInbox(proofVerifier, whitelist, signalService, signalService)),
+            impl: address(new DevnetInbox(codec, proofVerifier, whitelist, signalService, signalService)),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
 

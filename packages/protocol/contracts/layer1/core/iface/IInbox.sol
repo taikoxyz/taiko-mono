@@ -14,6 +14,8 @@ interface IInbox {
     /// @notice Configuration parameters for the Inbox contract.
     /// @dev All parameters are immutable after construction.
     struct Config {
+        /// @notice Address of the codec contract for encoding/decoding and hashing.
+        address codec;
         /// @notice Address of the proof verifier contract.
         address proofVerifier;
         /// @notice Address of the proposer checker contract for lookahead validation.

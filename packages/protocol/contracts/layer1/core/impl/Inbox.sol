@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { ICodex } from "../iface/ICodex.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
@@ -71,6 +72,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
+
+    /// @notice The codec contract for encoding/decoding and hashing.
+    ICodex internal immutable _codec;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -159,6 +163,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(_config.checkpointStore != address(0), ZERO_ADDRESS());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
+        _codec = ICodex(_config.codec);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _checkpointStore = ICheckpointStore(_config.checkpointStore);
@@ -413,6 +418,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function getConfig() external view returns (Config memory config_) {
         config_ = Config({
+            codec: address(_codec),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             checkpointStore: address(_checkpointStore),

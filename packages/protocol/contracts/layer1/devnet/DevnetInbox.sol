@@ -31,12 +31,14 @@ contract DevnetInbox is Inbox {
     // ---------------------------------------------------------------
 
     constructor(
+        address _codec,
         address _proofVerifier,
         address _proposerChecker,
         address _checkpointStore,
         address _signalService
     )
         Inbox(IInbox.Config({
+                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 checkpointStore: _checkpointStore,

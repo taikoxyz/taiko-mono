@@ -159,6 +159,7 @@ abstract contract InboxTestHelper is CommonTest {
 
     function _createDefaultConfig() internal view returns (IInbox.Config memory) {
         return IInbox.Config({
+            codec: address(codex),
             proofVerifier: address(proofVerifier),
             proposerChecker: address(proposerChecker),
             checkpointStore: address(checkpointStore),
