@@ -92,6 +92,7 @@ func NewProofSubmitterShasta(
 // StartProofBufferMonitors monitors proof buffers and enforces forced aggregation,
 // only be called once during initialization.
 func (s *ProofSubmitterShasta) startProofBufferMonitors(ctx context.Context) {
+	log.Info("Starting proof buffers monitors for Shasta", "forceBatchProvingInterval", s.forceBatchProvingInterval)
 	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
 }
 
