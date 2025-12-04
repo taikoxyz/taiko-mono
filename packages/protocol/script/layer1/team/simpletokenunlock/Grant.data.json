@@ -1,0 +1,112 @@
+[
+  {
+    "proxy": "",
+    "recipient": "0x396AD8cD527d5C98255865e520b52aCC3B2e84Ac",
+    "grantAmount": 300000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x5123629b5E1a0031EC6155286Df7BeEc9a9D24dd",
+    "grantAmount": 100000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x69ad4c99fA216f26a797D3Dab0CC619DF8F3BA97",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xf038fC569597E82Ec59fea5966520DD801820Bc6",
+    "grantAmount": 300000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xd202a56c5e7ba279431e43d945c5cc6f68d083b7",
+    "grantAmount": 250000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xaa0711d32942bd6a01B27722847f7c1D7F5928b5",
+    "grantAmount": 300000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x8d554fb50b9be7c80193682d5e73a25d52ed27d5",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xd2eD359859B33d16664702ff5D8CB3a7bd116F02",
+    "grantAmount": 250000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xbaCF85D0C2440c4328DF403A3A0dA345F509b361",
+    "grantAmount": 500000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x7bb998A98f60811dEa7Df9048134e14DC3a38F97",
+    "grantAmount": 100000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x53c725a86547272c55a8fdb52debe2e9b19b01c0",
+    "grantAmount": 200000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x47a540414cfe059f065544f0ea01de7b854449b3",
+    "grantAmount": 75000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x9341B366B56348239bcdd7B2B0c5E3FA3010D297",
+    "grantAmount": 75000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x5b01475cfCb320737806E3330f206021386CB88a",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x47ae1bbf41e75e059e0ac4483c06454b2c0981f4",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x78e2a3255987B1a3d5816820A36288B27AD052B2",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x7adfffe518369F4824f3eCcfB4754ee5BfF6c2a7",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xBADBE033362E66c13e17888e7C7fC88B5373afbF",
+    "grantAmount": 150000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x9d1793641A784d95C43Ce886dd682b93920EBE7b",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x9be64d1e195900aeba4e2b900700090e62ea26b9",
+    "grantAmount": 50000
+  },
+  {
+    "proxy": "",
+    "recipient": "0x54198A9c49714EC1DD4Cae104DF74f97800ae21b",
+    "grantAmount": 250000
+  },
+  {
+    "proxy": "",
+    "recipient": "0xd1e71fd65533a676cc0bba4b19c6fb68009ff5f5",
+    "grantAmount": 50000
+  }
+]

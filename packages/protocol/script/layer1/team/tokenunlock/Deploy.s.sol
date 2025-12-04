@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/team/TokenUnlock.sol";
 import "script/BaseScript.sol";
-
 contract DeployTokenUnlock is BaseScript {
     using stdJson for string;
 
