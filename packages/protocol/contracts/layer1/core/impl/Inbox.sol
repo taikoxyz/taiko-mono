@@ -671,8 +671,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 // Calculate finalization deadline from timestamp
                 if (i >= transitionCount) {
-                    uint256 finalizationDeadline = uint256(record.timestamp)
-                        + _finalizationGracePeriod;
+                    uint256 finalizationDeadline =
+                        uint256(record.timestamp) + _finalizationGracePeriod;
                     require(block.timestamp < finalizationDeadline, TransitionNotProvided());
                     break;
                 }
