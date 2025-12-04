@@ -16,7 +16,6 @@ var _ TaikoProposalMetaData = (*TaikoProposalMetadataShasta)(nil)
 type TaikoProposalMetadataShasta struct {
 	shastaBindings.IInboxProposal
 	shastaBindings.IInboxDerivation
-	bondInstructions []shastaBindings.LibBondsBondInstruction
 	types.Log
 }
 
@@ -117,9 +116,4 @@ func (m *TaikoProposalMetadataShasta) GetProposalID() *big.Int {
 // GetDerivation returns the transaction hash.
 func (m *TaikoProposalMetadataShasta) GetDerivation() shastaBindings.IInboxDerivation {
 	return m.IInboxDerivation
-}
-
-// GetBondInstructions returns the bond instructions in this proposal.
-func (m *TaikoProposalMetadataShasta) GetBondInstructions() []shastaBindings.LibBondsBondInstruction {
-	return m.bondInstructions
 }
