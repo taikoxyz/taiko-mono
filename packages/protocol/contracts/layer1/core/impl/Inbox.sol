@@ -227,7 +227,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Proves the validity of proposed L2 blocks and finalizes them in-order.
     /// @dev This function allows proofs that have proposals older than `lastFinalizedProposalId`
     /// to be submitted as long as they advance the chain. This is necessary to avoid wasted prover work
-    /// or prove transactions reverting.
+    /// or transactions reverting.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         // Decode and validate input
         ProveInput memory input = _decodeProveInput(_data);

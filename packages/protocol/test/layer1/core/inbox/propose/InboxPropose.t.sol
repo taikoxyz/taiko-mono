@@ -23,28 +23,30 @@ abstract contract ProposeTestBase is InboxTestBase {
         IInbox.CoreState memory stateAfter = inbox.getState();
         assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
         _assertStateEqual(stateAfter, _expectedStateAfterProposal(stateBefore));
-        assertEq(inbox.getProposalHash(expected.proposal.id), _hashProposal(expected.proposal), "proposal hash");
+        assertEq(inbox.getProposalHash(expected.proposal.id), codec.hashProposal(expected.proposal), "proposal hash");
     }
 
     function test_propose_RevertWhen_DeadlinePassed() public {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.deadline = uint48(block.timestamp - 1);
 
-        vm.prank(proposer);
+        bytes memory encodedInput = codec.encodeProposeInput(input);
         vm.expectRevert(Inbox.DeadlineExceeded.selector);
-        inbox.propose(bytes(""), _encodeProposeInput(input));
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
     }
 
     function test_propose_RevertWhen_SameBlock() public {
         _setBlobHashes(2);
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
 
         vm.prank(proposer);
-        inbox.propose(bytes(""), _encodeProposeInput(input));
+        inbox.propose(bytes(""), encodedInput);
 
         vm.prank(proposer);
         vm.expectRevert(Inbox.CannotProposeInCurrentBlock.selector);
-        inbox.propose(bytes(""), _encodeProposeInput(input));
+        inbox.propose(bytes(""), encodedInput);
     }
 
     function test_propose_processesForcedInclusion_andRecordsGas() public {
@@ -108,7 +110,7 @@ abstract contract ProposeTestBase is InboxTestBase {
             derivationHash: bytes32(0)
         });
 
-        payload_.proposal.derivationHash = _hashDerivation(payload_.derivation);
+        payload_.proposal.derivationHash = codec.hashDerivation(payload_.derivation);
     }
 
     function _assertPayloadEqual(

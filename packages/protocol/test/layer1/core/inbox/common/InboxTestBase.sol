@@ -3,19 +3,16 @@ pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { Vm } from "forge-std/src/Vm.sol";
+import { ICodec } from "src/layer1/core/iface/ICodec.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
+import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
-import { LibHashSimple } from "src/layer1/core/libs/LibHashSimple.sol";
-import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDecoder.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
-import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
-import { LibProvedEventEncoder } from "src/layer1/core/libs/LibProvedEventEncoder.sol";
-import { MockERC20, MockProofVerifier, MockSignalService } from "../mocks/MockContracts.sol";
-import { MockProposerChecker } from "../mocks/MockProposerChecker.sol";
+import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
+import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 enum InboxVariant {
@@ -29,41 +26,48 @@ abstract contract InboxTestBase is CommonTest {
     InboxVariant internal variant;
     Inbox internal inbox;
     IInbox.Config internal config;
+    ICodec internal codec;
 
     MockERC20 internal token;
     MockProofVerifier internal verifier;
-    MockSignalService internal signalService;
-    MockProposerChecker internal proposerChecker;
+    SignalService internal signalService;
+    PreconfWhitelist internal proposerChecker;
 
     address internal proposer = Bob;
     address internal prover = Carol;
+
+    uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
+    uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1_000;
+    address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
 
     constructor(InboxVariant _variant) {
         variant = _variant;
     }
 
     function setUp() public virtual override {
+        super.setUp();
         vm.deal(address(this), 100 ether);
         vm.deal(proposer, 100 ether);
         vm.deal(prover, 100 ether);
 
-        token = new MockERC20();
-        verifier = new MockProofVerifier();
-        signalService = new MockSignalService();
-        proposerChecker = new MockProposerChecker();
+        _setupMocks();
+        _setupDependencies();
 
         config = _buildConfig();
         inbox = _deployInbox();
+        _setSignalServiceSyncer(address(inbox));
         inbox.activate(bytes32(uint256(1)));
 
-        vm.roll(100);
-        vm.warp(1_000);
+        vm.roll(INITIAL_BLOCK_NUMBER);
+        vm.warp(INITIAL_BLOCK_TIMESTAMP);
     }
 
     function _buildConfig() internal virtual returns (IInbox.Config memory) {
+        codec = _isOptimized() ? ICodec(new CodecOptimized()) : ICodec(new CodecSimple());
+
         return IInbox.Config({
+            codec: address(codec),
             bondToken: address(token),
-            codec: address(new CodecOptimized()), // preserved for compatibility
             signalService: address(signalService),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
@@ -87,106 +91,6 @@ abstract contract InboxTestBase is CommonTest {
     function _deployInbox() internal virtual returns (Inbox) {
         address impl = _isOptimized() ? address(new InboxOptimized(config)) : address(new Inbox(config));
         return _deployProxy(impl);
-    }
-
-    function _encodeProposeInput(IInbox.ProposeInput memory _input)
-        internal
-        view
-        virtual
-        returns (bytes memory)
-    {
-        return _isOptimized() ? LibProposeInputDecoder.encode(_input) : abi.encode(_input);
-    }
-
-    function _encodeProveInput(IInbox.ProveInput memory _input)
-        internal
-        view
-        virtual
-        returns (bytes memory)
-    {
-        return _isOptimized() ? LibProveInputDecoder.encode(_input) : abi.encode(_input);
-    }
-
-    function _encodeProveInputExternal(IInbox.ProveInput memory _input)
-        public
-        pure
-        returns (bytes memory)
-    {
-        return LibProveInputDecoder.encode(_input);
-    }
-
-    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
-        internal
-        view
-        virtual
-        returns (bytes memory)
-    {
-        return _isOptimized() ? LibProposedEventEncoder.encode(_payload) : abi.encode(_payload);
-    }
-
-    function _encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
-        internal
-        view
-        virtual
-        returns (bytes memory)
-    {
-        return _isOptimized() ? LibProvedEventEncoder.encode(_payload) : abi.encode(_payload);
-    }
-
-    function _decodeProposedEvent(bytes memory _data)
-        internal
-        view
-        virtual
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        return _isOptimized() ? LibProposedEventEncoder.decode(_data) : abi.decode(_data, (IInbox.ProposedEventPayload));
-    }
-
-    function _decodeProvedEvent(bytes memory _data)
-        internal
-        view
-        virtual
-        returns (IInbox.ProvedEventPayload memory)
-    {
-        return _isOptimized() ? LibProvedEventEncoder.decode(_data) : abi.decode(_data, (IInbox.ProvedEventPayload));
-    }
-
-    function _hashProposal(IInbox.Proposal memory _proposal)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return _isOptimized() ? LibHashOptimized.hashProposal(_proposal) : LibHashSimple.hashProposal(_proposal);
-    }
-
-    function _hashTransition(IInbox.Transition memory _transition)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return _isOptimized()
-            ? LibHashOptimized.hashTransition(_transition)
-            : LibHashSimple.hashTransition(_transition);
-    }
-
-    function _hashCoreState(IInbox.CoreState memory _state)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return _isOptimized() ? LibHashOptimized.hashCoreState(_state) : LibHashSimple.hashCoreState(_state);
-    }
-
-    function _hashDerivation(IInbox.Derivation memory _derivation)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return _isOptimized() ? LibHashOptimized.hashDerivation(_derivation) : LibHashSimple.hashDerivation(_derivation);
     }
 
     function _isOptimized() internal view virtual returns (bool) {
@@ -222,9 +126,13 @@ abstract contract InboxTestBase is CommonTest {
         internal
         returns (IInbox.ProposedEventPayload memory payload_)
     {
+        assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
+        assertEq(proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)");
+        proposerChecker.checkProposer(proposer, bytes(""));
+        bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
         vm.prank(proposer);
-        inbox.propose(bytes(""), _encodeProposeInput(_input));
+        inbox.propose(bytes(""), encodedInput);
         payload_ = _readProposedEvent();
     }
 
@@ -232,11 +140,16 @@ abstract contract InboxTestBase is CommonTest {
         internal
         returns (IInbox.ProposedEventPayload memory payload_)
     {
+        assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
+        assertEq(proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)");
+        proposerChecker.checkProposer(proposer, bytes(""));
+        bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
-        vm.prank(proposer);
+        vm.startPrank(proposer);
         vm.startSnapshotGas("shasta-propose", _benchLabel(_benchName));
-        inbox.propose(bytes(""), _encodeProposeInput(_input));
+        inbox.propose(bytes(""), encodedInput);
         vm.stopSnapshotGas();
+        vm.stopPrank();
         payload_ = _readProposedEvent();
     }
 
@@ -246,7 +159,7 @@ abstract contract InboxTestBase is CommonTest {
         for (uint256 i; i < logs.length; ++i) {
             if (logs[i].topics.length != 0 && logs[i].topics[0] == proposedTopic) {
                 bytes memory payload = abi.decode(logs[i].data, (bytes));
-                return _decodeProposedEvent(payload);
+                return codec.decodeProposedEvent(payload);
             }
         }
         revert("Proposed event not found");
@@ -364,5 +277,38 @@ abstract contract InboxTestBase is CommonTest {
 
     function _benchLabel(string memory _base) internal view returns (string memory) {
         return string.concat(_base, _isOptimized() ? "_InboxOptimized" : "_Inbox");
+    }
+
+    function _setupMocks() internal virtual {
+        token = new MockERC20();
+        verifier = new MockProofVerifier();
+    }
+
+    function _setupDependencies() internal virtual {
+        signalService = _deploySignalService(address(this));
+        proposerChecker = _deployProposerChecker();
+        _addProposer(proposer);
+    }
+
+    function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {
+        SignalService impl = new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE);
+        return SignalService(
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this)))))
+        );
+    }
+
+    function _setSignalServiceSyncer(address _authorizedSyncer) internal {
+        signalService.upgradeTo(address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE)));
+    }
+
+    function _deployProposerChecker() internal returns (PreconfWhitelist) {
+        PreconfWhitelist impl = new PreconfWhitelist();
+        return PreconfWhitelist(
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))))
+        );
+    }
+
+    function _addProposer(address _proposer) internal {
+        proposerChecker.addOperator(_proposer, _proposer);
     }
 }

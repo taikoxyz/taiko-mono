@@ -25,9 +25,10 @@ abstract contract CapacityBase is ProposeTestBase {
         _proposeAndDecode(_defaultProposeInput());
 
         _nextBlock();
-        vm.prank(proposer);
+        bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
         vm.expectRevert(Inbox.NotEnoughCapacity.selector);
-        inbox.propose(bytes(""), _encodeProposeInput(_defaultProposeInput()));
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
     }
 
     function _nextBlock() private {

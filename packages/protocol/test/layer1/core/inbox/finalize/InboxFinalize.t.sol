@@ -24,8 +24,9 @@ abstract contract FinalizeTestBase is ProveTestBase {
             syncCheckpoint: true
         });
 
+        bytes memory encodedInput = codec.encodeProveInput(proveInput);
         vm.prank(prover);
-        inbox.prove(_encodeProveInput(proveInput), bytes(""));
+        inbox.prove(encodedInput, bytes(""));
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedTimestamp, uint48(block.timestamp), "finalized timestamp");
@@ -45,9 +46,10 @@ abstract contract FinalizeTestBase is ProveTestBase {
             syncCheckpoint: false
         });
 
-        vm.prank(prover);
+        bytes memory encodedInput = codec.encodeProveInput(proveInput);
         vm.expectRevert(Inbox.CheckpointNotProvided.selector);
-        inbox.prove(_encodeProveInput(proveInput), bytes(""));
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes(""));
     }
 }
 
