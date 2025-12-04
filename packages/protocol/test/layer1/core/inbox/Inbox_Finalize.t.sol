@@ -492,8 +492,7 @@ contract InboxFinalizeTest is InboxTestHelper {
                 stateRoot: bytes32(uint256(888))
             }),
             metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver,
-                actualProver: currentProver
+                designatedProver: currentProver, actualProver: currentProver
             }),
             parentTransitionHash: _getGenesisTransitionHash()
         });
