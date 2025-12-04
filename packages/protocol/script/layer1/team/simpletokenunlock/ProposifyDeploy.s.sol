@@ -38,14 +38,16 @@ contract ProposifyDeploy is BaseScript {
             string memory key = string.concat(".transactions[", vm.toString(i), "].transaction.input");
             inputs[i] = abi.decode(vm.parseJson(json, key), (bytes));
             require(inputs[i].length != 0, "missing input");
+            console2.logBytes(inputs[i]);
         }
 
         bytes memory packed;
+        uint8 op = 0; // CALL for MultiSend call-only
         for (uint256 i; i < inputs.length; ++i) {
             bytes memory createData =
                 abi.encodeWithSelector(ICreateCall.performCreate.selector, 0, inputs[i]);
             packed = bytes.concat(
-                packed, abi.encodePacked(uint8(1), createCall, uint256(0), createData.length, createData)
+                packed, abi.encodePacked(op, createCall, uint256(0), createData.length, createData)
             );
         }
 
