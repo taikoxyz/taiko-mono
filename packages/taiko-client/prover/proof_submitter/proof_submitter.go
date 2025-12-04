@@ -63,7 +63,6 @@ type SenderOptions struct {
 }
 
 // NewProofSubmitterPacaya creates a new ProofSubmitter instance.
-
 func NewProofSubmitterPacaya(
 	ctx context.Context,
 	baseLevelProver proofProducer.ProofProducer,
