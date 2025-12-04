@@ -21,7 +21,6 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -29,7 +28,6 @@ import (
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
-	shastaStateIndexer      *shastaIndexer.Indexer
 	proposerPrivateKey      *ecdsa.PrivateKey
 	pacayaInboxAddress      common.Address
 	shastaInboxAddress      common.Address
@@ -44,7 +42,6 @@ type BlobTransactionBuilder struct {
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
-	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
@@ -57,7 +54,6 @@ func NewBlobTransactionBuilder(
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
-		shastaStateIndexer,
 		proposerPrivateKey,
 		pacayaInboxAddress,
 		shastaInboxAddress,
@@ -182,14 +178,16 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
-		to    = &b.shastaInboxAddress
-		blobs []*eth.Blob
-		data  []byte
+		to                       = &b.shastaInboxAddress
+		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
+		blobs                    []*eth.Blob
+		data                     []byte
 	)
 	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
 	}
 
+<<<<<<< HEAD
 	config, err := b.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
@@ -233,6 +231,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		transitionRecords = append(transitionRecords, *t.TransitionRecord)
 	}
 
+=======
+>>>>>>> c3543080a (feat(taiko-client): client updates based on sequential proving)
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
@@ -290,11 +290,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	inputData, err := b.rpc.EncodeProposeInput(
 		&bind.CallOpts{Context: ctx},
 		&shastaBindings.IInboxProposeInput{
-			Deadline:          common.Big0,
-			CoreState:         *proposals[0].CoreState,
-			ParentProposals:   parentProposals,
-			TransitionRecords: transitionRecords,
-			Checkpoint:        checkpoint,
+			Deadline: common.Big0,
 			BlobReference: shastaBindings.LibBlobsBlobReference{
 				BlobStartIndex: 0,
 				NumBlobs:       uint16(len(blobs)),

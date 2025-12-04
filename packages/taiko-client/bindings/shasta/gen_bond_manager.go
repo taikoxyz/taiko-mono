@@ -31,7 +31,7 @@ var (
 
 // BondManagerMetaData contains all meta data concerning the BondManager contract.
 var BondManagerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_authorized\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bondToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_withdrawalDelay\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"authorized\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bond\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"withdrawalRequestedAt\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bondToken\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIERC20\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"cancelWithdrawal\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"creditBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"debitBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"amountDebited_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deposit\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositTo\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getBondBalance\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"hasSufficientBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_additionalBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"minBond\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestWithdrawal\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawalDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondCredited\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDebited\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDeposited\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDepositedFor\",\"inputs\":[{\"name\":\"depositor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondWithdrawn\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalCancelled\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalRequested\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawableAt\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InsufficientBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidRecipient\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MustMaintainMinBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBondToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoWithdrawalRequested\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WithdrawalAlreadyRequested\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_bondToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_withdrawalDelay\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_bondOperator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_signalService\",\"type\":\"address\",\"internalType\":\"contractISignalService\"},{\"name\":\"_l1Inbox\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_l1ChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_livenessBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_provabilityBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bond\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"withdrawalRequestedAt\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bondOperator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bondToken\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIERC20\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"cancelWithdrawal\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"creditBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"debitBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"amountDebited_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deposit\",\"inputs\":[{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"depositTo\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getBondBalance\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"hasSufficientBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_additionalBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"l1ChainId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"l1Inbox\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"livenessBond\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minBond\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBondSignal\",\"inputs\":[{\"name\":\"_instruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"processedSignals\",\"inputs\":[{\"name\":\"signalId\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"processed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"provabilityBond\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestWithdrawal\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"signalService\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractISignalService\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawalDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondCredited\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDebited\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDeposited\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDepositedFor\",\"inputs\":[{\"name\":\"depositor\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondSignalProcessed\",\"inputs\":[{\"name\":\"signal\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"instruction\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"debitedAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondWithdrawn\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalCancelled\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalRequested\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawableAt\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidL1ChainId\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidRecipient\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MustMaintainMinBond\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBondInstruction\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBondToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoWithdrawalRequested\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SignalAlreadyProcessed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WithdrawalAlreadyRequested\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // BondManagerABI is the input ABI used to generate the binding from.
@@ -180,37 +180,6 @@ func (_BondManager *BondManagerTransactorRaw) Transact(opts *bind.TransactOpts, 
 	return _BondManager.Contract.contract.Transact(opts, method, params...)
 }
 
-// Authorized is a free data retrieval call binding the contract method 0x456cb7c6.
-//
-// Solidity: function authorized() view returns(address)
-func (_BondManager *BondManagerCaller) Authorized(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _BondManager.contract.Call(opts, &out, "authorized")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// Authorized is a free data retrieval call binding the contract method 0x456cb7c6.
-//
-// Solidity: function authorized() view returns(address)
-func (_BondManager *BondManagerSession) Authorized() (common.Address, error) {
-	return _BondManager.Contract.Authorized(&_BondManager.CallOpts)
-}
-
-// Authorized is a free data retrieval call binding the contract method 0x456cb7c6.
-//
-// Solidity: function authorized() view returns(address)
-func (_BondManager *BondManagerCallerSession) Authorized() (common.Address, error) {
-	return _BondManager.Contract.Authorized(&_BondManager.CallOpts)
-}
-
 // Bond is a free data retrieval call binding the contract method 0x247ce85b.
 //
 // Solidity: function bond(address account) view returns(uint256 balance, uint48 withdrawalRequestedAt)
@@ -254,6 +223,37 @@ func (_BondManager *BondManagerCallerSession) Bond(account common.Address) (stru
 	WithdrawalRequestedAt *big.Int
 }, error) {
 	return _BondManager.Contract.Bond(&_BondManager.CallOpts, account)
+}
+
+// BondOperator is a free data retrieval call binding the contract method 0x288d5550.
+//
+// Solidity: function bondOperator() view returns(address)
+func (_BondManager *BondManagerCaller) BondOperator(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "bondOperator")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// BondOperator is a free data retrieval call binding the contract method 0x288d5550.
+//
+// Solidity: function bondOperator() view returns(address)
+func (_BondManager *BondManagerSession) BondOperator() (common.Address, error) {
+	return _BondManager.Contract.BondOperator(&_BondManager.CallOpts)
+}
+
+// BondOperator is a free data retrieval call binding the contract method 0x288d5550.
+//
+// Solidity: function bondOperator() view returns(address)
+func (_BondManager *BondManagerCallerSession) BondOperator() (common.Address, error) {
+	return _BondManager.Contract.BondOperator(&_BondManager.CallOpts)
 }
 
 // BondToken is a free data retrieval call binding the contract method 0xc28f4392.
@@ -411,6 +411,99 @@ func (_BondManager *BondManagerCallerSession) InNonReentrant() (bool, error) {
 	return _BondManager.Contract.InNonReentrant(&_BondManager.CallOpts)
 }
 
+// L1ChainId is a free data retrieval call binding the contract method 0x12622e5b.
+//
+// Solidity: function l1ChainId() view returns(uint64)
+func (_BondManager *BondManagerCaller) L1ChainId(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "l1ChainId")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// L1ChainId is a free data retrieval call binding the contract method 0x12622e5b.
+//
+// Solidity: function l1ChainId() view returns(uint64)
+func (_BondManager *BondManagerSession) L1ChainId() (uint64, error) {
+	return _BondManager.Contract.L1ChainId(&_BondManager.CallOpts)
+}
+
+// L1ChainId is a free data retrieval call binding the contract method 0x12622e5b.
+//
+// Solidity: function l1ChainId() view returns(uint64)
+func (_BondManager *BondManagerCallerSession) L1ChainId() (uint64, error) {
+	return _BondManager.Contract.L1ChainId(&_BondManager.CallOpts)
+}
+
+// L1Inbox is a free data retrieval call binding the contract method 0x8134f385.
+//
+// Solidity: function l1Inbox() view returns(address)
+func (_BondManager *BondManagerCaller) L1Inbox(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "l1Inbox")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// L1Inbox is a free data retrieval call binding the contract method 0x8134f385.
+//
+// Solidity: function l1Inbox() view returns(address)
+func (_BondManager *BondManagerSession) L1Inbox() (common.Address, error) {
+	return _BondManager.Contract.L1Inbox(&_BondManager.CallOpts)
+}
+
+// L1Inbox is a free data retrieval call binding the contract method 0x8134f385.
+//
+// Solidity: function l1Inbox() view returns(address)
+func (_BondManager *BondManagerCallerSession) L1Inbox() (common.Address, error) {
+	return _BondManager.Contract.L1Inbox(&_BondManager.CallOpts)
+}
+
+// LivenessBond is a free data retrieval call binding the contract method 0xd4414221.
+//
+// Solidity: function livenessBond() view returns(uint256)
+func (_BondManager *BondManagerCaller) LivenessBond(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "livenessBond")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// LivenessBond is a free data retrieval call binding the contract method 0xd4414221.
+//
+// Solidity: function livenessBond() view returns(uint256)
+func (_BondManager *BondManagerSession) LivenessBond() (*big.Int, error) {
+	return _BondManager.Contract.LivenessBond(&_BondManager.CallOpts)
+}
+
+// LivenessBond is a free data retrieval call binding the contract method 0xd4414221.
+//
+// Solidity: function livenessBond() view returns(uint256)
+func (_BondManager *BondManagerCallerSession) LivenessBond() (*big.Int, error) {
+	return _BondManager.Contract.LivenessBond(&_BondManager.CallOpts)
+}
+
 // MinBond is a free data retrieval call binding the contract method 0x831518b7.
 //
 // Solidity: function minBond() view returns(uint256)
@@ -535,6 +628,68 @@ func (_BondManager *BondManagerCallerSession) PendingOwner() (common.Address, er
 	return _BondManager.Contract.PendingOwner(&_BondManager.CallOpts)
 }
 
+// ProcessedSignals is a free data retrieval call binding the contract method 0xd703e480.
+//
+// Solidity: function processedSignals(bytes32 signalId) view returns(bool processed)
+func (_BondManager *BondManagerCaller) ProcessedSignals(opts *bind.CallOpts, signalId [32]byte) (bool, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "processedSignals", signalId)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// ProcessedSignals is a free data retrieval call binding the contract method 0xd703e480.
+//
+// Solidity: function processedSignals(bytes32 signalId) view returns(bool processed)
+func (_BondManager *BondManagerSession) ProcessedSignals(signalId [32]byte) (bool, error) {
+	return _BondManager.Contract.ProcessedSignals(&_BondManager.CallOpts, signalId)
+}
+
+// ProcessedSignals is a free data retrieval call binding the contract method 0xd703e480.
+//
+// Solidity: function processedSignals(bytes32 signalId) view returns(bool processed)
+func (_BondManager *BondManagerCallerSession) ProcessedSignals(signalId [32]byte) (bool, error) {
+	return _BondManager.Contract.ProcessedSignals(&_BondManager.CallOpts, signalId)
+}
+
+// ProvabilityBond is a free data retrieval call binding the contract method 0xcf1a0f22.
+//
+// Solidity: function provabilityBond() view returns(uint256)
+func (_BondManager *BondManagerCaller) ProvabilityBond(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "provabilityBond")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// ProvabilityBond is a free data retrieval call binding the contract method 0xcf1a0f22.
+//
+// Solidity: function provabilityBond() view returns(uint256)
+func (_BondManager *BondManagerSession) ProvabilityBond() (*big.Int, error) {
+	return _BondManager.Contract.ProvabilityBond(&_BondManager.CallOpts)
+}
+
+// ProvabilityBond is a free data retrieval call binding the contract method 0xcf1a0f22.
+//
+// Solidity: function provabilityBond() view returns(uint256)
+func (_BondManager *BondManagerCallerSession) ProvabilityBond() (*big.Int, error) {
+	return _BondManager.Contract.ProvabilityBond(&_BondManager.CallOpts)
+}
+
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
 //
 // Solidity: function proxiableUUID() view returns(bytes32)
@@ -595,6 +750,37 @@ func (_BondManager *BondManagerSession) Resolver() (common.Address, error) {
 // Solidity: function resolver() view returns(address)
 func (_BondManager *BondManagerCallerSession) Resolver() (common.Address, error) {
 	return _BondManager.Contract.Resolver(&_BondManager.CallOpts)
+}
+
+// SignalService is a free data retrieval call binding the contract method 0x62d09453.
+//
+// Solidity: function signalService() view returns(address)
+func (_BondManager *BondManagerCaller) SignalService(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BondManager.contract.Call(opts, &out, "signalService")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SignalService is a free data retrieval call binding the contract method 0x62d09453.
+//
+// Solidity: function signalService() view returns(address)
+func (_BondManager *BondManagerSession) SignalService() (common.Address, error) {
+	return _BondManager.Contract.SignalService(&_BondManager.CallOpts)
+}
+
+// SignalService is a free data retrieval call binding the contract method 0x62d09453.
+//
+// Solidity: function signalService() view returns(address)
+func (_BondManager *BondManagerCallerSession) SignalService() (common.Address, error) {
+	return _BondManager.Contract.SignalService(&_BondManager.CallOpts)
 }
 
 // WithdrawalDelay is a free data retrieval call binding the contract method 0xa7ab6961.
@@ -794,6 +980,27 @@ func (_BondManager *BondManagerSession) Pause() (*types.Transaction, error) {
 // Solidity: function pause() returns()
 func (_BondManager *BondManagerTransactorSession) Pause() (*types.Transaction, error) {
 	return _BondManager.Contract.Pause(&_BondManager.TransactOpts)
+}
+
+// ProcessBondSignal is a paid mutator transaction binding the contract method 0x012903ce.
+//
+// Solidity: function processBondSignal((uint48,uint8,address,address) _instruction, bytes _proof) returns()
+func (_BondManager *BondManagerTransactor) ProcessBondSignal(opts *bind.TransactOpts, _instruction LibBondsBondInstruction, _proof []byte) (*types.Transaction, error) {
+	return _BondManager.contract.Transact(opts, "processBondSignal", _instruction, _proof)
+}
+
+// ProcessBondSignal is a paid mutator transaction binding the contract method 0x012903ce.
+//
+// Solidity: function processBondSignal((uint48,uint8,address,address) _instruction, bytes _proof) returns()
+func (_BondManager *BondManagerSession) ProcessBondSignal(_instruction LibBondsBondInstruction, _proof []byte) (*types.Transaction, error) {
+	return _BondManager.Contract.ProcessBondSignal(&_BondManager.TransactOpts, _instruction, _proof)
+}
+
+// ProcessBondSignal is a paid mutator transaction binding the contract method 0x012903ce.
+//
+// Solidity: function processBondSignal((uint48,uint8,address,address) _instruction, bytes _proof) returns()
+func (_BondManager *BondManagerTransactorSession) ProcessBondSignal(_instruction LibBondsBondInstruction, _proof []byte) (*types.Transaction, error) {
+	return _BondManager.Contract.ProcessBondSignal(&_BondManager.TransactOpts, _instruction, _proof)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -1805,6 +2012,152 @@ func (_BondManager *BondManagerFilterer) WatchBondDepositedFor(opts *bind.WatchO
 func (_BondManager *BondManagerFilterer) ParseBondDepositedFor(log types.Log) (*BondManagerBondDepositedFor, error) {
 	event := new(BondManagerBondDepositedFor)
 	if err := _BondManager.contract.UnpackLog(event, "BondDepositedFor", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BondManagerBondSignalProcessedIterator is returned from FilterBondSignalProcessed and is used to iterate over the raw logs and unpacked data for BondSignalProcessed events raised by the BondManager contract.
+type BondManagerBondSignalProcessedIterator struct {
+	Event *BondManagerBondSignalProcessed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BondManagerBondSignalProcessedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BondManagerBondSignalProcessed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BondManagerBondSignalProcessed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BondManagerBondSignalProcessedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BondManagerBondSignalProcessedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BondManagerBondSignalProcessed represents a BondSignalProcessed event raised by the BondManager contract.
+type BondManagerBondSignalProcessed struct {
+	Signal        [32]byte
+	Instruction   LibBondsBondInstruction
+	DebitedAmount *big.Int
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterBondSignalProcessed is a free log retrieval operation binding the contract event 0xdbe5b814595c899ba691420d584c65ff1fb8ddb7511dad03ad7bb9362a05918b.
+//
+// Solidity: event BondSignalProcessed(bytes32 indexed signal, (uint48,uint8,address,address) instruction, uint256 debitedAmount)
+func (_BondManager *BondManagerFilterer) FilterBondSignalProcessed(opts *bind.FilterOpts, signal [][32]byte) (*BondManagerBondSignalProcessedIterator, error) {
+
+	var signalRule []interface{}
+	for _, signalItem := range signal {
+		signalRule = append(signalRule, signalItem)
+	}
+
+	logs, sub, err := _BondManager.contract.FilterLogs(opts, "BondSignalProcessed", signalRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BondManagerBondSignalProcessedIterator{contract: _BondManager.contract, event: "BondSignalProcessed", logs: logs, sub: sub}, nil
+}
+
+// WatchBondSignalProcessed is a free log subscription operation binding the contract event 0xdbe5b814595c899ba691420d584c65ff1fb8ddb7511dad03ad7bb9362a05918b.
+//
+// Solidity: event BondSignalProcessed(bytes32 indexed signal, (uint48,uint8,address,address) instruction, uint256 debitedAmount)
+func (_BondManager *BondManagerFilterer) WatchBondSignalProcessed(opts *bind.WatchOpts, sink chan<- *BondManagerBondSignalProcessed, signal [][32]byte) (event.Subscription, error) {
+
+	var signalRule []interface{}
+	for _, signalItem := range signal {
+		signalRule = append(signalRule, signalItem)
+	}
+
+	logs, sub, err := _BondManager.contract.WatchLogs(opts, "BondSignalProcessed", signalRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BondManagerBondSignalProcessed)
+				if err := _BondManager.contract.UnpackLog(event, "BondSignalProcessed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBondSignalProcessed is a log parse operation binding the contract event 0xdbe5b814595c899ba691420d584c65ff1fb8ddb7511dad03ad7bb9362a05918b.
+//
+// Solidity: event BondSignalProcessed(bytes32 indexed signal, (uint48,uint8,address,address) instruction, uint256 debitedAmount)
+func (_BondManager *BondManagerFilterer) ParseBondSignalProcessed(log types.Log) (*BondManagerBondSignalProcessed, error) {
+	event := new(BondManagerBondSignalProcessed)
+	if err := _BondManager.contract.UnpackLog(event, "BondSignalProcessed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

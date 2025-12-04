@@ -36,16 +36,6 @@ type ICheckpointStoreCheckpoint struct {
 	StateRoot   [32]byte
 }
 
-// IInboxCoreState is an auto generated low-level Go binding around an user-defined struct.
-type IInboxCoreState struct {
-	NextProposalId              *big.Int
-	LastProposalBlockId         *big.Int
-	LastFinalizedProposalId     *big.Int
-	LastCheckpointTimestamp     *big.Int
-	LastFinalizedTransitionHash [32]byte
-	BondInstructionsHash        [32]byte
-}
-
 // IInboxDerivation is an auto generated low-level Go binding around an user-defined struct.
 type IInboxDerivation struct {
 	OriginBlockNumber  *big.Int
@@ -66,42 +56,35 @@ type IInboxProposal struct {
 	Timestamp                      *big.Int
 	EndOfSubmissionWindowTimestamp *big.Int
 	Proposer                       common.Address
-	CoreStateHash                  [32]byte
 	DerivationHash                 [32]byte
 }
 
 // IInboxProposeInput is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProposeInput struct {
 	Deadline            *big.Int
-	CoreState           IInboxCoreState
-	ParentProposals     []IInboxProposal
 	BlobReference       LibBlobsBlobReference
-	TransitionRecords   []IInboxTransitionRecord
-	Checkpoint          ICheckpointStoreCheckpoint
 	NumForcedInclusions uint8
 }
 
 // IInboxProposedEventPayload is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProposedEventPayload struct {
-	Proposal         IInboxProposal
-	Derivation       IInboxDerivation
-	CoreState        IInboxCoreState
-	BondInstructions []LibBondsBondInstruction
+	Proposal   IInboxProposal
+	Derivation IInboxDerivation
 }
 
 // IInboxProveInput is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProveInput struct {
 	Proposals   []IInboxProposal
 	Transitions []IInboxTransition
-	Metadata    []IInboxTransitionMetadata
+	Checkpoint  ICheckpointStoreCheckpoint
 }
 
 // IInboxProvedEventPayload is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProvedEventPayload struct {
-	ProposalId       *big.Int
-	Transition       IInboxTransition
-	TransitionRecord IInboxTransitionRecord
-	Metadata         IInboxTransitionMetadata
+	ProposalId      *big.Int
+	Transition      IInboxTransition
+	BondInstruction LibBondsBondInstruction
+	BondSignal      [32]byte
 }
 
 // IInboxTransition is an auto generated low-level Go binding around an user-defined struct.
@@ -109,20 +92,8 @@ type IInboxTransition struct {
 	ProposalHash         [32]byte
 	ParentTransitionHash [32]byte
 	Checkpoint           ICheckpointStoreCheckpoint
-}
-
-// IInboxTransitionMetadata is an auto generated low-level Go binding around an user-defined struct.
-type IInboxTransitionMetadata struct {
-	DesignatedProver common.Address
-	ActualProver     common.Address
-}
-
-// IInboxTransitionRecord is an auto generated low-level Go binding around an user-defined struct.
-type IInboxTransitionRecord struct {
-	Span             uint8
-	BondInstructions []LibBondsBondInstruction
-	TransitionHash   [32]byte
-	CheckpointHash   [32]byte
+	DesignatedProver     common.Address
+	ActualProver         common.Address
 }
 
 // LibBondsBondInstruction is an auto generated low-level Go binding around an user-defined struct.
@@ -135,7 +106,7 @@ type LibBondsBondInstruction struct {
 
 // CodecOptimizedClientMetaData contains all meta data concerning the CodecOptimizedClient contract.
 var CodecOptimizedClientMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"parentProposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"transitionRecords\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionRecord[]\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProposedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"metadata\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionMetadata[]\",\"components\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProvedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"metadata\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionMetadata\",\"components\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"parentProposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"transitionRecords\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionRecord[]\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"metadata\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionMetadata[]\",\"components\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"metadata\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionMetadata\",\"components\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCheckpoint\",\"inputs\":[{\"name\":\"_checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCoreState\",\"inputs\":[{\"name\":\"_coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashDerivation\",\"inputs\":[{\"name\":\"_derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashProposal\",\"inputs\":[{\"name\":\"_proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransition\",\"inputs\":[{\"name\":\"_transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransitionRecord\",\"inputs\":[{\"name\":\"_transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes26\",\"internalType\":\"bytes26\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransitionsWithMetadata\",\"inputs\":[{\"name\":\"_transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"_metadata\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionMetadata[]\",\"components\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"InconsistentLengths\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint16\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MetadataLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalTransitionLengthMismatch\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProposedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProvedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondInstruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondSignal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondInstruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondSignal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCheckpoint\",\"inputs\":[{\"name\":\"_checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCoreState\",\"inputs\":[{\"name\":\"_coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashDerivation\",\"inputs\":[{\"name\":\"_derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashProposal\",\"inputs\":[{\"name\":\"_proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransition\",\"inputs\":[{\"name\":\"_transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransitions\",\"inputs\":[{\"name\":\"_transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint16\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalTransitionLengthMismatch\",\"inputs\":[]}]",
 }
 
 // CodecOptimizedClientABI is the input ABI used to generate the binding from.
@@ -286,7 +257,7 @@ func (_CodecOptimizedClient *CodecOptimizedClientTransactorRaw) Transact(opts *b
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
-// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) input_)
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposeInput(opts *bind.CallOpts, _data []byte) (IInboxProposeInput, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProposeInput", _data)
@@ -303,21 +274,21 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposeInput(opts
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
-// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) input_)
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
 	return _CodecOptimizedClient.Contract.DecodeProposeInput(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
-// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) input_)
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
 	return _CodecOptimizedClient.Contract.DecodeProposeInput(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProposedEvent is a free data retrieval call binding the contract method 0x5d27cc95.
 //
-// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]),(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint8,address,address)[]) payload_)
+// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposedEvent(opts *bind.CallOpts, _data []byte) (IInboxProposedEventPayload, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProposedEvent", _data)
@@ -334,21 +305,21 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposedEvent(opt
 
 // DecodeProposedEvent is a free data retrieval call binding the contract method 0x5d27cc95.
 //
-// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]),(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint8,address,address)[]) payload_)
+// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProposedEvent(_data []byte) (IInboxProposedEventPayload, error) {
 	return _CodecOptimizedClient.Contract.DecodeProposedEvent(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProposedEvent is a free data retrieval call binding the contract method 0x5d27cc95.
 //
-// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]),(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint8,address,address)[]) payload_)
+// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProposedEvent(_data []byte) (IInboxProposedEventPayload, error) {
 	return _CodecOptimizedClient.Contract.DecodeProposedEvent(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32))[],(address,address)[]) input_)
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],(uint48,bytes32,bytes32)) input_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProveInput(opts *bind.CallOpts, _data []byte) (IInboxProveInput, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProveInput", _data)
@@ -365,21 +336,21 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProveInput(opts *
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32))[],(address,address)[]) input_)
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],(uint48,bytes32,bytes32)) input_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
 	return _CodecOptimizedClient.Contract.DecodeProveInput(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32))[],(address,address)[]) input_)
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],(uint48,bytes32,bytes32)) input_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
 	return _CodecOptimizedClient.Contract.DecodeProveInput(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProvedEvent is a free data retrieval call binding the contract method 0x26303962.
 //
-// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32)),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32),(address,address)) payload_)
+// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) payload_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProvedEvent(opts *bind.CallOpts, _data []byte) (IInboxProvedEventPayload, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProvedEvent", _data)
@@ -396,21 +367,21 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProvedEvent(opts 
 
 // DecodeProvedEvent is a free data retrieval call binding the contract method 0x26303962.
 //
-// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32)),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32),(address,address)) payload_)
+// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) payload_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProvedEvent(_data []byte) (IInboxProvedEventPayload, error) {
 	return _CodecOptimizedClient.Contract.DecodeProvedEvent(&_CodecOptimizedClient.CallOpts, _data)
 }
 
 // DecodeProvedEvent is a free data retrieval call binding the contract method 0x26303962.
 //
-// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32)),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32),(address,address)) payload_)
+// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) payload_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProvedEvent(_data []byte) (IInboxProvedEventPayload, error) {
 	return _CodecOptimizedClient.Contract.DecodeProvedEvent(&_CodecOptimizedClient.CallOpts, _data)
 }
 
-// EncodeProposeInput is a free data retrieval call binding the contract method 0x261bf634.
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
 //
-// Solidity: function encodeProposeInput((uint48,(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) _input) pure returns(bytes encoded_)
+// Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposeInput(opts *bind.CallOpts, _input IInboxProposeInput) ([]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProposeInput", _input)
@@ -425,23 +396,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposeInput(opts
 
 }
 
-// EncodeProposeInput is a free data retrieval call binding the contract method 0x261bf634.
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
 //
-// Solidity: function encodeProposeInput((uint48,(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) _input) pure returns(bytes encoded_)
+// Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProposeInput(&_CodecOptimizedClient.CallOpts, _input)
 }
 
-// EncodeProposeInput is a free data retrieval call binding the contract method 0x261bf634.
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
 //
-// Solidity: function encodeProposeInput((uint48,(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) _input) pure returns(bytes encoded_)
+// Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProposeInput(&_CodecOptimizedClient.CallOpts, _input)
 }
 
-// EncodeProposedEvent is a free data retrieval call binding the contract method 0x82d7058b.
+// EncodeProposedEvent is a free data retrieval call binding the contract method 0x65763483.
 //
-// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]),(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint8,address,address)[]) _payload) pure returns(bytes encoded_)
+// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposedEvent(opts *bind.CallOpts, _payload IInboxProposedEventPayload) ([]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProposedEvent", _payload)
@@ -456,23 +427,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposedEvent(opt
 
 }
 
-// EncodeProposedEvent is a free data retrieval call binding the contract method 0x82d7058b.
+// EncodeProposedEvent is a free data retrieval call binding the contract method 0x65763483.
 //
-// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]),(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint8,address,address)[]) _payload) pure returns(bytes encoded_)
+// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProposedEvent(_payload IInboxProposedEventPayload) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProposedEvent(&_CodecOptimizedClient.CallOpts, _payload)
 }
 
-// EncodeProposedEvent is a free data retrieval call binding the contract method 0x82d7058b.
+// EncodeProposedEvent is a free data retrieval call binding the contract method 0x65763483.
 //
-// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]),(uint48,uint48,uint48,uint48,bytes32,bytes32),(uint48,uint8,address,address)[]) _payload) pure returns(bytes encoded_)
+// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProposedEvent(_payload IInboxProposedEventPayload) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProposedEvent(&_CodecOptimizedClient.CallOpts, _payload)
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0xdc5a8bf8.
+// EncodeProveInput is a free data retrieval call binding the contract method 0x59b70442.
 //
-// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32))[],(address,address)[]) _input) pure returns(bytes encoded_)
+// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],(uint48,bytes32,bytes32)) _input) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProveInput(opts *bind.CallOpts, _input IInboxProveInput) ([]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProveInput", _input)
@@ -487,23 +458,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProveInput(opts *
 
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0xdc5a8bf8.
+// EncodeProveInput is a free data retrieval call binding the contract method 0x59b70442.
 //
-// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32))[],(address,address)[]) _input) pure returns(bytes encoded_)
+// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],(uint48,bytes32,bytes32)) _input) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProveInput(&_CodecOptimizedClient.CallOpts, _input)
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0xdc5a8bf8.
+// EncodeProveInput is a free data retrieval call binding the contract method 0x59b70442.
 //
-// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32))[],(address,address)[]) _input) pure returns(bytes encoded_)
+// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],(uint48,bytes32,bytes32)) _input) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProveInput(&_CodecOptimizedClient.CallOpts, _input)
 }
 
-// EncodeProvedEvent is a free data retrieval call binding the contract method 0x8f6d0e1a.
+// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa3f5bb4b.
 //
-// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32)),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32),(address,address)) _payload) pure returns(bytes encoded_)
+// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) _payload) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProvedEvent(opts *bind.CallOpts, _payload IInboxProvedEventPayload) ([]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProvedEvent", _payload)
@@ -518,16 +489,16 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProvedEvent(opts 
 
 }
 
-// EncodeProvedEvent is a free data retrieval call binding the contract method 0x8f6d0e1a.
+// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa3f5bb4b.
 //
-// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32)),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32),(address,address)) _payload) pure returns(bytes encoded_)
+// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) _payload) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProvedEvent(_payload IInboxProvedEventPayload) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProvedEvent(&_CodecOptimizedClient.CallOpts, _payload)
 }
 
-// EncodeProvedEvent is a free data retrieval call binding the contract method 0x8f6d0e1a.
+// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa3f5bb4b.
 //
-// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32)),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32),(address,address)) _payload) pure returns(bytes encoded_)
+// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) _payload) pure returns(bytes encoded_)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProvedEvent(_payload IInboxProvedEventPayload) ([]byte, error) {
 	return _CodecOptimizedClient.Contract.EncodeProvedEvent(&_CodecOptimizedClient.CallOpts, _payload)
 }
@@ -563,9 +534,9 @@ func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashCheckpoint(_
 	return _CodecOptimizedClient.Contract.HashCheckpoint(&_CodecOptimizedClient.CallOpts, _checkpoint)
 }
 
-// HashCoreState is a free data retrieval call binding the contract method 0x1fe06ab4.
+// HashCoreState is a free data retrieval call binding the contract method 0x217b8da0.
 //
-// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,bytes32,bytes32) _coreState) pure returns(bytes32)
+// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,uint48,bytes32) _coreState) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashCoreState(opts *bind.CallOpts, _coreState IInboxCoreState) ([32]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashCoreState", _coreState)
@@ -580,16 +551,16 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashCoreState(opts *bin
 
 }
 
-// HashCoreState is a free data retrieval call binding the contract method 0x1fe06ab4.
+// HashCoreState is a free data retrieval call binding the contract method 0x217b8da0.
 //
-// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,bytes32,bytes32) _coreState) pure returns(bytes32)
+// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,uint48,bytes32) _coreState) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) HashCoreState(_coreState IInboxCoreState) ([32]byte, error) {
 	return _CodecOptimizedClient.Contract.HashCoreState(&_CodecOptimizedClient.CallOpts, _coreState)
 }
 
-// HashCoreState is a free data retrieval call binding the contract method 0x1fe06ab4.
+// HashCoreState is a free data retrieval call binding the contract method 0x217b8da0.
 //
-// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,bytes32,bytes32) _coreState) pure returns(bytes32)
+// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,uint48,bytes32) _coreState) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashCoreState(_coreState IInboxCoreState) ([32]byte, error) {
 	return _CodecOptimizedClient.Contract.HashCoreState(&_CodecOptimizedClient.CallOpts, _coreState)
 }
@@ -625,9 +596,9 @@ func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashDerivation(_
 	return _CodecOptimizedClient.Contract.HashDerivation(&_CodecOptimizedClient.CallOpts, _derivation)
 }
 
-// HashProposal is a free data retrieval call binding the contract method 0xa1ec9333.
+// HashProposal is a free data retrieval call binding the contract method 0x85b627a2.
 //
-// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,bytes32) _proposal) pure returns(bytes32)
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32) _proposal) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashProposal(opts *bind.CallOpts, _proposal IInboxProposal) ([32]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashProposal", _proposal)
@@ -642,23 +613,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashProposal(opts *bind
 
 }
 
-// HashProposal is a free data retrieval call binding the contract method 0xa1ec9333.
+// HashProposal is a free data retrieval call binding the contract method 0x85b627a2.
 //
-// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,bytes32) _proposal) pure returns(bytes32)
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32) _proposal) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
 	return _CodecOptimizedClient.Contract.HashProposal(&_CodecOptimizedClient.CallOpts, _proposal)
 }
 
-// HashProposal is a free data retrieval call binding the contract method 0xa1ec9333.
+// HashProposal is a free data retrieval call binding the contract method 0x85b627a2.
 //
-// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,bytes32) _proposal) pure returns(bytes32)
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32) _proposal) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
 	return _CodecOptimizedClient.Contract.HashProposal(&_CodecOptimizedClient.CallOpts, _proposal)
 }
 
-// HashTransition is a free data retrieval call binding the contract method 0x1f397067.
+// HashTransition is a free data retrieval call binding the contract method 0x2833bf29.
 //
-// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32)) _transition) pure returns(bytes32)
+// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32),address,address) _transition) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransition(opts *bind.CallOpts, _transition IInboxTransition) ([32]byte, error) {
 	var out []interface{}
 	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashTransition", _transition)
@@ -673,57 +644,26 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransition(opts *bi
 
 }
 
-// HashTransition is a free data retrieval call binding the contract method 0x1f397067.
+// HashTransition is a free data retrieval call binding the contract method 0x2833bf29.
 //
-// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32)) _transition) pure returns(bytes32)
+// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32),address,address) _transition) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientSession) HashTransition(_transition IInboxTransition) ([32]byte, error) {
 	return _CodecOptimizedClient.Contract.HashTransition(&_CodecOptimizedClient.CallOpts, _transition)
 }
 
-// HashTransition is a free data retrieval call binding the contract method 0x1f397067.
+// HashTransition is a free data retrieval call binding the contract method 0x2833bf29.
 //
-// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32)) _transition) pure returns(bytes32)
+// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32),address,address) _transition) pure returns(bytes32)
 func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashTransition(_transition IInboxTransition) ([32]byte, error) {
 	return _CodecOptimizedClient.Contract.HashTransition(&_CodecOptimizedClient.CallOpts, _transition)
 }
 
-// HashTransitionRecord is a free data retrieval call binding the contract method 0xeedec102.
+// HashTransitions is a free data retrieval call binding the contract method 0x012b5fd7.
 //
-// Solidity: function hashTransitionRecord((uint8,(uint48,uint8,address,address)[],bytes32,bytes32) _transitionRecord) pure returns(bytes26)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransitionRecord(opts *bind.CallOpts, _transitionRecord IInboxTransitionRecord) ([26]byte, error) {
+// Solidity: function hashTransitions((bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[] _transitions) pure returns(bytes32)
+func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransitions(opts *bind.CallOpts, _transitions []IInboxTransition) ([32]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashTransitionRecord", _transitionRecord)
-
-	if err != nil {
-		return *new([26]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([26]byte)).(*[26]byte)
-
-	return out0, err
-
-}
-
-// HashTransitionRecord is a free data retrieval call binding the contract method 0xeedec102.
-//
-// Solidity: function hashTransitionRecord((uint8,(uint48,uint8,address,address)[],bytes32,bytes32) _transitionRecord) pure returns(bytes26)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashTransitionRecord(_transitionRecord IInboxTransitionRecord) ([26]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransitionRecord(&_CodecOptimizedClient.CallOpts, _transitionRecord)
-}
-
-// HashTransitionRecord is a free data retrieval call binding the contract method 0xeedec102.
-//
-// Solidity: function hashTransitionRecord((uint8,(uint48,uint8,address,address)[],bytes32,bytes32) _transitionRecord) pure returns(bytes26)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashTransitionRecord(_transitionRecord IInboxTransitionRecord) ([26]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransitionRecord(&_CodecOptimizedClient.CallOpts, _transitionRecord)
-}
-
-// HashTransitionsWithMetadata is a free data retrieval call binding the contract method 0x7a9a552a.
-//
-// Solidity: function hashTransitionsWithMetadata((bytes32,bytes32,(uint48,bytes32,bytes32))[] _transitions, (address,address)[] _metadata) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransitionsWithMetadata(opts *bind.CallOpts, _transitions []IInboxTransition, _metadata []IInboxTransitionMetadata) ([32]byte, error) {
-	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashTransitionsWithMetadata", _transitions, _metadata)
+	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashTransitions", _transitions)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -735,16 +675,16 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransitionsWithMeta
 
 }
 
-// HashTransitionsWithMetadata is a free data retrieval call binding the contract method 0x7a9a552a.
+// HashTransitions is a free data retrieval call binding the contract method 0x012b5fd7.
 //
-// Solidity: function hashTransitionsWithMetadata((bytes32,bytes32,(uint48,bytes32,bytes32))[] _transitions, (address,address)[] _metadata) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashTransitionsWithMetadata(_transitions []IInboxTransition, _metadata []IInboxTransitionMetadata) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransitionsWithMetadata(&_CodecOptimizedClient.CallOpts, _transitions, _metadata)
+// Solidity: function hashTransitions((bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[] _transitions) pure returns(bytes32)
+func (_CodecOptimizedClient *CodecOptimizedClientSession) HashTransitions(_transitions []IInboxTransition) ([32]byte, error) {
+	return _CodecOptimizedClient.Contract.HashTransitions(&_CodecOptimizedClient.CallOpts, _transitions)
 }
 
-// HashTransitionsWithMetadata is a free data retrieval call binding the contract method 0x7a9a552a.
+// HashTransitions is a free data retrieval call binding the contract method 0x012b5fd7.
 //
-// Solidity: function hashTransitionsWithMetadata((bytes32,bytes32,(uint48,bytes32,bytes32))[] _transitions, (address,address)[] _metadata) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashTransitionsWithMetadata(_transitions []IInboxTransition, _metadata []IInboxTransitionMetadata) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransitionsWithMetadata(&_CodecOptimizedClient.CallOpts, _transitions, _metadata)
+// Solidity: function hashTransitions((bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[] _transitions) pure returns(bytes32)
+func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashTransitions(_transitions []IInboxTransition) ([32]byte, error) {
+	return _CodecOptimizedClient.Contract.HashTransitions(&_CodecOptimizedClient.CallOpts, _transitions)
 }

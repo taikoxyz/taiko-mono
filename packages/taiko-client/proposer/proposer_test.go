@@ -126,14 +126,12 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.p.shastaStateIndexer.Start())
 	s.cancel = cancel
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	s.p.txBuilder = builder.NewBuilderWithFallback(
 		s.p.rpc,
-		s.ShastaStateIndexer,
 		s.p.L1ProposerPrivKey,
 		s.TestAddr,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
