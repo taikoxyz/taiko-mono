@@ -499,9 +499,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             newState_.lastFinalizedTransitionHash = parentHash;
             newState_.lastFinalizedTimestamp = uint48(block.timestamp);
 
-            bytes32 checkpointHash =
-                _hashCheckpoint(_input.transitions[_input.transitions.length - 1].checkpoint);
-            _syncCheckpointIfNeeded(_input.checkpoint, checkpointHash, newState_);
+            _syncCheckpointIfNeeded(
+                _input.syncCheckpoint,
+                _input.transitions[_input.transitions.length - 1],
+                newState_
+            );
         }
     }
 
@@ -794,21 +796,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
-    /// @param _checkpoint The checkpoint data to sync.
-    /// @param _expectedCheckpointHash The expected hash to validate against.
+    /// @param _syncCheckpoint Whether to persist the checkpoint from the last transition.
+    /// @param _lastTransition The last transition in the proven batch (source of checkpoint).
     /// @param _coreState Core state to update with new checkpoint timestamp.
     function _syncCheckpointIfNeeded(
-        ICheckpointStore.Checkpoint memory _checkpoint,
-        bytes32 _expectedCheckpointHash,
+        bool _syncCheckpoint,
+        Transition memory _lastTransition,
         CoreState memory _coreState
     )
         private
     {
-        if (_checkpoint.blockHash != 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_checkpoint);
-            require(checkpointHash == _expectedCheckpointHash, CheckpointMismatch());
+        if (_syncCheckpoint) {
+            ICheckpointStore.Checkpoint memory checkpoint = _lastTransition.checkpoint;
+            require(checkpoint.blockHash != 0, CheckpointMismatch());
 
-            _signalService.saveCheckpoint(_checkpoint);
+            _signalService.saveCheckpoint(checkpoint);
             _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
         } else {
             require(

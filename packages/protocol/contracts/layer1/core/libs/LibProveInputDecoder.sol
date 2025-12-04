@@ -14,8 +14,7 @@ library LibProveInputDecoder {
         pure
         returns (bytes memory encoded_)
     {
-        uint256 bufferSize =
-            _calculateProveDataSize(_input.proposals, _input.transitions);
+        uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions);
         encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
@@ -32,9 +31,7 @@ library LibProveInputDecoder {
             ptr = _encodeTransition(ptr, _input.transitions[i]);
         }
 
-        ptr = P.packUint48(ptr, _input.checkpoint.blockNumber);
-        ptr = P.packBytes32(ptr, _input.checkpoint.blockHash);
-        ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
+        ptr = P.packUint8(ptr, _input.syncCheckpoint ? 1 : 0);
     }
 
     /// @notice Decodes prove input data using compact packing.
@@ -57,9 +54,9 @@ library LibProveInputDecoder {
             (input_.transitions[i], ptr) = _decodeTransition(ptr);
         }
 
-        (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+        uint8 syncCheckpoint;
+        (syncCheckpoint, ptr) = P.unpackUint8(ptr);
+        input_.syncCheckpoint = syncCheckpoint != 0;
     }
 
     /// @notice Calculate the size needed for encoding.
@@ -75,11 +72,11 @@ library LibProveInputDecoder {
 
         unchecked {
             // Array lengths: 2 + 2 = 4 bytes
+            // syncCheckpoint flag: 1 byte
             // Per item:
             //   Proposal: 70 bytes
             //   Transition: 174 bytes
-            // Final checkpoint: 70 bytes
-            size_ = 4 + (_proposals.length * (70 + 174)) + 70;
+            size_ = 5 + (_proposals.length * (70 + 174));
         }
     }
 

@@ -51,11 +51,7 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: proposals,
             transitions: transitions,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 250,
-                blockHash: bytes32(uint256(30)),
-                stateRoot: bytes32(uint256(31))
-            })
+            syncCheckpoint: true
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(input);
@@ -66,14 +62,14 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.proposals[1].proposer, proposals[1].proposer, "proposal proposer");
         assertEq(decoded.transitions[1].checkpoint.blockHash, transitions[1].checkpoint.blockHash, "checkpoint hash");
         assertEq(decoded.transitions[0].designatedProver, transitions[0].designatedProver, "designated prover");
-        assertEq(decoded.checkpoint.blockNumber, input.checkpoint.blockNumber, "checkpoint blockNumber");
+        assertTrue(decoded.syncCheckpoint, "sync checkpoint");
     }
 
     function test_encode_RevertWhen_lengthsMismatch() public {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](1),
             transitions: new IInbox.Transition[](0),
-            checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0) })
+            syncCheckpoint: true
         });
 
         vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
@@ -84,11 +80,7 @@ contract LibProveInputDecoderTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             proposals: _singleProposalArray(),
             transitions: _singleTransitionArray(),
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 1,
-                blockHash: bytes32(uint256(2)),
-                stateRoot: bytes32(uint256(3))
-            })
+            syncCheckpoint: true
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(input);

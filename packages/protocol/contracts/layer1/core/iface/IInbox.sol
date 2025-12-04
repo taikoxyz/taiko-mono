@@ -132,8 +132,10 @@ interface IInbox {
         Proposal[] proposals;
         /// @notice Array of transitions containing proof details.
         Transition[] transitions;
-        /// @notice The checkpoint corresponding to the last transition in the batch.
-        ICheckpointStore.Checkpoint checkpoint;
+        /// @notice Whether to sync the checkpoint from the last transition.
+        /// This has to be set to `true` if `_minCheckpointDelay` has passed, but can be set to `true`
+        /// before if you want to sync the checkpoint early.
+        bool syncCheckpoint;
     }
 
     /// @notice Payload data emitted in the Proposed event

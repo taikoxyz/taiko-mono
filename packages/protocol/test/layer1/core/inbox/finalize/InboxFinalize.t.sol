@@ -5,7 +5,6 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { InboxVariant } from "../common/InboxTestBase.sol";
 import { ProveTestBase } from "../prove/InboxProve.t.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 abstract contract FinalizeTestBase is ProveTestBase {
     constructor(InboxVariant _variant) ProveTestBase(_variant) { }
@@ -22,7 +21,7 @@ abstract contract FinalizeTestBase is ProveTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            checkpoint: transition.checkpoint
+            syncCheckpoint: true
         });
 
         vm.prank(prover);
@@ -43,7 +42,7 @@ abstract contract FinalizeTestBase is ProveTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            checkpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0) })
+            syncCheckpoint: false
         });
 
         vm.prank(prover);

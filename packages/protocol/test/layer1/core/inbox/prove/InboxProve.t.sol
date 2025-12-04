@@ -27,7 +27,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            checkpoint: checkpoint
+            syncCheckpoint: true
         });
 
         uint256 snap = vm.snapshot();
@@ -52,7 +52,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory emptyInput = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](0),
             transitions: new IInbox.Transition[](0),
-            checkpoint: _checkpoint(bytes32(uint256(1)))
+            syncCheckpoint: true
         });
 
         vm.expectRevert(Inbox.EmptyProposals.selector);
@@ -76,7 +76,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(wrong),
             transitions: _transitions(transition),
-            checkpoint: transition.checkpoint
+            syncCheckpoint: true
         });
 
         vm.prank(prover);
@@ -97,7 +97,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal),
             transitions: _transitions(t1, t2),
-            checkpoint: t2.checkpoint
+            syncCheckpoint: true
         });
 
         vm.prank(prover);
@@ -107,14 +107,11 @@ abstract contract ProveTestBase is InboxTestBase {
 
     function test_prove_RevertWhen_LengthMismatch() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
-        IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
-        );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: new IInbox.Transition[](0),
-            checkpoint: transition.checkpoint
+            syncCheckpoint: true
         });
 
         if (_isOptimized()) {
@@ -131,11 +128,12 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.Transition memory transition = _transitionFor(
             proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
+        transition.checkpoint.blockHash = bytes32(0);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            checkpoint: _checkpoint(bytes32(uint256(999))) // wrong checkpoint hash
+            syncCheckpoint: true
         });
 
         vm.expectRevert(Inbox.CheckpointMismatch.selector);
@@ -156,7 +154,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal),
             transitions: _transitions(t1, t2),
-            checkpoint: t2.checkpoint
+            syncCheckpoint: true
         });
 
         IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveInput);
@@ -199,7 +197,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(proposed.proposal),
             transitions: _transitions(transition),
-            checkpoint: checkpoint
+            syncCheckpoint: true
         });
 
         IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveInput);
@@ -234,7 +232,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal, p3.proposal),
             transitions: _transitions(t1, t2, t3),
-            checkpoint: t3.checkpoint
+            syncCheckpoint: true
         });
 
         IInbox.ProvedEventPayload memory proved =
@@ -268,7 +266,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal, p3.proposal, p4.proposal, p5.proposal),
             transitions: _transitions(t1, t2, t3, t4, t5),
-            checkpoint: t5.checkpoint
+            syncCheckpoint: true
         });
 
         IInbox.ProvedEventPayload memory proved =
@@ -295,14 +293,14 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal),
             transitions: _transitions(t1),
-            checkpoint: t1.checkpoint
+            syncCheckpoint: true
         });
         _proveAndDecode(prefixInput);
 
         IInbox.ProveInput memory fullInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal, p3.proposal),
             transitions: _transitions(t1, t2, t3),
-            checkpoint: t3.checkpoint
+            syncCheckpoint: true
         });
 
         IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(fullInput);
@@ -325,7 +323,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal),
             transitions: _transitions(t1),
-            checkpoint: t1.checkpoint
+            syncCheckpoint: true
         });
         _proveAndDecode(prefixInput);
 
@@ -337,7 +335,7 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal),
             transitions: _transitions(wrongPrefix, t2),
-            checkpoint: t2.checkpoint
+            syncCheckpoint: true
         });
 
         vm.prank(prover);
@@ -461,7 +459,7 @@ abstract contract RingBufferTestBase is ProveTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal),
             transitions: _transitions(t1),
-            checkpoint: t1.checkpoint
+            syncCheckpoint: true
         });
 
         _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_after_ring_buffer_fill");
