@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxTestBase, InboxVariant } from "../common/InboxTestBase.sol";
+import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -12,40 +12,59 @@ import { Vm } from "forge-std/src/Vm.sol";
 abstract contract ProveTestBase is InboxTestBase {
     constructor(InboxVariant _variant) InboxTestBase(_variant) { }
 
-    function test_prove_single_finalizes() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(bytes32(uint256(123)));
+    /// forge-config: default.isolate = true
+    function test_prove_single() public {
+        (IInbox.ProveInput memory proveInput, IInbox.Transition[] memory transitions) =
+            _buildBatchInput(1, false);
 
-        IInbox.Transition memory transition = IInbox.Transition({
-            proposalHash: codec.hashProposal(proposed.proposal),
-            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
-            checkpoint: checkpoint,
-            designatedProver: prover,
-            actualProver: prover
-        });
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(proposed.proposal),
-            transitions: _transitions(transition),
-            syncCheckpoint: true
-        });
-
-        uint256 snap = vm.snapshot();
-        _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_single");
-
-        bool reverted = vm.revertTo(snap);
-        assertTrue(reverted, "revertTo snapshot");
         IInbox.ProvedEventPayload memory provedPayload =
-            _proveAndDecodeWithGas(proveInput, "shasta-finalize", "finalize_single");
+            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_single");
         IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, proposed.proposal.id, "finalized id");
-        assertEq(state.lastFinalizedTransitionHash, codec.hashTransition(transition), "transition hash");
+        assertEq(state.lastFinalizedProposalId, proveInput.proposals[0].id, "finalized id");
+        assertEq(state.lastFinalizedTransitionHash, codec.hashTransition(transitions[0]), "transition hash");
         assertEq(uint8(provedPayload.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
         assertEq(provedPayload.bondSignal, bytes32(0), "bond signal");
 
-        ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(checkpoint.blockNumber);
-        assertEq(saved.blockHash, checkpoint.blockHash, "checkpoint hash");
-        assertEq(saved.stateRoot, checkpoint.stateRoot, "checkpoint root");
+        assertEq(inbox.getState().lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
+    }
+
+    /// forge-config: default.isolate = true
+    function test_prove_batch3() public {
+        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(3, false);
+
+        IInbox.ProvedEventPayload memory proved =
+            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_3");
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastFinalizedProposalId, proveInput.proposals[2].id, "finalized id");
+        assertEq(proved.bondSignal, bytes32(0), "bond signal");
+        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+    }
+
+    /// forge-config: default.isolate = true
+    function test_prove_batch5() public {
+        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(5, false);
+
+        IInbox.ProvedEventPayload memory proved =
+            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_5");
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastFinalizedProposalId, proveInput.proposals[4].id, "finalized id");
+        assertEq(proved.bondSignal, bytes32(0), "bond signal");
+        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+    }
+
+    /// forge-config: default.isolate = true
+    function test_prove_batch10() public {
+        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(10, false);
+
+        IInbox.ProvedEventPayload memory proved =
+            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_10");
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastFinalizedProposalId, proveInput.proposals[9].id, "finalized id");
+        assertEq(proved.bondSignal, bytes32(0), "bond signal");
+        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
     }
 
     function test_prove_RevertWhen_EmptyProposals() public {
@@ -145,6 +164,55 @@ abstract contract ProveTestBase is InboxTestBase {
         inbox.prove(encodedInput, bytes(""));
     }
 
+    function test_prove_RevertWhen_ProposalHashMismatch() public {
+        IInbox.ProposedEventPayload memory proposed = _proposeOne();
+
+        IInbox.Proposal memory tampered = proposed.proposal;
+        tampered.timestamp += 1;
+
+        IInbox.Transition memory transition = IInbox.Transition({
+            proposalHash: codec.hashProposal(proposed.proposal),
+            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            checkpoint: _checkpoint(bytes32(uint256(1))),
+            designatedProver: prover,
+            actualProver: prover
+        });
+
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: _proposals(tampered),
+            transitions: _transitions(transition),
+            syncCheckpoint: true
+        });
+
+        bytes memory encodedInput = codec.encodeProveInput(proveInput);
+        vm.expectRevert(Inbox.ProposalHashMismatch.selector);
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes(""));
+    }
+
+    function test_prove_RevertWhen_ProposalHashMismatchWithTransition() public {
+        IInbox.ProposedEventPayload memory proposed = _proposeOne();
+
+        IInbox.Transition memory transition = IInbox.Transition({
+            proposalHash: bytes32(uint256(123)),
+            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            checkpoint: _checkpoint(bytes32(uint256(1))),
+            designatedProver: prover,
+            actualProver: prover
+        });
+
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: _proposals(proposed.proposal),
+            transitions: _transitions(transition),
+            syncCheckpoint: true
+        });
+
+        bytes memory encodedInput = codec.encodeProveInput(proveInput);
+        vm.expectRevert(Inbox.ProposalHashMismatchWithTransition.selector);
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes(""));
+    }
+
     function test_prove_batch_emitsBondSignal() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
@@ -222,74 +290,6 @@ abstract contract ProveTestBase is InboxTestBase {
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal recorded");
     }
 
-    /// forge-config: default.isolate = true
-    function test_prove_batch3_recordsGasAndFinalizes() public {
-        IInbox.ProposedEventPayload memory p1 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p2 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p3 = _proposeOne();
-
-        IInbox.Transition memory t1 =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
-        IInbox.Transition memory t2 =
-            _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
-        IInbox.Transition memory t3 =
-            _transitionFor(p3, codec.hashTransition(t2), bytes32(uint256(3)), prover, prover);
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal, p2.proposal, p3.proposal),
-            transitions: _transitions(t1, t2, t3),
-            syncCheckpoint: true
-        });
-
-        IInbox.ProvedEventPayload memory proved =
-            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_3");
-
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(proved.bondSignal, bytes32(0), "bond signal");
-        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
-    }
-
-    /// forge-config: default.isolate = true
-    function test_prove_batch5_recordsGasAndFinalizes() public {
-        IInbox.ProposedEventPayload memory p1 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p2 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p3 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p4 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p5 = _proposeOne();
-
-        IInbox.Transition memory t1 =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
-        IInbox.Transition memory t2 =
-            _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
-        IInbox.Transition memory t3 =
-            _transitionFor(p3, codec.hashTransition(t2), bytes32(uint256(3)), prover, prover);
-        IInbox.Transition memory t4 =
-            _transitionFor(p4, codec.hashTransition(t3), bytes32(uint256(4)), prover, prover);
-        IInbox.Transition memory t5 =
-            _transitionFor(p5, codec.hashTransition(t4), bytes32(uint256(5)), prover, prover);
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal, p2.proposal, p3.proposal, p4.proposal, p5.proposal),
-            transitions: _transitions(t1, t2, t3, t4, t5),
-            syncCheckpoint: true
-        });
-
-        IInbox.ProvedEventPayload memory proved =
-            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_5");
-
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, p5.proposal.id, "finalized id");
-        assertEq(proved.bondSignal, bytes32(0), "bond signal");
-        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
-    }
-
     function test_prove_acceptsProofWithFinalizedPrefix() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
@@ -358,6 +358,10 @@ abstract contract ProveTestBase is InboxTestBase {
         inbox.prove(encodedInput, bytes(""));
     }
 
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
+
     function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
         _setBlobHashes(3);
         payload_ = _proposeAndDecode(_defaultProposeInput());
@@ -389,6 +393,28 @@ abstract contract ProveTestBase is InboxTestBase {
             designatedProver: _designatedProver,
             actualProver: _actualProver
         });
+    }
+
+    function _buildBatchInput(uint256 _count, bool _syncCheckpoint)
+        internal
+        returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
+    {
+        input_.proposals = new IInbox.Proposal[](_count);
+        transitions_ = new IInbox.Transition[](_count);
+
+        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
+        for (uint256 i; i < _count; ++i) {
+            if (i != 0) _advanceBlock();
+            IInbox.ProposedEventPayload memory proposal = _proposeOne();
+            input_.proposals[i] = proposal.proposal;
+            transitions_[i] = _transitionFor(
+                proposal, parentHash, bytes32(uint256(i + 1)), prover, prover
+            );
+            parentHash = codec.hashTransition(transitions_[i]);
+        }
+
+        input_.transitions = transitions_;
+        input_.syncCheckpoint = _syncCheckpoint;
     }
 
     function _bondSignal(LibBonds.BondInstruction memory _instruction) internal pure returns (bytes32) {
@@ -448,53 +474,4 @@ contract InboxProveTest is ProveTestBase {
 
 contract InboxOptimizedProveTest is ProveTestBase {
     constructor() ProveTestBase(InboxVariant.Optimized) { }
-}
-
-abstract contract RingBufferTestBase is ProveTestBase {
-    constructor(InboxVariant _variant) ProveTestBase(_variant) { }
-
-    function _buildConfig() internal override returns (IInbox.Config memory cfg) {
-        cfg = super._buildConfig();
-        cfg.ringBufferSize = 6;
-        return cfg;
-    }
-
-    function test_ringBuffer_reuse_after_finalization_recordsGas() public {
-        _setBlobHashes(6);
-        IInbox.ProposedEventPayload memory p1 = _proposeAndDecode(_defaultProposeInput());
-        _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
-        _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
-        _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
-
-        IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
-        );
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal),
-            transitions: _transitions(t1),
-            syncCheckpoint: true
-        });
-
-        _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_after_ring_buffer_fill");
-
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p6 =
-            _proposeAndDecodeWithGas(_defaultProposeInput(), "propose_after_ring_buffer_wrap");
-
-        assertEq(p6.proposal.id, p5.proposal.id + 1, "proposal id");
-        assertEq(inbox.getProposalHash(p6.proposal.id), codec.hashProposal(p6.proposal), "proposal hash");
-    }
-}
-
-contract InboxRingBufferProveTest is RingBufferTestBase {
-    constructor() RingBufferTestBase(InboxVariant.Simple) { }
-}
-
-contract InboxOptimizedRingBufferProveTest is RingBufferTestBase {
-    constructor() RingBufferTestBase(InboxVariant.Optimized) { }
 }

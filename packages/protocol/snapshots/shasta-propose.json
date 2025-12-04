@@ -1,8 +1,8 @@
 {
-  "propose_after_ring_buffer_wrap_Inbox": "55225",
-  "propose_after_ring_buffer_wrap_InboxOptimized": "51709",
-  "propose_forced_inclusion_Inbox": "55176",
+  "propose_after_ring_buffer_wrap_Inbox": "42999",
+  "propose_after_ring_buffer_wrap_InboxOptimized": "39537",
+  "propose_forced_inclusion_Inbox": "55175",
   "propose_forced_inclusion_InboxOptimized": "50771",
-  "propose_single_Inbox": "52582",
-  "propose_single_InboxOptimized": "49137"
+  "propose_single_Inbox": "66082",
+  "propose_single_InboxOptimized": "62637"
 }

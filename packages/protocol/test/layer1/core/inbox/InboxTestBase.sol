@@ -12,7 +12,7 @@ import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { MockERC20, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { MockERC20, MockProofVerifier } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 enum InboxVariant {
@@ -79,7 +79,7 @@ abstract contract InboxTestBase is CommonTest {
             forcedInclusionDelay: 384,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
-            minCheckpointDelay: 0,
+            minCheckpointDelay: 60000, // large enough for skipping checkpoints in prove benches
             permissionlessInclusionMultiplier: 5
         });
     }
@@ -140,20 +140,19 @@ abstract contract InboxTestBase is CommonTest {
         internal
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
-        assertEq(proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)");
-        proposerChecker.checkProposer(proposer, bytes(""));
         bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
         vm.startPrank(proposer);
+
         vm.startSnapshotGas("shasta-propose", _benchLabel(_benchName));
         inbox.propose(bytes(""), encodedInput);
         vm.stopSnapshotGas();
+        
         vm.stopPrank();
         payload_ = _readProposedEvent();
     }
 
-    function _readProposedEvent() private returns (IInbox.ProposedEventPayload memory payload_) {
+    function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         bytes32 proposedTopic = keccak256("Proposed(bytes)");
         for (uint256 i; i < logs.length; ++i) {

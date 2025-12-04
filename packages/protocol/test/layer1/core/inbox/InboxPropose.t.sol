@@ -2,15 +2,16 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxTestBase, InboxVariant } from "../common/InboxTestBase.sol";
+import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 abstract contract ProposeTestBase is InboxTestBase {
     constructor(InboxVariant _variant) InboxTestBase(_variant) { }
 
+    /// forge-config: default.isolate = true
     function test_propose() public {
-        _setBlobHashes(3);
+        _setBlobHashes(1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         IInbox.CoreState memory stateBefore = inbox.getState();
@@ -49,6 +50,64 @@ abstract contract ProposeTestBase is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    function test_saveForcedInclusion_RevertWhen_NoProposalYet() public {
+        _setBlobHashes(1);
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
+
+        uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
+        vm.expectRevert(Inbox.IncorrectProposalCount.selector);
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(forcedRef);
+    }
+
+    function test_propose_RevertWhen_ForcedInclusionDueNotProcessed() public {
+        _setBlobHashes(2);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
+    function test_propose_allowsPermissionlessWhen_ForcedInclusionTooOld() public {
+        _setBlobHashes(3);
+        IInbox.ProposedEventPayload memory first = _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        uint256 waitTime =
+            uint256(config.forcedInclusionDelay) * uint256(config.permissionlessInclusionMultiplier);
+        vm.warp(block.timestamp + waitTime + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+
+        IInbox.ProposedEventPayload memory payload = _proposeWithCaller(David, input);
+
+        assertEq(payload.proposal.proposer, David, "proposer");
+        assertEq(payload.proposal.endOfSubmissionWindowTimestamp, 0, "end of submission window");
+        assertTrue(payload.derivation.sources[0].isForcedInclusion, "forced inclusion");
+        assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
+    }
+
+    /// forge-config: default.isolate = true
     function test_propose_processesForcedInclusion_andRecordsGas() public {
         bytes32[] memory blobHashes = _getBlobHashes(3);
         _setBlobHashes(3);
@@ -83,6 +142,10 @@ abstract contract ProposeTestBase is InboxTestBase {
         assertEq(head, 1, "queue head");
         assertEq(tail, 1, "queue tail");
     }
+
+    // ---------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------
 
     function _buildExpectedProposedPayload(
         IInbox.CoreState memory _stateBefore,
@@ -182,6 +245,23 @@ abstract contract ProposeTestBase is InboxTestBase {
         assertEq(_actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts");
         assertEq(_actual.lastCheckpointTimestamp, _expected.lastCheckpointTimestamp, "state checkpoint ts");
         assertEq(_actual.lastFinalizedTransitionHash, _expected.lastFinalizedTransitionHash, "state transition hash");
+    }
+
+    function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {
+        uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(_ref);
+    }
+
+    function _proposeWithCaller(address _caller, IInbox.ProposeInput memory _input)
+        internal
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        bytes memory encodedInput = codec.encodeProposeInput(_input);
+        vm.recordLogs();
+        vm.prank(_caller);
+        inbox.propose(bytes(""), encodedInput);
+        payload_ = _readProposedEvent();
     }
 }
 
