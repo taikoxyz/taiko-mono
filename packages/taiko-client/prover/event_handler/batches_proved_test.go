@@ -132,7 +132,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 
 func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
 	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
-	handler := NewBatchesProvedEventHandler(s.RPCClient, s.ShastaStateIndexer, proofRequestBodyCh)
+	handler := NewBatchesProvedEventHandler(s.RPCClient, proofRequestBodyCh)
 
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(m.IsPacaya())

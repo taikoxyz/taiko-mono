@@ -449,11 +449,11 @@ func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
 
 	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
 
-	startingProposal, err := p.shastaIndexer.GetProposalByID(startingBatchID.Uint64())
+	_, eventLog, err := p.rpc.GetProposalByIDShasta(p.ctx, startingBatchID)
 	if err != nil {
 		return fmt.Errorf("failed to get proposal by ID: %d", startingBatchID)
 	}
-	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, startingProposal.RawBlockHash)
+	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, eventLog.BlockHash)
 	if err != nil {
 		return err
 	}

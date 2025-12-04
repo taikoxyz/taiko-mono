@@ -161,39 +161,15 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			log.Error("Failed to request proof, context is canceled", "batchID", opts.ProposalID, "error", ctx.Err())
 			return nil
 		}
-		// TODO: fix
-		// if s.indexer.GetLastCoreState().LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
-		// 	log.Info(
-		// 		"Shasta proposal already finalized, skip requesting proof",
-		// 		"batchID", meta.Shasta().GetProposal().Id,
-		// 		"lastFinalizedProposalID", s.indexer.GetLastCoreState().LastFinalizedProposalId,
-		// 	)
-		// 	return nil
-		// }
-		// Check if there is a need to generate proof, if the proof is already submitted and valid, skip
-		// the proof submission.
-		// record := s.indexer.GetTransitionRecordByProposalID(meta.Shasta().GetProposal().Id.Uint64())
-
-		proposalHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, meta.Shasta().GetProposal().Id)
+		coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 		if err != nil {
-			return fmt.Errorf("failed to get Shasta proposal hash: %w", err)
+			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
-		parentTransitionHash, err := transaction.BuildParentTransitionHash(
-			ctx,
-			s.rpc,
-			meta.Shasta().GetProposal().Id,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to build parent Shasta transition hash: %w", err)
-		}
-		if record != nil &&
-			record.Transition.Checkpoint.BlockHash == header.Hash() &&
-			record.Transition.ParentTransitionHash == parentTransitionHash &&
-			record.Transition.ProposalHash == proposalHash {
+		if coreState.LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
 			log.Info(
-				"A valid proof has been submitted, skip requesting proof",
+				"Shasta proposal already finalized, skip requesting proof",
 				"batchID", meta.Shasta().GetProposal().Id,
-				"parent", header.ParentHash,
+				"lastFinalizedProposalID", coreState.LastFinalizedProposalId,
 			)
 			return nil
 		}

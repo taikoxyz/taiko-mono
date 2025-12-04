@@ -61,7 +61,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProverAddress,
 		opts.ProverSetAddress,
 		opts.RPC,
-		opts.Indexer,
 		opts.LocalProposerAddresses,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,

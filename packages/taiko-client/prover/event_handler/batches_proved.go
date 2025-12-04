@@ -6,10 +6,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -87,25 +85,7 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 		return fmt.Errorf("failed to get header by number: %w", err)
 	}
 
-	if header.Hash() == payload.Transition.Checkpoint.BlockHash {
-		log.Info("New valid proven Shasta batch received", "batchID", payload.ProposalId, "lastBatchID", header.Number)
-		return nil
-	}
-
-	// Otherwise, the proof onchain is invalid, we need to submit a new proof.
-	proposal, err := h.shastaIndexer.GetProposalByID(payload.ProposalId.Uint64())
-	if err != nil {
-		return fmt.Errorf("failed to fetch proposal metadata for Shasta: %w", err)
-	}
-	h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-		Meta: metadata.NewTaikoProposalMetadataShasta(
-			&shastaBindings.IInboxProposedEventPayload{
-				Proposal:   *proposal.Proposal,
-				Derivation: *proposal.Derivation,
-			},
-			types.Log{}, // NOTE: we don't use the log in the prover anyway.
-		),
-	}
+	log.Info("New valid proven Shasta batch received", "batchID", payload.ProposalId, "lastBatchID", header.Number)
 
 	return nil
 }

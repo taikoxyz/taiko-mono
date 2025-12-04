@@ -36,45 +36,19 @@ func (h *AssignmentExpiredEventHandler) Handle(
 ) error {
 	if meta.IsShasta() {
 		proposalID := meta.Shasta().GetProposal().Id
+		coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to get Shasta core state: %w", err)
+		}
 
 		// If the proposal is already finalized, skip it.
-		if coreState := h.indexer.GetLastCoreState(); coreState != nil &&
-			proposalID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
+		if proposalID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
 			log.Info(
 				"Shasta batch already finalized, skip proof submission",
 				"proposalID", proposalID,
 				"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 			)
 			return nil
-		}
-
-		// Otherwise, check if there is already a valid proof on-chain.
-		if record := h.indexer.GetTransitionRecordByProposalID(proposalID.Uint64()); record != nil {
-			header, err := h.rpc.L2.HeaderByNumber(ctx, record.Transition.Checkpoint.BlockNumber)
-			if err != nil {
-				return fmt.Errorf(
-					"failed to fetch Shasta header for proposal %d: %w",
-					record.Transition.Checkpoint.BlockNumber,
-					err,
-				)
-			}
-			proposalHash, err := h.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, proposalID)
-			if err != nil {
-				return fmt.Errorf("failed to get Shasta proposal hash: %w", err)
-			}
-
-			if record.Transition.Checkpoint.BlockHash == header.Hash() &&
-				record.Transition.Checkpoint.StateRoot == header.Root &&
-				record.Transition.ProposalHash == proposalHash {
-				log.Info(
-					"Valid Shasta proof already on-chain, skip submission",
-					"proposalID", proposalID,
-					"proposalHash", proposalHash,
-					"blockNumber", record.Transition.Checkpoint.BlockNumber,
-					"blockHash", record.Transition.Checkpoint.BlockHash,
-				)
-				return nil
-			}
 		}
 
 		log.Info(
