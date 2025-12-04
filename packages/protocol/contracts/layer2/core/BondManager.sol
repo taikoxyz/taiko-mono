@@ -30,7 +30,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// after
     ///      the `extendedProvingWindow` the incentives are very strong for finalization.
     ///      A safe value for this is `extendedProvingWindow` + buffer, for example, 2 weeks.
-    uint48 public immutable withdrawalDelay;
+    uint40 public immutable withdrawalDelay;
 
     /// @notice Per-account bond state
     mapping(address account => Bond bond) public bond;
@@ -50,7 +50,7 @@ contract BondManager is EssentialContract, IBondManager {
         address _authorized,
         address _bondToken,
         uint256 _minBond,
-        uint48 _withdrawalDelay
+        uint40 _withdrawalDelay
     ) {
         authorized = _authorized;
         bondToken = IERC20(_bondToken);
@@ -132,7 +132,7 @@ contract BondManager is EssentialContract, IBondManager {
         require(bond_.balance > 0, NoBondToWithdraw());
         require(bond_.withdrawalRequestedAt == 0, WithdrawalAlreadyRequested());
 
-        bond_.withdrawalRequestedAt = uint48(block.timestamp);
+        bond_.withdrawalRequestedAt = uint40(block.timestamp);
         emit WithdrawalRequested(msg.sender, block.timestamp + withdrawalDelay);
     }
 

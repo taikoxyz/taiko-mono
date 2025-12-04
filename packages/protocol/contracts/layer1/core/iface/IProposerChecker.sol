@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IProposerChecker
-/// @notice Interface for checking if an address is authorized to propose blocks
-/// @custom:security-contact security@taiko.xyz
 interface IProposerChecker {
     error InvalidProposer();
 
@@ -18,5 +15,5 @@ interface IProposerChecker {
         bytes calldata _lookaheadData
     )
         external
-        returns (uint48 endOfSubmissionWindowTimestamp_);
+        returns (uint40 endOfSubmissionWindowTimestamp_);
 }
