@@ -235,7 +235,9 @@ interface IInbox {
     /// @notice Emitted when a duplicate transition proof is skipped.
     /// @param proposalId The ID of the proposal.
     /// @param parentTransitionHash The parent transition hash.
-    event DuplicateTransitionSkipped(uint40 indexed proposalId, bytes27 indexed parentTransitionHash);
+    event DuplicateTransitionSkipped(
+        uint40 indexed proposalId, bytes27 indexed parentTransitionHash
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions

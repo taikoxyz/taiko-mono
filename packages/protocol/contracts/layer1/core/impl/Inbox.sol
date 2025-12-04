@@ -815,9 +815,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _writeOrDetectConflict(_proposalId, _parentTransitionHash, firstStorage.record, _record);
         } else {
             _writeOrDetectConflict(
-                _proposalId, 
-                _parentTransitionHash,  
-                _transitionRecordFor(_proposalId, _parentTransitionHash), 
+                _proposalId,
+                _parentTransitionHash,
+                _transitionRecordFor(_proposalId, _parentTransitionHash),
                 _record
             );
         }
