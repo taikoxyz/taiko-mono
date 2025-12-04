@@ -26,6 +26,9 @@ contract InboxFinalizeTest is InboxTestHelper {
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
 
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
+
         // Finalize via next propose
         _setupBlobHashes();
         _rollOneBlock();
@@ -59,6 +62,9 @@ contract InboxFinalizeTest is InboxTestHelper {
 
         ProvenProposal memory proven1 =
             _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+
+        // Warp past cooldown period
+        vm.warp(proven1.provedAtTimestamp + transitionCooldown + 1);
 
         // Finalize first proposal via second propose
         IInbox.ProposedEventPayload memory payload2 =
@@ -107,6 +113,9 @@ contract InboxFinalizeTest is InboxTestHelper {
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
+
         // Try to finalize - should only finalize first
         _setupBlobHashes();
         _rollOneBlock();
@@ -142,6 +151,9 @@ contract InboxFinalizeTest is InboxTestHelper {
         // Prove
         _proveProposal(payload.proposal, _getGenesisTransitionHash());
 
+        // Warp past cooldown period
+        vm.warp(block.timestamp + transitionCooldown + 1);
+
         // Finalize with wrong transition
         _setupBlobHashes();
         _rollOneBlock();
@@ -176,8 +188,8 @@ contract InboxFinalizeTest is InboxTestHelper {
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
 
-        // Advance past finalization grace period
-        vm.warp(proven.finalizationDeadline + 1);
+        // Advance past finalization grace period (timestamp + finalizationGracePeriod)
+        vm.warp(proven.provedAtTimestamp + finalizationGracePeriod + 1);
 
         // Try to finalize without providing transition
         _setupBlobHashes();
@@ -203,6 +215,9 @@ contract InboxFinalizeTest is InboxTestHelper {
         // Prove
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
 
         // Finalize with wrong checkpoint
         _setupBlobHashes();
@@ -233,6 +248,9 @@ contract InboxFinalizeTest is InboxTestHelper {
         // Prove first proposal only
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
 
         // Try to provide 2 transitions when only 1 can be finalized
         _setupBlobHashes();
@@ -286,6 +304,9 @@ contract InboxFinalizeTest is InboxTestHelper {
         // Prove
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
 
         // Finalize via next propose
         _setupBlobHashes();
@@ -402,6 +423,9 @@ contract InboxFinalizeTest is InboxTestHelper {
             checkpointHash: codec.hashCheckpoint(checkpoint)
         });
 
+        // Warp past cooldown period
+        vm.warp(block.timestamp + transitionCooldown + 1);
+
         // Finalize via next propose
         _setupBlobHashes();
         _rollOneBlock();
@@ -441,6 +465,188 @@ contract InboxFinalizeTest is InboxTestHelper {
         assertTrue(
             finalizedPayload.coreState.aggregatedBondInstructionsHash != bytes32(0),
             "aggregatedBondInstructionsHash should be set when bond instructions are finalized"
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // Conflict Detection Tests
+    // ---------------------------------------------------------------
+
+    /// @dev Tests that finalization stops when a conflicting transition is detected
+    /// When a conflict is detected, timestamp is set to type(uint40).max
+    /// and the _finalize loop should break when it encounters this
+    function test_finalize_stopsOnConflict() public {
+        // Propose
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // First proof
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        // Submit conflicting proof (different checkpoint)
+        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
+        conflictInputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint40(block.number + 100), // Different block
+                blockHash: bytes32(uint256(999)),
+                stateRoot: bytes32(uint256(888))
+            }),
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver, actualProver: currentProver
+            }),
+            parentTransitionHash: _getGenesisTransitionHash()
+        });
+
+        bytes memory conflictProveData = codec.encodeProveInput(conflictInputs);
+
+        vm.prank(currentProver);
+        inbox.prove(conflictProveData, _createValidProof());
+
+        // Verify timestamp is set to max (conflict detected)
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+        assertEq(record.timestamp, type(uint40).max, "Timestamp should be max after conflict");
+
+        // Try to finalize - should fail because finalization breaks on conflict
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        // Build the NEW transition hash (from the conflicting proof, not the original)
+        IInbox.Transition memory conflictTransition = IInbox.Transition({
+            bondInstructionHash: bytes32(0),
+            checkpointHash: codec.hashCheckpoint(conflictInputs[0].checkpoint)
+        });
+
+        bytes memory proposeData = codec.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                _wrapSingleTransition(conflictTransition),
+                conflictInputs[0].checkpoint
+            )
+        );
+
+        // This should revert with IncorrectTransitionCount because finalization
+        // breaks when it encounters the conflict (timestamp == max), so 0 transitions
+        // are finalized but 1 was provided
+        vm.expectRevert(Inbox.IncorrectTransitionCount.selector);
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    /// @dev Tests that finalization reverts when transition is still cooling down
+    function test_finalize_RevertWhen_TransitionCoolingDown() public {
+        // Propose
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // Prove (this sets the transition record timestamp)
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Verify transition was recorded with current timestamp
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+        assertEq(record.timestamp, proven.provedAtTimestamp, "Timestamp should be set from proving");
+
+        // Try to finalize immediately without waiting for cooldown
+        // The cooldown is 5 minutes (DEFAULT_TRANSITION_COOLDOWN), so block.timestamp < record.timestamp + cooldown
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        bytes memory proposeData = codec.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                _wrapSingleTransition(proven.transition),
+                proven.checkpoint
+            )
+        );
+
+        // Should revert because we haven't waited for the cooldown period
+        vm.expectRevert(Inbox.TransitionCoolingDown.selector);
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    /// @dev Tests that finalization succeeds after cooldown period has passed
+    function test_finalize_succeedsAfterCooldown() public {
+        // Propose
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // Prove
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Warp past the transition cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
+
+        // Finalize - should succeed now that cooldown has passed
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        bytes memory proposeData = codec.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                _wrapSingleTransition(proven.transition),
+                proven.checkpoint
+            )
+        );
+
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        IInbox.ProposedEventPayload memory finalizedPayload = _decodeLastProposedEvent();
+
+        assertEq(
+            finalizedPayload.coreState.finalizationHead,
+            payload.proposal.id,
+            "Finalization should have succeeded after cooldown"
+        );
+    }
+
+    /// @dev Tests that finalization can proceed normally when no conflict exists
+    /// (control test to verify the conflict test is meaningful)
+    function test_finalize_proceedsNormally_withoutConflict() public {
+        // Propose
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // Prove (no conflict)
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Verify timestamp is NOT max (no conflict)
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+        assertTrue(
+            record.timestamp != type(uint40).max, "Timestamp should NOT be max without conflict"
+        );
+
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
+
+        // Finalize - should succeed
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        bytes memory proposeData = codec.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                _wrapSingleTransition(proven.transition),
+                proven.checkpoint
+            )
+        );
+
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        IInbox.ProposedEventPayload memory finalizedPayload = _decodeLastProposedEvent();
+
+        assertEq(
+            finalizedPayload.coreState.finalizationHead,
+            payload.proposal.id,
+            "Finalization should have succeeded"
         );
     }
 

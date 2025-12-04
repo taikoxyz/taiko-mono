@@ -28,14 +28,12 @@ contract InboxProveTest is InboxTestHelper {
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         assertTrue(record.transitionHash != bytes27(0), "Transition should be stored");
-        assertEq(
-            record.finalizationDeadline,
-            provedPayload.finalizationDeadline,
-            "Finalization deadline should match"
-        );
+        assertTrue(record.timestamp > 0, "Timestamp should be set");
 
-        // ProvedEventPayload being non-empty confirms the event was emitted and decoded
-        assertTrue(provedPayload.finalizationDeadline > 0, "Proved event should have been emitted");
+        // Verify ProvedEventPayload was emitted (checkpoint should be non-zero)
+        assertTrue(
+            provedPayload.checkpoint.blockNumber > 0, "Proved event should have been emitted"
+        );
     }
 
     /// @dev Tests proving 2 consecutive proposals
@@ -75,18 +73,21 @@ contract InboxProveTest is InboxTestHelper {
         assertTrue(record.transitionHash != bytes27(0), "First transition should be stored");
     }
 
-    function test_prove_setsCorrectFinalizationDeadline() public {
+    function test_prove_storesCurrentBlockTimestamp() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
-        uint256 expectedDeadline = block.timestamp + finalizationGracePeriod;
+        uint256 timestampBeforeProve = block.timestamp;
 
-        IInbox.ProvedEventPayload memory provedPayload =
-            _proveProposal(payload.proposal, _getGenesisTransitionHash());
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        // Verify the transition record stores block.timestamp
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         assertEq(
-            provedPayload.finalizationDeadline,
-            expectedDeadline,
-            "Finalization deadline should be timestamp + grace period"
+            record.timestamp,
+            timestampBeforeProve,
+            "Timestamp should be current block.timestamp when record was created"
         );
     }
 
@@ -96,7 +97,6 @@ contract InboxProveTest is InboxTestHelper {
         IInbox.ProvedEventPayload memory provedPayload =
             _proveProposal(payload.proposal, _getGenesisTransitionHash());
 
-        assertGt(provedPayload.finalizationDeadline, 0, "Finalization deadline should be set");
         assertGt(provedPayload.checkpoint.blockNumber, 0, "Checkpoint block number should be set");
     }
 
@@ -321,37 +321,194 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should remain the same"
         );
 
-        // Finalization deadline should remain unchanged (first proof wins)
-        assertEq(
-            secondRecord.finalizationDeadline,
-            firstRecord.finalizationDeadline,
-            "Deadline should remain unchanged"
-        );
+        // Timestamp should remain unchanged (first proof wins)
+        assertEq(secondRecord.timestamp, firstRecord.timestamp, "Timestamp should remain unchanged");
     }
 
     // ---------------------------------------------------------------
     // Conflicting Transition Tests
     // ---------------------------------------------------------------
 
-    /// @dev Tests that when a conflicting transition is submitted, the original is kept unchanged
-    function test_prove_conflictingTransition_keepsOriginal() public {
+    /// @dev Tests ConflictingTransitionDetected event fields for first transition record (ring buffer)
+    function test_prove_conflictingTransition_firstRecord_emitsCorrectEventFields() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
-        // First proof
-        IInbox.ProvedEventPayload memory firstProved =
-            _proveProposal(payload.proposal, _getGenesisTransitionHash());
+        // First proof - stored in ring buffer (first record)
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
 
         IInbox.TransitionRecord memory originalRecord =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         // Second proof with different checkpoint (conflict)
+        ICheckpointStore.Checkpoint memory conflictCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint40(block.number + 100),
+            blockHash: bytes32(uint256(999)),
+            stateRoot: bytes32(uint256(888))
+        });
+
         IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
         conflictInputs[0] = IInbox.ProveInput({
             proposal: payload.proposal,
+            checkpoint: conflictCheckpoint,
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver, actualProver: currentProver
+            }),
+            parentTransitionHash: _getGenesisTransitionHash()
+        });
+
+        // Compute the expected new transition hash
+        bytes27 expectedNewTransitionHash = bytes27(
+            codec.hashTransition(
+                IInbox.Transition({
+                    bondInstructionHash: bytes32(0),
+                    checkpointHash: codec.hashCheckpoint(conflictCheckpoint)
+                })
+            )
+        );
+
+        bytes memory proveData = codec.encodeProveInput(conflictInputs);
+
+        // Expect ConflictingTransitionDetected with ALL fields verified
+        vm.expectEmit(true, true, true, true);
+        emit IInbox.ConflictingTransitionDetected(
+            payload.proposal.id,
+            _getGenesisTransitionHash(),
+            originalRecord.transitionHash,
+            expectedNewTransitionHash
+        );
+
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        // Verify state changes
+        IInbox.TransitionRecord memory recordAfterConflict =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+
+        assertEq(
+            recordAfterConflict.transitionHash,
+            expectedNewTransitionHash,
+            "Transition hash should be updated to new value"
+        );
+        assertEq(
+            recordAfterConflict.timestamp,
+            type(uint40).max,
+            "Timestamp should be set to max on conflict"
+        );
+    }
+
+    /// @dev Tests ConflictingTransitionDetected event fields for non-first transition record (fallback mapping)
+    function test_prove_conflictingTransition_fallbackMapping_emitsCorrectEventFields() public {
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // First proof with genesis transition hash - stored in ring buffer
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        // Second proof with different parent hash - stored in fallback mapping
+        bytes27 alternateParentHash = bytes27(keccak256("alternate_parent"));
+
+        ICheckpointStore.Checkpoint memory firstAlternateCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint40(block.number + 1),
+            blockHash: bytes32(uint256(777)),
+            stateRoot: bytes32(uint256(666))
+        });
+
+        IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](1);
+        inputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: firstAlternateCheckpoint,
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver, actualProver: currentProver
+            }),
+            parentTransitionHash: alternateParentHash
+        });
+
+        bytes memory proveData = codec.encodeProveInput(inputs);
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        // Record the original transition in fallback mapping
+        IInbox.TransitionRecord memory originalRecord =
+            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
+
+        // Now submit a conflicting proof with same alternate parent but different checkpoint
+        ICheckpointStore.Checkpoint memory conflictCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint40(block.number + 200),
+            blockHash: bytes32(uint256(888)),
+            stateRoot: bytes32(uint256(999))
+        });
+
+        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
+        conflictInputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: conflictCheckpoint,
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver, actualProver: currentProver
+            }),
+            parentTransitionHash: alternateParentHash
+        });
+
+        // Compute the expected new transition hash
+        bytes27 expectedNewTransitionHash = bytes27(
+            codec.hashTransition(
+                IInbox.Transition({
+                    bondInstructionHash: bytes32(0),
+                    checkpointHash: codec.hashCheckpoint(conflictCheckpoint)
+                })
+            )
+        );
+
+        bytes memory conflictProveData = codec.encodeProveInput(conflictInputs);
+
+        // Expect ConflictingTransitionDetected with ALL fields verified
+        vm.expectEmit(true, true, true, true);
+        emit IInbox.ConflictingTransitionDetected(
+            payload.proposal.id,
+            alternateParentHash,
+            originalRecord.transitionHash,
+            expectedNewTransitionHash
+        );
+
+        vm.prank(currentProver);
+        inbox.prove(conflictProveData, _createValidProof());
+
+        // Verify state changes
+        IInbox.TransitionRecord memory recordAfterConflict =
+            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
+
+        assertEq(
+            recordAfterConflict.transitionHash,
+            expectedNewTransitionHash,
+            "Transition hash should be updated to new value"
+        );
+        assertEq(
+            recordAfterConflict.timestamp,
+            type(uint40).max,
+            "Timestamp should be set to max on conflict"
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // Duplicate Transition Tests
+    // ---------------------------------------------------------------
+
+    /// @dev Tests DuplicateTransitionSkipped event fields for first transition record (ring buffer)
+    function test_prove_duplicateTransition_firstRecord_emitsCorrectEventFields() public {
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // First proof - stored in ring buffer (uses stateRoot: 200 from helper)
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        IInbox.TransitionRecord memory originalRecord =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+
+        // Submit exact same proof again (duplicate) - must match the checkpoint from _createProveInput
+        IInbox.ProveInput[] memory duplicateInputs = new IInbox.ProveInput[](1);
+        duplicateInputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint40(block.number + 100), // Different block
-                blockHash: bytes32(uint256(999)),
-                stateRoot: bytes32(uint256(888))
+                blockNumber: uint40(block.number),
+                blockHash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(200)) // Must match helper's default
             }),
             metadata: IInbox.TransitionMetadata({
                 designatedProver: currentProver, actualProver: currentProver
@@ -359,24 +516,98 @@ contract InboxProveTest is InboxTestHelper {
             parentTransitionHash: _getGenesisTransitionHash()
         });
 
-        bytes memory proveData = codec.encodeProveInput(conflictInputs);
+        bytes memory proveData = codec.encodeProveInput(duplicateInputs);
+
+        // Expect DuplicateTransitionSkipped with correct fields
+        vm.expectEmit(true, true, true, true);
+        emit IInbox.DuplicateTransitionSkipped(payload.proposal.id, _getGenesisTransitionHash());
 
         vm.prank(currentProver);
         inbox.prove(proveData, _createValidProof());
 
-        // Check that the original record is kept unchanged
-        IInbox.TransitionRecord memory recordAfterConflict =
+        // Verify state is unchanged
+        IInbox.TransitionRecord memory recordAfterDuplicate =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         assertEq(
-            recordAfterConflict.transitionHash,
+            recordAfterDuplicate.transitionHash,
             originalRecord.transitionHash,
-            "Transition hash should remain unchanged after conflicting proof"
+            "Transition hash should remain unchanged after duplicate"
         );
         assertEq(
-            recordAfterConflict.finalizationDeadline,
-            firstProved.finalizationDeadline,
-            "Finalization deadline should remain unchanged after conflicting proof"
+            recordAfterDuplicate.timestamp,
+            originalRecord.timestamp,
+            "Timestamp should remain unchanged after duplicate"
+        );
+    }
+
+    /// @dev Tests DuplicateTransitionSkipped event fields for non-first transition record (fallback mapping)
+    function test_prove_duplicateTransition_fallbackMapping_emitsCorrectEventFields() public {
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // First proof with genesis transition hash - stored in ring buffer
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        // Second proof with different parent hash - stored in fallback mapping
+        bytes27 alternateParentHash = bytes27(keccak256("alternate_parent"));
+
+        ICheckpointStore.Checkpoint memory alternateCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint40(block.number + 1),
+            blockHash: bytes32(uint256(777)),
+            stateRoot: bytes32(uint256(666))
+        });
+
+        IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](1);
+        inputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: alternateCheckpoint,
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver, actualProver: currentProver
+            }),
+            parentTransitionHash: alternateParentHash
+        });
+
+        bytes memory proveData = codec.encodeProveInput(inputs);
+        vm.prank(currentProver);
+        inbox.prove(proveData, _createValidProof());
+
+        // Record the original transition in fallback mapping
+        IInbox.TransitionRecord memory originalRecord =
+            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
+
+        // Submit exact same proof again (duplicate) to fallback mapping
+        IInbox.ProveInput[] memory duplicateInputs = new IInbox.ProveInput[](1);
+        duplicateInputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: alternateCheckpoint,
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver, actualProver: currentProver
+            }),
+            parentTransitionHash: alternateParentHash
+        });
+
+        bytes memory duplicateProveData = codec.encodeProveInput(duplicateInputs);
+
+        // Expect DuplicateTransitionSkipped with correct fields
+        vm.expectEmit(true, true, true, true);
+        emit IInbox.DuplicateTransitionSkipped(payload.proposal.id, alternateParentHash);
+
+        vm.prank(currentProver);
+        inbox.prove(duplicateProveData, _createValidProof());
+
+        // Verify state is unchanged
+        IInbox.TransitionRecord memory recordAfterDuplicate =
+            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
+
+        assertEq(
+            recordAfterDuplicate.transitionHash,
+            originalRecord.transitionHash,
+            "Transition hash should remain unchanged after duplicate"
+        );
+        assertEq(
+            recordAfterDuplicate.timestamp,
+            originalRecord.timestamp,
+            "Timestamp should remain unchanged after duplicate"
         );
     }
 
@@ -392,8 +623,8 @@ contract InboxProveTest is InboxTestHelper {
             payload.proposal, _getGenesisTransitionHash(), David, currentProver
         );
 
-        // Verify the proof was accepted
-        assertTrue(provedPayload.finalizationDeadline > 0, "Proof should be accepted");
+        // Verify the proof was accepted (checkpoint should be non-zero)
+        assertTrue(provedPayload.checkpoint.blockNumber > 0, "Proof should be accepted");
     }
 
     // ---------------------------------------------------------------
@@ -443,73 +674,6 @@ contract InboxProveTest is InboxTestHelper {
         assertTrue(
             firstRecord.transitionHash != secondRecord.transitionHash,
             "Transitions should have different hashes"
-        );
-    }
-
-    /// @dev Tests conflicting transition on fallback mapping path - original is kept unchanged
-    function test_prove_conflictingTransition_fallbackMapping_keepsOriginal() public {
-        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
-
-        // First proof with genesis transition hash
-        _proveProposal(payload.proposal, _getGenesisTransitionHash());
-
-        // Second proof with different parent hash - stored in fallback
-        bytes27 alternateParentHash = bytes27(keccak256("alternate_parent"));
-
-        IInbox.ProveInput[] memory inputs = new IInbox.ProveInput[](1);
-        inputs[0] = IInbox.ProveInput({
-            proposal: payload.proposal,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint40(block.number + 1),
-                blockHash: bytes32(uint256(777)),
-                stateRoot: bytes32(uint256(666))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver, actualProver: currentProver
-            }),
-            parentTransitionHash: alternateParentHash
-        });
-
-        bytes memory proveData = codec.encodeProveInput(inputs);
-        vm.prank(currentProver);
-        inbox.prove(proveData, _createValidProof());
-
-        // Record the original transition
-        IInbox.TransitionRecord memory originalRecord =
-            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
-
-        // Now submit a conflicting proof with same alternate parent but different checkpoint
-        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
-        conflictInputs[0] = IInbox.ProveInput({
-            proposal: payload.proposal,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint40(block.number + 200), // Different checkpoint
-                blockHash: bytes32(uint256(888)),
-                stateRoot: bytes32(uint256(999))
-            }),
-            metadata: IInbox.TransitionMetadata({
-                designatedProver: currentProver, actualProver: currentProver
-            }),
-            parentTransitionHash: alternateParentHash
-        });
-
-        bytes memory conflictProveData = codec.encodeProveInput(conflictInputs);
-
-        vm.prank(currentProver);
-        inbox.prove(conflictProveData, _createValidProof());
-
-        // Verify original record is kept unchanged
-        IInbox.TransitionRecord memory recordAfterConflict =
-            inbox.getTransitionRecord(payload.proposal.id, alternateParentHash);
-        assertEq(
-            recordAfterConflict.transitionHash,
-            originalRecord.transitionHash,
-            "Transition hash should remain unchanged"
-        );
-        assertEq(
-            recordAfterConflict.finalizationDeadline,
-            originalRecord.finalizationDeadline,
-            "Finalization deadline should remain unchanged"
         );
     }
 

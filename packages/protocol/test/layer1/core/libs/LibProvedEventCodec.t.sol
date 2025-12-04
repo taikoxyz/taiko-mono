@@ -14,7 +14,6 @@ contract LibProvedEventCodecTest is Test {
     function test_encode_decode_noBondInstructions() public pure {
         // Test with no bond instructions
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -29,11 +28,6 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         // Verify fields
-        assertEq(
-            decoded.finalizationDeadline,
-            payload.finalizationDeadline,
-            "FinalizationDeadline mismatch"
-        );
         assertEq(
             decoded.checkpoint.blockNumber, payload.checkpoint.blockNumber, "Block number mismatch"
         );
@@ -61,7 +55,6 @@ contract LibProvedEventCodecTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -121,7 +114,6 @@ contract LibProvedEventCodecTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -163,7 +155,6 @@ contract LibProvedEventCodecTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: type(uint40).max,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: type(uint40).max,
                 blockHash: bytes32(type(uint256).max),
@@ -176,11 +167,6 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(
-            decoded.finalizationDeadline,
-            type(uint40).max,
-            "Max finalizationDeadline should be preserved"
-        );
-        assertEq(
             decoded.checkpoint.blockNumber, type(uint40).max, "Max block number should be preserved"
         );
         // Note: proposalId is encoded as uint40 in LibProvedEventCodec, not uint48
@@ -189,14 +175,14 @@ contract LibProvedEventCodecTest is Test {
 
     function test_calculateProvedEventSize_noBonds() public pure {
         uint256 size = LibProvedEventCodec.calculateProvedEventSize(0);
-        // Fixed size: 77 bytes (finalizationDeadline(5) + checkpoint(70) + array length(2))
-        assertEq(size, 77, "Size with 0 bonds should be 77 bytes");
+        // Fixed size: 71 bytes (checkpoint(69) + array length(2))
+        assertEq(size, 71, "Size with 0 bonds should be 71 bytes");
     }
 
     function test_calculateProvedEventSize_withBonds() public pure {
         uint256 size = LibProvedEventCodec.calculateProvedEventSize(2);
-        // 77 bytes fixed + 2 * 46 bytes per bond = 169 bytes
-        assertEq(size, 77 + 2 * 46, "Size with 2 bonds should be 169 bytes");
+        // 71 bytes fixed + 2 * 46 bytes per bond = 163 bytes
+        assertEq(size, 71 + 2 * 46, "Size with 2 bonds should be 163 bytes");
     }
 
     function test_encoding_determinism() public pure {
@@ -209,7 +195,6 @@ contract LibProvedEventCodecTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -240,7 +225,6 @@ contract LibProvedEventCodecTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -286,7 +270,6 @@ contract LibProvedEventCodecTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),

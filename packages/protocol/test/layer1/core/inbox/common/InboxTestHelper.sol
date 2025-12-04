@@ -33,6 +33,7 @@ abstract contract InboxTestHelper is CommonTest {
     uint40 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
     uint40 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
+    uint40 internal constant DEFAULT_TRANSITION_COOLDOWN = 5 minutes;
     uint40 internal constant DEFAULT_FINALIZATION_GRACE_PERIOD = 30 minutes;
     uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
     uint8 internal constant DEFAULT_BASEFEE_SHARING_PCTG = 10;
@@ -57,7 +58,7 @@ abstract contract InboxTestHelper is CommonTest {
         IInbox.Transition transition;
         ICheckpointStore.Checkpoint checkpoint;
         bytes27 transitionHash;
-        uint40 finalizationDeadline;
+        uint40 provedAtTimestamp; // block.timestamp when the proof was submitted
     }
 
     /// @notice Result of filling the ring buffer
@@ -86,6 +87,7 @@ abstract contract InboxTestHelper is CommonTest {
     // Config values cached from inbox
     uint40 internal provingWindow;
     uint40 internal extendedProvingWindow;
+    uint40 internal transitionCooldown;
     uint40 internal finalizationGracePeriod;
     uint16 internal minSyncDelay;
     uint256 internal maxFinalizationCount;
@@ -151,6 +153,7 @@ abstract contract InboxTestHelper is CommonTest {
         IInbox.Config memory config = inbox.getConfig();
         provingWindow = config.provingWindow;
         extendedProvingWindow = config.extendedProvingWindow;
+        transitionCooldown = config.transitionCooldown;
         finalizationGracePeriod = config.finalizationGracePeriod;
         minSyncDelay = config.minSyncDelay;
         maxFinalizationCount = config.maxFinalizationCount;
@@ -167,6 +170,7 @@ abstract contract InboxTestHelper is CommonTest {
             provingWindow: DEFAULT_PROVING_WINDOW,
             extendedProvingWindow: DEFAULT_EXTENDED_PROVING_WINDOW,
             maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
+            transitionCooldown: DEFAULT_TRANSITION_COOLDOWN,
             finalizationGracePeriod: DEFAULT_FINALIZATION_GRACE_PERIOD,
             ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
             basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
@@ -708,7 +712,7 @@ abstract contract InboxTestHelper is CommonTest {
             transition: transition,
             checkpoint: provedPayload.checkpoint,
             transitionHash: codec.hashTransition(transition),
-            finalizationDeadline: provedPayload.finalizationDeadline
+            provedAtTimestamp: uint40(block.timestamp)
         });
     }
 
