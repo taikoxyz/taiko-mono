@@ -11,7 +11,6 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
-use anyhow::anyhow;
 use metrics::{counter, gauge};
 use rpc::{client::Client, error::RpcClientError, l1_origin::L1Origin};
 use tokio::time::{MissedTickBehavior, interval};
@@ -115,12 +114,12 @@ where
         };
 
         let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
-        if forkchoice.payload_status.status != PayloadStatusEnum::Syncing {
-            return Err(DriverError::Other(anyhow!(
-                "unexpected forkchoice status {:?} for block {}",
-                forkchoice.payload_status.status,
-                block_number
-            )));
+        match forkchoice.payload_status.status {
+            PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted | PayloadStatusEnum::Syncing => {
+            }
+            PayloadStatusEnum::Invalid { validation_error } => {
+                return Err(DriverError::EngineInvalidPayload(validation_error));
+            }
         }
 
         info!(block_number, ?block_hash, "checkpoint block submitted");
