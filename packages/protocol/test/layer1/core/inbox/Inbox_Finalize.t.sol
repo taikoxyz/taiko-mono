@@ -445,6 +445,120 @@ contract InboxFinalizeTest is InboxTestHelper {
     }
 
     // ---------------------------------------------------------------
+    // Conflict Detection Tests
+    // ---------------------------------------------------------------
+
+    /// @dev Tests that finalization stops when a conflicting transition is detected
+    /// When a conflict is detected, finalizationDeadline is set to type(uint40).max
+    /// and the _finalize loop should break when it encounters this
+    function test_finalize_stopsOnConflict() public {
+        // Propose
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // First proof
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        // Submit conflicting proof (different checkpoint)
+        IInbox.ProveInput[] memory conflictInputs = new IInbox.ProveInput[](1);
+        conflictInputs[0] = IInbox.ProveInput({
+            proposal: payload.proposal,
+            checkpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint40(block.number + 100), // Different block
+                blockHash: bytes32(uint256(999)),
+                stateRoot: bytes32(uint256(888))
+            }),
+            metadata: IInbox.TransitionMetadata({
+                designatedProver: currentProver,
+                actualProver: currentProver
+            }),
+            parentTransitionHash: _getGenesisTransitionHash()
+        });
+
+        bytes memory conflictProveData = codec.encodeProveInput(conflictInputs);
+
+        vm.prank(currentProver);
+        inbox.prove(conflictProveData, _createValidProof());
+
+        // Verify finalizationDeadline is set to max (conflict detected)
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+        assertEq(
+            record.finalizationDeadline,
+            type(uint40).max,
+            "Finalization deadline should be max after conflict"
+        );
+
+        // Try to finalize - should fail because finalization breaks on conflict
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        // Build the NEW transition hash (from the conflicting proof, not the original)
+        IInbox.Transition memory conflictTransition = IInbox.Transition({
+            bondInstructionHash: bytes32(0),
+            checkpointHash: codec.hashCheckpoint(conflictInputs[0].checkpoint)
+        });
+
+        bytes memory proposeData = codec.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                _wrapSingleTransition(conflictTransition),
+                conflictInputs[0].checkpoint
+            )
+        );
+
+        // This should revert with IncorrectTransitionCount because finalization
+        // breaks when it encounters the conflict (deadline == max), so 0 transitions
+        // are finalized but 1 was provided
+        vm.expectRevert(Inbox.IncorrectTransitionCount.selector);
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    /// @dev Tests that finalization can proceed normally when no conflict exists
+    /// (control test to verify the conflict test is meaningful)
+    function test_finalize_proceedsNormally_withoutConflict() public {
+        // Propose
+        IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
+
+        // Prove (no conflict)
+        ProvenProposal memory proven =
+            _proveProposalAndGetResult(payload.proposal, _getGenesisTransitionHash());
+
+        // Verify finalizationDeadline is NOT max (no conflict)
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
+        assertTrue(
+            record.finalizationDeadline != type(uint40).max,
+            "Finalization deadline should NOT be max without conflict"
+        );
+
+        // Finalize - should succeed
+        _setupBlobHashes();
+        _rollOneBlock();
+
+        bytes memory proposeData = codec.encodeProposeInput(
+            _buildFinalizeInput(
+                payload.coreState,
+                _buildParentArray(payload.proposal),
+                _wrapSingleTransition(proven.transition),
+                proven.checkpoint
+            )
+        );
+
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+
+        IInbox.ProposedEventPayload memory finalizedPayload = _decodeLastProposedEvent();
+
+        assertEq(
+            finalizedPayload.coreState.finalizationHead,
+            payload.proposal.id,
+            "Finalization should have succeeded"
+        );
+    }
+
+    // ---------------------------------------------------------------
     // Invalid Checkpoint Tests
     // ---------------------------------------------------------------
 

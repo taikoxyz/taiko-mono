@@ -4,13 +4,13 @@
 
 | Test File                   | Tests  | Description                                  |
 | --------------------------- | ------ | -------------------------------------------- |
-| Inbox_Activation.t.sol      | 9      | Inbox activation and constructor tests       |
+| Inbox_Activation.t.sol      | 7      | Inbox activation and constructor tests       |
 | Inbox_Finalize.t.sol        | 15     | Finalization flow and checkpoint tests       |
 | Inbox_ForcedInclusion.t.sol | 11     | Forced inclusion queue and consumption tests |
-| Inbox_Propose.t.sol         | 15     | Proposal submission and validation tests     |
-| Inbox_Prove.t.sol           | 20     | Proof submission and bond instruction tests  |
+| Inbox_Propose.t.sol         | 16     | Proposal submission and validation tests     |
+| Inbox_Prove.t.sol           | 22     | Proof submission and bond instruction tests  |
 | Inbox_RingBuffer.t.sol      | 9      | Ring buffer wrap-around scenarios            |
-| **Total**                   | **76** |                                              |
+| **Total**                   | **80** |                                              |
 
 ---
 
@@ -90,21 +90,33 @@
 
 ### \_storeTransitionRecord Branches
 
-| Line    | Branch | Condition                                            | Covered? | Test                                                           |
-| ------- | ------ | ---------------------------------------------------- | -------- | -------------------------------------------------------------- |
-| 803     | B14.1  | `firstRecord.proposalId != proposalId` (new)         | YES      | test_prove_storesTransitionInRingBuffer                        |
-| 811     | B14.2  | `parentHash == stored` (same, keep original)         | YES      | test_prove_sameTransition_keepsOriginal                        |
-| 813-818 | B14.3  | `parentHash != stored` (fallback mapping)            | YES      | test_prove_differentParentTransitionHash_usesFallbackMapping   |
-| 816     | B14.4  | `existingRecord.transitionHash == 0` (new fallback)  | YES      | test_prove_differentParentTransitionHash_usesFallbackMapping   |
-| 816     | B14.5  | `existingRecord.transitionHash != 0` (keep original) | YES      | test_prove_conflictingTransition_fallbackMapping_keepsOriginal |
+| Line    | Branch | Condition                                            | Covered? | Test                                                                   |
+| ------- | ------ | ---------------------------------------------------- | -------- | ---------------------------------------------------------------------- |
+| 803     | B14.1  | `firstRecord.proposalId != proposalId` (new)         | YES      | test_prove_storesTransitionInRingBuffer                                |
+| 811     | B14.2  | `parentHash == stored` (same, keep original)         | YES      | test_prove_sameTransition_keepsOriginal                                |
+| 813-818 | B14.3  | `parentHash != stored` (fallback mapping)            | YES      | test_prove_differentParentTransitionHash_usesFallbackMapping           |
+| 816     | B14.4  | `existingRecord.transitionHash == 0` (new fallback)  | YES      | test_prove_differentParentTransitionHash_usesFallbackMapping           |
+| 816     | B14.5  | `existingRecord.transitionHash != 0` (keep original) | YES      | test_prove_duplicateTransition_fallbackMapping_emitsCorrectEventFields |
 
-### Conflicting Transition Behavior
+### \_writeOrDetectConflict Branches
 
-| Scenario                                  | Covered? | Test                                                           |
-| ----------------------------------------- | -------- | -------------------------------------------------------------- |
-| Same transition re-proved (first slot)    | YES      | test_prove_sameTransition_keepsOriginal                        |
-| Conflicting transition (first slot)       | YES      | test_prove_conflictingTransition_keepsOriginal                 |
-| Conflicting transition (fallback mapping) | YES      | test_prove_conflictingTransition_fallbackMapping_keepsOriginal |
+| Line | Branch | Condition                             | Covered? | Test                                                                 |
+| ---- | ------ | ------------------------------------- | -------- | -------------------------------------------------------------------- |
+| -    | B15.1  | `existingHash == 0` (new record)      | YES      | test_prove_singleProposal                                            |
+| -    | B15.2  | `existingHash == newHash` (duplicate) | YES      | test_prove_duplicateTransition_firstRecord_emitsCorrectEventFields   |
+| -    | B15.3  | `existingHash != newHash` (conflict)  | YES      | test_prove_conflictingTransition_firstRecord_emitsCorrectEventFields |
+
+### Conflict Detection and Event Emission
+
+| Scenario                                             | Covered? | Test                                                                     |
+| ---------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| Conflict detected (ring buffer) - emits event        | YES      | test_prove_conflictingTransition_firstRecord_emitsCorrectEventFields     |
+| Conflict detected (fallback mapping) - emits event   | YES      | test_prove_conflictingTransition_fallbackMapping_emitsCorrectEventFields |
+| Duplicate detected (ring buffer) - emits events      | YES      | test_prove_duplicateTransition_firstRecord_emitsCorrectEventFields       |
+| Duplicate detected (fallback mapping) - emits events | YES      | test_prove_duplicateTransition_fallbackMapping_emitsCorrectEventFields   |
+| Conflict sets finalizationDeadline to max            | YES      | test_finalize_stopsOnConflict                                            |
+| Finalization breaks on conflict (deadline max)       | YES      | test_finalize_stopsOnConflict                                            |
+| Finalization proceeds normally without conflict      | YES      | test_finalize_proceedsNormally_withoutConflict                           |
 
 ---
 
@@ -116,6 +128,7 @@
 | ------- | ------ | ---------------------------------------------- | -------- | --------------------------------------------------------------- |
 | -       | B16.1  | `proposalId > proposalHead` (break)            | YES      | test_finalize_stopsWhenProposalNotProven                        |
 | 655     | B16.2  | `record.transitionHash == 0` (break)           | YES      | test_finalize_stopsWhenProposalNotProven                        |
+| -       | B16.2a | `record.finalizationDeadline == max` (break)   | YES      | test_finalize_stopsOnConflict                                   |
 | 657-659 | B16.3  | `i >= count && timestamp < deadline` (break)   | YES      | test_finalize_incrementalFinalization                           |
 | 658     | B16.4  | `i >= count && timestamp >= deadline` (revert) | YES      | test_finalize_RevertWhen_TransitionNotProvided_afterGracePeriod |
 | 662-664 | B16.5  | `hashTransition != stored` (revert)            | YES      | test_finalize_RevertWhen_TransitionHashMismatch                 |
@@ -177,7 +190,7 @@
 
 ## Summary
 
-### Covered Branches: 47/49 (96%)
+### Covered Branches: 51/53 (96%)
 
 ### Uncovered Branches
 
@@ -188,13 +201,22 @@
 
 ### Key Design Changes Documented
 
-1. **First Proof Wins**: When the same transition is re-proved, the original record is kept unchanged (including finalization deadline).
+1. **First Proof Wins for Duplicates**: When the same transition is re-proved (same checkpoint), the original record is kept unchanged (including finalization deadline). `TransitionDuplicateDetected` and `DuplicateTransitionSkipped` events are emitted.
 
-2. **Conflicting Transitions Silently Ignored**: When a conflicting proof is submitted (same proposal/parent, different checkpoint), the original proof is preserved without emitting events.
+2. **Conflicting Transitions Block Finalization**: When a conflicting proof is submitted (same proposal/parent, different checkpoint):
+   - `TransitionConflictDetected` event is emitted with proposal ID, parent transition hash, old and new transition hashes
+   - The new transition hash is stored (overwrites old)
+   - `finalizationDeadline` is set to `type(uint40).max` to block finalization
+   - The `_finalize()` loop breaks when it encounters a record with deadline set to max
 
-3. **Codex Pattern**: Hash and codec functions moved to separate `Codex` contract for test access. Production code uses libraries directly via `LibHashOptimized` (aliased as `H`).
+3. **Conflict Detection Events**:
+   - `TransitionConflictDetected(proposalId, parentTransitionHash, oldTransitionHash, newTransitionHash)` - emitted when conflicting proof detected
+   - `TransitionDuplicateDetected(proposalId, transitionHash)` - emitted when same transition re-proved
+   - `DuplicateTransitionSkipped(proposalId, parentTransitionHash)` - emitted alongside duplicate detection
 
-4. **Ring Buffer Storage**: Proposals and transition records use ring buffer pattern with fallback mapping for alternative parent transition hashes.
+4. **Codex Pattern**: Hash and codec functions moved to separate `Codex` contract for test access. Production code uses libraries directly via `LibHashOptimized` (aliased as `H`).
+
+5. **Ring Buffer Storage**: Proposals and transition records use ring buffer pattern with fallback mapping for alternative parent transition hashes.
 
 ### Bug Documentation
 

@@ -219,6 +219,24 @@ interface IInbox {
     /// @param data ABI-encoded ProvedEventPayload containing proof details.
     event Proved(uint40 indexed proposalId, bytes27 indexed parentTransitionHash, bytes data);
 
+    /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
+    /// Proved event.
+    /// @param proposalId The ID of the proposal with the conflict.
+    /// @param parentTransitionHash The parent transition hash identifying the transition path.
+    /// @param oldTransitionHash The existing transition hash before the conflict.
+    /// @param newTransitionHash The new conflicting transition hash.
+    event TransitionConflictDetected(
+        uint40 indexed proposalId,
+        bytes27 indexed parentTransitionHash,
+        bytes27 oldTransitionHash,
+        bytes27 newTransitionHash
+    );
+
+    /// @notice Emitted when a duplicate transition proof is skipped.
+    /// @param proposalId The ID of the proposal.
+    /// @param parentTransitionHash The parent transition hash.
+    event DuplicateTransitionSkipped(uint40 indexed proposalId, bytes27 indexed parentTransitionHash);
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

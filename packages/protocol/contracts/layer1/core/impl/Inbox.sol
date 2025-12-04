@@ -57,7 +57,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores the first transition record for each proposal to reduce gas costs.
     ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     ///      Uses multiple storage slots for the struct (48 + 26*8 + 26 + 48 = 304 bits)
-    struct FirstTransitionRecord {
+    struct FirstTransitionStorage {
         uint40 proposalId;
         bytes27 parentTransitionHash;
         TransitionRecord record;
@@ -140,8 +140,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Stores the first transition record for each proposal in a compact ring buffer.
     ///      This ring buffer approach optimizes gas by reusing storage slots.
-    mapping(uint256 bufferSlot => FirstTransitionRecord firstRecord) internal
-        _firstTransitionRecords;
+    mapping(uint256 bufferSlot => FirstTransitionStorage firstRecord) internal
+        _firstTransitionStorages;
 
     /// @dev Stores all non-first transition records for proposals in dedicated, non-reusable storage slots.
     ///      No ring buffer is used here; each record is always stored in its unique slot.
@@ -658,6 +658,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 if (record.transitionHash == 0) break;
 
+                // Break if a conflicting transition was detected (deadline set to max)
+                if (record.finalizationDeadline == type(uint40).max) break;
+
                 if (i >= transitionCount) {
                     require(block.timestamp < record.finalizationDeadline, TransitionNotProvided());
                     break;
@@ -787,6 +790,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Stores transition record hash with optimized slot reuse.
+    /// Detects duplicate and conflicting transition records.
+    /// On conflict, stores the new transitionHash but sets finalizationDeadline to max
+    /// to block finalization until the conflict is resolved.
     /// @param _proposalId The proposal ID
     /// @param _parentTransitionHash Parent transition hash used as part of the key
     /// @param _record The finalization metadata to persist
@@ -797,25 +803,54 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-        FirstTransitionRecord storage firstRecord =
-            _firstTransitionRecords[_proposalId % _ringBufferSize];
+        FirstTransitionStorage storage firstStorage =
+            _firstTransitionStorages[_proposalId % _ringBufferSize];
 
-        if (firstRecord.proposalId != _proposalId) {
+        if (firstStorage.proposalId != _proposalId) {
             // New proposal, overwrite slot
-            firstRecord.proposalId = _proposalId;
-            firstRecord.parentTransitionHash = _parentTransitionHash;
-            firstRecord.record = _record;
-            return;
+            firstStorage.proposalId = _proposalId;
+            firstStorage.parentTransitionHash = _parentTransitionHash;
+            firstStorage.record = _record;
+        } else if (firstStorage.parentTransitionHash == _parentTransitionHash) {
+            _writeOrDetectConflict(_proposalId, _parentTransitionHash, firstStorage.record, _record);
+        } else {
+            _writeOrDetectConflict(
+                _proposalId, 
+                _parentTransitionHash,  
+                _transitionRecordFor(_proposalId, _parentTransitionHash), 
+                _record
+            );
         }
+    }
 
-        if (firstRecord.parentTransitionHash == _parentTransitionHash) return;
+    /// @dev Writes a new transition record or detects duplicate/conflict.
+    /// On conflict, stores the new transitionHash but sets finalizationDeadline to max.
+    /// @param _proposalId The proposal ID for event emission
+    /// @param _parentTransitionHash The parent transition hash for event emission
+    /// @param _existingRecord Storage pointer to the existing transition record
+    /// @param _newRecord The new transition record to write
+    function _writeOrDetectConflict(
+        uint40 _proposalId,
+        bytes27 _parentTransitionHash,
+        TransitionRecord storage _existingRecord,
+        TransitionRecord memory _newRecord
+    )
+        private
+    {
+        bytes27 existingHash = _existingRecord.transitionHash;
 
-        TransitionRecord storage existingRecord =
-            _transitionRecordFor(_proposalId, _parentTransitionHash);
-
-        if (existingRecord.transitionHash == 0) {
-            existingRecord.transitionHash = _record.transitionHash;
-            existingRecord.finalizationDeadline = _record.finalizationDeadline;
+        if (existingHash == 0) {
+            _existingRecord.transitionHash = _newRecord.transitionHash;
+            _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
+        } else if (existingHash == _newRecord.transitionHash) {
+            emit DuplicateTransitionSkipped(_proposalId, _parentTransitionHash);
+        } else {
+            // Conflict: use new transitionHash but set deadline to max to block finalization
+            emit TransitionConflictDetected(
+                _proposalId, _parentTransitionHash, existingHash, _newRecord.transitionHash
+            );
+            _existingRecord.transitionHash = _newRecord.transitionHash;
+            _existingRecord.finalizationDeadline = type(uint40).max;
         }
     }
 
@@ -847,13 +882,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (TransitionRecord memory record_)
     {
-        FirstTransitionRecord storage firstRecord =
-            _firstTransitionRecords[_proposalId % _ringBufferSize];
+        FirstTransitionStorage storage firstStorage =
+            _firstTransitionStorages[_proposalId % _ringBufferSize];
 
-        if (firstRecord.proposalId != _proposalId) {
+        if (firstStorage.proposalId != _proposalId) {
             return TransitionRecord({ transitionHash: 0, finalizationDeadline: 0 });
-        } else if (firstRecord.parentTransitionHash == _parentTransitionHash) {
-            return firstRecord.record;
+        } else if (firstStorage.parentTransitionHash == _parentTransitionHash) {
+            return firstStorage.record;
         } else {
             return _transitionRecordFor(_proposalId, _parentTransitionHash);
         }
@@ -881,24 +916,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (TransitionRecord storage)
     {
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        bytes32 compositeKey = H.composeTransitionKey(_proposalId, _parentTransitionHash);
         return _transitionRecords[compositeKey];
-    }
-
-    /// @dev Computes composite key for transition record storage
-    /// Creates unique identifier for proposal-parent transition pairs
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return _ Keccak256 hash of encoded parameters
-    function _composeTransitionKey(
-        uint40 _proposalId,
-        bytes27 _parentTransitionHash
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        return H.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 
     // ---------------------------------------------------------------
