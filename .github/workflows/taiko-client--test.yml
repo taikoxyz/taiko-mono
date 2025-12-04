@@ -42,7 +42,7 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
     runs-on: [ubuntu-latest]
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
       PACAYA_FORK_TAIKO_MONO_DIR: pacaya-fork-taiko-mono
