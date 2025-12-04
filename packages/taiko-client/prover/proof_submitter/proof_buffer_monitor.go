@@ -2,6 +2,7 @@ package submitter
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/log"
 	"time"
 
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -42,6 +43,7 @@ func monitorProofBuffer(
 	for {
 		select {
 		case <-ctx.Done():
+			log.Debug("context of proof buffer monitor is done")
 			return
 		case <-ticker.C:
 			tryAggregate(buffer, proofType)
