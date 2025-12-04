@@ -15,9 +15,7 @@ contract LibProvedEventEncoderTest is Test {
                 proposalHash: bytes32(uint256(1)),
                 parentTransitionHash: bytes32(uint256(2)),
                 checkpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 50,
-                    blockHash: bytes32(uint256(3)),
-                    stateRoot: bytes32(uint256(4))
+                    blockNumber: 50, blockHash: bytes32(uint256(3)), stateRoot: bytes32(uint256(4))
                 }),
                 designatedProver: address(0x1111),
                 actualProver: address(0x2222)
@@ -37,8 +35,16 @@ contract LibProvedEventEncoderTest is Test {
         assertEq(decoded.proposalId, payload.proposalId, "proposal id");
         assertEq(decoded.transition.proposalHash, payload.transition.proposalHash, "proposal hash");
         assertEq(decoded.bondSignal, payload.bondSignal, "bond signal");
-        assertEq(uint8(decoded.bondInstruction.bondType), uint8(LibBonds.BondType.PROVABILITY), "bond type");
-        assertEq(decoded.transition.designatedProver, payload.transition.designatedProver, "designated prover");
+        assertEq(
+            uint8(decoded.bondInstruction.bondType),
+            uint8(LibBonds.BondType.PROVABILITY),
+            "bond type"
+        );
+        assertEq(
+            decoded.transition.designatedProver,
+            payload.transition.designatedProver,
+            "designated prover"
+        );
     }
 
     function test_encode_decode_empty_bond_is_deterministic() public pure {
@@ -46,15 +52,15 @@ contract LibProvedEventEncoderTest is Test {
             proposalId: 99,
             transition: IInbox.Transition({
                 proposalHash: bytes32(uint256(100)),
-            parentTransitionHash: bytes32(uint256(101)),
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 500,
-                blockHash: bytes32(uint256(102)),
-                stateRoot: bytes32(uint256(103))
+                parentTransitionHash: bytes32(uint256(101)),
+                checkpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 500,
+                    blockHash: bytes32(uint256(102)),
+                    stateRoot: bytes32(uint256(103))
+                }),
+                designatedProver: address(0x3333),
+                actualProver: address(0x4444)
             }),
-            designatedProver: address(0x3333),
-            actualProver: address(0x4444)
-        }),
             bondInstruction: LibBonds.BondInstruction({
                 proposalId: 0,
                 bondType: LibBonds.BondType.NONE,
@@ -70,6 +76,10 @@ contract LibProvedEventEncoderTest is Test {
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
 
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded1);
-        assertEq(uint8(decoded.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "empty bond instruction");
+        assertEq(
+            uint8(decoded.bondInstruction.bondType),
+            uint8(LibBonds.BondType.NONE),
+            "empty bond instruction"
+        );
     }
 }

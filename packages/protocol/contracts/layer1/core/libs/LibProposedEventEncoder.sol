@@ -79,8 +79,7 @@ library LibProposedEventEncoder {
 
             payload_.derivation.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
             for (uint256 j; j < blobHashesLength; ++j) {
-                (payload_.derivation.sources[i].blobSlice.blobHashes[j], ptr) =
-                    P.unpackBytes32(ptr);
+                (payload_.derivation.sources[i].blobSlice.blobHashes[j], ptr) = P.unpackBytes32(ptr);
             }
 
             (payload_.derivation.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "forge-std/src/Test.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
 import { IBondManager } from "src/layer2/core/IBondManager.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { MockSignalService } from "test/layer1/core/inbox/mocks/MockContracts.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 
@@ -49,11 +49,11 @@ contract BondManagerTest is Test {
             address(new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (operator))))
         );
 
-        bondToken.mint(Alice, 1_000 ether);
-        bondToken.mint(Bob, 1_000 ether);
-        bondToken.mint(Carol, 1_000 ether);
-        bondToken.mint(David, 1_000 ether);
-        bondToken.mint(Emma, 1_000 ether);
+        bondToken.mint(Alice, 1000 ether);
+        bondToken.mint(Bob, 1000 ether);
+        bondToken.mint(Carol, 1000 ether);
+        bondToken.mint(David, 1000 ether);
+        bondToken.mint(Emma, 1000 ether);
 
         vm.startPrank(Alice);
         bondToken.approve(address(bondManager), type(uint256).max);
@@ -919,10 +919,7 @@ contract BondManagerTest is Test {
 
     function test_processBondSignal_transfersBonds() external {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: Alice,
-            payee: Bob
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
         bytes32 signal = keccak256(abi.encode(instruction));
 
@@ -942,16 +939,10 @@ contract BondManagerTest is Test {
 
     function test_processBondSignal_allowsOutOfOrderConsumption() external {
         LibBonds.BondInstruction memory first = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: Alice,
-            payee: Bob
+            proposalId: 1, bondType: LibBonds.BondType.PROVABILITY, payer: Alice, payee: Bob
         });
         LibBonds.BondInstruction memory second = LibBonds.BondInstruction({
-            proposalId: 2,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: Carol,
-            payee: David
+            proposalId: 2, bondType: LibBonds.BondType.LIVENESS, payer: Carol, payee: David
         });
 
         vm.prank(L1_INBOX);

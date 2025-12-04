@@ -9,11 +9,7 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProveInputDecoder {
     /// @notice Encodes prove input data using compact packing.
-    function encode(IInbox.ProveInput memory _input)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
+    function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
         uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions);
         encoded_ = new bytes(bufferSize);
 
@@ -80,7 +76,10 @@ library LibProveInputDecoder {
         }
     }
 
-    function _encodeProposal(uint256 _ptr, IInbox.Proposal memory _proposal)
+    function _encodeProposal(
+        uint256 _ptr,
+        IInbox.Proposal memory _proposal
+    )
         private
         pure
         returns (uint256 newPtr_)
@@ -104,7 +103,10 @@ library LibProveInputDecoder {
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    function _encodeTransition(uint256 _ptr, IInbox.Transition memory _transition)
+    function _encodeTransition(
+        uint256 _ptr,
+        IInbox.Transition memory _transition
+    )
         private
         pure
         returns (uint256 newPtr_)

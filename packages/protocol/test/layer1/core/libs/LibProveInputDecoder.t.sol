@@ -29,9 +29,7 @@ contract LibProveInputDecoderTest is Test {
             proposalHash: bytes32(uint256(11)),
             parentTransitionHash: bytes32(uint256(12)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 99,
-                blockHash: bytes32(uint256(13)),
-                stateRoot: bytes32(uint256(14))
+                blockNumber: 99, blockHash: bytes32(uint256(13)), stateRoot: bytes32(uint256(14))
             }),
             designatedProver: address(0xAAAA),
             actualProver: address(0xBBBB)
@@ -40,18 +38,14 @@ contract LibProveInputDecoderTest is Test {
             proposalHash: bytes32(uint256(21)),
             parentTransitionHash: bytes32(uint256(22)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 199,
-                blockHash: bytes32(uint256(23)),
-                stateRoot: bytes32(uint256(24))
+                blockNumber: 199, blockHash: bytes32(uint256(23)), stateRoot: bytes32(uint256(24))
             }),
             designatedProver: address(0xCCCC),
             actualProver: address(0xDDDD)
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions,
-            syncCheckpoint: true
+            proposals: proposals, transitions: transitions, syncCheckpoint: true
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(input);
@@ -60,8 +54,16 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.proposals.length, 2, "proposal length");
         assertEq(decoded.transitions.length, 2, "transition length");
         assertEq(decoded.proposals[1].proposer, proposals[1].proposer, "proposal proposer");
-        assertEq(decoded.transitions[1].checkpoint.blockHash, transitions[1].checkpoint.blockHash, "checkpoint hash");
-        assertEq(decoded.transitions[0].designatedProver, transitions[0].designatedProver, "designated prover");
+        assertEq(
+            decoded.transitions[1].checkpoint.blockHash,
+            transitions[1].checkpoint.blockHash,
+            "checkpoint hash"
+        );
+        assertEq(
+            decoded.transitions[0].designatedProver,
+            transitions[0].designatedProver,
+            "designated prover"
+        );
         assertTrue(decoded.syncCheckpoint, "sync checkpoint");
     }
 
@@ -110,9 +112,7 @@ contract LibProveInputDecoderTest is Test {
             proposalHash: bytes32(uint256(80)),
             parentTransitionHash: bytes32(uint256(81)),
             checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 90,
-                blockHash: bytes32(uint256(82)),
-                stateRoot: bytes32(uint256(83))
+                blockNumber: 90, blockHash: bytes32(uint256(82)), stateRoot: bytes32(uint256(83))
             }),
             designatedProver: address(0xAAAA),
             actualProver: address(0xBBBB)
@@ -124,7 +124,11 @@ contract LibProveInputDecoderTest is Test {
         return LibProveInputDecoder.encode(_input);
     }
 
-    function _decodeExternal(bytes calldata _data) external pure returns (IInbox.ProveInput memory) {
+    function _decodeExternal(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProveInput memory)
+    {
         return LibProveInputDecoder.decode(_data);
     }
 }

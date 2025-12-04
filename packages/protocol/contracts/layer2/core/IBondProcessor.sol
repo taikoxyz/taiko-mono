@@ -23,6 +23,9 @@ interface IBondProcessor {
     /// @notice Processes a proved bond signal from L1 with best-effort debits/credits.
     /// @param _instruction Bond instruction tied to the signal.
     /// @param _proof Merkle proof that the signal was sent on L1.
-    function processBondSignal(LibBonds.BondInstruction calldata _instruction, bytes calldata _proof)
+    function processBondSignal(
+        LibBonds.BondInstruction calldata _instruction,
+        bytes calldata _proof
+    )
         external;
 }

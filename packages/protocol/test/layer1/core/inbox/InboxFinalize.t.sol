@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxVariant } from "./InboxTestBase.sol";
 import { ProveTestBase } from "./InboxProve.t.sol";
+import { InboxVariant } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 abstract contract FinalizeTestBase is ProveTestBase {
     constructor(InboxVariant _variant) ProveTestBase(_variant) { }
@@ -20,13 +20,14 @@ abstract contract FinalizeTestBase is ProveTestBase {
         assertEq(state.lastFinalizedTimestamp, uint48(block.timestamp), "finalized timestamp");
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
         assertEq(
-            state.lastFinalizedTransitionHash, codec.hashTransition(transitions[0]), "transition hash"
+            state.lastFinalizedTransitionHash,
+            codec.hashTransition(transitions[0]),
+            "transition hash"
         );
     }
 
     function test_finalize_batch3() public {
-        (IInbox.ProveInput memory proveInput,) =
-            _buildBatchInput(3, true);
+        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(3, true);
         _proveAndDecodeWithGas(proveInput, "shasta-prove", "finalize_consecutive_3");
 
         IInbox.CoreState memory state = inbox.getState();
@@ -34,8 +35,7 @@ abstract contract FinalizeTestBase is ProveTestBase {
     }
 
     function test_finalize_batch5() public {
-        (IInbox.ProveInput memory proveInput,) =
-            _buildBatchInput(5, true);
+        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(5, true);
         _proveAndDecodeWithGas(proveInput, "shasta-prove", "finalize_consecutive_5");
 
         IInbox.CoreState memory state = inbox.getState();
@@ -43,8 +43,7 @@ abstract contract FinalizeTestBase is ProveTestBase {
     }
 
     function test_finalize_batch10() public {
-        (IInbox.ProveInput memory proveInput,) =
-            _buildBatchInput(10, true);
+        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(10, true);
         _proveAndDecodeWithGas(proveInput, "shasta-prove", "finalize_consecutive_10");
 
         IInbox.CoreState memory state = inbox.getState();
@@ -55,7 +54,11 @@ abstract contract FinalizeTestBase is ProveTestBase {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
         IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            proposed,
+            inbox.getState().lastFinalizedTransitionHash,
+            bytes32(uint256(1)),
+            prover,
+            prover
         );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({

@@ -25,9 +25,7 @@ contract LibHashParityTest is Test {
             timestamp: 55
         });
         LibBlobs.BlobSlice memory slice1 = LibBlobs.BlobSlice({
-            blobHashes: _hashes(bytes32(uint256(102))),
-            offset: 16,
-            timestamp: 56
+            blobHashes: _hashes(bytes32(uint256(102))), offset: 16, timestamp: 56
         });
 
         IInbox.Derivation memory derivation = IInbox.Derivation({
@@ -46,9 +44,7 @@ contract LibHashParityTest is Test {
         });
 
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 11,
-            blockHash: bytes32(uint256(4)),
-            stateRoot: bytes32(uint256(5))
+            blockNumber: 11, blockHash: bytes32(uint256(4)), stateRoot: bytes32(uint256(5))
         });
 
         IInbox.Transition memory transition = IInbox.Transition({
@@ -62,10 +58,24 @@ contract LibHashParityTest is Test {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = transition;
 
-        assertEq(LibHashSimple.hashCoreState(core), LibHashOptimized.hashCoreState(core), "core hash");
-        assertEq(LibHashSimple.hashDerivation(derivation), LibHashOptimized.hashDerivation(derivation), "derivation hash");
-        assertEq(LibHashSimple.hashProposal(proposal), LibHashOptimized.hashProposal(proposal), "proposal hash");
-        assertEq(LibHashSimple.hashTransition(transition), LibHashOptimized.hashTransition(transition), "transition hash");
+        assertEq(
+            LibHashSimple.hashCoreState(core), LibHashOptimized.hashCoreState(core), "core hash"
+        );
+        assertEq(
+            LibHashSimple.hashDerivation(derivation),
+            LibHashOptimized.hashDerivation(derivation),
+            "derivation hash"
+        );
+        assertEq(
+            LibHashSimple.hashProposal(proposal),
+            LibHashOptimized.hashProposal(proposal),
+            "proposal hash"
+        );
+        assertEq(
+            LibHashSimple.hashTransition(transition),
+            LibHashOptimized.hashTransition(transition),
+            "transition hash"
+        );
         assertEq(
             LibHashSimple.hashTransitions(transitions),
             LibHashOptimized.hashTransitions(transitions),
@@ -73,7 +83,10 @@ contract LibHashParityTest is Test {
         );
     }
 
-    function _sources(LibBlobs.BlobSlice memory _a, LibBlobs.BlobSlice memory _b)
+    function _sources(
+        LibBlobs.BlobSlice memory _a,
+        LibBlobs.BlobSlice memory _b
+    )
         private
         pure
         returns (IInbox.DerivationSource[] memory arr_)

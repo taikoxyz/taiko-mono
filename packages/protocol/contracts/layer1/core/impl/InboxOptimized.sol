@@ -72,12 +72,7 @@ contract InboxOptimized is Inbox {
         return LibHashOptimized.hashDerivation(_derivation);
     }
 
-    function _hashProposal(Proposal memory _proposal)
-        internal
-        pure
-        override
-        returns (bytes32)
-    {
+    function _hashProposal(Proposal memory _proposal) internal pure override returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
     }
 

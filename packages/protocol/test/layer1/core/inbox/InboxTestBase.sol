@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { CommonTest } from "test/shared/CommonTest.sol";
+import { MockERC20, MockProofVerifier } from "./mocks/MockContracts.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
 import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
 import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { MockERC20, MockProofVerifier } from "./mocks/MockContracts.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 enum InboxVariant {
     Simple,
@@ -37,7 +37,7 @@ abstract contract InboxTestBase is CommonTest {
     address internal prover = Carol;
 
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
-    uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1_000;
+    uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
 
     constructor(InboxVariant _variant) {
@@ -79,7 +79,7 @@ abstract contract InboxTestBase is CommonTest {
             forcedInclusionDelay: 384,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
-            minCheckpointDelay: 60000, // large enough for skipping checkpoints in prove benches
+            minCheckpointDelay: 60_000, // large enough for skipping checkpoints in prove benches
             permissionlessInclusionMultiplier: 5
         });
     }
@@ -89,7 +89,8 @@ abstract contract InboxTestBase is CommonTest {
     // ---------------------------------------------------------------
 
     function _deployInbox() internal virtual returns (Inbox) {
-        address impl = _isOptimized() ? address(new InboxOptimized(config)) : address(new Inbox(config));
+        address impl =
+            _isOptimized() ? address(new InboxOptimized(config)) : address(new Inbox(config));
         return _deployProxy(impl);
     }
 
@@ -127,7 +128,9 @@ abstract contract InboxTestBase is CommonTest {
         returns (IInbox.ProposedEventPayload memory payload_)
     {
         assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
-        assertEq(proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)");
+        assertEq(
+            proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)"
+        );
         proposerChecker.checkProposer(proposer, bytes(""));
         bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
@@ -136,7 +139,10 @@ abstract contract InboxTestBase is CommonTest {
         payload_ = _readProposedEvent();
     }
 
-    function _proposeAndDecodeWithGas(IInbox.ProposeInput memory _input, string memory _benchName)
+    function _proposeAndDecodeWithGas(
+        IInbox.ProposeInput memory _input,
+        string memory _benchName
+    )
         internal
         returns (IInbox.ProposedEventPayload memory payload_)
     {
@@ -147,7 +153,7 @@ abstract contract InboxTestBase is CommonTest {
         vm.startSnapshotGas("shasta-propose", _benchLabel(_benchName));
         inbox.propose(bytes(""), encodedInput);
         vm.stopSnapshotGas();
-        
+
         vm.stopPrank();
         payload_ = _readProposedEvent();
     }
@@ -177,7 +183,10 @@ abstract contract InboxTestBase is CommonTest {
         proposals_[0] = _p1;
     }
 
-    function _proposals(IInbox.Proposal memory _p1, IInbox.Proposal memory _p2)
+    function _proposals(
+        IInbox.Proposal memory _p1,
+        IInbox.Proposal memory _p2
+    )
         internal
         pure
         returns (IInbox.Proposal[] memory proposals_)
@@ -230,7 +239,10 @@ abstract contract InboxTestBase is CommonTest {
         transitions_[0] = _t1;
     }
 
-    function _transitions(IInbox.Transition memory _t1, IInbox.Transition memory _t2)
+    function _transitions(
+        IInbox.Transition memory _t1,
+        IInbox.Transition memory _t2
+    )
         internal
         pure
         returns (IInbox.Transition[] memory transitions_)
@@ -292,18 +304,26 @@ abstract contract InboxTestBase is CommonTest {
     function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {
         SignalService impl = new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE);
         return SignalService(
-            address(new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this)))))
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))
+            )
         );
     }
 
     function _setSignalServiceSyncer(address _authorizedSyncer) internal {
-        signalService.upgradeTo(address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE)));
+        signalService.upgradeTo(
+            address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE))
+        );
     }
 
     function _deployProposerChecker() internal returns (PreconfWhitelist) {
         PreconfWhitelist impl = new PreconfWhitelist();
         return PreconfWhitelist(
-            address(new ERC1967Proxy(address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))))
+            address(
+                new ERC1967Proxy(
+                    address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))
+                )
+            )
         );
     }
 

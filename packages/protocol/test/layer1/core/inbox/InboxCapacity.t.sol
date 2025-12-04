@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { ProposeTestBase } from "./InboxPropose.t.sol";
 import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
 abstract contract CapacityBase is ProposeTestBase {

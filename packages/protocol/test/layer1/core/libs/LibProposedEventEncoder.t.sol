@@ -54,15 +54,15 @@ contract LibProposedEventEncoderTest is Test {
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: _hashes(bytes32(uint256(111))),
-                offset: 0,
-                timestamp: 55
+                blobHashes: _hashes(bytes32(uint256(111))), offset: 0, timestamp: 55
             })
         });
         sources[1] = IInbox.DerivationSource({
             isForcedInclusion: false,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: _hashes(bytes32(uint256(211)), bytes32(uint256(212)), bytes32(uint256(213))),
+                blobHashes: _hashes(
+                    bytes32(uint256(211)), bytes32(uint256(212)), bytes32(uint256(213))
+                ),
                 offset: 88,
                 timestamp: 66
             })
@@ -110,14 +110,25 @@ contract LibProposedEventEncoderTest is Test {
         arr_[1] = _h2;
     }
 
-    function _hashes(bytes32 _h1, bytes32 _h2, bytes32 _h3) private pure returns (bytes32[] memory arr_) {
+    function _hashes(
+        bytes32 _h1,
+        bytes32 _h2,
+        bytes32 _h3
+    )
+        private
+        pure
+        returns (bytes32[] memory arr_)
+    {
         arr_ = new bytes32[](3);
         arr_[0] = _h1;
         arr_[1] = _h2;
         arr_[2] = _h3;
     }
 
-    function _assertEqual(IInbox.ProposedEventPayload memory _expected, IInbox.ProposedEventPayload memory _actual)
+    function _assertEqual(
+        IInbox.ProposedEventPayload memory _expected,
+        IInbox.ProposedEventPayload memory _actual
+    )
         private
         pure
     {
@@ -129,12 +140,26 @@ contract LibProposedEventEncoderTest is Test {
             "proposal submission window"
         );
         assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
-        assertEq(_actual.proposal.derivationHash, _expected.proposal.derivationHash, "derivation hash");
+        assertEq(
+            _actual.proposal.derivationHash, _expected.proposal.derivationHash, "derivation hash"
+        );
 
-        assertEq(_actual.derivation.originBlockNumber, _expected.derivation.originBlockNumber, "origin block");
-        assertEq(_actual.derivation.originBlockHash, _expected.derivation.originBlockHash, "origin hash");
-        assertEq(_actual.derivation.basefeeSharingPctg, _expected.derivation.basefeeSharingPctg, "basefee");
-        assertEq(_actual.derivation.sources.length, _expected.derivation.sources.length, "sources length");
+        assertEq(
+            _actual.derivation.originBlockNumber,
+            _expected.derivation.originBlockNumber,
+            "origin block"
+        );
+        assertEq(
+            _actual.derivation.originBlockHash, _expected.derivation.originBlockHash, "origin hash"
+        );
+        assertEq(
+            _actual.derivation.basefeeSharingPctg,
+            _expected.derivation.basefeeSharingPctg,
+            "basefee"
+        );
+        assertEq(
+            _actual.derivation.sources.length, _expected.derivation.sources.length, "sources length"
+        );
 
         for (uint256 i; i < _actual.derivation.sources.length; ++i) {
             assertEq(

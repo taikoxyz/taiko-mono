@@ -243,7 +243,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
 
         _state = result.newState;
-        
+
         _emitProvedEvent(input, result, bondSignal);
     }
 
@@ -342,8 +342,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 
-        
-         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
+        // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
         // ensure proposals never reference the genesis block.
@@ -386,7 +385,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0, NotEnoughCapacity()
+                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0,
+                NotEnoughCapacity()
             );
 
             ConsumptionResult memory result =
@@ -446,7 +446,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return newState_ The new state after the proof is processed
     /// @return bondInstruction_ Bond instruction to be signaled to L2 (BondType.NONE when unused)
     /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
-    function _processProof(CoreState memory _stateBefore, ProveInput memory _input)
+    function _processProof(
+        CoreState memory _stateBefore,
+        ProveInput memory _input
+    )
         private
         returns (
             CoreState memory newState_,
@@ -472,7 +475,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 bytes32 proposalHash = _checkProposalHash(proposal);
                 Transition memory transition = _input.transitions[i];
-                require(proposalHash == transition.proposalHash, ProposalHashMismatchWithTransition());
+                require(
+                    proposalHash == transition.proposalHash, ProposalHashMismatchWithTransition()
+                );
                 require(transition.parentTransitionHash == parentHash, InvalidParentTransition());
 
                 if (i == firstProvenIndex_) {
@@ -500,9 +505,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             newState_.lastFinalizedTimestamp = uint48(block.timestamp);
 
             _syncCheckpointIfNeeded(
-                _input.syncCheckpoint,
-                _input.transitions[_input.transitions.length - 1],
-                newState_
+                _input.syncCheckpoint, _input.transitions[_input.transitions.length - 1], newState_
             );
         }
     }
@@ -512,10 +515,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _stateBefore The state before processing the proof
     /// @param _input The prove input
     /// @return  Index of the first proposal to process. Returning 0 does not guarantee that all the proposal are valid.
-    function _findFirstIndexToProve(CoreState memory _stateBefore, ProveInput memory _input)
+    function _findFirstIndexToProve(
+        CoreState memory _stateBefore,
+        ProveInput memory _input
+    )
         private
         view
-        returns (uint256 )
+        returns (uint256)
     {
         unchecked {
             uint48 lastFinalizedId = _stateBefore.lastFinalizedProposalId;
@@ -524,7 +530,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // We iterate until the second to last proposal, because if the last one is the current,
             // `lastFinalizedProposalId` then there's nothing else to prove
-            for (uint256 i; i < count -1; ++i) {
+            for (uint256 i; i < count - 1; ++i) {
                 if (
                     _input.proposals[i].id == lastFinalizedId
                         && _hashTransition(_input.transitions[i]) == lastFinalizedHash
@@ -547,7 +553,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// This is used for bond calculation.
     /// @param _proposalTimestamp The timestamp of the proposal
     /// @param _priorFinalizedTimestamp The timestamp of the last finalized proposal
-    function _computeReadyTimestamp(uint48 _proposalTimestamp, uint48 _priorFinalizedTimestamp)
+    function _computeReadyTimestamp(
+        uint48 _proposalTimestamp,
+        uint48 _priorFinalizedTimestamp
+    )
         private
         pure
         returns (uint48)
@@ -768,10 +777,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-        ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal,
-            derivation: _derivation
-        });
+        ProposedEventPayload memory payload =
+            ProposedEventPayload({ proposal: _proposal, derivation: _derivation });
         emit Proposed(_encodeProposedEventData(payload));
     }
 
@@ -847,10 +854,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _nextProposalId The next proposal ID
     /// @param _lastFinalizedProposalId The ID of the last finalized proposal
     /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(uint48 _nextProposalId, uint48 _lastFinalizedProposalId) private view returns (uint256) {
+    function _getAvailableCapacity(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId
+    )
+        private
+        view
+        returns (uint256)
+    {
         unchecked {
-            uint256 numUnfinalizedProposals =
-                _nextProposalId - _lastFinalizedProposalId - 1;
+            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }

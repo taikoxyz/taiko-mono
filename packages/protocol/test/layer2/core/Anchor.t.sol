@@ -70,7 +70,9 @@ contract AnchorTest is Test {
         Anchor anchorImpl =
             new Anchor(signalService, bondManager, LIVENESS_BOND, PROVABILITY_BOND, L1_CHAIN_ID);
         anchor = Anchor(
-            address(new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this)))))
+            address(
+                new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
+            )
         );
 
         BondManager anchorBondManagerImpl = new BondManager(
@@ -202,9 +204,7 @@ contract AnchorTest is Test {
             signature: "" // invalid
         });
         Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({
-            proposalId: 1,
-            proposer: proposer,
-            proverAuth: abi.encode(invalidAuth)
+            proposalId: 1, proposer: proposer, proverAuth: abi.encode(invalidAuth)
         });
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
@@ -274,7 +274,10 @@ contract AnchorTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _proposalParams(uint48 _proposalId, uint256 _provingFee)
+    function _proposalParams(
+        uint48 _proposalId,
+        uint256 _provingFee
+    )
         internal
         view
         returns (Anchor.ProposalParams memory)
@@ -286,7 +289,11 @@ contract AnchorTest is Test {
         });
     }
 
-    function _blockParams(uint48 _blockNumber, uint256 _blockHash, uint256 _stateRoot)
+    function _blockParams(
+        uint48 _blockNumber,
+        uint256 _blockHash,
+        uint256 _stateRoot
+    )
         internal
         pure
         returns (Anchor.BlockParams memory)
@@ -298,13 +305,17 @@ contract AnchorTest is Test {
         });
     }
 
-    function _buildProverAuth(uint48 proposalId, uint256 provingFee)
+    function _buildProverAuth(
+        uint48 proposalId,
+        uint256 provingFee
+    )
         internal
         view
         returns (bytes memory)
     {
-        Anchor.ProverAuth memory auth =
-            Anchor.ProverAuth({ proposalId: proposalId, proposer: proposer, provingFee: provingFee, signature: "" });
+        Anchor.ProverAuth memory auth = Anchor.ProverAuth({
+            proposalId: proposalId, proposer: proposer, provingFee: provingFee, signature: ""
+        });
 
         bytes32 domainSeparator = keccak256(
             abi.encode(
@@ -316,8 +327,9 @@ contract AnchorTest is Test {
             )
         );
 
-        bytes32 structHash =
-            keccak256(abi.encode(PROVER_AUTH_TYPEHASH, auth.proposalId, auth.proposer, auth.provingFee));
+        bytes32 structHash = keccak256(
+            abi.encode(PROVER_AUTH_TYPEHASH, auth.proposalId, auth.proposer, auth.provingFee)
+        );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(proverKey, digest);
         auth.signature = abi.encodePacked(r, s, v);

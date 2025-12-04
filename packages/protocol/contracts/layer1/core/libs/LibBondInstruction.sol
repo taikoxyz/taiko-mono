@@ -48,8 +48,9 @@ library LibBondInstruction {
             uint256 extendedWindowEnd = uint256(_readyTimestamp) + _extendedProvingWindow;
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
-            address payer =
-                isWithinExtendedWindow ? _firstTransition.designatedProver : _firstProposal.proposer;
+            address payer = isWithinExtendedWindow
+                ? _firstTransition.designatedProver
+                : _firstProposal.proposer;
             address payee = _firstTransition.actualProver;
 
             // If payer and payee are identical, there is no bond movement.

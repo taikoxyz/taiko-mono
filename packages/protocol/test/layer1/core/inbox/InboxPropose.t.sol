@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 abstract contract ProposeTestBase is InboxTestBase {
@@ -16,15 +16,21 @@ abstract contract ProposeTestBase is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         IInbox.CoreState memory stateBefore = inbox.getState();
 
-        IInbox.ProposedEventPayload memory expected = _buildExpectedProposedPayload(stateBefore, input);
+        IInbox.ProposedEventPayload memory expected =
+            _buildExpectedProposedPayload(stateBefore, input);
 
-        IInbox.ProposedEventPayload memory actual = _proposeAndDecodeWithGas(input, "propose_single");
+        IInbox.ProposedEventPayload memory actual =
+            _proposeAndDecodeWithGas(input, "propose_single");
         _assertPayloadEqual(actual, expected);
 
         IInbox.CoreState memory stateAfter = inbox.getState();
         assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
         _assertStateEqual(stateAfter, _expectedStateAfterProposal(stateBefore));
-        assertEq(inbox.getProposalHash(expected.proposal.id), codec.hashProposal(expected.proposal), "proposal hash");
+        assertEq(
+            inbox.getProposalHash(expected.proposal.id),
+            codec.hashProposal(expected.proposal),
+            "proposal hash"
+        );
     }
 
     function test_propose_RevertWhen_DeadlinePassed() public {
@@ -91,8 +97,8 @@ abstract contract ProposeTestBase is InboxTestBase {
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
         _saveForcedInclusion(forcedRef);
 
-        uint256 waitTime =
-            uint256(config.forcedInclusionDelay) * uint256(config.permissionlessInclusionMultiplier);
+        uint256 waitTime = uint256(config.forcedInclusionDelay)
+            * uint256(config.permissionlessInclusionMultiplier);
         vm.warp(block.timestamp + waitTime + 1);
         vm.roll(block.number + 1);
 
@@ -134,8 +140,12 @@ abstract contract ProposeTestBase is InboxTestBase {
 
         assertEq(payload.derivation.sources.length, 2, "sources length");
         assertTrue(payload.derivation.sources[0].isForcedInclusion, "forced slot");
-        assertEq(payload.derivation.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash");
-        assertEq(payload.derivation.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash");
+        assertEq(
+            payload.derivation.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash"
+        );
+        assertEq(
+            payload.derivation.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash"
+        );
         assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
 
         (uint48 head, uint48 tail,) = inbox.getForcedInclusionState();
@@ -163,7 +173,8 @@ abstract contract ProposeTestBase is InboxTestBase {
             basefeeSharingPctg: config.basefeeSharingPctg,
             sources: new IInbox.DerivationSource[](1)
         });
-        payload_.derivation.sources[0] = IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
+        payload_.derivation.sources[0] =
+            IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
         payload_.proposal = IInbox.Proposal({
             id: _stateBefore.nextProposalId,
@@ -191,16 +202,30 @@ abstract contract ProposeTestBase is InboxTestBase {
             "proposal deadline"
         );
         assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
-        assertEq(_actual.proposal.derivationHash, _expected.proposal.derivationHash, "proposal derivation hash");
+        assertEq(
+            _actual.proposal.derivationHash,
+            _expected.proposal.derivationHash,
+            "proposal derivation hash"
+        );
 
         assertEq(
-            _actual.derivation.originBlockNumber, _expected.derivation.originBlockNumber, "origin block number"
+            _actual.derivation.originBlockNumber,
+            _expected.derivation.originBlockNumber,
+            "origin block number"
         );
-        assertEq(_actual.derivation.originBlockHash, _expected.derivation.originBlockHash, "origin block hash");
         assertEq(
-            _actual.derivation.basefeeSharingPctg, _expected.derivation.basefeeSharingPctg, "basefee sharing"
+            _actual.derivation.originBlockHash,
+            _expected.derivation.originBlockHash,
+            "origin block hash"
         );
-        assertEq(_actual.derivation.sources.length, _expected.derivation.sources.length, "sources length");
+        assertEq(
+            _actual.derivation.basefeeSharingPctg,
+            _expected.derivation.basefeeSharingPctg,
+            "basefee sharing"
+        );
+        assertEq(
+            _actual.derivation.sources.length, _expected.derivation.sources.length, "sources length"
+        );
         if (_actual.derivation.sources.length != 0) {
             assertEq(
                 _actual.derivation.sources[0].isForcedInclusion,
@@ -238,13 +263,31 @@ abstract contract ProposeTestBase is InboxTestBase {
         state_.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
     }
 
-    function _assertStateEqual(IInbox.CoreState memory _actual, IInbox.CoreState memory _expected) internal pure {
+    function _assertStateEqual(
+        IInbox.CoreState memory _actual,
+        IInbox.CoreState memory _expected
+    )
+        internal
+        pure
+    {
         assertEq(_actual.nextProposalId, _expected.nextProposalId, "state nextProposalId");
         assertEq(_actual.lastProposalBlockId, _expected.lastProposalBlockId, "state last block");
-        assertEq(_actual.lastFinalizedProposalId, _expected.lastFinalizedProposalId, "state finalized id");
-        assertEq(_actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts");
-        assertEq(_actual.lastCheckpointTimestamp, _expected.lastCheckpointTimestamp, "state checkpoint ts");
-        assertEq(_actual.lastFinalizedTransitionHash, _expected.lastFinalizedTransitionHash, "state transition hash");
+        assertEq(
+            _actual.lastFinalizedProposalId, _expected.lastFinalizedProposalId, "state finalized id"
+        );
+        assertEq(
+            _actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts"
+        );
+        assertEq(
+            _actual.lastCheckpointTimestamp,
+            _expected.lastCheckpointTimestamp,
+            "state checkpoint ts"
+        );
+        assertEq(
+            _actual.lastFinalizedTransitionHash,
+            _expected.lastFinalizedTransitionHash,
+            "state transition hash"
+        );
     }
 
     function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {
@@ -253,7 +296,10 @@ abstract contract ProposeTestBase is InboxTestBase {
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(_ref);
     }
 
-    function _proposeWithCaller(address _caller, IInbox.ProposeInput memory _input)
+    function _proposeWithCaller(
+        address _caller,
+        IInbox.ProposeInput memory _input
+    )
         internal
         returns (IInbox.ProposedEventPayload memory payload_)
     {

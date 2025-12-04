@@ -5,8 +5,8 @@ import { IBondManager } from "./IBondManager.sol";
 import { IBondProcessor } from "./IBondProcessor.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./BondManager_Layout.sol"; // DO NOT DELETE
@@ -55,7 +55,6 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
 
     /// @notice Per-account bond state
     mapping(address account => Bond bond) public bond;
-
 
     /// @notice Tracks processed bond signals to prevent double application.
     mapping(bytes32 signalId => bool processed) public processedSignals;
@@ -114,7 +113,10 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IBondManager
-    function debitBond(address _address, uint256 _bond)
+    function debitBond(
+        address _address,
+        uint256 _bond
+    )
         external
         onlyFrom(bondOperator)
         returns (uint256 amountDebited_)
@@ -126,7 +128,6 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     function creditBond(address _address, uint256 _bond) external onlyFrom(bondOperator) {
         _creditBond(_address, _bond);
     }
-
 
     /// @inheritdoc IBondManager
     function getBondBalance(address _address) external view returns (uint256) {
@@ -202,7 +203,10 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     }
 
     /// @inheritdoc IBondProcessor
-    function processBondSignal(LibBonds.BondInstruction calldata _instruction, bytes calldata _proof)
+    function processBondSignal(
+        LibBonds.BondInstruction calldata _instruction,
+        bytes calldata _proof
+    )
         external
         nonReentrant
     {
@@ -335,5 +339,4 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     error InvalidBondType();
     error NoBondInstruction();
     error SignalAlreadyProcessed();
-
 }

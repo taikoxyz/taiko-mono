@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
-import { Vm } from "forge-std/src/Vm.sol";
 
 abstract contract ProveTestBase is InboxTestBase {
     constructor(InboxVariant _variant) InboxTestBase(_variant) { }
@@ -21,8 +21,16 @@ abstract contract ProveTestBase is InboxTestBase {
             _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_single");
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, proveInput.proposals[0].id, "finalized id");
-        assertEq(state.lastFinalizedTransitionHash, codec.hashTransition(transitions[0]), "transition hash");
-        assertEq(uint8(provedPayload.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+        assertEq(
+            state.lastFinalizedTransitionHash,
+            codec.hashTransition(transitions[0]),
+            "transition hash"
+        );
+        assertEq(
+            uint8(provedPayload.bondInstruction.bondType),
+            uint8(LibBonds.BondType.NONE),
+            "bond type"
+        );
         assertEq(provedPayload.bondSignal, bytes32(0), "bond signal");
 
         assertEq(inbox.getState().lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
@@ -110,8 +118,9 @@ abstract contract ProveTestBase is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        IInbox.Transition memory t1 =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t1 = _transitionFor(
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+        );
         IInbox.Transition memory t2 =
             _transitionFor(p2, bytes32(uint256(999)), bytes32(uint256(2)), prover, prover);
 
@@ -149,7 +158,11 @@ abstract contract ProveTestBase is InboxTestBase {
     function test_prove_RevertWhen_CheckpointMismatch() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
         IInbox.Transition memory transition = _transitionFor(
-            proposed, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            proposed,
+            inbox.getState().lastFinalizedTransitionHash,
+            bytes32(uint256(1)),
+            prover,
+            prover
         );
         transition.checkpoint.blockHash = bytes32(0);
 
@@ -220,8 +233,9 @@ abstract contract ProveTestBase is InboxTestBase {
 
         vm.warp(block.timestamp + 10 days);
 
-        IInbox.Transition memory t1 =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t1 = _transitionFor(
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+        );
         IInbox.Transition memory t2 =
             _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
 
@@ -284,7 +298,11 @@ abstract contract ProveTestBase is InboxTestBase {
         });
         bytes32 expectedSignal = _bondSignal(expectedInstruction);
         assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
-        assertEq(uint8(provedPayload.bondInstruction.bondType), uint8(LibBonds.BondType.LIVENESS), "bond type");
+        assertEq(
+            uint8(provedPayload.bondInstruction.bondType),
+            uint8(LibBonds.BondType.LIVENESS),
+            "bond type"
+        );
         assertEq(provedPayload.bondInstruction.payer, proposer, "payer");
         assertEq(provedPayload.bondInstruction.payee, prover, "payee");
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal recorded");
@@ -297,17 +315,16 @@ abstract contract ProveTestBase is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p3 = _proposeOne();
 
-        IInbox.Transition memory t1 =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t1 = _transitionFor(
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+        );
         IInbox.Transition memory t2 =
             _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
         IInbox.Transition memory t3 =
             _transitionFor(p3, codec.hashTransition(t2), bytes32(uint256(3)), prover, prover);
 
         IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal),
-            transitions: _transitions(t1),
-            syncCheckpoint: true
+            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
         });
         _proveAndDecode(prefixInput);
 
@@ -323,8 +340,16 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
         assertEq(state.lastFinalizedTransitionHash, codec.hashTransition(t3), "transition hash");
         assertEq(provedPayload.proposalId, p2.proposal.id, "proved proposal id");
-        assertEq(provedPayload.transition.proposalHash, codec.hashProposal(p2.proposal), "proved proposal hash");
-        assertEq(provedPayload.transition.parentTransitionHash, codec.hashTransition(t1), "proved parent hash");
+        assertEq(
+            provedPayload.transition.proposalHash,
+            codec.hashProposal(p2.proposal),
+            "proved proposal hash"
+        );
+        assertEq(
+            provedPayload.transition.parentTransitionHash,
+            codec.hashTransition(t1),
+            "proved parent hash"
+        );
     }
 
     function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
@@ -332,19 +357,20 @@ abstract contract ProveTestBase is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        IInbox.Transition memory t1 =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover);
+        IInbox.Transition memory t1 = _transitionFor(
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+        );
         IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal),
-            transitions: _transitions(t1),
-            syncCheckpoint: true
+            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
         });
         _proveAndDecode(prefixInput);
 
-        IInbox.Transition memory wrongPrefix =
-            _transitionFor(p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(999)), prover, prover);
-        IInbox.Transition memory t2 =
-            _transitionFor(p2, codec.hashTransition(wrongPrefix), bytes32(uint256(2)), prover, prover);
+        IInbox.Transition memory wrongPrefix = _transitionFor(
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(999)), prover, prover
+        );
+        IInbox.Transition memory t2 = _transitionFor(
+            p2, codec.hashTransition(wrongPrefix), bytes32(uint256(2)), prover, prover
+        );
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal, p2.proposal),
@@ -367,7 +393,11 @@ abstract contract ProveTestBase is InboxTestBase {
         payload_ = _proposeAndDecode(_defaultProposeInput());
     }
 
-    function _checkpoint(bytes32 _stateRoot) internal view returns (ICheckpointStore.Checkpoint memory) {
+    function _checkpoint(bytes32 _stateRoot)
+        internal
+        view
+        returns (ICheckpointStore.Checkpoint memory)
+    {
         return ICheckpointStore.Checkpoint({
             blockNumber: uint48(block.number),
             blockHash: blockhash(block.number - 1),
@@ -395,7 +425,10 @@ abstract contract ProveTestBase is InboxTestBase {
         });
     }
 
-    function _buildBatchInput(uint256 _count, bool _syncCheckpoint)
+    function _buildBatchInput(
+        uint256 _count,
+        bool _syncCheckpoint
+    )
         internal
         returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
     {
@@ -407,9 +440,8 @@ abstract contract ProveTestBase is InboxTestBase {
             if (i != 0) _advanceBlock();
             IInbox.ProposedEventPayload memory proposal = _proposeOne();
             input_.proposals[i] = proposal.proposal;
-            transitions_[i] = _transitionFor(
-                proposal, parentHash, bytes32(uint256(i + 1)), prover, prover
-            );
+            transitions_[i] =
+                _transitionFor(proposal, parentHash, bytes32(uint256(i + 1)), prover, prover);
             parentHash = codec.hashTransition(transitions_[i]);
         }
 
@@ -417,7 +449,11 @@ abstract contract ProveTestBase is InboxTestBase {
         input_.syncCheckpoint = _syncCheckpoint;
     }
 
-    function _bondSignal(LibBonds.BondInstruction memory _instruction) internal pure returns (bytes32) {
+    function _bondSignal(LibBonds.BondInstruction memory _instruction)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_instruction));
     }
 

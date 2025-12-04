@@ -32,9 +32,7 @@ abstract contract RingBufferTestBase is ProveTestBase {
             p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal),
-            transitions: _transitions(t1),
-            syncCheckpoint: true
+            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
         });
 
         _proveAndDecode(proveInput);
@@ -44,7 +42,9 @@ abstract contract RingBufferTestBase is ProveTestBase {
             _proposeAndDecodeWithGas(_defaultProposeInput(), "propose_after_ring_buffer_wrap");
 
         assertEq(p6.proposal.id, p5.proposal.id + 1, "proposal id");
-        assertEq(inbox.getProposalHash(p6.proposal.id), codec.hashProposal(p6.proposal), "proposal hash");
+        assertEq(
+            inbox.getProposalHash(p6.proposal.id), codec.hashProposal(p6.proposal), "proposal hash"
+        );
     }
 }
 

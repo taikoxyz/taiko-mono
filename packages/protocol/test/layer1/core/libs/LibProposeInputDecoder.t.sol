@@ -19,7 +19,11 @@ contract LibProposeInputDecoderTest is Test {
 
         IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
-        assertEq(decoded.blobReference.blobStartIndex, input.blobReference.blobStartIndex, "blobStartIndex");
+        assertEq(
+            decoded.blobReference.blobStartIndex,
+            input.blobReference.blobStartIndex,
+            "blobStartIndex"
+        );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
@@ -40,7 +44,9 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
 
         assertEq(decoded.deadline, input.deadline, "max deadline");
-        assertEq(decoded.blobReference.blobStartIndex, input.blobReference.blobStartIndex, "max start");
+        assertEq(
+            decoded.blobReference.blobStartIndex, input.blobReference.blobStartIndex, "max start"
+        );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "max numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "max offset");
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");

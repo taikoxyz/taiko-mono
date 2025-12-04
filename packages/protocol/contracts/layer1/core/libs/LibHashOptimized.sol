@@ -165,9 +165,7 @@ library LibHashOptimized {
 
         EfficientHashLib.set(buffer, 0, bytes32(uint256(_proposal.id)));
         EfficientHashLib.set(buffer, 1, bytes32(uint256(_proposal.timestamp)));
-        EfficientHashLib.set(
-            buffer, 2, bytes32(uint256(_proposal.endOfSubmissionWindowTimestamp))
-        );
+        EfficientHashLib.set(buffer, 2, bytes32(uint256(_proposal.endOfSubmissionWindowTimestamp)));
         EfficientHashLib.set(buffer, 3, bytes32(uint256(uint160(_proposal.proposer))));
         EfficientHashLib.set(buffer, 4, _proposal.derivationHash);
 
@@ -225,5 +223,4 @@ library LibHashOptimized {
                 bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
             );
     }
-
 }

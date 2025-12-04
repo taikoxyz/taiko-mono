@@ -30,7 +30,11 @@ contract MockSignalService is ISignalService {
         emit SignalSent(msg.sender, _signal, slot_, _signal);
     }
 
-    function sendSignalFrom(uint64 _chainId, address _app, bytes32 _signal)
+    function sendSignalFrom(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
         external
         returns (bytes32 slot_)
     {
@@ -39,7 +43,12 @@ contract MockSignalService is ISignalService {
         emit SignalSent(_app, _signal, slot_, _signal);
     }
 
-    function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes calldata)
+    function proveSignalReceived(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal,
+        bytes calldata
+    )
         external
         returns (uint256)
     {
@@ -49,7 +58,12 @@ contract MockSignalService is ISignalService {
         return 0;
     }
 
-    function verifySignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes calldata)
+    function verifySignalReceived(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal,
+        bytes calldata
+    )
         external
         view
     {
@@ -66,7 +80,11 @@ contract MockSignalService is ISignalService {
         return sentSignals[_signalSlot];
     }
 
-    function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal)
+    function getSignalSlot(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
         public
         pure
         returns (bytes32)
