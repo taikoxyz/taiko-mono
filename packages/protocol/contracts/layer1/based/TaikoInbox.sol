@@ -627,20 +627,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             for (++batchId; batchId < stopBatchId; ++batchId) {
                 slot = batchId % _config.batchRingBufferSize;
-                batch = state.batches[slot];
-                uint24 nextTransitionId = batch.nextTransitionId;
-
-                if (paused()) break;
+                uint24 nextTransitionId = state.batches[slot].nextTransitionId;
                 if (nextTransitionId <= 1) break;
 
+                uint24 _tid;
                 TransitionState storage ts = state.transitions[slot][1];
                 if (ts.parentHash == blockHash) {
-                    tid = 1;
+                    _tid = 1;
                 } else if (nextTransitionId > 2) {
-                    uint24 _tid = state.transitionIds[batchId][blockHash];
+                    _tid = state.transitionIds[batchId][blockHash];
                     if (_tid == 0) break;
-                    tid = _tid;
-                    ts = state.transitions[slot][tid];
+                    ts = state.transitions[slot][_tid];
                 } else {
                     break;
                 }
@@ -650,13 +647,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 if (_blockHash == 0) break;
 
                 unchecked {
-                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) {
-                        break;
-                    }
+                    if (ts.createdAt + _config.cooldownWindow > block.timestamp) break;
                 }
 
                 blockHash = _blockHash;
-
+                batch = state.batches[slot];
+                tid = _tid;
+              
                 uint96 bondToReturn =
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
                 _creditBond(ts.prover, bondToReturn);
