@@ -522,8 +522,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 lastFinalizedHash = _stateBefore.lastFinalizedTransitionHash;
             uint256 count = _input.proposals.length;
 
-            // We iterate until the second to last proposal, because if the last one is the current `lastFinalizedProposalId`,
-            // then there's nothing else to prove
+            // We iterate until the second to last proposal, because if the last one is the current,
+            // `lastFinalizedProposalId` then there's nothing else to prove
             for (uint256 i; i < count -1; ++i) {
                 if (
                     _input.proposals[i].id == lastFinalizedId

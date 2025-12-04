@@ -50,6 +50,7 @@ contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
+"contracts/layer2/core/BondManager.sol:BondManager"
 )
 
 # Update storage layout for a single contract

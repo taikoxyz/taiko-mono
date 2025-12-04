@@ -9,6 +9,8 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
+import "./BondManager_Layout.sol"; // DO NOT DELETE
+
 /// @title BondManager
 /// @notice L2 bond manager handling deposits/withdrawals and L1 bond-signal processing.
 /// @dev Combines bond accounting and signal verification so bond movements happen in one place:
