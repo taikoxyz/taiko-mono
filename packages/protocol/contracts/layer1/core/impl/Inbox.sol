@@ -665,9 +665,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (record.timestamp == type(uint40).max) break;
 
                 // Check if transition is still cooling down
-                if (block.timestamp < uint256(record.timestamp) + _transitionCooldown) {
-                    revert TransitionCoolingDown();
-                }
+                require(
+                    block.timestamp >= uint256(record.timestamp) + _transitionCooldown,
+                    TransitionCoolingDown()
+                );
 
                 // Calculate finalization deadline from timestamp
                 if (i >= transitionCount) {
