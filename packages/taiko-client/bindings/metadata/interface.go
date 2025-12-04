@@ -54,7 +54,6 @@ type TaikoBatchMetaDataPacaya interface {
 type TaikoProposalMetaDataShasta interface {
 	GetProposal() shastaBindings.IInboxProposal
 	GetDerivation() shastaBindings.IInboxDerivation
-	GetCoreState() shastaBindings.IInboxCoreState
 	GetBondInstructions() []shastaBindings.LibBondsBondInstruction
 	GetBlobHashes(int) []common.Hash
 	GetBlobTimestamp(int) uint64

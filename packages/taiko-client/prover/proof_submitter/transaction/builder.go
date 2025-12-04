@@ -17,7 +17,6 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
@@ -31,7 +30,6 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 // ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
 type ProveBatchesTxBuilder struct {
 	rpc                *rpc.Client
-	indexer            *shastaIndexer.Indexer
 	pacayaInboxAddress common.Address
 	shastaInboxAddress common.Address
 	proverSetAddress   common.Address
@@ -40,12 +38,11 @@ type ProveBatchesTxBuilder struct {
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
 func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
 	proverSetAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, indexer, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
@@ -247,7 +244,6 @@ func GetShastaGenesisTransitionHash(ctx context.Context, rpc *rpc.Client) (commo
 func BuildParentTransitionHash(
 	ctx context.Context,
 	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	batchID *big.Int,
 ) (common.Hash, error) {
 	type transitionEntry struct {
@@ -258,8 +254,11 @@ func BuildParentTransitionHash(
 	var (
 		parentTransitions []transitionEntry
 		cursor            = new(big.Int).Sub(new(big.Int).Set(batchID), common.Big1)
-		coreState         = indexer.GetLastCoreState()
 	)
+	coreState, err := rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to get Shasta core state: %w", err)
+	}
 
 	// If the parent transition already been just finalized, return the last finalized transition hash directly.
 	if cursor.Cmp(coreState.LastFinalizedProposalId) == 0 {

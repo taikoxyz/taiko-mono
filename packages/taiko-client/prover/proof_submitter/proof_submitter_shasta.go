@@ -17,7 +17,6 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
@@ -38,7 +37,6 @@ type ProofSubmitterShasta struct {
 	// Utilities
 	txBuilder *transaction.ProveBatchesTxBuilder
 	sender    *transaction.Sender
-	indexer   *shastaIndexer.Indexer
 	// Addresses
 	proverAddress common.Address
 	// Batch proof related
@@ -55,7 +53,6 @@ func NewProofSubmitterShasta(
 	batchResultCh chan *proofProducer.BatchProofs,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
-	indexer *shastaIndexer.Indexer,
 	senderOpts *SenderOptions,
 	builder *transaction.ProveBatchesTxBuilder,
 	proofPollingInterval time.Duration,
@@ -69,7 +66,6 @@ func NewProofSubmitterShasta(
 		batchResultCh:          batchResultCh,
 		batchAggregationNotify: batchAggregationNotify,
 		proofSubmissionCh:      proofSubmissionCh,
-		indexer:                indexer,
 		txBuilder:              builder,
 		sender: transaction.NewSender(
 			senderOpts.RPCClient,
@@ -126,7 +122,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		return err
 	}
 	proposalID := meta.Shasta().GetProposal().Id
-	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, s.indexer, proposalID)
+	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, proposalID)
 	if err != nil {
 		log.Warn(
 			"Failed to build parent Shasta transition hash locally, start waiting for the event",
@@ -165,17 +161,18 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			log.Error("Failed to request proof, context is canceled", "batchID", opts.ProposalID, "error", ctx.Err())
 			return nil
 		}
-		if s.indexer.GetLastCoreState().LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
-			log.Info(
-				"Shasta proposal already finalized, skip requesting proof",
-				"batchID", meta.Shasta().GetProposal().Id,
-				"lastFinalizedProposalID", s.indexer.GetLastCoreState().LastFinalizedProposalId,
-			)
-			return nil
-		}
+		// TODO: fix
+		// if s.indexer.GetLastCoreState().LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
+		// 	log.Info(
+		// 		"Shasta proposal already finalized, skip requesting proof",
+		// 		"batchID", meta.Shasta().GetProposal().Id,
+		// 		"lastFinalizedProposalID", s.indexer.GetLastCoreState().LastFinalizedProposalId,
+		// 	)
+		// 	return nil
+		// }
 		// Check if there is a need to generate proof, if the proof is already submitted and valid, skip
 		// the proof submission.
-		record := s.indexer.GetTransitionRecordByProposalID(meta.Shasta().GetProposal().Id.Uint64())
+		// record := s.indexer.GetTransitionRecordByProposalID(meta.Shasta().GetProposal().Id.Uint64())
 
 		proposalHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, meta.Shasta().GetProposal().Id)
 		if err != nil {
@@ -184,7 +181,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		parentTransitionHash, err := transaction.BuildParentTransitionHash(
 			ctx,
 			s.rpc,
-			s.indexer,
 			meta.Shasta().GetProposal().Id,
 		)
 		if err != nil {
@@ -424,26 +420,28 @@ func (s *ProofSubmitterShasta) WaitParentShastaTransitionHash(
 	ctx context.Context,
 	proposalID *big.Int,
 ) (common.Hash, error) {
-	ticker := time.NewTicker(rpcPollingInterval)
-	defer ticker.Stop()
+	// TODO: fix
+	return common.Hash{}, nil
+	// ticker := time.NewTicker(rpcPollingInterval)
+	// defer ticker.Stop()
 
-	if proposalID.Cmp(common.Big1) == 0 {
-		return transaction.GetShastaGenesisTransitionHash(ctx, s.rpc)
-	}
-	log.Debug("Start fetching block header from L2 execution engine", "proposalID", proposalID)
+	// if proposalID.Cmp(common.Big1) == 0 {
+	// 	return transaction.GetShastaGenesisTransitionHash(ctx, s.rpc)
+	// }
+	// log.Debug("Start fetching block header from L2 execution engine", "proposalID", proposalID)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return common.Hash{}, ctx.Err()
-		case <-ticker.C:
-			transition := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
-			if transition != nil {
-				return common.Hash(transition.TransitionRecord.TransitionHash), nil
-			}
-			log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
-		}
-	}
+	// for {
+	// 	select {
+	// 	case <-ctx.Done():
+	// 		return common.Hash{}, ctx.Err()
+	// 	case <-ticker.C:
+	// 		transition := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
+	// 		if transition != nil {
+	// 			return common.Hash(transition.TransitionRecord.TransitionHash), nil
+	// 		}
+	// 		log.Debug("Transition record not found, keep retrying", "proposalID", proposalID)
+	// 	}
+	// }
 }
 
 // validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
@@ -459,7 +457,10 @@ func (s *ProofSubmitterShasta) validateBatchProofs(
 	}
 
 	// Fetch the latest verified proposal ID.
-	coreState := s.indexer.GetLastCoreState()
+	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Shasta core state: %w", err)
+	}
 	latestVerifiedID := coreState.LastFinalizedProposalId
 
 	// Check if any batch in this aggregation is already submitted and valid,
@@ -478,16 +479,17 @@ func (s *ProofSubmitterShasta) validateBatchProofs(
 		}
 
 		// Check if the proof has already been submitted.
-		transitionPayload := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
-		if transitionPayload != nil {
-			if transitionPayload.Transition.ParentTransitionHash == proof.Opts.ShastaOptions().ParentTransitionHash &&
-				transitionPayload.Transition.Checkpoint.BlockNumber.Cmp(proof.Opts.ShastaOptions().Checkpoint.BlockNumber) == 0 &&
-				transitionPayload.Transition.Checkpoint.BlockHash == proof.Opts.ShastaOptions().Checkpoint.BlockHash &&
-				transitionPayload.Transition.Checkpoint.StateRoot == proof.Opts.ShastaOptions().Checkpoint.StateRoot {
-				log.Warn("A valid proof is already submitted", "proposalID", proposalID)
-				invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
-			}
-		}
+		// TODO: fix
+		// transitionPayload := s.indexer.GetTransitionRecordByProposalID(proposalID.Uint64())
+		// if transitionPayload != nil {
+		// 	if transitionPayload.Transition.ParentTransitionHash == proof.Opts.ShastaOptions().ParentTransitionHash &&
+		// 		transitionPayload.Transition.Checkpoint.BlockNumber.Cmp(proof.Opts.ShastaOptions().Checkpoint.BlockNumber) == 0 &&
+		// 		transitionPayload.Transition.Checkpoint.BlockHash == proof.Opts.ShastaOptions().Checkpoint.BlockHash &&
+		// 		transitionPayload.Transition.Checkpoint.StateRoot == proof.Opts.ShastaOptions().Checkpoint.StateRoot {
+		// 		log.Warn("A valid proof is already submitted", "proposalID", proposalID)
+		// 		invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+		// 	}
+		// }
 	}
 	return invalidProposalIDs, nil
 }

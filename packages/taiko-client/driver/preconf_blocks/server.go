@@ -36,7 +36,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 )
@@ -72,7 +71,6 @@ type PreconfBlockAPIServer struct {
 	rpc                           *rpc.Client
 	pacayaChainSyncer             preconfBlockChainSyncer
 	shastaChainSyncer             preconfBlockChainSyncer
-	shastaIndexer                 *shastaIndexer.Indexer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
@@ -107,7 +105,6 @@ func New(
 	pacayaChainSyncer preconfBlockChainSyncer,
 	shastaChainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
-	shastaIndexer *shastaIndexer.Indexer,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(
@@ -145,7 +142,6 @@ func New(
 		shastaChainSyncer:             shastaChainSyncer,
 		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
-		shastaIndexer:                 shastaIndexer,
 		envelopesCache:                newEnvelopeQueue(),
 		preconfOperatorAddress:        preconfOperatorAddress,
 		lookahead:                     &Lookahead{},
@@ -290,7 +286,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 	}
@@ -708,7 +704,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
-				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
+				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 				if err != nil {
 					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 				}
@@ -1143,13 +1139,13 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 			return
 		}
 
-		recordedProposal, err := s.shastaIndexer.GetProposalByID(currentProposalID.Uint64())
+		recordedProposal, eventLog, err := s.rpc.GetProposalByIDShasta(ctx, currentProposalID)
 		if err != nil {
 			log.Error("Proposal not found in cache", "proposalId", currentProposalID, "err", err)
 			return
 		}
 
-		recordedProposalHash, err := s.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, recordedProposal.Proposal)
+		recordedProposalHash, err := s.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, &recordedProposal.Proposal)
 		if err != nil {
 			log.Error("Failed to hash recorded proposal", "proposalId", currentProposalID, "err", err)
 			return
@@ -1171,10 +1167,9 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 
 				s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(&shastaBindings.IInboxProposedEventPayload{
-						Proposal:   *recordedProposal.Proposal,
-						Derivation: *recordedProposal.Derivation,
-						CoreState:  *recordedProposal.CoreState,
-					}, *recordedProposal.Log),
+						Proposal:   recordedProposal.Proposal,
+						Derivation: recordedProposal.Derivation,
+					}, *eventLog),
 					PreconfChainReorged: true,
 					LastBlockID:         blockID.Uint64(),
 				})
@@ -1221,7 +1216,6 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 	log.Info(
 		"Received latest shasta proposal seen in event",
 		"proposalId", proposal.Shasta().GetProposal().Id,
-		"lastProposalBlockId", proposal.Shasta().GetCoreState().LastProposalBlockId.Uint64(),
 		"lastBlockId", proposal.LastBlockID,
 	)
 

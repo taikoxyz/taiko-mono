@@ -122,9 +122,6 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
 		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
 		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
-
-		// Last finalized Shasta proposal ID
-		lastFinalizedShastaProposalId *big.Int
 	)
 
 	defer func() {
@@ -149,7 +146,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				continue
 			}
 			log.Info(
-				"✅ Shasta batches proven",
+				"📈 Shasta batches proven and verified",
 				"batchIDs", payload.ProposalId,
 				"checkpointNumber", payload.Transition.Checkpoint.BlockNumber,
 				"checkpointHash", common.Hash(payload.Transition.Checkpoint.BlockHash),
@@ -160,21 +157,6 @@ func (s *State) eventLoop(ctx context.Context) {
 				"lastVerifiedBatchId", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
-		case e := <-proposedShastaCh:
-			payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
-			if err != nil {
-				log.Error("Failed to decode proposed payload", "err", err)
-				continue
-			}
-			if lastFinalizedShastaProposalId != nil &&
-				payload.CoreState.LastFinalizedProposalId.Cmp(lastFinalizedShastaProposalId) > 0 {
-				log.Info(
-					"📈 Shasta batches verified",
-					"lastVerifiedBatchId", payload.CoreState.LastFinalizedProposalId,
-					"lastFinalizedTransitionHash", common.Hash(payload.CoreState.LastFinalizedTransitionHash[:]),
-				)
-			}
-			lastFinalizedShastaProposalId = payload.CoreState.LastFinalizedProposalId
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
 			s.l1HeadsFeed.Send(newHead)

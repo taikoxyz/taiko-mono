@@ -286,7 +286,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Wait until L2 execution engine is synced at first.
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx, nil); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
@@ -480,7 +480,7 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	}
 
 	// Get the last proposal to ensure we are proposing a block after its NextProposalBlockId.
-	state, err := p.rpc.ShastaClients.Inbox.GetState(&bind.CallOpts{Context: ctx})
+	state, err := p.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta Inbox core state: %w", err)
 	}

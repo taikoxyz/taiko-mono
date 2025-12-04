@@ -9,26 +9,22 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 // AssignmentExpiredEventHandler is responsible for handling the expiration of proof assignments.
 type AssignmentExpiredEventHandler struct {
 	rpc               *rpc.Client
-	indexer           *shastaIndexer.Indexer
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 }
 
 // NewAssignmentExpiredEventHandler creates a new AssignmentExpiredEventHandler instance.
 func NewAssignmentExpiredEventHandler(
 	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 ) *AssignmentExpiredEventHandler {
 	return &AssignmentExpiredEventHandler{
 		rpc,
-		indexer,
 		proofSubmissionCh,
 	}
 }

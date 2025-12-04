@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -60,8 +59,6 @@ func TestAssembleAnchorV4Tx(t *testing.T) {
 		common.Big0,
 		head.Coinbase,
 		[]byte{},
-		common.Hash{},
-		[]shasta.LibBondsBondInstruction{},
 		l1Head.Number,
 		l1Head.Hash(),
 		l1Head.Root,

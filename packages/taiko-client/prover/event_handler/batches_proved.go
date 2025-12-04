@@ -14,24 +14,21 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 // BatchesProvedEventHandler is responsible for handling the BatchesProved event.
 type BatchesProvedEventHandler struct {
 	rpc               *rpc.Client
-	shastaIndexer     *shastaIndexer.Indexer
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 }
 
 // NewBatchesProvedEventHandler creates a new BatchesProvedEventHandler instance.
 func NewBatchesProvedEventHandler(
 	rpc *rpc.Client,
-	shastaIndexer *shastaIndexer.Indexer,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 ) *BatchesProvedEventHandler {
-	return &BatchesProvedEventHandler{rpc, shastaIndexer, proofSubmissionCh}
+	return &BatchesProvedEventHandler{rpc, proofSubmissionCh}
 }
 
 // Handle implements the BatchesProvedHandler interface.
@@ -105,7 +102,6 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 			&shastaBindings.IInboxProposedEventPayload{
 				Proposal:   *proposal.Proposal,
 				Derivation: *proposal.Derivation,
-				CoreState:  *proposal.CoreState,
 			},
 			types.Log{}, // NOTE: we don't use the log in the prover anyway.
 		),

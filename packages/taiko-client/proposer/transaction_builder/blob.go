@@ -187,52 +187,6 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		to = &preconfRouterAddress
 	}
 
-<<<<<<< HEAD
-	config, err := b.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
-	}
-
-	// Fetch proposals and transitions from the state indexer.
-	// We need to fetch up to 2 proposals and MaxFinalizationCount transition records.
-	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
-	}
-
-	var (
-		parentProposals          []shastaBindings.IInboxProposal
-		transitionRecords        []shastaBindings.IInboxTransitionRecord
-		checkpoint               = shastaBindings.ICheckpointStoreCheckpoint{BlockNumber: common.Big0}
-		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
-	)
-	for i, p := range proposals {
-		log.Info(
-			"Fetched proposal from state indexer",
-			"index", i,
-			"id", p.Proposal.Id,
-			"coreStateHash", common.Bytes2Hex(p.Proposal.CoreStateHash[:]),
-		)
-		parentProposals = append(parentProposals, *p.Proposal)
-	}
-	for i, t := range transitions {
-		log.Info(
-			"Fetched transition from state indexer",
-			"index", i,
-			"proposalID", t.ProposalId,
-			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
-			"checkpointBlockNumber", t.Transition.Checkpoint.BlockNumber.Uint64(),
-			"checkpointBlockHash", common.Bytes2Hex(t.Transition.Checkpoint.BlockHash[:]),
-			"bondInstructionsHash", len(t.TransitionRecord.BondInstructions),
-		)
-		if i == len(transitions)-1 {
-			checkpoint = t.Transition.Checkpoint
-		}
-		transitionRecords = append(transitionRecords, *t.TransitionRecord)
-	}
-
-=======
->>>>>>> c3543080a (feat(taiko-client): client updates based on sequential proving)
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
