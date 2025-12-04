@@ -30,6 +30,8 @@ interface IInbox {
         uint40 extendedProvingWindow;
         /// @notice Maximum number of proposals that can be finalized in a single block.
         uint256 maxFinalizationCount;
+        /// @notice Cooldown period in seconds before a proven transition can be finalized.
+        uint40 transitionCooldown;
         /// @notice Grace period in seconds after proving before finalization is enforced.
         uint40 finalizationGracePeriod;
         /// @notice Size of the ring buffer for storing proposal hashes.
@@ -103,12 +105,13 @@ interface IInbox {
     }
 
     /// @notice Storage-optimized record of a proven transition.
-    /// @dev Uses bytes27 for transitionHash to fit with uint40 deadline in a single slot.
+    /// @dev Uses bytes27 for transitionHash to fit with uint40 timestamp in a single slot.
     struct TransitionRecord {
         /// @notice Truncated hash of the transition (first 27 bytes).
         bytes27 transitionHash;
-        /// @notice Timestamp deadline for finalization.
-        uint40 finalizationDeadline;
+        /// @notice Timestamp when the transition record was created/updated. Finalization deadline
+        /// is computed as timestamp + finalizationGracePeriod. Set to type(uint40).max on conflict.
+        uint40 timestamp;
     }
 
     /// @notice Metadata about the prover of a transition.
@@ -194,10 +197,9 @@ interface IInbox {
     }
 
     /// @notice Payload data emitted in the Proved event.
-    /// @dev Contains proof result data for indexers and L2 nodes.
+    /// @dev Contains proof result data for indexers and L2 nodes. The timestamp when the transition
+    /// record was created can be obtained from the block containing this event.
     struct ProvedEventPayload {
-        /// @notice Timestamp deadline for finalization.
-        uint40 finalizationDeadline;
         /// @notice Checkpoint containing the proven end state.
         ICheckpointStore.Checkpoint checkpoint;
         /// @notice Bond instructions for this proven transition.
@@ -225,7 +227,7 @@ interface IInbox {
     /// @param parentTransitionHash The parent transition hash identifying the transition path.
     /// @param oldTransitionHash The existing transition hash before the conflict.
     /// @param newTransitionHash The new conflicting transition hash.
-    event TransitionConflictDetected(
+    event ConflictingTransitionDetected(
         uint40 indexed proposalId,
         bytes27 indexed parentTransitionHash,
         bytes27 oldTransitionHash,
@@ -235,7 +237,7 @@ interface IInbox {
     /// @notice Emitted when a duplicate transition proof is skipped.
     /// @param proposalId The ID of the proposal.
     /// @param parentTransitionHash The parent transition hash.
-    event DuplicateTransitionSkipped(uint40 indexed proposalId, bytes27 indexed parentTransitionHash);
+    event DuplicateTransitionSkipped(uint40 proposalId, bytes27 parentTransitionHash);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

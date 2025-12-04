@@ -46,6 +46,7 @@ contract DevnetInbox is Inbox {
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
                 maxFinalizationCount: 16,
+                transitionCooldown: 5 minutes,
                 finalizationGracePeriod: 768 seconds, // 2 epochs
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,

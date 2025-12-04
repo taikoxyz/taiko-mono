@@ -256,8 +256,8 @@ contract InboxRingBufferTest is InboxTestHelper {
         ProvenProposal memory proven1 =
             _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
-        // Wait for finalization grace period to pass
-        vm.warp(proven1.finalizationDeadline + 1);
+        // Wait for finalization grace period to pass (timestamp + finalizationGracePeriod)
+        vm.warp(proven1.provedAtTimestamp + finalizationGracePeriod + 1);
 
         // Propose 4th - this goes to slot 0 (4 % 4 = 0), overwriting genesis
         // This should succeed and finalize proposal 1 (finalizationHead becomes 1)
@@ -372,7 +372,7 @@ contract InboxRingBufferTest is InboxTestHelper {
             _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
 
         // Wait for finalization grace period to pass so proposal 1 can be finalized
-        vm.warp(proven1.finalizationDeadline + 1);
+        vm.warp(proven1.provedAtTimestamp + finalizationGracePeriod + 1);
 
         // Now try to create proposal 4 - it goes to slot 0 (4 % 4 = 0)
         // Slot 0 contains genesis (id=0), which should be finalized
@@ -426,6 +426,9 @@ contract InboxRingBufferTest is InboxTestHelper {
         // Prove proposal 1 to allow finalization
         ProvenProposal memory proven =
             _proveProposalAndGetResult(payload1.proposal, _getGenesisTransitionHash());
+
+        // Warp past cooldown period
+        vm.warp(proven.provedAtTimestamp + transitionCooldown + 1);
 
         // Now create proposal 5 - it goes to slot 0 (5 % 5 = 0)
         // Slot 0 contains genesis (id=0), so wrap-around is detected

@@ -46,6 +46,7 @@ contract MainnetInbox is Inbox {
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
                 maxFinalizationCount: 16,
+                transitionCooldown: 1 hours,
                 finalizationGracePeriod: 768 seconds, // 2 epochs
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,

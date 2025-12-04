@@ -28,14 +28,10 @@ contract InboxProveTest is InboxTestHelper {
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         assertTrue(record.transitionHash != bytes27(0), "Transition should be stored");
-        assertEq(
-            record.finalizationDeadline,
-            provedPayload.finalizationDeadline,
-            "Finalization deadline should match"
-        );
+        assertTrue(record.timestamp > 0, "Timestamp should be set");
 
-        // ProvedEventPayload being non-empty confirms the event was emitted and decoded
-        assertTrue(provedPayload.finalizationDeadline > 0, "Proved event should have been emitted");
+        // Verify ProvedEventPayload was emitted (checkpoint should be non-zero)
+        assertTrue(provedPayload.checkpoint.blockNumber > 0, "Proved event should have been emitted");
     }
 
     /// @dev Tests proving 2 consecutive proposals
@@ -75,18 +71,21 @@ contract InboxProveTest is InboxTestHelper {
         assertTrue(record.transitionHash != bytes27(0), "First transition should be stored");
     }
 
-    function test_prove_setsCorrectFinalizationDeadline() public {
+    function test_prove_storesCurrentBlockTimestamp() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
-        uint256 expectedDeadline = block.timestamp + finalizationGracePeriod;
+        uint256 timestampBeforeProve = block.timestamp;
 
-        IInbox.ProvedEventPayload memory provedPayload =
-            _proveProposal(payload.proposal, _getGenesisTransitionHash());
+        _proveProposal(payload.proposal, _getGenesisTransitionHash());
+
+        // Verify the transition record stores block.timestamp
+        IInbox.TransitionRecord memory record =
+            inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
 
         assertEq(
-            provedPayload.finalizationDeadline,
-            expectedDeadline,
-            "Finalization deadline should be timestamp + grace period"
+            record.timestamp,
+            timestampBeforeProve,
+            "Timestamp should be current block.timestamp when record was created"
         );
     }
 
@@ -96,7 +95,6 @@ contract InboxProveTest is InboxTestHelper {
         IInbox.ProvedEventPayload memory provedPayload =
             _proveProposal(payload.proposal, _getGenesisTransitionHash());
 
-        assertGt(provedPayload.finalizationDeadline, 0, "Finalization deadline should be set");
         assertGt(provedPayload.checkpoint.blockNumber, 0, "Checkpoint block number should be set");
     }
 
@@ -321,11 +319,11 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should remain the same"
         );
 
-        // Finalization deadline should remain unchanged (first proof wins)
+        // Timestamp should remain unchanged (first proof wins)
         assertEq(
-            secondRecord.finalizationDeadline,
-            firstRecord.finalizationDeadline,
-            "Deadline should remain unchanged"
+            secondRecord.timestamp,
+            firstRecord.timestamp,
+            "Timestamp should remain unchanged"
         );
     }
 
@@ -333,7 +331,7 @@ contract InboxProveTest is InboxTestHelper {
     // Conflicting Transition Tests
     // ---------------------------------------------------------------
 
-    /// @dev Tests TransitionConflictDetected event fields for first transition record (ring buffer)
+    /// @dev Tests ConflictingTransitionDetected event fields for first transition record (ring buffer)
     function test_prove_conflictingTransition_firstRecord_emitsCorrectEventFields() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
@@ -372,9 +370,9 @@ contract InboxProveTest is InboxTestHelper {
 
         bytes memory proveData = codec.encodeProveInput(conflictInputs);
 
-        // Expect TransitionConflictDetected with ALL fields verified
+        // Expect ConflictingTransitionDetected with ALL fields verified
         vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected(
+        emit IInbox.ConflictingTransitionDetected(
             payload.proposal.id,
             _getGenesisTransitionHash(),
             originalRecord.transitionHash,
@@ -394,13 +392,13 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should be updated to new value"
         );
         assertEq(
-            recordAfterConflict.finalizationDeadline,
+            recordAfterConflict.timestamp,
             type(uint40).max,
-            "Finalization deadline should be set to max on conflict"
+            "Timestamp should be set to max on conflict"
         );
     }
 
-    /// @dev Tests TransitionConflictDetected event fields for non-first transition record (fallback mapping)
+    /// @dev Tests ConflictingTransitionDetected event fields for non-first transition record (fallback mapping)
     function test_prove_conflictingTransition_fallbackMapping_emitsCorrectEventFields() public {
         IInbox.ProposedEventPayload memory payload = _proposeAndGetPayload();
 
@@ -463,9 +461,9 @@ contract InboxProveTest is InboxTestHelper {
 
         bytes memory conflictProveData = codec.encodeProveInput(conflictInputs);
 
-        // Expect TransitionConflictDetected with ALL fields verified
+        // Expect ConflictingTransitionDetected with ALL fields verified
         vm.expectEmit(true, true, true, true);
-        emit IInbox.TransitionConflictDetected(
+        emit IInbox.ConflictingTransitionDetected(
             payload.proposal.id,
             alternateParentHash,
             originalRecord.transitionHash,
@@ -485,9 +483,9 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should be updated to new value"
         );
         assertEq(
-            recordAfterConflict.finalizationDeadline,
+            recordAfterConflict.timestamp,
             type(uint40).max,
-            "Finalization deadline should be set to max on conflict"
+            "Timestamp should be set to max on conflict"
         );
     }
 
@@ -539,9 +537,9 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should remain unchanged after duplicate"
         );
         assertEq(
-            recordAfterDuplicate.finalizationDeadline,
-            originalRecord.finalizationDeadline,
-            "Finalization deadline should remain unchanged after duplicate"
+            recordAfterDuplicate.timestamp,
+            originalRecord.timestamp,
+            "Timestamp should remain unchanged after duplicate"
         );
     }
 
@@ -609,9 +607,9 @@ contract InboxProveTest is InboxTestHelper {
             "Transition hash should remain unchanged after duplicate"
         );
         assertEq(
-            recordAfterDuplicate.finalizationDeadline,
-            originalRecord.finalizationDeadline,
-            "Finalization deadline should remain unchanged after duplicate"
+            recordAfterDuplicate.timestamp,
+            originalRecord.timestamp,
+            "Timestamp should remain unchanged after duplicate"
         );
     }
 
@@ -627,8 +625,8 @@ contract InboxProveTest is InboxTestHelper {
             payload.proposal, _getGenesisTransitionHash(), David, currentProver
         );
 
-        // Verify the proof was accepted
-        assertTrue(provedPayload.finalizationDeadline > 0, "Proof should be accepted");
+        // Verify the proof was accepted (checkpoint should be non-zero)
+        assertTrue(provedPayload.checkpoint.blockNumber > 0, "Proof should be accepted");
     }
 
     // ---------------------------------------------------------------

@@ -97,6 +97,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The maximum number of proposals that can be finalized in one finalization call.
     uint256 internal immutable _maxFinalizationCount;
 
+    /// @notice The cooldown period in seconds before a proven transition can be finalized.
+    uint40 internal immutable _transitionCooldown;
+
     /// @notice The finalization grace period in seconds.
     uint40 internal immutable _finalizationGracePeriod;
 
@@ -171,6 +174,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
         _maxFinalizationCount = _config.maxFinalizationCount;
+        _transitionCooldown = _config.transitionCooldown;
         _finalizationGracePeriod = _config.finalizationGracePeriod;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
@@ -298,7 +302,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         unchecked {
             ProveInput[] memory inputs = LibProveInputCodec.decode(_data);
             require(inputs.length != 0, EmptyProveInputs());
-            uint40 finalizationDeadline = uint40(block.timestamp + _finalizationGracePeriod);
 
             for (uint256 i; i < inputs.length; ++i) {
                 _checkProposalHash(inputs[i].proposal);
@@ -317,14 +320,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 TransitionRecord memory record = TransitionRecord({
                     transitionHash: H.hashTransition(transition),
-                    finalizationDeadline: finalizationDeadline
+                    timestamp: uint40(block.timestamp)
                 });
 
                 _storeTransitionRecord(
                     inputs[i].proposal.id, inputs[i].parentTransitionHash, record
                 );
 
-                _emitProvedEvent(inputs[i], finalizationDeadline, bondInstructions);
+                _emitProvedEvent(inputs[i], bondInstructions);
             }
 
             uint256 proposalAge;
@@ -422,6 +425,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
             maxFinalizationCount: _maxFinalizationCount,
+            transitionCooldown: _transitionCooldown,
             finalizationGracePeriod: _finalizationGracePeriod,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
@@ -658,11 +662,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
                 if (record.transitionHash == 0) break;
 
-                // Break if a conflicting transition was detected (deadline set to max)
-                if (record.finalizationDeadline == type(uint40).max) break;
+                // Break if a conflicting transition was detected (timestamp set to max)
+                if (record.timestamp == type(uint40).max) break;
 
+                // Check if transition is still cooling down
+                if (block.timestamp < uint(record.timestamp) + _transitionCooldown) {
+                    revert TransitionCoolingDown();
+                }
+
+                // Calculate finalization deadline from timestamp
                 if (i >= transitionCount) {
-                    require(block.timestamp < record.finalizationDeadline, TransitionNotProvided());
+                    uint256 finalizationDeadline = uint(record.timestamp) + _finalizationGracePeriod;
+                    require(block.timestamp < finalizationDeadline, TransitionNotProvided());
                     break;
                 }
 
@@ -791,7 +802,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Stores transition record hash with optimized slot reuse.
     /// Detects duplicate and conflicting transition records.
-    /// On conflict, stores the new transitionHash but sets finalizationDeadline to max
+    /// On conflict, stores the new transitionHash but sets timestamp to max
     /// to block finalization until the conflict is resolved.
     /// @param _proposalId The proposal ID
     /// @param _parentTransitionHash Parent transition hash used as part of the key
@@ -824,7 +835,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Writes a new transition record or detects duplicate/conflict.
-    /// On conflict, stores the new transitionHash but sets finalizationDeadline to max.
+    /// On conflict, stores the new transitionHash but sets timestamp to max.
     /// @param _proposalId The proposal ID for event emission
     /// @param _parentTransitionHash The parent transition hash for event emission
     /// @param _existingRecord Storage pointer to the existing transition record
@@ -841,16 +852,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (existingHash == 0) {
             _existingRecord.transitionHash = _newRecord.transitionHash;
-            _existingRecord.finalizationDeadline = _newRecord.finalizationDeadline;
+            _existingRecord.timestamp = _newRecord.timestamp;
         } else if (existingHash == _newRecord.transitionHash) {
             emit DuplicateTransitionSkipped(_proposalId, _parentTransitionHash);
         } else {
-            // Conflict: use new transitionHash but set deadline to max to block finalization
-            emit TransitionConflictDetected(
+            // Conflict: use new transitionHash but set timestamp to max to block finalization
+            emit ConflictingTransitionDetected(
                 _proposalId, _parentTransitionHash, existingHash, _newRecord.transitionHash
             );
             _existingRecord.transitionHash = _newRecord.transitionHash;
-            _existingRecord.finalizationDeadline = type(uint40).max;
+            _existingRecord.timestamp = type(uint40).max;
         }
     }
 
@@ -886,7 +897,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _firstTransitionStorages[_proposalId % _ringBufferSize];
 
         if (firstStorage.proposalId != _proposalId) {
-            return TransitionRecord({ transitionHash: 0, finalizationDeadline: 0 });
+            return TransitionRecord({ transitionHash: 0, timestamp: 0 });
         } else if (firstStorage.parentTransitionHash == _parentTransitionHash) {
             return firstStorage.record;
         } else {
@@ -949,17 +960,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Emits a Proved event when a transition proof is submitted.
     ///      Contains all data needed by off-chain indexers to track proof status.
     /// @param _input The prove input
-    /// @param _finalizationDeadline Timestamp after which this transition can be finalized
     /// @param _bondInstructions Calculated bond instructions for the proven proposals
     function _emitProvedEvent(
         ProveInput memory _input,
-        uint40 _finalizationDeadline,
         LibBonds.BondInstruction[] memory _bondInstructions
     )
         private
     {
         ProvedEventPayload memory payload = ProvedEventPayload({
-            finalizationDeadline: _finalizationDeadline,
             checkpoint: _input.checkpoint,
             bondInstructions: _bondInstructions
         });
@@ -990,6 +998,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ProposalHashMismatch();
     error RingBufferSizeZero();
     error TooManyProofProposals();
+    error TransitionCoolingDown();
     error TransitionHashMismatchWithStorage();
     error TransitionNotProvided();
     error UnprocessedForcedInclusionIsDue();

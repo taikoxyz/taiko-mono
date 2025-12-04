@@ -114,8 +114,8 @@
 | Conflict detected (fallback mapping) - emits event   | YES      | test_prove_conflictingTransition_fallbackMapping_emitsCorrectEventFields |
 | Duplicate detected (ring buffer) - emits events      | YES      | test_prove_duplicateTransition_firstRecord_emitsCorrectEventFields       |
 | Duplicate detected (fallback mapping) - emits events | YES      | test_prove_duplicateTransition_fallbackMapping_emitsCorrectEventFields   |
-| Conflict sets finalizationDeadline to max            | YES      | test_finalize_stopsOnConflict                                            |
-| Finalization breaks on conflict (deadline max)       | YES      | test_finalize_stopsOnConflict                                            |
+| Conflict sets timestamp to max                       | YES      | test_finalize_stopsOnConflict                                            |
+| Finalization breaks on conflict (timestamp max)      | YES      | test_finalize_stopsOnConflict                                            |
 | Finalization proceeds normally without conflict      | YES      | test_finalize_proceedsNormally_withoutConflict                           |
 
 ---
@@ -128,7 +128,7 @@
 | ------- | ------ | ---------------------------------------------- | -------- | --------------------------------------------------------------- |
 | -       | B16.1  | `proposalId > proposalHead` (break)            | YES      | test_finalize_stopsWhenProposalNotProven                        |
 | 655     | B16.2  | `record.transitionHash == 0` (break)           | YES      | test_finalize_stopsWhenProposalNotProven                        |
-| -       | B16.2a | `record.finalizationDeadline == max` (break)   | YES      | test_finalize_stopsOnConflict                                   |
+| -       | B16.2a | `record.timestamp == max` (break)              | YES      | test_finalize_stopsOnConflict                                   |
 | 657-659 | B16.3  | `i >= count && timestamp < deadline` (break)   | YES      | test_finalize_incrementalFinalization                           |
 | 658     | B16.4  | `i >= count && timestamp >= deadline` (revert) | YES      | test_finalize_RevertWhen_TransitionNotProvided_afterGracePeriod |
 | 662-664 | B16.5  | `hashTransition != stored` (revert)            | YES      | test_finalize_RevertWhen_TransitionHashMismatch                 |
@@ -201,18 +201,18 @@
 
 ### Key Design Changes Documented
 
-1. **First Proof Wins for Duplicates**: When the same transition is re-proved (same checkpoint), the original record is kept unchanged (including finalization deadline). `TransitionDuplicateDetected` and `DuplicateTransitionSkipped` events are emitted.
+1. **First Proof Wins for Duplicates**: When the same transition is re-proved (same checkpoint), the original record is kept unchanged (including timestamp). `DuplicateTransitionSkipped` event is emitted.
 
 2. **Conflicting Transitions Block Finalization**: When a conflicting proof is submitted (same proposal/parent, different checkpoint):
-   - `TransitionConflictDetected` event is emitted with proposal ID, parent transition hash, old and new transition hashes
+   - `ConflictingTransitionDetected` event is emitted with proposal ID, parent transition hash, old and new transition hashes
    - The new transition hash is stored (overwrites old)
-   - `finalizationDeadline` is set to `type(uint40).max` to block finalization
-   - The `_finalize()` loop breaks when it encounters a record with deadline set to max
+   - `timestamp` is set to `type(uint40).max` to block finalization
+   - The `_finalize()` loop breaks when it encounters a record with timestamp set to max
+   - Finalization deadline is computed as `timestamp + finalizationGracePeriod`
 
 3. **Conflict Detection Events**:
-   - `TransitionConflictDetected(proposalId, parentTransitionHash, oldTransitionHash, newTransitionHash)` - emitted when conflicting proof detected
-   - `TransitionDuplicateDetected(proposalId, transitionHash)` - emitted when same transition re-proved
-   - `DuplicateTransitionSkipped(proposalId, parentTransitionHash)` - emitted alongside duplicate detection
+   - `ConflictingTransitionDetected(proposalId, parentTransitionHash, oldTransitionHash, newTransitionHash)` - emitted when conflicting proof detected
+   - `DuplicateTransitionSkipped(proposalId, parentTransitionHash)` - emitted when duplicate transition detected
 
 4. **Codex Pattern**: Hash and codec functions moved to separate `Codex` contract for test access. Production code uses libraries directly via `LibHashOptimized` (aliased as `H`).
 

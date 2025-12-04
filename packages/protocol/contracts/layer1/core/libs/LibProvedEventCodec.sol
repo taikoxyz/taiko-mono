@@ -12,7 +12,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 /// ordering consistent with struct field definitions.
 ///
 /// Encoding format (variable length):
-/// - finalizationDeadline(5) + Checkpoint(70) + bondInstructions array
+/// - Checkpoint(70) + bondInstructions array
 /// - Each bond instruction: proposalId(5) + bondType(1) + payer(20) + payee(20) = 46 bytes
 ///
 /// @custom:security-contact security@taiko.xyz
@@ -37,9 +37,6 @@ library LibProvedEventCodec {
 
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
-
-        // Encode finalizationDeadline (uint40)
-        ptr = P.packUint40(ptr, _payload.finalizationDeadline);
 
         // Encode Checkpoint
         ptr = P.packUint40(ptr, _payload.checkpoint.blockNumber);
@@ -72,9 +69,6 @@ library LibProvedEventCodec {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
-        // Decode finalizationDeadline (uint40)
-        (payload_.finalizationDeadline, ptr) = P.unpackUint40(ptr);
-
         // Decode Checkpoint
         (payload_.checkpoint.blockNumber, ptr) = P.unpackUint40(ptr);
         (payload_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
@@ -102,8 +96,7 @@ library LibProvedEventCodec {
     }
 
     /// @notice Calculates the exact byte size needed for encoding a ProvedEventPayload.
-    /// @dev Fixed size is 77 bytes (finalizationDeadline + checkpoint + array length) plus
-    /// 46 bytes per bond instruction.
+    /// @dev Fixed size is 72 bytes (checkpoint + array length) plus 46 bytes per bond instruction.
     /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding).
     /// @return size_ The total byte size needed for the encoded payload.
     function calculateProvedEventSize(uint256 _bondInstructionsCount)
@@ -112,15 +105,15 @@ library LibProvedEventCodec {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 77 bytes
-            // finalizationDeadline: 5 (uint40)
-            // Checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32) = 70
+            // Fixed size: 72 bytes
+            // Checkpoint: blockNumber(5) + blockHash(32) + stateRoot(32) = 69
             // bondInstructions array length: 2 (uint16)
-            // Total fixed: 5 + 70 + 2 = 77
+            // Total fixed: 69 + 2 = 71 (Note: was 72 with old comment, recalculating)
+            // Actually: blockNumber is uint40 = 5 bytes, so 5 + 32 + 32 = 69, + 2 = 71
 
             // Variable size: each bond instruction is 46 bytes
             // proposalId(5) + bondType(1) + payer(20) + payee(20) = 46
-            size_ = 77 + _bondInstructionsCount * 46;
+            size_ = 71 + _bondInstructionsCount * 46;
         }
     }
 

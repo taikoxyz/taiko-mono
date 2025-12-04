@@ -11,24 +11,6 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @notice Fuzz tests for LibProvedEventCodec to ensure encode/decode correctness
 /// @custom:security-contact security@taiko.xyz
 contract LibProvedEventCodecFuzzTest is Test {
-    /// @notice Fuzz test for finalizationDeadline field
-    function testFuzz_encodeDecodeFinalizationDeadline(uint40 finalizationDeadline) public pure {
-        IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: finalizationDeadline,
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 5000,
-                blockHash: bytes32(uint256(111)),
-                stateRoot: bytes32(uint256(222))
-            }),
-            bondInstructions: new LibBonds.BondInstruction[](0)
-        });
-
-        bytes memory encoded = LibProvedEventCodec.encode(payload);
-        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
-
-        assertEq(decoded.finalizationDeadline, finalizationDeadline);
-    }
-
     /// @notice Fuzz test for checkpoint fields
     function testFuzz_encodeDecodeCheckpoint(
         uint40 blockNumber,
@@ -39,7 +21,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         pure
     {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
@@ -74,7 +55,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -110,7 +90,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         }
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -150,7 +129,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         }
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -166,7 +144,6 @@ contract LibProvedEventCodecFuzzTest is Test {
 
     /// @notice Fuzz test for full payload with all fields randomized
     function testFuzz_fullPayload(
-        uint40 finalizationDeadline,
         uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -189,7 +166,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         }
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: finalizationDeadline,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
@@ -199,7 +175,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         bytes memory encoded = LibProvedEventCodec.encode(payload);
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
-        assertEq(decoded.finalizationDeadline, finalizationDeadline);
         assertEq(decoded.checkpoint.blockNumber, blockNumber);
         assertEq(decoded.checkpoint.blockHash, blockHash);
         assertEq(decoded.checkpoint.stateRoot, stateRoot);
@@ -223,7 +198,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         }
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: 1_700_000_100,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 5000,
                 blockHash: bytes32(uint256(111)),
@@ -244,7 +218,6 @@ contract LibProvedEventCodecFuzzTest is Test {
 
     /// @notice Fuzz test for encoding/decoding roundtrip consistency - all fields fuzzed
     function testFuzz_roundtripConsistency(
-        uint40 finalizationDeadline,
         uint40 blockNumber,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -268,7 +241,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            finalizationDeadline: finalizationDeadline,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: blockNumber, blockHash: blockHash, stateRoot: stateRoot
             }),
@@ -286,7 +258,6 @@ contract LibProvedEventCodecFuzzTest is Test {
         assertEq(keccak256(encoded1), keccak256(encoded2), "Roundtrip should be consistent");
 
         // Also verify all decoded fields match
-        assertEq(decoded.finalizationDeadline, finalizationDeadline);
         assertEq(decoded.checkpoint.blockNumber, blockNumber);
         assertEq(decoded.checkpoint.blockHash, blockHash);
         assertEq(decoded.checkpoint.stateRoot, stateRoot);
