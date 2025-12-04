@@ -1533,14 +1533,36 @@ func (c *Client) GetLastVerifiedTransitionShasta(ctx context.Context, coreState 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	slot, err := c.L1Beacon.timeToSlot(coreState.LastFinalizedTimestamp.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert timestamp to slot: %w", err)
-	}
+	var blockID *big.Int
+	if c.L1Beacon != nil {
+		slot, err := c.L1Beacon.timeToSlot(coreState.LastFinalizedTimestamp.Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert timestamp to slot: %w", err)
+		}
 
-	blockID, err := c.L1Beacon.executionBlockNumberBySlot(ctxWithTimeout, slot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get execution block number by slot: %w", err)
+		if blockID, err = c.L1Beacon.executionBlockNumberBySlot(ctxWithTimeout, slot); err != nil {
+			return nil, fmt.Errorf("failed to get execution block number by slot: %w", err)
+		}
+	} else {
+		// If L1Beacon is not set, we are using Anvil in tests, we can directly search by timestamp.
+		header, err := c.L1.HeaderByNumber(ctxWithTimeout, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest L1 header: %w", err)
+		}
+
+		for header.Time != coreState.LastFinalizedTimestamp.Uint64() {
+			if header.Number.Cmp(common.Big0) == 0 {
+				return nil, fmt.Errorf(
+					"failed to find L1 header by timestamp %d",
+					coreState.LastFinalizedTimestamp.Uint64(),
+				)
+			}
+			if header, err = c.L1.HeaderByHash(ctxWithTimeout, header.ParentHash); err != nil {
+				return nil, fmt.Errorf("failed to get L1 header by hash %s: %w", header.ParentHash, err)
+			}
+		}
+
+		blockID = header.Number
 	}
 
 	var (

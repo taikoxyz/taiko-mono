@@ -177,25 +177,34 @@ func (s *ProverTestSuite) TestInitError() {
 
 func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
+
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
-
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
+	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	s.Nil(err)
+	s.Equal(uint64(2), coreState.NextProposalId.Uint64())
+	payload, eventLog, err := s.RPCClient.GetProposalByIDShasta(context.Background(), common.Big1)
+	s.Nil(err)
+	s.NotNil(payload)
+	s.NotNil(eventLog)
+
+	// Prove the first Shasta proposal proposed in `ForkIntoShasta`.
+	meta := metadata.NewTaikoProposalMetadataShasta(payload, *eventLog)
+	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), meta, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	if m.IsPacaya() {
-		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
-	} else {
-		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
-	}
-	if m.IsPacaya() {
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	} else {
-		s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	}
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
+	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+
+	// Propose and prove the second Shasta proposal.
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
+	req = <-s.p.proofSubmissionCh
+	s.Nil(s.p.requestProofOp(req.Meta))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
+	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {

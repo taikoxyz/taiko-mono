@@ -157,7 +157,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 
 		inputData, err := a.rpc.EncodeProveInput(
 			&bind.CallOpts{Context: txOpts.Context},
-			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions},
+			&shastaBindings.IInboxProveInput{
+				Proposals:   proposals,
+				Transitions: transitions,
+				Checkpoint:  transitions[len(transitions)-1].Checkpoint,
+			},
 		)
 		if err != nil {
 			return nil, encoding.TryParsingCustomError(err)
