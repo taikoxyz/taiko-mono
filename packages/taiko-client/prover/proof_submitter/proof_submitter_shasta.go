@@ -298,7 +298,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		}
 	}
 	// Wait for the parent transition to be proven before the submission.
-	if err := s.WaitTransitionVerfied(
+	if err := s.WaitTransitionVerified(
 		ctx,
 		new(big.Int).Sub(new(big.Int).SetUint64(lowestProposalID), common.Big1),
 	); err != nil {
@@ -477,8 +477,8 @@ func (s *ProofSubmitterShasta) ValidateProof(
 	return true, nil
 }
 
-// WaitTransitionVerfied waits until the given transition ID is verified on L1.
-func (s *ProofSubmitterShasta) WaitTransitionVerfied(ctx context.Context, transitionID *big.Int) error {
+// WaitTransitionVerified waits until the given transition ID is verified on L1.
+func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, transitionID *big.Int) error {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, rpc.DefaultRpcTimeout)
 	defer cancel()
 
