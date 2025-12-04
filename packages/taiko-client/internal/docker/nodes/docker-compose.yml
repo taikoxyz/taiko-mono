@@ -14,6 +14,10 @@ services:
       - "0.0.0.0"
       - --timestamp
       - "${ANVIL_INTERNAL_SHASTA_TIME}"
+      - --gas-limit
+      - "200000000"
+      - --block-time
+      - "3s"
 
   l2_geth:
     container_name: l2_geth
