@@ -488,7 +488,7 @@ func (s *ProofSubmitterShasta) WaitTransitionVerfied(ctx context.Context, transi
 			log.Error("Failed to get Shasta core state", "error", err)
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
-		if coreState.LastFinalizedProposalId.Cmp(transitionID) >= 0 {
+		if new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1).Cmp(transitionID) >= 0 {
 			log.Info(
 				"Transition verified",
 				"lastFinalizedProposalID", coreState.LastFinalizedProposalId,

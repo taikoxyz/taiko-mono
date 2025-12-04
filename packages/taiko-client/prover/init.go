@@ -89,24 +89,30 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
+		// VerifierIDs
+		sgxGethVerifierID   uint8
+		sgxRethVerifierID   uint8
+		risc0RethVerifierID uint8
+		sp1RethVerifierID   uint8
+
 		err error
 	)
 	// Proof verifiers addresses.
-	sgxGethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SGXGETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-	sgxRethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SGXRETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-	risc0RethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.RISC0RETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-	sp1RethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SP1RETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
+	if !p.cfg.Dummy {
+		if sgxGethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.SGXGETH(&bind.CallOpts{Context: ctx}); err != nil {
+			return err
+		}
+		if sgxRethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.SGXRETH(&bind.CallOpts{Context: ctx}); err != nil {
+			return err
+		}
+		if risc0RethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.RISC0RETH(
+			&bind.CallOpts{Context: ctx},
+		); err != nil {
+			return err
+		}
+		if sp1RethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.SP1RETH(&bind.CallOpts{Context: ctx}); err != nil {
+			return err
+		}
 	}
 
 	sgxGethProducer := &producer.SgxGethProofProducer{
