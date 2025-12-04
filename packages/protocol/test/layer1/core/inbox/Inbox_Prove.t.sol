@@ -31,7 +31,9 @@ contract InboxProveTest is InboxTestHelper {
         assertTrue(record.timestamp > 0, "Timestamp should be set");
 
         // Verify ProvedEventPayload was emitted (checkpoint should be non-zero)
-        assertTrue(provedPayload.checkpoint.blockNumber > 0, "Proved event should have been emitted");
+        assertTrue(
+            provedPayload.checkpoint.blockNumber > 0, "Proved event should have been emitted"
+        );
     }
 
     /// @dev Tests proving 2 consecutive proposals
@@ -320,11 +322,7 @@ contract InboxProveTest is InboxTestHelper {
         );
 
         // Timestamp should remain unchanged (first proof wins)
-        assertEq(
-            secondRecord.timestamp,
-            firstRecord.timestamp,
-            "Timestamp should remain unchanged"
-        );
+        assertEq(secondRecord.timestamp, firstRecord.timestamp, "Timestamp should remain unchanged");
     }
 
     // ---------------------------------------------------------------

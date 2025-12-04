@@ -505,11 +505,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         // Verify timestamp is set to max (conflict detected)
         IInbox.TransitionRecord memory record =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
-        assertEq(
-            record.timestamp,
-            type(uint40).max,
-            "Timestamp should be max after conflict"
-        );
+        assertEq(record.timestamp, type(uint40).max, "Timestamp should be max after conflict");
 
         // Try to finalize - should fail because finalization breaks on conflict
         _setupBlobHashes();
@@ -623,8 +619,7 @@ contract InboxFinalizeTest is InboxTestHelper {
         IInbox.TransitionRecord memory record =
             inbox.getTransitionRecord(payload.proposal.id, _getGenesisTransitionHash());
         assertTrue(
-            record.timestamp != type(uint40).max,
-            "Timestamp should NOT be max without conflict"
+            record.timestamp != type(uint40).max, "Timestamp should NOT be max without conflict"
         );
 
         // Warp past cooldown period

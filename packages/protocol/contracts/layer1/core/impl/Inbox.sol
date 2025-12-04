@@ -319,8 +319,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 });
 
                 TransitionRecord memory record = TransitionRecord({
-                    transitionHash: H.hashTransition(transition),
-                    timestamp: uint40(block.timestamp)
+                    transitionHash: H.hashTransition(transition), timestamp: uint40(block.timestamp)
                 });
 
                 _storeTransitionRecord(
@@ -666,13 +665,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 if (record.timestamp == type(uint40).max) break;
 
                 // Check if transition is still cooling down
-                if (block.timestamp < uint(record.timestamp) + _transitionCooldown) {
+                if (block.timestamp < uint256(record.timestamp) + _transitionCooldown) {
                     revert TransitionCoolingDown();
                 }
 
                 // Calculate finalization deadline from timestamp
                 if (i >= transitionCount) {
-                    uint256 finalizationDeadline = uint(record.timestamp) + _finalizationGracePeriod;
+                    uint256 finalizationDeadline = uint256(record.timestamp)
+                        + _finalizationGracePeriod;
                     require(block.timestamp < finalizationDeadline, TransitionNotProvided());
                     break;
                 }
@@ -968,8 +968,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         ProvedEventPayload memory payload = ProvedEventPayload({
-            checkpoint: _input.checkpoint,
-            bondInstructions: _bondInstructions
+            checkpoint: _input.checkpoint, bondInstructions: _bondInstructions
         });
         emit Proved(
             _input.proposal.id, _input.parentTransitionHash, LibProvedEventCodec.encode(payload)
