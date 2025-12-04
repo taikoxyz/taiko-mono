@@ -53,6 +53,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bool allowsPermissionless;
     }
 
+    /// @notice Result of preparing proof verification and finalization data
+    struct ProofBuildResult {
+        CoreState newState;
+        LibBonds.BondInstruction bondInstruction;
+        uint256 proposalAge;
+        uint256 firstProvenIndex;
+        bytes32 aggregatedProvingHash;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -196,7 +205,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             ProposeInput memory input = _decodeProposeInput(_data);
-            require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+            _validateProposeInput(input);
 
             uint48 nextProposalId = _state.nextProposalId;
             uint48 lastProposalBlockId = _state.lastProposalBlockId;
@@ -222,42 +231,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         // Decode and validate input
         ProveInput memory input = _decodeProveInput(_data);
-        require(input.proposals.length != 0, EmptyProposals());
-        require(input.proposals.length == input.transitions.length, InconsistentParams());
+        _validateProveInput(input);
 
-        CoreState memory newState;
-        uint48 firstReadyTimestamp;
-        LibBonds.BondInstruction memory bondInstruction;
-        uint256 firstProvenIndex;
-        (newState, bondInstruction, firstReadyTimestamp, firstProvenIndex) =
-            _processProof(_state, input);
+        ProofBuildResult memory result = _buildProofResult(input);
 
-        uint256 proposalsProven = input.proposals.length - firstProvenIndex;
-        uint256 proposalAge;
-        if (proposalsProven == 1) {
-            proposalAge = block.timestamp - uint256(firstReadyTimestamp);
-        }
-
-        bytes32 aggregatedProvingHash = _hashTransitions(input.transitions);
-
-        _state = newState;
-
-        _proofVerifier.verifyProof(proposalAge, aggregatedProvingHash, _proof);
+        _proofVerifier.verifyProof(result.proposalAge, result.aggregatedProvingHash, _proof);
 
         bytes32 bondSignal;
-        if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-            bondSignal = _sendBondSignal(bondInstruction);
+        if (result.bondInstruction.bondType != LibBonds.BondType.NONE) {
+            bondSignal = _sendBondSignal(result.bondInstruction);
         }
 
-        // TODO: we removed span, should we still include a way for off-chain
-        // software to know how many proposals were proven?
-        ProvedEventPayload memory payload = ProvedEventPayload({
-            proposalId: input.proposals[firstProvenIndex].id,
-            transition: input.transitions[firstProvenIndex],
-            bondInstruction: bondInstruction,
-            bondSignal: bondSignal
-        });
-        emit Proved(_encodeProvedEventData(payload));
+        _state = result.newState;
+        
+        _emitProvedEvent(input, result, bondSignal);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -434,6 +421,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    /// @dev Prepares proof verification inputs and resulting state updates.
+    /// @param _input The prove input data.
+    /// @return result_ Aggregated result containing new state, bond instruction, verifier hash, and indexes.
+    function _buildProofResult(ProveInput memory _input)
+        private
+        returns (ProofBuildResult memory result_)
+    {
+        uint48 firstReadyTimestamp;
+        (result_.newState, result_.bondInstruction, firstReadyTimestamp, result_.firstProvenIndex) =
+            _processProof(_state, _input);
+
+        uint256 proposalsProven = _input.proposals.length - result_.firstProvenIndex;
+        if (proposalsProven == 1) {
+            result_.proposalAge = block.timestamp - uint256(firstReadyTimestamp);
+        }
+
+        result_.aggregatedProvingHash = _hashTransitions(_input.transitions);
+    }
+
     /// @dev Processes sequential proofs, updates state, and builds the transition record.
     /// @param _stateBefore The state before the proof is processed
     /// @param _input The input containing the proposals and transitions
@@ -456,9 +462,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint256 count = _input.proposals.length;
             bytes32 parentHash = _stateBefore.lastFinalizedTransitionHash;
 
-            firstProvenIndex_ = _findFirstProvenIndex(_stateBefore, _input);
-
-            require(firstProvenIndex_ < count, InvalidProposalId());
+            // Find the index of the first proposal that still has not been proven
+            // This help if the array includes older proposals that have already been proven
+            firstProvenIndex_ = _findFirstIndexToProve(_stateBefore, _input);
 
             for (uint256 i = firstProvenIndex_; i < count; ++i) {
                 Proposal memory proposal = _input.proposals[i];
@@ -499,21 +505,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Finds the index of the first proposal that still needs to be proven.
+    /// @dev Finds the index of the first proposal that will be used for proving.
+    /// When there are no new proposals to be proven, this function still returns 0.
     /// @param _stateBefore The state before processing the proof
     /// @param _input The prove input
-    /// @return firstProvenIndex_ Index of the first proposal to process (0 when none)
-    function _findFirstProvenIndex(CoreState memory _stateBefore, ProveInput memory _input)
+    /// @return  Index of the first proposal to process. Returning 0 does not guarantee that all the proposal are valid.
+    function _findFirstIndexToProve(CoreState memory _stateBefore, ProveInput memory _input)
         private
         view
-        returns (uint256 firstProvenIndex_)
+        returns (uint256 )
     {
         unchecked {
             uint48 lastFinalizedId = _stateBefore.lastFinalizedProposalId;
             bytes32 lastFinalizedHash = _stateBefore.lastFinalizedTransitionHash;
             uint256 count = _input.proposals.length;
 
-            for (uint256 i; i < count; ++i) {
+            // We iterate until the second to last proposal, because if the last one is the current `lastFinalizedProposalId`,
+            // then there's nothing else to prove
+            for (uint256 i; i < count -1; ++i) {
                 if (
                     _input.proposals[i].id == lastFinalizedId
                         && _hashTransition(_input.transitions[i]) == lastFinalizedHash
@@ -521,6 +530,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     return i + 1;
                 }
             }
+
+            return 0;
         }
     }
 
@@ -762,6 +773,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         emit Proposed(_encodeProposedEventData(payload));
     }
 
+    /// @dev Emits the Proved event for the first proven proposal in the batch.
+    /// @param _input The prove input containing proposals and transitions.
+    /// @param _result Prepared proof result data.
+    /// @param _bondSignal The bond signal hash emitted to L2 (zero when unused).
+    function _emitProvedEvent(
+        ProveInput memory _input,
+        ProofBuildResult memory _result,
+        bytes32 _bondSignal
+    )
+        private
+    {
+        ProvedEventPayload memory payload = ProvedEventPayload({
+            proposalId: _input.proposals[_result.firstProvenIndex].id,
+            transition: _input.transitions[_result.firstProvenIndex],
+            bondInstruction: _result.bondInstruction,
+            bondSignal: _bondSignal
+        });
+        emit Proved(_encodeProvedEventData(payload));
+    }
+
     /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
     /// @param _checkpoint The checkpoint data to sync.
     /// @param _expectedCheckpointHash The expected hash to validate against.
@@ -820,6 +851,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _nextProposalId - _lastFinalizedProposalId - 1;
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
+    }
+
+    /// @dev Validates prove function inputs.
+    /// @param _input The ProveInput to validate
+    function _validateProveInput(ProveInput memory _input) private pure {
+        require(_input.proposals.length != 0, EmptyProposals());
+        require(_input.proposals.length == _input.transitions.length, InconsistentParams());
+    }
+
+    /// @dev Validates propose function inputs.
+    /// @param _input The ProposeInput to validate
+    function _validateProposeInput(ProposeInput memory _input) private view {
+        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
     // ---------------------------------------------------------------
