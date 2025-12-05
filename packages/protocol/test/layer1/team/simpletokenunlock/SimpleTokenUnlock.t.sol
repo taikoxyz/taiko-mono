@@ -151,6 +151,6 @@ contract TestSimpleTokenUnlock is Layer1Test {
         vm.stopPrank();
         assertEq(target.recipient(), David);
 
-        assertEq(taikoToken.delegates(address(target)), Carol);
+        assertEq(taikoToken.delegates(address(target)), David);
     }
 }

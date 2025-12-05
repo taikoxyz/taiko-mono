@@ -20,8 +20,13 @@ contract DeploySimpleTokenUnlock is BaseScript {
 
         for (uint256 i; i < recipients.length; i++) {
             require(recipients[i] != address(0), "zero recipient");
+            for (uint256 j; j < i; j++) {
+                require(recipients[j] != recipients[i], "duplicate recipient");
+            }
+            // Use unique name per deployment so JSON entries are not overwritten.
+            bytes32 slotName = bytes32(i + 1);
             address proxy = deploy({
-                name: "",
+                name: slotName,
                 impl: SIMPLE_TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(SimpleTokenUnlock.init, (OWNER, recipients[i]))
             });

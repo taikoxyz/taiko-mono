@@ -134,9 +134,9 @@ contract SimpleTokenUnlock is EssentialContract {
 
     /// @notice Changes the recipient address.
     /// @param _newRecipient The new recipient address.
-    function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
+    function changeRecipient(address _newRecipient) external onlyRecipientOrOwner nonReentrant {
         require(_newRecipient != address(0) && _newRecipient != recipient, INVALID_PARAM());
-
+        ERC20VotesUpgradeable(TAIKO_TOKEN).delegate(_newRecipient);
         emit RecipientChanged(recipient, _newRecipient);
         recipient = _newRecipient;
     }
