@@ -40,11 +40,11 @@ abstract contract BuildProposal is Script {
         }
     }
 
-    function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
+    function buildL1Actions() internal view virtual returns (Controller.Action[] memory);
 
     function buildL2Actions()
         internal
-        pure
+        view
         virtual
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
     {
@@ -134,7 +134,7 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {
+    function _buildAllActions() private view returns (Controller.Action[] memory allActions_) {
         Controller.Action[] memory l1Actions = buildL1Actions();
         uint256 len = l1Actions.length;
 

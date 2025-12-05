@@ -9,7 +9,6 @@ import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 abstract contract AbstractInitTest is InboxTestHelper {
