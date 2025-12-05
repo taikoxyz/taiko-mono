@@ -1,0 +1,12 @@
+nextest-version = "0.9.104"
+
+[profile.default]
+
+[[profile.default.overrides]]
+# All integration test binaries (targets from any `tests/` dir) are serialized
+# to avoid shared L1/L2 state races.
+filter = 'kind(test)'
+test-group = "l1-shared"
+
+[test-groups.l1-shared]
+max-threads = 1
