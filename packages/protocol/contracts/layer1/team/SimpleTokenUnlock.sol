@@ -46,7 +46,6 @@ contract SimpleTokenUnlock is EssentialContract {
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
     error PERMISSION_DENIED();
-    error INSUFFICIENT_BALANCE();
 
     modifier onlyRecipient() {
         require(msg.sender == recipient, PERMISSION_DENIED());
@@ -91,20 +90,16 @@ contract SimpleTokenUnlock is EssentialContract {
         IERC20(TAIKO_TOKEN).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
-    /// @notice Withdraws tokens by the recipient.
+    /// @notice Withdraws tokens to an address or recipient.
     /// @param _to The address the token will be sent to.
-    /// @param _amount The amount of tokens to withdraw.
-    function withdraw(address _to, uint256 _amount) external onlyRecipient nonReentrant {
+    function withdraw(address _to) external onlyRecipient nonReentrant {
         if (_to == address(0)) _to = recipient;
-
-        uint256 withdrawable = amountWithdrawable();
-        if (_amount == 0) _amount = withdrawable;
-        require(_amount <= withdrawable, INSUFFICIENT_BALANCE());
+        uint256 withdrawable = canWithdraw();
+        require(withdrawable > 0, NOT_WITHDRAWABLE());
 
         IERC20 tko = IERC20(TAIKO_TOKEN);
-
-        emit TokenWithdrawn(_to, _amount);
-        tko.safeTransfer(_to, _amount);
+        emit TokenWithdrawn(_to, withdrawable);
+        tko.safeTransfer(_to, withdrawable);
     }
 
     /// @notice Changes the recipient address.
@@ -124,22 +119,12 @@ contract SimpleTokenUnlock is EssentialContract {
 
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
-    function amountWithdrawable() public view returns (uint256) {
-        IERC20 tko = IERC20(TAIKO_TOKEN);
-        uint256 balance = tko.balanceOf(address(this));
-
-        // pre-cliff: no tokens
+    function canWithdraw() public view returns (uint256) {
+        // pre-cliff: can't withdraw any
         if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
             return 0;
         }
         // post-cliff: all tokens in the contract are withdrawable
-        return balance;
-    }
-
-    function _getAmountLocked() internal view returns (uint256) {
-        if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
-            return amountGranted;
-        }
-        return 0;
+        return amountGranted;
     }
 }

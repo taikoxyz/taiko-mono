@@ -86,44 +86,44 @@ contract TestSimpleTokenUnlock is Layer1Test {
 
         assertEq(taikoToken.balanceOf(address(target)), 100 ether);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.canWithdraw(), 0 ether);
 
         vm.warp(grantTimestamp + target.SIX_MONTHS() - 1);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.canWithdraw(), 0 ether);
 
         vm.warp(grantTimestamp + target.SIX_MONTHS());
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 100 ether);
+        assertEq(target.canWithdraw(), 100 ether);
     }
 
-    function test_simpletokenunlock_withdraw_above_balance() public {
+    function test_simpletokenunlock_withdrawal() public {
         vm.startPrank(Alice);
         target.grant(100 ether);
         vm.stopPrank();
 
         assertEq(taikoToken.balanceOf(address(target)), 100 ether);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.canWithdraw(), 0 ether);
 
         vm.prank(Bob);
-        vm.expectRevert(); // "revert: INSUFFICIENT_BALANCE"
-        target.withdraw(address(Bob), 1 ether);
+        vm.expectRevert(); // "revert: NOT_WITHDRAWABLE"
+        target.withdraw(address(Bob));
 
         vm.warp(grantTimestamp + target.SIX_MONTHS());
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 100 ether);
+        assertEq(target.canWithdraw(), 100 ether);
 
         vm.prank(Bob);
-        vm.expectRevert(); // "revert: INSUFFICIENT_BALANCE"
-        target.withdraw(address(Bob), 101 ether);
+        target.withdraw(address(Bob));
+        assertEq(taikoToken.balanceOf(address(Bob)), 100 ether);
     }
 
     function test_simpletokenunlock_delegate() public {
         vm.prank(Alice);
         target.grant(100 ether);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.canWithdraw(), 0 ether);
         assertEq(taikoToken.balanceOf(address(target)), 100 ether);
 
         vm.prank(Bob);
@@ -136,7 +136,7 @@ contract TestSimpleTokenUnlock is Layer1Test {
         vm.prank(Alice);
         target.grant(100 ether);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
+        assertEq(target.canWithdraw(), 0 ether);
         assertEq(taikoToken.balanceOf(address(target)), 100 ether);
 
         vm.startPrank(Bob);
