@@ -308,6 +308,9 @@ func isKnownCanonicalBatchShasta(
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
+				if errors.Is(err, ethereum.NotFound) {
+					return errBatchNotKnown
+				}
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
 			}
 
