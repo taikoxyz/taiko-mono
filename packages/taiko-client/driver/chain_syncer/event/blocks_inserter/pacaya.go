@@ -181,7 +181,7 @@ func (i *Pacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to check if Pcaya batch is known in canonical chain: %w", err)
+				return fmt.Errorf("failed to check if Pacaya batch is known in canonical chain: %w", err)
 			}
 			if isKnown && lastBlockHeader != nil {
 				log.Info(
