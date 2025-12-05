@@ -61,9 +61,8 @@ contract Risc0VerifierTest is Test {
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
             bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
         );
-        bytes32 r0AggregationPublicInput = LibPublicInput.hashZKAggregationPublicInputs(
-            BLOCK_IMAGE_ID, publicInput
-        );
+        bytes32 r0AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(BLOCK_IMAGE_ID, publicInput);
         bytes32 journalDigest = sha256(abi.encodePacked(r0AggregationPublicInput));
 
         vm.mockCallRevert(
@@ -84,9 +83,8 @@ contract Risc0VerifierTest is Test {
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
             bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
         );
-        bytes32 r0AggregationPublicInput = LibPublicInput.hashZKAggregationPublicInputs(
-            BLOCK_IMAGE_ID, publicInput
-        );
+        bytes32 r0AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(BLOCK_IMAGE_ID, publicInput);
         bytes32 journalDigest = sha256(abi.encodePacked(r0AggregationPublicInput));
 
         vm.expectCall(

@@ -48,10 +48,7 @@ library LibPublicInput {
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(
-            _blockProvingProgram,
-            _aggregatedProvingHash
-        );
+        return EfficientHashLib.hash(_blockProvingProgram, _aggregatedProvingHash);
     }
 
     // ---------------------------------------------------------------
