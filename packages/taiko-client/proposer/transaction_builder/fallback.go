@@ -260,7 +260,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	), nil
 }
 
-// TxBuilderWithFallback returns whether the blob transactions is enabled.
+// BlobAllow returns whether blob transactions are allowed.
 func (b *TxBuilderWithFallback) BlobAllow() bool {
 	return b.blobTransactionBuilder != nil
 }
