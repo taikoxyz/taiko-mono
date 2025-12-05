@@ -19,15 +19,12 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // ShastaBlockPayload represents a Shasta block payload with additional metadata.
 type ShastaBlockPayload struct {
 	manifest.BlockManifest
-	BondInstructionsHash common.Hash
-	BondInstructions     []shastaBindings.LibBondsBondInstruction
 }
 
 // ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
@@ -518,29 +515,4 @@ func ApplyInheritedMetadata(
 
 		parentTimestamp = lowerBound
 	}
-}
-
-// AssembleBondInstructions fetches and assembles bond instructions into the derivation payload.
-func AssembleBondInstructions(
-	ctx context.Context,
-	proposalID *big.Int,
-	indexer *shastaIndexer.Indexer,
-	sourcePayload *ShastaDerivationSourcePayload,
-) error {
-	// If the current proposal ID is less than or equal to the bond processing delay,
-	// there are no bond instructions to process.
-	if proposalID.Uint64() <= manifest.BondProcessingDelay {
-		return nil
-	}
-
-	targetProposal, err := indexer.GetProposalByID(proposalID.Uint64() - manifest.BondProcessingDelay)
-	if err != nil {
-		return fmt.Errorf("failed to get target proposal: %w", err)
-	}
-	for i := range sourcePayload.BlockPayloads {
-		sourcePayload.BlockPayloads[i].BondInstructionsHash = targetProposal.CoreState.BondInstructionsHash
-		sourcePayload.BlockPayloads[i].BondInstructions = targetProposal.BondInstructions
-	}
-
-	return nil
 }

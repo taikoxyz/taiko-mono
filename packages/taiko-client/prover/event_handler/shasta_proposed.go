@@ -15,7 +15,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 // HandleShasta handles the Shasta protocol Proposed event.
@@ -123,13 +122,9 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	batchID *big.Int,
 	designatedProver common.Address,
 ) error {
-	// Check whether the batch has been verified.
-	var (
-		coreState = h.indexer.GetLastCoreState()
-		record    = h.indexer.GetTransitionRecordByProposalID(batchID.Uint64())
-	)
-	if coreState == nil {
-		return fmt.Errorf("core state is nil")
+	coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
 
 	if batchID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
@@ -138,46 +133,6 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			"batchID", batchID,
 			"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		)
-		return nil
-	}
-
-	if record != nil {
-		header, err := h.rpc.L2.HeaderByNumber(ctx, record.Transition.Checkpoint.BlockNumber)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 header by number: %w", err)
-		}
-
-		proposalHash, err := h.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, batchID)
-		if err != nil {
-			return fmt.Errorf("failed to get Shasta proposal hash: %w", err)
-		}
-		parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, h.rpc, h.indexer, batchID)
-		if err != nil {
-			return fmt.Errorf("failed to build parent Shasta transition hash: %w", err)
-		}
-
-		if record.Transition.Checkpoint.BlockHash == header.Hash() &&
-			record.Transition.ParentTransitionHash == parentTransitionHash &&
-			record.Transition.ProposalHash == proposalHash {
-			log.Info(
-				"A valid proof has been submitted, skip proving",
-				"batchID", batchID,
-				"parentBlockHash", header.ParentHash,
-				"parentTransitionHash", parentTransitionHash,
-				"proposalHash", common.Hash(record.Transition.ProposalHash),
-			)
-			return nil
-		}
-
-		log.Warn(
-			"Invalid Shasta proof onchain, submitting a new proof",
-			"batchID", batchID,
-			"parentBlockHash", header.ParentHash,
-			"parentTransitionHash", parentTransitionHash,
-			"proposalHash", common.Hash(record.Transition.ProposalHash),
-		)
-		// We need to submit a valid proof.
-		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 		return nil
 	}
 

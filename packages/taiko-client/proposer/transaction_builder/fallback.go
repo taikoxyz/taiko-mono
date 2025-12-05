@@ -19,7 +19,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -36,7 +35,6 @@ type TxBuilderWithFallback struct {
 // NewBuilderWithFallback creates a new TxBuilderWithFallback instance.
 func NewBuilderWithFallback(
 	rpc *rpc.Client,
-	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
 	pacayaInboxAddress common.Address,
@@ -54,7 +52,6 @@ func NewBuilderWithFallback(
 	if blobAllowed {
 		builder.blobTransactionBuilder = NewBlobTransactionBuilder(
 			rpc,
-			shastaStateIndexer,
 			proposerPrivateKey,
 			pacayaInboxAddress,
 			shastaInboxAddress,

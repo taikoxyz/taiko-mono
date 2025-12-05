@@ -83,7 +83,6 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
-	s.Nil(s.d.shastaIndexer.Start())
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -1334,7 +1333,6 @@ func (s *DriverTestSuite) InitProposer() {
 	}, nil, nil))
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.p.ShastaIndexer().Start())
 }
 
 func TestDriverTestSuite(t *testing.T) {

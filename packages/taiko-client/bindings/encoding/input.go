@@ -65,12 +65,6 @@ var (
 		{Name: "verifierId", Type: "uint8"},
 		{Name: "proof", Type: "bytes"},
 	}
-	BondInstructionComponents = []abi.ArgumentMarshaling{
-		{Name: "proposalId", Type: "uint48"},
-		{Name: "bondType", Type: "uint8"},
-		{Name: "payer", Type: "address"},
-		{Name: "payee", Type: "address"},
-	}
 	ProverAuthComponents = []abi.ArgumentMarshaling{
 		{Name: "proposalId", Type: "uint48"},
 		{Name: "proposer", Type: "address"},
@@ -88,8 +82,6 @@ var (
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
 	SubProofsPacayaComponentsArrayType, _ = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofPacayaComponents)
 	SubProofsShastaComponentsArrayType, _ = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofShastaComponents)
-	BondInstructionComponentsType, _      = abi.NewType("tuple", "LibBonds.BondInstruction", BondInstructionComponents)
-	BondInstructionComponentsArgs         = abi.Arguments{{Name: "LibBonds.BondInstruction", Type: BondInstructionComponentsType}}
 	SubProofsPacayaComponentsArrayArgs    = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsPacayaComponentsArrayType},
 	}
@@ -103,7 +95,6 @@ var (
 	stringType, _             = abi.NewType("string", "", nil)
 	uint256Type, _            = abi.NewType("uint256", "", nil)
 	bytesType, _              = abi.NewType("bytes", "", nil)
-	bytes32Type, _            = abi.NewType("bytes32", "", nil)
 	PacayaDifficultyInputArgs = abi.Arguments{
 		{Name: "TAIKO_DIFFICULTY", Type: stringType},
 		{Name: "block.number", Type: uint256Type},
@@ -385,27 +376,6 @@ func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]
 	}
 
 	return crypto.Keccak256(packed), nil
-}
-
-// CalculateBondInstructionHash calculates the bond instruction hash by hashing the given previous bond instruction
-// hash and bond instruction.
-func CalculateBondInstructionHash(
-	previousBondInstructionHash common.Hash,
-	bondInstruction shastaBindings.LibBondsBondInstruction,
-) (common.Hash, error) {
-	if bondInstruction.ProposalId.Cmp(common.Big0) == 0 || bondInstruction.BondType == 0 {
-		return previousBondInstructionHash, nil
-	}
-	instructionBytes, err := BondInstructionComponentsArgs.Pack(bondInstruction)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to abi.encode bondInstruction, %w", err)
-	}
-
-	data := make([]byte, 32+len(instructionBytes))
-	copy(data, previousBondInstructionHash[:])
-	copy(data[32:], instructionBytes)
-
-	return common.BytesToHash(crypto.Keccak256(data)), nil
 }
 
 // EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
