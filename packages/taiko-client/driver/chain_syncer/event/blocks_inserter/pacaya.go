@@ -172,7 +172,7 @@ func (i *Pacaya) InsertBlocks(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, err := isKnownCanonicalBatchPacaya(
+			lastBlockHeader, isKnown, err := isKnownCanonicalBatchPacaya(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -181,10 +181,11 @@ func (i *Pacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
-			} else if lastBlockHeader != nil {
+				return fmt.Errorf("failed to check if Pcaya batch is known in canonical chain: %w", err)
+			}
+			if isKnown && lastBlockHeader != nil {
 				log.Info(
-					"🧬 Known batch in canonical chain",
+					"🧬 Known Pacaya batch in canonical chain",
 					"batchID", meta.GetBatchID(),
 					"lastBlockID", meta.GetLastBlockID(),
 					"lastBlockHash", lastBlockHeader.Hash(),
