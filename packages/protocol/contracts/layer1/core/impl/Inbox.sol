@@ -782,7 +782,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         emit Proposed(_encodeProposedEventData(payload));
     }
 
-    /// @dev Emits the Proved event for the first proven proposal in the batch.
+    /// @dev Emits the Proved event for the last proven proposal in the batch.
     /// @param _input The prove input containing proposals and transitions.
     /// @param _result Prepared proof result data.
     /// @param _bondSignal The bond signal hash emitted to L2 (zero when unused).
@@ -793,9 +793,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
+        uint256 lastProvedIndex = _input.transitions.length - 1;
+
         ProvedEventPayload memory payload = ProvedEventPayload({
-            proposalId: _input.proposals[_result.firstProvenIndex].id,
-            transition: _input.transitions[_result.firstProvenIndex],
+            proposalId: _input.proposals[lastProvedIndex].id,
+            transition: _input.transitions[lastProvedIndex],
             bondInstruction: _result.bondInstruction,
             bondSignal: _bondSignal
         });
