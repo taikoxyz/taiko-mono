@@ -46,6 +46,8 @@ func (s *EventSyncerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
 		nil,
+		1,
+		time.Millisecond,
 	)
 	s.Nil(err)
 	s.s = syncer

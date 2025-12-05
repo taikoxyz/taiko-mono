@@ -121,6 +121,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
 		latestSeenProposalCh,
+		cfg.BackOffMaxRetries,
+		cfg.RetryInterval,
 	); err != nil {
 		return fmt.Errorf("failed to create L2 chain syncer: %w", err)
 	}

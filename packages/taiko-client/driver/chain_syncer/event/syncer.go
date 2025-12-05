@@ -59,6 +59,8 @@ func NewSyncer(
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobServerEndpoint *url.URL,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
+	backOffMaxRetries uint64,
+	backOffRetryInterval time.Duration,
 ) (*Syncer, error) {
 	constructor, err := anchorTxConstructor.New(client)
 	if err != nil {
@@ -86,6 +88,8 @@ func NewSyncer(
 			txlistFetcher.NewCalldataFetcher(client),
 			txlistFetcher.NewBlobFetcher(client, blobDataSource),
 			latestSeenProposalCh,
+			backOffMaxRetries,
+			backOffRetryInterval,
 		),
 		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
 			client,
