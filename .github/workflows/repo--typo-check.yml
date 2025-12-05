@@ -1,6 +1,9 @@
 name: Typo Check
 
-on: [pull_request]
+on:
+  pull_request:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
