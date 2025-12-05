@@ -91,11 +91,12 @@
 ### PacayaInbox
 
 - proxy: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`
-- impl: `0xC5f793772CE656ac7c3947DFC7FD88ce46d966BA`
+- impl: `0x28dA65D1B6ceFab4BF9Fb7f7C5438604d438552C`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
+  - updated on Dec 3, 2025 at commit ``
 
 ### forced_inclusion_store
 
