@@ -145,7 +145,9 @@ func (b *Bridge) Start() error {
 
 	b.cancel = cancel
 
-	_ = b.submitBridgeTx(ctx)
+	if err := b.submitBridgeTx(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }
