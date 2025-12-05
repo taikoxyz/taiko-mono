@@ -374,7 +374,7 @@ func isKnownCanonicalBlock(
 ) (*types.Header, bool, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
 	block, err := rpc.L2.BlockByNumber(ctx, blockID)
-	if err != nil {
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return nil, false, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 	}
 
