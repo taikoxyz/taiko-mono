@@ -1,0 +1,14 @@
+[package]
+name = "preconfirmation"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+alloy = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true }
+bindings = { path = "../bindings" }
+thiserror = { workspace = true }

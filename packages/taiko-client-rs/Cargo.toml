@@ -4,6 +4,7 @@ members = [
     "crates/bindings",
     "crates/driver",
     "crates/event-indexer",
+    "crates/preconfirmation",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
