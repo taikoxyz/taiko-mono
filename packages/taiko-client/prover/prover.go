@@ -138,8 +138,8 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, 1)
-	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, 1)
+	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
 	if err := p.shastaIndexer.Start(); err != nil {
 		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
