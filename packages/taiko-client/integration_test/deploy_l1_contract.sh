@@ -37,4 +37,4 @@ cd ../protocol &&
     --ffi \
     -vvvvv \
     --private-key "$PRIVATE_KEY" \
-    --block-gas-limit 200000000 \
+    --block-gas-limit 200000000
