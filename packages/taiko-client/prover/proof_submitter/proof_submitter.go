@@ -400,6 +400,8 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	// If the buffer is empty, skip the aggregation.
 	if len(buffer) == 0 {
 		log.Debug("Buffer is empty now, skip aggregating")
+		// To mark isAggregating = false
+		proofBuffer.ClearItems()
 		return nil
 	}
 	if err := backoff.Retry(
