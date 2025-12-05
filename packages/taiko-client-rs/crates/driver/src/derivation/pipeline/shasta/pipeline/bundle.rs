@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, Bytes, B256};
+use alloy::primitives::{Address, B256, Bytes};
 use protocol::shasta::manifest::DerivationSourceManifest;
 
 /// A single manifest segment bundled with its forced-inclusion flag.

@@ -13,9 +13,7 @@ use alloy_primitives::aliases::U48;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
-use protocol::shasta::{
-    manifest::{BlockManifest, DerivationSourceManifest},
-};
+use protocol::shasta::manifest::{BlockManifest, DerivationSourceManifest};
 
 use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
@@ -406,12 +404,7 @@ where
     ) -> Result<EngineBlockOutcome, DerivationError> {
         let BlockContext { meta, .. } = ctx;
         let derived_block = self.prepare_block(block, state, ctx).await?;
-        let BlockDerivationContext {
-            payload,
-            parent_hash,
-            is_final_block,
-            ..
-        } = derived_block;
+        let BlockDerivationContext { payload, parent_hash, is_final_block, .. } = derived_block;
 
         let applied = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
         let header = applied.outcome.block.header.clone().into_consensus();
@@ -454,11 +447,7 @@ where
         let parent_difficulty = B256::from(state.header.difficulty.to_be_bytes::<32>());
         let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
 
-        let anchor_inputs = AnchorTxInputs {
-            block,
-            block_number,
-            block_base_fee,
-        };
+        let anchor_inputs = AnchorTxInputs { block, block_number, block_base_fee };
 
         let anchor_tx = self.build_anchor_transaction(state, meta, anchor_inputs).await?;
 
@@ -924,11 +913,7 @@ where
         meta: &BundleMeta,
         inputs: AnchorTxInputs<'_>,
     ) -> Result<TxEnvelope, DerivationError> {
-        let AnchorTxInputs {
-            block,
-            block_number,
-            block_base_fee,
-        } = inputs;
+        let AnchorTxInputs { block, block_number, block_base_fee } = inputs;
 
         let (anchor_block_hash, anchor_state_root) =
             self.resolve_anchor_block_fields(block.anchor_block_number).await?;

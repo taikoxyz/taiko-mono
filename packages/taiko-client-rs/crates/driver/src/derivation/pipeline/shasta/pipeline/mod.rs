@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
     primitives::{B256, U256},
     providers::Provider,
     rpc::types::Log,
@@ -9,6 +9,7 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::{
     codec_optimized::IInbox::{DerivationSource, ProposedEventPayload},
@@ -174,6 +175,22 @@ where
         Ok(payload)
     }
 
+    /// Read the inbox core state at the proposal log's block to extract the last finalized id.
+    async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Result<u64, DerivationError> {
+        let block_hash = log
+            .block_hash
+            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block hash")))?;
+        let core_state = self
+            .rpc
+            .shasta
+            .inbox
+            .getState()
+            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+            .call()
+            .await?;
+        Ok(core_state.lastFinalizedProposalId.to::<u64>())
+    }
+
     /// Fetch and decode a single manifest from the blob store.
     ///
     /// The caller is responsible for providing the correct fetcher implementation for
@@ -198,6 +215,7 @@ where
     async fn build_manifest_from_payload(
         &self,
         payload: &ProposedEventPayload,
+        last_finalized_proposal_id: u64,
     ) -> Result<ShastaProposalBundle, DerivationError> {
         let sources = &payload.derivation.sources;
         let proposal_id = payload.proposal.id.to::<u64>();
@@ -255,7 +273,7 @@ where
         let bundle = ShastaProposalBundle {
             meta: BundleMeta {
                 proposal_id,
-                last_finalized_proposal_id: 0, // TODO
+                last_finalized_proposal_id,
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
                 origin_block_hash: B256::from(payload.derivation.originBlockHash),
@@ -325,7 +343,8 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
-        self.build_manifest_from_payload(&payload).await
+        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
+        self.build_manifest_from_payload(&payload, last_finalized_proposal_id).await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -385,6 +404,7 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
         let proposal_id = payload.proposal.id.to::<u64>();
+        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
@@ -392,7 +412,8 @@ where
             return Ok(Vec::new());
         }
 
-        let manifest = self.build_manifest_from_payload(&payload).await?;
+        let manifest =
+            self.build_manifest_from_payload(&payload, last_finalized_proposal_id).await?;
         let outcomes = self.manifest_to_engine_blocks(manifest, applier).await?;
 
         if let Some(last) = outcomes.last() {

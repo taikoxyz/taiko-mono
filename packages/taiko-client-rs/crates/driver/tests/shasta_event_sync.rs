@@ -2,8 +2,8 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::U256;
 use alloy_provider::Provider;
-use anyhow::{Context, Result, ensure};
 use alloy_rpc_types::Log;
+use anyhow::{Context, Result, ensure};
 use driver::{
     Driver, DriverConfig,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
@@ -34,8 +34,10 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     )
     .await?;
 
-    let builder =
-        ShastaProposalTransactionBuilder::new(proposer_client.clone(), env.l2_suggested_fee_recipient);
+    let builder = ShastaProposalTransactionBuilder::new(
+        proposer_client.clone(),
+        env.l2_suggested_fee_recipient,
+    );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
     let request = builder.build(vec![Vec::new()]).await?;
@@ -81,9 +83,10 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
     let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
-    let outcomes = pipeline.process_proposal(&proposal_log, applier).await.context(
-        "processing proposal through derivation pipeline",
-    )?;
+    let outcomes = pipeline
+        .process_proposal(&proposal_log, applier)
+        .await
+        .context("processing proposal through derivation pipeline")?;
     ensure!(!outcomes.is_empty(), "derivation pipeline returned no block outcomes");
 
     let l2_head_after = driver_client.l2_provider.get_block_number().await?;

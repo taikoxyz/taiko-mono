@@ -1,10 +1,10 @@
 use super::{
-    super::validation::{apply_inherited_metadata, InheritedMetadataInput, ValidationContext},
+    super::validation::{InheritedMetadataInput, ValidationContext, apply_inherited_metadata},
     bundle::BundleMeta,
 };
 use crate::derivation::DerivationError;
 use alethia_reth_consensus::eip4396::{
-    calculate_next_block_eip4396_base_fee, SHASTA_INITIAL_BASE_FEE,
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy_consensus::Header;
 

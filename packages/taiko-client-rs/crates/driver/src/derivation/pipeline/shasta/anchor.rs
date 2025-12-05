@@ -12,9 +12,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::{
-    Anchor::{BlockParams, ProposalParams},
-};
+use bindings::anchor::Anchor::{BlockParams, ProposalParams};
 use rpc::client::Client;
 use thiserror::Error;
 use tracing::{info, instrument};
