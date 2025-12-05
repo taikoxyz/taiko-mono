@@ -51,7 +51,7 @@ contract TestSimpleTokenUnlock is Layer1Test {
         target = SimpleTokenUnlock(
             deploy({
                 name: "simple_token_unlock",
-                impl: address(new SimpleTokenUnlock(address(resolver))),
+                impl: address(new SimpleTokenUnlock()),
                 data: abi.encodeCall(SimpleTokenUnlock.init, (Alice, Bob))
             })
         );

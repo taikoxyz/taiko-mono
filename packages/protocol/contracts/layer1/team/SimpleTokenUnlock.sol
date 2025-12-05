@@ -57,7 +57,7 @@ contract SimpleTokenUnlock is EssentialContract {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) { }
+    constructor() EssentialContract(address(0)) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
@@ -100,6 +100,7 @@ contract SimpleTokenUnlock is EssentialContract {
         IERC20 tko = IERC20(TAIKO_TOKEN);
         emit TokenWithdrawn(_to, withdrawable);
         tko.safeTransfer(_to, withdrawable);
+        amountGranted = 0;
     }
 
     /// @notice Changes the recipient address.
