@@ -56,7 +56,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         .iter()
         .find(|log| log.address() == env.inbox_address)
         .cloned()
-        .context("missing Proposed log in receipt")?; // TODO
+        .context("missing Proposed log in receipt")?;
 
     let driver_config = DriverConfig::new(
         ClientConfig {
