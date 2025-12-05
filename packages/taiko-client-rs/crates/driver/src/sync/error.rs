@@ -49,10 +49,6 @@ pub enum SyncError {
     #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
     MissingAnchorTransaction { block_number: u64, reason: &'static str },
 
-    /// Event sync: indexer task terminated unexpectedly.
-    #[error("event indexer task terminated unexpectedly")]
-    IndexerTerminated,
-
     /// Event sync: derivation failed.
     #[error("derivation failed")]
     Derivation(#[from] DerivationError),

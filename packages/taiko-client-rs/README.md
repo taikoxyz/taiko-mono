@@ -9,7 +9,6 @@ A Rust implementation of the Taiko Alethia protocol client, designed as an alter
 | `bin/client/`     | Main executable for the Taiko client                                                                    |
 | `crates/bindings/` | Rust contract bindings for Taiko smart contracts                                                       |
 | `crates/driver/`   | Driver implementation for proposal derivation and syncing                                              |
-| `crates/event-indexer/` | Event indexing service for monitoring and caching protocol events                                 |
 | `crates/proposer/` | Proposer implementation for submitting block proposals to L1                                           |
 | `crates/protocol/` | Core protocol types and data structures                                                                |
 | `crates/rpc/`     | RPC client utilities and helper functions                                                               |

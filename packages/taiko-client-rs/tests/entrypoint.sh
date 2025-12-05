@@ -2,6 +2,8 @@
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../protocol}"
+export PROTOCOL_DIR
 
 echo "Starting docker compose services..."
 
@@ -60,7 +62,7 @@ echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
 $DIR/deploy.sh
 
 # Export deployed contract addresses and other env vars for tests.
-DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
+DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
 export SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
