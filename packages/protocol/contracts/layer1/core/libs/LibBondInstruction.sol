@@ -16,8 +16,8 @@ library LibBondInstruction {
     /// @notice Calculates all bond instructions for a sequential prove call.
     /// @dev Bond instruction rules:
     ///         - On-time (within provingWindow + sequential grace): No bond changes.
-    ///         - Late: Liveness bond transfer if prover differs from designated prover of the first
-    ///           transition.
+    ///         - Late: Liveness bond transfer, even when the designated and actual provers are the
+    ///           same address (L2 processing handles slashing/reward splits).
     /// @param _provingWindow The proving window in seconds.
     /// @param _maxProofSubmissionDelay Max delay allowed between consecutive proofs to avoid
     ///        liveness penalties.
@@ -51,11 +51,6 @@ library LibBondInstruction {
 
             address payer = _firstTransition.designatedProver;
             address payee = _firstTransition.actualProver;
-
-            // If payer and payee are identical, there is no bond movement.
-            if (payer == payee) {
-                return bondInstruction_;
-            }
 
             bondInstruction_ = LibBonds.BondInstruction({
                 proposalId: _firstProposal.id,

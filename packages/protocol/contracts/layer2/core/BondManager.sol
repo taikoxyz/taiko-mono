@@ -204,6 +204,10 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     }
 
     /// @inheritdoc IBondProcessor
+    /// @dev Slashes 50% of the debited bond.
+    /// - When payer != payee, the remaining 50% goes to the payee. 
+    /// - When payer == payee, 40% is refunded and 10% is awarded to the caller of this function.
+    //    This is to provide the incentive for someone to call this function.
     function processBondSignal(
         LibBonds.BondInstruction calldata _instruction,
         bytes calldata _proof
@@ -221,13 +225,29 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         processedSignals[signalId] = true;
 
         uint256 amount = _bondAmountFor(_instruction.bondType);
-        if (amount != 0 && _instruction.payer != _instruction.payee) {
-            uint256 debited = _debitBond(_instruction.payer, amount);
-            _creditBond(_instruction.payee, debited);
-            emit BondSignalProcessed(signal, _instruction, debited);
-        } else {
+        if (amount == 0) {
             emit BondSignalProcessed(signal, _instruction, 0);
+            return;
         }
+
+        uint256 debited = _debitBond(_instruction.payer, amount);
+        if (debited == 0) {
+            emit BondSignalProcessed(signal, _instruction, 0);
+            return;
+        }
+
+        if (_instruction.payer == _instruction.payee) {
+            uint256 payeeAmount = (debited * 4) / 10; // 40%
+            uint256 callerAmount = debited / 10; // 10%
+
+            if (payeeAmount > 0) _creditBond(_instruction.payee, payeeAmount);
+            if (callerAmount > 0) _creditBond(msg.sender, callerAmount);
+        } else {
+            uint256 payeeAmount = debited / 2; // 50% (rounds down, favors burn on odd amounts)
+            if (payeeAmount > 0) _creditBond(_instruction.payee, payeeAmount);
+        }
+
+        emit BondSignalProcessed(signal, _instruction, debited);
     }
 
     // ---------------------------------------------------------------

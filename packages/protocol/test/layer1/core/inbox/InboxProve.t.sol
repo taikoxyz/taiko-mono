@@ -308,6 +308,34 @@ abstract contract ProveTestBase is InboxTestBase {
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal recorded");
     }
 
+    function test_prove_lateSameProver_emitsSelfSlashBondSignal() public {
+        IInbox.ProposedEventPayload memory proposed = _proposeOne();
+
+        vm.warp(block.timestamp + config.provingWindow + 1);
+
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(bytes32(uint256(1)));
+        IInbox.Transition memory transition = IInbox.Transition({
+            proposalHash: codec.hashProposal(proposed.proposal),
+            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            checkpoint: checkpoint,
+            designatedProver: prover,
+            actualProver: prover
+        });
+
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: _proposals(proposed.proposal),
+            transitions: _transitions(transition),
+            syncCheckpoint: true
+        });
+
+        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveInput);
+
+        assertEq(uint8(provedPayload.bondInstruction.bondType), uint8(LibBonds.BondType.LIVENESS));
+        assertEq(provedPayload.bondInstruction.payer, prover, "payer");
+        assertEq(provedPayload.bondInstruction.payee, prover, "payee");
+        assertTrue(signalService.isSignalSent(address(inbox), provedPayload.bondSignal));
+    }
+
     function test_prove_lateDueToSequentialDelay_emitsLivenessBondSignal() public {
         uint256 proposalCadence = 120;
 
