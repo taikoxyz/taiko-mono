@@ -1,4 +1,4 @@
-use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alethia_reth_primitives::payload::attributes::{
     RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
 };
@@ -12,10 +12,8 @@ use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::aliases::U48;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
-use bindings::anchor::LibBonds::BondInstruction;
 use metrics::counter;
 use protocol::shasta::{
-    constants::BOND_PROCESSING_DELAY,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 
@@ -95,15 +93,6 @@ struct PayloadContext<'a> {
     is_low_bond_proposal: bool,
 }
 
-/// Aggregated bond instruction data for a derived block.
-#[derive(Debug)]
-struct BondInstructionData {
-    /// Instructions that must be embedded into the anchor transaction.
-    instructions: Vec<BondInstruction>,
-    /// Rolling hash after applying the block's bond instructions.
-    hash: B256,
-}
-
 /// Aggregated parameters required to assemble the anchor transaction.
 #[derive(Debug)]
 struct AnchorTxInputs<'a> {
@@ -113,10 +102,6 @@ struct AnchorTxInputs<'a> {
     block_number: u64,
     /// Base fee target for the upcoming block.
     block_base_fee: u64,
-    /// Bond instructions collected for the block.
-    bond_instructions: &'a [BondInstruction],
-    /// Rolling bond instruction hash after applying the block's instructions.
-    bond_instructions_hash: B256,
 }
 
 /// Return true when the manifest represents the protocol-defined default payload.
@@ -153,7 +138,6 @@ impl BlockPosition {
 struct BlockDerivationContext {
     payload: TaikoPayloadAttributes,
     anchor_tx: TxEnvelope,
-    bond_instructions_hash: B256,
     parent_hash: B256,
     block_number: u64,
     anchor_block_number: u64,
@@ -281,20 +265,6 @@ where
                 .await?;
 
             outcomes.extend(segment_outcomes);
-        }
-
-        // Ensure the derived bond instruction hash matches what the proposal advertised.
-        if state.bond_instructions_hash != meta.bond_instructions_hash {
-            warn!(
-                proposal_id = meta.proposal_id,
-                expected = ?meta.bond_instructions_hash,
-                actual = ?state.bond_instructions_hash,
-                "bond instruction hash mismatch after segment processing"
-            );
-            return Err(DerivationError::BondInstructionsMismatch {
-                expected: meta.bond_instructions_hash,
-                actual: state.bond_instructions_hash,
-            });
         }
 
         info!(
@@ -439,14 +409,13 @@ where
         let BlockDerivationContext {
             payload,
             parent_hash,
-            bond_instructions_hash,
             is_final_block,
             ..
         } = derived_block;
 
         let applied = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
         let header = applied.outcome.block.header.clone().into_consensus();
-        *state = state.advance(header, block.anchor_block_number, bond_instructions_hash)?;
+        *state = state.advance(header, block.anchor_block_number)?;
 
         info!(
             proposal_id = meta.proposal_id,
@@ -485,14 +454,10 @@ where
         let parent_difficulty = B256::from(state.header.difficulty.to_be_bytes::<32>());
         let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
 
-        let bond_data = self.assemble_bond_instructions(state, meta, &position).await?;
-
         let anchor_inputs = AnchorTxInputs {
             block,
             block_number,
             block_base_fee,
-            bond_instructions: &bond_data.instructions,
-            bond_instructions_hash: bond_data.hash,
         };
 
         let anchor_tx = self.build_anchor_transaction(state, meta, anchor_inputs).await?;
@@ -508,8 +473,6 @@ where
             block_number,
             block_base_fee,
             difficulty = ?difficulty,
-            bond_instruction_count = bond_data.instructions.len(),
-            bond_instructions_hash = ?bond_data.hash,
             transaction_count_with_anchor = transactions.len(),
             parent_hash = ?parent_hash,
             "calculated block parameters"
@@ -532,7 +495,6 @@ where
         Ok(BlockDerivationContext {
             payload,
             anchor_tx,
-            bond_instructions_hash: bond_data.hash,
             parent_hash,
             block_number,
             anchor_block_number: block.anchor_block_number,
@@ -589,7 +551,7 @@ where
 
         // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
         // add it back here.
-        let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_GAS_LIMIT);
+        let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_V4_GAS_LIMIT);
 
         let block_metadata = TaikoBlockMetadata {
             beneficiary: block.coinbase,
@@ -723,11 +685,7 @@ where
                 };
 
                 // Mirror the normal derivation advance so later blocks use the correct parent.
-                state = state.advance(
-                    verified.header,
-                    derived_block.anchor_block_number,
-                    derived_block.bond_instructions_hash,
-                )?;
+                state = state.advance(verified.header, derived_block.anchor_block_number)?;
 
                 known_blocks.push(KnownCanonicalBlock {
                     payload: derived_block.payload,
@@ -958,47 +916,6 @@ where
         Ok(is_low_bond)
     }
 
-    /// Assemble bond instructions that must be embedded into the next anchor transaction.
-    #[instrument(skip(self, state, meta, _position))]
-    async fn assemble_bond_instructions(
-        &self,
-        state: &ParentState,
-        meta: &BundleMeta,
-        _position: &BlockPosition,
-    ) -> Result<BondInstructionData, DerivationError> {
-        if meta.proposal_id <= BOND_PROCESSING_DELAY {
-            debug!(
-                proposal_id = meta.proposal_id,
-                "bond processing delay active; skipping instruction fetch"
-            );
-            return Ok(BondInstructionData {
-                instructions: Vec::new(),
-                hash: state.bond_instructions_hash,
-            });
-        }
-
-        let target_id = meta.proposal_id - BOND_PROCESSING_DELAY;
-        let (target_hash, target_instructions) = self
-            .bond_instructions_for(target_id)?
-            .ok_or(DerivationError::IncompleteMetadata(target_id))?;
-
-        if state.bond_instructions_hash == target_hash {
-            debug!(
-                proposal_id = meta.proposal_id,
-                target_id, "bond instructions already up to date"
-            );
-            return Ok(BondInstructionData { instructions: Vec::new(), hash: target_hash });
-        }
-
-        let data = BondInstructionData { instructions: target_instructions, hash: target_hash };
-        debug!(
-            proposal_id = meta.proposal_id,
-            instruction_count = data.instructions.len(),
-            "assembled bond instructions"
-        );
-        Ok(data)
-    }
-
     // Build the anchor transaction for the given block.
     #[instrument(skip(self, parent_state, meta, inputs))]
     async fn build_anchor_transaction(
@@ -1011,8 +928,6 @@ where
             block,
             block_number,
             block_base_fee,
-            bond_instructions,
-            bond_instructions_hash,
         } = inputs;
 
         let (anchor_block_hash, anchor_state_root) =
@@ -1034,8 +949,6 @@ where
                     proposal_id: meta.proposal_id,
                     proposer: meta.proposer,
                     prover_auth: meta.prover_auth_bytes.clone().to_vec(),
-                    bond_instructions_hash,
-                    bond_instructions: bond_instructions.to_vec(),
                     anchor_block_number: block.anchor_block_number,
                     anchor_block_hash,
                     anchor_state_root,
@@ -1096,7 +1009,7 @@ mod tests {
             nonce: 0,
             max_fee_per_gas: 1_000_000_000,
             max_priority_fee_per_gas: 0,
-            gas_limit: ANCHOR_V3_GAS_LIMIT,
+            gas_limit: ANCHOR_V3_V4_GAS_LIMIT,
             to: TxKind::Call(anchor_address),
             value: U256::ZERO,
             access_list: AccessList::default(),

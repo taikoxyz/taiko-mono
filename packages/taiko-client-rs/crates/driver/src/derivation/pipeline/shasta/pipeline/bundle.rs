@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, B256, Bytes};
+use alloy::primitives::{Address, Bytes, B256};
 use protocol::shasta::manifest::DerivationSourceManifest;
 
 /// A single manifest segment bundled with its forced-inclusion flag.
@@ -26,6 +26,5 @@ pub(super) struct BundleMeta {
     pub(super) origin_block_hash: B256,
     pub(super) proposer: Address,
     pub(super) basefee_sharing_pctg: u8,
-    pub(super) bond_instructions_hash: B256,
     pub(super) prover_auth_bytes: Bytes,
 }

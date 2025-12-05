@@ -4,7 +4,6 @@ use alloy::{
     providers::PendingTransactionError,
     transports::{RpcError, TransportErrorKind},
 };
-use event_indexer::error::IndexerError;
 use protocol::shasta::ProtocolError;
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
@@ -27,10 +26,6 @@ pub enum ProposerError {
     /// Parent block not found error
     #[error("parent block {0} not found")]
     ParentBlockNotFound(u64),
-
-    /// Failed to read propose input from event indexer
-    #[error("failed to read propose input from event indexer")]
-    ProposeInputUnavailable,
 
     /// L1 head is too low to propose
     #[error("current L1 head {current} is too low to propose, must be greater than {minimum}")]
@@ -55,10 +50,6 @@ pub enum ProposerError {
     /// JSON serialization error
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-
-    /// Event indexer error
-    #[error("event indexer error: {0}")]
-    Indexer(#[from] IndexerError),
 
     /// Generic error
     #[error(transparent)]
