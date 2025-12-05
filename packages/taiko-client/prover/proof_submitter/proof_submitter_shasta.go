@@ -50,6 +50,7 @@ type ProofSubmitterShasta struct {
 
 // NewProofSubmitterShasta creates a new Shasta ProofSubmitter instance.
 func NewProofSubmitterShasta(
+	ctx context.Context,
 	baseLevelProofProducer proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
@@ -62,7 +63,7 @@ func NewProofSubmitterShasta(
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitterShasta, error) {
-	return &ProofSubmitterShasta{
+	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -82,7 +83,17 @@ func NewProofSubmitterShasta(
 		proofPollingInterval:      proofPollingInterval,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
-	}, nil
+	}
+
+	proofSubmitter.startProofBufferMonitors(ctx)
+	return proofSubmitter, nil
+}
+
+// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation,
+// only be called once during initialization.
+func (s *ProofSubmitterShasta) startProofBufferMonitors(ctx context.Context) {
+	log.Info("Starting proof buffers monitors for Shasta", "forceBatchProvingInterval", s.forceBatchProvingInterval)
+	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -356,8 +367,8 @@ func (s *ProofSubmitterShasta) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	if !buffer.IsAggregating() &&
 		(uint64(buffer.Len()) >= buffer.MaxLength ||
 			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.batchAggregationNotify <- proofType
 		buffer.MarkAggregating()
+		s.batchAggregationNotify <- proofType
 		return true
 	}
 	return false

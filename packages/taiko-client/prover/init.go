@@ -165,6 +165,7 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 	}
 
 	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
+		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
@@ -275,6 +276,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	}
 
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
+		p.ctx,
 		baseLevelProofProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
