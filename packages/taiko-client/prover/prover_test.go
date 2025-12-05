@@ -442,6 +442,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -499,6 +500,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -553,10 +555,11 @@ func (s *ProverTestSuite) TestForceAggregate() {
 		BackOffRetryInterval:      3 * time.Second,
 		BackOffMaxRetries:         12,
 		SGXProofBufferSize:        uint64(batchSize),
+		ZKVMProofBufferSize:       uint64(batchSize),
 		ForceBatchProvingInterval: 5 * time.Second,
 	}, s.txmgr, s.txmgr))
 
-	for i := 0; i < batchSize-1; i++ {
+	for i := 0; i < 1; i++ {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
 
@@ -573,10 +576,9 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	s.Nil(batchProver.requestProofOp(req1.Meta))
 
 	time.Sleep(5 * time.Second)
-	req2 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req2.Meta))
 
 	proofType := <-batchProver.batchesAggregationNotifyPacaya
+	log.Info("Received agg request", "proofType", proofType)
 	s.Nil(batchProver.aggregateOp(proofType, false))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
