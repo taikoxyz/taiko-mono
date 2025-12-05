@@ -36,8 +36,9 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     /// @notice Time delay required before withdrawal after request
     /// @dev WARNING: In theory operations can remain unfinalized indefinitely, but in practice
     /// after
-    ///      the `extendedProvingWindow` the incentives are very strong for finalization.
-    ///      A safe value for this is `extendedProvingWindow` + buffer, for example, 2 weeks.
+    ///      the proving window plus `maxProofSubmissionDelay` the incentives are very strong for
+    ///      finalization. A safe value for this is a generous buffer above that horizon, for
+    ///      example, 2 weeks.
     uint48 public immutable withdrawalDelay;
 
     /// @notice L2 signal service used to verify bond processing signals.

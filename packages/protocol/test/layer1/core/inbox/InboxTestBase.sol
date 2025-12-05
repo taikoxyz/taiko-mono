@@ -72,7 +72,6 @@ abstract contract InboxTestBase is CommonTest {
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
             provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
             maxProofSubmissionDelay: 1 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,

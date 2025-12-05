@@ -234,7 +234,7 @@ abstract contract ProveTestBase is InboxTestBase {
         vm.warp(block.timestamp + 10 days);
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), proposer, prover
         );
         IInbox.Transition memory t2 =
             _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
@@ -250,8 +250,8 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.CoreState memory state = inbox.getState();
         LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
             proposalId: p1.proposal.id,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: p1.proposal.proposer,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: proposer,
             payee: prover
         });
         bytes32 expectedSignal = _bondSignal(expectedInstruction);
@@ -259,7 +259,7 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
         assertEq(
             uint8(provedPayload.bondInstruction.bondType),
-            uint8(LibBonds.BondType.PROVABILITY),
+            uint8(LibBonds.BondType.LIVENESS),
             "bond type"
         );
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal sent");
@@ -267,10 +267,10 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(provedPayload.bondInstruction.payee, expectedInstruction.payee, "payee");
     }
 
-    function test_prove_lateWithinExtendedWindow_emitsLivenessBondSignal() public {
+    function test_prove_late_emitsLivenessBondSignal() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
-        // Make the proof late but still inside the extended proving window.
+        // Make the proof late enough to trigger a liveness bond.
         vm.warp(block.timestamp + config.provingWindow + 1);
 
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(bytes32(uint256(1)));
