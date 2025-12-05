@@ -46,7 +46,6 @@ contract LibProveInputDecoderFuzzTest is Test {
             proposer: proposer,
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
-            coreStateHash: coreStateHash,
             derivationHash: derivationHash
         });
 
@@ -83,7 +82,6 @@ contract LibProveInputDecoderFuzzTest is Test {
         assertEq(decoded.proposals[0].id, proposals[0].id);
         assertEq(decoded.proposals[0].proposer, proposals[0].proposer);
         assertEq(decoded.proposals[0].timestamp, proposals[0].timestamp);
-        assertEq(decoded.proposals[0].coreStateHash, proposals[0].coreStateHash);
         assertEq(decoded.proposals[0].derivationHash, proposals[0].derivationHash);
 
         // Verify transition fields
@@ -115,7 +113,6 @@ contract LibProveInputDecoderFuzzTest is Test {
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
-                coreStateHash: keccak256(abi.encodePacked("state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
 
@@ -204,7 +201,6 @@ contract LibProveInputDecoderFuzzTest is Test {
             proposer: proposer1,
             timestamp: timestamp1,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
-            coreStateHash: keccak256(abi.encode("core1")),
             derivationHash: keccak256(abi.encode("deriv1"))
         });
         proposals[1] = IInbox.Proposal({
@@ -212,7 +208,6 @@ contract LibProveInputDecoderFuzzTest is Test {
             proposer: proposer2,
             timestamp: timestamp2,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
-            coreStateHash: keccak256(abi.encode("core2")),
             derivationHash: keccak256(abi.encode("deriv2"))
         });
 
@@ -271,7 +266,6 @@ contract LibProveInputDecoderFuzzTest is Test {
             proposer: address(type(uint160).max),
             timestamp: type(uint48).max,
             endOfSubmissionWindowTimestamp: 1_700_000_012,
-            coreStateHash: bytes32(type(uint256).max),
             derivationHash: bytes32(type(uint256).max)
         });
 
@@ -319,7 +313,6 @@ contract LibProveInputDecoderFuzzTest is Test {
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 100),
                 endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 100 + 12),
-                coreStateHash: keccak256(abi.encodePacked("core", i)),
                 derivationHash: keccak256(abi.encodePacked("deriv", i))
             });
         }

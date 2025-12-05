@@ -66,7 +66,6 @@ contract InboxOptimized1ConsecutiveTest is AbstractProposeTest {
                 _createProposeInputWithCustomParams(
                     0, // no deadline
                     _createBlobRef(0, 1, 0),
-                    secondParentProposals,
                     secondCoreState
                 )
             );

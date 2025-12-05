@@ -146,7 +146,6 @@ library LibHashOptimized {
             return EfficientHashLib.hash(
                 packedFields,
                 bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
-                _proposal.coreStateHash,
                 _proposal.derivationHash
             );
         }

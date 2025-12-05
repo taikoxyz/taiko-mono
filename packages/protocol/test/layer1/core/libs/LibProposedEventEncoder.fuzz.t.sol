@@ -36,7 +36,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.timestamp = _timestamp;
         payload.proposal.endOfSubmissionWindowTimestamp =
             _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
-        payload.proposal.coreStateHash = _coreStateHash;
         payload.proposal.derivationHash = _derivationHash;
 
         payload.derivation.originBlockNumber = _originBlockNumber;
@@ -70,7 +69,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
             decoded.proposal.endOfSubmissionWindowTimestamp,
             payload.proposal.endOfSubmissionWindowTimestamp
         );
-        assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
         assertEq(decoded.proposal.derivationHash, payload.proposal.derivationHash);
 
         // Verify Derivation fields
@@ -203,7 +201,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.timestamp = _timestamp;
         payload.proposal.endOfSubmissionWindowTimestamp =
             _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
-        payload.proposal.coreStateHash = keccak256(abi.encode("core", _id));
         payload.proposal.derivationHash = keccak256(abi.encode("deriv", _id));
 
         // Create Derivation with derived values
@@ -261,7 +258,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
             decoded.proposal.endOfSubmissionWindowTimestamp,
             payload.proposal.endOfSubmissionWindowTimestamp
         );
-        assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.sources.length, 1);
@@ -340,7 +336,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
         original.proposal.timestamp = _timestamp;
         original.proposal.endOfSubmissionWindowTimestamp =
             _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
-        original.proposal.coreStateHash = keccak256(abi.encode("core", _id));
         original.proposal.derivationHash = keccak256(abi.encode("deriv", _id));
 
         original.derivation.originBlockNumber = _timestamp;
@@ -423,7 +418,6 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.proposer = address(0x1234);
         payload.proposal.timestamp = 1_000_000;
         payload.proposal.endOfSubmissionWindowTimestamp = 1_100_000;
-        payload.proposal.coreStateHash = keccak256("core");
         payload.proposal.derivationHash = keccak256("deriv");
 
         payload.derivation.originBlockNumber = 5_000_000;

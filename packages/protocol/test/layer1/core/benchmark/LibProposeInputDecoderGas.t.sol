@@ -146,18 +146,6 @@ contract LibProposeInputDecoderGas is Test {
             bondInstructionsHash: keccak256("bond_instructions")
         });
 
-        input.parentProposals = new IInbox.Proposal[](_proposalCount);
-        for (uint256 i = 0; i < _proposalCount; i++) {
-            input.parentProposals[i] = IInbox.Proposal({
-                id: uint48(96 + i),
-                proposer: address(uint160(0x1000 + i)),
-                timestamp: uint48(1_000_000 + i * 10),
-                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
-                coreStateHash: keccak256(abi.encodePacked("core_state", i)),
-                derivationHash: keccak256(abi.encodePacked("derivation", i))
-            });
-        }
-
         input.blobReference = LibBlobs.BlobReference({
             blobStartIndex: 1, numBlobs: uint16(_proposalCount * 2), offset: 512
         });

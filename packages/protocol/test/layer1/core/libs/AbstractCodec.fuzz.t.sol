@@ -131,7 +131,6 @@ abstract contract AbstractCodecFuzzTest is Test {
             proposer: proposer,
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
-            coreStateHash: coreStateHash,
             derivationHash: derivationHash
         });
 
@@ -481,7 +480,6 @@ abstract contract AbstractCodecFuzzTest is Test {
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: timestamp + 1000,
             proposer: proposer,
-            coreStateHash: bytes32(uint256(0x1)),
             derivationHash: bytes32(uint256(0x2))
         });
 
@@ -490,7 +488,6 @@ abstract contract AbstractCodecFuzzTest is Test {
             timestamp: timestamp,
             endOfSubmissionWindowTimestamp: timestamp + 1000,
             proposer: proposer,
-            coreStateHash: bytes32(uint256(0x1)),
             derivationHash: bytes32(uint256(0x2))
         });
 

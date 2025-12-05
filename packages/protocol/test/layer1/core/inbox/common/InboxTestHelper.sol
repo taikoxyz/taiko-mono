@@ -116,7 +116,6 @@ abstract contract InboxTestHelper is CommonTest {
             proposer: address(0),
             timestamp: 0,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: _codec().hashCoreState(coreState),
             derivationHash: _codec().hashDerivation(derivation)
         });
     }
@@ -221,7 +220,6 @@ abstract contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
             // endOfSubmissionWindowTimestamp
-            coreStateHash: _codec().hashCoreState(expectedCoreState),
             derivationHash: _codec().hashDerivation(expectedDerivation)
         });
 
@@ -240,7 +238,6 @@ abstract contract InboxTestHelper is CommonTest {
     function _createProposeInputWithCustomParams(
         uint48 _deadline,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.Proposal[] memory _parentProposals,
         IInbox.CoreState memory _coreState
     )
         internal
@@ -250,7 +247,6 @@ abstract contract InboxTestHelper is CommonTest {
         return IInbox.ProposeInput({
             deadline: _deadline,
             coreState: _coreState,
-            parentProposals: _parentProposals,
             blobReference: _blobRef,
             checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: uint48(block.number),
@@ -266,14 +262,11 @@ abstract contract InboxTestHelper is CommonTest {
     /// @return ProposeInput struct for the first proposal
     function _createFirstProposeInput() internal view returns (IInbox.ProposeInput memory) {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
 
         return IInbox.ProposeInput({
             deadline: 0,
             coreState: coreState,
-            parentProposals: parentProposals,
             blobReference: blobRef,
             transitionRecords: new IInbox.TransitionRecord[](0),
             numForcedInclusions: 0,
@@ -294,12 +287,8 @@ abstract contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposeInput memory)
     {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
 
-        return _createProposeInputWithCustomParams(
-            _deadline, _createBlobRef(0, 1, 0), parentProposals, coreState
-        );
+        return _createProposeInputWithCustomParams(_deadline, _createBlobRef(0, 1, 0), coreState);
     }
 
     /// @notice Create a proposal input with custom blob configuration
@@ -315,11 +304,9 @@ abstract contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposeInput memory)
     {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, _numBlobs, _offset);
 
-        return _createProposeInputWithCustomParams(0, blobRef, parentProposals, coreState);
+        return _createProposeInputWithCustomParams(0, blobRef, coreState);
     }
 
     // ---------------------------------------------------------------
@@ -428,7 +415,7 @@ abstract contract InboxTestHelper is CommonTest {
     }
 
     /// @notice Create a proposal input for testing consecutive proposals
-    /// @param _parentProposal The parent proposal to build upon
+    /// @param _parentProposal The parent proposal to build upon (unused, kept for API compatibility)
     /// @param _proposalId The ID for the new proposal
     /// @return ProposeInput struct for consecutive proposal
     function _createConsecutiveProposeInput(
@@ -439,6 +426,9 @@ abstract contract InboxTestHelper is CommonTest {
         view
         returns (IInbox.ProposeInput memory)
     {
+        // Silence unused variable warning
+        _parentProposal;
+
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _proposalId,
             lastProposalBlockId: uint48(block.number),
@@ -448,11 +438,6 @@ abstract contract InboxTestHelper is CommonTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _parentProposal;
-
-        return _createProposeInputWithCustomParams(
-            0, _createBlobRef(0, 1, 0), parentProposals, coreState
-        );
+        return _createProposeInputWithCustomParams(0, _createBlobRef(0, 1, 0), coreState);
     }
 }

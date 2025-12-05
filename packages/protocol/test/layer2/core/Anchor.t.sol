@@ -113,8 +113,8 @@ contract AnchorTest is Test {
         assertEq(proposalState.designatedProver, proverCandidate);
         assertFalse(proposalState.isLowBondProposal);
         assertEq(proposalState.proposalId, proposalParams.proposalId);
-        assertEq(proposalState.bondInstructionsHash, proposalParams.bondInstructionsHash);
 
+        assertEq(blockState.bondInstructionsHash, blockParams.bondInstructionsHash);
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
@@ -156,7 +156,9 @@ contract AnchorTest is Test {
             anchorBlockNumber: blockParams.anchorBlockNumber,
             anchorBlockHash: blockParams.anchorBlockHash,
             anchorStateRoot: blockParams.anchorStateRoot,
-            rawTxListHash: bytes32(0)
+            rawTxListHash: bytes32(0),
+            bondInstructionsHash: blockParams.bondInstructionsHash,
+            bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
         vm.prank(GOLDEN_TOUCH);
@@ -193,17 +195,28 @@ contract AnchorTest is Test {
         anchor.anchorV4(proposalParams1, blockParams1);
 
         Anchor.ProposalState memory stateAfterFirstProposal = anchor.getProposalState();
+        Anchor.BlockState memory blockStateAfterFirstProposal = anchor.getBlockState();
         assertEq(stateAfterFirstProposal.proposalId, 1);
         assertEq(stateAfterFirstProposal.designatedProver, proverCandidate);
-        bytes32 previousBondHash = stateAfterFirstProposal.bondInstructionsHash;
+        bytes32 previousBondHash = blockStateAfterFirstProposal.bondInstructionsHash;
+
+        // Subsequent blocks in the same proposal with no new bond instructions
+        Anchor.BlockParams memory emptyBondBlockParams = Anchor.BlockParams({
+            anchorBlockNumber: blockParams1.anchorBlockNumber,
+            anchorBlockHash: blockParams1.anchorBlockHash,
+            anchorStateRoot: blockParams1.anchorStateRoot,
+            rawTxListHash: bytes32(0),
+            bondInstructionsHash: previousBondHash,
+            bondInstructions: new LibBonds.BondInstruction[](0)
+        });
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams1, blockParams1);
+        anchor.anchorV4(proposalParams1, emptyBondBlockParams);
 
         vm.roll(SHASTA_FORK_HEIGHT + 2);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams1, blockParams1);
+        anchor.anchorV4(proposalParams1, emptyBondBlockParams);
 
         vm.roll(SHASTA_FORK_HEIGHT + 3);
 
@@ -235,16 +248,16 @@ contract AnchorTest is Test {
             submissionWindowEnd: 0,
             proposalId: proposalId2,
             proposer: proposer,
-            proverAuth: proverAuth2,
-            bondInstructionsHash: expectedHash2,
-            bondInstructions: instructions2
+            proverAuth: proverAuth2
         });
 
         Anchor.BlockParams memory blockParams2 = Anchor.BlockParams({
             anchorBlockNumber: 1010,
             anchorBlockHash: bytes32(uint256(0xABCD)),
             anchorStateRoot: bytes32(uint256(0xEF01)),
-            rawTxListHash: bytes32(0)
+            rawTxListHash: bytes32(0),
+            bondInstructionsHash: expectedHash2,
+            bondInstructions: instructions2
         });
 
         vm.prank(GOLDEN_TOUCH);
@@ -253,10 +266,10 @@ contract AnchorTest is Test {
         Anchor.ProposalState memory stateAfterSecondProposal = anchor.getProposalState();
         assertEq(stateAfterSecondProposal.proposalId, 2);
         assertEq(stateAfterSecondProposal.designatedProver, proverCandidate);
-        assertEq(stateAfterSecondProposal.bondInstructionsHash, expectedHash2);
         assertFalse(stateAfterSecondProposal.isLowBondProposal);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
+        assertEq(blockState.bondInstructionsHash, expectedHash2);
         assertEq(blockState.anchorBlockNumber, 1010);
     }
 
@@ -271,15 +284,26 @@ contract AnchorTest is Test {
         uint256 proposerBalanceAfterFirst = bondManager.getBondBalance(proposer);
         uint256 proverBalanceAfterFirst = bondManager.getBondBalance(proverCandidate);
         Anchor.ProposalState memory stateAfterFirst = anchor.getProposalState();
+        Anchor.BlockState memory blockStateAfterFirst = anchor.getBlockState();
+        bytes32 cumulativeBondHash = blockStateAfterFirst.bondInstructionsHash;
+
+        // Subsequent blocks in the same proposal with no new bond instructions
+        Anchor.BlockParams memory emptyBondBlockParams = Anchor.BlockParams({
+            anchorBlockNumber: blockParams.anchorBlockNumber,
+            anchorBlockHash: blockParams.anchorBlockHash,
+            anchorStateRoot: blockParams.anchorStateRoot,
+            rawTxListHash: bytes32(0),
+            bondInstructionsHash: cumulativeBondHash,
+            bondInstructions: new LibBonds.BondInstruction[](0)
+        });
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(proposalParams, emptyBondBlockParams);
 
         Anchor.ProposalState memory stateAfterSecond = anchor.getProposalState();
         assertEq(stateAfterSecond.proposalId, stateAfterFirst.proposalId);
         assertEq(stateAfterSecond.designatedProver, stateAfterFirst.designatedProver);
-        assertEq(stateAfterSecond.bondInstructionsHash, stateAfterFirst.bondInstructionsHash);
         assertEq(
             bondManager.getBondBalance(proposer),
             proposerBalanceAfterFirst,
@@ -293,12 +317,11 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT + 2);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(proposalParams, emptyBondBlockParams);
 
         Anchor.ProposalState memory stateAfterThird = anchor.getProposalState();
         assertEq(stateAfterThird.proposalId, stateAfterFirst.proposalId);
         assertEq(stateAfterThird.designatedProver, stateAfterFirst.designatedProver);
-        assertEq(stateAfterThird.bondInstructionsHash, stateAfterFirst.bondInstructionsHash);
         assertEq(
             bondManager.getBondBalance(proposer),
             proposerBalanceAfterFirst,
@@ -332,16 +355,16 @@ contract AnchorTest is Test {
             submissionWindowEnd: 0,
             proposalId: proposalId,
             proposer: proposer,
-            proverAuth: abi.encode(invalidAuth),
-            bondInstructionsHash: expectedHash,
-            bondInstructions: instructions
+            proverAuth: abi.encode(invalidAuth)
         });
 
         Anchor.BlockParams memory blockParams = Anchor.BlockParams({
             anchorBlockNumber: 1000,
             anchorBlockHash: bytes32(uint256(0x1234)),
             anchorStateRoot: bytes32(uint256(0x5678)),
-            rawTxListHash: bytes32(0)
+            rawTxListHash: bytes32(0),
+            bondInstructionsHash: expectedHash,
+            bondInstructions: instructions
         });
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -589,16 +612,16 @@ contract AnchorTest is Test {
             submissionWindowEnd: 0,
             proposalId: proposalId,
             proposer: proposer,
-            proverAuth: proverAuth,
-            bondInstructionsHash: expectedHash,
-            bondInstructions: instructions
+            proverAuth: proverAuth
         });
 
         blockParams = Anchor.BlockParams({
             anchorBlockNumber: 1000,
             anchorBlockHash: bytes32(uint256(0x1234)),
             anchorStateRoot: bytes32(uint256(0x5678)),
-            rawTxListHash: bytes32(0)
+            rawTxListHash: bytes32(0),
+            bondInstructionsHash: expectedHash,
+            bondInstructions: instructions
         });
     }
 }
