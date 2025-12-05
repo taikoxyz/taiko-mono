@@ -205,7 +205,7 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
 
     /// @inheritdoc IBondProcessor
     /// @dev Slashes 50% of the debited bond.
-    /// - When payer != payee, the remaining 50% goes to the payee. 
+    /// - When payer != payee, the remaining 50% goes to the payee.
     /// - When payer == payee, 40% is refunded and 10% is awarded to the caller of this function.
     //    This is to provide the incentive for someone to call this function.
     function processBondSignal(
