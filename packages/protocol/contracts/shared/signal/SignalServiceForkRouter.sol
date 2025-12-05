@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import { ForkRouter } from "src/shared/fork-router/ForkRouter.sol";
 
+import "./SignalServiceForkRouter_Layout.sol"; // DO NOT DELETE
+
 /// @title SignalServiceForkRouter
 /// @notice Routes SignalService delegatecalls between Pacaya and Shasta implementations based on fork timestamp.
 /// @custom:security-contact security@taiko.xyz

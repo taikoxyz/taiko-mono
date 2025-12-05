@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import { ForkRouter } from "src/shared/fork-router/ForkRouter.sol";
 
+import "./AnchorForkRouter_Layout.sol"; // DO NOT DELETE
+
 /// @notice Interface exposing the legacy Pacaya anchor functionality used pre-fork.
 interface IPacayaAnchorLegacy {
     struct BaseFeeConfig {
