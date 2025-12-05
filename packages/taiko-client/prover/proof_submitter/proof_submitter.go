@@ -63,7 +63,9 @@ type SenderOptions struct {
 }
 
 // NewProofSubmitterPacaya creates a new ProofSubmitter instance.
+
 func NewProofSubmitterPacaya(
+	ctx context.Context,
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
@@ -81,7 +83,7 @@ func NewProofSubmitterPacaya(
 		return nil, err
 	}
 
-	return &ProofSubmitterPacaya{
+	proofSubmitter := &ProofSubmitterPacaya{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProver,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -103,7 +105,11 @@ func NewProofSubmitterPacaya(
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofPollingInterval:      proofPollingInterval,
-	}, nil
+	}
+
+	proofSubmitter.startProofBufferMonitors(ctx)
+
+	return proofSubmitter, nil
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -259,16 +265,46 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
 func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
-	if !buffer.IsAggregating() &&
-		(uint64(buffer.Len()) >= buffer.MaxLength ||
-			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.batchAggregationNotify <- proofType
-		buffer.MarkAggregating()
-
-		return true
+	// Check conditions first (without locking)
+	if uint64(buffer.Len()) < buffer.MaxLength &&
+		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
+		return false
 	}
 
+	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
+		s.batchAggregationNotify <- proofType
+		return true
+	}
 	return false
+}
+
+func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
+	if s.forceBatchProvingInterval <= 0 {
+		return
+	}
+	log.Info("Starting proof buffers monitors for Pacaya", "forceBatchProvingInterval", s.forceBatchProvingInterval)
+	for proofType, buffer := range s.proofBuffers {
+		go s.monitorProofBuffer(ctx, proofType, buffer)
+	}
+}
+
+func (s *ProofSubmitterPacaya) monitorProofBuffer(
+	ctx context.Context,
+	proofType proofProducer.ProofType,
+	buffer *proofProducer.ProofBuffer,
+) {
+	ticker := time.NewTicker(s.forceBatchProvingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug("context of proof buffer monitor is done")
+			return
+		case <-ticker.C:
+			s.TryAggregate(buffer, proofType)
+		}
+	}
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
@@ -302,6 +338,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		// If there are invalid batches in the aggregation, we ignore these batches.
 		log.Warn("Invalid batches in an aggregation, ignore these batches", "batchIDs", invalidBatchIDs)
 		proofBuffer.ClearItems(invalidBatchIDs...)
+		proofBuffer.ResetAggregating()
 		return ErrInvalidProof
 	}
 
@@ -320,6 +357,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64BatchIDs...)
+		proofBuffer.ResetAggregating()
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -336,6 +374,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	// Clear the items in the buffer.
 	proofBuffer.ClearItems(uint64BatchIDs...)
+	proofBuffer.ResetAggregating()
 
 	return nil
 }
@@ -365,6 +404,7 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 	// If the buffer is empty, skip the aggregation.
 	if len(buffer) == 0 {
 		log.Debug("Buffer is empty now, skip aggregating")
+		proofBuffer.ResetAggregating()
 		return nil
 	}
 	if err := backoff.Retry(

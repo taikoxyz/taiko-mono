@@ -349,6 +349,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -405,6 +406,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -458,6 +460,7 @@ func (s *ProverTestSuite) TestForceAggregate() {
 		BackOffRetryInterval:      3 * time.Second,
 		BackOffMaxRetries:         12,
 		SGXProofBufferSize:        uint64(batchSize),
+		ZKVMProofBufferSize:       uint64(batchSize),
 		ForceBatchProvingInterval: 5 * time.Second,
 	}, s.txmgr, s.txmgr))
 
