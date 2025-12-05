@@ -24,7 +24,7 @@ func TestProofBuffer(t *testing.T) {
 	}
 
 	// Mark its aggregating status.
-	b.MarkAggregating()
+	b.MarkAggregatingIfNot()
 	require.True(t, b.IsAggregating())
 
 	// Clear items from the buffer.
@@ -34,6 +34,7 @@ func TestProofBuffer(t *testing.T) {
 	}
 	require.Equal(t, bufferSize, b.ClearItems(blockIDs...))
 	require.Zero(t, b.Len())
+	b.ResetAggregating()
 	require.False(t, b.IsAggregating())
 }
 
