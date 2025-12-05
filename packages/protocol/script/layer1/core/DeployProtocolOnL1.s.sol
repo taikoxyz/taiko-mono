@@ -198,7 +198,11 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "shasta_inbox",
             impl: address(
                 new DevnetInbox(
-                    proofVerifier, whitelist, bondToken, signalService, address(new CodecOptimized())
+                    proofVerifier,
+                    whitelist,
+                    bondToken,
+                    signalService,
+                    address(new CodecOptimized())
                 )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
@@ -209,9 +213,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
 
-        SignalService(signalService).upgradeTo(
-            address(new SignalService(shastaInbox, config.remoteSigSvc))
-        );
+        SignalService(signalService)
+            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
         console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
         if (config.contractOwner != msg.sender) {
@@ -282,9 +285,8 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {
-        address signalService = IResolver(sharedResolver).resolve(
-            uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false
-        );
+        address signalService = IResolver(sharedResolver)
+            .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
 
         address bridge = deployProxy({
             name: "bridge",
@@ -349,7 +351,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init,
+                (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
         // Deploy sgx-geth automata attestation proxy
@@ -357,7 +360,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "sgx_geth_automata_dcap_attestation",
             impl: address(new AutomataDcapV3Attestation()),
             data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
+                AutomataDcapV3Attestation.init,
+                (owner, address(sigVerifyLib), address(pemCertChainLib))
             )
         });
     }
