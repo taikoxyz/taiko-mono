@@ -11,7 +11,6 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 ///      proveable only after the previous one finalizes within the same transaction.
 /// @custom:security-contact security@taiko.xyz
 library LibBondInstruction {
-
     using LibMath for uint256;
 
     /// @notice Calculates all bond instructions for a sequential prove call.

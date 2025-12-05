@@ -320,7 +320,11 @@ abstract contract ProveTestBase is InboxTestBase {
         vm.warp(p1.proposal.timestamp + config.provingWindow - 1);
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), proposer, proposer
+            p1,
+            inbox.getState().lastFinalizedTransitionHash,
+            bytes32(uint256(1)),
+            proposer,
+            proposer
         );
         IInbox.ProveInput memory proveFirst = IInbox.ProveInput({
             proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
@@ -330,9 +334,8 @@ abstract contract ProveTestBase is InboxTestBase {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + proposalCadence + 2);
 
-        IInbox.Transition memory t2 = _transitionFor(
-            p2, codec.hashTransition(t1), bytes32(uint256(2)), proposer, prover
-        );
+        IInbox.Transition memory t2 =
+            _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), proposer, prover);
         IInbox.ProveInput memory proveSecond = IInbox.ProveInput({
             proposals: _proposals(p2.proposal), transitions: _transitions(t2), syncCheckpoint: true
         });
