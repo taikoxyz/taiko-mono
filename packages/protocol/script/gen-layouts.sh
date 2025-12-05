@@ -25,6 +25,7 @@ contracts_shared=(
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
+"contracts/shared/signal/SignalServiceForkRouter.sol:SignalServiceForkRouter"
 )
 
 # Layer 1 contracts
