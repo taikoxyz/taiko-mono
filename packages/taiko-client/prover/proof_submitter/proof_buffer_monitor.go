@@ -2,8 +2,9 @@ package submitter
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/log"
 	"time"
+
+	"github.com/ethereum/go-ethereum/log"
 
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
