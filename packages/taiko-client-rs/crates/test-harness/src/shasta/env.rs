@@ -119,14 +119,13 @@ impl ShastaEnv {
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
-        // Build the proposer wired to the shared indexer and local codec.
+        // Build the proposer wired to the shared indexer.
         let proposer_config = ProposerConfigs {
             l1_provider_source: l1_source.clone(),
             l2_provider_url: l2_http_url.clone(),
             l2_auth_provider_url: l2_auth_url.clone(),
             jwt_secret: jwt_secret_path.clone(),
             inbox_address,
-            use_local_shasta_codec: true,
             l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(0),
             l1_proposer_private_key,
