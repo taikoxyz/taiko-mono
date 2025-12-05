@@ -322,6 +322,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		// If there are invalid proposals in the aggregation, we ignore these proposals.
 		log.Warn("Invalid proposals in an aggregation, ignore these proposals", "proposalIDs", invalidProposalIDs)
 		proofBuffer.ClearItems(invalidProposalIDs...)
+		proofBuffer.ResetAggregating()
 		return ErrInvalidProof
 	}
 	var (
@@ -343,6 +344,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64ProposalIDs...)
+		proofBuffer.ResetAggregating()
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -355,6 +357,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	}
 
 	proofBuffer.ClearItems(uint64ProposalIDs...)
+	proofBuffer.ResetAggregating()
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 
@@ -364,10 +367,13 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
 func (s *ProofSubmitterShasta) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
-	if !buffer.IsAggregating() &&
-		(uint64(buffer.Len()) >= buffer.MaxLength ||
-			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		buffer.MarkAggregating()
+	// Check conditions first (without locking)
+	if uint64(buffer.Len()) < buffer.MaxLength &&
+		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
+		return false
+	}
+
+	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
 		s.batchAggregationNotify <- proofType
 		return true
 	}

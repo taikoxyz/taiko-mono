@@ -269,15 +269,16 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
 func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
-	if !buffer.IsAggregating() &&
-		(uint64(buffer.Len()) >= buffer.MaxLength ||
-			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		buffer.MarkAggregating()
-		s.batchAggregationNotify <- proofType
-
-		return true
+	// Check conditions first (without locking)
+	if uint64(buffer.Len()) < buffer.MaxLength &&
+		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
+		return false
 	}
 
+	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
+		s.batchAggregationNotify <- proofType
+		return true
+	}
 	return false
 }
 
@@ -319,6 +320,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		// If there are invalid batches in the aggregation, we ignore these batches.
 		log.Warn("Invalid batches in an aggregation, ignore these batches", "batchIDs", invalidBatchIDs)
 		proofBuffer.ClearItems(invalidBatchIDs...)
+		proofBuffer.ResetAggregating()
 		return ErrInvalidProof
 	}
 
@@ -337,6 +339,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64BatchIDs...)
+		proofBuffer.ResetAggregating()
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -353,6 +356,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	// Clear the items in the buffer.
 	proofBuffer.ClearItems(uint64BatchIDs...)
+	proofBuffer.ResetAggregating()
 
 	return nil
 }
