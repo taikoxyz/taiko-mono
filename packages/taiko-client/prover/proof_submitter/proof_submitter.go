@@ -281,6 +281,7 @@ func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
 	if s.forceBatchProvingInterval <= 0 {
 		return
 	}
+	log.Info("Starting proof buffers monitors for Pacaya", "forceBatchProvingInterval", s.forceBatchProvingInterval)
 	for proofType, buffer := range s.proofBuffers {
 		go s.monitorProofBuffer(ctx, proofType, buffer)
 	}
@@ -291,16 +292,13 @@ func (s *ProofSubmitterPacaya) monitorProofBuffer(
 	proofType proofProducer.ProofType,
 	buffer *proofProducer.ProofBuffer,
 ) {
-	interval := s.forceBatchProvingInterval
-	if interval <= 0 {
-		interval = 30 * time.Minute
-	}
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(s.forceBatchProvingInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			log.Debug("context of proof buffer monitor is done")
 			return
 		case <-ticker.C:
 			s.TryAggregate(buffer, proofType)
