@@ -17,14 +17,15 @@ contract DevnetInbox is InboxOptimized {
     // ---------------------------------------------------------------
     /// @dev Ring buffer size for storing proposal hashes.
     /// Assumptions:
-    /// - D = 2: Proposals may continue without finalization for up to 2 days.
-    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
+    /// - D = 3: Buffer must hold at least 3 days of proposals.
+    /// - P = 1: Sized for worst-case 1 proposal every slot (12s); expected cadence
+    ///   is 1 proposal every 32 Ethereum slots (≈384s ≈6 minutes).
     ///
     /// Calculation:
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
-    ///                     = (86400 * 2) / 12 / 6
-    ///                     = 2400
-    uint64 private constant _RING_BUFFER_SIZE = 100;
+    ///                     = (86400 * 3) / 12 / 1
+    ///                     = 21600
+    uint64 private constant _RING_BUFFER_SIZE = 21_600;
 
     // ---------------------------------------------------------------
     // Constructor
