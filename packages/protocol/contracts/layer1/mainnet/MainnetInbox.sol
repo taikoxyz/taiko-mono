@@ -44,6 +44,7 @@ contract MainnetInbox is InboxOptimized {
                 proposerChecker: _proposerChecker,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
+                maxProofSubmissionDelay: 1 minutes,
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,

@@ -308,6 +308,52 @@ abstract contract ProveTestBase is InboxTestBase {
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal recorded");
     }
 
+    function test_prove_lateDueToSequentialDelay_emitsLivenessBondSignal() public {
+        uint256 proposalCadence = 120;
+
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + proposalCadence);
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+
+        vm.roll(block.number + 1);
+        vm.warp(p1.proposal.timestamp + config.provingWindow - 1);
+
+        IInbox.Transition memory t1 = _transitionFor(
+            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), proposer, proposer
+        );
+        IInbox.ProveInput memory proveFirst = IInbox.ProveInput({
+            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
+        });
+        _proveAndDecode(proveFirst);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + proposalCadence + 2);
+
+        IInbox.Transition memory t2 = _transitionFor(
+            p2, codec.hashTransition(t1), bytes32(uint256(2)), proposer, prover
+        );
+        IInbox.ProveInput memory proveSecond = IInbox.ProveInput({
+            proposals: _proposals(p2.proposal), transitions: _transitions(t2), syncCheckpoint: true
+        });
+
+        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveSecond);
+
+        LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
+            proposalId: p2.proposal.id,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: proposer,
+            payee: prover
+        });
+        assertEq(
+            uint8(provedPayload.bondInstruction.bondType),
+            uint8(LibBonds.BondType.LIVENESS),
+            "bond type"
+        );
+        assertEq(provedPayload.bondInstruction.payer, expectedInstruction.payer, "payer");
+        assertEq(provedPayload.bondInstruction.payee, expectedInstruction.payee, "payee");
+    }
+
     function test_prove_acceptsProofWithFinalizedPrefix() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();

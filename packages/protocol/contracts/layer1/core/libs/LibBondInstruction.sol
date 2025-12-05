@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title LibBondInstruction
 /// @notice Library for L1-specific bond instruction calculations under sequential proving.
@@ -10,6 +11,9 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 ///      proveable only after the previous one finalizes within the same transaction.
 /// @custom:security-contact security@taiko.xyz
 library LibBondInstruction {
+
+    using LibMath for uint256;
+
     /// @notice Calculates all bond instructions for a sequential prove call.
     /// @dev Bond instruction rules:
     ///         - On-time (within provingWindow): No bond changes.
@@ -19,6 +23,9 @@ library LibBondInstruction {
     ///           differs from proposer of the first transition.
     /// @param _provingWindow The proving window in seconds.
     /// @param _extendedProvingWindow The extended proving window in seconds.
+    /// @param _maxProofSubmissionDelay Max delay allowed between consecutive proofs to avoid
+    ///        liveness penalties.
+    /// @param _priorFinalizedTimestamp Timestamp when the last proposal was finalized.
     /// @param _firstProposal The first proposal proven in the batch.
     /// @param _firstTransition The transition for the first proposal.
     /// @param _readyTimestamp Timestamp when the first proposal became proveable (max of the first
@@ -28,6 +35,8 @@ library LibBondInstruction {
     function calculateBondInstruction(
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
+        uint48 _maxProofSubmissionDelay,
+        uint48 _priorFinalizedTimestamp,
         IInbox.Proposal memory _firstProposal,
         IInbox.Transition memory _firstTransition,
         uint48 _readyTimestamp
@@ -38,15 +47,20 @@ library LibBondInstruction {
     {
         unchecked {
             uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = uint256(_readyTimestamp) + _provingWindow;
+            uint256 proposalDeadline = uint256(_firstProposal.timestamp) + _provingWindow;
+            uint256 sequentialDeadline =
+                uint256(_priorFinalizedTimestamp) + _maxProofSubmissionDelay;
+            uint256 livenessWindowDeadline = proposalDeadline.max(sequentialDeadline);
 
             // On-time proof - no bond instructions needed.
-            if (proofTimestamp <= windowEnd) {
+            if (proofTimestamp <= livenessWindowDeadline) {
                 return bondInstruction_;
             }
 
-            uint256 extendedWindowEnd = uint256(_readyTimestamp) + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
+            // For the extended proving deadline we still allow `_extendedProvingWindow` to pass
+            // to avoid excesive slashing due to a proposer not being able to submit their proof
+            uint256 extendedWindowDeadline = uint256(_readyTimestamp) + _extendedProvingWindow;
+            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowDeadline;
 
             address payer = isWithinExtendedWindow
                 ? _firstTransition.designatedProver

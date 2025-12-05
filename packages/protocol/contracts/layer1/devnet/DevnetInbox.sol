@@ -45,6 +45,7 @@ contract DevnetInbox is InboxOptimized {
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
+                maxProofSubmissionDelay: 1 minutes,
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,

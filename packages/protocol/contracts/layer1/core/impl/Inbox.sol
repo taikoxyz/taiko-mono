@@ -90,6 +90,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The extended proving window in seconds.
     uint48 internal immutable _extendedProvingWindow;
 
+    /// @notice Maximum delay allowed between sequential proofs to remain on time.
+    uint48 internal immutable _maxProofSubmissionDelay;
+
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 internal immutable _ringBufferSize;
 
@@ -157,6 +160,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
+        _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
         _minForcedInclusionCount = _config.minForcedInclusionCount;
@@ -315,6 +319,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
+            maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
             codec: _codec,
@@ -445,7 +450,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The input containing the proposals and transitions
     /// @return newState_ The new state after the proof is processed
     /// @return bondInstruction_ Bond instruction to be signaled to L2 (BondType.NONE when unused)
-    /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
+    /// @return firstReadyTimestamp_ The timestamp when the first proposal was ready to be proven
     function _processProof(
         CoreState memory _stateBefore,
         ProveInput memory _input
@@ -495,6 +500,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bondInstruction_ = LibBondInstruction.calculateBondInstruction(
                 _provingWindow,
                 _extendedProvingWindow,
+                _maxProofSubmissionDelay,
+                _stateBefore.lastFinalizedTimestamp,
                 _input.proposals[firstProvenIndex_],
                 _input.transitions[firstProvenIndex_],
                 firstReadyTimestamp_
@@ -561,9 +568,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (uint48)
     {
-        return _proposalTimestamp > _priorFinalizedTimestamp
-            ? _proposalTimestamp
-            : _priorFinalizedTimestamp;
+        return uint48(_proposalTimestamp.max(_priorFinalizedTimestamp));
     }
 
     /// @dev Validates proposal hash against stored value
