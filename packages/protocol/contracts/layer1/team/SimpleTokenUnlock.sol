@@ -14,16 +14,15 @@ import "src/shared/libs/LibMath.sol";
 /// @notice Fully unlocks granted Taiko tokens 6 months after GRANT_TIMESTAMP.
 /// Tokens granted off-chain are deposited into this contract directly from the `msg.sender`
 /// address. Token withdrawals from the grant bucket are permitted only at the 6 month mark.
-/// Any tokens sent directly to the contract in excess of amountGranted are immediately withdrawable.
 /// A separate instance of this contract is deployed for each recipient.
 /// @custom:security-contact security@taiko.xyz
 contract SimpleTokenUnlock is EssentialContract {
     using SafeERC20 for IERC20;
     using LibMath for uint256;
 
-    uint256 public immutable SIX_MONTHS; // 183 days
-    address public immutable TAIKO_TOKEN; //
-    uint64 public immutable GRANT_TIMESTAMP; // 1764460800 for 30 Nov 2025, 00:00:00 UTC. 8 bytes
+    uint256 public constant SIX_MONTHS = 183 days;
+    address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
+    uint64 public constant GRANT_TIMESTAMP = 1_764_460_800; // 30 Nov 2025, 00:00:00 UTC
 
     uint256 public amountGranted; // slot 1
     address public recipient; // 20 bytes
@@ -47,6 +46,7 @@ contract SimpleTokenUnlock is EssentialContract {
     error INVALID_PARAM();
     error NOT_WITHDRAWABLE();
     error PERMISSION_DENIED();
+    error INSUFFICIENT_BALANCE();
 
     modifier onlyRecipient() {
         require(msg.sender == recipient, PERMISSION_DENIED());
@@ -58,12 +58,7 @@ contract SimpleTokenUnlock is EssentialContract {
         _;
     }
 
-    constructor(address _resolver) EssentialContract(_resolver) {
-        SIX_MONTHS = 183 days;
-        TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
-        GRANT_TIMESTAMP = 1764460800;
-     }
-
+    constructor(address _resolver) EssentialContract(_resolver) { }
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
@@ -93,44 +88,24 @@ contract SimpleTokenUnlock is EssentialContract {
         amountGranted += _amount;
         emit TokenGranted(_amount);
 
-        IERC20(TAIKO_TOKEN).safeTransferFrom(
-            msg.sender, address(this), _amount
-        );
+        IERC20(TAIKO_TOKEN).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @notice Withdraws tokens by the recipient.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
-    function withdraw(address _to, uint256 _amount)
-    external
-    onlyRecipient
-    nonReentrant
-{
-    if (_to == address(0)) _to = recipient;
-    if (_amount == 0) _amount = amountWithdrawable();
+    function withdraw(address _to, uint256 _amount) external onlyRecipient nonReentrant {
+        if (_to == address(0)) _to = recipient;
 
-    uint256 available = amountWithdrawable();
-    require(_amount <= available, NOT_WITHDRAWABLE());
+        uint256 withdrawable = amountWithdrawable();
+        if (_amount == 0) _amount = withdrawable;
+        require(_amount <= withdrawable, INSUFFICIENT_BALANCE());
 
-    IERC20 tko = IERC20(TAIKO_TOKEN);
-    uint256 balance = tko.balanceOf(address(this));
+        IERC20 tko = IERC20(TAIKO_TOKEN);
 
-    // extra = any balance above the grant bucket
-    uint256 extra = balance > amountGranted ? balance - amountGranted : 0;
-
-    // first consume from extra, then from the grant bucket
-    uint256 grantPortion = _amount > extra ? _amount - extra : 0;
-    if (grantPortion > 0) {
-        // Safety guard if something weird happened to balance/accounting
-        uint256 reduction = grantPortion > amountGranted
-            ? amountGranted
-            : grantPortion;
-        amountGranted -= reduction;
+        emit TokenWithdrawn(_to, _amount);
+        tko.safeTransfer(_to, _amount);
     }
-
-    emit TokenWithdrawn(_to, _amount);
-    tko.safeTransfer(_to, _amount);
-}
 
     /// @notice Changes the recipient address.
     /// @param _newRecipient The new recipient address.
@@ -150,19 +125,16 @@ contract SimpleTokenUnlock is EssentialContract {
     /// @notice Returns the amount of token withdrawable.
     /// @return The amount of token withdrawable.
     function amountWithdrawable() public view returns (uint256) {
-    IERC20 tko = IERC20(TAIKO_TOKEN);
-    uint256 balance = tko.balanceOf(address(this));
+        IERC20 tko = IERC20(TAIKO_TOKEN);
+        uint256 balance = tko.balanceOf(address(this));
 
-    // pre-cliff: only tokens above the granted amount are withdrawable
-    if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
-        if (balance > amountGranted) {
-            return balance - amountGranted;
+        // pre-cliff: no tokens
+        if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {
+            return 0;
         }
-        return 0;
+        // post-cliff: all tokens in the contract are withdrawable
+        return balance;
     }
-    // post-cliff: all tokens in the contract are withdrawable
-    return balance;
-}
 
     function _getAmountLocked() internal view returns (uint256) {
         if (block.timestamp < GRANT_TIMESTAMP + SIX_MONTHS) {

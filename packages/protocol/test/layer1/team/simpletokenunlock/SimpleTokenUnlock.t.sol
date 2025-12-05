@@ -82,47 +82,41 @@ contract TestSimpleTokenUnlock is Layer1Test {
 
         vm.startPrank(Alice);
         target.grant(100 ether);
-        taikoToken.transfer(address(target), 0.5 ether);
         vm.stopPrank();
 
-        assertEq(taikoToken.balanceOf(address(target)), 100.5 ether);
+        assertEq(taikoToken.balanceOf(address(target)), 100 ether);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0.5 ether);
+        assertEq(target.amountWithdrawable(), 0 ether);
 
         vm.warp(grantTimestamp + target.SIX_MONTHS() - 1);
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 0.5 ether);
+        assertEq(target.amountWithdrawable(), 0 ether);
 
         vm.warp(grantTimestamp + target.SIX_MONTHS());
         assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 100.5 ether);
-
-        vm.prank(Alice);
-        taikoToken.transfer(address(target), 0.5 ether);
-        assertEq(target.amountGranted(), 100 ether);
-        assertEq(target.amountWithdrawable(), 101 ether);
+        assertEq(target.amountWithdrawable(), 100 ether);
     }
 
-    function test_simpletokenunlock_precliff_withdrawal_attack() public {
+    function test_simpletokenunlock_withdraw_above_balance() public {
         vm.startPrank(Alice);
         target.grant(100 ether);
-        taikoToken.transfer(address(target), 0.5 ether);
         vm.stopPrank();
 
-        uint256 amt = target.amountWithdrawable();
-        vm.prank(Bob);
-        target.withdraw(Bob, amt);
-
-        assertEq(target.amountGranted(), 100 ether);
         assertEq(taikoToken.balanceOf(address(target)), 100 ether);
+        assertEq(target.amountGranted(), 100 ether);
+        assertEq(target.amountWithdrawable(), 0 ether);
+
+        vm.prank(Bob);
+        vm.expectRevert(); // "revert: INSUFFICIENT_BALANCE"
+        target.withdraw(address(Bob), 1 ether);
 
         vm.warp(grantTimestamp + target.SIX_MONTHS());
-        amt = target.amountWithdrawable();
+        assertEq(target.amountGranted(), 100 ether);
+        assertEq(target.amountWithdrawable(), 100 ether);
+
         vm.prank(Bob);
-        target.withdraw(Bob, amt);
-        assertEq(taikoToken.balanceOf(address(target)), 0 ether);
-        assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(target.amountGranted(), 0 ether);
+        vm.expectRevert(); // "revert: INSUFFICIENT_BALANCE"
+        target.withdraw(address(Bob), 101 ether);
     }
 
     function test_simpletokenunlock_delegate() public {
