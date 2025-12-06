@@ -5,6 +5,7 @@ import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -16,6 +17,18 @@ import "./SignalService_Layout.sol"; // DO NOT DELETE
 /// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @dev EIP-7201 namespace for signal storage to prevent slot collisions.
+    /// keccak256(abi.encode(uint256(keccak256("taiko.signal.storage")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant _SIGNAL_NAMESPACE =
+        0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
+
+    /// @dev Duration after deployment during which legacy slot fallback is active (1 year).
+    uint256 private constant _LEGACY_SLOT_SUPPORT_DURATION = 365 days;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -38,6 +51,10 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
+
+    /// @dev Timestamp after which legacy slot fallback will no longer be performed.
+    /// Set to deployment time + 1 year.
+    uint256 public immutable legacySlotExpiry;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -69,6 +86,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
+        legacySlotExpiry = block.timestamp + _LEGACY_SLOT_SUPPORT_DURATION;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -129,12 +147,37 @@ contract SignalService is EssentialContract, ISignalService {
         return _loadSignalValue(_signalSlot) != 0;
     }
 
-    /// @notice Returns the slot for a signal.
+    /// @notice Returns the EIP-7201 namespaced slot for a signal.
+    /// @dev This uses a high-entropy domain separator to prevent slot collisions with contract state.
+    /// The hash is computed as: keccak256(abi.encode(_SIGNAL_NAMESPACE, _chainId, _app, _signal))
     /// @param _chainId The chainId of the signal.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
-    /// @return The slot for the signal.
+    /// @return The EIP-7201 namespaced slot for the signal.
     function getSignalSlot(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        // EfficientHashLib.hash produces the same result as keccak256(abi.encode(...))
+        // when values are properly padded to 32 bytes
+        return EfficientHashLib.hash(
+            _SIGNAL_NAMESPACE, bytes32(uint256(_chainId)), bytes32(uint256(uint160(_app))), _signal
+        );
+    }
+
+    /// @notice Returns the legacy slot for a signal (pre-EIP-7201).
+    /// @dev This is the old slot calculation method, kept for backwards compatibility during migration.
+    /// This function will be removed after the migration period (approximately 1 year after upgrade).
+    /// @param _chainId The chainId of the signal.
+    /// @param _app The address that initiated the signal.
+    /// @param _signal The signal (message) that was sent.
+    /// @return The legacy slot for the signal.
+    function getLegacySignalSlot(
         uint64 _chainId,
         address _app,
         bytes32 _signal
@@ -210,12 +253,26 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32) {
+    function _loadSignalValue(
+        address _app,
+        bytes32 _signal
+    )
+        private
+        view
+        returns (bytes32 value_)
+    {
         require(_app != address(0), ZERO_ADDRESS());
         require(_signal != bytes32(0), ZERO_VALUE());
 
-        bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
-        return _loadSignalValue(slot);
+        uint64 chainId = uint64(block.chainid);
+
+        // First try the new EIP-7201 slot
+        value_ = _loadSignalValue(getSignalSlot(chainId, _app, _signal));
+
+        // If value is 0 and legacy support hasn't expired, check the legacy slot
+        if (value_ == bytes32(0) && block.timestamp < legacySlotExpiry) {
+            value_ = _loadSignalValue(getLegacySignalSlot(chainId, _app, _signal));
+        }
     }
 
     function _loadSignalValue(bytes32 _signalSlot) private view returns (bytes32 value_) {
@@ -238,8 +295,15 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
-            return;
+            // Check new EIP-7201 slot first
+            if (_receivedSignals[slot]) return;
+            // Fall back to legacy slot if within the legacy support period
+            if (
+                block.timestamp < legacySlotExpiry
+                    && _receivedSignals[getLegacySignalSlot(_chainId, _app, _signal)]
+            ) return;
+
+            revert SS_SIGNAL_NOT_RECEIVED();
         }
 
         HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
@@ -256,10 +320,15 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
+        // Try new EIP-7201 slot first, fall back to legacy slot during migration period.
+        // After migration: only try the new EIP-7201 slot (fallback disabled with bytes32(0)).
         LibTrieProof.verifyMerkleProof(
             checkpoint.stateRoot,
             _remoteSignalService,
             slot,
+            block.timestamp < legacySlotExpiry
+                ? getLegacySignalSlot(_chainId, _app, _signal)
+                : bytes32(0),
             _signal,
             proof.accountProof,
             proof.storageProof
