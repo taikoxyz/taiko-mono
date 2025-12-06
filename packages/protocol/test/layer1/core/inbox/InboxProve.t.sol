@@ -339,15 +339,15 @@ abstract contract ProveTestBase is InboxTestBase {
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
         assertEq(state.lastFinalizedTransitionHash, codec.hashTransition(t3), "transition hash");
-        assertEq(provedPayload.proposalId, p2.proposal.id, "proved proposal id");
+        assertEq(provedPayload.proposalId, p3.proposal.id, "proved proposal id");
         assertEq(
             provedPayload.transition.proposalHash,
-            codec.hashProposal(p2.proposal),
+            codec.hashProposal(p3.proposal),
             "proved proposal hash"
         );
         assertEq(
             provedPayload.transition.parentTransitionHash,
-            codec.hashTransition(t1),
+            codec.hashTransition(t2),
             "proved parent hash"
         );
     }
