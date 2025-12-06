@@ -72,7 +72,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-			UseLocalShastaDecoder:       true,
 		},
 		BlobAllowed:             true,
 		L1ProposerPrivKey:       l1ProposerPrivKey,
