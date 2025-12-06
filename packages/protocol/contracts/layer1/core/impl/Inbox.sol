@@ -38,7 +38,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    uint256 private constant ACTIVATION_WINDOW = 2 hours;
+    uint256 private constant _ACTIVATION_WINDOW = 2 hours;
 
     // ---------------------------------------------------------------
     // Structs
@@ -179,7 +179,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             activationTimestamp = uint48(block.timestamp);
         } else {
             require(
-                block.timestamp <= ACTIVATION_WINDOW + activationTimestamp,
+                block.timestamp <= _ACTIVATION_WINDOW + activationTimestamp,
                 ActivationPeriodExpired()
             );
         }
@@ -828,14 +828,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (bytes32 signal_)
     {
-        signal_ = _bondSignalHash(_bondInstruction);
+        signal_ = _hashBondInstruction(_bondInstruction);
         _signalService.sendSignal(signal_);
     }
 
     /// @dev Calculates the bond signal hash for a bond instruction.
     /// @param _bondInstruction The bond instruction to hash.
     /// @return The hash of the bond instruction.
-    function _bondSignalHash(LibBonds.BondInstruction memory _bondInstruction)
+    function _hashBondInstruction(LibBonds.BondInstruction memory _bondInstruction)
         private
         pure
         returns (bytes32)
