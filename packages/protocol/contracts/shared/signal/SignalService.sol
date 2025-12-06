@@ -313,14 +313,13 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
-        // During migration period: try legacy slot first, fall back to new EIP-7201 slot.
-        // Most existing proofs during migration target the legacy slot, so we optimize for that case.
+        // Try new EIP-7201 slot first, fall back to legacy slot during migration period.
         // After migration: only try the new EIP-7201 slot (fallback disabled with bytes32(0)).
         LibTrieProof.verifyMerkleProof(
             checkpoint.stateRoot,
             _remoteSignalService,
-            block.timestamp < legacySlotExpiry ? getLegacySignalSlot(_chainId, _app, _signal) : slot,
-            block.timestamp < legacySlotExpiry ? slot : bytes32(0),
+            slot,
+            block.timestamp < legacySlotExpiry ? getLegacySignalSlot(_chainId, _app, _signal) : bytes32(0),
             _signal,
             proof.accountProof,
             proof.storageProof

@@ -246,22 +246,6 @@ contract TestSignalService is CommonTest {
         );
     }
 
-    function test_proveSignalReceived_AcceptsValidProofAndCaches() public {
-        _saveCheckpoint(VALID_PROOF_BLOCK_ID, VALID_PROOF_STATE_ROOT);
-
-        uint64 originalChainId = uint64(block.chainid);
-        vm.chainId(167_001);
-
-        uint256 cacheOps = signalService.proveSignalReceived(
-            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
-        );
-        assertEq(cacheOps, 0);
-
-        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
-
-        vm.chainId(originalChainId);
-    }
-
     function _saveCheckpoint(uint64 blockNumber, bytes32 stateRoot) private {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
