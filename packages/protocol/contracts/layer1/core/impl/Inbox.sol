@@ -56,7 +56,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         LibBonds.BondInstruction bondInstruction;
         uint256 proposalAge;
         uint256 firstProvenIndex;
-        bytes32 aggregatedProvingHash;
+        bytes32 aggregatedTransitionHash;
     }
 
     // ---------------------------------------------------------------
@@ -228,7 +228,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         ProofBuildResult memory result = _buildProofResult(input);
 
-        _proofVerifier.verifyProof(result.proposalAge, result.aggregatedProvingHash, _proof);
+        _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
 
         bytes32 bondSignal;
         if (result.bondInstruction.bondType != LibBonds.BondType.NONE) {
@@ -431,7 +431,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             result_.proposalAge = block.timestamp - uint256(firstReadyTimestamp);
         }
 
-        result_.aggregatedProvingHash = _hashTransitions(_input.transitions);
+        result_.aggregatedTransitionHash = _hashTransitions(_input.transitions);
     }
 
     /// @dev Processes sequential proofs, updates state, and builds the transition record.
