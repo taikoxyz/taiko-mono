@@ -62,9 +62,12 @@ contract TestSignalService is CommonTest {
 
         // EfficientHashLib.hash should produce same result as keccak256(abi.encode(...))
         // This ensures EIP-7201 compatibility
-        bytes32 SIGNAL_NAMESPACE = 0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
+        bytes32 SIGNAL_NAMESPACE =
+            0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
         bytes32 expectedNewSlot = keccak256(abi.encode(SIGNAL_NAMESPACE, chainId, app, signal));
-        assertEq(newSlot, expectedNewSlot, "EfficientHashLib should match keccak256(abi.encode(...))");
+        assertEq(
+            newSlot, expectedNewSlot, "EfficientHashLib should match keccak256(abi.encode(...))"
+        );
     }
 
     function test_signalNamespace_MatchesEIP7201Formula() public pure {
@@ -73,7 +76,8 @@ contract TestSignalService is CommonTest {
         bytes32 expected = keccak256(abi.encode(uint256(keccak256("taiko.signal.storage")) - 1))
             & ~bytes32(uint256(0xff));
 
-        bytes32 SIGNAL_NAMESPACE = 0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
+        bytes32 SIGNAL_NAMESPACE =
+            0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
         assertEq(SIGNAL_NAMESPACE, expected, "SIGNAL_NAMESPACE must match EIP-7201 formula");
     }
 
@@ -112,7 +116,8 @@ contract TestSignalService is CommonTest {
             "Test precondition: should be after expiry"
         );
         assertFalse(
-            signalService.isSignalSent(app, signal), "Should not find signal in legacy slot after expiry"
+            signalService.isSignalSent(app, signal),
+            "Should not find signal in legacy slot after expiry"
         );
     }
 

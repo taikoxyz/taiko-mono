@@ -166,10 +166,7 @@ contract SignalService is EssentialContract, ISignalService {
         // EfficientHashLib.hash produces the same result as keccak256(abi.encode(...))
         // when values are properly padded to 32 bytes
         return EfficientHashLib.hash(
-            _SIGNAL_NAMESPACE,
-            bytes32(uint256(_chainId)),
-            bytes32(uint256(uint160(_app))),
-            _signal
+            _SIGNAL_NAMESPACE, bytes32(uint256(_chainId)), bytes32(uint256(uint160(_app))), _signal
         );
     }
 
@@ -256,14 +253,21 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32 value_) {
+    function _loadSignalValue(
+        address _app,
+        bytes32 _signal
+    )
+        private
+        view
+        returns (bytes32 value_)
+    {
         require(_app != address(0), ZERO_ADDRESS());
         require(_signal != bytes32(0), ZERO_VALUE());
 
         uint64 chainId = uint64(block.chainid);
 
         // First try the new EIP-7201 slot
-       value_ = _loadSignalValue(getSignalSlot(chainId, _app, _signal));
+        value_ = _loadSignalValue(getSignalSlot(chainId, _app, _signal));
 
         // If value is 0 and legacy support hasn't expired, check the legacy slot
         if (value_ == bytes32(0) && block.timestamp < legacySlotExpiry) {
@@ -294,8 +298,11 @@ contract SignalService is EssentialContract, ISignalService {
             // Check new EIP-7201 slot first
             if (_receivedSignals[slot]) return;
             // Fall back to legacy slot if within the legacy support period
-            if (block.timestamp < legacySlotExpiry && _receivedSignals[getLegacySignalSlot(_chainId, _app, _signal)]) return;
-            
+            if (
+                block.timestamp < legacySlotExpiry
+                    && _receivedSignals[getLegacySignalSlot(_chainId, _app, _signal)]
+            ) return;
+
             revert SS_SIGNAL_NOT_RECEIVED();
         }
 
@@ -319,7 +326,9 @@ contract SignalService is EssentialContract, ISignalService {
             checkpoint.stateRoot,
             _remoteSignalService,
             slot,
-            block.timestamp < legacySlotExpiry ? getLegacySignalSlot(_chainId, _app, _signal) : bytes32(0),
+            block.timestamp < legacySlotExpiry
+                ? getLegacySignalSlot(_chainId, _app, _signal)
+                : bytes32(0),
             _signal,
             proof.accountProof,
             proof.storageProof

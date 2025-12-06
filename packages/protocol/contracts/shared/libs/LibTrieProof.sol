@@ -45,8 +45,9 @@ library LibTrieProof {
         bytes memory encodedValue = RLPWriter.writeUint(uint256(_value));
 
         // Try primary slot first
-        bool verified =
-            SecureMerkleTrie.verifyInclusionProof(bytes.concat(_slot), encodedValue, _storageProof, storageRoot_);
+        bool verified = SecureMerkleTrie.verifyInclusionProof(
+            bytes.concat(_slot), encodedValue, _storageProof, storageRoot_
+        );
 
         // If primary fails, try fallback slot
         if (!verified && _fallbackSlot != bytes32(0)) {
