@@ -101,24 +101,6 @@ func SubscribeProposedShasta(
 	})
 }
 
-// SubscribeProvedShasta subscribes the Shasta protocol's Proved events.
-func SubscribeProvedShasta(
-	taikoInbox *shastaBindings.ShastaInboxClient,
-	ch chan *shastaBindings.ShastaInboxClientProved,
-) event.Subscription {
-	return SubscribeEvent("Proved", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoInbox.WatchProved(nil, ch)
-		if err != nil {
-			log.Error("Create Shasta Inbox.Proved subscription error", "error", err)
-			return nil, err
-		}
-
-		defer sub.Unsubscribe()
-
-		return waitSubErr(ctx, sub)
-	})
-}
-
 // SubscribeChainHead subscribes the new chain heads.
 func SubscribeChainHead(
 	client *EthClient,

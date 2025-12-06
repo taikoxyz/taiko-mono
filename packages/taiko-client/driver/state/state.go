@@ -121,7 +121,6 @@ func (s *State) eventLoop(ctx context.Context) {
 		)
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
 		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
-		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
 	)
 
 	defer func() {
@@ -130,7 +129,6 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2BatchesVerifiedPacayaSub.Unsubscribe()
 		l2BatchesProvedPacayaSub.Unsubscribe()
 		l2ProposedShastaSub.Unsubscribe()
-		l2ProvedShastaSub.Unsubscribe()
 	}()
 
 	for {
