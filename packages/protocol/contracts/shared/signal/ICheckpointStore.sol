@@ -29,6 +29,20 @@ interface ICheckpointStore {
     /// @param stateRoot The state root
     event CheckpointSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot);
 
+    /// @notice Emitted when a checkpoint overwrite attempt is ignored
+    /// @param blockNumber The block number
+    /// @param existingBlockHash The existing block hash
+    /// @param existingStateRoot The existing state root
+    /// @param attemptedBlockHash The attempted block hash
+    /// @param attemptedStateRoot The attempted state root
+    event CheckpointOverwriteIgnored(
+        uint48 indexed blockNumber,
+        bytes32 existingBlockHash,
+        bytes32 existingStateRoot,
+        bytes32 attemptedBlockHash,
+        bytes32 attemptedStateRoot
+    );
+
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
