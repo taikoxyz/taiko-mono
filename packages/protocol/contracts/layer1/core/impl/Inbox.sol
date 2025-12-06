@@ -87,9 +87,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
-    /// @notice The extended proving window in seconds.
-    uint48 internal immutable _extendedProvingWindow;
-
     /// @notice Maximum delay allowed between sequential proofs to remain on time.
     uint48 internal immutable _maxProofSubmissionDelay;
 
@@ -159,7 +156,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
-        _extendedProvingWindow = _config.extendedProvingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
@@ -318,7 +314,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
@@ -499,12 +494,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // become proveable when the previous one finalizes within this transaction.
             bondInstruction_ = LibBondInstruction.calculateBondInstruction(
                 _provingWindow,
-                _extendedProvingWindow,
                 _maxProofSubmissionDelay,
                 _stateBefore.lastFinalizedTimestamp,
                 _input.proposals[firstProvenIndex_],
-                _input.transitions[firstProvenIndex_],
-                firstReadyTimestamp_
+                _input.transitions[firstProvenIndex_]
             );
 
             newState_.lastFinalizedProposalId = expectedId - 1;

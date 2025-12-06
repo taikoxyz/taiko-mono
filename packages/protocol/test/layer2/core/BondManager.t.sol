@@ -934,7 +934,7 @@ contract BondManagerTest is Test {
         bytes32 signalId = keccak256(abi.encode(L1_CHAIN_ID, L1_INBOX, signal));
         assertTrue(bondManager.processedSignals(signalId));
         assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
-        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND / 2);
     }
 
     function test_processBondSignal_allowsOutOfOrderConsumption() external {
@@ -958,7 +958,27 @@ contract BondManagerTest is Test {
         bondManager.processBondSignal(second, "");
         bondManager.processBondSignal(first, "");
 
-        assertEq(bondManager.getBondBalance(first.payee), PROVABILITY_BOND);
-        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(first.payee), PROVABILITY_BOND / 2);
+        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND / 2);
+    }
+
+    function test_processBondSignal_selfSlash_distributesAndRewardsCaller() external {
+        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Alice
+        });
+        bytes32 signal = keccak256(abi.encode(instruction));
+
+        vm.prank(L1_INBOX);
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
+
+        vm.prank(Alice);
+        bondManager.deposit(LIVENESS_BOND * 2);
+
+        vm.prank(Emma);
+        bondManager.processBondSignal(instruction, "");
+
+        // 50% burned, 40% returned to payer, 10% to caller
+        assertEq(bondManager.getBondBalance(Alice), (LIVENESS_BOND * 4) / 10 + LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Emma), LIVENESS_BOND / 10);
     }
 }
