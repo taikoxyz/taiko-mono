@@ -167,7 +167,7 @@ contract ERC20Vault is BaseVault {
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
-    
+
     /// @notice Change bridged token.
     /// @param _ctoken The canonical token.
     /// @param _btokenNew The new bridged token address.
