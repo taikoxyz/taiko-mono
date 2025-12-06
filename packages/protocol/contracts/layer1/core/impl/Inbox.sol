@@ -51,7 +51,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @notice Result of preparing proof verification and finalization data
-    struct ProofBuildResult {
+    struct ProofResult {
         CoreState newState;
         LibBonds.BondInstruction bondInstruction;
         uint256 proposalAge;
@@ -226,7 +226,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory input = _decodeProveInput(_data);
         _validateProveInput(input);
 
-        ProofBuildResult memory result = _processProof(_state, input);
+        ProofResult memory result = _processProof(_state, input);
 
         _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
 
@@ -424,7 +424,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory _input
     )
         private
-        returns (ProofBuildResult memory result_)
+        returns (ProofResult memory result_)
     {
         unchecked {
             result_.newState = _stateBefore;
@@ -766,7 +766,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _bondSignal The bond signal hash emitted to L2 (zero when unused).
     function _emitProvedEvent(
         ProveInput memory _input,
-        ProofBuildResult memory _result,
+        ProofResult memory _result,
         bytes32 _bondSignal
     )
         private
