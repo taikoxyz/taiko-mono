@@ -17,14 +17,13 @@ import "./ERC20Vault_Layout.sol"; // DO NOT DELETE
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens. This vault does not support rebase/elastic tokens.
 /// @dev Labeled in address resolver as "erc20_vault".
-/// @dev This is the original ERC20Vault contract without solver features as in ERC20Vault.sol
+/// @dev This is the base ERC20Vault contract without migration features.
+/// For migration support, see ERC20VaultWithMigration.sol.
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
     using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
-
-    uint256 public constant MIN_MIGRATION_DELAY = 90 days;
 
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
@@ -65,6 +64,7 @@ contract ERC20Vault is BaseVault {
     mapping(address btoken => bool denied) public btokenDenylist;
 
     /// @notice Mappings from ctoken to its last migration timestamp.
+    /// @dev Storage kept for upgrade compatibility. Used by ERC20VaultWithMigration.
     mapping(uint256 chainId => mapping(address ctoken => uint256 timestamp)) public
         lastMigrationStart;
 
@@ -81,24 +81,6 @@ contract ERC20Vault is BaseVault {
         uint256 indexed srcChainId,
         address indexed ctoken,
         address indexed btoken,
-        string ctokenSymbol,
-        string ctokenName,
-        uint8 ctokenDecimal
-    );
-
-    /// @notice Emitted when a bridged token is changed.
-    /// @param srcChainId The chain ID of the canonical token.
-    /// @param ctoken The address of the canonical token.
-    /// @param btokenOld The address of the old bridged token.
-    /// @param btokenNew The address of the new bridged token.
-    /// @param ctokenSymbol The symbol of the canonical token.
-    /// @param ctokenName The name of the canonical token.
-    /// @param ctokenDecimal The decimal of the canonical token.
-    event BridgedTokenChanged(
-        uint256 indexed srcChainId,
-        address indexed ctoken,
-        address btokenOld,
-        address btokenNew,
         string ctokenSymbol,
         string ctokenName,
         uint8 ctokenDecimal
@@ -153,12 +135,8 @@ contract ERC20Vault is BaseVault {
     );
 
     error VAULT_BTOKEN_BLACKLISTED();
-    error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
-    error VAULT_INVALID_CTOKEN();
-    error VAULT_INVALID_NEW_BTOKEN();
-    error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
     constructor(address _resolver) BaseVault(_resolver) { }
 
@@ -166,75 +144,6 @@ contract ERC20Vault is BaseVault {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
-    }
-    /// @notice Change bridged token.
-    /// @param _ctoken The canonical token.
-    /// @param _btokenNew The new bridged token address.
-    /// @return btokenOld_ The old bridged token address.
-
-    function changeBridgedToken(
-        CanonicalERC20 calldata _ctoken,
-        address _btokenNew
-    )
-        external
-        onlyOwner
-        nonReentrant
-        returns (address btokenOld_)
-    {
-        if (
-            _btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)
-                || !_btokenNew.isContract()
-        ) {
-            revert VAULT_INVALID_NEW_BTOKEN();
-        }
-
-        if (_ctoken.addr == address(0) || _ctoken.chainId == block.chainid) {
-            revert VAULT_INVALID_CTOKEN();
-        }
-
-        if (btokenDenylist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
-
-        uint256 _lastMigrationStart = lastMigrationStart[_ctoken.chainId][_ctoken.addr];
-        if (block.timestamp < _lastMigrationStart + MIN_MIGRATION_DELAY) {
-            revert VAULT_LAST_MIGRATION_TOO_CLOSE();
-        }
-
-        btokenOld_ = canonicalToBridged[_ctoken.chainId][_ctoken.addr];
-
-        if (btokenOld_ != address(0)) {
-            CanonicalERC20 memory ctoken = bridgedToCanonical[btokenOld_];
-
-            // The ctoken must match the saved one.
-            if (keccak256(abi.encode(_ctoken)) != keccak256(abi.encode(ctoken))) {
-                revert VAULT_CTOKEN_MISMATCH();
-            }
-
-            delete bridgedToCanonical[btokenOld_];
-            btokenDenylist[btokenOld_] = true;
-
-            // Start the migration
-            if (
-                btokenOld_.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
-                    && _btokenNew.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
-            ) {
-                IBridgedERC20Migratable(btokenOld_).changeMigrationStatus(_btokenNew, false);
-                IBridgedERC20Migratable(_btokenNew).changeMigrationStatus(btokenOld_, true);
-            }
-        }
-
-        bridgedToCanonical[_btokenNew] = _ctoken;
-        canonicalToBridged[_ctoken.chainId][_ctoken.addr] = _btokenNew;
-        lastMigrationStart[_ctoken.chainId][_ctoken.addr] = block.timestamp;
-
-        emit BridgedTokenChanged({
-            srcChainId: _ctoken.chainId,
-            ctoken: _ctoken.addr,
-            btokenOld: btokenOld_,
-            btokenNew: _btokenNew,
-            ctokenSymbol: _ctoken.symbol,
-            ctokenName: _ctoken.name,
-            ctokenDecimal: _ctoken.decimals
-        });
     }
 
     /// @notice Transfers ERC20 tokens to this vault and sends a message to the

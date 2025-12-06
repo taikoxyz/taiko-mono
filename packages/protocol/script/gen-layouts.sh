@@ -15,8 +15,11 @@ set -euo pipefail
 # Contracts shared between layer 1 and layer 2
 contracts_shared=(
 "contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault"
+"contracts/shared/vault/ERC1155VaultWithMigration.sol:ERC1155VaultWithMigration"
 "contracts/shared/vault/ERC20Vault.sol:ERC20Vault"
+"contracts/shared/vault/ERC20VaultWithMigration.sol:ERC20VaultWithMigration"
 "contracts/shared/vault/ERC721Vault.sol:ERC721Vault"
+"contracts/shared/vault/ERC721VaultWithMigration.sol:ERC721VaultWithMigration"
 "contracts/shared/vault/BridgedERC20.sol:BridgedERC20"
 "contracts/shared/vault/BridgedERC20V2.sol:BridgedERC20V2"
 "contracts/shared/vault/BridgedERC721.sol:BridgedERC721"
