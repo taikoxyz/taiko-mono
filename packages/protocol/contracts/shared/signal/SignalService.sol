@@ -53,7 +53,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Timestamp after which legacy slot fallback will no longer be performed.
     /// Set to deployment time + 1 year.
-    uint256 internal immutable _legacySlotExpiry;
+    uint256 public immutable legacySlotExpiry;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -85,7 +85,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
-        _legacySlotExpiry = block.timestamp + _LEGACY_SLOT_SUPPORT_DURATION;
+        legacySlotExpiry = block.timestamp + _LEGACY_SLOT_SUPPORT_DURATION;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -185,12 +185,6 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
-    /// @notice Returns the timestamp after which legacy slot fallback is disabled.
-    /// @return The expiry timestamp (1 year after deployment).
-    function legacySlotExpiry() public view returns (uint256) {
-        return _legacySlotExpiry;
-    }
-
     /// @inheritdoc ICheckpointStore
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
@@ -265,7 +259,7 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 value = _loadSignalValue(slot);
 
         // If value is 0 and legacy support hasn't expired, check the legacy slot
-        if (value == bytes32(0) && block.timestamp < _legacySlotExpiry) {
+        if (value == bytes32(0) && block.timestamp < legacySlotExpiry) {
             bytes32 legacySlot = getLegacySignalSlot(chainId, _app, _signal);
             value = _loadSignalValue(legacySlot);
         }
@@ -296,7 +290,7 @@ contract SignalService is EssentialContract, ISignalService {
             // Check new EIP-7201 slot first
             if (_receivedSignals[slot]) return;
             // Fall back to legacy slot if within the legacy support period
-            if (block.timestamp < _legacySlotExpiry) {
+            if (block.timestamp < legacySlotExpiry) {
                 bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
                 if (_receivedSignals[legacySlot]) return;
             }
@@ -317,7 +311,7 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
-        if (block.timestamp < _legacySlotExpiry) {
+        if (block.timestamp < legacySlotExpiry) {
             // During migration period: try legacy slot first (most existing proofs use legacy slot),
             // then fall back to new EIP-7201 slot.
             bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
