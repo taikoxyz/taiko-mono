@@ -45,6 +45,54 @@ contract TestSignalService is CommonTest {
         assertTrue(signalService.isSignalSent(slot));
     }
 
+    function test_getSignalSlot_UsesEIP7201Namespace() public view {
+        uint64 chainId = uint64(block.chainid);
+        address app = address(this);
+        bytes32 signal = keccak256("test_signal");
+
+        bytes32 newSlot = signalService.getSignalSlot(chainId, app, signal);
+        bytes32 legacySlot = signalService.getLegacySignalSlot(chainId, app, signal);
+
+        // Slots should be different
+        assertTrue(newSlot != legacySlot, "EIP-7201 slot should differ from legacy slot");
+
+        // Legacy slot should match old calculation
+        bytes32 expectedLegacy = keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
+        assertEq(legacySlot, expectedLegacy, "Legacy slot calculation mismatch");
+    }
+
+    function test_isSignalSent_FallsBackToLegacySlot() public {
+        uint64 chainId = uint64(block.chainid);
+        address app = address(0x1234);
+        bytes32 signal = keccak256("legacy_signal");
+        bytes32 legacySlot = signalService.getLegacySignalSlot(chainId, app, signal);
+
+        // Manually write to the legacy slot to simulate pre-upgrade signal
+        vm.store(address(signalService), legacySlot, signal);
+
+        // isSignalSent should find the signal via legacy fallback
+        assertTrue(signalService.isSignalSent(app, signal), "Should find signal in legacy slot");
+    }
+
+    function test_isSignalSent_PrefersNewSlotOverLegacy() public {
+        uint64 chainId = uint64(block.chainid);
+        address app = address(0x5678);
+        bytes32 signal = keccak256("dual_signal");
+        bytes32 newSlot = signalService.getSignalSlot(chainId, app, signal);
+        bytes32 legacySlot = signalService.getLegacySignalSlot(chainId, app, signal);
+
+        // Write different values to both slots
+        bytes32 newValue = keccak256("new_value");
+        bytes32 legacyValue = keccak256("legacy_value");
+        vm.store(address(signalService), newSlot, newValue);
+        vm.store(address(signalService), legacySlot, legacyValue);
+
+        // isSignalSent should return true (signal exists in new slot)
+        assertTrue(signalService.isSignalSent(app, signal));
+        // Direct slot check should return the new slot value
+        assertTrue(signalService.isSignalSent(newSlot));
+    }
+
     function test_sendSignal_RevertWhen_SignalIsZero() public {
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
         signalService.sendSignal(bytes32(0));

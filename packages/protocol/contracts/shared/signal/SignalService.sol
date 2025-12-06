@@ -2,9 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
+
+import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/trie/SecureMerkleTrie.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -16,6 +19,18 @@ import "./SignalService_Layout.sol"; // DO NOT DELETE
 /// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @dev EIP-7201 namespace for signal storage to prevent slot collisions.
+    /// keccak256(abi.encode(uint256(keccak256("taiko.signal.storage")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant _SIGNAL_NAMESPACE =
+        0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
+
+    /// @dev Duration after deployment during which legacy slot fallback is active (1 year).
+    uint256 private constant _LEGACY_SLOT_SUPPORT_DURATION = 365 days;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -38,6 +53,10 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
+
+    /// @dev Timestamp after which legacy slot fallback will no longer be performed.
+    /// Set to deployment time + 1 year.
+    uint256 internal immutable _legacySlotExpiry;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -69,6 +88,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
+        _legacySlotExpiry = block.timestamp + _LEGACY_SLOT_SUPPORT_DURATION;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -129,11 +149,12 @@ contract SignalService is EssentialContract, ISignalService {
         return _loadSignalValue(_signalSlot) != 0;
     }
 
-    /// @notice Returns the slot for a signal.
+    /// @notice Returns the EIP-7201 namespaced slot for a signal.
+    /// @dev This uses a high-entropy domain separator to prevent slot collisions with contract state.
     /// @param _chainId The chainId of the signal.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
-    /// @return The slot for the signal.
+    /// @return The EIP-7201 namespaced slot for the signal.
     function getSignalSlot(
         uint64 _chainId,
         address _app,
@@ -144,7 +165,33 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_SIGNAL_NAMESPACE, _chainId, _app, _signal));
+    }
+
+    /// @notice Returns the legacy slot for a signal (pre-EIP-7201).
+    /// @dev This is the old slot calculation method, kept for backwards compatibility during migration.
+    /// This function will be removed after the migration period (approximately 1 year after upgrade).
+    /// @param _chainId The chainId of the signal.
+    /// @param _app The address that initiated the signal.
+    /// @param _signal The signal (message) that was sent.
+    /// @return The legacy slot for the signal.
+    function getLegacySignalSlot(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
+    }
+
+    /// @notice Returns the timestamp after which legacy slot fallback is disabled.
+    /// @return The expiry timestamp (1 year after deployment).
+    function legacySlotExpiry() public view returns (uint256) {
+        return _legacySlotExpiry;
     }
 
     /// @inheritdoc ICheckpointStore
@@ -214,8 +261,19 @@ contract SignalService is EssentialContract, ISignalService {
         require(_app != address(0), ZERO_ADDRESS());
         require(_signal != bytes32(0), ZERO_VALUE());
 
-        bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
-        return _loadSignalValue(slot);
+        uint64 chainId = uint64(block.chainid);
+
+        // First try the new EIP-7201 slot
+        bytes32 slot = getSignalSlot(chainId, _app, _signal);
+        bytes32 value = _loadSignalValue(slot);
+
+        // If value is 0 and legacy support hasn't expired, check the legacy slot
+        if (value == bytes32(0) && block.timestamp < _legacySlotExpiry) {
+            bytes32 legacySlot = getLegacySignalSlot(chainId, _app, _signal);
+            value = _loadSignalValue(legacySlot);
+        }
+
+        return value;
     }
 
     function _loadSignalValue(bytes32 _signalSlot) private view returns (bytes32 value_) {
@@ -238,8 +296,14 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
-            return;
+            // Check new EIP-7201 slot first
+            if (_receivedSignals[slot]) return;
+            // Fall back to legacy slot if within the legacy support period
+            if (block.timestamp < _legacySlotExpiry) {
+                bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
+                if (_receivedSignals[legacySlot]) return;
+            }
+            revert SS_SIGNAL_NOT_RECEIVED();
         }
 
         HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
@@ -256,13 +320,67 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
-        LibTrieProof.verifyMerkleProof(
-            checkpoint.stateRoot,
-            _remoteSignalService,
-            slot,
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+        // Get the storage root from the account proof (this is independent of slot calculation).
+        // This will revert if the account proof is invalid.
+        bytes32 storageRoot = _getStorageRoot(checkpoint.stateRoot, proof.accountProof);
+
+        bool verified;
+        if (block.timestamp < _legacySlotExpiry) {
+            // During migration period: try legacy slot first (most existing proofs use legacy slot),
+            // then fall back to new EIP-7201 slot.
+            bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
+            verified = _verifyStorageProof(storageRoot, legacySlot, _signal, proof.storageProof);
+            if (!verified) {
+                verified = _verifyStorageProof(storageRoot, slot, _signal, proof.storageProof);
+            }
+        } else {
+            // After migration period: only try the new EIP-7201 slot
+            verified = _verifyStorageProof(storageRoot, slot, _signal, proof.storageProof);
+        }
+
+        require(verified, SS_INVALID_MERKLE_PROOF());
+    }
+
+    /// @dev Constant for the account field index of storage hash in RLP encoded account.
+    uint256 private constant _ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
+
+    /// @dev Extracts the storage root from the account proof or uses the state root if no account proof.
+    /// This function may revert if the account proof is invalid.
+    function _getStorageRoot(
+        bytes32 _stateRoot,
+        bytes[] memory _accountProof
+    )
+        private
+        view
+        returns (bytes32 storageRoot_)
+    {
+        if (_accountProof.length != 0) {
+            bytes memory rlpAccount =
+                SecureMerkleTrie.get(abi.encodePacked(_remoteSignalService), _accountProof, _stateRoot);
+            require(rlpAccount.length != 0, SS_INVALID_ACCOUNT_PROOF());
+            RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
+            storageRoot_ = bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
+        } else {
+            storageRoot_ = _stateRoot;
+        }
+    }
+
+    /// @dev Verifies storage proof against a slot. Returns bool instead of reverting.
+    function _verifyStorageProof(
+        bytes32 _storageRoot,
+        bytes32 _slot,
+        bytes32 _signal,
+        bytes[] memory _storageProof
+    )
+        private
+        pure
+        returns (bool)
+    {
+        return SecureMerkleTrie.verifyInclusionProof(
+            bytes.concat(_slot),
+            RLPWriter.writeUint(uint256(_signal)),
+            _storageProof,
+            _storageRoot
         );
     }
 
@@ -271,7 +389,9 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     error SS_EMPTY_PROOF();
+    error SS_INVALID_ACCOUNT_PROOF();
     error SS_INVALID_PROOF_LENGTH();
+    error SS_INVALID_MERKLE_PROOF();
     error SS_INVALID_CHECKPOINT();
     error SS_CHECKPOINT_NOT_FOUND();
     error SS_UNAUTHORIZED();
