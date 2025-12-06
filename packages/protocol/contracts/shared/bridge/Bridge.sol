@@ -595,8 +595,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         if (_message.to == address(_signalService)) return true;
 
         return _message.data.length >= 4
-            && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector
-            && _message.to.isContract();
+            && bytes4(_message.data) != IMessageInvocable.onMessageInvocation.selector;
     }
 
     function _invocationGasLimit(Message calldata _message) private pure returns (uint256) {

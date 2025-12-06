@@ -361,10 +361,14 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.to = Bob;
         message.data = "something else";
 
+        uint256 aliceBalanceBefore = Alice.balance;
         eBridge.processMessage(message, FAKE_PROOF);
         hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
-        assertEq(Bob.balance, 2 ether);
+        // With EIP-7702, EOAs can have code, so we no longer allow arbitrary function calls
+        // to any address (EOA or contract). Value goes to destOwner when invocation is prohibited.
+        assertEq(Bob.balance, 0);
+        assertEq(Alice.balance, aliceBalanceBefore + 2 ether);
 
         message.to = address(target);
         message.data = abi.encodeCall(Target.onMessageInvocation, (""));
