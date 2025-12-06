@@ -113,6 +113,7 @@ contract TestSignalService is CommonTest {
 
     function test_proveSignalReceived_RevertWhen_ProofArraysEmpty() public {
         ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
+        proofs[0].chainId = uint64(block.chainid);
         proofs[0].blockId = 1;
         proofs[0].rootHash = bytes32(uint256(1));
         proofs[0].storageProof = new bytes[](1);
@@ -124,8 +125,25 @@ contract TestSignalService is CommonTest {
         );
     }
 
+    function test_proveSignalReceived_RevertWhen_ChainIdMismatch() public {
+        ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
+        proofs[0].chainId = uint64(block.chainid) + 1; // Wrong chain ID
+        proofs[0].blockId = 1;
+        proofs[0].rootHash = bytes32(uint256(1));
+        proofs[0].accountProof = new bytes[](1);
+        proofs[0].accountProof[0] = hex"aa";
+        proofs[0].storageProof = new bytes[](1);
+        proofs[0].storageProof[0] = hex"bb";
+
+        vm.expectRevert(SignalService.SS_INVALID_CHAIN_ID.selector);
+        signalService.proveSignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, abi.encode(proofs)
+        );
+    }
+
     function test_proveSignalReceived_RevertWhen_CheckpointMissing() public {
         ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
+        proofs[0].chainId = uint64(block.chainid);
         proofs[0].blockId = 99;
         proofs[0].rootHash = bytes32(uint256(99));
         proofs[0].accountProof = new bytes[](1);
@@ -143,6 +161,7 @@ contract TestSignalService is CommonTest {
         _saveCheckpoint(VALID_PROOF_BLOCK_ID, bytes32(uint256(123)));
 
         ISignalService.HopProof[] memory proofs = new ISignalService.HopProof[](1);
+        proofs[0].chainId = uint64(block.chainid);
         proofs[0].blockId = VALID_PROOF_BLOCK_ID;
         proofs[0].rootHash = bytes32(uint256(456));
         proofs[0].accountProof = new bytes[](1);

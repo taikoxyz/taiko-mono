@@ -247,6 +247,8 @@ contract SignalService is EssentialContract, ISignalService {
 
         HopProof memory proof = proofs[0];
 
+        if (proof.chainId != uint64(block.chainid)) revert SS_INVALID_CHAIN_ID();
+
         if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
             revert SS_EMPTY_PROOF();
         }
@@ -271,6 +273,7 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     error SS_EMPTY_PROOF();
+    error SS_INVALID_CHAIN_ID();
     error SS_INVALID_PROOF_LENGTH();
     error SS_INVALID_CHECKPOINT();
     error SS_CHECKPOINT_NOT_FOUND();
