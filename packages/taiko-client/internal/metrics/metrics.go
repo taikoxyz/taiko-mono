@@ -28,7 +28,6 @@ var (
 	DriverL2PreconfHeadHeightGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_preconf_l2Head_height"})
 	DriverL1CurrentHeightGauge             = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
 	DriverL2HeadIDGauge                    = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
-	DriverL2VerifiedHeightGauge            = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Verified_id"})
 	DriverHighestPreconfUnsafePayloadGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_highest_unsafe_payload"})
 	DriverReorgsByProposalCounter          = factory.NewCounter(prometheus.CounterOpts{Name: "driver_reorgs_by_proposal"})
 	DriverPreconfEnvelopeCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
