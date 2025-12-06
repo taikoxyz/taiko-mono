@@ -2,12 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
+import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
-
-import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
-import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";
-import "@optimism/packages/contracts-bedrock/src/libraries/trie/SecureMerkleTrie.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -320,67 +317,30 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
-        // Get the storage root from the account proof (this is independent of slot calculation).
-        // This will revert if the account proof is invalid.
-        bytes32 storageRoot = _getStorageRoot(checkpoint.stateRoot, proof.accountProof);
-
-        bool verified;
         if (block.timestamp < _legacySlotExpiry) {
             // During migration period: try legacy slot first (most existing proofs use legacy slot),
             // then fall back to new EIP-7201 slot.
             bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
-            verified = _verifyStorageProof(storageRoot, legacySlot, _signal, proof.storageProof);
-            if (!verified) {
-                verified = _verifyStorageProof(storageRoot, slot, _signal, proof.storageProof);
-            }
+            LibTrieProof.verifyMerkleProofWithFallback(
+                checkpoint.stateRoot,
+                _remoteSignalService,
+                legacySlot,
+                slot,
+                _signal,
+                proof.accountProof,
+                proof.storageProof
+            );
         } else {
             // After migration period: only try the new EIP-7201 slot
-            verified = _verifyStorageProof(storageRoot, slot, _signal, proof.storageProof);
-        }
-
-        require(verified, SS_INVALID_MERKLE_PROOF());
-    }
-
-    /// @dev Constant for the account field index of storage hash in RLP encoded account.
-    uint256 private constant _ACCOUNT_FIELD_INDEX_STORAGE_HASH = 2;
-
-    /// @dev Extracts the storage root from the account proof or uses the state root if no account proof.
-    /// This function may revert if the account proof is invalid.
-    function _getStorageRoot(
-        bytes32 _stateRoot,
-        bytes[] memory _accountProof
-    )
-        private
-        view
-        returns (bytes32 storageRoot_)
-    {
-        if (_accountProof.length != 0) {
-            bytes memory rlpAccount = SecureMerkleTrie.get(
-                abi.encodePacked(_remoteSignalService), _accountProof, _stateRoot
+            LibTrieProof.verifyMerkleProof(
+                checkpoint.stateRoot,
+                _remoteSignalService,
+                slot,
+                _signal,
+                proof.accountProof,
+                proof.storageProof
             );
-            require(rlpAccount.length != 0, SS_INVALID_ACCOUNT_PROOF());
-            RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
-            storageRoot_ =
-                bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
-        } else {
-            storageRoot_ = _stateRoot;
         }
-    }
-
-    /// @dev Verifies storage proof against a slot. Returns bool instead of reverting.
-    function _verifyStorageProof(
-        bytes32 _storageRoot,
-        bytes32 _slot,
-        bytes32 _signal,
-        bytes[] memory _storageProof
-    )
-        private
-        pure
-        returns (bool)
-    {
-        return SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(_slot), RLPWriter.writeUint(uint256(_signal)), _storageProof, _storageRoot
-        );
     }
 
     // ---------------------------------------------------------------
@@ -388,9 +348,7 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     error SS_EMPTY_PROOF();
-    error SS_INVALID_ACCOUNT_PROOF();
     error SS_INVALID_PROOF_LENGTH();
-    error SS_INVALID_MERKLE_PROOF();
     error SS_INVALID_CHECKPOINT();
     error SS_CHECKPOINT_NOT_FOUND();
     error SS_UNAUTHORIZED();
