@@ -195,10 +195,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "shasta_inbox",
             impl: address(
                 new DevnetInbox(
-                    proofVerifier,
-                    whitelist,
-                    signalService,
-                    address(new CodecOptimized())
+                    proofVerifier, whitelist, signalService, address(new CodecOptimized())
                 )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
