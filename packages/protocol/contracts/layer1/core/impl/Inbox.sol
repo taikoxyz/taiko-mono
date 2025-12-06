@@ -299,6 +299,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
+    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals may
+    /// have been overwritten by a new one. You should verify that the hash matches the expected proposal.
     /// @param _proposalId The ID of the proposal to query
     /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
