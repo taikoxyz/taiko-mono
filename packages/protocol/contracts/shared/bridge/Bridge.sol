@@ -84,6 +84,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
+    error B_INVALID_SENDER();
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
     error B_INSUFFICIENT_GAS();
@@ -240,6 +241,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         if (_message.srcChainId == 0 || _message.srcChainId == block.chainid) {
             revert B_INVALID_CHAINID();
         }
+
+        if (_message.from == address(0)) revert B_INVALID_SENDER();
 
         ProcessingStats memory stats;
         stats.processedByRelayer = msg.sender != _message.destOwner;
