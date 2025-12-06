@@ -176,9 +176,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
         // Get dependencies
-        address bondToken =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
-
         address signalService =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
 
@@ -200,7 +197,6 @@ contract DeployProtocolOnL1 is DeployCapability {
                 new DevnetInbox(
                     proofVerifier,
                     whitelist,
-                    bondToken,
                     signalService,
                     address(new CodecOptimized())
                 )

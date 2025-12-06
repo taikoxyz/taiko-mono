@@ -8,8 +8,6 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashSimple } from "../libs/LibHashSimple.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -36,7 +34,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
-    using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
     // Constants
@@ -74,9 +71,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The codec used for encoding and hashing.
     address private immutable _codec;
-
-    /// @notice The token used for bonds.
-    IERC20 internal immutable _bondToken;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -151,7 +145,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
 
         _codec = _config.codec;
-        _bondToken = IERC20(_config.bondToken);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _signalService = ISignalService(_config.signalService);
@@ -311,7 +304,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
-            bondToken: address(_bondToken),
             signalService: address(_signalService),
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),

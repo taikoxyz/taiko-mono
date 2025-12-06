@@ -13,8 +13,6 @@ interface IInbox {
     struct Config {
         /// @notice The codec used for encoding and hashing
         address codec;
-        /// @notice The token used for bonds
-        address bondToken;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The proof verifier contract

@@ -37,7 +37,6 @@ contract MainnetInbox is InboxOptimized {
         address _codec
     )
         InboxOptimized(IInbox.Config({
-                bondToken: LibL1Addrs.TAIKO_TOKEN,
                 codec: _codec,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,

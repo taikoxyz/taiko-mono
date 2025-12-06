@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { MockERC20, MockProofVerifier } from "./mocks/MockContracts.sol";
+import { MockProofVerifier } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
@@ -28,7 +28,6 @@ abstract contract InboxTestBase is CommonTest {
     IInbox.Config internal config;
     ICodec internal codec;
 
-    MockERC20 internal token;
     MockProofVerifier internal verifier;
     SignalService internal signalService;
     PreconfWhitelist internal proposerChecker;
@@ -67,7 +66,6 @@ abstract contract InboxTestBase is CommonTest {
 
         return IInbox.Config({
             codec: address(codec),
-            bondToken: address(token),
             signalService: address(signalService),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
@@ -291,7 +289,6 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _setupMocks() internal virtual {
-        token = new MockERC20();
         verifier = new MockProofVerifier();
     }
 
