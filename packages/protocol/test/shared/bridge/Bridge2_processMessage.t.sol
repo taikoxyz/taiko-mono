@@ -47,6 +47,10 @@ contract TestBridge2_processMessage is TestBridge2Base {
         eBridge.processMessage(message, FAKE_PROOF);
 
         message.srcChainId = taikoChainId + 1;
+        vm.expectRevert(Bridge.B_INVALID_SENDER.selector);
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        message.from = Alice;
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         eBridge.processMessage(message, FAKE_PROOF);
 
@@ -84,6 +88,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -122,6 +127,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 0;
         message.fee = 0;
@@ -168,6 +174,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 1;
         message.fee = 5_000_000;
@@ -203,6 +210,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 0;
         message.fee = 5_000_000;
@@ -228,6 +236,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -255,6 +264,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 0;
         message.fee = 0;
@@ -280,6 +290,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -308,6 +319,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 0;
         message.fee = 1_000_000;
@@ -332,6 +344,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;

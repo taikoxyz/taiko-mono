@@ -29,6 +29,7 @@ contract TestBridge2_retryMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -70,6 +71,7 @@ contract TestBridge2_retryMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.fee = 0;
         message.value = 2 ether;

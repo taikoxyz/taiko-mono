@@ -12,6 +12,7 @@ contract TestBridge2_failMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
         message.gasLimit = 1_000_000;
         message.fee = 1000;
         message.value = 2 ether;
@@ -32,6 +33,7 @@ contract TestBridge2_failMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -67,6 +69,7 @@ contract TestBridge2_failMessage is TestBridge2Base {
 
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
+        message.from = Alice;
 
         message.gasLimit = 0;
         message.fee = 1_000_000;
