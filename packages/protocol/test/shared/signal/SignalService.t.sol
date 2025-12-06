@@ -88,6 +88,36 @@ contract TestSignalService is CommonTest {
         signalService.getCheckpoint(42);
     }
 
+    function test_saveCheckpoint_IgnoresOverwriteAndEmitsEvent() public {
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 100, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+
+        vm.prank(AUTHORIZED_SYNCER);
+        signalService.saveCheckpoint(checkpoint);
+
+        // Attempt to overwrite with different data
+        ICheckpointStore.Checkpoint memory overwriteAttempt = ICheckpointStore.Checkpoint({
+            blockNumber: 100, blockHash: bytes32(uint256(3)), stateRoot: bytes32(uint256(4))
+        });
+
+        vm.prank(AUTHORIZED_SYNCER);
+        vm.expectEmit(true, false, false, true, address(signalService));
+        emit ICheckpointStore.CheckpointOverwriteIgnored(
+            100,
+            checkpoint.blockHash,
+            checkpoint.stateRoot,
+            overwriteAttempt.blockHash,
+            overwriteAttempt.stateRoot
+        );
+        signalService.saveCheckpoint(overwriteAttempt);
+
+        // Verify the original checkpoint is unchanged
+        ICheckpointStore.Checkpoint memory stored = signalService.getCheckpoint(100);
+        assertEq(stored.blockHash, checkpoint.blockHash);
+        assertEq(stored.stateRoot, checkpoint.stateRoot);
+    }
+
     function test_verifySignalReceived_RevertWhen_SignalNotCached() public {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
