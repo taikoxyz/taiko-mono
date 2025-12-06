@@ -226,7 +226,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory input = _decodeProveInput(_data);
         _validateProveInput(input);
 
-        ProofBuildResult memory result = _buildProofResult(input);
+        ProofBuildResult memory result = _processProof(_state, input);
 
         _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
 
@@ -415,55 +415,30 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Prepares proof verification inputs and resulting state updates.
-    /// @param _input The prove input data.
-    /// @return result_ Aggregated result containing new state, bond instruction, verifier hash, and indexes.
-    function _buildProofResult(ProveInput memory _input)
-        private
-        returns (ProofBuildResult memory result_)
-    {
-        uint48 firstReadyTimestamp;
-        (result_.newState, result_.bondInstruction, firstReadyTimestamp, result_.firstProvenIndex) =
-            _processProof(_state, _input);
-
-        uint256 proposalsProven = _input.proposals.length - result_.firstProvenIndex;
-        if (proposalsProven == 1) {
-            result_.proposalAge = block.timestamp - uint256(firstReadyTimestamp);
-        }
-
-        result_.aggregatedTransitionHash = _hashTransitions(_input.transitions);
-    }
-
-    /// @dev Processes sequential proofs, updates state, and builds the transition record.
+    /// @dev Processes sequential proofs, calculates the bond instruction and the resulting state
     /// @param _stateBefore The state before the proof is processed
     /// @param _input The input containing the proposals and transitions
-    /// @return newState_ The new state after the proof is processed
-    /// @return bondInstruction_ Bond instruction to be signaled to L2 (BondType.NONE when unused)
-    /// @return firstReadyTimestamp_ The timestamp of the first ready proposal
+    /// @return result_ Aggregated result containing new state, bond instruction, verifier hash, and indexes.
     function _processProof(
         CoreState memory _stateBefore,
         ProveInput memory _input
     )
         private
-        returns (
-            CoreState memory newState_,
-            LibBonds.BondInstruction memory bondInstruction_,
-            uint48 firstReadyTimestamp_,
-            uint256 firstProvenIndex_
-        )
+        returns (ProofBuildResult memory result_)
     {
         unchecked {
-            newState_ = _stateBefore;
+            result_.newState = _stateBefore;
 
             uint48 expectedId = _stateBefore.lastFinalizedProposalId + 1;
             uint256 count = _input.proposals.length;
             bytes32 parentHash = _stateBefore.lastFinalizedTransitionHash;
+            uint48 firstReadyTimestamp;
 
             // Find the index of the first proposal that still has not been proven
             // This help if the array includes older proposals that have already been proven
-            firstProvenIndex_ = _findFirstIndexToProve(_stateBefore, _input);
+            result_.firstProvenIndex = _findFirstIndexToProve(_stateBefore, _input);
 
-            for (uint256 i = firstProvenIndex_; i < count; ++i) {
+            for (uint256 i = result_.firstProvenIndex; i < count; ++i) {
                 Proposal memory proposal = _input.proposals[i];
                 require(proposal.id == expectedId, InvalidProposalId());
 
@@ -474,8 +449,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
                 require(transition.parentTransitionHash == parentHash, InvalidParentTransition());
 
-                if (i == firstProvenIndex_) {
-                    firstReadyTimestamp_ = _computeReadyTimestamp(
+                if (i == result_.firstProvenIndex) {
+                    firstReadyTimestamp = _computeReadyTimestamp(
                         proposal.timestamp, _stateBefore.lastFinalizedTimestamp
                     );
                 }
@@ -486,12 +461,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Only the first unproven proposal in a sequential prove can be late; later proposals
             // become proveable when the previous one finalizes within this transaction.
-            bondInstruction_ = LibBondInstruction.calculateBondInstruction(
+            result_.bondInstruction = LibBondInstruction.calculateBondInstruction(
                 _provingWindow,
                 _extendedProvingWindow,
-                _input.proposals[firstProvenIndex_],
-                _input.transitions[firstProvenIndex_],
-                firstReadyTimestamp_
+                _input.proposals[result_.firstProvenIndex],
+                _input.transitions[result_.firstProvenIndex],
+                firstReadyTimestamp
             );
 
             newState_.lastFinalizedProposalId = expectedId - 1;
@@ -499,8 +474,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             newState_.lastFinalizedTransitionHash = parentHash;
 
             _syncCheckpointIfNeeded(
-                _input.syncCheckpoint, _input.transitions[_input.transitions.length - 1], newState_
+                _input.syncCheckpoint,
+                _input.transitions[_input.transitions.length - 1],
+                result_.newState
             );
+
+            uint256 proposalsProven = count - result_.firstProvenIndex;
+            if (proposalsProven == 1) {
+                result_.proposalAge = block.timestamp - uint256(firstReadyTimestamp);
+            }
+
+            result_.aggregatedTransitionHash = _hashTransitions(_input.transitions);
         }
     }
 
