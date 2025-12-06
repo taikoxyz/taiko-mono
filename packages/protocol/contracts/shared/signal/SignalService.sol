@@ -5,6 +5,7 @@ import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -148,6 +149,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Returns the EIP-7201 namespaced slot for a signal.
     /// @dev This uses a high-entropy domain separator to prevent slot collisions with contract state.
+    /// The hash is computed as: keccak256(abi.encode(_SIGNAL_NAMESPACE, _chainId, _app, _signal))
     /// @param _chainId The chainId of the signal.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
@@ -161,8 +163,14 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_SIGNAL_NAMESPACE, _chainId, _app, _signal));
+        // EfficientHashLib.hash produces the same result as keccak256(abi.encode(...))
+        // when values are properly padded to 32 bytes
+        return EfficientHashLib.hash(
+            _SIGNAL_NAMESPACE,
+            bytes32(uint256(_chainId)),
+            bytes32(uint256(uint160(_app))),
+            _signal
+        );
     }
 
     /// @notice Returns the legacy slot for a signal (pre-EIP-7201).

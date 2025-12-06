@@ -59,6 +59,12 @@ contract TestSignalService is CommonTest {
         // Legacy slot should match old calculation
         bytes32 expectedLegacy = keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
         assertEq(legacySlot, expectedLegacy, "Legacy slot calculation mismatch");
+
+        // EfficientHashLib.hash should produce same result as keccak256(abi.encode(...))
+        // This ensures EIP-7201 compatibility
+        bytes32 SIGNAL_NAMESPACE = 0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
+        bytes32 expectedNewSlot = keccak256(abi.encode(SIGNAL_NAMESPACE, chainId, app, signal));
+        assertEq(newSlot, expectedNewSlot, "EfficientHashLib should match keccak256(abi.encode(...))");
     }
 
     function test_isSignalSent_FallsBackToLegacySlot_BeforeExpiry() public {
