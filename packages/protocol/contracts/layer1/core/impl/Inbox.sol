@@ -228,14 +228,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         ProofResult memory result = _processProof(_state, input);
 
-        _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
-
         bytes32 bondSignal;
         if (result.bondInstruction.bondType != LibBonds.BondType.NONE) {
             bondSignal = _sendBondSignal(result.bondInstruction);
         }
 
         _state = result.newState;
+
+        _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
 
         _emitProvedEvent(input, result, bondSignal);
     }
