@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title IBondManager
-/// @notice Interface for managing bonds in the Based3 protocol
+/// @notice Interface for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
     // ---------------------------------------------------------------
@@ -88,8 +88,7 @@ interface IBondManager {
     function depositTo(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
-    /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are
-    /// unrestricted.
+    /// @dev Withdrawals are subject to a delay so that bond operations can be resolved properly.
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;

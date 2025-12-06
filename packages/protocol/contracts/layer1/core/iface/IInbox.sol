@@ -16,7 +16,7 @@ interface IInbox {
         /// @notice The token used for bonds
         address bondToken;
         /// @notice The signal service contract address
-        address checkpointStore;
+        address signalService;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -25,10 +25,6 @@ interface IInbox {
         uint48 provingWindow;
         /// @notice The extended proving window in seconds
         uint48 extendedProvingWindow;
-        /// @notice The maximum number of finalized proposals in one block
-        uint256 maxFinalizationCount;
-        /// @notice The finalization grace period in seconds
-        uint48 finalizationGracePeriod;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
@@ -48,8 +44,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice Version identifier for composite key generation
-        uint16 compositeKeyVersion;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -83,15 +77,11 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice The current hash of coreState
-        bytes32 coreStateHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
     }
 
     /// @notice Represents a transition about the state transition of a proposal.
-    /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving
-    /// support
     struct Transition {
         /// @notice The proposal's hash.
         bytes32 proposalHash;
@@ -101,27 +91,10 @@ interface IInbox {
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
         ICheckpointStore.Checkpoint checkpoint;
-    }
-
-    /// @notice Metadata about the proving of a transition
-    /// @dev Separated from Transition to enable out-of-order proving
-    struct TransitionMetadata {
         /// @notice The designated prover for this transition.
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
-    }
-
-    /// @notice Represents a record of a transition with additional metadata.
-    struct TransitionRecord {
-        /// @notice The span indicating how many proposals this transition record covers.
-        uint8 span;
-        /// @notice The bond instructions.
-        LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the last transition in the span.
-        bytes32 transitionHash;
-        /// @notice The hash of the last checkpoint in the span.
-        bytes32 checkpointHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -132,29 +105,21 @@ interface IInbox {
         uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last proposal was finalized.
+        uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
         bytes32 lastFinalizedTransitionHash;
-        /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHash;
     }
 
     /// @notice Input data for the propose function
     struct ProposeInput {
         /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
         uint48 deadline;
-        /// @notice The current core state before this proposal.
-        CoreState coreState;
-        /// @notice Array of existing proposals for validation (1-2 elements).
-        Proposal[] parentProposals;
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
-        /// @notice Array of transition records for finalization.
-        TransitionRecord[] transitionRecords;
-        /// @notice The checkpoint for finalization.
-        ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
@@ -167,9 +132,10 @@ interface IInbox {
         Proposal[] proposals;
         /// @notice Array of transitions containing proof details.
         Transition[] transitions;
-        /// @notice Array of metadata for prover information.
-        /// @dev Must have same length as transitions array.
-        TransitionMetadata[] metadata;
+        /// @notice Whether to sync the checkpoint from the last transition.
+        /// This has to be set to `true` if `_minCheckpointDelay` has passed, but can be set to `true`
+        /// before if you want to sync the checkpoint early.
+        bool syncCheckpoint;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -178,10 +144,6 @@ interface IInbox {
         Proposal proposal;
         /// @notice The derivation data for the proposal.
         Derivation derivation;
-        /// @notice The core state after the proposal.
-        CoreState coreState;
-        /// @notice Bond instructions finalized while processing this proposal.
-        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Payload data emitted in the Proved event
@@ -190,10 +152,10 @@ interface IInbox {
         uint48 proposalId;
         /// @notice The transition that was proven.
         Transition transition;
-        /// @notice The transition record containing additional metadata.
-        TransitionRecord transitionRecord;
-        /// @notice The metadata containing prover information.
-        TransitionMetadata metadata;
+        /// @notice The bond instruction associated with the proof (BondType.NONE when unused).
+        LibBonds.BondInstruction bondInstruction;
+        /// @notice Signal hash emitted to L2 for bond processing (zero when unused).
+        bytes32 bondSignal;
     }
 
     // ---------------------------------------------------------------
@@ -208,19 +170,11 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
-    /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
-    /// Proved event.
-    event TransitionConflictDetected();
-
-    /// @notice Emitted when a transition is proved again. This event will be followed by a Proved
-    /// event.
-    event TransitionDuplicateDetected();
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks.
+    /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
@@ -240,21 +194,10 @@ interface IInbox {
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 
-    /// @notice Returns the transition record hash for a given proposal ID and parent transition
-    /// hash.
-    /// @param _proposalId The proposal ID.
-    /// @param _parentTransitionHash The parent transition hash.
-    /// @return finalizationDeadline_ The timestamp when finalization is enforced.
-    /// @return recordHash_ The hash of the transition record.
-    function getTransitionRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        external
-        view
-        returns (uint48 finalizationDeadline_, bytes26 recordHash_);
-
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
+
+    /// @notice Returns the current core state snapshot.
+    function getState() external view returns (CoreState memory state_);
 }

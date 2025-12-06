@@ -96,6 +96,32 @@ pnpm clean && pnpm install
 - Update CHANGELOG.md for significant changes
 - **ALWAYS** prefer simple, efficient code
 
+### Solidity NatSpec Requirements
+
+All Solidity functions must have NatSpec documentation following these rules:
+
+1. **Interface functions**: Full NatSpec documentation (`@notice`, `@dev`, `@param`, `@return`) should be placed in the interface
+2. **Implementation of interface functions**: Use `@inheritdoc InterfaceName` to inherit documentation from the interface. Only add additional `@dev` comments if there's implementation-specific behavior not covered by the interface
+3. **Internal and private functions**: Only use `@dev`, `@param`, and `@return` tags (not `@notice`)
+
+```solidity
+// In interface
+/// @notice Deposits tokens into the vault
+/// @param _amount The amount to deposit
+/// @return success_ Whether the deposit succeeded
+function deposit(uint256 _amount) external returns (bool success_);
+
+// In implementation
+/// @inheritdoc IVault
+function deposit(uint256 _amount) external returns (bool success_) { ... }
+
+// Internal function
+/// @dev Validates the deposit amount against minimum requirements
+/// @param _amount The amount to validate
+/// @return valid_ Whether the amount is valid
+function _validateAmount(uint256 _amount) internal pure returns (bool valid_) { ... }
+```
+
 ## ✅ CI/CD Requirements
 
 ### Testing Standards

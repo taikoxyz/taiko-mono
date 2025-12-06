@@ -120,10 +120,6 @@ contract TestGenerateGenesis is Test {
         EssentialContract bondManagerProxy = EssentialContract(bondManagerAddress);
 
         assertEq(contractOwner, bondManagerProxy.owner());
-        assertEq(
-            getPredeployedContractAddress("TaikoAnchor"),
-            BondManager(bondManagerAddress).authorized()
-        );
         assertEq(bondToken, address(BondManager(bondManagerAddress).bondToken()));
         assertEq(minBond, BondManager(bondManagerAddress).minBond());
         assertEq(withdrawalDelay, BondManager(bondManagerAddress).withdrawalDelay());
@@ -133,10 +129,15 @@ contract TestGenerateGenesis is Test {
         bondManagerProxy.upgradeTo(
             address(
                 new BondManager(
-                    getPredeployedContractAddress("TaikoAnchor"),
                     getPredeployedContractAddress("RegularERC20"),
                     1 ether,
-                    7 days
+                    7 days,
+                    getPredeployedContractAddress("TaikoAnchor"),
+                    SignalService(getPredeployedContractAddress("SignalService")),
+                    contractOwner,
+                    uint64(l1ChainId),
+                    livenessBond,
+                    provabilityBond
                 )
             )
         );

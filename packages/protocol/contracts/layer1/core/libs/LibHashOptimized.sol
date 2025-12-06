@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
@@ -75,188 +74,80 @@ library LibHashOptimized {
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
     function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.lastProposalBlockId)),
-            bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            bytes32(uint256(_coreState.lastCheckpointTimestamp)),
-            _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHash
-        );
+        // Struct fields are encoded directly to keep compatibility if ordering changes.
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_coreState));
     }
 
     /// @notice Optimized hashing for Derivation structs
-    /// @dev Efficiently packs derivation fields before hashing
+    /// @dev Manually constructs the ABI-encoded layout to avoid nested abi.encode calls
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
     function hashDerivation(IInbox.Derivation memory _derivation) internal pure returns (bytes32) {
-        // Pack origin block number and basefee sharing percentage
         unchecked {
-            bytes32 packedFields = bytes32(
-                (uint256(_derivation.originBlockNumber) << 208)
-                    | (uint256(_derivation.basefeeSharingPctg) << 192)
-            );
+            IInbox.DerivationSource[] memory sources = _derivation.sources;
+            uint256 sourcesLength = sources.length;
 
-            // Hash the sources array - each source contains isForcedInclusion flag and blobSlice
-            bytes32 sourcesHash;
-            uint256 sourcesLength = _derivation.sources.length;
-            if (sourcesLength == 0) {
-                sourcesHash = EMPTY_BYTES_HASH;
-            } else if (sourcesLength == 1) {
-                sourcesHash = EfficientHashLib.hash(
-                    bytes32(sourcesLength), _hashDerivationSource(_derivation.sources[0])
-                );
-            } else if (sourcesLength == 2) {
-                sourcesHash = EfficientHashLib.hash(
-                    bytes32(sourcesLength),
-                    _hashDerivationSource(_derivation.sources[0]),
-                    _hashDerivationSource(_derivation.sources[1])
-                );
-            } else {
-                bytes32[] memory buffer = EfficientHashLib.malloc(sourcesLength + 1);
-                EfficientHashLib.set(buffer, 0, bytes32(sourcesLength));
+            // Base words:
+            // [0] offset to tuple head (0x20)
+            // [1] originBlockNumber
+            // [2] originBlockHash
+            // [3] basefeeSharingPctg
+            // [4] offset to sources (0x80)
+            // [5] sources length
+            uint256 totalWords = 6 + sourcesLength;
 
-                for (uint256 i; i < sourcesLength; ++i) {
-                    EfficientHashLib.set(
-                        buffer, i + 1, _hashDerivationSource(_derivation.sources[i])
-                    );
-                }
-
-                sourcesHash = EfficientHashLib.hash(buffer);
-                EfficientHashLib.free(buffer);
+            // Each source contributes: element head (2) + blobSlice head (3) + blobHashes length (1)
+            // + blobHashes entries
+            for (uint256 i; i < sourcesLength; ++i) {
+                totalWords += 6 + sources[i].blobSlice.blobHashes.length;
             }
 
-            return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, sourcesHash);
-        }
-    }
+            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
-    /// @notice Optimized hashing for Proposal structs
-    /// @dev Uses efficient multi-field hashing for all proposal fields
-    /// @param _proposal The proposal to hash
-    /// @return The hash of the proposal
-    function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
-        // Use separate field packing to avoid address truncation
-        // Pack numeric fields together
-        unchecked {
-            bytes32 packedFields = bytes32(
-                (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                    | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
-            );
+            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_derivation.originBlockNumber)));
+            EfficientHashLib.set(buffer, 2, _derivation.originBlockHash);
+            EfficientHashLib.set(buffer, 3, bytes32(uint256(_derivation.basefeeSharingPctg)));
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(0x80)));
+            EfficientHashLib.set(buffer, 5, bytes32(sourcesLength));
 
-            return EfficientHashLib.hash(
-                packedFields,
-                bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address
-                _proposal.coreStateHash,
-                _proposal.derivationHash
-            );
-        }
-    }
+            uint256 offsetsBase = 6;
+            uint256 dataCursor = offsetsBase + sourcesLength;
 
-    /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash transition fields
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint)
-        );
-    }
-
-    /// @notice Optimized hashing for TransitionRecord structs
-    /// @dev Efficiently hashes transition records with variable-length bond instructions
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes26)
-    {
-        unchecked {
-            // Hash bond instructions with explicit length prefix to avoid collisions
-            bytes32 bondInstructionsHash;
-            uint256 instructionsLength = _transitionRecord.bondInstructions.length;
-            if (instructionsLength == 0) {
-                bondInstructionsHash = EMPTY_BYTES_HASH;
-            } else if (instructionsLength == 1) {
-                bondInstructionsHash = EfficientHashLib.hash(
-                    bytes32(instructionsLength),
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
-                );
-            } else if (instructionsLength == 2) {
-                bondInstructionsHash = EfficientHashLib.hash(
-                    bytes32(instructionsLength),
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[0]),
-                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[1])
-                );
-            } else {
-                bytes32[] memory buffer = EfficientHashLib.malloc(instructionsLength + 1);
-                EfficientHashLib.set(buffer, 0, bytes32(instructionsLength));
-
-                for (uint256 i; i < instructionsLength; ++i) {
-                    EfficientHashLib.set(
-                        buffer,
-                        i + 1,
-                        _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
-                    );
-                }
-
-                bondInstructionsHash = EfficientHashLib.hash(buffer);
-                EfficientHashLib.free(buffer);
-            }
-
-            bytes32 fullHash = EfficientHashLib.hash(
-                bytes32(uint256(_transitionRecord.span)),
-                bondInstructionsHash,
-                _transitionRecord.transitionHash,
-                _transitionRecord.checkpointHash
-            );
-
-            return bytes26(fullHash);
-        }
-    }
-
-    /// @notice Memory-optimized hashing for arrays of Transitions with metadata
-    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions
-    ///      Hashes each transition with its corresponding metadata first, then aggregates
-    /// @param _transitions The transitions array to hash
-    /// @param _metadata The metadata array to hash
-    /// @return The hash of the transitions with metadata array
-    function hashTransitionsWithMetadata(
-        IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadata
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        require(_transitions.length == _metadata.length, InconsistentLengths());
-        unchecked {
-            uint256 length = _transitions.length;
-            if (length == 0) {
-                return EMPTY_BYTES_HASH;
-            }
-
-            if (length == 1) {
-                bytes32 transitionWithMetadataHash =
-                    _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
-                return EfficientHashLib.hash(bytes32(length), transitionWithMetadataHash);
-            }
-
-            if (length == 2) {
-                bytes32 hash0 = _hashTransitionWithMetadata(_transitions[0], _metadata[0]);
-                bytes32 hash1 = _hashTransitionWithMetadata(_transitions[1], _metadata[1]);
-                return EfficientHashLib.hash(bytes32(length), hash0, hash1);
-            }
-
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
-            EfficientHashLib.set(buffer, 0, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
+            for (uint256 i; i < sourcesLength; ++i) {
+                IInbox.DerivationSource memory source = sources[i];
                 EfficientHashLib.set(
-                    buffer, i + 1, _hashTransitionWithMetadata(_transitions[i], _metadata[i])
+                    buffer, offsetsBase + i, bytes32((dataCursor - offsetsBase) << 5)
                 );
+
+                // DerivationSource head
+                EfficientHashLib.set(
+                    buffer, dataCursor, bytes32(uint256(source.isForcedInclusion ? 1 : 0))
+                );
+                EfficientHashLib.set(buffer, dataCursor + 1, bytes32(uint256(0x40)));
+
+                // BlobSlice head
+                uint256 blobSliceBase = dataCursor + 2;
+                EfficientHashLib.set(buffer, blobSliceBase, bytes32(uint256(0x60)));
+                EfficientHashLib.set(
+                    buffer, blobSliceBase + 1, bytes32(uint256(source.blobSlice.offset))
+                );
+                EfficientHashLib.set(
+                    buffer, blobSliceBase + 2, bytes32(uint256(source.blobSlice.timestamp))
+                );
+
+                // Blob hashes array
+                bytes32[] memory blobHashes = source.blobSlice.blobHashes;
+                uint256 blobHashesLength = blobHashes.length;
+                uint256 blobHashesBase = blobSliceBase + 3;
+                EfficientHashLib.set(buffer, blobHashesBase, bytes32(blobHashesLength));
+
+                for (uint256 j; j < blobHashesLength; ++j) {
+                    EfficientHashLib.set(buffer, blobHashesBase + 1 + j, blobHashes[j]);
+                }
+
+                dataCursor = blobHashesBase + 1 + blobHashesLength;
             }
 
             bytes32 result = EfficientHashLib.hash(buffer);
@@ -265,30 +156,44 @@ library LibHashOptimized {
         }
     }
 
-    // ---------------------------------------------------------------
-    // Utility Functions
-    // ---------------------------------------------------------------
+    /// @notice Optimized hashing for Proposal structs
+    /// @dev Uses efficient multi-field hashing for all proposal fields
+    /// @param _proposal The proposal to hash
+    /// @return The hash of the proposal
+    function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
+        bytes32[] memory buffer = EfficientHashLib.malloc(5);
 
-    /// @notice Computes optimized composite key for transition record storage
-    /// @dev Creates unique identifier using efficient hashing
-    /// @param _proposalId The ID of the proposal
-    /// @param _compositeKeyVersion Version identifier for key generation
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return The composite key for storage mapping
-    function composeTransitionKey(
-        uint48 _proposalId,
-        uint16 _compositeKeyVersion,
-        bytes32 _parentTransitionHash
-    )
+        EfficientHashLib.set(buffer, 0, bytes32(uint256(_proposal.id)));
+        EfficientHashLib.set(buffer, 1, bytes32(uint256(_proposal.timestamp)));
+        EfficientHashLib.set(buffer, 2, bytes32(uint256(_proposal.endOfSubmissionWindowTimestamp)));
+        EfficientHashLib.set(buffer, 3, bytes32(uint256(uint160(_proposal.proposer))));
+        EfficientHashLib.set(buffer, 4, _proposal.derivationHash);
+
+        bytes32 result = EfficientHashLib.hash(buffer);
+        EfficientHashLib.free(buffer);
+        return result;
+    }
+
+    /// @notice Optimized hashing for Transition structs
+    /// @dev Uses EfficientHashLib to hash transition fields
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transition));
+    }
+
+    /// @notice Memory-optimized hashing for arrays of Transitions
+    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions.
+    /// @param _transitions The transitions array to hash
+    /// @return The hash of the transitions array
+    function hashTransitions(IInbox.Transition[] memory _transitions)
         internal
         pure
         returns (bytes32)
     {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_proposalId)),
-            bytes32(uint256(_compositeKeyVersion)),
-            _parentTransitionHash
-        );
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_transitions));
     }
 
     // ---------------------------------------------------------------
@@ -318,50 +223,4 @@ library LibHashOptimized {
                 bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
             );
     }
-
-    /// @notice Safely hashes a single bond instruction to avoid collisions
-    /// @dev Internal helper to avoid code duplication and prevent hash collisions
-    /// @param _instruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function _hashSingleBondInstruction(LibBonds.BondInstruction memory _instruction)
-        private
-        pure
-        returns (bytes32)
-    {
-        // Use EfficientHashLib to safely hash all fields without collision risk
-        return EfficientHashLib.hash(
-            bytes32(uint256(_instruction.proposalId)),
-            bytes32(uint256(uint8(_instruction.bondType))),
-            bytes32(uint256(uint160(_instruction.payer))),
-            bytes32(uint256(uint160(_instruction.payee)))
-        );
-    }
-
-    /// @notice Gas-optimized hashing of a transition with its metadata
-    /// @dev Hashes transition first, then combines with metadata fields using packed encoding
-    /// @param _transition The transition to hash
-    /// @param _metadata The metadata to combine with the transition
-    /// @return The hash of the transition combined with metadata
-    function _hashTransitionWithMetadata(
-        IInbox.Transition memory _transition,
-        IInbox.TransitionMetadata memory _metadata
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        return EfficientHashLib.hash(
-            _transition.proposalHash,
-            _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint),
-            bytes32(uint256(uint160(_metadata.designatedProver))),
-            bytes32(uint256(uint160(_metadata.actualProver)))
-        );
-    }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InconsistentLengths();
 }

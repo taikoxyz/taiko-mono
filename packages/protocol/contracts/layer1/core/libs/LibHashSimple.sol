@@ -73,74 +73,20 @@ library LibHashSimple {
         return keccak256(abi.encode(_transition));
     }
 
-    /// @notice Simple hashing for TransitionRecord structs
-    /// @dev Uses standard keccak256(abi.encode(...)) for the transition record
-    /// @param _transitionRecord The transition record to hash
-    /// @return The hash truncated to bytes26 for storage optimization
-    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes26)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
-    }
-
-    /// @notice Simple hashing for arrays of Transitions with metadata
+    /// @notice Simple hashing for arrays of Transitions
     /// @dev Uses standard keccak256(abi.encode(...)) for the transitions array
     /// @param _transitions The transitions array to hash
-    /// @param _metadata The metadata array to hash
     /// @return The hash of the transitions array
-    function hashTransitionsWithMetadata(
-        IInbox.Transition[] memory _transitions,
-        IInbox.TransitionMetadata[] memory _metadata
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        require(_transitions.length == _metadata.length, InconsistentLengths());
-        bytes32[] memory transitionHashes = new bytes32[](_transitions.length);
-
-        for (uint256 i; i < _transitions.length; ++i) {
-            transitionHashes[i] = keccak256(
-                abi.encodePacked(
-                    hashTransition(_transitions[i]),
-                    _metadata[i].designatedProver,
-                    _metadata[i].actualProver
-                )
-            );
-        }
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(transitionHashes));
-    }
-
-    // ---------------------------------------------------------------
-    // Utility Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Computes simple composite key for transition record storage
-    /// @dev Creates unique identifier using standard keccak256(abi.encode(...))
-    /// @param _proposalId The ID of the proposal
-    /// @param _compositeKeyVersion Version identifier for key generation
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return The composite key for storage mapping
-    function composeTransitionKey(
-        uint48 _proposalId,
-        uint16 _compositeKeyVersion,
-        bytes32 _parentTransitionHash
-    )
+    function hashTransitions(IInbox.Transition[] memory _transitions)
         internal
         pure
         returns (bytes32)
     {
         /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_proposalId, _compositeKeyVersion, _parentTransitionHash));
+        return keccak256(abi.encode(_transitions));
     }
 
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
-
-    error InconsistentLengths();
 }
