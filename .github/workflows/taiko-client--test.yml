@@ -82,7 +82,7 @@ jobs:
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}
-          ref: consecutive-proofs-2
+          ref: consecutive-proofs
 
       - name: Install pnpm dependencies for pacaya fork taiko-mono
         working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}

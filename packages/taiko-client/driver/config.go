@@ -96,7 +96,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
 			TaikoWrapperAddress:     common.HexToAddress(c.String(flags.DriverTaikoWrapperAddress.Name)),
 			ShastaForkTime:          c.Uint64(flags.ShastaForkTime.Name),
-			UseLocalShastaDecoder:   c.Bool(flags.ShastaUseLocalDecoder.Name),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup

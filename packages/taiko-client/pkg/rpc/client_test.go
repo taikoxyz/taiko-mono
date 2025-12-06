@@ -23,7 +23,6 @@ func newTestClient(t *testing.T) *Client {
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   os.Getenv("JWT_SECRET"),
-		UseLocalShastaDecoder:       true,
 	})
 
 	require.Nil(t, err)
@@ -46,7 +45,6 @@ func newTestClientWithTimeout(t *testing.T) *Client {
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   os.Getenv("JWT_SECRET"),
 		Timeout:                     5 * time.Second,
-		UseLocalShastaDecoder:       true,
 	})
 	require.Nil(t, err)
 	require.NotNil(t, client)

@@ -28,7 +28,6 @@ var (
 	DriverL2PreconfHeadHeightGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_preconf_l2Head_height"})
 	DriverL1CurrentHeightGauge             = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
 	DriverL2HeadIDGauge                    = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
-	DriverL2VerifiedHeightGauge            = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Verified_id"})
 	DriverHighestPreconfUnsafePayloadGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_highest_unsafe_payload"})
 	DriverReorgsByProposalCounter          = factory.NewCounter(prometheus.CounterOpts{Name: "driver_reorgs_by_proposal"})
 	DriverPreconfEnvelopeCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
@@ -95,16 +94,12 @@ var (
 	ProverLatestVerifiedIDGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_latestVerified_id"})
 	ProverLatestProvenBlockIDGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_latestProven_id"})
 	ProverQueuedProofCounter         = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_queued"})
-	ProverReceivedProofCounter       = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_received"})
 	ProverSentProofCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_sent"})
 	ProverProofsAssigned             = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_assigned"})
 	ProverReceivedProposedBlockGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proposed_received"})
 	ProverReceivedProvenBlockGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_received"})
 	ProverSubmissionAcceptedCounter  = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_accepted",
-	})
-	ProverSubmissionErrorCounter = factory.NewCounter(prometheus.CounterOpts{
-		Name: "prover_proof_submission_error",
 	})
 	ProverAggregationSubmissionErrorCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_aggregation_submission_error",
