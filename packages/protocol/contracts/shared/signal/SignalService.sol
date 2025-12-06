@@ -355,11 +355,13 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32 storageRoot_)
     {
         if (_accountProof.length != 0) {
-            bytes memory rlpAccount =
-                SecureMerkleTrie.get(abi.encodePacked(_remoteSignalService), _accountProof, _stateRoot);
+            bytes memory rlpAccount = SecureMerkleTrie.get(
+                abi.encodePacked(_remoteSignalService), _accountProof, _stateRoot
+            );
             require(rlpAccount.length != 0, SS_INVALID_ACCOUNT_PROOF());
             RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
-            storageRoot_ = bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
+            storageRoot_ =
+                bytes32(RLPReader.readBytes(accountState[_ACCOUNT_FIELD_INDEX_STORAGE_HASH]));
         } else {
             storageRoot_ = _stateRoot;
         }
@@ -377,10 +379,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bool)
     {
         return SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(_slot),
-            RLPWriter.writeUint(uint256(_signal)),
-            _storageProof,
-            _storageRoot
+            bytes.concat(_slot), RLPWriter.writeUint(uint256(_signal)), _storageProof, _storageRoot
         );
     }
 
