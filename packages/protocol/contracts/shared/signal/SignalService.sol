@@ -294,9 +294,8 @@ contract SignalService is EssentialContract, ISignalService {
             // Check new EIP-7201 slot first
             if (_receivedSignals[slot]) return;
             // Fall back to legacy slot if within the legacy support period
-            if (block.timestamp < legacySlotExpiry) {
-                if (_receivedSignals[getLegacySignalSlot(_chainId, _app, _signal)]) return;
-            }
+            if (block.timestamp < legacySlotExpiry && _receivedSignals[getLegacySignalSlot(_chainId, _app, _signal)]) return;
+            
             revert SS_SIGNAL_NOT_RECEIVED();
         }
 
@@ -314,29 +313,18 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
-        if (block.timestamp < legacySlotExpiry) {
-            // During migration period: try legacy slot first (most existing proofs use legacy slot),
-            // then fall back to new EIP-7201 slot.
-            LibTrieProof.verifyMerkleProofWithFallback(
-                checkpoint.stateRoot,
-                _remoteSignalService,
-                getLegacySignalSlot(_chainId, _app, _signal),
-                slot,
-                _signal,
-                proof.accountProof,
-                proof.storageProof
-            );
-        } else {
-            // After migration period: only try the new EIP-7201 slot
-            LibTrieProof.verifyMerkleProof(
-                checkpoint.stateRoot,
-                _remoteSignalService,
-                slot,
-                _signal,
-                proof.accountProof,
-                proof.storageProof
-            );
-        }
+        // During migration period: try legacy slot first, fall back to new EIP-7201 slot.
+        // Most existing proofs during migration target the legacy slot, so we optimize for that case.
+        // After migration: only try the new EIP-7201 slot (fallback disabled with bytes32(0)).
+        LibTrieProof.verifyMerkleProof(
+            checkpoint.stateRoot,
+            _remoteSignalService,
+            block.timestamp < legacySlotExpiry ? getLegacySignalSlot(_chainId, _app, _signal) : slot,
+            block.timestamp < legacySlotExpiry ? slot : bytes32(0),
+            _signal,
+            proof.accountProof,
+            proof.storageProof
+        );
     }
 
     // ---------------------------------------------------------------

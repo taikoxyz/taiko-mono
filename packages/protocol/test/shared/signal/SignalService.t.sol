@@ -67,6 +67,16 @@ contract TestSignalService is CommonTest {
         assertEq(newSlot, expectedNewSlot, "EfficientHashLib should match keccak256(abi.encode(...))");
     }
 
+    function test_signalNamespace_MatchesEIP7201Formula() public pure {
+        // Verify that the SIGNAL_NAMESPACE constant follows EIP-7201 spec:
+        // keccak256(abi.encode(uint256(keccak256("taiko.signal.storage")) - 1)) & ~bytes32(uint256(0xff))
+        bytes32 expected = keccak256(abi.encode(uint256(keccak256("taiko.signal.storage")) - 1))
+            & ~bytes32(uint256(0xff));
+
+        bytes32 SIGNAL_NAMESPACE = 0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
+        assertEq(SIGNAL_NAMESPACE, expected, "SIGNAL_NAMESPACE must match EIP-7201 formula");
+    }
+
     function test_isSignalSent_FallsBackToLegacySlot_BeforeExpiry() public {
         uint64 chainId = uint64(block.chainid);
         address app = address(0x1234);
