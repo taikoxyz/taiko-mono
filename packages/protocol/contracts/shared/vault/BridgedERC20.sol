@@ -128,17 +128,16 @@ contract BridgedERC20 is
     /// @inheritdoc IBridgedERC20
     function burn(uint256 _amount) external whenNotPaused nonReentrant {
         if (isMigratingOut()) {
-            // Outbound migration
+            // Outbound migration: any user can burn their tokens to migrate to the new bridged token.
             address _migratingAddress = migratingAddress;
             emit MigratedTo(_migratingAddress, msg.sender, _amount);
             // Ask the new bridged token to mint token for the user.
             IBridgedERC20(_migratingAddress).mint(msg.sender, _amount);
         } else {
-            // When user wants to burn tokens only during 'migrating out' phase is possible. If
-            // ERC20Vault burns the tokens, that will go through the burn(amount) function.
+            // Normal operation: only vault or owner can burn (for bridging back to canonical chain).
             _authorizedMintBurn(msg.sender);
         }
-
+        // Always burns from msg.sender's balance. OZ's _burn() verifies sufficient balance.
         _burn(msg.sender, _amount);
     }
 

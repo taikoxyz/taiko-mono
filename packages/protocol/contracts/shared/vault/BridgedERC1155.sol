@@ -91,6 +91,8 @@ contract BridgedERC1155 is
         onlyFrom(erc1155Vault)
         nonReentrant
     {
+        // Vault must own the tokens to burn them. The vault transfers tokens to itself before
+        // calling burn. OZ's _burn() verifies the vault has sufficient balance.
         _burn(msg.sender, _id, _amount);
     }
 
