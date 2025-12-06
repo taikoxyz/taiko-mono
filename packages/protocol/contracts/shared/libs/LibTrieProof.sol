@@ -16,50 +16,19 @@ library LibTrieProof {
     error LTP_INVALID_INCLUSION_PROOF();
 
     /// @notice Verifies that the value of a slot in the storage of an account is value.
-    ///
+    /// @dev If _fallbackSlot is non-zero, tries _slot first, then _fallbackSlot if primary fails.
+    /// This is used during migration periods where proofs may be generated against either slot.
     /// @param _rootHash The merkle root of state tree or the account tree. If accountProof's length
     /// is zero, it is used as the account's storage root, otherwise it will be used as the state
     /// root.
     /// @param _addr The address of contract.
-    /// @param _slot The slot in the contract.
+    /// @param _slot The primary slot in the contract.
+    /// @param _fallbackSlot The fallback slot to try if primary fails (use 0 to skip fallback).
     /// @param _value The value to be verified.
     /// @param _accountProof The account proof
     /// @param _storageProof The storage proof
     /// @return storageRoot_ The account's storage root
     function verifyMerkleProof(
-        bytes32 _rootHash,
-        address _addr,
-        bytes32 _slot,
-        bytes32 _value,
-        bytes[] memory _accountProof,
-        bytes[] memory _storageProof
-    )
-        internal
-        pure
-        returns (bytes32 storageRoot_)
-    {
-        storageRoot_ = _getStorageRoot(_rootHash, _addr, _accountProof);
-
-        bool verified = SecureMerkleTrie.verifyInclusionProof(
-            bytes.concat(_slot), RLPWriter.writeUint(uint256(_value)), _storageProof, storageRoot_
-        );
-
-        require(verified, LTP_INVALID_INCLUSION_PROOF());
-    }
-
-    /// @notice Verifies that the value of a slot in the storage of an account is value,
-    /// trying both a primary slot and a fallback slot.
-    /// @dev This is used during migration periods where proofs may be generated against
-    /// either the old or new slot calculation.
-    /// @param _rootHash The merkle root of state tree or the account tree.
-    /// @param _addr The address of contract.
-    /// @param _slot The primary slot to try first.
-    /// @param _fallbackSlot The fallback slot to try if primary fails.
-    /// @param _value The value to be verified.
-    /// @param _accountProof The account proof
-    /// @param _storageProof The storage proof
-    /// @return storageRoot_ The account's storage root
-    function verifyMerkleProofWithFallback(
         bytes32 _rootHash,
         address _addr,
         bytes32 _slot,
@@ -76,12 +45,11 @@ library LibTrieProof {
 
         bytes memory encodedValue = RLPWriter.writeUint(uint256(_value));
 
-        // Try primary slot first
         bool verified =
             SecureMerkleTrie.verifyInclusionProof(bytes.concat(_slot), encodedValue, _storageProof, storageRoot_);
 
-        // If primary fails, try fallback slot
-        if (!verified) {
+        // If primary fails and fallback slot is provided, try fallback
+        if (!verified && _fallbackSlot != bytes32(0)) {
             verified = SecureMerkleTrie.verifyInclusionProof(
                 bytes.concat(_fallbackSlot), encodedValue, _storageProof, storageRoot_
             );

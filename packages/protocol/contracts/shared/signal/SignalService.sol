@@ -248,23 +248,19 @@ contract SignalService is EssentialContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32) {
+    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32 value_) {
         require(_app != address(0), ZERO_ADDRESS());
         require(_signal != bytes32(0), ZERO_VALUE());
 
         uint64 chainId = uint64(block.chainid);
 
         // First try the new EIP-7201 slot
-        bytes32 slot = getSignalSlot(chainId, _app, _signal);
-        bytes32 value = _loadSignalValue(slot);
+       value_ = _loadSignalValue(getSignalSlot(chainId, _app, _signal));
 
         // If value is 0 and legacy support hasn't expired, check the legacy slot
-        if (value == bytes32(0) && block.timestamp < legacySlotExpiry) {
-            bytes32 legacySlot = getLegacySignalSlot(chainId, _app, _signal);
-            value = _loadSignalValue(legacySlot);
+        if (value_ == bytes32(0) && block.timestamp < legacySlotExpiry) {
+            value_ = _loadSignalValue(getLegacySignalSlot(chainId, _app, _signal));
         }
-
-        return value;
     }
 
     function _loadSignalValue(bytes32 _signalSlot) private view returns (bytes32 value_) {
@@ -291,8 +287,7 @@ contract SignalService is EssentialContract, ISignalService {
             if (_receivedSignals[slot]) return;
             // Fall back to legacy slot if within the legacy support period
             if (block.timestamp < legacySlotExpiry) {
-                bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
-                if (_receivedSignals[legacySlot]) return;
+                if (_receivedSignals[getLegacySignalSlot(_chainId, _app, _signal)]) return;
             }
             revert SS_SIGNAL_NOT_RECEIVED();
         }
@@ -311,30 +306,18 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_INVALID_CHECKPOINT();
         }
 
-        if (block.timestamp < legacySlotExpiry) {
-            // During migration period: try legacy slot first (most existing proofs use legacy slot),
-            // then fall back to new EIP-7201 slot.
-            bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
-            LibTrieProof.verifyMerkleProofWithFallback(
-                checkpoint.stateRoot,
-                _remoteSignalService,
-                legacySlot,
-                slot,
-                _signal,
-                proof.accountProof,
-                proof.storageProof
-            );
-        } else {
-            // After migration period: only try the new EIP-7201 slot
-            LibTrieProof.verifyMerkleProof(
-                checkpoint.stateRoot,
-                _remoteSignalService,
-                slot,
-                _signal,
-                proof.accountProof,
-                proof.storageProof
-            );
-        }
+        // During migration period: try legacy slot first, then new slot as fallback.
+        // After migration: only try the new EIP-7201 slot (fallback = 0).
+        bytes32 fallbackSlot = block.timestamp < legacySlotExpiry ? slot : bytes32(0);
+        LibTrieProof.verifyMerkleProof(
+            checkpoint.stateRoot,
+            _remoteSignalService,
+            block.timestamp < legacySlotExpiry ? getLegacySignalSlot(_chainId, _app, _signal) : slot,
+            fallbackSlot,
+            _signal,
+            proof.accountProof,
+            proof.storageProof
+        );
     }
 
     // ---------------------------------------------------------------

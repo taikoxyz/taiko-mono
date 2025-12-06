@@ -52,21 +52,21 @@ contract TestLibTrieProof is CommonTest {
 
         vm.expectRevert();
         LibTrieProof.verifyMerkleProof(
-            stateRoot, randAddress(), slot, hex"01", accountProof, storageProof
+            stateRoot, randAddress(), slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         vm.expectRevert();
         LibTrieProof.verifyMerkleProof(
-            stateRoot, address(0), slot, hex"01", accountProof, storageProof
+            stateRoot, address(0), slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         bytes32 storageRoot = LibTrieProof.verifyMerkleProof(
-            stateRoot, addr, slot, hex"01", accountProof, storageProof
+            stateRoot, addr, slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         accountProof = new bytes[](0);
         bytes32 storageRoot2 = LibTrieProof.verifyMerkleProof(
-            storageRoot, addr, slot, hex"01", accountProof, storageProof
+            storageRoot, addr, slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         assertEq(storageRoot2, storageRoot);
@@ -113,21 +113,21 @@ contract TestLibTrieProof is CommonTest {
 
         vm.expectRevert();
         LibTrieProof.verifyMerkleProof(
-            stateRoot, randAddress(), slot, hex"01", accountProof, storageProof
+            stateRoot, randAddress(), slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         vm.expectRevert();
         LibTrieProof.verifyMerkleProof(
-            stateRoot, address(0), slot, hex"01", accountProof, storageProof
+            stateRoot, address(0), slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         bytes32 storageRoot = LibTrieProof.verifyMerkleProof(
-            stateRoot, addr, slot, hex"01", accountProof, storageProof
+            stateRoot, addr, slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         accountProof = new bytes[](0);
         bytes32 storageRoot2 = LibTrieProof.verifyMerkleProof(
-            storageRoot, addr, slot, hex"01", accountProof, storageProof
+            storageRoot, addr, slot, bytes32(0), hex"01", accountProof, storageProof
         );
 
         assertEq(storageRoot2, storageRoot);
@@ -167,6 +167,7 @@ contract TestLibTrieProof is CommonTest {
             stateRoot,
             addr,
             slot,
+            bytes32(0),
             hex"0a793aea9233fc987a8f710991f16b576e23b67a15874faab4e18192aad8fd17",
             accountProof,
             storageProof
