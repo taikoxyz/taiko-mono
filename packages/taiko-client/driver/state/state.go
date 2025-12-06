@@ -149,6 +149,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				"checkpointNumber", payload.Transition.Checkpoint.BlockNumber,
 				"checkpointHash", common.Hash(payload.Transition.Checkpoint.BlockHash),
 			)
+			metrics.DriverL2VerifiedHeightGauge.Set(float64(payload.Transition.Checkpoint.BlockNumber.Uint64()))
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
 				"📈 Pacaya batches verified",
