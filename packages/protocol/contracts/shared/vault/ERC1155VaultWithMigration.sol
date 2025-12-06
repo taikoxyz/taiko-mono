@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ERC1155Vault.sol";
 import "../libs/LibAddress.sol";
+import "./ERC1155Vault.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 import "./ERC1155VaultWithMigration_Layout.sol"; // DO NOT DELETE
