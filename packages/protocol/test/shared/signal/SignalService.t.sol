@@ -61,7 +61,7 @@ contract TestSignalService is CommonTest {
         assertEq(legacySlot, expectedLegacy, "Legacy slot calculation mismatch");
     }
 
-    function test_isSignalSent_FallsBackToLegacySlot() public {
+    function test_isSignalSent_FallsBackToLegacySlot_BeforeExpiry() public {
         uint64 chainId = uint64(block.chainid);
         address app = address(0x1234);
         bytes32 signal = keccak256("legacy_signal");
@@ -70,8 +70,34 @@ contract TestSignalService is CommonTest {
         // Manually write to the legacy slot to simulate pre-upgrade signal
         vm.store(address(signalService), legacySlot, signal);
 
-        // isSignalSent should find the signal via legacy fallback
+        // Before expiry: isSignalSent should find the signal via legacy fallback
+        assertTrue(
+            block.timestamp < signalService.legacySlotExpiry(),
+            "Test precondition: should be before expiry"
+        );
         assertTrue(signalService.isSignalSent(app, signal), "Should find signal in legacy slot");
+    }
+
+    function test_isSignalSent_IgnoresLegacySlot_AfterExpiry() public {
+        uint64 chainId = uint64(block.chainid);
+        address app = address(0x1234);
+        bytes32 signal = keccak256("legacy_signal");
+        bytes32 legacySlot = signalService.getLegacySignalSlot(chainId, app, signal);
+
+        // Manually write to the legacy slot to simulate pre-upgrade signal
+        vm.store(address(signalService), legacySlot, signal);
+
+        // Warp to after legacy slot expiry
+        vm.warp(signalService.legacySlotExpiry() + 1);
+
+        // After expiry: isSignalSent should NOT find the signal in legacy slot
+        assertTrue(
+            block.timestamp >= signalService.legacySlotExpiry(),
+            "Test precondition: should be after expiry"
+        );
+        assertFalse(
+            signalService.isSignalSent(app, signal), "Should not find signal in legacy slot after expiry"
+        );
     }
 
     function test_isSignalSent_PrefersNewSlotOverLegacy() public {
