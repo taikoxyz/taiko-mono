@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -80,9 +79,9 @@ func (i *Indexer) isERC20Transfer(_ context.Context, vLog types.Log) bool {
 
 // saveERC20Transfer updates the user's balances on the from and to of a ERC20 transfer event
 func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
-	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[1].Bytes()[12:]))
+	from := common.BytesToAddress(vLog.Topics[1].Bytes()).Hex()
 
-	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
+	to := common.BytesToAddress(vLog.Topics[2].Bytes()).Hex()
 
 	event := struct {
 		From  common.Address
