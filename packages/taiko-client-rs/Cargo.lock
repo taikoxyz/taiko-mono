@@ -6125,18 +6125,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "preconfirmation"
-version = "2.0.0"
-dependencies = [
- "alloy",
- "alloy-contract",
- "alloy-primitives",
- "alloy-provider",
- "bindings",
- "thiserror 2.0.17",
-]
-
-[[package]]
 name = "pretty_assertions"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6327,6 +6315,7 @@ version = "2.0.0"
 dependencies = [
  "alloy",
  "alloy-consensus",
+ "alloy-contract",
  "alloy-eips",
  "alloy-hardforks 0.4.4",
  "alloy-primitives",

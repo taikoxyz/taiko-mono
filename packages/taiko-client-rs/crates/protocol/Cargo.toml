@@ -9,6 +9,7 @@ license.workspace = true
 # ethereum
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }

@@ -4,32 +4,19 @@ use bindings::{
     inbox::Inbox::InboxInstance,
     lookahead_store::{ILookaheadStore, LookaheadStore::LookaheadStoreInstance},
 };
-use thiserror::Error;
+
+use super::error::{LookaheadError, Result};
 
 /// Type aliases for LookaheadStore data structures.
 pub type LookaheadData = ILookaheadStore::LookaheadData;
 pub type LookaheadSlot = ILookaheadStore::LookaheadSlot;
 pub type ProposerContext = ILookaheadStore::ProposerContext;
 
-/// Result alias for lookahead operations.
-pub type Result<T> = std::result::Result<T, LookaheadError>;
-
 /// Client for querying the LookaheadStore discovered via the Inbox configuration.
 #[derive(Clone)]
 pub struct LookaheadClient<P: Provider + Clone> {
     inbox: InboxInstance<P>,
     lookahead_store: LookaheadStoreInstance<P>,
-}
-
-/// Errors emitted by the lookahead client.
-#[derive(Debug, Error)]
-pub enum LookaheadError {
-    /// Failed to fetch or decode Inbox configuration.
-    #[error("failed to fetch inbox config: {0}")]
-    InboxConfig(alloy_contract::Error),
-    /// Failure when querying the LookaheadStore.
-    #[error("failed to call lookahead store: {0}")]
-    Lookahead(alloy_contract::Error),
 }
 
 impl<P: Provider + Clone> LookaheadClient<P> {
