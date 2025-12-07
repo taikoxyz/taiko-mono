@@ -11,7 +11,6 @@ use alloy::{eips::eip4844::BlobTransactionSidecar, transports::http::reqwest::Ur
 use alloy_primitives::{Address, B256};
 use alloy_provider::{ProviderBuilder, RootProvider};
 use anyhow::{Context, Result};
-use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use proposer::{config::ProposerConfigs, proposer::Proposer};
 use rpc::{
     SubscriptionSource,
@@ -41,7 +40,6 @@ pub struct ShastaEnv {
     pub taiko_anchor_address: Address,
     pub client_config: ClientConfig,
     pub client: RpcClient,
-    pub event_indexer: Arc<ShastaEventIndexer>,
     pub proposer: Arc<Proposer>,
     cleanup_provider: RootProvider,
     snapshot_id: String,
@@ -121,31 +119,19 @@ impl ShastaEnv {
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
-        // Start the inbox event indexer and wait for historical sync.
-        let indexer_config = ShastaEventIndexerConfig {
-            l1_subscription_source: l1_source.clone(),
-            inbox_address,
-            use_local_codec_decoder: true,
-        };
-        let event_indexer = ShastaEventIndexer::new(indexer_config).await?;
-        event_indexer.clone().spawn();
-        event_indexer.wait_historical_indexing_finished().await;
-
-        // Build the proposer wired to the shared indexer and local codec.
+        // Build the proposer wired to the shared indexer.
         let proposer_config = ProposerConfigs {
             l1_provider_source: l1_source.clone(),
             l2_provider_url: l2_http_url.clone(),
             l2_auth_provider_url: l2_auth_url.clone(),
             jwt_secret: jwt_secret_path.clone(),
             inbox_address,
-            use_local_shasta_codec: true,
             l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(0),
             l1_proposer_private_key,
             gas_limit: None,
         };
-        let proposer =
-            Arc::new(Proposer::new_with_indexer(proposer_config, event_indexer.clone()).await?);
+        let proposer = Arc::new(Proposer::new(proposer_config).await?);
 
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
         Ok(Self {
@@ -159,7 +145,6 @@ impl ShastaEnv {
             taiko_anchor_address,
             client_config,
             client,
-            event_indexer,
             proposer,
             cleanup_provider,
             snapshot_id,

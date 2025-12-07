@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy::{
     primitives::{Address, B256, Bytes, TxKind, U256},
@@ -12,10 +12,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::{
-    Anchor::{BlockParams, ProposalParams},
-    LibBonds::BondInstruction,
-};
+use bindings::anchor::Anchor::{BlockParams, ProposalParams};
 use rpc::client::Client;
 use thiserror::Error;
 use tracing::{info, instrument};
@@ -41,8 +38,6 @@ pub struct AnchorV4Input {
     pub proposal_id: u64,
     pub proposer: Address,
     pub prover_auth: Vec<u8>,
-    pub bond_instructions_hash: B256,
-    pub bond_instructions: Vec<BondInstruction>,
     pub anchor_block_number: u64,
     pub anchor_block_hash: B256,
     pub anchor_state_root: B256,
@@ -90,8 +85,6 @@ where
             proposal_id,
             proposer,
             prover_auth,
-            bond_instructions_hash,
-            bond_instructions,
             anchor_block_number,
             anchor_block_hash,
             anchor_state_root,
@@ -146,8 +139,6 @@ where
             proposalId: U48::from(proposal_id),
             proposer,
             proverAuth: prover_auth.into(),
-            bondInstructionsHash: bond_instructions_hash,
-            bondInstructions: bond_instructions,
         };
 
         let block_params = BlockParams {
@@ -162,7 +153,7 @@ where
             .from(self.golden_touch_address)
             .chain_id(self.chain_id)
             .nonce(nonce)
-            .gas(ANCHOR_V3_GAS_LIMIT)
+            .gas(ANCHOR_V3_V4_GAS_LIMIT)
             .max_fee_per_gas(gas_fee_cap)
             .max_priority_fee_per_gas(0);
 
@@ -172,7 +163,7 @@ where
         let tx = TxEip1559 {
             chain_id: self.chain_id,
             nonce,
-            gas_limit: ANCHOR_V3_GAS_LIMIT,
+            gas_limit: ANCHOR_V3_V4_GAS_LIMIT,
             max_fee_per_gas: gas_fee_cap,
             max_priority_fee_per_gas: 0,
             to: TxKind::Call(anchor_address),

@@ -45,7 +45,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	)
 	s.blobTxBuilder = NewBlobTransactionBuilder(
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),

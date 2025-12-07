@@ -17,7 +17,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
@@ -33,7 +32,6 @@ type BatchProposedEventHandler struct {
 	proverAddress          common.Address
 	proverSetAddress       common.Address
 	rpc                    *rpc.Client
-	indexer                *shastaIndexer.Indexer
 	localProposerAddresses []common.Address
 	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh      chan<- *proofProducer.ProofRequestBody
@@ -48,7 +46,6 @@ type NewBatchProposedEventHandlerOps struct {
 	ProverAddress          common.Address
 	ProverSetAddress       common.Address
 	RPC                    *rpc.Client
-	Indexer                *shastaIndexer.Indexer
 	LocalProposerAddresses []common.Address
 	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -64,7 +61,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProverAddress,
 		opts.ProverSetAddress,
 		opts.RPC,
-		opts.Indexer,
 		opts.LocalProposerAddresses,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,

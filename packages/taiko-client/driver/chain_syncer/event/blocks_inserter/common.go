@@ -631,8 +631,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		meta.GetProposal().Id,
 		meta.GetProposal().Proposer,
 		sourcePayload.ProverAuthBytes,
-		blockInfo.BondInstructionsHash,
-		blockInfo.BondInstructions,
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,

@@ -2,6 +2,7 @@ name: Merge Gatekeeper
 
 on:
   pull_request:
+    types: [synchronize, opened, reopened, edited, ready_for_review]
   merge_group: # Trigger in merge queue to pass the required status check
 
 concurrency:

@@ -26,8 +26,6 @@ impl DriverMetrics {
     pub const EVENT_PROPOSALS_SKIPPED_TOTAL: &'static str = "driver_event_proposals_skipped_total";
     /// Counter tracking derived or confirmed L2 blocks per proposal.
     pub const EVENT_DERIVED_BLOCKS_TOTAL: &'static str = "driver_event_derived_blocks_total";
-    /// Gauge tracking depth of the cached bond instruction queue.
-    pub const DERIVATION_BOND_CACHE_DEPTH: &'static str = "driver_derivation_bond_cache_depth";
     /// Counter tracking proposals resolved entirely via canonical chain detection.
     pub const DERIVATION_CANONICAL_HITS_TOTAL: &'static str =
         "driver_derivation_canonical_hits_total";
@@ -97,11 +95,6 @@ impl DriverMetrics {
             Self::EVENT_DERIVED_BLOCKS_TOTAL,
             Unit::Count,
             "L2 blocks derived or confirmed from proposals"
-        );
-        metrics::describe_gauge!(
-            Self::DERIVATION_BOND_CACHE_DEPTH,
-            Unit::Count,
-            "Entries retained inside the bond instruction cache"
         );
         metrics::describe_counter!(
             Self::DERIVATION_CANONICAL_HITS_TOTAL,

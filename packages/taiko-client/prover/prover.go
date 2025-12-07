@@ -23,7 +23,6 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -52,8 +51,7 @@ type Prover struct {
 	protocolConfigs config.ProtocolConfigs
 
 	// States
-	shastaIndexer *shastaIndexer.Indexer
-	sharedState   *state.SharedState
+	sharedState *state.SharedState
 
 	// Event handlers
 	eventHandlers *eventHandlers
@@ -117,15 +115,6 @@ func InitFromConfig(
 		return err
 	}
 
-	// Shasta state indexer
-	if p.shastaIndexer, err = shastaIndexer.New(
-		p.ctx,
-		p.rpc,
-		p.rpc.ShastaClients.ForkTime,
-	); err != nil {
-		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
-	}
-
 	// Configs
 	p.protocolConfigs, err = p.rpc.GetProtocolConfigs(&bind.CallOpts{Context: p.ctx})
 	if err != nil {
@@ -138,19 +127,15 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, 1)
-	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, 1)
+	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
-	if err := p.shastaIndexer.Start(); err != nil {
-		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
-	}
 	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
-		p.shastaIndexer,
 		p.cfg.PacayaInboxAddress,
 		p.cfg.ShastaInboxAddress,
 		p.cfg.ProverSetAddress,

@@ -67,8 +67,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-block"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-evm",
@@ -95,8 +95,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-chainspec"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -117,8 +117,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-consensus"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-evm",
@@ -139,8 +139,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-db"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alethia-reth-primitives",
  "alloy-primitives",
@@ -155,8 +155,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-evm"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alloy-evm",
  "alloy-primitives",
@@ -174,8 +174,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-primitives"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alethia-reth-chainspec",
  "alloy-primitives",
@@ -198,8 +198,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-rpc"
-version = "0.5.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?branch=main#6ff4dea33acf33851d1c5d320d064c5bd4ad1d50"
+version = "0.6.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=e07c13fc011798adfa5436f24646b7305337cdf3#e07c13fc011798adfa5436f24646b7305337cdf3"
 dependencies = [
  "alethia-reth-block",
  "alethia-reth-chainspec",
@@ -244,7 +244,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.17",
- "tokio-retry",
+ "tokio",
  "tracing",
 ]
 
@@ -3129,7 +3129,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bindings",
- "event-indexer",
  "event-scanner",
  "flate2",
  "http-body-util",
@@ -3424,35 +3423,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "event-indexer"
-version = "2.0.0"
-dependencies = [
- "alloy",
- "alloy-contract",
- "alloy-eips",
- "alloy-json-rpc",
- "alloy-primitives",
- "alloy-provider",
- "alloy-rpc-types",
- "alloy-signer-local",
- "alloy-sol-macro",
- "alloy-sol-types",
- "anyhow",
- "async-trait",
- "bindings",
- "dashmap 6.1.0",
- "event-scanner",
- "metrics 0.24.2",
- "protocol",
- "thiserror 2.0.17",
- "tokio",
- "tokio-retry",
- "tokio-stream",
- "tracing",
- "tracing-subscriber 0.3.20",
 ]
 
 [[package]]
@@ -6260,7 +6230,6 @@ dependencies = [
  "alloy-network",
  "anyhow",
  "bindings",
- "event-indexer",
  "metrics 0.24.2",
  "protocol",
  "rpc",
@@ -10677,7 +10646,6 @@ dependencies = [
  "async-trait",
  "clap",
  "driver",
- "event-indexer",
  "metrics 0.24.2",
  "metrics-exporter-prometheus 0.15.3",
  "proposer",
@@ -10752,7 +10720,6 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "bindings",
- "event-indexer",
  "http-body-util",
  "hyper",
  "hyper-util",
