@@ -15,6 +15,7 @@ forge bind \
   --select '^CodecOptimized$' \
   --select '^Anchor$' \
   --select '^LookaheadStore$' \
+  --select '^PreconfWhitelist$' \
   --bindings-path crates/bindings \
   --crate-name bindings \
   --overwrite \
