@@ -17,7 +17,6 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
@@ -31,7 +30,6 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 // ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
 type ProveBatchesTxBuilder struct {
 	rpc                *rpc.Client
-	indexer            *shastaIndexer.Indexer
 	pacayaInboxAddress common.Address
 	shastaInboxAddress common.Address
 	proverSetAddress   common.Address
@@ -40,12 +38,11 @@ type ProveBatchesTxBuilder struct {
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
 func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
 	proverSetAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, indexer, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
@@ -131,7 +128,6 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 		var (
 			proposals   = make([]shastaBindings.IInboxProposal, len(batchProof.ProofResponses))
 			transitions = make([]shastaBindings.IInboxTransition, len(batchProof.ProofResponses))
-			metadatas   = make([]shastaBindings.IInboxTransitionMetadata, len(batchProof.ProofResponses))
 		)
 
 		for i, proofResponse := range batchProof.ProofResponses {
@@ -145,10 +141,6 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				ProposalHash:         proposalHash,
 				ParentTransitionHash: batchProof.ProofResponses[i].Opts.ShastaOptions().ParentTransitionHash,
 				Checkpoint:           *batchProof.ProofResponses[i].Opts.ShastaOptions().Checkpoint,
-			}
-			metadatas[i] = shastaBindings.IInboxTransitionMetadata{
-				DesignatedProver: batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
-				ActualProver:     txOpts.From,
 			}
 
 			log.Info(
@@ -165,7 +157,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 
 		inputData, err := a.rpc.EncodeProveInput(
 			&bind.CallOpts{Context: txOpts.Context},
-			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions, Metadata: metadatas},
+			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions, SyncCheckpoint: true},
 		)
 		if err != nil {
 			return nil, encoding.TryParsingCustomError(err)
@@ -247,7 +239,6 @@ func GetShastaGenesisTransitionHash(ctx context.Context, rpc *rpc.Client) (commo
 func BuildParentTransitionHash(
 	ctx context.Context,
 	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	batchID *big.Int,
 ) (common.Hash, error) {
 	type transitionEntry struct {
@@ -258,8 +249,11 @@ func BuildParentTransitionHash(
 	var (
 		parentTransitions []transitionEntry
 		cursor            = new(big.Int).Sub(new(big.Int).Set(batchID), common.Big1)
-		coreState         = indexer.GetLastCoreState()
 	)
+	coreState, err := rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to get Shasta core state: %w", err)
+	}
 
 	// If the parent transition already been just finalized, return the last finalized transition hash directly.
 	if cursor.Cmp(coreState.LastFinalizedProposalId) == 0 {
@@ -286,39 +280,12 @@ func BuildParentTransitionHash(
 			break
 		}
 
-		if transition := indexer.GetTransitionRecordByProposalID(cursor.Uint64()); transition != nil {
-			log.Debug(
-				"Using cached Shasta transition record",
-				"proposalId", transition.ProposalId,
-				"hash", common.Hash(transition.TransitionRecord.TransitionHash),
-			)
-			var blockNumber *big.Int
-			if transition.Transition.Checkpoint.BlockNumber != nil {
-				blockNumber = new(big.Int).Set(transition.Transition.Checkpoint.BlockNumber)
-			}
-			transitionCopy := &shastaBindings.IInboxTransition{
-				ProposalHash:         transition.Transition.ProposalHash,
-				ParentTransitionHash: common.Hash{},
-				Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-					BlockNumber: blockNumber,
-					BlockHash:   transition.Transition.Checkpoint.BlockHash,
-					StateRoot:   transition.Transition.Checkpoint.StateRoot,
-				},
-			}
-			parentTransitions = append(
-				[]transitionEntry{{transition: transitionCopy}},
-				parentTransitions...,
-			)
-			cursor.Sub(cursor, common.Big1)
-			continue
-		}
-
-		proposal, err := indexer.GetProposalByID(cursor.Uint64())
+		proposalPayload, _, err := rpc.GetProposalByIDShasta(ctx, cursor)
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch proposal %d: %w", cursor.Uint64(), err)
 		}
 
-		checkpointL1Origin, err := rpc.L2.LastL1OriginByBatchID(ctx, proposal.Proposal.Id)
+		checkpointL1Origin, err := rpc.L2.LastL1OriginByBatchID(ctx, proposalPayload.Proposal.Id)
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch last L1 origin: %w", err)
 		}
@@ -326,7 +293,7 @@ func BuildParentTransitionHash(
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch checkpoint header: %w", err)
 		}
-		proposalHash, err := rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, proposal.Proposal)
+		proposalHash, err := rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, &proposalPayload.Proposal)
 		if err != nil {
 			return common.Hash{}, fmt.Errorf("failed to fetch proposal hash: %w", err)
 		}

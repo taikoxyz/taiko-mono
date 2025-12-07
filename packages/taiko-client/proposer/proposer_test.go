@@ -48,7 +48,6 @@ func (s *ProposerTestSuite) SetupTest() {
 	syncer, err := event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
@@ -126,14 +125,12 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.p.shastaStateIndexer.Start())
 	s.cancel = cancel
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	s.p.txBuilder = builder.NewBuilderWithFallback(
 		s.p.rpc,
-		s.ShastaStateIndexer,
 		s.p.L1ProposerPrivKey,
 		s.TestAddr,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
