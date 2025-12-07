@@ -1,18 +1,15 @@
 use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
 use bindings::{
-    inbox::Inbox::InboxInstance,
-    lookahead_store::{ILookaheadStore, LookaheadStore::LookaheadStoreInstance},
+    inbox::Inbox::InboxInstance, lookahead_store::LookaheadStore::LookaheadStoreInstance,
 };
 
-use super::error::{LookaheadError, Result};
+use super::{
+    error::{LookaheadError, Result},
+    types::{LookaheadData, ProposerContext},
+};
 
-/// Type aliases for LookaheadStore data structures.
-pub type LookaheadData = ILookaheadStore::LookaheadData;
-pub type LookaheadSlot = ILookaheadStore::LookaheadSlot;
-pub type ProposerContext = ILookaheadStore::ProposerContext;
-
-/// Client for querying the LookaheadStore discovered via the Inbox configuration.
+/// Thin wrapper around on-chain lookahead contracts resolved via the Inbox configuration.
 #[derive(Clone)]
 pub struct LookaheadClient<P: Provider + Clone> {
     inbox: InboxInstance<P>,
@@ -52,5 +49,10 @@ impl<P: Provider + Clone> LookaheadClient<P> {
             .call()
             .await
             .map_err(LookaheadError::Lookahead)
+    }
+
+    /// Expose the underlying LookaheadStore instance for internal consumers.
+    pub(crate) fn lookahead_store(&self) -> &LookaheadStoreInstance<P> {
+        &self.lookahead_store
     }
 }

@@ -6321,6 +6321,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
+ "alloy-rpc-types",
  "anyhow",
  "bindings",
  "event-scanner",
@@ -6329,6 +6330,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.17",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
