@@ -21,7 +21,8 @@ impl NetworkDriver {
                             .validate_gossip_commitment(&propagation_source, &msg)
                             .is_ok()
                         {
-                            // TODO: reintroduce lookahead/schedule gating and parent linkage checks.
+                            // TODO: reintroduce lookahead/schedule gating and parent linkage
+                            // checks.
                             let _ = self
                                 .swarm
                                 .behaviour_mut()
