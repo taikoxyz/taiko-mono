@@ -8,6 +8,8 @@ use k256::{
         scalar::IsHigh, sec1::ToEncodedPoint,
     },
 };
+use rfc6979::HmacDrbg;
+use sha2::Sha256;
 use thiserror::Error;
 use tracing::{debug, instrument};
 
@@ -80,6 +82,9 @@ impl FixedKSigner {
     /// Attempt to sign the provided digest using a fixed list of `k` candidates.
     ///
     /// The method mirrors the Go implementation by first trying `k = 1`, then `k = 2`.
+    ///
+    /// This is only retained for reproducible legacy test vectors; production
+    /// code should rely on RFC6979 signing via `sign_hash_sync` / `sign_hash`.
     #[instrument(skip(self, hash))]
     pub fn sign_with_predefined_k(
         &self,
@@ -157,9 +162,37 @@ impl FixedKSigner {
     fn sign_hash_internal(&self, hash: &B256) -> Result<AlloySignature, FixedKSignerError> {
         let mut bytes = [0u8; 32];
         bytes.copy_from_slice(hash.as_slice());
-        let sig = self.sign_with_predefined_k(&bytes)?;
+        let sig = self.sign_with_rfc6979(&bytes)?;
         debug!(address = ?self.address, "produced signature for hash");
         Ok(sig.signature)
+    }
+}
+
+impl FixedKSigner {
+    /// RFC6979-deterministic signing for a 32-byte prehash.
+    #[instrument(skip(self, hash))]
+    fn sign_with_rfc6979(
+        &self,
+        hash: &[u8; 32],
+    ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
+        // RFC6979 uses only the secret key and the provided hash, so this is deterministic.
+        let mut drbg = HmacDrbg::<Sha256>::new(&self.secret_scalar.to_bytes(), hash, &[]);
+
+        // Keep a small retry budget in case a generated `k` is invalid or produces s = 0.
+        for _ in 0..16 {
+            let mut candidate = FieldBytes::default();
+            drbg.fill_bytes(&mut candidate);
+
+            if let Some(k) = Option::<Scalar>::from(Scalar::from_repr(candidate)) {
+                if !bool::from(k.is_zero()) {
+                    if let Ok(sig) = self.sign_with_specific_k(k, hash) {
+                        return Ok(sig);
+                    }
+                }
+            }
+        }
+
+        Err(FixedKSignerError::SigningFailed)
     }
 }
 
