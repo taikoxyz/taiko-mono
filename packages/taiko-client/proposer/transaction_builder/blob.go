@@ -21,7 +21,6 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -29,7 +28,6 @@ import (
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
-	shastaStateIndexer      *shastaIndexer.Indexer
 	proposerPrivateKey      *ecdsa.PrivateKey
 	pacayaInboxAddress      common.Address
 	shastaInboxAddress      common.Address
@@ -44,7 +42,6 @@ type BlobTransactionBuilder struct {
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
-	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
@@ -57,7 +54,6 @@ func NewBlobTransactionBuilder(
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
-		shastaStateIndexer,
 		proposerPrivateKey,
 		pacayaInboxAddress,
 		shastaInboxAddress,
@@ -182,55 +178,13 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
-		to    = &b.shastaInboxAddress
-		blobs []*eth.Blob
-		data  []byte
+		to                       = &b.shastaInboxAddress
+		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
+		blobs                    []*eth.Blob
+		data                     []byte
 	)
 	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
-	}
-
-	config, err := b.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
-	}
-
-	// Fetch proposals and transitions from the state indexer.
-	// We need to fetch up to 2 proposals and MaxFinalizationCount transition records.
-	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
-	}
-
-	var (
-		parentProposals          []shastaBindings.IInboxProposal
-		transitionRecords        []shastaBindings.IInboxTransitionRecord
-		checkpoint               = shastaBindings.ICheckpointStoreCheckpoint{BlockNumber: common.Big0}
-		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
-	)
-	for i, p := range proposals {
-		log.Info(
-			"Fetched proposal from state indexer",
-			"index", i,
-			"id", p.Proposal.Id,
-			"coreStateHash", common.Bytes2Hex(p.Proposal.CoreStateHash[:]),
-		)
-		parentProposals = append(parentProposals, *p.Proposal)
-	}
-	for i, t := range transitions {
-		log.Info(
-			"Fetched transition from state indexer",
-			"index", i,
-			"proposalID", t.ProposalId,
-			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
-			"checkpointBlockNumber", t.Transition.Checkpoint.BlockNumber.Uint64(),
-			"checkpointBlockHash", common.Bytes2Hex(t.Transition.Checkpoint.BlockHash[:]),
-			"bondInstructionsHash", len(t.TransitionRecord.BondInstructions),
-		)
-		if i == len(transitions)-1 {
-			checkpoint = t.Transition.Checkpoint
-		}
-		transitionRecords = append(transitionRecords, *t.TransitionRecord)
 	}
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
@@ -290,11 +244,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	inputData, err := b.rpc.EncodeProposeInput(
 		&bind.CallOpts{Context: ctx},
 		&shastaBindings.IInboxProposeInput{
-			Deadline:          common.Big0,
-			CoreState:         *proposals[0].CoreState,
-			ParentProposals:   parentProposals,
-			TransitionRecords: transitionRecords,
-			Checkpoint:        checkpoint,
+			Deadline: common.Big0,
 			BlobReference: shastaBindings.LibBlobsBlobReference{
 				BlobStartIndex: 0,
 				NumBlobs:       uint16(len(blobs)),
