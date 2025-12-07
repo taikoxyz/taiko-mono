@@ -3,7 +3,6 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
-    "crates/event-indexer",
     "crates/preconfirmation",
     "crates/proposer",
     "crates/protocol",
@@ -72,12 +71,12 @@ alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
 event-scanner = "=0.6.0-alpha"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "e07c13fc011798adfa5436f24646b7305337cdf3", features = [
   "serde",
 ] }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main" }
+alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
 
 # types
 anyhow = "1"

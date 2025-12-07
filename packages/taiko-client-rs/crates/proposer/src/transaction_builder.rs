@@ -1,6 +1,6 @@
 //! Transaction builder for constructing proposal transactions.
 
-use std::{sync::Arc, time::SystemTime};
+use std::time::SystemTime;
 
 use alloy::{
     consensus::SidecarBuilder,
@@ -13,7 +13,6 @@ use alloy::{
 };
 use alloy_network::TransactionBuilder4844;
 use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
-use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
 use protocol::shasta::{
     BlobCoder,
     constants::{MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET},
@@ -33,37 +32,17 @@ pub struct ShastaProposalTransactionBuilder {
     pub rpc_provider: ClientWithWallet,
     /// The address of the suggested fee recipient for the proposed L2 block.
     pub l2_suggested_fee_recipient: Address,
-    /// The event indexer to read cached propose input params.
-    pub event_indexer: Arc<ShastaEventIndexer>,
 }
 
 impl ShastaProposalTransactionBuilder {
     /// Creates a new `ShastaProposalTransactionBuilder`.
-    pub fn new(
-        rpc_provider: ClientWithWallet,
-        event_indexer: Arc<ShastaEventIndexer>,
-        l2_suggested_fee_recipient: Address,
-    ) -> Self {
-        Self { rpc_provider, event_indexer, l2_suggested_fee_recipient }
+    pub fn new(rpc_provider: ClientWithWallet, l2_suggested_fee_recipient: Address) -> Self {
+        Self { rpc_provider, l2_suggested_fee_recipient }
     }
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
     pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
         let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
-
-        // Read cached propose input params from the event indexer.
-        let cached_input_params = self
-            .event_indexer
-            .read_shasta_propose_input()
-            .ok_or(ProposerError::ProposeInputUnavailable)?;
-
-        info!(
-            core_state = ?cached_input_params.core_state,
-            proposals_count = cached_input_params.proposals.len(),
-            transition_records_count = cached_input_params.transition_records.len(),
-            checkpoint = ?cached_input_params.checkpoint,
-            "cached propose input params"
-        );
 
         // Ensure the current L1 head is sufficiently advanced.
         let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
@@ -114,15 +93,11 @@ impl ShastaProposalTransactionBuilder {
         // Build the propose input.
         let input = ProposeInput {
             deadline: U48::ZERO,
-            coreState: cached_input_params.core_state,
-            parentProposals: cached_input_params.proposals,
             blobReference: BlobReference {
                 blobStartIndex: 0,
                 numBlobs: sidecar.blobs.len() as u16,
                 offset: U24::ZERO,
             },
-            transitionRecords: cached_input_params.transition_records,
-            checkpoint: cached_input_params.checkpoint,
             numForcedInclusions: config.minForcedInclusionCount.to(),
         };
 

@@ -1,10 +1,7 @@
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 
 use alloy::{
-    eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
+    eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
     primitives::{B256, U256},
     providers::Provider,
     rpc::types::Log,
@@ -12,19 +9,15 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::{
-    anchor::LibBonds::BondInstruction,
-    codec_optimized::{
-        IInbox::{DerivationSource, ProposedEventPayload},
-        LibBonds::BondInstruction as CodecBondInstruction,
-    },
+    codec_optimized::IInbox::{DerivationSource, ProposedEventPayload},
     inbox::Inbox::Proposed,
 };
 use metrics::{counter, gauge};
 use protocol::shasta::{
-    constants::{BOND_PROCESSING_DELAY, shasta_fork_timestamp_for_chain},
-    manifest::DerivationSourceManifest,
+    constants::shasta_fork_timestamp_for_chain, manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
@@ -39,12 +32,6 @@ use crate::{
 };
 
 use super::super::{DerivationError, DerivationPipeline};
-
-/// Number of proposal records retained in the bond-instruction cache.
-///
-/// Two beacon epochs (2 × 32 slots) cover canonical reorg depth, and we extend this by the bond
-/// delay so the delayed-instruction window remains intact even after rewinding.
-const BOND_CACHE_CAPACITY: usize = ((2 * EPOCH_SLOTS) as usize) + (BOND_PROCESSING_DELAY as usize);
 
 mod bundle;
 mod payload;
@@ -71,16 +58,6 @@ where
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     shasta_fork_timestamp: u64,
     initial_proposal_id: U256,
-    /// Cached bond instruction entries, bounded to protect against reorgs.
-    bond_instruction_cache: Mutex<VecDeque<BondInstructionCacheEntry>>,
-}
-
-/// Cache entry for bond instructions associated with a proposal.
-#[derive(Debug)]
-struct BondInstructionCacheEntry {
-    proposal_id: u64,
-    hash: B256,
-    instructions: Vec<BondInstruction>,
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -110,65 +87,7 @@ where
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             shasta_fork_timestamp,
             initial_proposal_id,
-            bond_instruction_cache: Mutex::new(VecDeque::with_capacity(BOND_CACHE_CAPACITY)),
         })
-    }
-
-    /// Cache the bond instructions bundled within a decoded proposal payload.
-    fn cache_bond_instructions_from_payload(
-        &self,
-        payload: &ProposedEventPayload,
-    ) -> Result<(), DerivationError> {
-        let instructions =
-            payload.bondInstructions.iter().map(convert_codec_bond_instruction).collect();
-        let proposal_id = payload.proposal.id.to::<u64>();
-        let hash = B256::from(payload.coreState.bondInstructionsHash);
-        self.store_bond_instructions(proposal_id, hash, instructions)?;
-        Ok(())
-    }
-
-    /// Store or refresh the cached entry for `proposal_id`, trimming the queue when it exceeds the
-    /// ring-buffer-derived capacity.
-    fn store_bond_instructions(
-        &self,
-        proposal_id: u64,
-        hash: B256,
-        instructions: Vec<BondInstruction>,
-    ) -> Result<(), DerivationError> {
-        let mut cache = self.bond_instruction_cache.lock().map_err(|err| {
-            DerivationError::BondInstructionCachePoisoned {
-                operation: "store",
-                message: err.to_string(),
-            }
-        })?;
-        if let Some(pos) = cache.iter().position(|entry| entry.proposal_id == proposal_id) {
-            cache.remove(pos);
-        }
-        cache.push_back(BondInstructionCacheEntry { proposal_id, hash, instructions });
-        if cache.len() > BOND_CACHE_CAPACITY {
-            cache.pop_front();
-        }
-        gauge!(DriverMetrics::DERIVATION_BOND_CACHE_DEPTH).set(cache.len() as f64);
-        Ok(())
-    }
-
-    /// Fetch cached bond instructions for a delayed proposal, if available.
-    pub(super) fn bond_instructions_for(
-        &self,
-        proposal_id: u64,
-    ) -> Result<Option<(B256, Vec<BondInstruction>)>, DerivationError> {
-        let cache = self.bond_instruction_cache.lock().map_err(|err| {
-            DerivationError::BondInstructionCachePoisoned {
-                operation: "fetch",
-                message: err.to_string(),
-            }
-        })?;
-        let result = cache
-            .iter()
-            .rev()
-            .find(|entry| entry.proposal_id == proposal_id)
-            .map(|entry| (entry.hash, entry.instructions.clone()));
-        Ok(result)
     }
 
     /// Load the parent L2 block used as context when constructing payload attributes.
@@ -256,6 +175,22 @@ where
         Ok(payload)
     }
 
+    /// Read the inbox core state at the proposal log's block to extract the last finalized id.
+    async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Result<u64, DerivationError> {
+        let block_hash = log
+            .block_hash
+            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block hash")))?;
+        let core_state = self
+            .rpc
+            .shasta
+            .inbox
+            .getState()
+            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+            .call()
+            .await?;
+        Ok(core_state.lastFinalizedProposalId.to::<u64>())
+    }
+
     /// Fetch and decode a single manifest from the blob store.
     ///
     /// The caller is responsible for providing the correct fetcher implementation for
@@ -280,6 +215,7 @@ where
     async fn build_manifest_from_payload(
         &self,
         payload: &ProposedEventPayload,
+        last_finalized_proposal_id: u64,
     ) -> Result<ShastaProposalBundle, DerivationError> {
         let sources = &payload.derivation.sources;
         let proposal_id = payload.proposal.id.to::<u64>();
@@ -337,13 +273,12 @@ where
         let bundle = ShastaProposalBundle {
             meta: BundleMeta {
                 proposal_id,
-                last_finalized_proposal_id: payload.coreState.lastFinalizedProposalId.to::<u64>(),
+                last_finalized_proposal_id,
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
                 origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
                 origin_block_hash: B256::from(payload.derivation.originBlockHash),
                 proposer: payload.proposal.proposer,
                 basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
-                bond_instructions_hash: B256::from(payload.coreState.bondInstructionsHash),
                 prover_auth_bytes,
             },
             sources: manifest_segments,
@@ -351,8 +286,6 @@ where
 
         gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
             .set(bundle.meta.last_finalized_proposal_id as f64);
-
-        self.cache_bond_instructions_from_payload(payload)?;
 
         info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
         Ok(bundle)
@@ -385,7 +318,6 @@ where
         let state = ParentState {
             parent_block_time: parent_header.timestamp.saturating_sub(grandparent_timestamp),
             header: parent_header,
-            bond_instructions_hash: anchor_state.bond_instructions_hash,
             anchor_block_number: anchor_state.anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
         };
@@ -411,7 +343,8 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
-        self.build_manifest_from_payload(&payload).await
+        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
+        self.build_manifest_from_payload(&payload, last_finalized_proposal_id).await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -471,6 +404,7 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let payload = self.decode_log_to_event_payload(log).await?;
         let proposal_id = payload.proposal.id.to::<u64>();
+        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
@@ -478,7 +412,8 @@ where
             return Ok(Vec::new());
         }
 
-        let manifest = self.build_manifest_from_payload(&payload).await?;
+        let manifest =
+            self.build_manifest_from_payload(&payload, last_finalized_proposal_id).await?;
         let outcomes = self.manifest_to_engine_blocks(manifest, applier).await?;
 
         if let Some(last) = outcomes.last() {
@@ -498,15 +433,5 @@ where
         }
 
         Ok(outcomes)
-    }
-}
-
-/// Convert the codec-generated bond instruction into the anchor binding representation.
-fn convert_codec_bond_instruction(instr: &CodecBondInstruction) -> BondInstruction {
-    BondInstruction {
-        proposalId: instr.proposalId,
-        bondType: instr.bondType,
-        payer: instr.payer,
-        payee: instr.payee,
     }
 }

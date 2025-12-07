@@ -6,9 +6,11 @@
 set -euo pipefail
 
 ALLOY_VERSION=1.0.36
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROTOCOL_DIR="${PROTOCOL_DIR:-$SCRIPT_DIR/../protocol}"
 
 forge bind \
-  --root ../protocol \
+  --root "${PROTOCOL_DIR}" \
   --select '^Inbox$' \
   --select '^CodecOptimized$' \
   --select '^Anchor$' \
