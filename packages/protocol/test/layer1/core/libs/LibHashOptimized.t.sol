@@ -138,10 +138,7 @@ contract LibHashOptimizedTest is Test {
 
     function test_hashBondInstruction_zeroValues() public pure {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: 0,
-            bondType: LibBonds.BondType.NONE,
-            payer: address(0),
-            payee: address(0)
+            proposalId: 0, bondType: LibBonds.BondType.NONE, payer: address(0), payee: address(0)
         });
 
         bytes32 hash = LibHashOptimized.hashBondInstruction(instruction);
@@ -196,10 +193,7 @@ contract LibHashOptimizedTest is Test {
         LibBonds.BondType bondType = LibBonds.BondType(bondTypeRaw % 3);
 
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: bondType,
-            payer: payer,
-            payee: payee
+            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
         });
 
         bytes32 optimizedHash = LibHashOptimized.hashBondInstruction(instruction);
@@ -220,10 +214,7 @@ contract LibHashOptimizedTest is Test {
         LibBonds.BondType bondType = LibBonds.BondType(bondTypeRaw % 3);
 
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: bondType,
-            payer: payer,
-            payee: payee
+            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
         });
 
         bytes32 hash1 = LibHashOptimized.hashBondInstruction(instruction);
@@ -249,17 +240,11 @@ contract LibHashOptimizedTest is Test {
         LibBonds.BondType bondType2 = LibBonds.BondType(bondTypeRaw2 % 3);
 
         LibBonds.BondInstruction memory instruction1 = LibBonds.BondInstruction({
-            proposalId: proposalId1,
-            bondType: bondType1,
-            payer: payer1,
-            payee: payee1
+            proposalId: proposalId1, bondType: bondType1, payer: payer1, payee: payee1
         });
 
         LibBonds.BondInstruction memory instruction2 = LibBonds.BondInstruction({
-            proposalId: proposalId2,
-            bondType: bondType2,
-            payer: payer2,
-            payee: payee2
+            proposalId: proposalId2, bondType: bondType2, payer: payer2, payee: payee2
         });
 
         bytes32 hash1 = LibHashOptimized.hashBondInstruction(instruction1);
@@ -290,10 +275,7 @@ contract LibHashOptimizedTest is Test {
         LibBonds.BondType bondType = LibBonds.BondType(bondTypeRaw % 3);
 
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposalId,
-            bondType: bondType,
-            payer: payer,
-            payee: payee
+            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
         });
 
         bytes32 hash = LibHashOptimized.hashBondInstruction(instruction);
