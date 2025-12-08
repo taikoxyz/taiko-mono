@@ -7,7 +7,7 @@ import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol"
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProveInputCodecTest is Test {
-    function test_encode_decode_roundtrip() public {
+    function test_encode_decode_roundtrip() public pure {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = IInbox.Proposal({
             id: 1,

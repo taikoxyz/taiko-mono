@@ -498,7 +498,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory _input
     )
         private
-        view
+        pure
         returns (uint256)
     {
         unchecked {
@@ -815,7 +815,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     error ActivationPeriodExpired();
-    error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();

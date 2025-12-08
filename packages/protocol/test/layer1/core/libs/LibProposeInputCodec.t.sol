@@ -7,7 +7,7 @@ import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibProposeInputCodec } from "src/layer1/core/libs/LibProposeInputCodec.sol";
 
 contract LibProposeInputCodecTest is Test {
-    function test_encode_decode_roundtrip() public {
+    function test_encode_decode_roundtrip() public pure {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 1_234_567,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 }),
@@ -29,7 +29,7 @@ contract LibProposeInputCodecTest is Test {
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
     }
 
-    function test_encode_decode_boundaryValues() public {
+    function test_encode_decode_boundaryValues() public pure {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: type(uint48).max,
             blobReference: LibBlobs.BlobReference({

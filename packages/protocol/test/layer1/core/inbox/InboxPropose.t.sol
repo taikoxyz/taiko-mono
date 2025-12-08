@@ -188,7 +188,7 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposedEventPayload memory _expected
     )
         internal
-        view
+        pure
     {
         assertEq(_actual.proposal.id, _expected.proposal.id, "proposal id");
         assertEq(_actual.proposal.timestamp, _expected.proposal.timestamp, "proposal timestamp");

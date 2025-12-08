@@ -15,7 +15,7 @@ contract LibProposedEventCodecHarness {
 contract LibProposedEventCodecTest is Test {
     LibProposedEventCodecHarness private harness = new LibProposedEventCodecHarness();
 
-    function test_encode_decode_singleSource() public {
+    function test_encode_decode_singleSource() public view {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
@@ -49,7 +49,7 @@ contract LibProposedEventCodecTest is Test {
         _assertEqual(payload, decoded);
     }
 
-    function test_encode_decode_mixedSources() public {
+    function test_encode_decode_mixedSources() public pure {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](2);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
