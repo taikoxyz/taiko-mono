@@ -36,7 +36,11 @@ async fn main() -> Result<()> {
 
     // Optionally, enable an epoch update channel to observe cached epochs as they are ingested.
     let mut epoch_rx = resolver.enable_epoch_channel(16);
+    let resolver_for_epoch = resolver.clone();
+
+    // Spawn a task to log cached epochs and resolve committers for the slots.
     let epoch_logger: JoinHandle<()> = tokio::spawn(async move {
+        let resolver = resolver_for_epoch;
         while let Ok(update) = epoch_rx.recv().await {
             println!(
                 "cached epoch {} with {} slots ({} blacklisted)",
@@ -44,6 +48,21 @@ async fn main() -> Result<()> {
                 update.epoch.slots().len(),
                 update.epoch.blacklist_flags().iter().filter(|b| **b).count()
             );
+
+            // Resolve and print the committer for each slot in the epoch.
+            for (idx, slot) in update.epoch.slots().iter().enumerate() {
+                let committer = match resolver.committer_for_timestamp(slot.timestamp).await {
+                    Ok(committer) => committer,
+                    Err(err) => {
+                        eprintln!(
+                            "slot {idx} failed to resolve committer at {}: {err}",
+                            slot.timestamp
+                        );
+                        continue;
+                    }
+                };
+                println!("slot {idx} committer: {committer:?}");
+            }
         }
     });
 

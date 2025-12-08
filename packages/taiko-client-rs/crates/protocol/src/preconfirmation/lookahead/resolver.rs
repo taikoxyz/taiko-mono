@@ -334,7 +334,9 @@ where
         let current = self.cache.get(&epoch_start).map(|entry| entry.clone());
         let next = self.cache.get(&next_epoch_start).map(|entry| entry.clone());
 
+        // Determine which epoch's whitelist to use for fallback.
         let fallback_epoch = fallback_epoch_for(ts, self.genesis_timestamp);
+
         // Choose a slot or fallback.
         let selection = match current.as_ref() {
             None => Selection::Fallback(fallback_epoch),
@@ -431,6 +433,7 @@ fn select_slot(
     next: Option<&CachedLookaheadEpoch>,
     fallback_epoch: FallbackEpoch,
 ) -> Selection {
+    // No slots in current epoch; must fall back.
     if current.slots.is_empty() {
         return Selection::Fallback(fallback_epoch);
     }
@@ -446,6 +449,7 @@ fn select_slot(
         }
     }
 
+    // Found a slot in current epoch.
     if let Some(i) = idx {
         return Selection::Slot(slots[i].clone());
     }
