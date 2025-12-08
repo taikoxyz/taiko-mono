@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::sync::Arc;
 
 use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
@@ -49,10 +46,10 @@ enum FallbackEpoch {
 struct CachedLookaheadEpoch {
     /// Ordered lookahead slots for an epoch as emitted by `LookaheadPosted`.
     slots: Arc<Vec<LookaheadSlot>>, // slots are already ordered on-chain
-    /// Snapshot of the whitelist operator for this epoch (current) at the log block, if known.
-    fallback_current: Option<Address>,
-    /// Snapshot of the next-epoch whitelist operator at the log block, if known.
-    fallback_next: Option<Address>,
+    /// Snapshot of the whitelist operator for this epoch when the lookahead was observed.
+    fallback_whitelist: Option<Address>,
+    /// Snapshot of the whitelist operator for the *next* epoch at the same observation point.
+    fallback_whitelist_next: Option<Address>,
 }
 
 /// Maintains a sliding cache of lookahead epochs and resolves the expected committer for a
@@ -136,7 +133,7 @@ where
         self.lookahead_buffer_size
     }
 
-    /// Ingest a batch of logs (e.g. from event-scanner) and update the in-memory cache.
+    /// Ingest a batch of logs and update the in-memory cache.
     /// Returns the number of `LookaheadPosted` events applied.
     /// Ingest lookahead logs and update cache/snapshots. `Log` must include the block number so
     /// fallback operators can be snapshotted at the same state as the lookahead event.
@@ -167,8 +164,8 @@ where
     /// avoid additional on-chain calls and stay consistent with the block where the lookahead was
     /// posted.
     pub(crate) async fn store_epoch(&self, event: LookaheadPosted, block_number: Option<u64>) {
-        let snapshots = if let Some(block) = block_number {
-            self.snapshot_whitelist(block).await.unwrap_or_default()
+        let (fallback_current, fallback_next) = if let Some(block) = block_number {
+            self.snapshot_whitelist(block).await.unwrap_or((None, None))
         } else {
             (None, None)
         };
@@ -178,8 +175,8 @@ where
             event.epochTimestamp.to::<u64>(),
             CachedLookaheadEpoch {
                 slots: Arc::new(event.lookaheadSlots),
-                fallback_current: snapshots.0,
-                fallback_next: snapshots.1,
+                fallback_whitelist: fallback_current,
+                fallback_whitelist_next: fallback_next,
             },
         );
 
@@ -193,18 +190,14 @@ where
         }
     }
 
-    /// Snapshot whitelist fallback operators at a specific block, mirroring the state used when
-    /// the lookahead event was emitted. Returns (current_epoch, next_epoch).
+    /// Snapshot whitelist fallback operators at a specific block, mirroring the state used when the
+    /// lookahead event was emitted. Returns (current_epoch, next_epoch).
     async fn snapshot_whitelist(&self, block: u64) -> Result<(Option<Address>, Option<Address>)> {
-        let block_tag = BlockId::Number(block.into());
-        let current_builder = self.preconf_whitelist.getOperatorForCurrentEpoch().block(block_tag);
+        let block_tag: BlockId = BlockId::Number(block.into());
+        let current_query = self.preconf_whitelist.getOperatorForCurrentEpoch().block(block_tag);
+        let next_query = self.preconf_whitelist.getOperatorForNextEpoch().block(block_tag);
 
-        let next_builder = self.preconf_whitelist.getOperatorForNextEpoch().block(block_tag);
-
-        let current_fut = current_builder.call();
-        let next_fut = next_builder.call();
-
-        let (current, next) = tokio::join!(current_fut, next_fut);
+        let (current, next) = tokio::join!(current_query.call(), next_query.call());
 
         Ok((current.ok(), next.ok()))
     }
@@ -248,9 +241,9 @@ where
         match selection {
             Selection::Slot(slot) => {
                 // Slot found; blacklist check determines whether we fall back instead.
-                if self.is_blacklisted(slot.registrationRoot).await? {
+                if self.is_blacklisted_at(slot.registrationRoot, None).await? {
                     if let Some(addr) =
-                        self.cached_fallback(fallback_epoch, current.as_ref(), next.as_ref())
+                        cached_fallback(fallback_epoch, current.as_ref(), next.as_ref())
                     {
                         return Ok(addr);
                     }
@@ -261,25 +254,12 @@ where
             Selection::Fallback(fallback_choice) => {
                 // No slot covers this timestamp; use cached fallback when present.
                 if let Some(addr) =
-                    self.cached_fallback(fallback_choice, current.as_ref(), next.as_ref())
+                    cached_fallback(fallback_choice, current.as_ref(), next.as_ref())
                 {
                     return Ok(addr);
                 }
                 self.fallback_operator(fallback_choice).await
             }
-        }
-    }
-
-    /// Return a cached fallback operator for the requested epoch if present.
-    fn cached_fallback(
-        &self,
-        fallback: FallbackEpoch,
-        current: Option<&CachedLookaheadEpoch>,
-        next: Option<&CachedLookaheadEpoch>,
-    ) -> Option<Address> {
-        match fallback {
-            FallbackEpoch::Current => current.and_then(|c| c.fallback_current),
-            FallbackEpoch::Next => next.and_then(|c| c.fallback_next),
         }
     }
 
@@ -296,13 +276,13 @@ where
     }
 
     /// Check whether a registration root is currently blacklisted on-chain.
-    async fn is_blacklisted(&self, registration_root: B256) -> Result<bool> {
-        self.client
-            .lookahead_store()
-            .isOperatorBlacklisted(registration_root)
-            .call()
-            .await
-            .map_err(LookaheadError::Blacklist)
+    async fn is_blacklisted_at(&self, registration_root: B256, block: Option<u64>) -> Result<bool> {
+        let mut builder = self.client.lookahead_store().isOperatorBlacklisted(registration_root);
+        if let Some(block_number) = block {
+            builder = builder.block(BlockId::Number(block_number.into()));
+        }
+
+        builder.call().await.map_err(LookaheadError::Blacklist)
     }
 }
 
@@ -373,17 +353,28 @@ fn select_slot(
 /// Decide whether a timestamp should fall back to the current-epoch or next-epoch whitelist
 /// operator.
 ///
-/// Mirrors LookaheadStore/PreconfWhitelist behavior: when there is no covering lookahead slot (or
-/// the slot is blacklisted), the current epoch uses `getOperatorForCurrentEpoch`, while timestamps
-/// already in the *next* epoch use `getOperatorForNextEpoch`. We derive this by comparing the
-/// queried timestamp to the boundary of the current epoch computed from the local wall clock
-/// (genesis-aligned); anything at or beyond the next-epoch start gets the next-epoch fallback.
+/// In practice this returns `Current`, because the timestamp always falls within its own epoch
+/// window; `Next` is retained for symmetry but is only reachable if callers supply a timestamp
+/// beyond the computed epoch boundary.
 fn fallback_epoch_for(ts: u64, genesis_timestamp: u64) -> FallbackEpoch {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(ts);
-    let current_epoch_start = epoch_start_for(now, genesis_timestamp);
-    let next_epoch_start = current_epoch_start.saturating_add(SECONDS_IN_EPOCH);
+    let epoch_start = epoch_start_for(ts, genesis_timestamp);
+    let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
     if ts >= next_epoch_start { FallbackEpoch::Next } else { FallbackEpoch::Current }
+}
+
+/// Return a cached fallback operator for the requested epoch if present.
+fn cached_fallback(
+    fallback: FallbackEpoch,
+    current: Option<&CachedLookaheadEpoch>,
+    next: Option<&CachedLookaheadEpoch>,
+) -> Option<Address> {
+    match fallback {
+        FallbackEpoch::Current => current.and_then(|c| c.fallback_whitelist),
+        FallbackEpoch::Next => next
+            .and_then(|c| c.fallback_whitelist)
+            .or_else(|| next.and_then(|c| c.fallback_whitelist_next)),
+    }
 }
 
 /// Return the epoch start boundary (in seconds) that contains `ts`.
@@ -439,6 +430,33 @@ mod tests {
     }
 
     #[test]
+    fn fallback_epoch_relies_on_target_timestamp() {
+        let genesis = 1_000;
+        let ts = genesis + SECONDS_IN_SLOT;
+        let ts_next_epoch_start = genesis + SECONDS_IN_EPOCH;
+
+        assert!(matches!(fallback_epoch_for(ts, genesis), FallbackEpoch::Current));
+        assert!(matches!(fallback_epoch_for(ts_next_epoch_start, genesis), FallbackEpoch::Current));
+    }
+
+    #[test]
+    fn cached_fallback_uses_epoch_aligned_snapshot() {
+        let addr_curr = Address::from([0x11u8; 20]);
+
+        let current = CachedLookaheadEpoch {
+            slots: Arc::new(vec![]),
+            fallback_whitelist: Some(addr_curr),
+            fallback_whitelist_next: Some(addr_curr),
+        };
+
+        assert_eq!(cached_fallback(FallbackEpoch::Current, Some(&current), None), Some(addr_curr));
+        assert_eq!(
+            cached_fallback(FallbackEpoch::Next, Some(&current), Some(&current)),
+            Some(addr_curr)
+        );
+    }
+
+    #[test]
     fn select_slot_uses_first_matching_or_fallback() {
         let current = CachedLookaheadEpoch {
             slots: Arc::new(vec![
@@ -455,8 +473,8 @@ mod tests {
                     validatorLeafIndex: U256::ZERO,
                 },
             ]),
-            fallback_current: None,
-            fallback_next: None,
+            fallback_whitelist: None,
+            fallback_whitelist_next: None,
         };
 
         let selected = select_slot(205, &current, None, FallbackEpoch::Current);
@@ -467,5 +485,101 @@ mod tests {
 
         let fallback = select_slot(300, &current, None, FallbackEpoch::Next);
         assert!(matches!(fallback, Selection::Fallback(FallbackEpoch::Next)));
+    }
+
+    fn resolve_from_cache<F>(
+        cache: &DashMap<u64, CachedLookaheadEpoch>,
+        genesis: u64,
+        ts: u64,
+        is_blacklisted: F,
+    ) -> Address
+    where
+        F: Fn(B256, Option<u64>) -> bool,
+    {
+        let epoch_start = epoch_start_for(ts, genesis);
+        let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
+
+        let current = cache.get(&epoch_start).map(|entry| entry.clone());
+        let next = cache.get(&next_epoch_start).map(|entry| entry.clone());
+
+        let fallback_epoch = fallback_epoch_for(ts, genesis);
+        let selection = match current.as_ref() {
+            None => Selection::Fallback(fallback_epoch),
+            Some(curr_epoch) => select_slot(ts, curr_epoch, next.as_ref(), fallback_epoch),
+        };
+
+        match selection {
+            Selection::Slot(slot) => {
+                if is_blacklisted(slot.registrationRoot, None) {
+                    if let Some(addr) =
+                        cached_fallback(fallback_epoch, current.as_ref(), next.as_ref())
+                    {
+                        return addr;
+                    }
+                    panic!("missing fallback for blacklisted slot")
+                }
+                slot.committer
+            }
+            Selection::Fallback(fallback_choice) => {
+                if let Some(addr) =
+                    cached_fallback(fallback_choice, current.as_ref(), next.as_ref())
+                {
+                    return addr;
+                }
+                panic!("missing fallback for empty epoch")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn slot_blacklisted_at_log_block_falls_back() {
+        let fallback = Address::from([0xAAu8; 20]);
+        let committer = Address::from([0xBBu8; 20]);
+        let registration_root = B256::from([0xCCu8; 32]);
+
+        let cache = DashMap::new();
+        cache.insert(
+            1_000,
+            CachedLookaheadEpoch {
+                slots: Arc::new(vec![LookaheadSlot {
+                    timestamp: U256::from(1_000),
+                    committer,
+                    registrationRoot: registration_root,
+                    validatorLeafIndex: U256::ZERO,
+                }]),
+                fallback_whitelist: Some(fallback),
+                fallback_whitelist_next: Some(fallback),
+            },
+        );
+
+        let got = resolve_from_cache(&cache, 1_000, 1_000, |_, _| true);
+
+        assert_eq!(got, fallback);
+    }
+
+    #[tokio::test]
+    async fn slot_blacklisted_after_log_block_keeps_committer() {
+        let fallback = Address::from([0xAAu8; 20]);
+        let committer = Address::from([0xBBu8; 20]);
+        let registration_root = B256::from([0xCCu8; 32]);
+
+        let cache = DashMap::new();
+        cache.insert(
+            2_000,
+            CachedLookaheadEpoch {
+                slots: Arc::new(vec![LookaheadSlot {
+                    timestamp: U256::from(2_000),
+                    committer,
+                    registrationRoot: registration_root,
+                    validatorLeafIndex: U256::ZERO,
+                }]),
+                fallback_whitelist: Some(fallback),
+                fallback_whitelist_next: Some(fallback),
+            },
+        );
+
+        let got = resolve_from_cache(&cache, 2_000, 2_000, |_, _| false);
+
+        assert_eq!(got, committer);
     }
 }
