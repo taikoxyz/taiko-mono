@@ -7,7 +7,7 @@ import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
-import { LibUsedOnce } from "../libs/LibUsedOnce.sol";
+import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
@@ -148,7 +148,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
-        LibUsedOnce.validateConfig(_config);
+        LibInboxSetup.validateConfig(_config);
 
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
@@ -437,7 +437,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 genesisProposalHash,
             Proposal memory proposal,
             Derivation memory derivation
-        ) = LibUsedOnce.computeActivationData(_lastPacayaBlockHash);
+        ) = LibInboxSetup.computeActivationData(_lastPacayaBlockHash);
 
         _state = state;
         _setProposalHash(0, genesisProposalHash);

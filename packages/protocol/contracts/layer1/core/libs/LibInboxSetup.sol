@@ -4,12 +4,12 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized } from "./LibHashOptimized.sol";
 
-/// @title LibUsedOnce
-/// @notice Library for code that is only executed once (constructor validation, activation).
+/// @title LibInboxSetup
+/// @notice Library for Inbox setup code (constructor validation, activation).
 /// @dev Using public functions in a library forces external linking, reducing deployment size
 ///      of the main contract at the cost of a small runtime gas overhead for the DELEGATECALL.
 /// @custom:security-contact security@taiko.xyz
-library LibUsedOnce {
+library LibInboxSetup {
   
     // ---------------------------------------------------------------
     // Public Functions (externally linked)
