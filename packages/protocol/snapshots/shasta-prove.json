@@ -1,0 +1,10 @@
+{
+  "finalize_consecutive_10": "110774",
+  "finalize_consecutive_3": "83641",
+  "finalize_consecutive_5": "91278",
+  "finalize_single": "76101",
+  "prove_consecutive_10": "56171",
+  "prove_consecutive_3": "29038",
+  "prove_consecutive_5": "36675",
+  "prove_single": "21498"
+}
