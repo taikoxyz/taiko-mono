@@ -5,7 +5,6 @@ import { IBondManager } from "./IBondManager.sol";
 import { IBondProcessor } from "./IBondProcessor.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
