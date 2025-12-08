@@ -249,35 +249,49 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32[] transitionHashs;
     }
 
+    /// @dev Verifies a batch proof covering multiple consecutive proposals.
+    ///
+    /// The proof must cover a contiguous range of proposals that includes (or starts after) the
+    /// last finalized proposal. The transitionHashs array contains N+1 hashes for N proposals:
+    /// - transitionHashs[0] is the parent state (before first proved proposal)
+    /// - transitionHashs[N] is the final state (after last proved proposal)
+    ///
+    /// Example: Proving proposals 4-7 when lastFinalizedProposalId=4
+    ///
+    ///     lastFinalizedProposalId                 nextProposalId
+    ///                  ↓                                ↓
+    ///     0     1     2     3     4     5     6     7     8     9
+    ///     ■─────■─────■─────■─────■─────□─────□─────□─────□─────
+    ///                 ↑     └──── proof coverage ────┘
+    ///        firstProposalParentId
+    ///
+    ///     transitionHashs = [hash3, hash4, hash5, hash6, hash7]
+    ///                         ↑                           ↑
+    ///                   parent state              final state
+    ///
+    /// Key validation rules:
+    /// 1. The proof must start at or before the last finalized proposal
+    /// 2. The proof must advance finalization (lastProposalId > lastFinalizedProposalId)
+    /// 3. The proof cannot extend beyond proposed blocks (lastProposalId < nextProposalId)
+    /// 4. The transition hash at lastFinalizedProposalId must match the stored hash
+    ///
+    /// Note: Since each proposal contains its parent hash, verifying only the last proposal's hash
+    /// cryptographically commits to the entire chain. We still validate the lastFinalizedTransitionHash
+    /// to ensure continuity with the already-finalized state.
     function prove2(bytes calldata _data, bytes calldata _proof) external nonReentrant {
-
-
-        //                         lastFinalizedProposalId       nextProposalId
-        //                         ⇣                             ⇣
-        // 0     1     2     3     4     5     6     7     8     9                             
-        // ■-----■-----■-----■-----■-----□-----□-----□-----□-----
-        //             ⇡     |⇠ proof coverage[3->7]⇢|
-        //             firstProposalParentId              
-
-        // In the above exampl, the last finalized proposal is 4, the next proposal is 9. A prover can submit a proof that covers proposal 3 to 7, 
-        // and finalize the chain up to 7. We need to verify that the last finalized proposal 4's transition hash is containsd in the proof input.
-
-
-        // A few points:
-        // - ProveInput2's validity shall be proved by the proof against only one piece of data:
-        //   the last proposal's hash -- IF we have proposal contains their parent hash.
-        // - We still need to make sure the last finalized proposal hash is contained in the proof input -- in the transition hash list.
-
         CoreState memory state = _state;
         ProveInput2 memory input = abi.decode(_data, (ProveInput2));
 
-        // The hash of the last finalized proposal must match one of the transition hashes provided in the input, but cannot be the last one in the array.
+        // transitionHashs has N+1 elements for N proposals (parent hash + N transition hashes)
         require(input.transitionHashs.length > 1, "need at least 2 elements");
 
         uint48 numProvedProposals = uint48(input.transitionHashs.length - 1);
-        // The id of the parent proposal of the first proposal being proved
         uint256 firstProposalParentId = input.lastProposalId - numProvedProposals;
 
+        // Ensure the proof range is valid:
+        // - Must start at or before the last finalized proposal (to include its transition hash)
+        // - Must advance past the current finalization point
+        // - Cannot prove proposals that haven't been proposed yet
         require(
             firstProposalParentId <= state.lastFinalizedProposalId,
             "firstProposal's parent proposal id too big"
@@ -287,37 +301,39 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
         require(input.lastProposalId < state.nextProposalId, "lastProposalId too big");
 
+        // Verify continuity: the transition hash at lastFinalizedProposalId in the proof
+        // must match the stored lastFinalizedTransitionHash
         uint256 lastFinalizedProposalIdLocalIndex =
             state.lastFinalizedProposalId - firstProposalParentId;
-
         require(
             input.transitionHashs[lastFinalizedProposalIdLocalIndex]
                 == state.lastFinalizedTransitionHash,
             "lastFinalizedTransitionHash mismatch"
         );
 
-
         // TODO:
-        // -  how to calculate bond instruction
-        // -  how to calculate proposalAge
-    
-       
+        // - How to calculate bond instruction for multi-proposal proofs
+        // - How to calculate proposalAge for multi-proposal proofs
 
+        // Update finalization state
         _state.lastFinalizedProposalId = input.lastProposalId;
         _state.lastFinalizedTransitionHash = input.transitionHashs[numProvedProposals];
         _state.lastFinalizedTimestamp = uint48(block.timestamp);
 
+        // Save checkpoint if enough time has passed since the last one
         if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
             _signalService.saveCheckpoint(input.lastCheckpoint);
             _state.lastCheckpointTimestamp = uint48(block.timestamp);
         }
 
+        // proposalAge is only meaningful for single-proposal proofs (used for bond calculation)
         uint256 proposalAge;
         if (numProvedProposals == 1) {
             proposalAge = block.timestamp - uint256(state.lastFinalizedTimestamp);
         }
 
-        // verifier
+        // Verify the proof against the last proposal's hash and the full input
+        // Since proposals chain to their parents, this cryptographically commits to all proposals
         bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
         bytes32 verifierInputHash = keccak256(abi.encode(lastProposalHash, input));
         _proofVerifier.verifyProof(proposalAge, verifierInputHash, _proof);
