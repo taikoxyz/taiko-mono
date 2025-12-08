@@ -27,14 +27,15 @@ library LibInboxSetup {
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
         require(_config.extendedProvingWindow > _config.provingWindow, ExtendedWindowTooSmall());
-        require(_config.ringBufferSize != 0, RingBufferSizeZero());
+        require(_config.ringBufferSize >1, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
         require(
             _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
         );
         require(_config.permissionlessInclusionMultiplier > 1, PermissionlessInclusionMultiplierTooSmall());
-        require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeZero());
+        require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeTooSmall());
+        require(_config.minProposalsToFinalize < _config.ringBufferSize -1, MinProposalsToFinalizeTooBig());
     }
 
     /// @dev Validates activation and computes the initial state for inbox activation.
@@ -99,11 +100,12 @@ library LibInboxSetup {
     error ForcedInclusionFeeDoubleThresholdZero();
     error InvalidLastPacayaBlockHash();
     error MinForcedInclusionCountZero();
-    error MinProposalsToFinalizeZero();
+    error MinProposalsToFinalizeTooBig();
+    error MinProposalsToFinalizeTooSmall();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
     error ProvingWindowZero();
-    error RingBufferSizeZero();
+    error RingBufferSizeTooSmall();
     error SignalServiceZero();
 }

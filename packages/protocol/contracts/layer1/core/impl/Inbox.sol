@@ -69,7 +69,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice The codec used for encoding and hashing.
-    address private immutable _codec;
+    address internal immutable _codec;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
