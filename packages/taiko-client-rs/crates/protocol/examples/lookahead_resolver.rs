@@ -14,7 +14,7 @@ use std::{env, time::SystemTime};
 use alloy_primitives::{Address, U256};
 use anyhow::{Context, Result, anyhow};
 use protocol::{
-    preconfirmation::lookahead::LookaheadResolverDefaultProvider,
+    preconfirmation::lookahead::LookaheadResolverWithDefaultProvider,
     subscription_source::SubscriptionSource,
 };
 use tokio::task::JoinHandle;
@@ -31,8 +31,8 @@ async fn main() -> Result<()> {
 
     // Build resolver and start background scanner, wait till the initial sync is done.
     // Enable the optional epoch broadcast channel so we can observe cached epochs as they arrive.
-    let (mut resolver, handle): (LookaheadResolverDefaultProvider, _) =
-        LookaheadResolverDefaultProvider::new(inbox, source).await?;
+    let (mut resolver, handle): (LookaheadResolverWithDefaultProvider, _) =
+        LookaheadResolverWithDefaultProvider::new(inbox, source).await?;
 
     // Optionally, enable an epoch update channel to observe cached epochs as they are ingested.
     let mut epoch_rx = resolver.enable_epoch_channel(16);

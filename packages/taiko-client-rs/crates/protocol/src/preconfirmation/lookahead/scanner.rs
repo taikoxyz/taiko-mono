@@ -6,7 +6,7 @@ use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 
-use super::{LookaheadResolverDefaultProvider, error::LookaheadError, resolver::LookaheadResolver};
+use super::{LookaheadResolverWithDefaultProvider, error::LookaheadError, resolver::LookaheadResolver};
 use crate::subscription_source::SubscriptionSource;
 
 use super::error::Result;
@@ -33,7 +33,7 @@ where
     pub async fn new(
         inbox_address: Address,
         source: SubscriptionSource,
-    ) -> Result<(LookaheadResolverDefaultProvider, JoinHandle<()>)> {
+    ) -> Result<(LookaheadResolverWithDefaultProvider, JoinHandle<()>)> {
         let provider = source
             .to_provider()
             .await
@@ -51,7 +51,7 @@ where
         inbox_address: Address,
         source: SubscriptionSource,
         genesis_timestamp: u64,
-    ) -> Result<(LookaheadResolverDefaultProvider, JoinHandle<()>)> {
+    ) -> Result<(LookaheadResolverWithDefaultProvider, JoinHandle<()>)> {
         let provider = source
             .to_provider()
             .await

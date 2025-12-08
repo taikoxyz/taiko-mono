@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, U256};
-use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
+use alloy_provider::{fillers::FillProvider, utils::JoinedRecommendedFillers, RootProvider};
 
 mod client;
 mod error;
@@ -14,7 +14,7 @@ pub use error::{LookaheadError, Result};
 pub use resolver::LookaheadResolver;
 
 /// Convenience alias for the default provider stack used by lookahead clients/resolvers.
-pub type LookaheadResolverDefaultProvider =
+pub type LookaheadResolverWithDefaultProvider =
     LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
 // Lookahead preconfirmation resolver.
