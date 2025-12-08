@@ -465,8 +465,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Only the first unproven proposal in a sequential prove can be late; later proposals
             // become proveable when the previous one finalizes within this transaction.
             result_.bondInstruction = _calculateBondInstruction(
-                _provingWindow,
-                _extendedProvingWindow,
                 _input.proposals[result_.firstProvenIndex],
                 _input.transitions[result_.firstProvenIndex],
                 firstReadyTimestamp
@@ -815,16 +813,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///           from designated prover of the first transition.
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
     ///           differs from proposer of the first transition.
-    /// @param _provingWindow The proving window in seconds.
-    /// @param _extendedProvingWindow The extended proving window in seconds.
     /// @param _firstProposal The first proposal proven in the batch.
     /// @param _firstTransition The transition for the first proposal.
     /// @param _readyTimestamp Timestamp when the first proposal became proveable.
     /// @return bondInstruction_ A bond transfer instruction, or a BondType.NONE instruction when
     ///         no transfer is required.
     function _calculateBondInstruction(
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
         Proposal memory _firstProposal,
         Transition memory _firstTransition,
         uint48 _readyTimestamp
