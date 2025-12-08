@@ -277,15 +277,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
 
-        state.lastFinalizedProposalId = input.lastProposalId;
-        state.lastFinalizedTransitionHash = input.transitionHashs[numBlocks];
-        state.lastFinalizedTimestamp = uint48(block.timestamp);
+        _state.lastFinalizedProposalId = input.lastProposalId;
+        _state.lastFinalizedTransitionHash = input.transitionHashs[numBlocks];
+        _state.lastFinalizedTimestamp = uint48(block.timestamp);
+
+        if (block.timestamp >= _state.lastCheckpointTimestamp + _minCheckpointDelay) {
+            _signalService.saveCheckpoint(input.lastCheckpoint);
+            _state.lastCheckpointTimestamp = uint48(block.timestamp);
+        }
 
         // verifier
-
         bytes32 verifierInputHash = keccak256(abi.encode(lastProposalHash, input));
 
-        uint256 proposalAge;
+        uint256 proposalAge; // TODO
         _proofVerifier.verifyProof(proposalAge, verifierInputHash, _proof);
     }
 
