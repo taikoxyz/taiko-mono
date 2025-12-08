@@ -469,9 +469,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 firstReadyTimestamp
             );
 
-            newState_.lastFinalizedProposalId = expectedId - 1;
-            newState_.lastFinalizedTimestamp = uint48(block.timestamp);
-            newState_.lastFinalizedTransitionHash = parentHash;
+            result_.newState.lastFinalizedProposalId = expectedId - 1;
+            result_.newState.lastFinalizedTimestamp = uint48(block.timestamp);
+            result_.newState.lastFinalizedTransitionHash = parentHash;
 
             _syncCheckpointIfNeeded(
                 _input.syncCheckpoint,
