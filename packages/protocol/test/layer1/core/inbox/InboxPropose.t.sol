@@ -172,12 +172,15 @@ contract InboxProposeTest is InboxTestBase {
         payload_.derivation.sources[0] =
             IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
+        // Get the parent proposal hash from the ring buffer
+        bytes32 parentProposalHash = inbox.getProposalHash(_stateBefore.nextProposalId - 1);
+
         payload_.proposal = IInbox.Proposal({
             id: _stateBefore.nextProposalId,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0,
             proposer: proposer,
-            parentProposalHash: bytes32(0),
+            parentProposalHash: parentProposalHash,
             derivationHash: bytes32(0)
         });
 

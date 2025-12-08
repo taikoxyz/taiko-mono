@@ -89,7 +89,7 @@ contract LibProveInputCodecTest is Test {
 
         bytes memory encoded = LibProveInputCodec.encode(input);
 
-        uint256 transitionsLengthOffset = 2 + (input.proposals.length * 70);
+        uint256 transitionsLengthOffset = 2 + (input.proposals.length * 102);
         encoded[transitionsLengthOffset] = 0x00;
         encoded[transitionsLengthOffset + 1] = 0x00; // set transitions length to zero to trigger mismatch
 
