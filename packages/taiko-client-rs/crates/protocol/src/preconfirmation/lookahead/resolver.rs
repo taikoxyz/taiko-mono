@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use alloy::sol_types::SolEvent;
+use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Log;
@@ -49,6 +49,10 @@ enum FallbackEpoch {
 struct CachedLookaheadEpoch {
     /// Ordered lookahead slots for an epoch as emitted by `LookaheadPosted`.
     slots: Arc<Vec<LookaheadSlot>>, // slots are already ordered on-chain
+    /// Snapshot of the whitelist operator for this epoch (current) at the log block, if known.
+    fallback_current: Option<Address>,
+    /// Snapshot of the next-epoch whitelist operator at the log block, if known.
+    fallback_next: Option<Address>,
 }
 
 /// Maintains a sliding cache of lookahead epochs and resolves the expected committer for a
@@ -134,6 +138,8 @@ where
 
     /// Ingest a batch of logs (e.g. from event-scanner) and update the in-memory cache.
     /// Returns the number of `LookaheadPosted` events applied.
+    /// Ingest lookahead logs and update cache/snapshots. `Log` must include the block number so
+    /// fallback operators can be snapshotted at the same state as the lookahead event.
     pub async fn ingest_logs<I>(&self, logs: I) -> Result<usize>
     where
         I: IntoIterator<Item = Log>,
@@ -148,7 +154,7 @@ where
                 LookaheadPosted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                     .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
 
-            self.store_epoch(event);
+            self.store_epoch(event, log.block_number).await;
             applied += 1;
         }
 
@@ -156,8 +162,66 @@ where
         Ok(applied)
     }
 
+    /// Cache a newly observed `LookaheadPosted` event for quick timestamp lookups, capturing
+    /// whitelist fallback operators at the event's block if available so later resolution can
+    /// avoid additional on-chain calls and stay consistent with the block where the lookahead was
+    /// posted.
+    pub(crate) async fn store_epoch(&self, event: LookaheadPosted, block_number: Option<u64>) {
+        let snapshots = if let Some(block) = block_number {
+            self.snapshot_whitelist(block).await.unwrap_or_default()
+        } else {
+            (None, None)
+        };
+
+        // Insert or update the cached epoch entry.
+        self.cache.insert(
+            event.epochTimestamp.to::<u64>(),
+            CachedLookaheadEpoch {
+                slots: Arc::new(event.lookaheadSlots),
+                fallback_current: snapshots.0,
+                fallback_next: snapshots.1,
+            },
+        );
+
+        // Evict oldest entries beyond buffer size.
+        while self.cache.len() > self.lookahead_buffer_size + 1 {
+            if let Some(oldest) = self.cache.iter().map(|e| *e.key()).min() {
+                self.cache.remove(&oldest);
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Snapshot whitelist fallback operators at a specific block, mirroring the state used when
+    /// the lookahead event was emitted. Returns (current_epoch, next_epoch).
+    async fn snapshot_whitelist(&self, block: u64) -> Result<(Option<Address>, Option<Address>)> {
+        let block_tag = BlockId::Number(block.into());
+        let current_builder = self.preconf_whitelist.getOperatorForCurrentEpoch().block(block_tag);
+
+        let next_builder = self.preconf_whitelist.getOperatorForNextEpoch().block(block_tag);
+
+        let current_fut = current_builder.call();
+        let next_fut = next_builder.call();
+
+        let (current, next) = tokio::join!(current_fut, next_fut);
+
+        Ok((current.ok(), next.ok()))
+    }
+
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
+    ///
+    /// Steps:
+    /// - Floor the timestamp to an epoch boundary using the configured genesis (no slot
+    ///   realignment).
+    /// - Load cached lookahead for current/next epochs if present.
+    /// - Pick the first slot covering `ts`; if none, try the first slot of next epoch; otherwise
+    ///   enter fallback.
+    /// - If the chosen slot is blacklisted or no slot exists, use the cached whitelist fallback
+    ///   operator for the appropriate epoch when available; otherwise fetch it live from
+    ///   PreconfWhitelist (`getOperatorForCurrentEpoch`/`getOperatorForNextEpoch`).
     pub async fn committer_for_timestamp(&self, timestamp: U256) -> Result<Address> {
+        // Convert timestamp to u64 and check genesis boundary.
         let ts = u64::try_from(timestamp)
             .map_err(|_| LookaheadError::EventDecode("timestamp does not fit u64".into()))?;
 
@@ -166,13 +230,16 @@ where
             return Err(LookaheadError::BeforeGenesis(ts));
         }
 
+        // Calculate epoch boundaries.
         let epoch_start = epoch_start_for(ts, self.genesis_timestamp);
         let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
+        // Get cached epochs if available.
         let current = self.cache.get(&epoch_start).map(|entry| entry.clone());
         let next = self.cache.get(&next_epoch_start).map(|entry| entry.clone());
 
         let fallback_epoch = fallback_epoch_for(ts, self.genesis_timestamp);
+        // Choose a slot or fallback.
         let selection = match current.as_ref() {
             None => Selection::Fallback(fallback_epoch),
             Some(curr_epoch) => select_slot(ts, curr_epoch, next.as_ref(), fallback_epoch),
@@ -180,29 +247,37 @@ where
 
         match selection {
             Selection::Slot(slot) => {
+                // Slot found; blacklist check determines whether we fall back instead.
                 if self.is_blacklisted(slot.registrationRoot).await? {
+                    if let Some(addr) =
+                        self.cached_fallback(fallback_epoch, current.as_ref(), next.as_ref())
+                    {
+                        return Ok(addr);
+                    }
                     return self.fallback_operator(fallback_epoch).await;
                 }
                 Ok(slot.committer)
             }
-            Selection::Fallback(which) => self.fallback_operator(which).await,
+            Selection::Fallback(which) => {
+                // No slot covers this timestamp; use cached fallback when present.
+                if let Some(addr) = self.cached_fallback(which, current.as_ref(), next.as_ref()) {
+                    return Ok(addr);
+                }
+                self.fallback_operator(which).await
+            }
         }
     }
 
-    /// Cache a newly observed `LookaheadPosted` event for quick timestamp lookups.
-    pub(crate) fn store_epoch(&self, event: LookaheadPosted) {
-        let epoch_ts = event.epochTimestamp.to::<u64>();
-        let slots = Arc::new(event.lookaheadSlots);
-
-        self.cache.insert(epoch_ts, CachedLookaheadEpoch { slots });
-
-        // Evict oldest entries beyond buffer size (keep an extra future epoch slot)
-        while self.cache.len() > self.lookahead_buffer_size + 1 {
-            if let Some(oldest) = self.cache.iter().map(|e| *e.key()).min() {
-                self.cache.remove(&oldest);
-            } else {
-                break;
-            }
+    /// Return a cached fallback operator for the requested epoch if present.
+    fn cached_fallback(
+        &self,
+        which: FallbackEpoch,
+        current: Option<&CachedLookaheadEpoch>,
+        next: Option<&CachedLookaheadEpoch>,
+    ) -> Option<Address> {
+        match which {
+            FallbackEpoch::Current => current.and_then(|c| c.fallback_current),
+            FallbackEpoch::Next => next.and_then(|c| c.fallback_next),
         }
     }
 
@@ -249,6 +324,14 @@ where
 }
 
 /// Helper to choose the slot covering `ts` within cached epochs, or decide to fall back.
+///
+/// Selection rules (mirrors on-chain lookahead use):
+/// - Walk the current epoch's slots (already ordered by timestamp) and pick the first slot whose
+///   timestamp is >= `ts`.
+/// - If no slot in the current epoch qualifies, try the first slot of the next epoch (if cached)
+///   and only if `ts` is before or equal to that first-slot timestamp.
+/// - Otherwise return a fallback marker so caller can use whitelist operators for the appropriate
+///   epoch.
 fn select_slot(
     ts: u64,
     current: &CachedLookaheadEpoch,
@@ -259,7 +342,7 @@ fn select_slot(
         return Selection::Fallback(fallback_epoch);
     }
 
-    // Slots are ordered by timestamp on-chain; binary search for first slot >= ts.
+    // Slots are ordered by timestamp on-chain; linear scan for first slot >= ts.
     let slots = &*current.slots;
     let mut idx = None;
     for (i, slot) in slots.iter().enumerate() {
@@ -285,7 +368,14 @@ fn select_slot(
     Selection::Fallback(fallback_epoch)
 }
 
-/// Decide whether to treat a timestamp as belonging to the current or next epoch for fallback.
+/// Decide whether a timestamp should fall back to the current-epoch or next-epoch whitelist
+/// operator.
+///
+/// Mirrors LookaheadStore/PreconfWhitelist behavior: when there is no covering lookahead slot (or
+/// the slot is blacklisted), the current epoch uses `getOperatorForCurrentEpoch`, while timestamps
+/// already in the *next* epoch use `getOperatorForNextEpoch`. We derive this by comparing the
+/// queried timestamp to the boundary of the current epoch computed from the local wall clock
+/// (genesis-aligned); anything at or beyond the next-epoch start gets the next-epoch fallback.
 fn fallback_epoch_for(ts: u64, genesis_timestamp: u64) -> FallbackEpoch {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(ts);
     let current_epoch_start = epoch_start_for(now, genesis_timestamp);
@@ -295,6 +385,10 @@ fn fallback_epoch_for(ts: u64, genesis_timestamp: u64) -> FallbackEpoch {
 }
 
 /// Return the epoch start boundary (in seconds) that contains `ts`.
+///
+/// Assumes the provided `genesis_timestamp` is already aligned to the slot/epoch boundary; we do
+/// not snap misaligned timestamps up to the next 12-second multiple. Calculation simply floors to
+/// the nearest epoch based on the given genesis.
 fn epoch_start_for(ts: u64, genesis_timestamp: u64) -> u64 {
     let elapsed = ts.saturating_sub(genesis_timestamp);
     let epochs = elapsed / SECONDS_IN_EPOCH;
@@ -323,10 +417,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn epoch_start_aligns_to_boundary() {
-        let genesis = 1000;
+    fn epoch_start_floors_relative_to_genesis() {
+        let genesis = 1_000;
         assert_eq!(epoch_start_for(genesis, genesis), genesis);
+        assert_eq!(epoch_start_for(genesis + 5, genesis), genesis);
         assert_eq!(epoch_start_for(genesis + SECONDS_IN_SLOT, genesis), genesis);
+        assert_eq!(epoch_start_for(genesis + SECONDS_IN_EPOCH - 1, genesis), genesis);
         assert_eq!(
             epoch_start_for(genesis + SECONDS_IN_EPOCH + 1, genesis),
             genesis + SECONDS_IN_EPOCH
@@ -357,6 +453,8 @@ mod tests {
                     validatorLeafIndex: U256::ZERO,
                 },
             ]),
+            fallback_current: None,
+            fallback_next: None,
         };
 
         let selected = select_slot(205, &current, None, FallbackEpoch::Current);
