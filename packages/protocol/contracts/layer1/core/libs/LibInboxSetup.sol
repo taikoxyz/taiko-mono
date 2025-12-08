@@ -10,7 +10,6 @@ import { LibHashOptimized } from "./LibHashOptimized.sol";
 ///      of the main contract at the cost of a small runtime gas overhead for the DELEGATECALL.
 /// @custom:security-contact security@taiko.xyz
 library LibInboxSetup {
-  
     // ---------------------------------------------------------------
     // Public Functions (externally linked)
     // ---------------------------------------------------------------
@@ -28,7 +27,9 @@ library LibInboxSetup {
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
-        require(_config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero());
+        require(
+            _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
+        );
         require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeZero());
     }
 
@@ -60,7 +61,8 @@ library LibInboxSetup {
             activationTimestamp_ = uint48(block.timestamp);
         } else {
             require(
-                block.timestamp <= ACTIVATION_WINDOW + _activationTimestamp, ActivationPeriodExpired()
+                block.timestamp <= ACTIVATION_WINDOW + _activationTimestamp,
+                ActivationPeriodExpired()
             );
             activationTimestamp_ = _activationTimestamp;
         }
@@ -96,5 +98,4 @@ library LibInboxSetup {
     error ProvingWindowZero();
     error RingBufferSizeZero();
     error SignalServiceZero();
-
 }
