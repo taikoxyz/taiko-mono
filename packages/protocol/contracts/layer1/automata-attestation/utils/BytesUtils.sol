@@ -10,6 +10,7 @@ library BytesUtils {
     error BYTES_INVALID_IDX();
     error BYTES_UNEXPECTED_LEN();
     error BYTES_UNEXPECTED_IDX();
+
     /*
     * @dev Returns the keccak-256 hash of a byte range.
     * @param self The byte string to hash.
