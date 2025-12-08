@@ -1,3 +1,0 @@
-[submodule "packages/protocol/lib/forge-safe"]
-	path = packages/protocol/lib/forge-safe
-	url = https://github.com/ind-igo/forge-safe
