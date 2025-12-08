@@ -131,5 +131,4 @@ library LibHashOptimized {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transitions));
     }
-
 }

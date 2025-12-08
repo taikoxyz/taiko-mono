@@ -1,5 +1,5 @@
 {
-  "propose_after_ring_buffer_wrap": "39199",
-  "propose_forced_inclusion": "50433",
-  "propose_single": "62299"
+  "propose_after_ring_buffer_wrap": "39205",
+  "propose_forced_inclusion": "50439",
+  "propose_single": "62305"
 }
