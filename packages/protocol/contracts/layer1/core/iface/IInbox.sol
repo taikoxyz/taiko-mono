@@ -136,6 +136,8 @@ interface IInbox {
         bool syncCheckpoint;
     }
 
+
+
     /// @notice Payload data emitted in the Proposed event
     struct ProposedEventPayload {
         /// @notice The proposal that was created.
