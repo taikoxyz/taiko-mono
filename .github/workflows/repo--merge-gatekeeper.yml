@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - taiko-alethia-protocol-v2.3.1
   merge_group: # Trigger in merge queue to pass the required status check
 
 concurrency:
@@ -21,6 +22,6 @@ jobs:
       - name: Run Merge Gatekeeper
         uses: upsidr/merge-gatekeeper@v1
         with:
-          timeout: 1800 
+          timeout: 1800
           interval: 60
           token: ${{ secrets.GITHUB_TOKEN }}
