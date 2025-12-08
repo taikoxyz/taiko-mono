@@ -13,12 +13,12 @@ interface IInbox {
     struct Config {
         /// @notice The codec used for encoding and hashing
         address codec;
-        /// @notice The signal service contract address
-        address signalService;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The signal service contract address
+        address signalService;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice The extended proving window in seconds

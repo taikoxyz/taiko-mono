@@ -22,9 +22,9 @@ library LibInboxSetup {
     function validateConfig(IInbox.Config memory _config) public pure {
         // Validate in the order fields are defined in Config struct
         require(_config.codec != address(0), CodecZero());
-        require(_config.signalService != address(0), SignalServiceZero());
         require(_config.proofVerifier != address(0), ProofVerifierZero());
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
+        require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
         require(_config.extendedProvingWindow > _config.provingWindow, ExtendedWindowTooSmall());
         require(_config.ringBufferSize >1, RingBufferSizeTooSmall());

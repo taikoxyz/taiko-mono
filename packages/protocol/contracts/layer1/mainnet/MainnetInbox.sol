@@ -38,9 +38,9 @@ contract MainnetInbox is Inbox {
     )
         Inbox(IInbox.Config({
                 codec: _codec,
-                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
                 ringBufferSize: _RING_BUFFER_SIZE,

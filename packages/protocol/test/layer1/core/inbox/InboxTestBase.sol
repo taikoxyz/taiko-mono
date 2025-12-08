@@ -54,9 +54,9 @@ abstract contract InboxTestBase is CommonTest {
 
         return IInbox.Config({
             codec: address(codec),
-            signalService: address(signalService),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
+            signalService: address(signalService),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
             ringBufferSize: 100,

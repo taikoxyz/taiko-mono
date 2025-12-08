@@ -77,6 +77,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
+    /// @notice Signal service responsible for checkpoints and bond signals.
+    ISignalService internal immutable _signalService;
+
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
@@ -111,9 +114,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The minimum number of proposals that must be finalized in a single prove2 call.
     uint8 internal immutable _minProposalsToFinalize;
-
-    /// @notice Signal service responsible for checkpoints and bond signals.
-    ISignalService internal immutable _signalService;
 
     // ---------------------------------------------------------------
     // State Variables

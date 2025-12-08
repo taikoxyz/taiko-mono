@@ -38,9 +38,9 @@ contract DevnetInbox is Inbox {
     )
         Inbox(IInbox.Config({
                 codec: _codec,
-                signalService: _signalService,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                signalService: _signalService,
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
                 ringBufferSize: _RING_BUFFER_SIZE,
