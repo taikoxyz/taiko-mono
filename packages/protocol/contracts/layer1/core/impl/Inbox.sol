@@ -250,13 +250,27 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     function prove2(bytes calldata _data, bytes calldata _proof) external nonReentrant {
+
+
+        //                         lastFinalizedProposalId       nextProposalId
+        //                         ⇣                             ⇣
+        // 0     1     2     3     4     5     6     7     8     9                             
+        // ■-----■-----■-----■-----■-----□-----□-----□-----□-----
+        //             ⇡     |⇠ proof coverage[3->7]⇢|
+        //             firstProposalParentId              
+
+        // In the above exampl, the last finalized proposal is 4, the next proposal is 9. A prover can submit a proof that covers proposal 3 to 7, 
+        // and finalize the chain up to 7. We need to verify that the last finalized proposal 4's transition hash is containsd in the proof input.
+
         CoreState memory state = _state;
         ProveInput2 memory input = abi.decode(_data, (ProveInput2));
 
-        _signalService.saveCheckpoint(input.lastCheckpoint);
+        // The hash of the last finalized proposal must match one of the transition hashes provided in the input, but cannot be the last one in the array.
         require(input.transitionHashs.length > 1, "need at least 2 elements");
-        uint48 numBlocks = uint48(input.transitionHashs.length - 1);
-        uint256 firstProposalParentId = input.lastProposalId - numBlocks;
+
+        uint48 numProvedProposals = uint48(input.transitionHashs.length - 1);
+        // The id of the parent proposal of the first proposal being proved
+        uint256 firstProposalParentId = input.lastProposalId - numProvedProposals;
 
         require(
             firstProposalParentId <= state.lastFinalizedProposalId,
@@ -269,27 +283,32 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         uint256 lastFinalizedProposalIdLocalIndex =
             state.lastFinalizedProposalId - firstProposalParentId;
+
         require(
             input.transitionHashs[lastFinalizedProposalIdLocalIndex]
                 == state.lastFinalizedTransitionHash,
             "lastFinalizedTransitionHash mismatch"
         );
 
-        bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
+       
 
         _state.lastFinalizedProposalId = input.lastProposalId;
-        _state.lastFinalizedTransitionHash = input.transitionHashs[numBlocks];
+        _state.lastFinalizedTransitionHash = input.transitionHashs[numProvedProposals];
         _state.lastFinalizedTimestamp = uint48(block.timestamp);
 
-        if (block.timestamp >= _state.lastCheckpointTimestamp + _minCheckpointDelay) {
+        if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
             _signalService.saveCheckpoint(input.lastCheckpoint);
             _state.lastCheckpointTimestamp = uint48(block.timestamp);
         }
 
-        // verifier
-        bytes32 verifierInputHash = keccak256(abi.encode(lastProposalHash, input));
+        uint256 proposalAge;
+        if (numProvedProposals == 1) {
+            proposalAge = block.timestamp - uint256(state.lastFinalizedTimestamp);
+        }
 
-        uint256 proposalAge; // TODO
+        // verifier
+        bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
+        bytes32 verifierInputHash = keccak256(abi.encode(lastProposalHash, input));
         _proofVerifier.verifyProof(proposalAge, verifierInputHash, _proof);
     }
 
