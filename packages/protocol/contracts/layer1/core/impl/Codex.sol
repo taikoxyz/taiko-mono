@@ -8,6 +8,7 @@ import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title Codex
 /// @notice Codec contract wrapping LibHashOptimized for optimized hashing
@@ -135,5 +136,14 @@ contract Codex is ICodec {
         returns (bytes32)
     {
         return LibHashOptimized.hashTransitions(_transitions);
+    }
+
+    /// @inheritdoc ICodec
+    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashOptimized.hashBondInstruction(_bondInstruction);
     }
 }

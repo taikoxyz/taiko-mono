@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -125,6 +126,14 @@ interface ICodec {
     /// @return The hash of the transitions array
     /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
     function hashTransitions(IInbox.Transition[] calldata _transitions)
+        external
+        pure
+        returns (bytes32);
+
+    /// @notice Hashing for BondInstruction structs
+    /// @param _bondInstruction The bond instruction to hash
+    /// @return The hash of the bond instruction
+    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
         external
         pure
         returns (bytes32);
