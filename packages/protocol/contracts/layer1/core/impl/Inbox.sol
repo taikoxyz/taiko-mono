@@ -200,7 +200,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// NOTE: This function can only be called once per block to prevent spams that can fill the ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            ProposeInput memory input = _decodeProposeInput(_data);
+            ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
 
             uint48 nextProposalId = _state.nextProposalId;
@@ -213,7 +213,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             _state.nextProposalId = nextProposalId + 1;
             _state.lastProposalBlockId = uint48(block.number);
-            _setProposalHash(proposal.id, _hashProposal(proposal));
+            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal, derivation);
         }
@@ -226,7 +226,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// or transactions reverting.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         // Decode and validate input
-        ProveInput memory input = _decodeProveInput(_data);
+        ProveInput memory input = LibProveInputCodec.decode(_data);
         _validateProveInput(input);
 
         ProofResult memory result = _processProof(_state, input);
@@ -346,14 +346,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         state.nextProposalId = 1;
         state.lastProposalBlockId = 1;
         state.lastFinalizedTimestamp = uint48(block.timestamp);
-        state.lastFinalizedTransitionHash = _hashTransition(transition);
+        state.lastFinalizedTransitionHash = LibHashOptimized.hashTransition(transition);
 
         Proposal memory proposal;
         Derivation memory derivation;
-        proposal.derivationHash = _hashDerivation(derivation);
+        proposal.derivationHash = LibHashOptimized.hashDerivation(derivation);
 
         _state = state;
-        _setProposalHash(0, _hashProposal(proposal));
+        _setProposalHash(0, LibHashOptimized.hashProposal(proposal));
 
         _emitProposedEvent(proposal, derivation);
     }
@@ -412,7 +412,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                derivationHash: _hashDerivation(derivation_)
+                derivationHash: LibHashOptimized.hashDerivation(derivation_)
             });
         }
     }
@@ -457,7 +457,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     );
                 }
 
-                parentHash = _hashTransition(transition);
+                parentHash = LibHashOptimized.hashTransition(transition);
                 ++expectedId;
             }
 
@@ -484,7 +484,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 result_.proposalAge = block.timestamp - uint256(firstReadyTimestamp);
             }
 
-            result_.aggregatedTransitionHash = _hashTransitions(_input.transitions);
+            result_.aggregatedTransitionHash = LibHashOptimized.hashTransitions(_input.transitions);
         }
     }
 
@@ -511,7 +511,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             for (uint256 i; i < count - 1; ++i) {
                 if (
                     _input.proposals[i].id == lastFinalizedId
-                        && _hashTransition(_input.transitions[i]) == lastFinalizedHash
+                        && LibHashOptimized.hashTransition(_input.transitions[i]) == lastFinalizedHash
                 ) {
                     return i + 1;
                 }
@@ -553,7 +553,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (bytes32 proposalHash_)
     {
-        proposalHash_ = _hashProposal(_proposal);
+        proposalHash_ = LibHashOptimized.hashProposal(_proposal);
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
@@ -654,7 +654,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         ProposedEventPayload memory payload =
             ProposedEventPayload({ proposal: _proposal, derivation: _derivation });
-        emit Proposed(_encodeProposedEventData(payload));
+        emit Proposed(LibProposedEventCodec.encode(payload));
     }
 
     /// @dev Emits the Proved event for the first proven proposal in the batch.
@@ -674,7 +674,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bondInstruction: _result.bondInstruction,
             bondSignal: _bondSignal
         });
-        emit Proved(_encodeProvedEventData(payload));
+        emit Proved(LibProvedEventCodec.encode(payload));
     }
 
     /// @dev Syncs checkpoint to storage when voluntary or forced sync conditions are met.
@@ -754,54 +754,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Encodes the proposed event data using LibProposedEventCodec.
-    function _encodeProposedEventData(ProposedEventPayload memory _payload)
-        private
-        pure
-        returns (bytes memory)
-    {
-        return LibProposedEventCodec.encode(_payload);
-    }
-
-    /// @dev Encodes the proved event data using LibProvedEventCodec.
-    function _encodeProvedEventData(ProvedEventPayload memory _payload)
-        private
-        pure
-        returns (bytes memory)
-    {
-        return LibProvedEventCodec.encode(_payload);
-    }
-
-    /// @dev Decodes proposal input data using LibProposeInputCodec.
-    function _decodeProposeInput(bytes calldata _data) private pure returns (ProposeInput memory) {
-        return LibProposeInputCodec.decode(_data);
-    }
-
-    /// @dev Decodes prove input data using LibProveInputCodec.
-    function _decodeProveInput(bytes calldata _data) private pure returns (ProveInput memory) {
-        return LibProveInputCodec.decode(_data);
-    }
-
-    /// @dev Hashes a Derivation struct using LibHashOptimized.
-    function _hashDerivation(Derivation memory _derivation) private pure returns (bytes32) {
-        return LibHashOptimized.hashDerivation(_derivation);
-    }
-
-    /// @dev Hashes a Proposal struct using LibHashOptimized.
-    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
-        return LibHashOptimized.hashProposal(_proposal);
-    }
-
-    /// @dev Hashes a Transition struct using LibHashOptimized.
-    function _hashTransition(Transition memory _transition) private pure returns (bytes32) {
-        return LibHashOptimized.hashTransition(_transition);
-    }
-
-    /// @dev Hashes an array of Transitions using LibHashOptimized.
-    function _hashTransitions(Transition[] memory _transitions) private pure returns (bytes32) {
-        return LibHashOptimized.hashTransitions(_transitions);
     }
 
     /// @dev Calculates bond instruction for a sequential prove call.
