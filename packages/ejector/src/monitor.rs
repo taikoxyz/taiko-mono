@@ -466,9 +466,9 @@ impl Monitor {
                                                 warn!(
                                                     block_number,
                                                     depth = reorg_depth,
-                                                    "Reorg detected but revert height missing; revert height metric set to 0"
+                                                    "Reorg detected but revert height missing; revert height metric set to -1"
                                                 );
-                                                metrics::note_reorg(reorg_depth, 0);
+                                                metrics::note_reorg(reorg_depth, u64::MAX);
                                             }
 
                                             if !self.reorg_ejection_enabled {
