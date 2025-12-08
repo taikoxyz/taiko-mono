@@ -29,7 +29,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant BASEFEE_MIN_VALUE = 25_000_000; //  0.025 gwei
 
     ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
@@ -265,10 +264,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
             newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
-
-        if (basefee_ < BASEFEE_MIN_VALUE) {
-            basefee_ = BASEFEE_MIN_VALUE;
-        }
     }
 
     /// @inheritdoc IBlockHashProvider
