@@ -262,6 +262,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // In the above exampl, the last finalized proposal is 4, the next proposal is 9. A prover can submit a proof that covers proposal 3 to 7, 
         // and finalize the chain up to 7. We need to verify that the last finalized proposal 4's transition hash is containsd in the proof input.
 
+
+        // A few points:
+        // - ProveInput2's validity shall be proved by the proof against only one piece of data:
+        //   the last proposal's hash -- IF we have proposal contains their parent hash.
+        // - We still need to make sure the last finalized proposal hash is contained in the proof input -- in the transition hash list.
+
         CoreState memory state = _state;
         ProveInput2 memory input = abi.decode(_data, (ProveInput2));
 
