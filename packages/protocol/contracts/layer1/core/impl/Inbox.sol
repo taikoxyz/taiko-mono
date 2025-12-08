@@ -264,7 +264,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///
     ///     transitionHashs = [hash3, hash4, hash5, hash6, hash7]
     ///                         ↑                           ↑
-    ///    state.lastFinalizedProposalHash             new state.lastFinalizedProposalHash 
+    ///    state.lastFinalizedProposalHash             new state.lastFinalizedProposalHash
     ///
     /// Key validation rules:
     /// 1. The proof must start at or before the last finalized proposal
@@ -275,66 +275,66 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Note: Since each proposal contains its parent hash, verifying only the last proposal's hash
     /// cryptographically commits to the entire chain of proposals.
     function prove2(bytes calldata _data, bytes calldata _proof) external nonReentrant {
-        unchecked{
-        CoreState memory state = _state;
-        ProveInput2 memory input = abi.decode(_data, (ProveInput2));
-        // Note: ProveInput2 is defined in IInbox
+        unchecked {
+            CoreState memory state = _state;
+            ProveInput2 memory input = abi.decode(_data, (ProveInput2));
+            // Note: ProveInput2 is defined in IInbox
 
-        // transitionHashs has N+1 elements for N proposals (parent hash + N transition hashes)
-        require(input.transitionHashs.length > 1, InsufficientTransitionHashes());
+            // transitionHashs has N+1 elements for N proposals (parent hash + N transition hashes)
+            require(input.transitionHashs.length > 1, InsufficientTransitionHashes());
 
-        uint48 numProvedProposals = uint48(input.transitionHashs.length - 1);
-        uint256 firstProposalParentId = input.lastProposalId - numProvedProposals;
+            uint48 numProvedProposals = uint48(input.transitionHashs.length - 1);
+            uint256 firstProposalParentId = input.lastProposalId - numProvedProposals;
 
-        // Ensure the proof range is valid:
-        // - Must start at or before the last finalized proposal (to include its transition hash)
-        // - Must advance past the current finalization point
-        // - Cannot prove proposals that haven't been proposed yet
-        require(
-            firstProposalParentId <= state.lastFinalizedProposalId,
-            ProofRangeStartTooLate()
-        );
-        require(
-            input.lastProposalId >=state.lastFinalizedProposalId + _minProposalsToFinalize, InsufficientProposalsToFinalize()
-        );
-        require(input.lastProposalId < state.nextProposalId, ProofRangeEndTooLate());
+            // Ensure the proof range is valid:
+            // - Must start at or before the last finalized proposal (to include its transition hash)
+            // - Must advance past the current finalization point
+            // - Cannot prove proposals that haven't been proposed yet
+            require(
+                firstProposalParentId <= state.lastFinalizedProposalId, ProofRangeStartTooLate()
+            );
+            require(
+                input.lastProposalId >= state.lastFinalizedProposalId + _minProposalsToFinalize,
+                InsufficientProposalsToFinalize()
+            );
+            require(input.lastProposalId < state.nextProposalId, ProofRangeEndTooLate());
 
-        // Verify continuity: the transition hash at lastFinalizedProposalId in the proof
-        // must match the stored lastFinalizedTransitionHash
-        uint256 lastFinalizedProposalIdLocalIndex =
-            state.lastFinalizedProposalId - firstProposalParentId;
-        require(
-            input.transitionHashs[lastFinalizedProposalIdLocalIndex]
-                == state.lastFinalizedTransitionHash,
-            TransitionHashMismatch()
-        );
+            // Verify continuity: the transition hash at lastFinalizedProposalId in the proof
+            // must match the stored lastFinalizedTransitionHash
+            uint256 lastFinalizedProposalIdLocalIndex =
+                state.lastFinalizedProposalId - firstProposalParentId;
+            require(
+                input.transitionHashs[lastFinalizedProposalIdLocalIndex]
+                    == state.lastFinalizedTransitionHash,
+                TransitionHashMismatch()
+            );
 
-        // TODO:
-        // - How to calculate bond instruction for multi-proposal proofs
-        // - How to calculate proposalAge for multi-proposal proofs
+            // TODO:
+            // - How to calculate bond instruction for multi-proposal proofs
+            // - How to calculate proposalAge for multi-proposal proofs
 
-        // Update finalization state
-        _state.lastFinalizedProposalId = input.lastProposalId;
-        _state.lastFinalizedTransitionHash = input.transitionHashs[numProvedProposals];
-        _state.lastFinalizedTimestamp = uint48(block.timestamp);
+            // Update finalization state
+            _state.lastFinalizedProposalId = input.lastProposalId;
+            _state.lastFinalizedTransitionHash = input.transitionHashs[numProvedProposals];
+            _state.lastFinalizedTimestamp = uint48(block.timestamp);
 
-        // Save checkpoint if enough time has passed since the last one
-        if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
-            _signalService.saveCheckpoint(input.lastCheckpoint);
-            _state.lastCheckpointTimestamp = uint48(block.timestamp);
-        }
+            // Save checkpoint if enough time has passed since the last one
+            if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
+                _signalService.saveCheckpoint(input.lastCheckpoint);
+                _state.lastCheckpointTimestamp = uint48(block.timestamp);
+            }
 
-        // proposalAge is only meaningful for single-proposal proofs (used for bond calculation)
-        uint256 proposalAge;
-        if (numProvedProposals == 1) {
-            // proposalAge = block.timestamp - uint256(state.lastFinalizedTimestamp);
-        }
+            // proposalAge is only meaningful for single-proposal proofs (used for bond calculation)
+            uint256 proposalAge;
+            if (numProvedProposals == 1) {
+                // proposalAge = block.timestamp - uint256(state.lastFinalizedTimestamp);
+            }
 
-        // Verify the proof against the last proposal's hash and the full input
-        // Since proposals chain to their parents, this cryptographically commits to all proposals
-        bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
-        bytes32 hashToProve = LibHashOptimized.hashProveInput(lastProposalHash, input);
-        _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
+            // Verify the proof against the last proposal's hash and the full input
+            // Since proposals chain to their parents, this cryptographically commits to all proposals
+            bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
+            bytes32 hashToProve = LibHashOptimized.hashProveInput(lastProposalHash, input);
+            _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
         }
     }
 
