@@ -59,6 +59,28 @@ pub struct CachedLookaheadEpoch {
     slot_blacklisted: Arc<Vec<bool>>,
 }
 
+impl CachedLookaheadEpoch {
+    /// Read-only view of ordered slots for this epoch.
+    pub fn slots(&self) -> &[LookaheadSlot] {
+        &self.slots
+    }
+
+    /// Blacklist flags aligned with [`slots`].
+    pub fn blacklist_flags(&self) -> &[bool] {
+        &self.slot_blacklisted
+    }
+
+    /// Whitelist fallback captured for this epoch at ingest time.
+    pub fn fallback_whitelist(&self) -> Option<Address> {
+        self.fallback_whitelist
+    }
+
+    /// Whitelist fallback for the next epoch captured at the same block.
+    pub fn fallback_whitelist_next(&self) -> Option<Address> {
+        self.fallback_whitelist_next
+    }
+}
+
 /// Epoch update broadcast structure.
 #[derive(Clone, Debug)]
 pub struct LookaheadEpochUpdate {

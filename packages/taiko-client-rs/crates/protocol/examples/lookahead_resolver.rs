@@ -41,8 +41,8 @@ async fn main() -> Result<()> {
             println!(
                 "cached epoch {} with {} slots ({} blacklisted)",
                 update.epoch_start,
-                update.epoch.slots.len(),
-                update.epoch.slot_blacklisted.iter().filter(|b| **b).count()
+                update.epoch.slots().len(),
+                update.epoch.blacklist_flags().iter().filter(|b| **b).count()
             );
         }
     });
