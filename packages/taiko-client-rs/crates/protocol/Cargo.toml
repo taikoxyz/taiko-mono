@@ -20,7 +20,8 @@ bindings = { path = "../bindings" }
 dashmap = { workspace = true }
 event-scanner = { workspace = true }
 tokio = { workspace = true }
-tokio-stream = { version = "0.1" }
+tokio-retry = { workspace = true }
+tokio-stream = { workspace = true }
 
 # types
 anyhow = { workspace = true }
@@ -29,7 +30,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 # serialization
-serde = { version = "1", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-rand = { version = "0.8", features = ["std", "std_rng"] }
+rand = { workspace = true, features = ["std", "std_rng"] }

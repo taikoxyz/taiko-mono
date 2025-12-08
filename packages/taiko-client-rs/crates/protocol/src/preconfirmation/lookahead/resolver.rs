@@ -23,9 +23,9 @@ use super::{
 };
 
 /// Duration of a single preconfirmation slot in seconds.
-const SECONDS_IN_SLOT: u64 = 12;
+pub const SECONDS_IN_SLOT: u64 = 12;
 /// Duration of one epoch in seconds (32 slots).
-const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
+pub const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
 
 #[derive(Clone)]
 enum Selection {
@@ -258,12 +258,14 @@ where
                 }
                 Ok(slot.committer)
             }
-            Selection::Fallback(which) => {
+            Selection::Fallback(fallback_choice) => {
                 // No slot covers this timestamp; use cached fallback when present.
-                if let Some(addr) = self.cached_fallback(which, current.as_ref(), next.as_ref()) {
+                if let Some(addr) =
+                    self.cached_fallback(fallback_choice, current.as_ref(), next.as_ref())
+                {
                     return Ok(addr);
                 }
-                self.fallback_operator(which).await
+                self.fallback_operator(fallback_choice).await
             }
         }
     }
@@ -271,19 +273,19 @@ where
     /// Return a cached fallback operator for the requested epoch if present.
     fn cached_fallback(
         &self,
-        which: FallbackEpoch,
+        fallback: FallbackEpoch,
         current: Option<&CachedLookaheadEpoch>,
         next: Option<&CachedLookaheadEpoch>,
     ) -> Option<Address> {
-        match which {
+        match fallback {
             FallbackEpoch::Current => current.and_then(|c| c.fallback_current),
             FallbackEpoch::Next => next.and_then(|c| c.fallback_next),
         }
     }
 
     /// Resolve the whitelist fallback operator for the requested epoch context.
-    async fn fallback_operator(&self, which: FallbackEpoch) -> Result<Address> {
-        let result = match which {
+    async fn fallback_operator(&self, fallback: FallbackEpoch) -> Result<Address> {
+        let result = match fallback {
             FallbackEpoch::Current => {
                 self.preconf_whitelist.getOperatorForCurrentEpoch().call().await
             }

@@ -1,13 +1,26 @@
 use alloy::primitives::Address;
 use event_scanner::ScannerMessage;
-use tokio::task::JoinHandle;
+
+use tokio::{task::JoinHandle, time::Duration};
+use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
-use tracing::info;
+use tracing::{error, info, warn};
 
 use super::{LookaheadResolverDefaultProvider, error::LookaheadError, resolver::LookaheadResolver};
 use crate::subscription_source::SubscriptionSource;
 
 use super::error::Result;
+
+/// Initial backoff delay in milliseconds when ingesting lookahead logs fails.
+const INGEST_BACKOFF_BASE_MS: u64 = 200;
+/// Upper bound for the exponential backoff delay between ingest retries (milliseconds).
+const INGEST_BACKOFF_MAX_MS: u64 = 5_000;
+
+/// Error wrapper used to classify ingest failures; all variants are retryable.
+#[derive(Debug)]
+enum IngestError {
+    Retryable(super::error::LookaheadError),
+}
 
 impl<P> LookaheadResolver<P>
 where
@@ -52,8 +65,10 @@ where
         Ok((resolver, handle))
     }
 
-    /// Spawn a background event-scanner starting from the latest on-chain lookahead buffer depth
-    /// and continue streaming, feeding `LookaheadPosted` into the resolver cache.
+    /// Spawn a background event-scanner starting from the latest on-chain lookahead buffer depth,
+    /// stream events forward, and keep feeding `LookaheadPosted` logs into the resolver cache.
+    /// The returned handle drives the long-running scanner task; log ingestion retries with
+    /// exponential backoff until it succeeds instead of dropping data.
     pub async fn spawn_scanner_from_latest(
         &self,
         source: &SubscriptionSource,
@@ -64,36 +79,64 @@ where
             "starting lookahead scanner from latest buffer"
         );
 
+        // Initialize the event scanner.
         let mut scanner = source
             .to_event_scanner_sync_from_latest_scanning(self.lookahead_buffer_size())
             .await
             .map_err(|err| LookaheadError::EventScanner(err.to_string()))?;
 
-        let filter = self.lookahead_filter();
-        let mut stream = scanner.subscribe(filter);
+        let mut stream = scanner.subscribe(self.lookahead_filter());
         let resolver = self.clone();
 
         let handle = tokio::spawn(async move {
+            // Start the scanner driver in the background to keep fetching logs from the provider.
             let runner = tokio::spawn(async move {
                 if let Err(err) = scanner.start().await {
-                    tracing::error!(?err, "lookahead event scanner terminated");
+                    error!(?err, "lookahead event scanner terminated");
                 }
             });
 
+            // Consume scanner output and push lookahead logs into the resolver as they arrive.
             while let Some(message) = stream.next().await {
                 match message {
                     Ok(ScannerMessage::Data(logs)) => {
-                        if let Err(err) = resolver.ingest_logs(logs).await {
-                            tracing::warn!(?err, "failed to ingest lookahead logs");
+                        // Retry ingest indefinitely with capped exponential backoff until success.
+                        let backoff = ExponentialBackoff::from_millis(INGEST_BACKOFF_BASE_MS)
+                            .max_delay(Duration::from_millis(INGEST_BACKOFF_MAX_MS));
+
+                        let retry_result = RetryIf::spawn(
+                            backoff,
+                            || {
+                                let resolver = resolver.clone();
+                                let logs = logs.clone();
+                                async move {
+                                    resolver
+                                        .ingest_logs(logs.clone())
+                                        .await
+                                        .map_err(IngestError::Retryable)
+                                }
+                            },
+                            // Retry on every failure; we do not drop lookahead logs.
+                            |_: &IngestError| true,
+                        )
+                        .await;
+
+                        if let Err(IngestError::Retryable(err)) = retry_result {
+                            error!(
+                                ?err,
+                                "failed to ingest lookahead logs after continuous retries"
+                            );
                         }
                     }
-                    Ok(ScannerMessage::Notification(_)) => {}
-                    Err(err) => tracing::warn!(?err, "error from lookahead event stream"),
+                    Ok(ScannerMessage::Notification(note)) => {
+                        info!(?note, "lookahead scanner notification");
+                    }
+                    Err(err) => error!(?err, "error from lookahead event stream"),
                 }
             }
 
             if let Err(err) = runner.await {
-                tracing::warn!(?err, "lookahead scanner runner join error");
+                warn!(?err, "lookahead scanner runner join error");
             }
         });
 
