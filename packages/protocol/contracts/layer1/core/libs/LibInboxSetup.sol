@@ -15,6 +15,9 @@ library LibInboxSetup {
     // Public Functions (externally linked)
     // ---------------------------------------------------------------
 
+    /// @dev The time window during which activate() can be called after the first activation.
+    uint256 public constant ACTIVATION_WINDOW = 2 hours;
+
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
     function validateConfig(IInbox.Config memory _config) public pure {
@@ -27,6 +30,29 @@ library LibInboxSetup {
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
         require(_config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero());
         require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeZero());
+    }
+
+    /// @dev Validates activation parameters and returns the new activation timestamp.
+    /// @param _lastPacayaBlockHash The hash of the last Pacaya block.
+    /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
+    /// @return activationTimestamp_ The activation timestamp to use.
+    function validateActivation(
+        bytes32 _lastPacayaBlockHash,
+        uint48 _activationTimestamp
+    )
+        public
+        view
+        returns (uint48 activationTimestamp_)
+    {
+        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
+        if (_activationTimestamp == 0) {
+            activationTimestamp_ = uint48(block.timestamp);
+        } else {
+            require(
+                block.timestamp <= ACTIVATION_WINDOW + _activationTimestamp, ActivationPeriodExpired()
+            );
+            activationTimestamp_ = _activationTimestamp;
+        }
     }
 
     /// @dev Computes the initial state and proposal hash for inbox activation.
@@ -65,9 +91,11 @@ library LibInboxSetup {
     // Errors
     // ---------------------------------------------------------------
 
+    error ActivationPeriodExpired();
     error BasefeeSharingPctgTooLarge();
     error ExtendedWindowTooSmall();
     error ForcedInclusionFeeDoubleThresholdZero();
+    error InvalidLastPacayaBlockHash();
     error MinForcedInclusionCountZero();
     error MinProposalsToFinalizeZero();
     error ProvingWindowZero();

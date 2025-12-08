@@ -40,11 +40,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using LibMath for uint256;
 
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-    uint256 private constant _ACTIVATION_WINDOW = 2 hours;
-
-    // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
@@ -181,15 +176,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Can be called multiple times within the activation window to handle reorgs.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
-        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
-        if (activationTimestamp == 0) {
-            activationTimestamp = uint48(block.timestamp);
-        } else {
-            require(
-                block.timestamp <= _ACTIVATION_WINDOW + activationTimestamp,
-                ActivationPeriodExpired()
-            );
-        }
+        activationTimestamp = LibInboxSetup.validateActivation(_lastPacayaBlockHash, activationTimestamp);
         _activateInbox(_lastPacayaBlockHash);
         emit InboxActivated(_lastPacayaBlockHash);
     }
@@ -890,7 +877,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Errors
     // ---------------------------------------------------------------
 
-    error ActivationPeriodExpired();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();
@@ -900,17 +886,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error IncorrectProposalCount();
     error InsufficientProposalsToFinalize();
     error InsufficientTransitionHashes();
-    error InvalidLastPacayaBlockHash();
     error InvalidParentTransition();
     error InvalidProposalId();
-    error MinProposalsToFinalizeZero();
     error NotEnoughCapacity();
-    error ProofMustAdvanceFinalization();
     error ProofRangeEndTooLate();
     error ProofRangeStartTooLate();
     error ProposalHashMismatch();
     error ProposalHashMismatchWithTransition();
-    error RingBufferSizeZero();
     error TransitionHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }
