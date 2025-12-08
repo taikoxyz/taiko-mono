@@ -212,7 +212,7 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     {
         _validateBondInstruction(_instruction);
 
-        bytes32 signal = _bondSignalHash(_instruction);
+        bytes32 signal = LibBonds.hashBondInstruction(_instruction);
         bytes32 signalId = _signalId(signal);
         require(!processedSignals[signalId], SignalAlreadyProcessed());
 
@@ -289,17 +289,6 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
             return provabilityBond;
         }
         return 0;
-    }
-
-    /// @dev Calculates the hash of a bond instruction
-    /// @param _instruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function _bondSignalHash(LibBonds.BondInstruction memory _instruction)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_instruction));
     }
 
     /// @dev Calculates the id of a given signal

@@ -10,10 +10,10 @@ import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
-/// @title Codex
+/// @title Codec
 /// @notice Codec contract wrapping LibHashOptimized for optimized hashing
 /// @custom:security-contact security@taiko.xyz
-contract Codex is ICodec {
+contract Codec is ICodec {
     // ---------------------------------------------------------------
     // ProposedEventCodec Functions
     // ---------------------------------------------------------------
@@ -144,6 +144,6 @@ contract Codex is ICodec {
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashBondInstruction(_bondInstruction);
+        return LibBonds.hashBondInstruction(_bondInstruction);
     }
 }

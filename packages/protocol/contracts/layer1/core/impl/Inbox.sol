@@ -710,7 +710,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (bytes32 signal_)
     {
-        signal_ = LibHashOptimized.hashBondInstruction(_bondInstruction);
+        signal_ = LibBonds.hashBondInstruction(_bondInstruction);
         _signalService.sendSignal(signal_);
     }
 
