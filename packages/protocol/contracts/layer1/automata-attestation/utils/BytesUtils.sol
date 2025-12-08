@@ -6,6 +6,10 @@ pragma solidity ^0.8.24;
 /// @title BytesUtils
 /// @custom:security-contact security@taiko.xyz
 library BytesUtils {
+    error BYTES_INVALID_OFFSET();
+    error BYTES_INVALID_IDX();
+    error BYTES_UNEXPECTED_LEN();
+    error BYTES_UNEXPECTED_IDX();
     /*
     * @dev Returns the keccak-256 hash of a byte range.
     * @param self The byte string to hash.
@@ -22,7 +26,7 @@ library BytesUtils {
         pure
         returns (bytes32 ret)
     {
-        require(offset + len <= self.length, "invalid offset");
+        if (offset + len > self.length) revert BYTES_INVALID_OFFSET();
         assembly {
             ret := keccak256(add(add(self, 32), offset), len)
         }
@@ -68,7 +72,7 @@ library BytesUtils {
     * @return The specified 16 bits of the string, interpreted as an integer.
     */
     function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
-        require(idx + 2 <= self.length, "invalid idx");
+        if (idx + 2 > self.length) revert BYTES_INVALID_IDX();
         assembly {
             ret := and(mload(add(add(self, 2), idx)), 0xFFFF)
         }
@@ -90,8 +94,8 @@ library BytesUtils {
         pure
         returns (bytes32 ret)
     {
-        require(len <= 32, "unexpected len");
-        require(idx + len <= self.length, "unexpected idx");
+        if (len > 32) revert BYTES_UNEXPECTED_LEN();
+        if (idx + len > self.length) revert BYTES_UNEXPECTED_IDX();
         assembly {
             let mask := not(sub(exp(256, sub(32, len)), 1))
             ret := and(mload(add(add(self, 32), idx)), mask)
@@ -119,7 +123,7 @@ library BytesUtils {
         pure
         returns (bytes memory)
     {
-        require(offset + len <= self.length, "unexpected offset");
+        if (offset + len > self.length) revert BYTES_INVALID_OFFSET();
 
         bytes memory ret = new bytes(len);
         uint256 dest;
