@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -12,11 +11,9 @@ use bindings::{
     lookahead_store::LookaheadStore::LookaheadPosted,
     preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance,
 };
+use dashmap::DashMap;
 use event_scanner::EventFilter;
-use tokio::{
-    runtime::{Builder, Handle},
-    sync::RwLock,
-};
+use tokio::runtime::{Builder, Handle};
 use tracing::debug;
 
 use super::{
@@ -63,7 +60,7 @@ pub struct LookaheadResolver<P: Provider + Clone + Send + Sync + 'static> {
     /// Preconf whitelist contract instance for fallback selection.
     preconf_whitelist: PreconfWhitelistInstance<P>,
     /// Sliding window of cached epochs keyed by epoch start timestamp.
-    cache: Arc<RwLock<BTreeMap<u64, CachedLookaheadEpoch>>>,
+    cache: Arc<DashMap<u64, CachedLookaheadEpoch>>,
     /// Maximum cached epochs (derived from on-chain lookahead buffer size).
     lookahead_buffer_size: usize,
     /// Beacon genesis timestamp for the connected chain.
@@ -117,7 +114,7 @@ where
         Ok(Self {
             client,
             preconf_whitelist,
-            cache: Arc::new(RwLock::new(BTreeMap::new())),
+            cache: Arc::new(DashMap::new()),
             lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
             genesis_timestamp,
         })
@@ -151,7 +148,7 @@ where
                 LookaheadPosted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                     .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
 
-            self.store_epoch(event).await;
+            self.store_epoch(event);
             applied += 1;
         }
 
@@ -172,10 +169,8 @@ where
         let epoch_start = epoch_start_for(ts, self.genesis_timestamp);
         let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
-        let (current, next) = {
-            let cache = self.cache.read().await;
-            (cache.get(&epoch_start).cloned(), cache.get(&next_epoch_start).cloned())
-        };
+        let current = self.cache.get(&epoch_start).map(|entry| entry.clone());
+        let next = self.cache.get(&next_epoch_start).map(|entry| entry.clone());
 
         let fallback_epoch = fallback_epoch_for(ts, self.genesis_timestamp);
         let selection = match current.as_ref() {
@@ -195,17 +190,16 @@ where
     }
 
     /// Cache a newly observed `LookaheadPosted` event for quick timestamp lookups.
-    pub(crate) async fn store_epoch(&self, event: LookaheadPosted) {
+    pub(crate) fn store_epoch(&self, event: LookaheadPosted) {
         let epoch_ts = event.epochTimestamp.to::<u64>();
         let slots = Arc::new(event.lookaheadSlots);
 
-        let mut cache = self.cache.write().await;
-        cache.insert(epoch_ts, CachedLookaheadEpoch { slots });
+        self.cache.insert(epoch_ts, CachedLookaheadEpoch { slots });
 
         // Evict oldest entries beyond buffer size (keep an extra future epoch slot)
-        while cache.len() > self.lookahead_buffer_size + 1 {
-            if let Some(oldest) = cache.keys().next().cloned() {
-                cache.remove(&oldest);
+        while self.cache.len() > self.lookahead_buffer_size + 1 {
+            if let Some(oldest) = self.cache.iter().map(|e| *e.key()).min() {
+                self.cache.remove(&oldest);
             } else {
                 break;
             }

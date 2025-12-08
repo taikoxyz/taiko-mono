@@ -17,6 +17,7 @@ alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 bindings = { path = "../bindings" }
+dashmap = { workspace = true }
 event-scanner = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { version = "0.1" }

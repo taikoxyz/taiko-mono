@@ -6324,6 +6324,7 @@ dependencies = [
  "alloy-rpc-types",
  "anyhow",
  "bindings",
+ "dashmap 6.1.0",
  "event-scanner",
  "flate2",
  "rand 0.8.5",
