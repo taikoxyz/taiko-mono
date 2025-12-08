@@ -1,5 +1,5 @@
 use alloy_primitives::{Address, U256};
-use alloy_provider::{fillers::FillProvider, utils::JoinedRecommendedFillers, RootProvider};
+use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 
 mod client;
 mod error;
@@ -21,12 +21,11 @@ pub type LookaheadResolverWithDefaultProvider =
 //
 // How `committer_for_timestamp` resolves a committer:
 // - Finds the first lookahead slot whose timestamp >= queried timestamp; if none, tries the first
-//   slot of the next epoch; otherwise falls back to the whitelist.
-// - If the chosen slot's registration root was blacklisted at ingest (using the LookaheadPosted log
-//   block when available), it falls back to the whitelist operator instead.
-// - Whitelist fallback operators themselves are **not** blacklist-checked.
-// - Blacklist state is snapshotted at ingest for slots; query-time lookups are read-only against
-//   cached flags.
+//   slot of the next epoch; otherwise falls back to the current-epoch whitelist.
+// - All whitelist/blacklist checks are snapshotted at ingest (LookaheadPosted block); resolution is
+//   fully offline with no runtime network I/O.
+// - If the chosen slot was marked blacklisted at ingest, resolution falls back to the cached
+//   current-epoch whitelist snapshot.
 //
 // Integrators can call `committer_for_timestamp` to obtain the expected committer address for a
 // given L1 timestamp, matching LookaheadStore/PreconfWhitelist semantics.

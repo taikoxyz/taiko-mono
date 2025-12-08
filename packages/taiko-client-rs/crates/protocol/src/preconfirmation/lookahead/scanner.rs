@@ -6,7 +6,9 @@ use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 
-use super::{LookaheadResolverWithDefaultProvider, error::LookaheadError, resolver::LookaheadResolver};
+use super::{
+    LookaheadResolverWithDefaultProvider, error::LookaheadError, resolver::LookaheadResolver,
+};
 use crate::subscription_source::SubscriptionSource;
 
 use super::error::Result;

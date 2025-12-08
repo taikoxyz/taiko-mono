@@ -43,9 +43,10 @@ async fn main() -> Result<()> {
         let resolver = resolver_for_epoch;
         while let Ok(update) = epoch_rx.recv().await {
             println!(
-                "cached epoch {} with {} slots ({} blacklisted)",
+                "cached epoch {} with {} slots (whitelist fallback: {:?}, blacklisted slots: {})",
                 update.epoch_start,
                 update.epoch.slots().len(),
+                update.epoch.fallback_whitelist(),
                 update.epoch.blacklist_flags().iter().filter(|b| **b).count()
             );
 
