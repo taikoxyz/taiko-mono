@@ -29,7 +29,8 @@ fn ensure_field_element(field_elements: &mut Vec<[u8; 32]>, index: usize) -> &mu
     &mut field_elements[index]
 }
 
-/// Process a single chunk of data and encode it into field elements, then ingest them into the builder.
+/// Process a single chunk of data and encode it into field elements, then ingest them into the
+/// builder.
 fn process_chunk(chunk: &[u8], builder: &mut PartialSidecar, required_fe_count: usize) {
     let mut read_offset = 0usize;
     let mut field_elements = Vec::with_capacity(required_fe_count);
