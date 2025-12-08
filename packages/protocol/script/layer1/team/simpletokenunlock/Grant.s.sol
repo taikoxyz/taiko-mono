@@ -11,9 +11,9 @@ contract GrantSimpleTokenUnlock is Script {
     using stdJson for string;
 
     struct GrantingItem {
+        uint256 grantAmount;
         address proxy;
         address recipient;
-        uint256 grantAmount;
     }
 
     ERC20 private tko = ERC20(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
