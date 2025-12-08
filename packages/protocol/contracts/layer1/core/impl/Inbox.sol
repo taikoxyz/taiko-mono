@@ -240,7 +240,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _emitProvedEvent(input, result, bondSignal);
         _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
-
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -558,7 +557,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
-
 
     // ---------------------------------------------------------------
     // Private Functions

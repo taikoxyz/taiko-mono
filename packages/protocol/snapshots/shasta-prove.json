@@ -1,10 +1,10 @@
 {
-  "finalize_consecutive_10": "111780",
-  "finalize_consecutive_3": "84139",
-  "finalize_consecutive_5": "91921",
-  "finalize_single": "76454",
-  "prove_consecutive_10": "57177",
-  "prove_consecutive_3": "29536",
-  "prove_consecutive_5": "37318",
-  "prove_single": "21851"
+  "finalize_consecutive_10": "111764",
+  "finalize_consecutive_3": "84123",
+  "finalize_consecutive_5": "91905",
+  "finalize_single": "76438",
+  "prove_consecutive_10": "57161",
+  "prove_consecutive_3": "29520",
+  "prove_consecutive_5": "37302",
+  "prove_single": "21835"
 }
