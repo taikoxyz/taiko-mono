@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
@@ -130,5 +131,18 @@ library LibHashOptimized {
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transitions));
+    }
+
+    /// @notice Hashing for BondInstruction structs
+    /// @dev Hashes the bond instruction fields (proposalId, bondType, payer, payee)
+    /// @param _bondInstruction The bond instruction to hash
+    /// @return The hash of the bond instruction
+    function hashBondInstruction(LibBonds.BondInstruction memory _bondInstruction)
+        internal
+        pure
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_bondInstruction));
     }
 }

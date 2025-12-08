@@ -710,19 +710,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (bytes32 signal_)
     {
-        signal_ = _hashBondInstruction(_bondInstruction);
+        signal_ = LibHashOptimized.hashBondInstruction(_bondInstruction);
         _signalService.sendSignal(signal_);
-    }
-
-    /// @dev Calculates the bond signal hash for a bond instruction.
-    /// @param _bondInstruction The bond instruction to hash.
-    /// @return The hash of the bond instruction.
-    function _hashBondInstruction(LibBonds.BondInstruction memory _bondInstruction)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_bondInstruction));
     }
 
     /// @dev Calculates remaining capacity for new proposals
