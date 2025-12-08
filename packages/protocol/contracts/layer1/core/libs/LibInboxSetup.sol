@@ -23,13 +23,14 @@ library LibInboxSetup {
         // Validate in the order fields are defined in Config struct
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
-        require(_config.extendedProvingWindow >= _config.provingWindow, ExtendedWindowTooSmall());
+        require(_config.extendedProvingWindow > _config.provingWindow, ExtendedWindowTooSmall());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
         require(
             _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
         );
+        require(_config.permissionlessInclusionMultiplier > 1, PermissionlessInclusionMultiplierTooSmall());
         require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeZero());
     }
 
@@ -95,6 +96,7 @@ library LibInboxSetup {
     error InvalidLastPacayaBlockHash();
     error MinForcedInclusionCountZero();
     error MinProposalsToFinalizeZero();
+    error PermissionlessInclusionMultiplierTooSmall();
     error ProvingWindowZero();
     error RingBufferSizeZero();
     error SignalServiceZero();
