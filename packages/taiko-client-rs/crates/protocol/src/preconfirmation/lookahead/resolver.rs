@@ -207,7 +207,7 @@ where
                 LookaheadPosted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                     .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
 
-            self.store_epoch(event, log.block_number).await;
+            self.store_epoch(event, log.block_number).await?;
             applied += 1;
         }
 
@@ -219,19 +219,21 @@ where
     /// whitelist fallback operators at the event's block so later resolution can
     /// avoid additional on-chain calls and stay consistent with the block where the lookahead was
     /// posted.
-    pub(crate) async fn store_epoch(&self, event: LookaheadPosted, block_number: Option<u64>) {
-        // Snapshot whitelist fallback operators at the event block state.
-        let (fallback_current, fallback_next) = if let Some(block) = block_number {
-            self.snapshot_whitelist(block).await.unwrap_or((None, None)) // TODO: throw error and retry outside
-        } else {
-            (None, None)
-        };
+    pub(crate) async fn store_epoch(
+        &self,
+        event: LookaheadPosted,
+        block_number: Option<u64>,
+    ) -> Result<()> {
+        // Ensure we have the block number for snapshotting.
+        let block = block_number.ok_or_else(|| {
+            LookaheadError::EventDecode("lookahead log missing block number".into())
+        })?;
 
-        // Precompute blacklist flags for the slots in this event, at the event block state.
-        let slot_blacklisted = self
-            .precompute_blacklist_flags(&event.lookaheadSlots, block_number)
-            .await
-            .unwrap_or_else(|_| vec![false; event.lookaheadSlots.len()]); // TODO: throw error and retry outside
+        // Snapshot whitelist and blacklist state at the event block state.
+        let ((fallback_current, fallback_next), slot_blacklisted) = tokio::try_join!(
+            self.snapshot_whitelist(block),
+            self.precompute_blacklist_flags(&event.lookaheadSlots, block)
+        )?;
 
         // Insert or update the cached epoch entry.
         let cached = CachedLookaheadEpoch {
@@ -258,39 +260,48 @@ where
                 break;
             }
         }
+
+        Ok(())
     }
 
     /// Snapshot whitelist fallback operators at a specific block, mirroring the state used when the
     /// lookahead event was emitted. Returns (current_epoch, next_epoch).
     async fn snapshot_whitelist(&self, block: u64) -> Result<(Option<Address>, Option<Address>)> {
-        let block_tag: BlockId = BlockId::Number(block.into());
-        let current_query = self.preconf_whitelist.getOperatorForCurrentEpoch().block(block_tag);
-        let next_query = self.preconf_whitelist.getOperatorForNextEpoch().block(block_tag);
+        let current_query = self
+            .preconf_whitelist
+            .getOperatorForCurrentEpoch()
+            .block(BlockId::Number(block.into()));
+        let next_query =
+            self.preconf_whitelist.getOperatorForNextEpoch().block(BlockId::Number(block.into()));
 
+        // Run both queries concurrently.
         let (current, next) = tokio::join!(current_query.call(), next_query.call());
 
-        Ok((current.ok(), next.ok()))
+        Ok((
+            Some(current.map_err(LookaheadError::PreconfWhitelist)?),
+            Some(next.map_err(LookaheadError::PreconfWhitelist)?),
+        ))
     }
 
-    /// Precompute blacklist flags for a batch of slots at a specific block (if provided).
+    /// Precompute blacklist flags for a batch of slots at a specific block.
     async fn precompute_blacklist_flags(
         &self,
         slots: &[LookaheadSlot],
-        block: Option<u64>,
+        block: u64,
     ) -> Result<Vec<bool>> {
-        let futs = slots.iter().map(|slot| {
-            let mut builder =
-                self.client.lookahead_store().isOperatorBlacklisted(slot.registrationRoot);
-
-            if let Some(b) = block {
-                builder = builder.block(BlockId::Number(b.into()));
-            }
-
-            async move { builder.call().await.map_err(LookaheadError::Blacklist) }
+        // Prepare tasks to query blacklist status for each slot's registration root.
+        let futs = slots.iter().map(|slot| async move {
+            self.client
+                .lookahead_store()
+                .isOperatorBlacklisted(slot.registrationRoot)
+                .block(BlockId::Number(block.into()))
+                .call()
+                .await
+                .map_err(LookaheadError::Blacklist)
         });
 
-        let results: Vec<bool> = try_join_all(futs).await?;
-        Ok(results)
+        // Run queries concurrently and collect results.
+        try_join_all(futs).await
     }
 
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
