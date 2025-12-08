@@ -32,18 +32,29 @@ library LibInboxSetup {
         require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeZero());
     }
 
-    /// @dev Validates activation parameters and returns the new activation timestamp.
+    /// @dev Validates activation and computes the initial state for inbox activation.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block.
     /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
     /// @return activationTimestamp_ The activation timestamp to use.
-    function validateActivation(
+    /// @return state_ The initial CoreState.
+    /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
+    /// @return proposal_ The genesis proposal.
+    /// @return derivation_ The genesis derivation.
+    function activate(
         bytes32 _lastPacayaBlockHash,
         uint48 _activationTimestamp
     )
         public
         view
-        returns (uint48 activationTimestamp_)
+        returns (
+            uint48 activationTimestamp_,
+            IInbox.CoreState memory state_,
+            bytes32 genesisProposalHash_,
+            IInbox.Proposal memory proposal_,
+            IInbox.Derivation memory derivation_
+        )
     {
+        // Validate activation parameters
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
         if (_activationTimestamp == 0) {
             activationTimestamp_ = uint48(block.timestamp);
@@ -53,24 +64,8 @@ library LibInboxSetup {
             );
             activationTimestamp_ = _activationTimestamp;
         }
-    }
 
-    /// @dev Computes the initial state and proposal hash for inbox activation.
-    /// @param _lastPacayaBlockHash The hash of the last Pacaya block.
-    /// @return state_ The initial CoreState.
-    /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
-    /// @return proposal_ The genesis proposal.
-    /// @return derivation_ The genesis derivation.
-    function computeActivationData(bytes32 _lastPacayaBlockHash)
-        public
-        view
-        returns (
-            IInbox.CoreState memory state_,
-            bytes32 genesisProposalHash_,
-            IInbox.Proposal memory proposal_,
-            IInbox.Derivation memory derivation_
-        )
-    {
+        // Compute activation data
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = _lastPacayaBlockHash;
 

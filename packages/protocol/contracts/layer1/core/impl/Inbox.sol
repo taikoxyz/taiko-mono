@@ -176,8 +176,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Can be called multiple times within the activation window to handle reorgs.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
-        activationTimestamp = LibInboxSetup.validateActivation(_lastPacayaBlockHash, activationTimestamp);
-        _activateInbox(_lastPacayaBlockHash);
+        (
+            uint48 newActivationTimestamp,
+            CoreState memory state,
+            bytes32 genesisProposalHash,
+            Proposal memory proposal,
+            Derivation memory derivation
+        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
+
+        activationTimestamp = newActivationTimestamp;
+        _state = state;
+        _setProposalHash(0, genesisProposalHash);
+        _emitProposedEvent(proposal, derivation);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -415,21 +425,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
-
-    /// @dev Bootstraps genesis state and emits the initial Proposed event.
-    /// @param _lastPacayaBlockHash The hash of the last Pacaya block
-    function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        (
-            CoreState memory state,
-            bytes32 genesisProposalHash,
-            Proposal memory proposal,
-            Derivation memory derivation
-        ) = LibInboxSetup.computeActivationData(_lastPacayaBlockHash);
-
-        _state = state;
-        _setProposalHash(0, genesisProposalHash);
-        _emitProposedEvent(proposal, derivation);
-    }
 
     /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
     /// @param _input The propose input data.
