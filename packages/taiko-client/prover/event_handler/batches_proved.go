@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -79,13 +80,14 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 	if err != nil {
 		return fmt.Errorf("failed to decode proved payload: %w", err)
 	}
+	metrics.ProverLatestVerifiedIDGauge.Set(float64(payload.Transition.Checkpoint.BlockNumber.Uint64()))
 
-	header, err := h.rpc.L2.HeaderByNumber(ctx, payload.Transition.Checkpoint.BlockNumber)
-	if err != nil {
-		return fmt.Errorf("failed to get header by number: %w", err)
-	}
-
-	log.Info("New valid proven Shasta batch received", "batchID", payload.ProposalId, "lastBatchID", header.Number)
+	log.Info(
+		"New valid proven Shasta batch received",
+		"proposalID", payload.ProposalId,
+		"checkpointBlockID", payload.Transition.Checkpoint.BlockNumber,
+		"checkpointBlockHash", common.Hash(payload.Transition.Checkpoint.BlockHash),
+	)
 
 	return nil
 }
