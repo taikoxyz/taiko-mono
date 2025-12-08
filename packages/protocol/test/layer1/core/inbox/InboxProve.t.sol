@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
+import { InboxTestBase } from "./InboxTestBase.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
+import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-abstract contract ProveTestBase is InboxTestBase {
-    constructor(InboxVariant _variant) InboxTestBase(_variant) { }
-
-    /// forge-config: default.isolate = true
+contract InboxProveTest is InboxTestBase {
     function test_prove_single() public {
         (IInbox.ProveInput memory proveInput, IInbox.Transition[] memory transitions) =
             _buildBatchInput(1, false);
@@ -36,7 +33,6 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(inbox.getState().lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
     }
 
-    /// forge-config: default.isolate = true
     function test_prove_batch3() public {
         (IInbox.ProveInput memory proveInput,) = _buildBatchInput(3, false);
 
@@ -49,7 +45,6 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
     }
 
-    /// forge-config: default.isolate = true
     function test_prove_batch5() public {
         (IInbox.ProveInput memory proveInput,) = _buildBatchInput(5, false);
 
@@ -62,7 +57,6 @@ abstract contract ProveTestBase is InboxTestBase {
         assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
     }
 
-    /// forge-config: default.isolate = true
     function test_prove_batch10() public {
         (IInbox.ProveInput memory proveInput,) = _buildBatchInput(10, false);
 
@@ -145,14 +139,8 @@ abstract contract ProveTestBase is InboxTestBase {
             syncCheckpoint: true
         });
 
-        if (_isOptimized()) {
-            vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
-            codec.encodeProveInput(proveInput);
-            return;
-        }
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.InconsistentParams.selector);
-        inbox.prove(encodedInput, bytes(""));
+        vm.expectRevert(LibProveInputCodec.ProposalTransitionLengthMismatch.selector);
+        codec.encodeProveInput(proveInput);
     }
 
     function test_prove_RevertWhen_CheckpointMismatch() public {
@@ -484,7 +472,7 @@ abstract contract ProveTestBase is InboxTestBase {
         bytes memory encodedInput = codec.encodeProveInput(_input);
         vm.recordLogs();
         vm.startPrank(prover);
-        vm.startSnapshotGas(_profile, _benchLabel(_benchName));
+        vm.startSnapshotGas(_profile, _benchName);
         inbox.prove(encodedInput, bytes(""));
         vm.stopSnapshotGas();
         vm.stopPrank();
@@ -502,12 +490,4 @@ abstract contract ProveTestBase is InboxTestBase {
         }
         revert("Proved event not found");
     }
-}
-
-contract InboxProveTest is ProveTestBase {
-    constructor() ProveTestBase(InboxVariant.Simple) { }
-}
-
-contract InboxOptimizedProveTest is ProveTestBase {
-    constructor() ProveTestBase(InboxVariant.Optimized) { }
 }

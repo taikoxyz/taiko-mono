@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProposedEventEncoder
+/// @title LibProposedEventCodec
 /// @notice Compact encoder/decoder for ProposedEventPayload using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
-library LibProposedEventEncoder {
+library LibProposedEventCodec {
     /// @notice Encodes a ProposedEventPayload into bytes using compact encoding.
     function encode(IInbox.ProposedEventPayload memory _payload)
         internal

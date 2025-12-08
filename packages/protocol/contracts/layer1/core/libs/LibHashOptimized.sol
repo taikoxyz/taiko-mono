@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
@@ -13,71 +12,8 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibHashOptimized {
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    /// @notice Precomputed hash of empty bytes for gas optimization
-    bytes32 private constant EMPTY_BYTES_HASH = keccak256("");
-
-    // ---------------------------------------------------------------
     // Core Structure Hashing Functions
     // ---------------------------------------------------------------
-
-    /// @notice Optimized hashing for blob hashes array
-    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return The hash of the blob hashes array
-    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
-        unchecked {
-            uint256 length = _blobHashes.length;
-            if (length == 0) {
-                return EMPTY_BYTES_HASH;
-            }
-
-            if (length == 1) {
-                return EfficientHashLib.hash(bytes32(length), _blobHashes[0]);
-            }
-
-            if (length == 2) {
-                return EfficientHashLib.hash(bytes32(length), _blobHashes[0], _blobHashes[1]);
-            }
-
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
-            EfficientHashLib.set(buffer, 0, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
-            }
-
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
-        }
-    }
-
-    /// @notice Optimized hashing for Checkpoint structs
-    /// @dev Efficiently hashes the 3 main fields of a checkpoint
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
-        );
-    }
-
-    /// @notice Optimized hashing for CoreState structs
-    /// @dev Efficiently packs and hashes all core state fields
-    /// @param _coreState The core state to hash
-    /// @return The hash of the core state
-    function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
-        // Struct fields are encoded directly to keep compatibility if ordering changes.
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_coreState));
-    }
 
     /// @notice Optimized hashing for Derivation structs
     /// @dev Manually constructs the ABI-encoded layout to avoid nested abi.encode calls
@@ -194,33 +130,5 @@ library LibHashOptimized {
     {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transitions));
-    }
-
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Hashes a single derivation source efficiently
-    /// @dev Internal helper to hash DerivationSource struct with BlobSlice
-    /// @param _source The derivation source to hash
-    /// @return The hash of the derivation source
-    function _hashDerivationSource(IInbox.DerivationSource memory _source)
-        private
-        pure
-        returns (bytes32)
-    {
-        // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
-        bytes32 blobHashesHash = hashBlobHashesArray(_source.blobSlice.blobHashes);
-
-        bytes32 blobSliceHash = EfficientHashLib.hash(
-            blobHashesHash,
-            bytes32(uint256(_source.blobSlice.offset)),
-            bytes32(uint256(_source.blobSlice.timestamp))
-        );
-
-        return
-            EfficientHashLib.hash(
-                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
-            );
     }
 }

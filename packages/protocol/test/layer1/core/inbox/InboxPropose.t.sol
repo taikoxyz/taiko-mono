@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
+import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
-abstract contract ProposeTestBase is InboxTestBase {
-    constructor(InboxVariant _variant) InboxTestBase(_variant) { }
-
-    /// forge-config: default.isolate = true
+contract InboxProposeTest is InboxTestBase {
     function test_propose() public {
         _setBlobHashes(1);
 
@@ -113,7 +110,6 @@ abstract contract ProposeTestBase is InboxTestBase {
         assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
     }
 
-    /// forge-config: default.isolate = true
     function test_propose_processesForcedInclusion_andRecordsGas() public {
         bytes32[] memory blobHashes = _getBlobHashes(3);
         _setBlobHashes(3);
@@ -309,12 +305,4 @@ abstract contract ProposeTestBase is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
         payload_ = _readProposedEvent();
     }
-}
-
-contract InboxProposeTest is ProposeTestBase {
-    constructor() ProposeTestBase(InboxVariant.Simple) { }
-}
-
-contract InboxOptimizedProposeTest is ProposeTestBase {
-    constructor() ProposeTestBase(InboxVariant.Optimized) { }
 }

@@ -8,7 +8,7 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
-import "src/layer1/core/impl/CodecOptimized.sol";
+import "src/layer1/core/impl/Codex.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
@@ -195,7 +195,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "shasta_inbox",
             impl: address(
                 new DevnetInbox(
-                    proofVerifier, whitelist, signalService, address(new CodecOptimized())
+                    proofVerifier, whitelist, signalService, address(new Codex())
                 )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))

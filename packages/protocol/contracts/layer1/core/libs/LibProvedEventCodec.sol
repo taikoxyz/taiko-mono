@@ -5,10 +5,10 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
-/// @title LibProvedEventEncoder
+/// @title LibProvedEventCodec
 /// @notice Compact encoder/decoder for ProvedEventPayload using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
-library LibProvedEventEncoder {
+library LibProvedEventCodec {
     /// @notice Encodes a ProvedEventPayload into bytes using compact encoding.
     function encode(IInbox.ProvedEventPayload memory _payload)
         internal

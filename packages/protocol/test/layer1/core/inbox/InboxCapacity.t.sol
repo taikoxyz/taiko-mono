@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ProposeTestBase } from "./InboxPropose.t.sol";
-import { InboxTestBase, InboxVariant } from "./InboxTestBase.sol";
+import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
-abstract contract CapacityBase is ProposeTestBase {
-    constructor(InboxVariant _variant) ProposeTestBase(_variant) { }
-
+contract InboxCapacityTest is InboxTestBase {
     function test_propose_RevertWhen_CapacityExceeded() public {
         _setBlobHashes(3);
         _nextBlock();
@@ -35,12 +32,4 @@ abstract contract CapacityBase is ProposeTestBase {
         cfg.ringBufferSize = 3;
         return cfg;
     }
-}
-
-contract InboxCapacityTest is CapacityBase {
-    constructor() CapacityBase(InboxVariant.Simple) { }
-}
-
-contract InboxOptimizedCapacityTest is CapacityBase {
-    constructor() CapacityBase(InboxVariant.Optimized) { }
 }

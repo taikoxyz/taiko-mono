@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibProvedEventEncoder } from "src/layer1/core/libs/LibProvedEventEncoder.sol";
+import { LibProvedEventCodec } from "src/layer1/core/libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-contract LibProvedEventEncoderTest is Test {
+contract LibProvedEventCodecTest is Test {
     function test_encode_decode_with_bond() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             proposalId: 7,
@@ -30,7 +30,7 @@ contract LibProvedEventEncoderTest is Test {
         });
 
         IInbox.ProvedEventPayload memory decoded =
-            LibProvedEventEncoder.decode(LibProvedEventEncoder.encode(payload));
+            LibProvedEventCodec.decode(LibProvedEventCodec.encode(payload));
 
         assertEq(decoded.proposalId, payload.proposalId, "proposal id");
         assertEq(decoded.transition.proposalHash, payload.transition.proposalHash, "proposal hash");
@@ -70,12 +70,12 @@ contract LibProvedEventEncoderTest is Test {
             bondSignal: bytes32(uint256(104))
         });
 
-        bytes memory encoded1 = LibProvedEventEncoder.encode(payload);
-        bytes memory encoded2 = LibProvedEventEncoder.encode(payload);
+        bytes memory encoded1 = LibProvedEventCodec.encode(payload);
+        bytes memory encoded2 = LibProvedEventCodec.encode(payload);
         assertEq(encoded1.length, encoded2.length, "length");
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
 
-        IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded1);
+        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded1);
         assertEq(
             uint8(decoded.bondInstruction.bondType),
             uint8(LibBonds.BondType.NONE),

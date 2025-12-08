@@ -25,21 +25,4 @@ library LibBonds {
         address payer;
         address payee;
     }
-
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
-
-    function aggregateBondInstruction(
-        bytes32 _bondInstructionsHash,
-        BondInstruction memory _bondInstruction
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return _bondInstruction.proposalId == 0 || _bondInstruction.bondType == BondType.NONE
-            ? _bondInstructionsHash
-            : keccak256(abi.encode(_bondInstructionsHash, _bondInstruction));
-    }
 }

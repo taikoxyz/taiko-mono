@@ -4,16 +4,16 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { LibProposedEventCodec } from "src/layer1/core/libs/LibProposedEventCodec.sol";
 
-contract LibProposedEventEncoderHarness {
+contract LibProposedEventCodecHarness {
     function size(IInbox.DerivationSource[] memory _sources) external pure returns (uint256) {
-        return LibProposedEventEncoder.calculateProposedEventSize(_sources);
+        return LibProposedEventCodec.calculateProposedEventSize(_sources);
     }
 }
 
-contract LibProposedEventEncoderTest is Test {
-    LibProposedEventEncoderHarness private harness = new LibProposedEventEncoderHarness();
+contract LibProposedEventCodecTest is Test {
+    LibProposedEventCodecHarness private harness = new LibProposedEventCodecHarness();
 
     function test_encode_decode_singleSource() public {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
@@ -42,10 +42,10 @@ contract LibProposedEventEncoderTest is Test {
             })
         });
 
-        bytes memory encoded = LibProposedEventEncoder.encode(payload);
+        bytes memory encoded = LibProposedEventCodec.encode(payload);
         assertEq(encoded.length, harness.size(sources), "size mismatch");
 
-        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventCodec.decode(encoded);
         _assertEqual(payload, decoded);
     }
 
@@ -85,7 +85,7 @@ contract LibProposedEventEncoderTest is Test {
         });
 
         IInbox.ProposedEventPayload memory decoded =
-            LibProposedEventEncoder.decode(LibProposedEventEncoder.encode(payload));
+            LibProposedEventCodec.decode(LibProposedEventCodec.encode(payload));
 
         assertEq(decoded.derivation.sources.length, 2, "sources length");
         assertTrue(decoded.derivation.sources[0].isForcedInclusion, "forced flag");

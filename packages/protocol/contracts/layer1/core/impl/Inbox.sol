@@ -5,9 +5,12 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibHashSimple } from "../libs/LibHashSimple.sol";
+import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
+import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
+import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
+import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -235,9 +238,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         _state = result.newState;
 
+        _emitProvedEvent(input, result, bondSignal);
         _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
 
-        _emitProvedEvent(input, result, bondSignal);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -461,7 +464,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Only the first unproven proposal in a sequential prove can be late; later proposals
             // become proveable when the previous one finalizes within this transaction.
-            result_.bondInstruction = LibBondInstruction.calculateBondInstruction(
+            result_.bondInstruction = _calculateBondInstruction(
                 _provingWindow,
                 _extendedProvingWindow,
                 _input.proposals[result_.firstProvenIndex],
@@ -469,9 +472,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 firstReadyTimestamp
             );
 
-            newState_.lastFinalizedProposalId = expectedId - 1;
-            newState_.lastFinalizedTimestamp = uint48(block.timestamp);
-            newState_.lastFinalizedTransitionHash = parentHash;
+            result_.newState.lastFinalizedProposalId = expectedId - 1;
+            result_.newState.lastFinalizedTimestamp = uint48(block.timestamp);
+            result_.newState.lastFinalizedTransitionHash = parentHash;
 
             _syncCheckpointIfNeeded(
                 _input.syncCheckpoint,
@@ -558,108 +561,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
-    /// @dev Encodes the proposed event data
-    /// @param _payload The ProposedEventPayload object
-    /// @return The encoded data
-    function _encodeProposedEventData(ProposedEventPayload memory _payload)
-        internal
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_payload);
-    }
-
-    /// @dev Encodes the proved event data
-    /// @param _payload The ProvedEventPayload object
-    /// @return The encoded data
-    function _encodeProvedEventData(ProvedEventPayload memory _payload)
-        internal
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_payload);
-    }
-
-    /// @dev Decodes proposal input data
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProposeInput struct containing all proposal data
-    function _decodeProposeInput(bytes calldata _data)
-        internal
-        pure
-        virtual
-        returns (ProposeInput memory)
-    {
-        return abi.decode(_data, (ProposeInput));
-    }
-
-    /// @dev Decodes prove input data
-    /// @param _data The encoded data
-    /// @return _ The decoded ProveInput struct containing proposals and transitions
-    function _decodeProveInput(bytes calldata _data)
-        internal
-        pure
-        virtual
-        returns (ProveInput memory)
-    {
-        return abi.decode(_data, (ProveInput));
-    }
-
-    /// @dev Hashes a Checkpoint struct.
-    /// @param _checkpoint The checkpoint to hash.
-    /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple.hashCheckpoint(_checkpoint);
-    }
-
-    /// @dev Hashes a Derivation struct.
-    /// @param _derivation The derivation to hash.
-    /// @return _ The hash of the derivation.
-    function _hashDerivation(Derivation memory _derivation)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple.hashDerivation(_derivation);
-    }
-
-    /// @dev Hashes a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) internal view virtual returns (bytes32) {
-        return LibHashSimple.hashProposal(_proposal);
-    }
-
-    /// @dev Hashes a Transition struct.
-    /// @param _transition The transition to hash.
-    /// @return _ The hash of the transition.
-    function _hashTransition(Transition memory _transition)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple.hashTransition(_transition);
-    }
-
-    /// @dev Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @return _ The hash of the transitions array.
-    function _hashTransitions(Transition[] memory _transitions)
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return LibHashSimple.hashTransitions(_transitions);
-    }
 
     // ---------------------------------------------------------------
     // Private Functions
@@ -857,6 +758,112 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+    }
+
+    /// @dev Encodes the proposed event data using LibProposedEventCodec.
+    function _encodeProposedEventData(ProposedEventPayload memory _payload)
+        private
+        pure
+        returns (bytes memory)
+    {
+        return LibProposedEventCodec.encode(_payload);
+    }
+
+    /// @dev Encodes the proved event data using LibProvedEventCodec.
+    function _encodeProvedEventData(ProvedEventPayload memory _payload)
+        private
+        pure
+        returns (bytes memory)
+    {
+        return LibProvedEventCodec.encode(_payload);
+    }
+
+    /// @dev Decodes proposal input data using LibProposeInputCodec.
+    function _decodeProposeInput(bytes calldata _data) private pure returns (ProposeInput memory) {
+        return LibProposeInputCodec.decode(_data);
+    }
+
+    /// @dev Decodes prove input data using LibProveInputCodec.
+    function _decodeProveInput(bytes calldata _data) private pure returns (ProveInput memory) {
+        return LibProveInputCodec.decode(_data);
+    }
+
+    /// @dev Hashes a Derivation struct using LibHashOptimized.
+    function _hashDerivation(Derivation memory _derivation) private pure returns (bytes32) {
+        return LibHashOptimized.hashDerivation(_derivation);
+    }
+
+    /// @dev Hashes a Proposal struct using LibHashOptimized.
+    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
+        return LibHashOptimized.hashProposal(_proposal);
+    }
+
+    /// @dev Hashes a Transition struct using LibHashOptimized.
+    function _hashTransition(Transition memory _transition) private pure returns (bytes32) {
+        return LibHashOptimized.hashTransition(_transition);
+    }
+
+    /// @dev Hashes an array of Transitions using LibHashOptimized.
+    function _hashTransitions(Transition[] memory _transitions) private pure returns (bytes32) {
+        return LibHashOptimized.hashTransitions(_transitions);
+    }
+
+    /// @dev Calculates bond instruction for a sequential prove call.
+    /// @dev Bond instruction rules:
+    ///         - On-time (within provingWindow): No bond changes.
+    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs
+    ///           from designated prover of the first transition.
+    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
+    ///           differs from proposer of the first transition.
+    /// @param _provingWindow The proving window in seconds.
+    /// @param _extendedProvingWindow The extended proving window in seconds.
+    /// @param _firstProposal The first proposal proven in the batch.
+    /// @param _firstTransition The transition for the first proposal.
+    /// @param _readyTimestamp Timestamp when the first proposal became proveable.
+    /// @return bondInstruction_ A bond transfer instruction, or a BondType.NONE instruction when
+    ///         no transfer is required.
+    function _calculateBondInstruction(
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow,
+        Proposal memory _firstProposal,
+        Transition memory _firstTransition,
+        uint48 _readyTimestamp
+    )
+        private
+        view
+        returns (LibBonds.BondInstruction memory bondInstruction_)
+    {
+        unchecked {
+            uint256 proofTimestamp = block.timestamp;
+            uint256 windowEnd = uint256(_readyTimestamp) + _provingWindow;
+
+            // On-time proof - no bond instructions needed.
+            if (proofTimestamp <= windowEnd) {
+                return bondInstruction_;
+            }
+
+            uint256 extendedWindowEnd = uint256(_readyTimestamp) + _extendedProvingWindow;
+            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
+
+            address payer = isWithinExtendedWindow
+                ? _firstTransition.designatedProver
+                : _firstProposal.proposer;
+            address payee = _firstTransition.actualProver;
+
+            // If payer and payee are identical, there is no bond movement.
+            if (payer == payee) {
+                return bondInstruction_;
+            }
+
+            bondInstruction_ = LibBonds.BondInstruction({
+                proposalId: _firstProposal.id,
+                bondType: isWithinExtendedWindow
+                    ? LibBonds.BondType.LIVENESS
+                    : LibBonds.BondType.PROVABILITY,
+                payer: payer,
+                payee: payee
+            });
+        }
     }
 
     // ---------------------------------------------------------------

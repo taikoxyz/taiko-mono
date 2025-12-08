@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibProveInputDecoder } from "src/layer1/core/libs/LibProveInputDecoder.sol";
+import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-contract LibProveInputDecoderTest is Test {
+contract LibProveInputCodecTest is Test {
     function test_encode_decode_roundtrip() public {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = IInbox.Proposal({
@@ -48,8 +48,8 @@ contract LibProveInputDecoderTest is Test {
             proposals: proposals, transitions: transitions, syncCheckpoint: true
         });
 
-        bytes memory encoded = LibProveInputDecoder.encode(input);
-        IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
+        bytes memory encoded = LibProveInputCodec.encode(input);
+        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
         assertEq(decoded.proposals.length, 2, "proposal length");
         assertEq(decoded.transitions.length, 2, "transition length");
@@ -74,7 +74,7 @@ contract LibProveInputDecoderTest is Test {
             syncCheckpoint: true
         });
 
-        vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
+        vm.expectRevert(LibProveInputCodec.ProposalTransitionLengthMismatch.selector);
         this._encodeExternal(input);
     }
 
@@ -85,13 +85,13 @@ contract LibProveInputDecoderTest is Test {
             syncCheckpoint: true
         });
 
-        bytes memory encoded = LibProveInputDecoder.encode(input);
+        bytes memory encoded = LibProveInputCodec.encode(input);
 
         uint256 transitionsLengthOffset = 2 + (input.proposals.length * 70);
         encoded[transitionsLengthOffset] = 0x00;
         encoded[transitionsLengthOffset + 1] = 0x00; // set transitions length to zero to trigger mismatch
 
-        vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
+        vm.expectRevert(LibProveInputCodec.ProposalTransitionLengthMismatch.selector);
         this._decodeExternal(encoded);
     }
 
@@ -121,7 +121,7 @@ contract LibProveInputDecoderTest is Test {
 
     // External wrappers to ensure vm.expectRevert catches the revert (call depth increases).
     function _encodeExternal(IInbox.ProveInput memory _input) external pure returns (bytes memory) {
-        return LibProveInputDecoder.encode(_input);
+        return LibProveInputCodec.encode(_input);
     }
 
     function _decodeExternal(bytes calldata _data)
@@ -129,6 +129,6 @@ contract LibProveInputDecoderTest is Test {
         pure
         returns (IInbox.ProveInput memory)
     {
-        return LibProveInputDecoder.decode(_data);
+        return LibProveInputCodec.decode(_data);
     }
 }

@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibProposeInputDecoder } from "src/layer1/core/libs/LibProposeInputDecoder.sol";
+import { LibProposeInputCodec } from "src/layer1/core/libs/LibProposeInputCodec.sol";
 
-contract LibProposeInputDecoderTest is Test {
+contract LibProposeInputCodecTest is Test {
     function test_encode_decode_roundtrip() public {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 1_234_567,
@@ -14,10 +14,10 @@ contract LibProposeInputDecoderTest is Test {
             numForcedInclusions: 3
         });
 
-        bytes memory encoded = LibProposeInputDecoder.encode(input);
+        bytes memory encoded = LibProposeInputCodec.encode(input);
         assertEq(encoded.length, 14, "encoded length");
 
-        IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
+        IInbox.ProposeInput memory decoded = LibProposeInputCodec.decode(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
         assertEq(
             decoded.blobReference.blobStartIndex,
@@ -40,8 +40,8 @@ contract LibProposeInputDecoderTest is Test {
             numForcedInclusions: type(uint8).max
         });
 
-        bytes memory encoded = LibProposeInputDecoder.encode(input);
-        IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
+        bytes memory encoded = LibProposeInputCodec.encode(input);
+        IInbox.ProposeInput memory decoded = LibProposeInputCodec.decode(encoded);
 
         assertEq(decoded.deadline, input.deadline, "max deadline");
         assertEq(

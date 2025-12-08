@@ -6,24 +6,16 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
-import { CodecSimple } from "src/layer1/core/impl/CodecSimple.sol";
+import { Codex } from "src/layer1/core/impl/Codex.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
-enum InboxVariant {
-    Simple,
-    Optimized
-}
-
 /// @title InboxTestBase
-/// @notice Shared setup and helpers for Inbox tests with minimal duplication between variants.
+/// @notice Shared setup and helpers for Inbox tests.
 abstract contract InboxTestBase is CommonTest {
-    InboxVariant internal variant;
     Inbox internal inbox;
     IInbox.Config internal config;
     ICodec internal codec;
@@ -38,10 +30,6 @@ abstract contract InboxTestBase is CommonTest {
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
-
-    constructor(InboxVariant _variant) {
-        variant = _variant;
-    }
 
     function setUp() public virtual override {
         super.setUp();
@@ -62,7 +50,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _buildConfig() internal virtual returns (IInbox.Config memory) {
-        codec = _isOptimized() ? ICodec(new CodecOptimized()) : ICodec(new CodecSimple());
+        codec = ICodec(new Codex());
 
         return IInbox.Config({
             codec: address(codec),
@@ -87,13 +75,8 @@ abstract contract InboxTestBase is CommonTest {
     // ---------------------------------------------------------------
 
     function _deployInbox() internal virtual returns (Inbox) {
-        address impl =
-            _isOptimized() ? address(new InboxOptimized(config)) : address(new Inbox(config));
+        address impl = address(new Inbox(config));
         return _deployProxy(impl);
-    }
-
-    function _isOptimized() internal view virtual returns (bool) {
-        return variant == InboxVariant.Optimized;
     }
 
     // ---------------------------------------------------------------
@@ -148,7 +131,7 @@ abstract contract InboxTestBase is CommonTest {
         vm.recordLogs();
         vm.startPrank(proposer);
 
-        vm.startSnapshotGas("shasta-propose", _benchLabel(_benchName));
+        vm.startSnapshotGas("shasta-propose", _benchName);
         inbox.propose(bytes(""), encodedInput);
         vm.stopSnapshotGas();
 
@@ -282,10 +265,6 @@ abstract contract InboxTestBase is CommonTest {
         transitions_[2] = _t3;
         transitions_[3] = _t4;
         transitions_[4] = _t5;
-    }
-
-    function _benchLabel(string memory _base) internal view returns (string memory) {
-        return string.concat(_base, _isOptimized() ? "_InboxOptimized" : "_Inbox");
     }
 
     function _setupMocks() internal virtual {

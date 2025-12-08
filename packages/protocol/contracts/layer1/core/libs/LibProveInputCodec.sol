@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProveInputDecoder
+/// @title LibProveInputCodec
 /// @notice Compact encoder/decoder for prove inputs using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
-library LibProveInputDecoder {
+library LibProveInputCodec {
     /// @notice Encodes prove input data using compact packing.
     function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
         uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions);

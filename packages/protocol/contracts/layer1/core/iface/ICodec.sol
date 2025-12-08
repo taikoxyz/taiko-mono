@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -19,7 +18,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ICodec {
     // ---------------------------------------------------------------
-    // ProposedEventEncoder Functions
+    // ProposedEventCodec Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes a ProposedEventPayload into bytes
@@ -40,7 +39,7 @@ interface ICodec {
         returns (IInbox.ProposedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProvedEventEncoder Functions
+    // ProvedEventCodec Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes a ProvedEventPayload into bytes
@@ -61,7 +60,7 @@ interface ICodec {
         returns (IInbox.ProvedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProposeInputDecoder Functions
+    // ProposeInputCodec Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes propose input data
@@ -82,7 +81,7 @@ interface ICodec {
         returns (IInbox.ProposeInput memory input_);
 
     // ---------------------------------------------------------------
-    // ProveInputDecoder Functions
+    // ProveInputCodec Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes prove input data
@@ -105,19 +104,6 @@ interface ICodec {
     // ---------------------------------------------------------------
     // Hashing Functions
     // ---------------------------------------------------------------
-
-    /// @notice Hashing for Checkpoint structs
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
-        external
-        pure
-        returns (bytes32);
-
-    /// @notice Hashing for CoreState structs
-    /// @param _coreState The core state to hash
-    /// @return The hash of the core state
-    function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32);
 
     /// @notice Hashing for Derivation structs
     /// @param _derivation The derivation to hash
