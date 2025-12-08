@@ -291,21 +291,6 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         return 0;
     }
 
-    /// @dev Calculates the id of a given signal using EfficientHashLib
-    /// @param _signal The signal to calculate the id for
-    /// @return The id of the signal
-    function _signalId(bytes32 _signal) internal view returns (bytes32) {
-        bytes32[] memory buffer = EfficientHashLib.malloc(3);
-
-        EfficientHashLib.set(buffer, 0, bytes32(uint256(l1ChainId)));
-        EfficientHashLib.set(buffer, 1, bytes32(uint256(uint160(l1Inbox))));
-        EfficientHashLib.set(buffer, 2, _signal);
-
-        bytes32 result = EfficientHashLib.hash(buffer);
-        EfficientHashLib.free(buffer);
-        return result;
-    }
-
     /// @dev Validates a bond instruction. Reverts if the bond instruction is invalid.
     /// @param _instruction The bond instruction to validate
     function _validateBondInstruction(LibBonds.BondInstruction memory _instruction) internal pure {
