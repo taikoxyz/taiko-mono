@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(outcome.reorged.len(), 1);
         assert_eq!(outcome.reorged[0].hash, block3_old.hash);
         assert_eq!(outcome.reorged[0].coinbase, block3_old.coinbase);
-        assert_eq!(outcome.reverted_to.unwrap(), block2.number);
+        assert_eq!(outcome.reverted_to.expect("should not be none"), block2.number);
         assert!(!outcome.parent_not_found);
         assert!(!outcome.duplicate);
     }
@@ -176,7 +176,7 @@ mod tests {
         assert_eq!(outcome.reorged.len(), 2);
         assert_eq!(outcome.reorged[0].hash, block3_old.hash);
         assert_eq!(outcome.reorged[1].hash, block2_old.hash);
-        assert_eq!(outcome.reverted_to.unwrap(), genesis.number);
+        assert_eq!(outcome.reverted_to.expect("should not be none"), genesis.number);
         assert!(!outcome.parent_not_found);
 
         let block3_new = block(3, 21, 31, 56);
@@ -208,4 +208,13 @@ mod tests {
         assert!(outcome_next.reorged.is_empty());
         assert!(!outcome_next.parent_not_found);
     }
+
+    #[test]
+    fn tracker_reverted_to_none_when_no_reorg() {
+    let mut tracker = ChainReorgTracker::new(8);
+    let genesis = block(1, 0, 1, 10);
+    let outcome = tracker.apply(genesis);
+    assert!(outcome.reverted_to.is_none());
+    }
+
 }
