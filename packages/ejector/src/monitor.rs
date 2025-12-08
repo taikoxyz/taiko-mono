@@ -460,7 +460,16 @@ impl Monitor {
                                                 "Detected L2 reorg"
                                             );
 
-                                            metrics::note_reorg(reorg_depth);
+                                            if let Some(reverted_height) = outcome.reverted_to {
+                                                metrics::note_reorg(reorg_depth, reverted_height);
+                                            } else {
+                                                warn!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    "Reorg detected but revert height missing; revert height metric set to 0"
+                                                );
+                                                metrics::note_reorg(reorg_depth, 0);
+                                            }
 
                                             if !self.reorg_ejection_enabled {
                                                 info!(

@@ -17,6 +17,7 @@ pub struct ApplyOutcome {
     pub reorged: Vec<TrackedBlock>,
     pub parent_not_found: bool,
     pub duplicate: bool,
+    pub reverted_to: Option<u64>,
 }
 
 impl ApplyOutcome {
@@ -74,7 +75,10 @@ impl ChainReorgTracker {
             self.history.push_back(block);
             return outcome;
         }
-
+        // If a reorg happened, record the latest reorg height.
+        if !outcome.reorged.is_empty() {
+            outcome.reverted_to = self.history.back().map(|b| b.number);
+        }
         self.history.push_back(block);
 
         while self.history.len() > self.max_depth {
@@ -150,6 +154,7 @@ mod tests {
         assert_eq!(outcome.reorged.len(), 1);
         assert_eq!(outcome.reorged[0].hash, block3_old.hash);
         assert_eq!(outcome.reorged[0].coinbase, block3_old.coinbase);
+        assert_eq!(outcome.reverted_to.unwrap(), block2.number);
         assert!(!outcome.parent_not_found);
         assert!(!outcome.duplicate);
     }
@@ -171,6 +176,7 @@ mod tests {
         assert_eq!(outcome.reorged.len(), 2);
         assert_eq!(outcome.reorged[0].hash, block3_old.hash);
         assert_eq!(outcome.reorged[1].hash, block2_old.hash);
+        assert_eq!(outcome.reverted_to.unwrap(), genesis.number);
         assert!(!outcome.parent_not_found);
 
         let block3_new = block(3, 21, 31, 56);
