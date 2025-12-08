@@ -30,6 +30,7 @@ library LibInboxSetup {
         require(_config.ringBufferSize >1, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
+        require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeInGweiZero());
         require(
             _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
         );
@@ -98,6 +99,7 @@ library LibInboxSetup {
     error CodecZero();
     error ExtendedWindowTooSmall();
     error ForcedInclusionFeeDoubleThresholdZero();
+    error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaBlockHash();
     error MinForcedInclusionCountZero();
     error MinProposalsToFinalizeTooBig();
