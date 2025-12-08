@@ -113,6 +113,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
+    /// @notice The minimum number of proposals that must be finalized in a single prove2 call.
+    uint8 internal immutable _minProposalsToFinalize;
+
     /// @notice Signal service responsible for checkpoints and bond signals.
     ISignalService internal immutable _signalService;
 
@@ -161,6 +164,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
+        _minProposalsToFinalize = _config.minProposalsToFinalize;
     }
 
     // ---------------------------------------------------------------
@@ -242,13 +246,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
     }
 
-    /// @notice Input data for the prove function
-    struct ProveInput2 {
-        uint48 lastProposalId;
-        ICheckpointStore.Checkpoint lastCheckpoint;
-        bytes32[] transitionHashs;
-    }
-
     /// @dev Verifies a batch proof covering multiple consecutive proposals.
     ///
     /// The proof must cover a contiguous range of proposals that includes (or starts after) the
@@ -258,16 +255,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///
     /// Example: Proving proposals 4-7 when lastFinalizedProposalId=4
     ///
-    ///     lastFinalizedProposalId                 nextProposalId
-    ///                  ↓                                ↓
+    ///       lastFinalizedProposalId                nextProposalId
+    ///                             ↓                             ↓
     ///     0     1     2     3     4     5     6     7     8     9
     ///     ■─────■─────■─────■─────■─────□─────□─────□─────□─────
     ///                 ↑     └──── proof coverage ────┘
-    ///        firstProposalParentId
+    ///                 firstProposalParentId
     ///
     ///     transitionHashs = [hash3, hash4, hash5, hash6, hash7]
     ///                         ↑                           ↑
-    ///                   parent state              final state
+    ///    state.lastFinalizedProposalHash             new state.lastFinalizedProposalHash 
     ///
     /// Key validation rules:
     /// 1. The proof must start at or before the last finalized proposal
@@ -276,14 +273,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// 4. The transition hash at lastFinalizedProposalId must match the stored hash
     ///
     /// Note: Since each proposal contains its parent hash, verifying only the last proposal's hash
-    /// cryptographically commits to the entire chain. We still validate the lastFinalizedTransitionHash
-    /// to ensure continuity with the already-finalized state.
+    /// cryptographically commits to the entire chain of proposals.
     function prove2(bytes calldata _data, bytes calldata _proof) external nonReentrant {
+        unchecked{
         CoreState memory state = _state;
         ProveInput2 memory input = abi.decode(_data, (ProveInput2));
+        // Note: ProveInput2 is defined in IInbox
 
         // transitionHashs has N+1 elements for N proposals (parent hash + N transition hashes)
-        require(input.transitionHashs.length > 1, "need at least 2 elements");
+        require(input.transitionHashs.length > 1, InsufficientTransitionHashes());
 
         uint48 numProvedProposals = uint48(input.transitionHashs.length - 1);
         uint256 firstProposalParentId = input.lastProposalId - numProvedProposals;
@@ -294,12 +292,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // - Cannot prove proposals that haven't been proposed yet
         require(
             firstProposalParentId <= state.lastFinalizedProposalId,
-            "firstProposal's parent proposal id too big"
+            ProofRangeStartTooLate()
         );
         require(
-            input.lastProposalId > state.lastFinalizedProposalId, "lastProposalId must progress"
+            input.lastProposalId >=state.lastFinalizedProposalId + _minProposalsToFinalize, InsufficientProposalsToFinalize()
         );
-        require(input.lastProposalId < state.nextProposalId, "lastProposalId too big");
+        require(input.lastProposalId < state.nextProposalId, ProofRangeEndTooLate());
 
         // Verify continuity: the transition hash at lastFinalizedProposalId in the proof
         // must match the stored lastFinalizedTransitionHash
@@ -308,7 +306,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(
             input.transitionHashs[lastFinalizedProposalIdLocalIndex]
                 == state.lastFinalizedTransitionHash,
-            "lastFinalizedTransitionHash mismatch"
+            TransitionHashMismatch()
         );
 
         // TODO:
@@ -329,14 +327,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // proposalAge is only meaningful for single-proposal proofs (used for bond calculation)
         uint256 proposalAge;
         if (numProvedProposals == 1) {
-            proposalAge = block.timestamp - uint256(state.lastFinalizedTimestamp);
+            // proposalAge = block.timestamp - uint256(state.lastFinalizedTimestamp);
         }
 
         // Verify the proof against the last proposal's hash and the full input
         // Since proposals chain to their parents, this cryptographically commits to all proposals
         bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
-        bytes32 verifierInputHash = keccak256(abi.encode(lastProposalHash, input));
-        _proofVerifier.verifyProof(proposalAge, verifierInputHash, _proof);
+        bytes32 hashToProve = LibHashOptimized.hashProveInput(lastProposalHash, input);
+        _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
+        }
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -416,7 +415,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
+            minProposalsToFinalize: _minProposalsToFinalize
         });
     }
 
@@ -909,12 +909,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error EmptyProposals();
     error InconsistentParams();
     error IncorrectProposalCount();
+    error InsufficientProposalsToFinalize();
+    error InsufficientTransitionHashes();
     error InvalidLastPacayaBlockHash();
     error InvalidParentTransition();
     error InvalidProposalId();
     error NotEnoughCapacity();
+    error ProofMustAdvanceFinalization();
+    error ProofRangeEndTooLate();
+    error ProofRangeStartTooLate();
     error ProposalHashMismatch();
     error ProposalHashMismatchWithTransition();
     error RingBufferSizeZero();
+    error TransitionHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }

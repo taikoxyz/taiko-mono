@@ -145,4 +145,21 @@ library LibHashOptimized {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_bondInstruction));
     }
+
+    /// @notice Hashing for prove input data combining proposal hash and prove input
+    /// @dev TODO: Optimize this function using EfficientHashLib for gas savings
+    /// @param _lastProposalHash The hash of the last proposal in the proof range
+    /// @param _input The prove input containing lastProposalId, lastCheckpoint, and transitionHashs
+    /// @return The hash of the prove input data
+    function hashProveInput(
+        bytes32 _lastProposalHash,
+        IInbox.ProveInput2 memory _input
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_lastProposalHash, _input));
+    }
 }
