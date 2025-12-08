@@ -7,6 +7,7 @@ import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibUsedOnce } from "../libs/LibUsedOnce.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
@@ -147,8 +148,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
-        require(_config.signalService != address(0), ZERO_ADDRESS());
-        require(_config.ringBufferSize != 0, RingBufferSizeZero());
+        LibUsedOnce.validateConfig(_config);
 
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
@@ -432,26 +432,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Bootstraps genesis state and emits the initial Proposed event.
     /// @param _lastPacayaBlockHash The hash of the last Pacaya block
     function _activateInbox(bytes32 _lastPacayaBlockHash) internal {
-        Transition memory transition;
-        transition.checkpoint.blockHash = _lastPacayaBlockHash;
-
-        // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
-        // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
-        // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
-        // ensure proposals never reference the genesis block.
-        CoreState memory state;
-        state.nextProposalId = 1;
-        state.lastProposalBlockId = 1;
-        state.lastFinalizedTimestamp = uint48(block.timestamp);
-        state.lastFinalizedTransitionHash = LibHashOptimized.hashTransition(transition);
-
-        Proposal memory proposal;
-        Derivation memory derivation;
-        proposal.derivationHash = LibHashOptimized.hashDerivation(derivation);
+        (
+            CoreState memory state,
+            bytes32 genesisProposalHash,
+            Proposal memory proposal,
+            Derivation memory derivation
+        ) = LibUsedOnce.computeActivationData(_lastPacayaBlockHash);
 
         _state = state;
-        _setProposalHash(0, LibHashOptimized.hashProposal(proposal));
-
+        _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
     }
 
@@ -914,6 +903,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error InvalidLastPacayaBlockHash();
     error InvalidParentTransition();
     error InvalidProposalId();
+    error MinProposalsToFinalizeZero();
     error NotEnoughCapacity();
     error ProofMustAdvanceFinalization();
     error ProofRangeEndTooLate();
