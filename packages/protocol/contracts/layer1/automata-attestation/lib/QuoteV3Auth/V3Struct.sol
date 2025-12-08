@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 /// @title V3Struct
@@ -27,7 +27,7 @@ library V3Struct {
         uint16 isvSvn;
         bytes reserved4; // 60 bytes
         bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation
-            // of attestation key and QEAuthData
+        // of attestation key and QEAuthData
     }
 
     struct QEAuthData {

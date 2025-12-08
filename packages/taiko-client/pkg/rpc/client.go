@@ -3,8 +3,8 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -37,10 +37,13 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	Inbox      *shastaBindings.ShastaInboxClient
-	InboxCodec *shastaBindings.CodecOptimizedClient
-	Anchor     *shastaBindings.ShastaAnchor
-	ForkHeight *big.Int
+	Inbox           *shastaBindings.ShastaInboxClient
+	InboxCodec      *shastaBindings.CodecOptimizedClient
+	Anchor          *shastaBindings.ShastaAnchor
+	ComposeVerifier *shastaBindings.ComposeVerifier
+	InboxAddress    common.Address
+	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
+	ForkTime uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -77,6 +80,7 @@ type ClientConfig struct {
 	L2EngineEndpoint            string
 	JwtSecret                   string
 	Timeout                     time.Duration
+	ShastaForkTime              uint64
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -147,20 +151,21 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 	}
-	if err := c.initShastaClients(ctx, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
-	}
-
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 	// Initialize the fork height numbers.
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
 		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
 	}
+	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
-	if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
-		return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
+	if cfg.PacayaInboxAddress != (common.Address{}) {
+		if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
+			return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
+		}
 	}
 
 	return c, nil
@@ -278,11 +283,6 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
 	}
 
-	shastaForkHeight, err := shastaAnchor.ShastaForkHeight(nil)
-	if err != nil {
-		return fmt.Errorf("failed to get shasta fork height: %w", err)
-	}
-
 	config, err := shastaInbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get shasta inbox config: %w", err)
@@ -291,12 +291,29 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
 	}
+	composeVerifier, err := shastaBindings.NewComposeVerifier(config.ProofVerifier, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
+	}
+	// Initialize Shasta clients with a fork-time value determined by precedence:
+	// 1) CLI flag (cfg.ShastaForkTime)
+	// 2) Env var TAIKO_INTERNAL_SHASTA_TIME
+	forkTime := cfg.ShastaForkTime
+	if forkTime == 0 {
+		if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
+			if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
+				forkTime = parsed
+			}
+		}
+	}
 
 	c.ShastaClients = &ShastaClients{
-		Inbox:      shastaInbox,
-		InboxCodec: inboxCodec,
-		Anchor:     shastaAnchor,
-		ForkHeight: new(big.Int).SetUint64(shastaForkHeight),
+		Inbox:           shastaInbox,
+		InboxCodec:      inboxCodec,
+		Anchor:          shastaAnchor,
+		ComposeVerifier: composeVerifier,
+		InboxAddress:    cfg.ShastaInboxAddress,
+		ForkTime:        forkTime,
 	}
 
 	return nil
@@ -315,11 +332,16 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		Shasta: protocolConfigs.ForkHeights.Shasta,
 	}
 
+	// ShastaClients may not yet be initialized here; guard the log value.
+	var shastaForkTime uint64
+	if c.ShastaClients != nil {
+		shastaForkTime = c.ShastaClients.ForkTime
+	}
 	log.Info(
 		"Fork height configs",
 		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
 		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
-		"shastaForkHeight", c.PacayaClients.ForkHeights.Shasta,
+		"shastaForkTime", shastaForkTime,
 	)
 
 	return nil

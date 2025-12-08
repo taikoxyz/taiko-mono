@@ -24,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -36,7 +35,6 @@ type ClientTestSuite struct {
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
 	BlobServer          *MemoryBlobServer
-	ShastaStateIndexer  *shastaIndexer.Indexer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -77,15 +75,13 @@ func (s *ClientTestSuite) SetupTest() {
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
-	s.ShastaStateIndexer, err = shastaIndexer.New(
-		context.Background(),
-		rpcCli,
-		rpcCli.ShastaClients.ForkHeight,
-	)
-	s.Nil(err)
-	s.Nil(s.ShastaStateIndexer.Start())
 
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Less(l1Head.Time, s.RPCClient.ShastaClients.ForkTime)
+	s.SetBlockTimestampInterval(12 * time.Second)
+
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))
@@ -335,6 +331,15 @@ func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
 	var revertRes bool
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &revertRes, "evm_revert", snapshotID))
 	s.True(revertRes)
+}
+
+func (s *ClientTestSuite) SetBlockTimestampInterval(interval time.Duration) {
+	s.Nil(s.RPCClient.L1.CallContext(
+		context.Background(),
+		nil,
+		"anvil_setBlockTimestampInterval",
+		interval.Seconds(),
+	))
 }
 
 func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHash common.Hash) {

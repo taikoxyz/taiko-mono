@@ -64,6 +64,7 @@ type SenderOptions struct {
 
 // NewProofSubmitterPacaya creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
+	ctx context.Context,
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
@@ -76,12 +77,16 @@ func NewProofSubmitterPacaya(
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, senderOpts.RPCClient.L2.ChainID, senderOpts.RPCClient)
+	anchorValidator, err := validator.New(
+		taikoAnchorAddress,
+		senderOpts.RPCClient.L2.ChainID,
+		senderOpts.RPCClient,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ProofSubmitterPacaya{
+	proofSubmitter := &ProofSubmitterPacaya{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProver,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -103,7 +108,11 @@ func NewProofSubmitterPacaya(
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofPollingInterval:      proofPollingInterval,
-	}, nil
+	}
+
+	proofSubmitter.startProofBufferMonitors(ctx)
+
+	return proofSubmitter, nil
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -263,13 +272,20 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 	if !buffer.IsAggregating() &&
 		(uint64(buffer.Len()) >= buffer.MaxLength ||
 			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.batchAggregationNotify <- proofType
 		buffer.MarkAggregating()
+		s.batchAggregationNotify <- proofType
 
 		return true
 	}
 
 	return false
+}
+
+// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation,
+// only be called once during initialization.
+func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
+	log.Info("Starting proof buffers monitors for Pacaya", "forceBatchProvingInterval", s.forceBatchProvingInterval)
+	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.

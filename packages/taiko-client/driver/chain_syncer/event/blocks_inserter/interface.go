@@ -4,13 +4,12 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
@@ -24,9 +23,9 @@ type Inserter interface {
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		proposalManifest *manifest.ProposalManifest,
+		sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
-	) error
+	) (*big.Int, error)
 }
 
 // createExecutionPayloadsMetaData is a struct that contains all the necessary metadata
@@ -46,9 +45,16 @@ type createExecutionPayloadsMetaData struct {
 	Withdrawals           []*types.Withdrawal
 }
 
+// verifiedCheckpoint holds the latest verified checkpoint info used for setting Safe/Finalized hash.
+type verifiedCheckpoint struct {
+	BlockID   *big.Int
+	BlockHash common.Hash
+}
+
 // createPayloadAndSetHeadMetaData is a struct that contains all the necessary metadata
 // for inserting a new head block to the L2 execution engine's local block chain.
 type createPayloadAndSetHeadMetaData struct {
 	*createExecutionPayloadsMetaData
-	Parent *types.Header
+	Parent             *types.Header
+	VerifiedCheckpoint *verifiedCheckpoint
 }

@@ -56,7 +56,7 @@ func (c *PacayaProtocolConfigs) BaseFeeConfig() *pacayaBindings.LibSharedDataBas
 	return &c.configs.BaseFeeConfig
 }
 
-// ForkHeightsOntake implements the ProtocolConfigs interface.
+// BlockMaxGasLimit implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) BlockMaxGasLimit() uint32 {
 	return c.configs.BlockMaxGasLimit
 }

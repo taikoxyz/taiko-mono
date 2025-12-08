@@ -12,8 +12,9 @@ Before compiling the smart contracts, ensure the following are installed and up 
 To install dependencies:
 
 ```bash
-foundryup -v stable && pnpm install
+pnpm install
 ```
+Foundryup will automatically update during the post-installation script to the version specified in `.tool-versions`.
 
 ## Compilation
 

@@ -5,12 +5,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -21,7 +21,6 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -29,7 +28,6 @@ import (
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
-	shastaStateIndexer      *shastaIndexer.Indexer
 	proposerPrivateKey      *ecdsa.PrivateKey
 	pacayaInboxAddress      common.Address
 	shastaInboxAddress      common.Address
@@ -44,7 +42,6 @@ type BlobTransactionBuilder struct {
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
-	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
@@ -57,7 +54,6 @@ func NewBlobTransactionBuilder(
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
-		shastaStateIndexer,
 		proposerPrivateKey,
 		pacayaInboxAddress,
 		shastaInboxAddress,
@@ -182,52 +178,13 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
-		to    = &b.shastaInboxAddress
-		blobs []*eth.Blob
-		data  []byte
+		to                       = &b.shastaInboxAddress
+		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
+		blobs                    []*eth.Blob
+		data                     []byte
 	)
 	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
-	}
-
-	config, err := b.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
-	}
-
-	// Fetch proposals and transitions from the state indexer.
-	// We need to fetch up to 2 proposals and MaxFinalizationCount transition records.
-	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
-	}
-
-	var (
-		parentProposals   []shastaBindings.IInboxProposal
-		transitionRecords []shastaBindings.IInboxTransitionRecord
-		checkpoint        = shastaBindings.ICheckpointStoreCheckpoint{BlockNumber: common.Big0}
-		proposalManifest  = &manifest.ProtocolProposalManifest{ProverAuthBytes: proverAuth}
-	)
-	for i, p := range proposals {
-		log.Info(
-			"Fetched proposal from state indexer",
-			"index", i,
-			"id", p.Proposal.Id,
-			"coreStateHash", common.Bytes2Hex(p.Proposal.CoreStateHash[:]),
-		)
-		parentProposals = append(parentProposals, *p.Proposal)
-	}
-	for i, t := range transitions {
-		log.Info(
-			"Fetched transition from state indexer",
-			"index", i,
-			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
-			"checkpointBlockNumber", t.Transition.Checkpoint.BlockNumber.Uint64(),
-		)
-		if i == len(transitions)-1 {
-			checkpoint = t.Transition.Checkpoint
-		}
-		transitionRecords = append(transitionRecords, *t.TransitionRecord)
 	}
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
@@ -243,37 +200,43 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		)
 	}
 
-	for i, txs := range txBatch {
-		// For the first block, we set the anchor block number to
-		// (L1 head - AnchorMinOffset - 1).
-		var anchorBlockNumber = uint64(0)
-		if i == 0 {
-			anchorBlockNumber = l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1)
-			log.Info(
-				"Set anchor block number for the first block in the batch",
-				"anchorBlockNumber", anchorBlockNumber,
-				"l1Head", l1Head.Number.Uint64(),
-				"anchorMinOffset", manifest.AnchorMinOffset,
-			)
-		}
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	var gasLimit = l2Head.GasLimit - consensus.AnchorV3V4GasLimit
+	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
+		gasLimit = manifest.MaxBlockGasLimit
+	}
 
-		proposalManifest.Blocks = append(proposalManifest.Blocks, &manifest.ProtocolBlockManifest{
-			Timestamp:         uint64(time.Now().Unix()),
+	for i, txs := range txBatch {
+		log.Info(
+			"Setting up derivation source manifest block",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: anchorBlockNumber,
-			GasLimit:          0,
+			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
 	}
 
-	// Encode the proposal manifest.
-	proposalManifestBytes, err := EncodeProposalManifestShasta(proposalManifest)
+	// Encode the derivation source manifest.
+	sourceManifestBytes, err := EncodeSourceManifestShasta(derivationSourceManifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode proposal manifest: %w", err)
+		return nil, fmt.Errorf("failed to encode derivation source manifest: %w", err)
 	}
 
-	// Split the proposal manifest bytes into multiple blobs.
-	if blobs, err = SplitToBlobs(proposalManifestBytes); err != nil {
+	// Split the derivation source manifest bytes into multiple blobs.
+	if blobs, err = SplitToBlobs(sourceManifestBytes); err != nil {
 		return nil, err
 	}
 
@@ -281,11 +244,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	inputData, err := b.rpc.EncodeProposeInput(
 		&bind.CallOpts{Context: ctx},
 		&shastaBindings.IInboxProposeInput{
-			Deadline:          common.Big0,
-			CoreState:         *proposals[0].CoreState,
-			ParentProposals:   parentProposals,
-			TransitionRecords: transitionRecords,
-			Checkpoint:        checkpoint,
+			Deadline: common.Big0,
 			BlobReference: shastaBindings.LibBlobsBlobReference{
 				BlobStartIndex: 0,
 				NumBlobs:       uint16(len(blobs)),
@@ -327,26 +286,26 @@ func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	return blobs, nil
 }
 
-// EncodeProposalManifestShasta encodes the given proposal manifest to a byte slice
+// EncodeSourceManifestShasta encodes the given derivation source manifest to a byte slice
 // that can be used as input to the Shasta Inbox.propose function.
-func EncodeProposalManifestShasta(proposalManifest *manifest.ProtocolProposalManifest) ([]byte, error) {
-	proposalManifestBytes, err := utils.EncodeAndCompressShastaProposal(*proposalManifest)
+func EncodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	sourceManifestBytes, err := utils.EncodeAndCompressSourceManifestShasta(sourceManifest)
 	if err != nil {
 		return nil, err
 	}
 
-	// Prepend the version and length bytes to the proposal manifest bytes, then split
+	// Prepend the version and length bytes to the manifest bytes, then split
 	// the resulting bytes into multiple blobs.
 	versionBytes := make([]byte, 32)
 	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
 
 	lenBytes := make([]byte, 32)
-	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
+	lenBig := new(big.Int).SetUint64(uint64(len(sourceManifestBytes)))
 	lenBig.FillBytes(lenBytes)
 
 	blobBytesPrefix := make([]byte, 0, 64)
 	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
 	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
-	return append(blobBytesPrefix, proposalManifestBytes...), nil
+	return append(blobBytesPrefix, sourceManifestBytes...), nil
 }
