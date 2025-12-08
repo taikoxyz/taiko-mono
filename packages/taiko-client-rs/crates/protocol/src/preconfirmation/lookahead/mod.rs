@@ -4,12 +4,13 @@ mod client;
 mod error;
 mod resolver;
 mod scanner;
-mod types;
 
+pub use bindings::lookahead_store::ILookaheadStore::{
+    LookaheadData, LookaheadSlot, ProposerContext,
+};
 pub use client::LookaheadClient;
 pub use error::{LookaheadError, Result};
 pub use resolver::LookaheadResolver;
-pub use types::{LookaheadData, LookaheadSlot, ProposerContext};
 
 /// Resolves the expected signer for a preconfirmation commitment at a given L2 block timestamp.
 ///

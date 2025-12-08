@@ -3,21 +3,15 @@
 //! Run with a WebSocket L1 endpoint and Inbox address:
 //! `cargo run -p protocol --example lookahead_resolver -- \
 //!     --ws wss://l1.example/ws \
-//!     --inbox 0x0000000000000000000000000000000000000000 \
-//!     --latest 128`
+//!     --inbox 0x0000000000000000000000000000000000000000`
 
 use std::{env, time::SystemTime};
 
 use alloy_primitives::{Address, U256};
-use anyhow::{anyhow, Context, Result};
-use alloy_provider::{
-    RootProvider,
-    fillers::FillProvider,
-    utils::JoinedRecommendedFillers,
-};
+use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
+use anyhow::{Context, Result, anyhow};
 use protocol::{
-    preconfirmation::lookahead::LookaheadResolver,
-    subscription_source::SubscriptionSource,
+    preconfirmation::lookahead::LookaheadResolver, subscription_source::SubscriptionSource,
 };
 
 #[tokio::main]
@@ -27,24 +21,15 @@ async fn main() -> Result<()> {
         .context("--inbox <address> is required")?
         .parse::<Address>()
         .context("invalid inbox address")?;
-    let latest: usize = arg("--latest")
-        .unwrap_or_else(|| "128".to_string())
-        .parse()
-        .context("--latest must be a number")?;
 
-    let source: SubscriptionSource = ws
-        .as_str()
-        .try_into()
-        .map_err(|e: String| anyhow!(e))?;
+    let source: SubscriptionSource = ws.as_str().try_into().map_err(|e: String| anyhow!(e))?;
 
-    // Build resolver and start background scanner from latest N blocks.
+    // Build resolver and start background scanner, wait till the initial sync is done.
     let (resolver, handle): (
         LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>,
         _,
-    ) = LookaheadResolver::<FillProvider<JoinedRecommendedFillers, RootProvider>>::new_with_scanner_from_latest(
-        inbox,
-        source,
-        latest,
+    ) = LookaheadResolver::<FillProvider<JoinedRecommendedFillers, RootProvider>>::new_with_scanner(
+        inbox, source,
     )
     .await?;
 

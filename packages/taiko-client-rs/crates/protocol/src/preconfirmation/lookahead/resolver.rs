@@ -19,13 +19,12 @@ use tokio::{
 };
 
 use super::{
-    PreconfSignerResolver,
+    LookaheadSlot, PreconfSignerResolver,
     client::LookaheadClient,
     error::{LookaheadError, Result},
-    types::LookaheadSlot,
 };
 
-/// Duration of a single preconfirmation slot in seconds (mirrors `LibPreconfConstants`).
+/// Duration of a single preconfirmation slot in seconds.
 const SECONDS_IN_SLOT: u64 = 12;
 /// Duration of one epoch in seconds (32 slots).
 const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
@@ -102,6 +101,11 @@ where
         EventFilter::new()
             .contract_address(self.client.lookahead_store_address())
             .event(LookaheadPosted::SIGNATURE)
+    }
+
+    /// Number of epochs cached, matching the on-chain lookahead buffer size.
+    pub(crate) fn lookahead_buffer_size(&self) -> usize {
+        self.lookahead_buffer_size
     }
 
     /// Ingest a batch of logs (e.g. from event-scanner) and update the in-memory cache.
@@ -279,7 +283,6 @@ fn epoch_start_for(ts: u64, genesis_timestamp: u64) -> u64 {
 /// Mappings are derived from `LibPreconfConstants` and `LibNetwork`:
 /// - 1: Ethereum mainnet (1_606_824_023)
 /// - 17_000: Holesky (1_695_902_400)
-/// - 7_014_190_335: Helder (1_718_967_660)
 /// - 560_048: Hoodi (1_742_213_400)
 ///
 /// Any other chain ID yields `None` and surfaces as `UnknownChain` to callers.
@@ -287,7 +290,6 @@ fn genesis_timestamp_for_chain(chain_id: u64) -> Option<u64> {
     match chain_id {
         1 => Some(1_606_824_023),
         17_000 => Some(1_695_902_400),
-        7_014_190_335 => Some(1_718_967_660),
         560_048 => Some(1_742_213_400),
         _ => None,
     }

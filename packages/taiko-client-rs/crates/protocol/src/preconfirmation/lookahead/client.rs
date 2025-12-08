@@ -5,8 +5,8 @@ use bindings::{
 };
 
 use super::{
+    LookaheadData, ProposerContext,
     error::{LookaheadError, Result},
-    types::{LookaheadData, ProposerContext},
 };
 
 /// Thin wrapper around on-chain lookahead contracts resolved via the Inbox configuration.
