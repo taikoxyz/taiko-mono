@@ -242,7 +242,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proofVerifier.verifyProof(result.proposalAge, result.aggregatedTransitionHash, _proof);
     }
 
-
     /// @notice Input data for the prove function
     struct ProveInput2 {
         uint48 lastProposalId;
@@ -250,41 +249,44 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32[] transitionHashs;
     }
 
-
     function prove2(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         CoreState memory state = _state;
         ProveInput2 memory input = abi.decode(_data, (ProveInput2));
 
-         _signalService.saveCheckpoint(input.lastCheckpoint);
+        _signalService.saveCheckpoint(input.lastCheckpoint);
         require(input.transitionHashs.length > 1, "need at least 2 elements");
         uint48 numBlocks = uint48(input.transitionHashs.length - 1);
-        uint firstProposalParentId = input.lastProposalId - numBlocks;
+        uint256 firstProposalParentId = input.lastProposalId - numBlocks;
 
-        require(firstProposalParentId <= state.lastFinalizedProposalId, "firstProposal's parent proposal id too big");
-        require(input.lastProposalId > state.lastFinalizedProposalId, "lastProposalId must progress");
+        require(
+            firstProposalParentId <= state.lastFinalizedProposalId,
+            "firstProposal's parent proposal id too big"
+        );
+        require(
+            input.lastProposalId > state.lastFinalizedProposalId, "lastProposalId must progress"
+        );
         require(input.lastProposalId < state.nextProposalId, "lastProposalId too big");
 
-     uint   lastFinalizedProposalIdLocalIndex = state.lastFinalizedProposalId - firstProposalParentId;
-     require(input.transitionHashs[lastFinalizedProposalIdLocalIndex] == state.lastFinalizedTransitionHash, "lastFinalizedTransitionHash mismatch");
+        uint256 lastFinalizedProposalIdLocalIndex =
+            state.lastFinalizedProposalId - firstProposalParentId;
+        require(
+            input.transitionHashs[lastFinalizedProposalIdLocalIndex]
+                == state.lastFinalizedTransitionHash,
+            "lastFinalizedTransitionHash mismatch"
+        );
 
         bytes32 lastProposalHash = _proposalHashes[input.lastProposalId % _ringBufferSize];
 
+        state.lastFinalizedProposalId = input.lastProposalId;
+        state.lastFinalizedTransitionHash = input.transitionHashs[numBlocks];
+        state.lastFinalizedTimestamp = uint48(block.timestamp);
 
-       state.lastFinalizedProposalId = input.lastProposalId; 
-       state.lastFinalizedTransitionHash = input.transitionHashs[numBlocks];
-       state.lastFinalizedTimestamp = uint48(block.timestamp);
+        // verifier
 
+        bytes32 verifierInputHash = keccak256(abi.encode(lastProposalHash, input));
 
-       // verifier
-
-       bytes32 verifierInputHash = keccak256(abi.encode(
-        lastProposalHash,
-        input
-       ));
-
-uint proposalAge;
-     _proofVerifier.verifyProof(proposalAge, verifierInputHash, _proof);
-
+        uint256 proposalAge;
+        _proofVerifier.verifyProof(proposalAge, verifierInputHash, _proof);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -603,8 +605,6 @@ uint proposalAge;
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
-
-
 
     // ---------------------------------------------------------------
     // Private Functions
