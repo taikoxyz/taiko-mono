@@ -511,7 +511,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             for (uint256 i; i < count - 1; ++i) {
                 if (
                     _input.proposals[i].id == lastFinalizedId
-                        && LibHashOptimized.hashTransition(_input.transitions[i]) == lastFinalizedHash
+                        && LibHashOptimized.hashTransition(_input.transitions[i])
+                            == lastFinalizedHash
                 ) {
                     return i + 1;
                 }
