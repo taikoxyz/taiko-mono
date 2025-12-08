@@ -290,6 +290,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             "lastFinalizedTransitionHash mismatch"
         );
 
+
+        // TODO:
+        // -  how to calculate bond instruction
+        // -  how to calculate proposalAge
+    
        
 
         _state.lastFinalizedProposalId = input.lastProposalId;
