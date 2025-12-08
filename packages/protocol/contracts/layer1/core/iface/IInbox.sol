@@ -13,12 +13,12 @@ interface IInbox {
     struct Config {
         /// @notice The codec used for encoding and hashing
         address codec;
-        /// @notice The signal service contract address
-        address signalService;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The signal service contract address
+        address signalService;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice The extended proving window in seconds
@@ -42,6 +42,8 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
+        /// @notice The minimum number of proposals that must be finalized in a single prove2 call
+        uint8 minProposalsToFinalize;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -134,6 +136,16 @@ interface IInbox {
         /// This has to be set to `true` if `_minCheckpointDelay` has passed, but can be set to `true`
         /// before if you want to sync the checkpoint early.
         bool syncCheckpoint;
+    }
+
+    /// @notice Input data for the prove2 function
+    struct ProveInput2 {
+        /// @notice The ID of the last proposal being proven.
+        uint48 lastProposalId;
+        /// @notice The checkpoint from the last transition.
+        ICheckpointStore.Checkpoint lastCheckpoint;
+        /// @notice Array of transition hashes (N+1 for N proposals).
+        bytes32[] transitionHashs;
     }
 
     /// @notice Payload data emitted in the Proposed event

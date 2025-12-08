@@ -38,9 +38,9 @@ contract DevnetInbox is Inbox {
     )
         Inbox(IInbox.Config({
                 codec: _codec,
-                signalService: _signalService,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                signalService: _signalService,
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
                 ringBufferSize: _RING_BUFFER_SIZE,
@@ -50,7 +50,8 @@ contract DevnetInbox is Inbox {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                minProposalsToFinalize: 1
             }))
     { }
 
