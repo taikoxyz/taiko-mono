@@ -18,8 +18,14 @@ library LibInboxSetup {
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
     function validateConfig(IInbox.Config memory _config) public pure {
+        // Validate in the order fields are defined in Config struct
         require(_config.signalService != address(0), SignalServiceZero());
+        require(_config.provingWindow != 0, ProvingWindowZero());
+        require(_config.extendedProvingWindow >= _config.provingWindow, ExtendedWindowTooSmall());
         require(_config.ringBufferSize != 0, RingBufferSizeZero());
+        require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
+        require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
+        require(_config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero());
         require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeZero());
     }
 
@@ -55,11 +61,16 @@ library LibInboxSetup {
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
     }
 
-      // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
+    error BasefeeSharingPctgTooLarge();
+    error ExtendedWindowTooSmall();
+    error ForcedInclusionFeeDoubleThresholdZero();
+    error MinForcedInclusionCountZero();
     error MinProposalsToFinalizeZero();
+    error ProvingWindowZero();
     error RingBufferSizeZero();
     error SignalServiceZero();
 
