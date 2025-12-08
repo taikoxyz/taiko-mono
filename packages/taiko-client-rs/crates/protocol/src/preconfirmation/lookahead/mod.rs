@@ -22,11 +22,11 @@ pub type LookaheadResolverDefaultProvider =
 // How `committer_for_timestamp` resolves a committer:
 // - Finds the first lookahead slot whose timestamp >= queried timestamp; if none, tries the first
 //   slot of the next epoch; otherwise falls back to the whitelist.
-// - If the chosen slot's registration root is currently blacklisted on-chain, it falls back to the
-//   whitelist operator instead.
+// - If the chosen slot's registration root was blacklisted at ingest (using the LookaheadPosted log
+//   block when available), it falls back to the whitelist operator instead.
 // - Whitelist fallback operators themselves are **not** blacklist-checked.
-// - Blacklist is evaluated at call time (current chain state) on slot committers; whitelist
-//   fallback operators are not blacklist-checked (mirrors contracts).
+// - Blacklist state is snapshotted at ingest for slots; query-time lookups are read-only against
+//   cached flags.
 //
 // Integrators can call `committer_for_timestamp` to obtain the expected committer address for a
 // given L1 timestamp, matching LookaheadStore/PreconfWhitelist semantics.

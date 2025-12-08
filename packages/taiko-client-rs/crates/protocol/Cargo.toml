@@ -19,6 +19,7 @@ alloy-rpc-types = { workspace = true }
 bindings = { path = "../bindings" }
 dashmap = { workspace = true }
 event-scanner = { workspace = true }
+futures = "0.3"
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 tokio-stream = { workspace = true }

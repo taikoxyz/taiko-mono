@@ -6327,6 +6327,7 @@ dependencies = [
  "dashmap 6.1.0",
  "event-scanner",
  "flate2",
+ "futures",
  "rand 0.8.5",
  "serde",
  "thiserror 2.0.17",
