@@ -211,10 +211,9 @@ mod tests {
 
     #[test]
     fn tracker_reverted_to_none_when_no_reorg() {
-    let mut tracker = ChainReorgTracker::new(8);
-    let genesis = block(1, 0, 1, 10);
-    let outcome = tracker.apply(genesis);
-    assert!(outcome.reverted_to.is_none());
+        let mut tracker = ChainReorgTracker::new(8);
+        let genesis = block(1, 0, 1, 10);
+        let outcome = tracker.apply(genesis);
+        assert!(outcome.reverted_to.is_none());
     }
-
 }
