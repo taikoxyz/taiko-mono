@@ -4,14 +4,18 @@
 //! `cargo run -p protocol --example lookahead_resolver -- \
 //!     --ws wss://l1.example/ws \
 //!     --inbox 0x0000000000000000000000000000000000000000`
+//!
+//! Known chains inferred by `new`: mainnet (1), Holesky (17_000), Hoodi (560_048).
+//! For custom or unknown networks, use `LookaheadResolver::new_with_genesis` and pass the beacon
+//! genesis timestamp explicitly; the default `new` infers genesis only for those known IDs.
 
 use std::{env, time::SystemTime};
 
 use alloy_primitives::{Address, U256};
-use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 use anyhow::{Context, Result, anyhow};
 use protocol::{
-    preconfirmation::lookahead::LookaheadResolver, subscription_source::SubscriptionSource,
+    preconfirmation::lookahead::LookaheadResolverDefaultProvider,
+    subscription_source::SubscriptionSource,
 };
 
 #[tokio::main]
@@ -25,13 +29,8 @@ async fn main() -> Result<()> {
     let source: SubscriptionSource = ws.as_str().try_into().map_err(|e: String| anyhow!(e))?;
 
     // Build resolver and start background scanner, wait till the initial sync is done.
-    let (resolver, handle): (
-        LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>,
-        _,
-    ) = LookaheadResolver::<FillProvider<JoinedRecommendedFillers, RootProvider>>::new_with_scanner(
-        inbox, source,
-    )
-    .await?;
+    let (resolver, handle): (LookaheadResolverDefaultProvider, _) =
+        LookaheadResolverDefaultProvider::new(inbox, source).await?;
 
     // Query the committer for "now".
     let now = SystemTime::now()

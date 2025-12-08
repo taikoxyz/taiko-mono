@@ -1,4 +1,5 @@
 use alloy_primitives::{Address, U256};
+use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 
 mod client;
 mod error;
@@ -11,6 +12,10 @@ pub use bindings::lookahead_store::ILookaheadStore::{
 pub use client::LookaheadClient;
 pub use error::{LookaheadError, Result};
 pub use resolver::LookaheadResolver;
+
+/// Convenience alias for the default provider stack used by lookahead clients/resolvers.
+pub type LookaheadResolverDefaultProvider =
+    LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
 /// Resolves the expected signer for a preconfirmation commitment at a given L2 block timestamp.
 ///

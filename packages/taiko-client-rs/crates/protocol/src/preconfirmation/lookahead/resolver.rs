@@ -17,6 +17,7 @@ use tokio::{
     runtime::{Builder, Handle},
     sync::RwLock,
 };
+use tracing::debug;
 
 use super::{
     LookaheadSlot, PreconfSignerResolver,
@@ -28,6 +29,23 @@ use super::{
 const SECONDS_IN_SLOT: u64 = 12;
 /// Duration of one epoch in seconds (32 slots).
 const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
+
+#[derive(Clone)]
+enum Selection {
+    /// A concrete committer was found for the queried timestamp.
+    Slot(LookaheadSlot),
+    /// No slot covers the timestamp; fall back according to epoch context.
+    Fallback(FallbackEpoch),
+}
+
+/// Which epoch's whitelist operator should be used for fallback resolution.
+#[derive(Clone, Copy)]
+enum FallbackEpoch {
+    /// Fall back using the current epoch's whitelist operator.
+    Current,
+    /// Fall back using the next epoch's whitelist operator.
+    Next,
+}
 
 /// Cached lookahead data for a single epoch.
 #[derive(Clone)]
@@ -56,11 +74,27 @@ impl<P> LookaheadResolver<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Construct a resolver backed by the given Inbox address and provider.
-    ///
-    /// The resolver eagerly resolves the LookaheadStore and PreconfWhitelist addresses from the
-    /// Inbox config and primes epoch arithmetic from the chain ID.
-    pub async fn new(inbox_address: Address, provider: P) -> Result<Self> {
+    /// Build a resolver backed by the given Inbox address and provider, inferring the beacon
+    /// genesis timestamp from the chain ID.
+    pub(crate) async fn build(inbox_address: Address, provider: P) -> Result<Self> {
+        let chain_id = provider
+            .get_chain_id()
+            .await
+            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
+
+        let genesis_timestamp =
+            genesis_timestamp_for_chain(chain_id).ok_or(LookaheadError::UnknownChain(chain_id))?;
+
+        Self::build_with_genesis(inbox_address, provider, genesis_timestamp).await
+    }
+
+    /// Build a resolver backed by the given Inbox address and provider with an explicit genesis
+    /// timestamp, bypassing chain ID inference (useful for custom networks).
+    pub(crate) async fn build_with_genesis(
+        inbox_address: Address,
+        provider: P,
+        genesis_timestamp: u64,
+    ) -> Result<Self> {
         let client = LookaheadClient::new(inbox_address, provider.clone()).await?;
 
         let lookahead_cfg = client
@@ -70,22 +104,15 @@ where
             .await
             .map_err(LookaheadError::Lookahead)?;
 
-        let preconf_address = client
-            .lookahead_store()
-            .preconfWhitelist()
-            .call()
-            .await
-            .map_err(LookaheadError::Lookahead)?;
-
-        let preconf_whitelist = PreconfWhitelistInstance::new(preconf_address, provider.clone());
-
-        let chain_id = provider
-            .get_chain_id()
-            .await
-            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
-
-        let genesis_timestamp =
-            genesis_timestamp_for_chain(chain_id).ok_or(LookaheadError::UnknownChain(chain_id))?;
+        let preconf_whitelist = PreconfWhitelistInstance::new(
+            client
+                .lookahead_store()
+                .preconfWhitelist()
+                .call()
+                .await
+                .map_err(LookaheadError::Lookahead)?,
+            provider.clone(),
+        );
 
         Ok(Self {
             client,
@@ -120,16 +147,15 @@ where
                 continue;
             }
 
-            let topics: Vec<B256> = log.topics().to_vec();
-            let data = log.data().data.as_ref();
+            let event =
+                LookaheadPosted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
+                    .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
 
-            let maybe_event = <LookaheadPosted as SolEvent>::decode_raw_log(&topics, data)
-                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
-
-            self.store_epoch(maybe_event).await;
+            self.store_epoch(event).await;
             applied += 1;
         }
 
+        debug!(applied, "lookahead logs ingested");
         Ok(applied)
     }
 
@@ -138,6 +164,7 @@ where
         let ts = u64::try_from(timestamp)
             .map_err(|_| LookaheadError::EventDecode("timestamp does not fit u64".into()))?;
 
+        // Timestamps before genesis cannot be resolved.
         if ts < self.genesis_timestamp {
             return Err(LookaheadError::BeforeGenesis(ts));
         }
@@ -208,6 +235,25 @@ where
     }
 }
 
+impl<P> PreconfSignerResolver for LookaheadResolver<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Blocking convenience wrapper around `committer_for_timestamp` to satisfy the synchronous
+    /// `PreconfSignerResolver` trait.
+    fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address> {
+        if let Ok(handle) = Handle::try_current() {
+            handle.block_on(self.committer_for_timestamp(l2_block_timestamp))
+        } else {
+            Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
+                .block_on(self.committer_for_timestamp(l2_block_timestamp))
+        }
+    }
+}
+
 /// Helper to choose the slot covering `ts` within cached epochs, or decide to fall back.
 fn select_slot(
     ts: u64,
@@ -245,23 +291,6 @@ fn select_slot(
     Selection::Fallback(fallback_epoch)
 }
 
-#[derive(Clone)]
-enum Selection {
-    /// A concrete committer was found for the queried timestamp.
-    Slot(LookaheadSlot),
-    /// No slot covers the timestamp; fall back according to epoch context.
-    Fallback(FallbackEpoch),
-}
-
-/// Which epoch's whitelist operator should be used for fallback resolution.
-#[derive(Clone, Copy)]
-enum FallbackEpoch {
-    /// Fall back using the current epoch's whitelist operator.
-    Current,
-    /// Fall back using the next epoch's whitelist operator.
-    Next,
-}
-
 /// Decide whether to treat a timestamp as belonging to the current or next epoch for fallback.
 fn fallback_epoch_for(ts: u64, genesis_timestamp: u64) -> FallbackEpoch {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(ts);
@@ -295,21 +324,54 @@ fn genesis_timestamp_for_chain(chain_id: u64) -> Option<u64> {
     }
 }
 
-impl<P> PreconfSignerResolver for LookaheadResolver<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Blocking convenience wrapper around `committer_for_timestamp` to satisfy the synchronous
-    /// `PreconfSignerResolver` trait.
-    fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address> {
-        if let Ok(handle) = Handle::try_current() {
-            handle.block_on(self.committer_for_timestamp(l2_block_timestamp))
-        } else {
-            Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
-                .block_on(self.committer_for_timestamp(l2_block_timestamp))
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn epoch_start_aligns_to_boundary() {
+        let genesis = 1000;
+        assert_eq!(epoch_start_for(genesis, genesis), genesis);
+        assert_eq!(epoch_start_for(genesis + SECONDS_IN_SLOT, genesis), genesis);
+        assert_eq!(
+            epoch_start_for(genesis + SECONDS_IN_EPOCH + 1, genesis),
+            genesis + SECONDS_IN_EPOCH
+        );
+    }
+
+    #[test]
+    fn genesis_timestamp_known_and_unknown() {
+        assert_eq!(genesis_timestamp_for_chain(1), Some(1_606_824_023));
+        assert_eq!(genesis_timestamp_for_chain(17_000), Some(1_695_902_400));
+        assert_eq!(genesis_timestamp_for_chain(99999), None);
+    }
+
+    #[test]
+    fn select_slot_uses_first_matching_or_fallback() {
+        let current = CachedLookaheadEpoch {
+            slots: Arc::new(vec![
+                LookaheadSlot {
+                    timestamp: U256::from(200),
+                    committer: Address::ZERO,
+                    registrationRoot: B256::ZERO,
+                    validatorLeafIndex: U256::ZERO,
+                },
+                LookaheadSlot {
+                    timestamp: U256::from(220),
+                    committer: Address::from([1u8; 20]),
+                    registrationRoot: B256::ZERO,
+                    validatorLeafIndex: U256::ZERO,
+                },
+            ]),
+        };
+
+        let selected = select_slot(205, &current, None, FallbackEpoch::Current);
+        match selected {
+            Selection::Slot(slot) => assert_eq!(slot.committer, Address::from([1u8; 20])),
+            _ => panic!("expected slot"),
         }
+
+        let fallback = select_slot(300, &current, None, FallbackEpoch::Next);
+        assert!(matches!(fallback, Selection::Fallback(FallbackEpoch::Next)));
     }
 }

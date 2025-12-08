@@ -1,10 +1,10 @@
 use alloy::primitives::Address;
-use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 use event_scanner::ScannerMessage;
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
+use tracing::info;
 
-use super::{error::LookaheadError, resolver::LookaheadResolver};
+use super::{LookaheadResolverDefaultProvider, error::LookaheadError, resolver::LookaheadResolver};
 use crate::subscription_source::SubscriptionSource;
 
 use super::error::Result;
@@ -15,20 +15,38 @@ where
 {
     /// Construct a resolver and immediately start a background event-scanner from the latest
     /// events (sized by on-chain lookahead buffer). Returns the resolver and a join handle for the
-    /// scanner task.
-    pub async fn new_with_scanner(
+    /// scanner task. Genesis is inferred for known chains (1 mainnet, 17_000 Holesky, 560_048
+    /// Hoodi); for others use `new_with_genesis`.
+    pub async fn new(
         inbox_address: Address,
         source: SubscriptionSource,
-    ) -> Result<(
-        LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>,
-        JoinHandle<()>,
-    )> {
+    ) -> Result<(LookaheadResolverDefaultProvider, JoinHandle<()>)> {
         let provider = source
             .to_provider()
             .await
             .map_err(|err| LookaheadError::EventScanner(err.to_string()))?;
 
-        let resolver = LookaheadResolver::new(inbox_address, provider).await?;
+        let resolver = LookaheadResolver::build(inbox_address, provider).await?;
+        let handle = resolver.spawn_scanner_from_latest(&source).await?;
+
+        Ok((resolver, handle))
+    }
+
+    /// Same as [`new`], but allows specifying the genesis timestamp explicitly for custom or
+    /// unknown networks.
+    pub async fn new_with_genesis(
+        inbox_address: Address,
+        source: SubscriptionSource,
+        genesis_timestamp: u64,
+    ) -> Result<(LookaheadResolverDefaultProvider, JoinHandle<()>)> {
+        let provider = source
+            .to_provider()
+            .await
+            .map_err(|err| LookaheadError::EventScanner(err.to_string()))?;
+
+        let resolver =
+            LookaheadResolver::build_with_genesis(inbox_address, provider, genesis_timestamp)
+                .await?;
         let handle = resolver.spawn_scanner_from_latest(&source).await?;
 
         Ok((resolver, handle))
@@ -40,6 +58,12 @@ where
         &self,
         source: &SubscriptionSource,
     ) -> Result<JoinHandle<()>> {
+        info!(
+            buffer = self.lookahead_buffer_size(),
+            source = ?source,
+            "starting lookahead scanner from latest buffer"
+        );
+
         let mut scanner = source
             .to_event_scanner_sync_from_latest_scanning(self.lookahead_buffer_size())
             .await
