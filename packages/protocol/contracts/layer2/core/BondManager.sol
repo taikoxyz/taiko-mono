@@ -5,6 +5,7 @@ import { IBondManager } from "./IBondManager.sol";
 import { IBondProcessor } from "./IBondProcessor.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
@@ -57,7 +58,7 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     mapping(address account => Bond bond) public bond;
 
     /// @notice Tracks processed bond signals to prevent double application.
-    mapping(bytes32 signalId => bool processed) public processedSignals;
+    mapping(bytes32 signal => bool processed) public processedSignals;
 
     uint256[44] private __gap;
 
@@ -212,12 +213,11 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     {
         _validateBondInstruction(_instruction);
 
-        bytes32 signal = _bondSignalHash(_instruction);
-        bytes32 signalId = _signalId(signal);
-        require(!processedSignals[signalId], SignalAlreadyProcessed());
+        bytes32 signal = LibBonds.hashBondInstruction(_instruction);
+        require(!processedSignals[signal], SignalAlreadyProcessed());
 
         signalService.proveSignalReceived(l1ChainId, l1Inbox, signal, _proof);
-        processedSignals[signalId] = true;
+        processedSignals[signal] = true;
 
         uint256 amount = _bondAmountFor(_instruction.bondType);
         if (amount != 0 && _instruction.payer != _instruction.payee) {
@@ -291,22 +291,19 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         return 0;
     }
 
-    /// @dev Calculates the hash of a bond instruction
-    /// @param _instruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function _bondSignalHash(LibBonds.BondInstruction memory _instruction)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_instruction));
-    }
-
-    /// @dev Calculates the id of a given signal
+    /// @dev Calculates the id of a given signal using EfficientHashLib
     /// @param _signal The signal to calculate the id for
     /// @return The id of the signal
     function _signalId(bytes32 _signal) internal view returns (bytes32) {
-        return keccak256(abi.encode(l1ChainId, l1Inbox, _signal));
+        bytes32[] memory buffer = EfficientHashLib.malloc(3);
+
+        EfficientHashLib.set(buffer, 0, bytes32(uint256(l1ChainId)));
+        EfficientHashLib.set(buffer, 1, bytes32(uint256(uint160(l1Inbox))));
+        EfficientHashLib.set(buffer, 2, _signal);
+
+        bytes32 result = EfficientHashLib.hash(buffer);
+        EfficientHashLib.free(buffer);
+        return result;
     }
 
     /// @dev Validates a bond instruction. Reverts if the bond instruction is invalid.
