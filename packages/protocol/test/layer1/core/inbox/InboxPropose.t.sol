@@ -177,6 +177,7 @@ contract InboxProposeTest is InboxTestBase {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0,
             proposer: proposer,
+            parentProposalHash: bytes32(0),
             derivationHash: bytes32(0)
         });
 

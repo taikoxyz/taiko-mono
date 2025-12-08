@@ -23,6 +23,7 @@ library LibProposedEventCodec {
         ptr = P.packAddress(ptr, _payload.proposal.proposer);
         ptr = P.packUint48(ptr, _payload.proposal.timestamp);
         ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
+        ptr = P.packBytes32(ptr, _payload.proposal.parentProposalHash);
 
         ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
         ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
@@ -61,6 +62,7 @@ library LibProposedEventCodec {
         (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
         (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
         (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.parentProposalHash, ptr) = P.unpackBytes32(ptr);
 
         (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
@@ -96,12 +98,13 @@ library LibProposedEventCodec {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size without sources: 111 bytes
-            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6)
+            // Fixed size without sources: 143 bytes
+            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) +
+            // parentProposalHash(32)
             // Derivation base: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1)
             // Sources length: 2
             // Proposal hash: derivationHash(32)
-            size_ = 111;
+            size_ = 143;
 
             for (uint256 i; i < _sources.length; ++i) {
                 size_ += 12 + (_sources[i].blobSlice.blobHashes.length * 32);

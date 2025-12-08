@@ -14,6 +14,7 @@ contract LibProveInputCodecTest is Test {
             timestamp: 10,
             endOfSubmissionWindowTimestamp: 11,
             proposer: address(0x1111),
+            parentProposalHash: bytes32(uint256(1)),
             derivationHash: bytes32(uint256(2))
         });
         proposals[1] = IInbox.Proposal({
@@ -21,6 +22,7 @@ contract LibProveInputCodecTest is Test {
             timestamp: 20,
             endOfSubmissionWindowTimestamp: 21,
             proposer: address(0x2222),
+            parentProposalHash: bytes32(uint256(3)),
             derivationHash: bytes32(uint256(4))
         });
 
@@ -102,6 +104,7 @@ contract LibProveInputCodecTest is Test {
             timestamp: 70,
             endOfSubmissionWindowTimestamp: 75,
             proposer: address(0x1234),
+            parentProposalHash: bytes32(uint256(77)),
             derivationHash: bytes32(uint256(78))
         });
     }

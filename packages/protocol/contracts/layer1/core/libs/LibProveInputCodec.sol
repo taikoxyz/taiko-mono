@@ -70,9 +70,10 @@ library LibProveInputCodec {
             // Array lengths: 2 + 2 = 4 bytes
             // syncCheckpoint flag: 1 byte
             // Per item:
-            //   Proposal: 70 bytes
+            //   Proposal: 102 bytes (id(6) + timestamp(6) + endOfSubmissionWindowTimestamp(6) +
+            //             proposer(20) + parentProposalHash(32) + derivationHash(32))
             //   Transition: 174 bytes
-            size_ = 5 + (_proposals.length * (70 + 174));
+            size_ = 5 + (_proposals.length * (102 + 174));
         }
     }
 
@@ -88,6 +89,7 @@ library LibProveInputCodec {
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
         newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
+        newPtr_ = P.packBytes32(newPtr_, _proposal.parentProposalHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
 
@@ -100,6 +102,7 @@ library LibProveInputCodec {
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
+        (proposal_.parentProposalHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
