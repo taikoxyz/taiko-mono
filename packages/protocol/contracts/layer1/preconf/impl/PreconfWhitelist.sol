@@ -293,11 +293,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     error CannotRemoveLastOperator();
     error InvalidOperatorIndex();
-    error InvalidOperatorCount();
     error InvalidOperatorAddress();
     error OperatorAlreadyExists();
-    error OperatorAlreadyRemoved();
-    error OperatorNotAvailableYet();
     error NoActiveOperatorRemaining();
     error NotOwnerOrEjecter();
 }
