@@ -7,18 +7,16 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// GetCountByAddressAndEventName
+// GetCountByAddressAndEventName returns count of events by user address and event name
 //
-//	 returns count of events by user address and event name
-//
-//			@Summary		Get count of events by user address and event name
-//			@ID			   	get-charts-by-task
-//		    @Param			address	query		string		true	"address to query"
-//		    @Param			event	query		string		true	"event name to query"
-//			@Accept			json
-//			@Produce		json
-//			@Success		200	{object} GetCountByAddressAndEventNameResp
-//			@Router			/eventByAddress [get]
+//	@Summary		Get count of events by user address and event name
+//	@ID			   	get-count-by-address-and-event
+//	@Param			address	query		string		true	"address to query"
+//	@Param			event	query		string		true	"event name to query"
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object} GetCountByAddressAndEventNameResp
+//	@Router			/eventByAddress [get]
 type GetCountByAddressAndEventNameResp struct {
 	Count int `json:"count"`
 }
