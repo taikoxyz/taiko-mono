@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// forge-config: default.isolate = true
+
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
