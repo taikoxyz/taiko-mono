@@ -17,6 +17,10 @@ use super::error::Result;
 const INGEST_BACKOFF_BASE_MS: u64 = 200;
 /// Upper bound for the exponential backoff delay between ingest retries (milliseconds).
 const INGEST_BACKOFF_MAX_MS: u64 = 5_000;
+/// Number of historical events to sync from when starting the scanner. We only need a short
+/// window matching the resolver's lookback.
+const INITIAL_EVENT_HISTORY: usize =
+    (super::resolver::MAX_LOOKBACK_EPOCHS as usize).saturating_add(1);
 
 /// Error wrapper used to classify ingest failures; all variants are retryable.
 #[derive(Debug)]
@@ -67,9 +71,9 @@ where
         Ok((resolver, handle))
     }
 
-    /// Spawn a background event-scanner starting from the latest on-chain lookahead buffer depth,
-    /// stream events forward, and keep feeding lookahead plus blacklist/unblacklist logs into the
-    /// resolver cache.
+    /// Spawn a background event-scanner starting from the latest limited history (aligned with the
+    /// resolver's lookback), stream events forward, and keep feeding lookahead plus
+    /// blacklist/unblacklist logs into the resolver cache.
     /// The returned handle drives the long-running scanner task; log ingestion retries with
     /// capped exponential backoff.
     pub async fn spawn_scanner_from_latest(
@@ -84,7 +88,7 @@ where
 
         // Initialize the event scanner.
         let mut scanner = source
-            .to_event_scanner_sync_from_latest_scanning(self.lookahead_buffer_size())
+            .to_event_scanner_sync_from_latest_scanning(INITIAL_EVENT_HISTORY)
             .await
             .map_err(|err| LookaheadError::EventScanner(err.to_string()))?;
 

@@ -17,7 +17,7 @@ use tokio::{
     runtime::{Builder, Handle},
     sync::broadcast,
 };
-use tracing::warn;
+use tracing::{debug, warn};
 
 use super::{
     LookaheadSlot, PreconfSignerResolver,
@@ -29,6 +29,11 @@ use super::{
 pub const SECONDS_IN_SLOT: u64 = 12;
 /// Duration of one epoch in seconds (32 slots).
 pub const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
+/// Maximum backward block scans when searching for a block within an epoch. One epoch is ~32 EL
+/// blocks on a 12s cadence; 256 provides ample slack while keeping lookup bounded.
+const MAX_BACKWARD_STEPS: u16 = 256;
+/// Maximum number of epochs allowed for lookback when resolving a committer.
+pub(crate) const MAX_LOOKBACK_EPOCHS: u64 = 1;
 
 /// Cached lookahead data for a single epoch.
 #[derive(Clone, Debug)]
@@ -309,6 +314,7 @@ where
     ///   back to the cached current-epoch whitelist.
     /// - If the chosen slot is currently blacklisted (tracked live via events), fall back to the
     ///   cached current-epoch whitelist.
+    /// - Timestamps older than one epoch before the current epoch start are rejected as `TooOld`.
     pub async fn committer_for_timestamp(&self, timestamp: U256) -> Result<Address> {
         // Convert timestamp to u64 and check genesis boundary.
         let ts = u64::try_from(timestamp)
@@ -317,6 +323,12 @@ where
         // Timestamps before genesis cannot be resolved.
         if ts < self.genesis_timestamp {
             return Err(LookaheadError::BeforeGenesis(ts));
+        }
+
+        // Reject timestamps older than the configured lookback window to avoid unbounded lookups.
+        let earliest_allowed = earliest_allowed_timestamp(self.genesis_timestamp)?;
+        if ts < earliest_allowed {
+            return Err(LookaheadError::TooOld(ts));
         }
 
         // Calculate epoch boundaries.
@@ -334,39 +346,7 @@ where
         let curr_epoch = if let Some(epoch) = current {
             epoch
         } else {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
-                .as_secs();
-
-            // If the queried epoch is still in the future, surface as missing; otherwise treat it
-            // as an empty-current-epoch case and fall back to the cached whitelist operator.
-            if now < epoch_start {
-                return Err(LookaheadError::MissingLookahead(epoch_start));
-            }
-
-            // Find a block within this epoch to snapshot the whitelist state.
-            let block_number = self.block_within_epoch(epoch_start).await?;
-            let Some(block_number) = block_number else {
-                return Err(LookaheadError::MissingLookahead(epoch_start));
-            };
-
-            // Snapshot the whitelist operator at that block.
-            let fallback_current = self
-                .preconf_whitelist
-                .getOperatorForCurrentEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(LookaheadError::PreconfWhitelist)?;
-
-            // Cache an empty epoch entry.
-            let cached = CachedLookaheadEpoch {
-                slots: Arc::new(vec![]),
-                fallback_whitelist: fallback_current,
-            };
-            self.cache.insert(epoch_start, cached.clone());
-            cached
+            self.synthetic_empty_epoch(epoch_start).await?
         };
 
         // Select the appropriate slot origin and index.
@@ -429,7 +409,7 @@ where
 
         // Step backwards one block at a time (bounded) to find any block inside the epoch window.
         let mut attempts = 0u16;
-        while curr_num > 0 && attempts < 1024 {
+        while curr_num > 0 && attempts < MAX_BACKWARD_STEPS {
             curr_num = curr_num.saturating_sub(1);
 
             let maybe_block = self
@@ -450,6 +430,37 @@ where
         }
 
         Ok(None)
+    }
+
+    /// Materialize and cache an empty epoch entry when the epoch has started but no lookahead was
+    /// posted, mirroring `_handleEmptyCurrentLookahead` behavior.
+    async fn synthetic_empty_epoch(&self, epoch_start: u64) -> Result<CachedLookaheadEpoch> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
+            .as_secs();
+
+        if now < epoch_start {
+            return Err(LookaheadError::MissingLookahead(epoch_start));
+        }
+
+        let block_number = self.block_within_epoch(epoch_start).await?;
+        let Some(block_number) = block_number else {
+            return Err(LookaheadError::MissingLookahead(epoch_start));
+        };
+
+        let fallback_current = self
+            .preconf_whitelist
+            .getOperatorForCurrentEpoch()
+            .block(BlockId::Number(block_number.into()))
+            .call()
+            .await
+            .map_err(LookaheadError::PreconfWhitelist)?;
+
+        let cached =
+            CachedLookaheadEpoch { slots: Arc::new(vec![]), fallback_whitelist: fallback_current };
+        self.cache.insert(epoch_start, cached.clone());
+        Ok(cached)
     }
 }
 
@@ -525,6 +536,28 @@ fn epoch_start_for(ts: u64, genesis_timestamp: u64) -> u64 {
     let elapsed = ts.saturating_sub(genesis_timestamp);
     let epochs = elapsed / SECONDS_IN_EPOCH;
     genesis_timestamp + epochs * SECONDS_IN_EPOCH
+}
+
+/// Return the earliest timestamp allowed for lookups based on the configured lookback window,
+/// aligned to the epoch boundary that contains "now".
+fn earliest_allowed_timestamp(genesis_timestamp: u64) -> Result<u64> {
+    let now = current_unix_timestamp()?;
+    Ok(earliest_allowed_timestamp_at(now, genesis_timestamp))
+}
+
+/// Pure helper to compute the earliest allowed timestamp for a supplied "now" value. Useful for
+/// tests.
+fn earliest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) -> u64 {
+    epoch_start_for(now, genesis_timestamp)
+        .saturating_sub(MAX_LOOKBACK_EPOCHS.saturating_mul(SECONDS_IN_EPOCH))
+}
+
+/// Current UNIX timestamp in seconds.
+fn current_unix_timestamp() -> Result<u64> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
+        .as_secs())
 }
 
 /// Return the beacon genesis timestamp for known chains.
@@ -626,5 +659,13 @@ mod tests {
 
         let picked = pick_slot_origin(210, &[], Some(&[next_first]));
         assert!(picked.is_none());
+    }
+
+    #[test]
+    fn earliest_allowed_aligned_to_epoch_boundary() {
+        let genesis = 1_000;
+        let now = genesis + SECONDS_IN_EPOCH + 10;
+        let expected = epoch_start_for(now, genesis) - SECONDS_IN_EPOCH;
+        assert_eq!(earliest_allowed_timestamp_at(now, genesis), expected);
     }
 }

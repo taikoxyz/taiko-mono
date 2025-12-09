@@ -21,6 +21,9 @@ pub enum LookaheadError {
     /// The requested timestamp lies before the configured genesis.
     #[error("timestamp {0} is before beacon genesis")]
     BeforeGenesis(u64),
+    /// The requested timestamp is older than the supported lookback window.
+    #[error("timestamp {0} is older than the allowed lookback window")]
+    TooOld(u64),
     /// Chain ID not recognised for genesis timestamp resolution.
     #[error("unsupported chain id {0} for preconf genesis lookup")]
     UnknownChain(u64),

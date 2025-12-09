@@ -50,9 +50,7 @@ async fn main() -> Result<()> {
                 LookaheadBroadcast::Blacklisted { root } => {
                     println!("operator blacklisted: {root:?}");
                 }
-                LookaheadBroadcast::Unblacklisted {
-                    root,
-                } => {
+                LookaheadBroadcast::Unblacklisted { root } => {
                     println!("operator unblacklisted: {root:?}");
                 }
             }
