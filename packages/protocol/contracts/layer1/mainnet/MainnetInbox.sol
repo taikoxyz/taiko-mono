@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
@@ -36,7 +35,7 @@ contract MainnetInbox is Inbox {
         address _proposerChecker,
         address _codec
     )
-        Inbox(IInbox.Config({
+        Inbox(Config({
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,

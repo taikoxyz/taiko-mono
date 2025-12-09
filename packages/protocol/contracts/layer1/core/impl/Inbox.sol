@@ -46,7 +46,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
-        IInbox.DerivationSource[] sources;
+        DerivationSource[] sources;
         bool allowsPermissionless;
     }
 
@@ -94,7 +94,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The base fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
 
-    /// @notice Queue size at which the fee doubles. See IInbox.Config for formula details.
+    /// @notice Queue size at which the fee doubles. See Config for formula details.
     uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
 
     /// @notice The minimum delay between checkpoints in seconds.
@@ -134,7 +134,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(IInbox.Config memory _config) {
+    constructor(Config memory _config) {
         LibInboxSetup.validateConfig(_config);
 
         _codec = _config.codec;
@@ -304,7 +304,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 4. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            IInbox.ProposalState memory firstProposal = input.proposalStates[offset];
+            ProposalState memory firstProposal = input.proposalStates[offset];
             uint256 proposalAge =
                 block.timestamp - firstProposal.timestamp.max(state.lastFinalizedTimestamp);
 
@@ -420,8 +420,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IInbox
-    function getConfig() external view returns (IInbox.Config memory config_) {
-        config_ = IInbox.Config({
+    function getConfig() external view returns (Config memory config_) {
+        config_ = Config({
             codec: _codec,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
@@ -547,7 +547,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 ? available
                 : _numForcedInclusionsRequested;
 
-            result_.sources = new IInbox.DerivationSource[](toProcess + 1);
+            result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
             (oldestTimestamp, head, lastProcessedAt) = _dequeueAndProcessForcedInclusions(
@@ -571,7 +571,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
         address _feeRecipient,
-        IInbox.DerivationSource[] memory _sources,
+        DerivationSource[] memory _sources,
         uint48 _head,
         uint48 _lastProcessedAt,
         uint256 _toProcess
@@ -584,7 +584,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             unchecked {
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
-                    _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                    _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
                 }
             }
