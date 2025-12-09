@@ -129,14 +129,18 @@ interface IInbox {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
         /// @notice The checkpoint hash of the parent of the first proposal, this is used
-        /// to verify block hash continuity in the proof.
+        /// to verify checkpoint continuity in the proof.
         bytes32 firstProposalParentCheckpointHash;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
         /// @notice Array of transitions for each proposal in the proof range.
         Transition[] transitions;
-        /// @notice The last block number in the last proposal
+        /// @notice The last checkpoint of the last proposal
         ICheckpointStore.Checkpoint lastCheckpoint;
+        /// @notice Whether to sync the checkpoint from the last transition.
+        /// This has to be set to `true` if `_minCheckpointDelay` has passed, but can be set to `true`
+        /// before if you want to sync the checkpoint early.
+        bool syncCheckpoint;
     }
 
     /// @notice Payload data emitted in the Proposed event

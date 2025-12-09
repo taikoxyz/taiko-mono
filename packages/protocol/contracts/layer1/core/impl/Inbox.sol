@@ -326,9 +326,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 5. Sync checkpoint if minimum delay has passed
             // ---------------------------------------------------------
-            if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
+            if (input.syncCheckpoint) {
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 _state.lastCheckpointTimestamp = uint48(block.timestamp);
+            }
+            else {
+                require(block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay, CheckPointDelayHasPassed());
             }
 
             // ---------------------------------------------------------
@@ -641,6 +644,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
+    error CheckPointDelayHasPassed();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
