@@ -105,7 +105,7 @@ jobs:
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PROTOCOL_FORK_DIR }}
-          ref: consecutive-proofs-2
+          ref: consecutive-proofs
 
       - name: Install pnpm dependencies for protocol taiko-mono for testing
         working-directory: ${{ env.PROTOCOL_FORK_DIR }}

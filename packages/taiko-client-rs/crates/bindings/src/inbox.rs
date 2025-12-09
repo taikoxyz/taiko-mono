@@ -374,7 +374,7 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
 
 ```solidity
 library IInbox {
-    struct Config { address codec; address bondToken; address signalService; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+    struct Config { address codec; address signalService; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
     struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedTransitionHash; }
 }
 ```*/
@@ -391,15 +391,13 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address bondToken; address signalService; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+struct Config { address codec; address signalService; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct Config {
         #[allow(missing_docs)]
         pub codec: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub bondToken: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub signalService: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -441,7 +439,6 @@ struct Config { address codec; address bondToken; address signalService; address
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
-            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -455,7 +452,6 @@ struct Config { address codec; address bondToken; address signalService; address
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
-            alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
@@ -488,7 +484,6 @@ struct Config { address codec; address bondToken; address signalService; address
             fn from(value: Config) -> Self {
                 (
                     value.codec,
-                    value.bondToken,
                     value.signalService,
                     value.proofVerifier,
                     value.proposerChecker,
@@ -511,20 +506,19 @@ struct Config { address codec; address bondToken; address signalService; address
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     codec: tuple.0,
-                    bondToken: tuple.1,
-                    signalService: tuple.2,
-                    proofVerifier: tuple.3,
-                    proposerChecker: tuple.4,
-                    provingWindow: tuple.5,
-                    extendedProvingWindow: tuple.6,
-                    ringBufferSize: tuple.7,
-                    basefeeSharingPctg: tuple.8,
-                    minForcedInclusionCount: tuple.9,
-                    forcedInclusionDelay: tuple.10,
-                    forcedInclusionFeeInGwei: tuple.11,
-                    forcedInclusionFeeDoubleThreshold: tuple.12,
-                    minCheckpointDelay: tuple.13,
-                    permissionlessInclusionMultiplier: tuple.14,
+                    signalService: tuple.1,
+                    proofVerifier: tuple.2,
+                    proposerChecker: tuple.3,
+                    provingWindow: tuple.4,
+                    extendedProvingWindow: tuple.5,
+                    ringBufferSize: tuple.6,
+                    basefeeSharingPctg: tuple.7,
+                    minForcedInclusionCount: tuple.8,
+                    forcedInclusionDelay: tuple.9,
+                    forcedInclusionFeeInGwei: tuple.10,
+                    forcedInclusionFeeDoubleThreshold: tuple.11,
+                    minCheckpointDelay: tuple.12,
+                    permissionlessInclusionMultiplier: tuple.13,
                 }
             }
         }
@@ -539,9 +533,6 @@ struct Config { address codec; address bondToken; address signalService; address
                 (
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.codec,
-                    ),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.bondToken,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.signalService,
@@ -666,7 +657,7 @@ struct Config { address codec; address bondToken; address signalService; address
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address bondToken,address signalService,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
+                    "Config(address codec,address signalService,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
                 )
             }
             #[inline]
@@ -684,10 +675,6 @@ struct Config { address codec; address bondToken; address signalService; address
                 [
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.codec,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.bondToken,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
@@ -773,9 +760,6 @@ struct Config { address codec; address bondToken; address signalService; address
                         &rust.codec,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.bondToken,
-                    )
-                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.signalService,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -845,10 +829,6 @@ struct Config { address codec; address bondToken; address signalService; address
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.codec,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.bondToken,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -2072,7 +2052,6 @@ library IForcedInclusionStore {
 library IInbox {
     struct Config {
         address codec;
-        address bondToken;
         address signalService;
         address proofVerifier;
         address proposerChecker;
@@ -2199,11 +2178,6 @@ interface Inbox {
             "internalType": "address"
           },
           {
-            "name": "bondToken",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "signalService",
             "type": "address",
             "internalType": "address"
@@ -2318,11 +2292,6 @@ interface Inbox {
         "components": [
           {
             "name": "codec",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "bondToken",
             "type": "address",
             "internalType": "address"
           },
