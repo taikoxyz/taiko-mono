@@ -119,7 +119,7 @@ interface IInbox {
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice Transition hash for the proposal.
+        /// @notice Last block hash for the proposal.
         bytes32 blockHash;
     }
 
