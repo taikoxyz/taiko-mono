@@ -497,7 +497,7 @@ impl ShastaProposeInputReader for ShastaEventIndexer {
 
         let transitions = self.get_transitions_for_finalization(
             last_proposal.core_state.lastFinalizedProposalId.to::<U256>(),
-            last_proposal.core_state.lastFinalizedBlockHash,
+            last_proposal.core_state.lastFinalizedTransitionHash,
         );
         let checkpoint =
             transitions.last().map(|t| t.transition.checkpoint.clone()).unwrap_or_else(|| {
@@ -612,7 +612,7 @@ mod tests {
             lastProposalBlockId: U48::from(0u64),
             lastFinalizedProposalId: U48::from(0u64),
             lastCheckpointTimestamp: U48::from(0u64),
-            lastFinalizedBlockHash: B256::ZERO.into(),
+            lastFinalizedTransitionHash: B256::ZERO.into(),
             bondInstructionsHash: B256::ZERO.into(),
         }
     }

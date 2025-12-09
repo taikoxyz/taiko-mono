@@ -381,7 +381,7 @@ func (s *Indexer) onProposedEvent(
 		"proposer", proposal.Proposer,
 		"bondInstructions", len(bondInstructions),
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
-		"lastFinalizedBlockHash", common.Bytes2Hex(coreState.lastFinalizedBlockHash[:]),
+		"lastFinalizedTransitionHash", common.Bytes2Hex(coreState.LastFinalizedTransitionHash[:]),
 		"proposedAt", meta.GetRawBlockHeight(),
 	)
 	s.cleanupFinalizedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
@@ -708,7 +708,7 @@ func (s *Indexer) GetProposalsInput(
 	return lastProposals,
 		s.getTransitionsForFinalization(
 			lastProposals[0].CoreState.LastFinalizedProposalId.Uint64(),
-			lastProposals[0].CoreState.lastFinalizedBlockHash,
+			lastProposals[0].CoreState.LastFinalizedTransitionHash,
 			maxFinalizationCount,
 		),
 		nil
@@ -717,7 +717,7 @@ func (s *Indexer) GetProposalsInput(
 // getTransitionsForFinalization retrieves the transitions needed for finalization.
 func (s *Indexer) getTransitionsForFinalization(
 	lastFinalizedProposalId uint64,
-	lastFinalizedBlockHash common.Hash,
+	lastFinalizedTransitionHash common.Hash,
 	maxFinalizationCount uint64,
 ) []*TransitionPayload {
 	var transitions []*TransitionPayload
@@ -727,18 +727,18 @@ func (s *Indexer) getTransitionsForFinalization(
 			log.Info(
 				"Checking transition for finalization",
 				"proposalId", lastFinalizedProposalId+i,
-				"lastFinalizedBlockHash", common.Bytes2Hex(lastFinalizedBlockHash[:]),
+				"lastFinalizedTransitionHash", common.Bytes2Hex(lastFinalizedTransitionHash[:]),
 				"parentTransitionHash", common.Bytes2Hex(transition.Transition.ParentTransitionHash[:]),
 			)
 		}
 
 		if !ok ||
-			transition.Transition.ParentTransitionHash != lastFinalizedBlockHash ||
+			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
 			break
 		}
 		transitions = append(transitions, transition)
-		lastFinalizedBlockHash = transition.TransitionRecord.TransitionHash
+		lastFinalizedTransitionHash = transition.TransitionRecord.TransitionHash
 	}
 
 	return transitions
