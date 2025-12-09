@@ -6,8 +6,8 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
-import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
+import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title Codec

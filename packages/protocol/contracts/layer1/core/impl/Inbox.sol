@@ -157,10 +157,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Modifiers
     // ---------------------------------------------------------------
-   modifier onlyWhenActivated() {
-    require(_state.nextProposalId != 0, ActivationRequired());
-    _;
-   }
+    modifier onlyWhenActivated() {
+        require(_state.nextProposalId != 0, ActivationRequired());
+        _;
+    }
 
     // ---------------------------------------------------------------
     // External Functions
@@ -200,7 +200,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external onlyWhenActivated nonReentrant {
+    function propose(
+        bytes calldata _lookahead,
+        bytes calldata _data
+    )
+        external
+        onlyWhenActivated
+        nonReentrant
+    {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
@@ -238,9 +245,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///                       ▲           ▲                 ▲
     ///                       ┆<-offset-> ┆                 ┆
     ///                       ┆                             ┆
-    ///                       ┆<-  input.proposalStates[] ->┆ 
+    ///                       ┆<-  input.proposalStates[] ->┆
     ///         firstProposalId                             lastProposalId
-    ///                           
+    ///
     /// Key validation rules:
     /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
     /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
@@ -249,7 +256,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(bytes calldata _data, bytes calldata _proof) external onlyWhenActivated nonReentrant {
+    function prove(
+        bytes calldata _data,
+        bytes calldata _proof
+    )
+        external
+        onlyWhenActivated
+        nonReentrant
+    {
         unchecked {
             CoreState memory state = _state;
             ProveInput memory input = LibProveInputCodec.decode(_data);
@@ -295,15 +309,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 block.timestamp - firstProposal.timestamp.max(state.lastFinalizedTimestamp);
 
             // Bond transfers only apply to the first newly-finalized proposal.
-            LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
-                input.firstProposalId + offset,
-                proposalAge,
-                firstProposal.proposer,
-                firstProposal.designatedProver,
-                input.actualProver,
-                _provingWindow,
-                _extendedProvingWindow
-            );
+            LibBonds.BondInstruction memory bondInstruction =
+                LibBondInstruction.calculateBondInstruction(
+                    input.firstProposalId + offset,
+                    proposalAge,
+                    firstProposal.proposer,
+                    firstProposal.designatedProver,
+                    input.actualProver,
+                    _provingWindow,
+                    _extendedProvingWindow
+                );
             if (bondInstruction.bondType != LibBonds.BondType.NONE) {
                 _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
                 emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
@@ -335,8 +350,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 7. Verify the proof
             // ---------------------------------------------------------
             bytes32 hashToProve = LibHashOptimized.hashProveInput(
-                _proposalHashes[lastProposalId % _ringBufferSize],
-                input
+                _proposalHashes[lastProposalId % _ringBufferSize], input
             );
             _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
         }
