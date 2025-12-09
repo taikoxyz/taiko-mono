@@ -354,7 +354,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _proposalHashes[lastProposalId % _ringBufferSize],
                 input
             );
-            _proofVerifier.verifyProof(0, hashToProve, _proof);
+    uint proposalAge = block.timestamp - input.proposals[offset].timestamp.max(state.lastFinalizedTimestamp);
+            _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
         }
     }
 
