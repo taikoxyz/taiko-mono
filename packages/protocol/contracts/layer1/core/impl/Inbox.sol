@@ -5,6 +5,7 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
@@ -199,6 +200,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+        require(_state.nextProposalId != 0, ActivationRequired());
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
@@ -225,6 +227,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// to be submitted as long as they advance the chain. This is necessary to avoid wasted prover work
     /// or transactions reverting.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
+        require(_state.nextProposalId != 0, ActivationRequired());
         // Decode and validate input
         ProveInput memory input = LibProveInputCodec.decode(_data);
         _validateProveInput(input);
@@ -467,10 +470,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Only the first unproven proposal in a sequential prove can be late; later proposals
             // become proveable when the previous one finalizes within this transaction.
-            result_.bondInstruction = _calculateBondInstruction(
-                _input.proposals[result_.firstProvenIndex],
-                _input.transitions[result_.firstProvenIndex],
-                firstReadyTimestamp
+            Proposal memory firstProposal = _input.proposals[result_.firstProvenIndex];
+            Transition memory firstTransition = _input.transitions[result_.firstProvenIndex];
+            result_.bondInstruction = LibBondInstruction.calculateBondInstruction(
+                firstProposal.id,
+                firstProposal.proposer,
+                firstTransition.designatedProver,
+                firstTransition.actualProver,
+                firstReadyTimestamp,
+                _provingWindow,
+                _extendedProvingWindow
             );
 
             result_.newState.lastFinalizedProposalId = expectedId - 1;
@@ -750,65 +759,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Calculates bond instruction for a sequential prove call.
-    /// @dev Bond instruction rules:
-    ///         - On-time (within provingWindow): No bond changes.
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs
-    ///           from designated prover of the first transition.
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
-    ///           differs from proposer of the first transition.
-    /// @param _firstProposal The first proposal proven in the batch.
-    /// @param _firstTransition The transition for the first proposal.
-    /// @param _readyTimestamp Timestamp when the first proposal became proveable.
-    /// @return bondInstruction_ A bond transfer instruction, or a BondType.NONE instruction when
-    ///         no transfer is required.
-    function _calculateBondInstruction(
-        Proposal memory _firstProposal,
-        Transition memory _firstTransition,
-        uint48 _readyTimestamp
-    )
-        private
-        view
-        returns (LibBonds.BondInstruction memory bondInstruction_)
-    {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = uint256(_readyTimestamp) + _provingWindow;
-
-            // On-time proof - no bond instructions needed.
-            if (proofTimestamp <= windowEnd) {
-                return bondInstruction_;
-            }
-
-            uint256 extendedWindowEnd = uint256(_readyTimestamp) + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
-
-            address payer = isWithinExtendedWindow
-                ? _firstTransition.designatedProver
-                : _firstProposal.proposer;
-            address payee = _firstTransition.actualProver;
-
-            // If payer and payee are identical, there is no bond movement.
-            if (payer == payee) {
-                return bondInstruction_;
-            }
-
-            bondInstruction_ = LibBonds.BondInstruction({
-                proposalId: _firstProposal.id,
-                bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
-                payer: payer,
-                payee: payee
-            });
-        }
-    }
-
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
     error ActivationPeriodExpired();
+    error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointMismatch();
     error CheckpointNotProvided();
