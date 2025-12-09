@@ -54,7 +54,9 @@ library LibBondInstruction {
 
         bondInstruction_ = LibBonds.BondInstruction({
             proposalId: _proposalId,
-            bondType: isWithinExtendedWindow ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
+            bondType: isWithinExtendedWindow
+                ? LibBonds.BondType.LIVENESS
+                : LibBonds.BondType.PROVABILITY,
             payer: payer,
             payee: _actualProver
         });

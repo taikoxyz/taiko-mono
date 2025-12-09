@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// forge-config: default.isolate = true
+
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
@@ -347,8 +349,8 @@ contract InboxProposeTest is InboxTestBase {
 
         // Calculate exact permissionlessTimestamp
         // permissionlessTimestamp = forcedInclusionDelay * multiplier + oldestTimestamp
-        uint256 waitTime =
-            uint256(config.forcedInclusionDelay) * uint256(config.permissionlessInclusionMultiplier);
+        uint256 waitTime = uint256(config.forcedInclusionDelay)
+            * uint256(config.permissionlessInclusionMultiplier);
 
         // Warp to exactly the permissionless timestamp
         vm.warp(block.timestamp + waitTime);
@@ -365,5 +367,4 @@ contract InboxProposeTest is InboxTestBase {
         vm.prank(David);
         inbox.propose(bytes(""), encodedInput);
     }
-
 }

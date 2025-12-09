@@ -280,10 +280,7 @@ abstract contract InboxTestBase is CommonTest {
         proposalStates_[2] = _p3;
     }
 
-    function _buildBatchInput(uint256 _count)
-        internal
-        returns (IInbox.ProveInput memory input_)
-    {
+    function _buildBatchInput(uint256 _count) internal returns (IInbox.ProveInput memory input_) {
         IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](_count);
 
         uint48 firstProposalId;

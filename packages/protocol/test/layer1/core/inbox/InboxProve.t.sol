@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// forge-config: default.isolate = true
+
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
@@ -297,7 +299,9 @@ contract InboxProveTest is InboxTestBase {
             payee: prover // actualProver receives
         });
         bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
-        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "liveness bond signal");
+        assertTrue(
+            signalService.isSignalSent(address(inbox), expectedSignal), "liveness bond signal"
+        );
     }
 
     function test_prove_acceptsProofWithFinalizedPrefix() public {
@@ -408,7 +412,9 @@ contract InboxProveTest is InboxTestBase {
         instruction.bondType = LibBonds.BondType.PROVABILITY;
         bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
 
-        assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal");
+        assertFalse(
+            signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal"
+        );
         assertFalse(
             signalService.isSignalSent(address(inbox), provabilitySignal), "no provability signal"
         );
@@ -449,7 +455,10 @@ contract InboxProveTest is InboxTestBase {
         });
         bytes32 livenessSignal = codec.hashBondInstruction(instruction);
 
-        assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal when payer==payee");
+        assertFalse(
+            signalService.isSignalSent(address(inbox), livenessSignal),
+            "no liveness signal when payer==payee"
+        );
     }
 
     // =========================================================================
@@ -564,7 +573,10 @@ contract InboxProveTest is InboxTestBase {
             payee: prover
         });
         bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no bond at exact provingWindow");
+        assertFalse(
+            signalService.isSignalSent(address(inbox), livenessSignal),
+            "no bond at exact provingWindow"
+        );
     }
 
     /// @notice Test proving 1 second past provingWindow - triggers LIVENESS bond
@@ -601,7 +613,10 @@ contract InboxProveTest is InboxTestBase {
             payee: prover
         });
         bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertTrue(signalService.isSignalSent(address(inbox), livenessSignal), "liveness bond 1 sec past window");
+        assertTrue(
+            signalService.isSignalSent(address(inbox), livenessSignal),
+            "liveness bond 1 sec past window"
+        );
     }
 
     /// @notice Test proving at exact extendedProvingWindow boundary - still LIVENESS bond
@@ -639,7 +654,10 @@ contract InboxProveTest is InboxTestBase {
             payee: prover
         });
         bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertTrue(signalService.isSignalSent(address(inbox), livenessSignal), "liveness at exact extendedWindow");
+        assertTrue(
+            signalService.isSignalSent(address(inbox), livenessSignal),
+            "liveness at exact extendedWindow"
+        );
     }
 
     /// @notice Test proving 1 second past extendedProvingWindow - triggers PROVABILITY bond
@@ -677,7 +695,10 @@ contract InboxProveTest is InboxTestBase {
             payee: prover
         });
         bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
-        assertTrue(signalService.isSignalSent(address(inbox), provabilitySignal), "provability 1 sec past extended");
+        assertTrue(
+            signalService.isSignalSent(address(inbox), provabilitySignal),
+            "provability 1 sec past extended"
+        );
     }
 
     function test_prove_noCheckpointSync_beforeDelay() public {

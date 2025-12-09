@@ -40,16 +40,36 @@ contract LibProveInputCodecTest is Test {
             "firstProposalParentBlockHash"
         );
         assertEq(decoded.proposalStates.length, 2, "proposalStates length");
-        assertEq(decoded.proposalStates[0].proposer, proposalStates[0].proposer, "proposalStates[0] proposer");
+        assertEq(
+            decoded.proposalStates[0].proposer,
+            proposalStates[0].proposer,
+            "proposalStates[0] proposer"
+        );
         assertEq(
             decoded.proposalStates[0].designatedProver,
             proposalStates[0].designatedProver,
             "proposalStates[0] designatedProver"
         );
-        assertEq(decoded.proposalStates[0].timestamp, proposalStates[0].timestamp, "proposalStates[0] timestamp");
-        assertEq(decoded.proposalStates[0].blockHash, proposalStates[0].blockHash, "proposalStates[0] blockHash");
-        assertEq(decoded.proposalStates[1].proposer, proposalStates[1].proposer, "proposalStates[1] proposer");
-        assertEq(decoded.proposalStates[1].blockHash, proposalStates[1].blockHash, "proposalStates[1] blockHash");
+        assertEq(
+            decoded.proposalStates[0].timestamp,
+            proposalStates[0].timestamp,
+            "proposalStates[0] timestamp"
+        );
+        assertEq(
+            decoded.proposalStates[0].blockHash,
+            proposalStates[0].blockHash,
+            "proposalStates[0] blockHash"
+        );
+        assertEq(
+            decoded.proposalStates[1].proposer,
+            proposalStates[1].proposer,
+            "proposalStates[1] proposer"
+        );
+        assertEq(
+            decoded.proposalStates[1].blockHash,
+            proposalStates[1].blockHash,
+            "proposalStates[1] blockHash"
+        );
         assertEq(decoded.lastBlockNumber, input.lastBlockNumber, "lastBlockNumber");
         assertEq(decoded.lastStateRoot, input.lastStateRoot, "lastStateRoot");
         assertEq(decoded.actualProver, input.actualProver, "actualProver");

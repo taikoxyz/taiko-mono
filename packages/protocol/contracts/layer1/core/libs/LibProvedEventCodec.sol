@@ -106,5 +106,4 @@ library LibProvedEventCodec {
         (state_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
         (state_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
-
 }
