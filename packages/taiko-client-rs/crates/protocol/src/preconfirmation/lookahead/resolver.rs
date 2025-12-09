@@ -39,9 +39,6 @@ pub struct CachedLookaheadEpoch {
     pub fallback_whitelist: Option<Address>,
     /// Per-slot blacklist flags, captured at the lookahead event block. Aligned with `slots`.
     pub slot_blacklisted: Arc<Vec<bool>>,
-    /// Block number where the lookahead was observed; kept so on-chain queries can target the same
-    /// historical state when available.
-    pub event_block: Option<u64>,
 }
 
 impl CachedLookaheadEpoch {
@@ -218,7 +215,6 @@ where
             slots: Arc::new(event.lookaheadSlots),
             fallback_whitelist: fallback_current,
             slot_blacklisted: Arc::new(slot_blacklisted),
-            event_block: Some(block),
         };
 
         // Store in the cache keyed by epoch start timestamp.
@@ -454,7 +450,6 @@ mod tests {
             slots: Arc::new(vec![]),
             fallback_whitelist: Some(addr_curr),
             slot_blacklisted: Arc::new(vec![]),
-            event_block: Some(1),
         };
 
         assert_eq!(current.fallback_whitelist, Some(addr_curr));
