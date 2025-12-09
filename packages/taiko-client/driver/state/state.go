@@ -171,7 +171,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				log.Info(
 					"📈 Shasta batches verified",
 					"lastVerifiedBatchId", payload.CoreState.LastFinalizedProposalId,
-					"lastFinalizedTransitionHash", common.Hash(payload.CoreState.LastFinalizedTransitionHash[:]),
+					"lastFinalizedBlockHash", common.Hash(payload.CoreState.lastFinalizedBlockHash[:]),
 				)
 			}
 			lastFinalizedShastaProposalId = payload.CoreState.LastFinalizedProposalId

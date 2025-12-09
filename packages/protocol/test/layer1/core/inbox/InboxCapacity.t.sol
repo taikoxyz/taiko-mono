@@ -53,7 +53,7 @@ contract InboxRingBufferTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true

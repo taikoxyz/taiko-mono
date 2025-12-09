@@ -368,7 +368,7 @@ abstract contract InboxTestBase is CommonTest {
         input_.proposals = new IInbox.Proposal[](_count);
         transitions_ = new IInbox.Transition[](_count);
 
-        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
+        bytes32 parentHash = inbox.getState().lastFinalizedBlockHash;
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
             IInbox.ProposedEventPayload memory proposal = _proposeOne();
@@ -407,8 +407,8 @@ abstract contract InboxTestBase is CommonTest {
             "state checkpoint ts"
         );
         assertEq(
-            _actual.lastFinalizedTransitionHash,
-            _expected.lastFinalizedTransitionHash,
+            _actual.lastFinalizedBlockHash,
+            _expected.lastFinalizedBlockHash,
             "state transition hash"
         );
     }

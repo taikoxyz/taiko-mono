@@ -18,7 +18,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, proveInput.proposals[0].id, "finalized id");
         assertEq(
-            state.lastFinalizedTransitionHash,
+            state.lastFinalizedBlockHash,
             codec.hashTransition(transitions[0]),
             "transition hash"
         );
@@ -88,7 +88,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: codec.hashProposal(wrong),
-            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
             checkpoint: _checkpoint(bytes32(uint256(1))),
             designatedProver: prover,
             actualProver: prover
@@ -112,7 +112,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.Transition memory t2 =
             _transitionFor(p2, bytes32(uint256(999)), bytes32(uint256(2)), prover, prover);
@@ -146,7 +146,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
         IInbox.Transition memory transition = _transitionFor(
             proposed,
-            inbox.getState().lastFinalizedTransitionHash,
+            inbox.getState().lastFinalizedBlockHash,
             bytes32(uint256(1)),
             prover,
             prover
@@ -172,7 +172,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: codec.hashProposal(proposed.proposal),
-            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
             checkpoint: _checkpoint(bytes32(uint256(1))),
             designatedProver: prover,
             actualProver: prover
@@ -195,7 +195,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: bytes32(uint256(123)),
-            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
             checkpoint: _checkpoint(bytes32(uint256(1))),
             designatedProver: prover,
             actualProver: prover
@@ -221,7 +221,7 @@ contract InboxProveTest is InboxTestBase {
         vm.warp(block.timestamp + 10 days);
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.Transition memory t2 =
             _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
@@ -263,7 +263,7 @@ contract InboxProveTest is InboxTestBase {
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(bytes32(uint256(1)));
         IInbox.Transition memory transition = IInbox.Transition({
             proposalHash: codec.hashProposal(proposed.proposal),
-            parentTransitionHash: inbox.getState().lastFinalizedTransitionHash,
+            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
             checkpoint: checkpoint,
             designatedProver: proposer,
             actualProver: prover
@@ -303,7 +303,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p3 = _proposeOne();
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.Transition memory t2 =
             _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
@@ -325,7 +325,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(state.lastFinalizedTransitionHash, codec.hashTransition(t3), "transition hash");
+        assertEq(state.lastFinalizedBlockHash, codec.hashTransition(t3), "transition hash");
         assertEq(provedPayload.proposalId, p2.proposal.id, "proved proposal id");
         assertEq(
             provedPayload.transition.proposalHash,
@@ -345,7 +345,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
         IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(1)), prover, prover
+            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
         );
         IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
             proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
@@ -353,7 +353,7 @@ contract InboxProveTest is InboxTestBase {
         _proveAndDecode(prefixInput);
 
         IInbox.Transition memory wrongPrefix = _transitionFor(
-            p1, inbox.getState().lastFinalizedTransitionHash, bytes32(uint256(999)), prover, prover
+            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(999)), prover, prover
         );
         IInbox.Transition memory t2 = _transitionFor(
             p2, codec.hashTransition(wrongPrefix), bytes32(uint256(2)), prover, prover

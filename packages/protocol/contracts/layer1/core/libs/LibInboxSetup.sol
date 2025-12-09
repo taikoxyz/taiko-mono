@@ -90,7 +90,7 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedTransitionHash = LibHashOptimized.hashTransition(transition);
+        state_.lastFinalizedBlockHash = LibHashOptimized.hashTransition(transition);
 
         proposal_.derivationHash = LibHashOptimized.hashDerivation(derivation_);
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);

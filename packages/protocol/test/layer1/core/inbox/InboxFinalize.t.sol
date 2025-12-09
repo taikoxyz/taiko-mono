@@ -17,7 +17,7 @@ contract InboxFinalizeTest is InboxTestBase {
         assertEq(state.lastFinalizedTimestamp, uint48(block.timestamp), "finalized timestamp");
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
         assertEq(
-            state.lastFinalizedTransitionHash,
+            state.lastFinalizedBlockHash,
             codec.hashTransition(transitions[0]),
             "transition hash"
         );
@@ -52,7 +52,7 @@ contract InboxFinalizeTest is InboxTestBase {
 
         IInbox.Transition memory transition = _transitionFor(
             proposed,
-            inbox.getState().lastFinalizedTransitionHash,
+            inbox.getState().lastFinalizedBlockHash,
             bytes32(uint256(1)),
             prover,
             prover

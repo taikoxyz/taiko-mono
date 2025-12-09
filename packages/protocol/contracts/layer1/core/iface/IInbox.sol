@@ -113,7 +113,7 @@ interface IInbox {
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
         /// @notice The hash of the last finalized transition.
-        bytes32 lastFinalizedTransitionHash;
+        bytes32 lastFinalizedBlockHash;
     }
 
     /// @notice Input data for the propose function
@@ -149,7 +149,7 @@ interface IInbox {
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
         /// @notice Transition hash for the proposal.
-        bytes32 transitionHash;
+        bytes32 blockHash;
     }
 
     /// @notice Input data for the prove2 function
@@ -161,7 +161,8 @@ interface IInbox {
         /// @notice Array of proposal metadata for each proposal in the proof range.
         ProposalState[] proposals;
         /// @notice The checkpoint from the last transition.
-        ICheckpointStore.Checkpoint lastCheckpoint;
+        uint48 lastBlockNumber;
+        bytes32 lastStateRoot;
         address actualProver;
     }
 
