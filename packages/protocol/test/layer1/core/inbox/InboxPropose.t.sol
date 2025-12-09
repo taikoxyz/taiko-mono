@@ -263,33 +263,6 @@ contract InboxProposeTest is InboxTestBase {
         state_.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
     }
 
-    function _assertStateEqual(
-        IInbox.CoreState memory _actual,
-        IInbox.CoreState memory _expected
-    )
-        internal
-        pure
-    {
-        assertEq(_actual.nextProposalId, _expected.nextProposalId, "state nextProposalId");
-        assertEq(_actual.lastProposalBlockId, _expected.lastProposalBlockId, "state last block");
-        assertEq(
-            _actual.lastFinalizedProposalId, _expected.lastFinalizedProposalId, "state finalized id"
-        );
-        assertEq(
-            _actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts"
-        );
-        assertEq(
-            _actual.lastCheckpointTimestamp,
-            _expected.lastCheckpointTimestamp,
-            "state checkpoint ts"
-        );
-        assertEq(
-            _actual.lastFinalizedTransitionHash,
-            _expected.lastFinalizedTransitionHash,
-            "state transition hash"
-        );
-    }
-
     function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {
         uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
         vm.prank(proposer);
