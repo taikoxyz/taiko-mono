@@ -344,9 +344,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
             _state.lastFinalizedTimestamp = uint48(block.timestamp);
-            emit Proved(LibProvedEventCodec.encodeProvedEventPayload(
-                    ProvedEventPayload({ input: input })
-                ));
+            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
             // 7. Verify the proof
@@ -617,7 +615,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         ProposedEventPayload memory payload =
             ProposedEventPayload({ proposal: _proposal, derivation: _derivation });
-        emit Proposed(LibProposedEventCodec.encodeProposedEventPayload(payload));
+        emit Proposed(LibProposedEventCodec.encode(payload));
     }
 
     /// @dev Calculates remaining capacity for new proposals

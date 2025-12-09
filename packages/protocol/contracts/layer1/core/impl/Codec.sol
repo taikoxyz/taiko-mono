@@ -15,7 +15,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Codec is ICodec {
     // ---------------------------------------------------------------
-    // ProposedEventPayloadCodec Functions
+    // ProposedEventCodec Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -24,7 +24,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposedEventCodec.encodeProposedEventPayload(_payload);
+        return LibProposedEventCodec.encode(_payload);
     }
 
     /// @inheritdoc ICodec
@@ -33,11 +33,11 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        return LibProposedEventCodec.decodeProposedEventPayload(_data);
+        return LibProposedEventCodec.decode(_data);
     }
 
     // ---------------------------------------------------------------
-    // ProvedEventPayloadCodec Functions
+    // ProvedEventCodec Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -46,7 +46,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProvedEventCodec.encodeProvedEventPayload(_payload);
+        return LibProvedEventCodec.encode(_payload);
     }
 
     /// @inheritdoc ICodec
@@ -55,7 +55,7 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        return LibProvedEventCodec.decodeProvedEventPayload(_data);
+        return LibProvedEventCodec.decode(_data);
     }
 
     // ---------------------------------------------------------------

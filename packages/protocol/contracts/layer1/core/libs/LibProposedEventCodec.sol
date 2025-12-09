@@ -9,7 +9,7 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventCodec {
     /// @notice Encodes a ProposedEventPayload into bytes using compact encoding.
-    function encodeProposedEventPayload(IInbox.ProposedEventPayload memory _payload)
+    function encode(IInbox.ProposedEventPayload memory _payload)
         internal
         pure
         returns (bytes memory encoded_)
@@ -51,7 +51,7 @@ library LibProposedEventCodec {
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding.
-    function decodeProposedEventPayload(bytes memory _data)
+    function decode(bytes memory _data)
         internal
         pure
         returns (IInbox.ProposedEventPayload memory payload_)

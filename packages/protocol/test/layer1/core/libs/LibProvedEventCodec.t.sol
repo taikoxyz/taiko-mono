@@ -26,9 +26,8 @@ contract LibProvedEventCodecTest is Test {
             })
         });
 
-        bytes memory encoded = LibProvedEventCodec.encodeProvedEventPayload(payload);
-        IInbox.ProvedEventPayload memory decoded =
-            LibProvedEventCodec.decodeProvedEventPayload(encoded);
+        bytes memory encoded = LibProvedEventCodec.encode(payload);
+        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.input.firstProposalId, payload.input.firstProposalId, "firstProposalId");
         assertEq(
@@ -94,9 +93,8 @@ contract LibProvedEventCodecTest is Test {
             })
         });
 
-        bytes memory encoded = LibProvedEventCodec.encodeProvedEventPayload(payload);
-        IInbox.ProvedEventPayload memory decoded =
-            LibProvedEventCodec.decodeProvedEventPayload(encoded);
+        bytes memory encoded = LibProvedEventCodec.encode(payload);
+        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.input.firstProposalId, 10, "firstProposalId");
         assertEq(decoded.input.proposalStates.length, 3, "proposalStates length");
@@ -145,8 +143,8 @@ contract LibProvedEventCodecTest is Test {
             })
         });
 
-        bytes memory encoded1 = LibProvedEventCodec.encodeProvedEventPayload(payload);
-        bytes memory encoded2 = LibProvedEventCodec.encodeProvedEventPayload(payload);
+        bytes memory encoded1 = LibProvedEventCodec.encode(payload);
+        bytes memory encoded2 = LibProvedEventCodec.encode(payload);
 
         assertEq(encoded1.length, encoded2.length, "length match");
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
@@ -179,7 +177,7 @@ contract LibProvedEventCodecTest is Test {
             })
         });
 
-        bytes memory encoded = LibProvedEventCodec.encodeProvedEventPayload(payload);
+        bytes memory encoded = LibProvedEventCodec.encode(payload);
 
         // Expected size: 98 + (2 * 78) = 98 + 156 = 254
         assertEq(encoded.length, 254, "encoded size for 2 proposalStates");
