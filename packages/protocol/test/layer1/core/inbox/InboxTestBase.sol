@@ -316,37 +316,116 @@ abstract contract InboxTestBase is CommonTest {
         });
     }
 
-    function _proveAndDecode(IInbox.ProveInput memory _input)
-        internal
-        returns (IInbox.ProvedEventPayload memory payload_)
-    {
-        payload_ = _proveAndDecodeWithGas(_input, "", "");
+    // ---------------------------------------------------------------------
+    // Prove2 helpers
+    // ---------------------------------------------------------------------
+
+    function _prove2(IInbox.ProveInput2 memory _input) internal {
+        _prove2WithGas(_input, "", "");
     }
 
-    function _proveAndDecodeWithGas(
-        IInbox.ProveInput memory _input,
+    function _prove2WithGas(
+        IInbox.ProveInput2 memory _input,
         string memory _profile,
         string memory _benchName
     )
         internal
-        returns (IInbox.ProvedEventPayload memory payload_)
     {
-        bytes memory encodedInput = codec.encodeProveInput(_input);
-        vm.recordLogs();
+        bytes memory encodedInput = abi.encode(_input);
         vm.startPrank(prover);
 
         if (bytes(_benchName).length > 0) vm.startSnapshotGas(_profile, _benchName);
-        inbox.prove(encodedInput, bytes(""));
+        inbox.prove2(encodedInput, bytes("proof"));
         if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 
         vm.stopPrank();
-        payload_ = _readProvedEvent();
     }
 
-    function _readProvedEvent() internal returns (IInbox.ProvedEventPayload memory payload_) {
-        bytes memory eventData = _findEventData(keccak256("Proved(bytes)"));
-        require(eventData.length > 0, "Proved event not found");
-        return codec.decodeProvedEvent(eventData);
+    function _proposalStateFor(
+        IInbox.ProposedEventPayload memory _payload,
+        address _designatedProver,
+        bytes32 _blockHash
+    )
+        internal
+        pure
+        returns (IInbox.ProposalState memory)
+    {
+        return IInbox.ProposalState({
+            proposer: _payload.proposal.proposer,
+            designatedProver: _designatedProver,
+            timestamp: _payload.proposal.timestamp,
+            blockHash: _blockHash
+        });
+    }
+
+    function _proposalStates(IInbox.ProposalState memory _p1)
+        internal
+        pure
+        returns (IInbox.ProposalState[] memory proposalStates_)
+    {
+        proposalStates_ = new IInbox.ProposalState[](1);
+        proposalStates_[0] = _p1;
+    }
+
+    function _proposalStates(
+        IInbox.ProposalState memory _p1,
+        IInbox.ProposalState memory _p2
+    )
+        internal
+        pure
+        returns (IInbox.ProposalState[] memory proposalStates_)
+    {
+        proposalStates_ = new IInbox.ProposalState[](2);
+        proposalStates_[0] = _p1;
+        proposalStates_[1] = _p2;
+    }
+
+    function _proposalStates(
+        IInbox.ProposalState memory _p1,
+        IInbox.ProposalState memory _p2,
+        IInbox.ProposalState memory _p3
+    )
+        internal
+        pure
+        returns (IInbox.ProposalState[] memory proposalStates_)
+    {
+        proposalStates_ = new IInbox.ProposalState[](3);
+        proposalStates_[0] = _p1;
+        proposalStates_[1] = _p2;
+        proposalStates_[2] = _p3;
+    }
+
+    function _buildBatchInput2(uint256 _count)
+        internal
+        returns (IInbox.ProveInput2 memory input_)
+    {
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](_count);
+
+        uint48 firstProposalId;
+        bytes32 parentBlockHash = inbox.getState().lastFinalizedBlockHash;
+
+        for (uint256 i; i < _count; ++i) {
+            if (i != 0) _advanceBlock();
+            IInbox.ProposedEventPayload memory payload = _proposeOne();
+
+            if (i == 0) {
+                firstProposalId = payload.proposal.id;
+            }
+
+            // Generate a unique block hash for this proposal
+            bytes32 blockHash = keccak256(abi.encode("blockHash", i + 1));
+            proposalStates[i] = _proposalStateFor(payload, prover, blockHash);
+            parentBlockHash = blockHash;
+        }
+
+        input_ = IInbox.ProveInput2({
+            firstProposalId: firstProposalId,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: proposalStates,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
+            actualProver: prover
+        });
     }
 
     // ---------------------------------------------------------------------

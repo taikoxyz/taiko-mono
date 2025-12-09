@@ -4,370 +4,335 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract InboxProveTest is InboxTestBase {
-    function test_prove_single() public {
-        (IInbox.ProveInput memory proveInput, IInbox.Transition[] memory transitions) =
-            _buildBatchInput(1, false);
+    function test_prove2_single() public {
+        IInbox.ProveInput2 memory input = _buildBatchInput2(1);
 
-        IInbox.ProvedEventPayload memory provedPayload =
-            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_single");
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, proveInput.proposals[0].id, "finalized id");
-        assertEq(
-            state.lastFinalizedBlockHash,
-            codec.hashTransition(transitions[0]),
-            "transition hash"
-        );
-        assertEq(
-            uint8(provedPayload.bondInstruction.bondType),
-            uint8(LibBonds.BondType.NONE),
-            "bond type"
-        );
-        assertEq(provedPayload.bondSignal, bytes32(0), "bond signal");
-
-        assertEq(inbox.getState().lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
-    }
-
-    function test_prove_batch3() public {
-        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(3, false);
-
-        IInbox.ProvedEventPayload memory proved =
-            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_3");
+        _prove2WithGas(input, "shasta-prove2", "prove2_single");
 
         IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, proveInput.proposals[2].id, "finalized id");
-        assertEq(proved.bondSignal, bytes32(0), "bond signal");
-        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+        assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
+        assertEq(state.lastFinalizedBlockHash, input.proposals[0].blockHash, "block hash");
     }
 
-    function test_prove_batch5() public {
-        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(5, false);
+    function test_prove2_batch3() public {
+        IInbox.ProveInput2 memory input = _buildBatchInput2(3);
 
-        IInbox.ProvedEventPayload memory proved =
-            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_5");
+        _prove2WithGas(input, "shasta-prove2", "prove2_consecutive_3");
 
         IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, proveInput.proposals[4].id, "finalized id");
-        assertEq(proved.bondSignal, bytes32(0), "bond signal");
-        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 2, "finalized id");
+        assertEq(state.lastFinalizedBlockHash, input.proposals[2].blockHash, "block hash");
     }
 
-    function test_prove_batch10() public {
-        (IInbox.ProveInput memory proveInput,) = _buildBatchInput(10, false);
+    function test_prove2_batch5() public {
+        IInbox.ProveInput2 memory input = _buildBatchInput2(5);
 
-        IInbox.ProvedEventPayload memory proved =
-            _proveAndDecodeWithGas(proveInput, "shasta-prove", "prove_consecutive_10");
+        _prove2WithGas(input, "shasta-prove2", "prove2_consecutive_5");
 
         IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, proveInput.proposals[9].id, "finalized id");
-        assertEq(proved.bondSignal, bytes32(0), "bond signal");
-        assertEq(uint8(proved.bondInstruction.bondType), uint8(LibBonds.BondType.NONE), "bond type");
+        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 4, "finalized id");
+        assertEq(state.lastFinalizedBlockHash, input.proposals[4].blockHash, "block hash");
     }
 
-    function test_prove_RevertWhen_EmptyProposals() public {
-        IInbox.ProveInput memory emptyInput = IInbox.ProveInput({
-            proposals: new IInbox.Proposal[](0),
-            transitions: new IInbox.Transition[](0),
-            syncCheckpoint: true
-        });
+    function test_prove2_batch10() public {
+        IInbox.ProveInput2 memory input = _buildBatchInput2(10);
 
-        bytes memory encodedInput = codec.encodeProveInput(emptyInput);
-        vm.expectRevert(Inbox.EmptyProposals.selector);
-        inbox.prove(encodedInput, bytes(""));
+        _prove2WithGas(input, "shasta-prove2", "prove2_consecutive_10");
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 9, "finalized id");
+        assertEq(state.lastFinalizedBlockHash, input.proposals[9].blockHash, "block hash");
     }
 
-    function test_prove_RevertWhen_SkippingProposal() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-
-        IInbox.Proposal memory wrong = proposed.proposal;
-        wrong.id = proposed.proposal.id + 1;
-
-        IInbox.Transition memory transition = IInbox.Transition({
-            proposalHash: codec.hashProposal(wrong),
-            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
-            checkpoint: _checkpoint(bytes32(uint256(1))),
-            designatedProver: prover,
+    function test_prove2_RevertWhen_EmptyBatch() public {
+        IInbox.ProveInput2 memory emptyInput = IInbox.ProveInput2({
+            firstProposalId: 1,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: new IInbox.ProposalState[](0),
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: bytes32(0),
             actualProver: prover
         });
 
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(wrong),
-            transitions: _transitions(transition),
-            syncCheckpoint: true
-        });
-
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.InvalidProposalId.selector);
+        bytes memory encodedInput = abi.encode(emptyInput);
+        vm.expectRevert(Inbox.EmptyBatch.selector);
         vm.prank(prover);
-        inbox.prove(encodedInput, bytes(""));
+        inbox.prove2(encodedInput, bytes("proof"));
     }
 
-    function test_prove_RevertWhen_ParentMismatch() public {
+    function test_prove2_RevertWhen_FirstProposalIdTooLarge() public {
+        // Propose one block
+        _proposeOne();
+
+        // Try to prove starting from proposal 2 (which would skip proposal 1)
+        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](1);
+        proposals[0] = IInbox.ProposalState({
+            proposer: proposer,
+            designatedProver: prover,
+            timestamp: uint48(block.timestamp),
+            blockHash: keccak256("blockHash")
+        });
+
+        IInbox.ProveInput2 memory input = IInbox.ProveInput2({
+            firstProposalId: 2, // lastFinalizedProposalId is 0, so max allowed is 1
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: proposals,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: bytes32(0),
+            actualProver: prover
+        });
+
+        bytes memory encodedInput = abi.encode(input);
+        vm.expectRevert(Inbox.FirstProposalIdTooLarge.selector);
+        vm.prank(prover);
+        inbox.prove2(encodedInput, bytes("proof"));
+    }
+
+    function test_prove2_RevertWhen_LastProposalIdTooLarge() public {
+        // Propose one block (id = 1)
+        _proposeOne();
+
+        // Try to prove proposals 1 and 2 when only 1 exists
+        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](2);
+        proposals[0] = IInbox.ProposalState({
+            proposer: proposer,
+            designatedProver: prover,
+            timestamp: uint48(block.timestamp),
+            blockHash: keccak256("blockHash1")
+        });
+        proposals[1] = IInbox.ProposalState({
+            proposer: proposer,
+            designatedProver: prover,
+            timestamp: uint48(block.timestamp),
+            blockHash: keccak256("blockHash2")
+        });
+
+        IInbox.ProveInput2 memory input = IInbox.ProveInput2({
+            firstProposalId: 1,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: proposals,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: bytes32(0),
+            actualProver: prover
+        });
+
+        bytes memory encodedInput = abi.encode(input);
+        vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
+        vm.prank(prover);
+        inbox.prove2(encodedInput, bytes("proof"));
+    }
+
+    function test_prove2_RevertWhen_ParentBlockHashMismatch() public {
+        _proposeOne();
+
+        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](1);
+        proposals[0] = IInbox.ProposalState({
+            proposer: proposer,
+            designatedProver: prover,
+            timestamp: uint48(block.timestamp),
+            blockHash: keccak256("blockHash")
+        });
+
+        IInbox.ProveInput2 memory input = IInbox.ProveInput2({
+            firstProposalId: 1,
+            firstProposalParentBlockHash: bytes32(uint256(999)), // Wrong parent hash
+            proposals: proposals,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: bytes32(0),
+            actualProver: prover
+        });
+
+        bytes memory encodedInput = abi.encode(input);
+        vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
+        vm.prank(prover);
+        inbox.prove2(encodedInput, bytes("proof"));
+    }
+
+    function test_prove2_emitsBondSignal_afterProvingWindow() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
-        );
-        IInbox.Transition memory t2 =
-            _transitionFor(p2, bytes32(uint256(999)), bytes32(uint256(2)), prover, prover);
+        // Move past the extended proving window to trigger PROVABILITY bond
+        vm.warp(block.timestamp + config.extendedProvingWindow + 1);
 
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal, p2.proposal),
-            transitions: _transitions(t1, t2),
-            syncCheckpoint: true
-        });
+        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](2);
+        proposals[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposals[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
 
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.InvalidParentTransition.selector);
-        vm.prank(prover);
-        inbox.prove(encodedInput, bytes(""));
-    }
-
-    function test_prove_RevertWhen_LengthMismatch() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(proposed.proposal),
-            transitions: new IInbox.Transition[](0),
-            syncCheckpoint: true
-        });
-
-        vm.expectRevert(LibProveInputCodec.ProposalTransitionLengthMismatch.selector);
-        codec.encodeProveInput(proveInput);
-    }
-
-    function test_prove_RevertWhen_CheckpointMismatch() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-        IInbox.Transition memory transition = _transitionFor(
-            proposed,
-            inbox.getState().lastFinalizedBlockHash,
-            bytes32(uint256(1)),
-            prover,
-            prover
-        );
-        transition.checkpoint.blockHash = bytes32(0);
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(proposed.proposal),
-            transitions: _transitions(transition),
-            syncCheckpoint: true
-        });
-
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.CheckpointMismatch.selector);
-        inbox.prove(encodedInput, bytes(""));
-    }
-
-    function test_prove_RevertWhen_ProposalHashMismatch() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-
-        IInbox.Proposal memory tampered = proposed.proposal;
-        tampered.timestamp += 1;
-
-        IInbox.Transition memory transition = IInbox.Transition({
-            proposalHash: codec.hashProposal(proposed.proposal),
-            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
-            checkpoint: _checkpoint(bytes32(uint256(1))),
-            designatedProver: prover,
+        IInbox.ProveInput2 memory input = IInbox.ProveInput2({
+            firstProposalId: p1.proposal.id,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: proposals,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
             actualProver: prover
         });
 
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(tampered),
-            transitions: _transitions(transition),
-            syncCheckpoint: true
-        });
+        _prove2(input);
 
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.ProposalHashMismatch.selector);
-        vm.prank(prover);
-        inbox.prove(encodedInput, bytes(""));
-    }
-
-    function test_prove_RevertWhen_ProposalHashMismatchWithTransition() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-
-        IInbox.Transition memory transition = IInbox.Transition({
-            proposalHash: bytes32(uint256(123)),
-            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
-            checkpoint: _checkpoint(bytes32(uint256(1))),
-            designatedProver: prover,
-            actualProver: prover
-        });
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(proposed.proposal),
-            transitions: _transitions(transition),
-            syncCheckpoint: true
-        });
-
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.ProposalHashMismatchWithTransition.selector);
-        vm.prank(prover);
-        inbox.prove(encodedInput, bytes(""));
-    }
-
-    function test_prove_batch_emitsBondSignal() public {
-        IInbox.ProposedEventPayload memory p1 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p2 = _proposeOne();
-
-        vm.warp(block.timestamp + 10 days);
-
-        IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
-        );
-        IInbox.Transition memory t2 =
-            _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal, p2.proposal),
-            transitions: _transitions(t1, t2),
-            syncCheckpoint: true
-        });
-
-        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveInput);
-
-        IInbox.CoreState memory state = inbox.getState();
+        // Verify bond signal was sent for PROVABILITY
         LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
             proposalId: p1.proposal.id,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: p1.proposal.proposer,
             payee: prover
         });
-        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
-        assertEq(state.lastFinalizedProposalId, p2.proposal.id, "finalized span");
-        assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
-        assertEq(
-            uint8(provedPayload.bondInstruction.bondType),
-            uint8(LibBonds.BondType.PROVABILITY),
-            "bond type"
-        );
-        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal sent");
-        assertEq(provedPayload.bondInstruction.payer, expectedInstruction.payer, "payer");
-        assertEq(provedPayload.bondInstruction.payee, expectedInstruction.payee, "payee");
+        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
+        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "bond signal sent");
     }
 
-    function test_prove_lateWithinExtendedWindow_emitsLivenessBondSignal() public {
+    function test_prove2_emitsLivenessBond_withinExtendedWindow() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
-        // Make the proof late but still inside the extended proving window.
+        // Move past proving window but still within extended window
         vm.warp(block.timestamp + config.provingWindow + 1);
 
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(bytes32(uint256(1)));
-        IInbox.Transition memory transition = IInbox.Transition({
-            proposalHash: codec.hashProposal(proposed.proposal),
-            parentTransitionHash: inbox.getState().lastFinalizedBlockHash,
-            checkpoint: checkpoint,
-            designatedProver: proposer,
+        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](1);
+        // Different designated prover than actual prover to trigger liveness bond
+        proposals[0] = IInbox.ProposalState({
+            proposer: proposed.proposal.proposer,
+            designatedProver: proposer, // Different from prover
+            timestamp: proposed.proposal.timestamp,
+            blockHash: keccak256("blockHash")
+        });
+
+        IInbox.ProveInput2 memory input = IInbox.ProveInput2({
+            firstProposalId: proposed.proposal.id,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: proposals,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
             actualProver: prover
         });
 
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(proposed.proposal),
-            transitions: _transitions(transition),
-            syncCheckpoint: true
-        });
+        _prove2(input);
 
-        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(proveInput);
-
+        // Verify bond signal was sent for LIVENESS
         LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
             proposalId: proposed.proposal.id,
             bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
+            payer: proposer, // designatedProver pays
+            payee: prover // actualProver receives
         });
-        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
-        assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
-        assertEq(
-            uint8(provedPayload.bondInstruction.bondType),
-            uint8(LibBonds.BondType.LIVENESS),
-            "bond type"
-        );
-        assertEq(provedPayload.bondInstruction.payer, proposer, "payer");
-        assertEq(provedPayload.bondInstruction.payee, prover, "payee");
-        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "signal recorded");
+        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
+        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "liveness bond signal");
     }
 
-    function test_prove_acceptsProofWithFinalizedPrefix() public {
+    function test_prove2_acceptsProofWithFinalizedPrefix() public {
+        // Propose 3 blocks
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p3 = _proposeOne();
 
-        IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
-        );
-        IInbox.Transition memory t2 =
-            _transitionFor(p2, codec.hashTransition(t1), bytes32(uint256(2)), prover, prover);
-        IInbox.Transition memory t3 =
-            _transitionFor(p3, codec.hashTransition(t2), bytes32(uint256(3)), prover, prover);
+        // First, prove just p1
+        IInbox.ProposalState[] memory firstBatch = new IInbox.ProposalState[](1);
+        bytes32 p1BlockHash = keccak256("blockHash1");
+        firstBatch[0] = _proposalStateFor(p1, prover, p1BlockHash);
 
-        IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
-        });
-        _proveAndDecode(prefixInput);
-
-        IInbox.ProveInput memory fullInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal, p2.proposal, p3.proposal),
-            transitions: _transitions(t1, t2, t3),
-            syncCheckpoint: true
+        IInbox.ProveInput2 memory firstInput = IInbox.ProveInput2({
+            firstProposalId: p1.proposal.id,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: firstBatch,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot1"),
+            actualProver: prover
         });
 
-        IInbox.ProvedEventPayload memory provedPayload = _proveAndDecode(fullInput);
+        _prove2(firstInput);
+
+        assertEq(inbox.getState().lastFinalizedProposalId, p1.proposal.id, "p1 finalized");
+
+        // Now prove p1, p2, p3 (p1 already finalized - should be skipped)
+        IInbox.ProposalState[] memory fullBatch = new IInbox.ProposalState[](3);
+        fullBatch[0] = _proposalStateFor(p1, prover, p1BlockHash);
+        fullBatch[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+        fullBatch[2] = _proposalStateFor(p3, prover, keccak256("blockHash3"));
+
+        IInbox.ProveInput2 memory fullInput = IInbox.ProveInput2({
+            firstProposalId: p1.proposal.id,
+            firstProposalParentBlockHash: bytes32(0), // Ignored since offset > 0
+            proposals: fullBatch,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot3"),
+            actualProver: prover
+        });
+
+        _prove2(fullInput);
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, codec.hashTransition(t3), "transition hash");
-        assertEq(provedPayload.proposalId, p2.proposal.id, "proved proposal id");
-        assertEq(
-            provedPayload.transition.proposalHash,
-            codec.hashProposal(p2.proposal),
-            "proved proposal hash"
-        );
-        assertEq(
-            provedPayload.transition.parentTransitionHash,
-            codec.hashTransition(t1),
-            "proved parent hash"
-        );
+        assertEq(state.lastFinalizedBlockHash, fullBatch[2].blockHash, "block hash");
     }
 
-    function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
+    function test_prove2_RevertWhen_FinalizedPrefixHashMismatch() public {
+        // Propose 2 blocks
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
-        );
-        IInbox.ProveInput memory prefixInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
-        });
-        _proveAndDecode(prefixInput);
+        // First, prove p1
+        bytes32 p1BlockHash = keccak256("blockHash1");
+        IInbox.ProposalState[] memory firstBatch = new IInbox.ProposalState[](1);
+        firstBatch[0] = _proposalStateFor(p1, prover, p1BlockHash);
 
-        IInbox.Transition memory wrongPrefix = _transitionFor(
-            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(999)), prover, prover
-        );
-        IInbox.Transition memory t2 = _transitionFor(
-            p2, codec.hashTransition(wrongPrefix), bytes32(uint256(2)), prover, prover
-        );
-
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal, p2.proposal),
-            transitions: _transitions(wrongPrefix, t2),
-            syncCheckpoint: true
+        IInbox.ProveInput2 memory firstInput = IInbox.ProveInput2({
+            firstProposalId: p1.proposal.id,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: firstBatch,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot1"),
+            actualProver: prover
         });
 
-        bytes memory encodedInput = codec.encodeProveInput(proveInput);
-        vm.expectRevert(Inbox.InvalidProposalId.selector);
+        _prove2(firstInput);
+
+        // Try to prove p1, p2 with wrong p1 block hash (doesn't match finalized)
+        IInbox.ProposalState[] memory fullBatch = new IInbox.ProposalState[](2);
+        fullBatch[0] = _proposalStateFor(p1, prover, keccak256("wrongBlockHash")); // Wrong!
+        fullBatch[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+
+        IInbox.ProveInput2 memory fullInput = IInbox.ProveInput2({
+            firstProposalId: p1.proposal.id,
+            firstProposalParentBlockHash: bytes32(0),
+            proposals: fullBatch,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot2"),
+            actualProver: prover
+        });
+
+        bytes memory encodedInput = abi.encode(fullInput);
+        vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
         vm.prank(prover);
-        inbox.prove(encodedInput, bytes(""));
+        inbox.prove2(encodedInput, bytes("proof"));
+    }
+
+    function test_prove2_noBondSignal_withinProvingWindow() public {
+        IInbox.ProveInput2 memory input = _buildBatchInput2(1);
+
+        // Prove within the proving window - no bond signal should be emitted
+        _prove2(input);
+
+        // No bond signal should be sent when proof is on time
+        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
+            proposalId: input.firstProposalId,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: proposer,
+            payee: prover
+        });
+        bytes32 livenessSignal = LibBonds.hashBondInstruction(instruction);
+
+        instruction.bondType = LibBonds.BondType.PROVABILITY;
+        bytes32 provabilitySignal = LibBonds.hashBondInstruction(instruction);
+
+        assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal");
+        assertFalse(
+            signalService.isSignalSent(address(inbox), provabilitySignal), "no provability signal"
+        );
     }
 }

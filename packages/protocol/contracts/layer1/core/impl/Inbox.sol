@@ -347,11 +347,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 6. Update finalization state
+            // 6. Update finalization state and emit event
             // ---------------------------------------------------------
             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedBlockHash = input.proposals[numProposals - 1].blockHash;
             _state.lastFinalizedTimestamp = uint48(block.timestamp);
+            // TODO: emit event
 
             // ---------------------------------------------------------
             // 7. Verify the proof

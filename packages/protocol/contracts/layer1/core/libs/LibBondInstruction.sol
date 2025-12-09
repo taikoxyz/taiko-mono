@@ -84,6 +84,7 @@ library LibBondInstruction {
         returns (LibBonds.BondInstruction memory bondInstruction_)
     {
         // Ready timestamp is the max of proposal timestamp and last finalized timestamp
+        // TODO: is readyTimestamp calculated twice, once here and once in Inbox.sol?
         uint48 readyTimestamp = _proposalState.timestamp > _lastFinalizedTimestamp
             ? _proposalState.timestamp
             : _lastFinalizedTimestamp;

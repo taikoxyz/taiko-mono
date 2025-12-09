@@ -52,14 +52,20 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
-        IInbox.Transition memory t1 = _transitionFor(
-            p1, inbox.getState().lastFinalizedBlockHash, bytes32(uint256(1)), prover, prover
-        );
-        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            proposals: _proposals(p1.proposal), transitions: _transitions(t1), syncCheckpoint: true
+        // Prove p1 using prove2
+        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](1);
+        proposals[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+
+        IInbox.ProveInput2 memory proveInput = IInbox.ProveInput2({
+            firstProposalId: p1.proposal.id,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            proposals: proposals,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
+            actualProver: prover
         });
 
-        _proveAndDecode(proveInput);
+        _prove2(proveInput);
 
         _advanceBlock();
         IInbox.ProposedEventPayload memory p6 =

@@ -187,6 +187,12 @@ interface IInbox {
         bytes32 bondSignal;
     }
 
+       /// @notice Payload data emitted in the Proved event
+    struct ProvedEventPayload2 {
+        ProveInput2 input;
+        LibBonds.BondInstruction bondInstruction;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -198,6 +204,11 @@ interface IInbox {
     /// @notice Emitted when a proof is submitted
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
+
+ /// @notice Emitted when a proof is submitted
+    /// @param data The encoded ProvedEventPayload2
+    event Proved2(bytes data);
+
 
     // ---------------------------------------------------------------
     // External Transactional Functions
