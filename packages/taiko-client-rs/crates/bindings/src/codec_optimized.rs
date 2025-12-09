@@ -351,7 +351,7 @@ pub mod ICheckpointStore {
 
 ```solidity
 library IInbox {
-    struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; bytes32 bondInstructionsHash; }
+    struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedTransitionHash; bytes32 bondInstructionsHash; }
     struct Derivation { uint48 originBlockNumber; bytes32 originBlockHash; uint8 basefeeSharingPctg; DerivationSource[] sources; }
     struct DerivationSource { bool isForcedInclusion; LibBlobs.BlobSlice blobSlice; }
     struct Proposal { uint48 id; uint48 timestamp; uint48 endOfSubmissionWindowTimestamp; address proposer; bytes32 coreStateHash; bytes32 derivationHash; }
@@ -376,7 +376,7 @@ pub mod IInbox {
     use alloy::sol_types as alloy_sol_types;
     #[derive(serde::Serialize, serde::Deserialize, Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-    struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; bytes32 bondInstructionsHash; }
+    struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedTransitionHash; bytes32 bondInstructionsHash; }
     ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -390,7 +390,7 @@ pub mod IInbox {
         #[allow(missing_docs)]
         pub lastCheckpointTimestamp: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
-        pub lastFinalizedBlockHash: alloy::sol_types::private::FixedBytes<32>,
+        pub lastFinalizedTransitionHash: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub bondInstructionsHash: alloy::sol_types::private::FixedBytes<32>,
     }
@@ -433,7 +433,7 @@ pub mod IInbox {
                     value.lastProposalBlockId,
                     value.lastFinalizedProposalId,
                     value.lastCheckpointTimestamp,
-                    value.lastFinalizedBlockHash,
+                    value.lastFinalizedTransitionHash,
                     value.bondInstructionsHash,
                 )
             }
@@ -447,7 +447,7 @@ pub mod IInbox {
                     lastProposalBlockId: tuple.1,
                     lastFinalizedProposalId: tuple.2,
                     lastCheckpointTimestamp: tuple.3,
-                    lastFinalizedBlockHash: tuple.4,
+                    lastFinalizedTransitionHash: tuple.4,
                     bondInstructionsHash: tuple.5,
                 }
             }
@@ -480,7 +480,7 @@ pub mod IInbox {
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::tokenize(
-                        &self.lastFinalizedBlockHash,
+                        &self.lastFinalizedTransitionHash,
                     ),
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
@@ -545,7 +545,7 @@ pub mod IInbox {
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "CoreState(uint48 nextProposalId,uint48 lastProposalBlockId,uint48 lastFinalizedProposalId,uint48 lastCheckpointTimestamp,bytes32 lastFinalizedBlockHash,bytes32 bondInstructionsHash)",
+                    "CoreState(uint48 nextProposalId,uint48 lastProposalBlockId,uint48 lastFinalizedProposalId,uint48 lastCheckpointTimestamp,bytes32 lastFinalizedTransitionHash,bytes32 bondInstructionsHash)",
                 )
             }
             #[inline]
@@ -588,7 +588,7 @@ pub mod IInbox {
                     <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.lastFinalizedBlockHash,
+                            &self.lastFinalizedTransitionHash,
                         )
                         .0,
                     <alloy::sol_types::sol_data::FixedBytes<
@@ -629,7 +629,7 @@ pub mod IInbox {
                     + <alloy::sol_types::sol_data::FixedBytes<
                         32,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.lastFinalizedBlockHash,
+                        &rust.lastFinalizedTransitionHash,
                     )
                     + <alloy::sol_types::sol_data::FixedBytes<
                         32,
@@ -670,7 +670,7 @@ pub mod IInbox {
                 <alloy::sol_types::sol_data::FixedBytes<
                     32,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.lastFinalizedBlockHash,
+                    &rust.lastFinalizedTransitionHash,
                     out,
                 );
                 <alloy::sol_types::sol_data::FixedBytes<
@@ -4292,7 +4292,7 @@ library IInbox {
         uint48 lastProposalBlockId;
         uint48 lastFinalizedProposalId;
         uint48 lastCheckpointTimestamp;
-        bytes32 lastFinalizedBlockHash;
+        bytes32 lastFinalizedTransitionHash;
         bytes32 bondInstructionsHash;
     }
     struct Derivation {
@@ -4454,7 +4454,7 @@ interface CodecOptimized {
                 "internalType": "uint48"
               },
               {
-                "name": "lastFinalizedBlockHash",
+                "name": "lastFinalizedTransitionHash",
                 "type": "bytes32",
                 "internalType": "bytes32"
               },
@@ -4740,7 +4740,7 @@ interface CodecOptimized {
                 "internalType": "uint48"
               },
               {
-                "name": "lastFinalizedBlockHash",
+                "name": "lastFinalizedTransitionHash",
                 "type": "bytes32",
                 "internalType": "bytes32"
               },
@@ -5068,7 +5068,7 @@ interface CodecOptimized {
                 "internalType": "uint48"
               },
               {
-                "name": "lastFinalizedBlockHash",
+                "name": "lastFinalizedTransitionHash",
                 "type": "bytes32",
                 "internalType": "bytes32"
               },
@@ -5354,7 +5354,7 @@ interface CodecOptimized {
                 "internalType": "uint48"
               },
               {
-                "name": "lastFinalizedBlockHash",
+                "name": "lastFinalizedTransitionHash",
                 "type": "bytes32",
                 "internalType": "bytes32"
               },
@@ -5715,7 +5715,7 @@ interface CodecOptimized {
             "internalType": "uint48"
           },
           {
-            "name": "lastFinalizedBlockHash",
+            "name": "lastFinalizedTransitionHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
