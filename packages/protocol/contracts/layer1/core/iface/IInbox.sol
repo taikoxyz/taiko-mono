@@ -140,15 +140,30 @@ interface IInbox {
         bool syncCheckpoint;
     }
 
+    /// @notice Metadata for a proposal used in prove2
+    struct ProposalMetadata {
+        /// @notice Address of the proposer.
+        address proposer;
+        /// @notice Address of the designated prover.
+        address designatedProver;
+        /// @notice Timestamp of the proposal.
+        uint48 timestamp;
+        /// @notice Transition hash for the proposal.
+        bytes32 transitionHash;
+    }
+
     /// @notice Input data for the prove2 function
     struct ProveInput2 {
-        /// @notice The ID of the last proposal being proven.
-        uint48 lastProposalId;
+        /// @notice The ID of the first proposal being proven.
+        uint48 firstProposalId;
+        /// @notice The transition hash of the parent of the first proposal.
+        bytes32 firstProposalParentTransitionHash;
+        /// @notice Array of proposal metadata for each proposal in the proof range.
+        ProposalMetadata[] proposals;
         /// @notice The checkpoint from the last transition.
         ICheckpointStore.Checkpoint lastCheckpoint;
-        /// @notice Array of transition hashes (N+1 for N proposals).
-        bytes32[] transitionHashs;
     }
+
 
     /// @notice Payload data emitted in the Proposed event
     struct ProposedEventPayload {
