@@ -347,8 +347,8 @@ contract InboxProposeTest is InboxTestBase {
 
         // Calculate exact permissionlessTimestamp
         // permissionlessTimestamp = forcedInclusionDelay * multiplier + oldestTimestamp
-        uint256 waitTime =
-            uint256(config.forcedInclusionDelay) * uint256(config.permissionlessInclusionMultiplier);
+        uint256 waitTime = uint256(config.forcedInclusionDelay)
+            * uint256(config.permissionlessInclusionMultiplier);
 
         // Warp to exactly the permissionless timestamp
         vm.warp(block.timestamp + waitTime);
@@ -365,5 +365,4 @@ contract InboxProposeTest is InboxTestBase {
         vm.prank(David);
         inbox.propose(bytes(""), encodedInput);
     }
-
 }

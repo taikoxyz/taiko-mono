@@ -168,7 +168,9 @@ interface IInbox {
     /// @notice Emitted when a bond instruction is signaled to L2
     /// @param proposalId The proposal ID that triggered the bond instruction
     /// @param bondInstruction The encoded bond instruction
-    event BondInstructionCreated(uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction);
+    event BondInstructionCreated(
+        uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions

@@ -109,10 +109,7 @@ interface ICodec {
     /// @notice Hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
-    function hashDerivation(IInbox.Derivation calldata _derivation)
-        external
-        pure
-        returns (bytes32);
+    function hashDerivation(IInbox.Derivation calldata _derivation) external pure returns (bytes32);
 
     /// @notice Hashing for Proposal structs
     /// @param _proposal The proposal to hash

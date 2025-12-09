@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { InboxTestBase } from "./InboxTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
-import { InboxTestBase } from "./InboxTestBase.sol";
 
 /// @notice Tests for Inbox activation and pre-activation behavior
 contract InboxActivationTest is InboxTestBase {
@@ -85,7 +85,9 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox.activate(bytes32(uint256(2)));
 
         // Activation timestamp should remain the same
-        assertEq(nonActivatedInbox.activationTimestamp(), firstActivationTimestamp, "timestamp unchanged");
+        assertEq(
+            nonActivatedInbox.activationTimestamp(), firstActivationTimestamp, "timestamp unchanged"
+        );
     }
 
     function test_getConfig_returnsImmutableConfig() public view {
@@ -93,12 +95,28 @@ contract InboxActivationTest is InboxTestBase {
 
         // Verify key config values match what was set during construction
         assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
-        assertEq(cfg.extendedProvingWindow, config.extendedProvingWindow, "extendedProvingWindow mismatch");
+        assertEq(
+            cfg.extendedProvingWindow,
+            config.extendedProvingWindow,
+            "extendedProvingWindow mismatch"
+        );
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
-        assertEq(cfg.minForcedInclusionCount, config.minForcedInclusionCount, "minForcedInclusionCount mismatch");
-        assertEq(cfg.forcedInclusionFeeInGwei, config.forcedInclusionFeeInGwei, "forcedInclusionFeeInGwei mismatch");
-        assertEq(cfg.minProposalsToFinalize, config.minProposalsToFinalize, "minProposalsToFinalize mismatch");
+        assertEq(
+            cfg.minForcedInclusionCount,
+            config.minForcedInclusionCount,
+            "minForcedInclusionCount mismatch"
+        );
+        assertEq(
+            cfg.forcedInclusionFeeInGwei,
+            config.forcedInclusionFeeInGwei,
+            "forcedInclusionFeeInGwei mismatch"
+        );
+        assertEq(
+            cfg.minProposalsToFinalize,
+            config.minProposalsToFinalize,
+            "minProposalsToFinalize mismatch"
+        );
         assertEq(cfg.codec, config.codec, "codec mismatch");
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
