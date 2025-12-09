@@ -156,8 +156,8 @@ interface IInbox {
     struct ProveInput2 {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The transition hash of the parent of the first proposal.
-        bytes32 firstProposalParentTransitionHash;
+        /// @notice The block hash of the parent of the first proposal.
+        bytes32 firstProposalParentBlockHash;
         /// @notice Array of proposal metadata for each proposal in the proof range.
         ProposalState[] proposals;
         /// @notice The checkpoint from the last transition.

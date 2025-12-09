@@ -255,7 +255,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     ///
     /// The proof covers a contiguous range of proposals. The input contains an array of ProposalState
-    /// structs, each with the proposal's metadata and transition hash. The proof range can start
+    /// structs, each with the proposal's metadata and block hash. The proof range can start
     /// at or before the last finalized proposal to handle race conditions where proposals get
     /// finalized between proof generation and submission.
     ///
@@ -274,7 +274,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
     /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
     /// 3. lastProposalId >= lastFinalizedProposalId + minProposalsToFinalize (must advance enough)
-    /// 4. The transition hash chain must link to the stored lastFinalizedBlockHash
+    /// 4. The block hash chain must link to the stored lastFinalizedBlockHash
     ///
     /// @param _data ABI-encoded ProveInput2 struct
     /// @param _proof Validity proof for the batch of proposals
@@ -283,7 +283,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             CoreState memory state = _state;
             ProveInput2 memory input = abi.decode(_data, (ProveInput2));
 
-            // --- Validate batch bounds ---
+            // =========================================================
+            // 1. Validate batch bounds
+            // =========================================================
             uint256 numProposals = input.proposals.length;
             require(numProposals > 0, EmptyBatch());
             require(
@@ -298,28 +300,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 LastProposalIdTooSmall()
             );
 
-            // --- Calculate offset to first unfinalized proposal ---
-            // Some proposals in input.proposals[] may already be finalized. The offset points to
-            // the first proposal that will be newly finalized by this proof.
+            // =========================================================
+            // 2. Calculate offset to first unfinalized proposal
+            // =========================================================
+            // Some proposals in input.proposals[] may already be finalized.
+            // The offset points to the first proposal that will be newly finalized.
             uint48 offset = state.lastFinalizedProposalId + 1 - input.firstProposalId;
 
-            // --- Verify transition hash continuity ---
-            // The parent transition hash of the first newly-finalized proposal must match
-            // the stored lastFinalizedBlockHash to ensure chain continuity.
-            if (offset == 0) {
-                require(
-                    state.lastFinalizedBlockHash == input.firstProposalParentTransitionHash,
-                    ParentTransitionHashMismatch()
-                );
-            } else {
-                require(
-                    state.lastFinalizedBlockHash == input.proposals[offset - 1].blockHash,
-                    ParentTransitionHashMismatch()
-                );
-            }
+            // =========================================================
+            // 3. Verify block hash continuity
+            // =========================================================
+            // The parent block hash must match the stored lastFinalizedBlockHash.
+            bytes32 expectedParentHash = offset == 0
+                ? input.firstProposalParentBlockHash
+                : input.proposals[offset - 1].blockHash;
+            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
-            // --- Process bond instruction for the first newly-finalized proposal ---
-            // Bond transfers are only calculated for the first proposal being finalized in this call.
+            // =========================================================
+            // 4. Calculate and emit bond instruction
+            // =========================================================
+            // Bond transfers only apply to the first newly-finalized proposal.
             LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction2(
                 input.firstProposalId + offset,
                 input.proposals[offset],
@@ -332,29 +332,38 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
             }
 
-            // --- Sync checkpoint if delay has passed ---
+            // =========================================================
+            // 5. Sync checkpoint if minimum delay has passed
+            // =========================================================
             if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
-                ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                    blockNumber: input.lastBlockNumber,
-                    blockHash: input.proposals[numProposals - 1].blockHash,
-                    stateRoot: input.lastStateRoot
-                });
-                _signalService.saveCheckpoint(checkpoint);
+                _signalService.saveCheckpoint(
+                    ICheckpointStore.Checkpoint({
+                        blockNumber: input.lastBlockNumber,
+                        blockHash: input.proposals[numProposals - 1].blockHash,
+                        stateRoot: input.lastStateRoot
+                    })
+                );
                 _state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
 
-            // --- Update finalization state ---
+            // =========================================================
+            // 6. Update finalization state
+            // =========================================================
             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedBlockHash = input.proposals[numProposals - 1].blockHash;
             _state.lastFinalizedTimestamp = uint48(block.timestamp);
 
-            // --- Verify the proof ---
-            // Hash combines the stored proposal hash with the full input to commit to all data.
+            // =========================================================
+            // 7. Verify the proof
+            // =========================================================
             bytes32 hashToProve = LibHashOptimized.hashProveInput(
                 _proposalHashes[lastProposalId % _ringBufferSize],
                 input
             );
-    uint proposalAge = block.timestamp - input.proposals[offset].timestamp.max(state.lastFinalizedTimestamp);
+            // readyTimestamp = max(proposal.timestamp, lastFinalizedTimestamp)
+            // proposalAge = block.timestamp - readyTimestamp
+            uint256 proposalAge =
+                block.timestamp - input.proposals[offset].timestamp.max(state.lastFinalizedTimestamp);
             _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
         }
     }
@@ -865,11 +874,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error LastProposalIdTooLarge();
     error LastProposalIdTooSmall();
     error NotEnoughCapacity();
-    error ParentTransitionHashMismatch();
+    error ParentBlockHashMismatch();
     error ProofRangeEndTooLate();
     error ProofRangeStartTooLate();
     error ProposalHashMismatch();
     error ProposalHashMismatchWithTransition();
-    error TransitionHashMismatch();
+    error BlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }
