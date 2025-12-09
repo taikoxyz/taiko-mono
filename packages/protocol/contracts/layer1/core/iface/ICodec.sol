@@ -116,20 +116,6 @@ interface ICodec {
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32);
 
-    /// @notice Hashing for Transition structs
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes32);
-
-    /// @notice Hashing for arrays of Transitions
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
-    function hashTransitions(IInbox.Transition[] calldata _transitions)
-        external
-        pure
-        returns (bytes32);
-
     /// @notice Hashing for BondInstruction structs
     /// @param _bondInstruction The bond instruction to hash
     /// @return The hash of the bond instruction
@@ -137,4 +123,9 @@ interface ICodec {
         external
         pure
         returns (bytes32);
+
+    /// @notice Hashing for ProveInput structs
+    /// @param _input The prove input to hash
+    /// @return The hash of the prove input
+    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32);
 }

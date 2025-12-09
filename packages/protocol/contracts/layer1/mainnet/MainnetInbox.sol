@@ -38,9 +38,9 @@ contract MainnetInbox is Inbox {
     )
         Inbox(IInbox.Config({
                 codec: _codec,
-                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
                 ringBufferSize: _RING_BUFFER_SIZE,
@@ -50,7 +50,8 @@ contract MainnetInbox is Inbox {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                minProposalsToFinalize: 1
             }))
     { }
 

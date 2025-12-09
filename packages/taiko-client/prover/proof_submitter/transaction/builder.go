@@ -291,7 +291,7 @@ func BuildParentTransitionHash(
 
 	// If the parent transition already been just finalized, return the last finalized transition hash directly.
 	if cursor.Cmp(coreState.LastFinalizedProposalId) == 0 {
-		return coreState.LastFinalizedTransitionHash, nil
+		return coreState.lastFinalizedBlockHash, nil
 	}
 
 	for {
@@ -309,7 +309,7 @@ func BuildParentTransitionHash(
 
 		if coreState.LastFinalizedProposalId.Cmp(cursor) == 0 {
 			if len(parentTransitions) != 0 {
-				parentTransitions[0].transition.ParentTransitionHash = coreState.LastFinalizedTransitionHash
+				parentTransitions[0].transition.ParentTransitionHash = coreState.lastFinalizedBlockHash
 			}
 			break
 		}
