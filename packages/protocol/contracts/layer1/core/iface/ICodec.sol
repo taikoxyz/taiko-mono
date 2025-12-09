@@ -40,6 +40,27 @@ interface ICodec {
         returns (IInbox.ProposedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
+    // ProvedEventCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Encodes a ProvedEventPayload into bytes
+    /// @param _payload The ProvedEventPayload to encode
+    /// @return encoded_ The encoded bytes
+    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
+        external
+        pure
+        returns (bytes memory encoded_);
+
+    /// @notice Decodes bytes into a ProvedEventPayload
+    /// @param _data The bytes to decode
+    /// @return payload_ The decoded ProvedEventPayload
+    /// @dev Reverts on malformed or truncated input data
+    function decodeProvedEvent(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProvedEventPayload memory payload_);
+
+    // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
 
@@ -59,6 +80,27 @@ interface ICodec {
         external
         pure
         returns (IInbox.ProposeInput memory input_);
+
+    // ---------------------------------------------------------------
+    // ProveInputCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Encodes prove input data
+    /// @param _input The ProveInput to encode
+    /// @return encoded_ The encoded data
+    function encodeProveInput(IInbox.ProveInput calldata _input)
+        external
+        pure
+        returns (bytes memory encoded_);
+
+    /// @notice Decodes prove input data
+    /// @param _data The encoded data
+    /// @return input_ The decoded ProveInput
+    /// @dev Reverts on malformed or truncated input data
+    function decodeProveInput(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProveInput memory input_);
 
     // ---------------------------------------------------------------
     // Hashing Functions
@@ -81,4 +123,9 @@ interface ICodec {
         external
         pure
         returns (bytes32);
+
+    /// @notice Hashing for ProveInput structs
+    /// @param _input The prove input to hash
+    /// @return The hash of the prove input
+    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32);
 }

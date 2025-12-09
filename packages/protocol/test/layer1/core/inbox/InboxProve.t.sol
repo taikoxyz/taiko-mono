@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @notice Test contract with minProposalsToFinalize = 3 to test LastProposalIdTooSmall
@@ -45,7 +44,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
             proposalStates: proposalStates
         });
 
-        bytes memory encodedInput = LibProveInputCodec.encode(input);
+        bytes memory encodedInput = codec.encodeProveInput(input);
         vm.expectRevert(Inbox.LastProposalIdTooSmall.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -136,7 +135,7 @@ contract InboxProveTest is InboxTestBase {
             proposalStates: new IInbox.ProposalState[](0)
         });
 
-        bytes memory encodedInput = LibProveInputCodec.encode(emptyInput);
+        bytes memory encodedInput = codec.encodeProveInput(emptyInput);
         vm.expectRevert(Inbox.EmptyBatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -164,7 +163,7 @@ contract InboxProveTest is InboxTestBase {
             proposalStates: proposalStates
         });
 
-        bytes memory encodedInput = LibProveInputCodec.encode(input);
+        bytes memory encodedInput = codec.encodeProveInput(input);
         vm.expectRevert(Inbox.FirstProposalIdTooLarge.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -198,7 +197,7 @@ contract InboxProveTest is InboxTestBase {
             proposalStates: proposalStates
         });
 
-        bytes memory encodedInput = LibProveInputCodec.encode(input);
+        bytes memory encodedInput = codec.encodeProveInput(input);
         vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -224,7 +223,7 @@ contract InboxProveTest is InboxTestBase {
             proposalStates: proposalStates
         });
 
-        bytes memory encodedInput = LibProveInputCodec.encode(input);
+        bytes memory encodedInput = codec.encodeProveInput(input);
         vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -260,7 +259,7 @@ contract InboxProveTest is InboxTestBase {
             payer: p1.proposal.proposer,
             payee: prover
         });
-        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
+        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "bond signal sent");
     }
 
@@ -297,7 +296,7 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer, // designatedProver pays
             payee: prover // actualProver receives
         });
-        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
+        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
         assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "liveness bond signal");
     }
 
@@ -385,7 +384,7 @@ contract InboxProveTest is InboxTestBase {
             proposalStates: fullBatch
         });
 
-        bytes memory encodedInput = LibProveInputCodec.encode(fullInput);
+        bytes memory encodedInput = codec.encodeProveInput(fullInput);
         vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -404,10 +403,10 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer,
             payee: prover
         });
-        bytes32 livenessSignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
 
         instruction.bondType = LibBonds.BondType.PROVABILITY;
-        bytes32 provabilitySignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
 
         assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal");
         assertFalse(
@@ -448,7 +447,7 @@ contract InboxProveTest is InboxTestBase {
             payer: prover,
             payee: prover
         });
-        bytes32 livenessSignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
 
         assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal when payer==payee");
     }
@@ -520,7 +519,7 @@ contract InboxProveTest is InboxTestBase {
 
         // lastProposalId = 1 + 2 - 1 = 2, nextProposalId = 2
         // Condition: lastProposalId < nextProposalId → 2 < 2 → false → revert
-        bytes memory encodedInput = LibProveInputCodec.encode(input);
+        bytes memory encodedInput = codec.encodeProveInput(input);
         vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
@@ -563,7 +562,7 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer,
             payee: prover
         });
-        bytes32 livenessSignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
         assertFalse(signalService.isSignalSent(address(inbox), livenessSignal), "no bond at exact provingWindow");
     }
 
@@ -600,7 +599,7 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer, // designatedProver pays
             payee: prover
         });
-        bytes32 livenessSignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
         assertTrue(signalService.isSignalSent(address(inbox), livenessSignal), "liveness bond 1 sec past window");
     }
 
@@ -637,7 +636,7 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer, // designatedProver
             payee: prover
         });
-        bytes32 livenessSignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
         assertTrue(signalService.isSignalSent(address(inbox), livenessSignal), "liveness at exact extendedWindow");
     }
 
@@ -674,7 +673,52 @@ contract InboxProveTest is InboxTestBase {
             payer: proposed.proposal.proposer, // proposer pays
             payee: prover
         });
-        bytes32 provabilitySignal = LibBonds.hashBondInstruction(instruction);
+        bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
         assertTrue(signalService.isSignalSent(address(inbox), provabilitySignal), "provability 1 sec past extended");
+    }
+
+    function test_prove_noCheckpointSync_beforeDelay() public {
+        IInbox.ProveInput memory input = _buildBatchInput(1);
+
+        // Do NOT warp past minCheckpointDelay - checkpoint should not sync
+        _prove(input);
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
+        // Checkpoint timestamp should remain 0 (initial value) since delay hasn't passed
+        assertEq(state.lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
+    }
+
+    function test_prove_checkpointSyncsAfterDelay() public {
+        // First prove without checkpoint sync
+        IInbox.ProveInput memory input1 = _buildBatchInput(1);
+        _prove(input1);
+
+        uint48 checkpointBefore = inbox.getState().lastCheckpointTimestamp;
+        assertEq(checkpointBefore, 0, "checkpoint not synced initially");
+
+        // Advance block and propose another
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+
+        // Warp past minCheckpointDelay
+        vm.warp(block.timestamp + config.minCheckpointDelay + 1);
+
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        proposalStates[0] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+
+        IInbox.ProveInput memory input2 = IInbox.ProveInput({
+            firstProposalId: p2.proposal.id,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot2"),
+            actualProver: prover,
+            proposalStates: proposalStates
+        });
+
+        _prove(input2);
+
+        IInbox.CoreState memory state = inbox.getState();
+        assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint synced");
     }
 }

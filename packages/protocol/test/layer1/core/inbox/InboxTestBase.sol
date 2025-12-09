@@ -9,7 +9,6 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -217,7 +216,7 @@ abstract contract InboxTestBase is CommonTest {
     )
         internal
     {
-        bytes memory encodedInput = LibProveInputCodec.encode(_input);
+        bytes memory encodedInput = codec.encodeProveInput(_input);
         vm.startPrank(prover);
 
         if (bytes(_benchName).length > 0) vm.startSnapshotGas(_profile, _benchName);
