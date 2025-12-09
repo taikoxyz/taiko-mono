@@ -68,7 +68,8 @@ where
     }
 
     /// Spawn a background event-scanner starting from the latest on-chain lookahead buffer depth,
-    /// stream events forward, and keep feeding `LookaheadPosted` logs into the resolver cache.
+    /// stream events forward, and keep feeding lookahead plus blacklist/unblacklist logs into the
+    /// resolver cache.
     /// The returned handle drives the long-running scanner task; log ingestion retries with
     /// capped exponential backoff.
     pub async fn spawn_scanner_from_latest(

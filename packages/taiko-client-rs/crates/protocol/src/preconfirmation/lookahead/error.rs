@@ -12,9 +12,6 @@ pub enum LookaheadError {
     /// Failure when querying the preconfirmation whitelist.
     #[error("failed to call preconf whitelist: {0}")]
     PreconfWhitelist(alloy_contract::Error),
-    /// Failure when checking blacklist status on-chain.
-    #[error("failed to check blacklist state: {0}")]
-    Blacklist(alloy_contract::Error),
     /// Decoding of a lookahead event failed.
     #[error("failed to decode lookahead event: {0}")]
     EventDecode(String),
