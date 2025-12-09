@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{sync::Arc, time::SystemTime};
 
 use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
@@ -17,83 +14,39 @@ use tokio::{
     runtime::{Builder, Handle},
     sync::broadcast,
 };
-use tracing::{debug, warn};
+use tracing::warn;
 
 use super::{
-    LookaheadSlot, PreconfSignerResolver,
-    client::LookaheadClient,
-    error::{LookaheadError, Result},
+    super::{
+        PreconfSignerResolver,
+        client::LookaheadClient,
+        error::{LookaheadError, Result},
+    },
+    epoch::{
+        MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, earliest_allowed_timestamp, epoch_start_for,
+        genesis_timestamp_for_chain,
+    },
+    timeline::{BlacklistEvent, BlacklistFlag, BlacklistTimeline},
+    types::{
+        CachedLookaheadEpoch, LookaheadBroadcast, LookaheadEpochUpdate, SlotOrigin,
+        pick_slot_origin,
+    },
 };
 
-/// Duration of a single preconfirmation slot in seconds.
-pub const SECONDS_IN_SLOT: u64 = 12;
-/// Duration of one epoch in seconds (32 slots).
-pub const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
-/// Maximum backward block scans when searching for a block within an epoch. One epoch is ~32 EL
-/// blocks on a 12s cadence; 256 provides ample slack while keeping lookup bounded.
-const MAX_BACKWARD_STEPS: u16 = 256;
-/// Maximum number of epochs allowed for lookback when resolving a committer.
-pub(crate) const MAX_LOOKBACK_EPOCHS: u64 = 1;
-
-/// Cached lookahead data for a single epoch.
-#[derive(Clone, Debug)]
-pub struct CachedLookaheadEpoch {
-    /// Ordered lookahead slots for an epoch as emitted by `LookaheadPosted`.
-    pub slots: Arc<Vec<LookaheadSlot>>,
-    /// Snapshot of the whitelist operator for this epoch at the block that emitted the
-    /// `LookaheadPosted` event. Used as a deterministic fallback when lookahead is empty or a slot
-    /// is later deemed unusable.
-    pub fallback_whitelist: Address,
-}
-
-impl CachedLookaheadEpoch {
-    /// Read-only view of ordered slots for this epoch.
-    pub fn slots(&self) -> &[LookaheadSlot] {
-        &self.slots
-    }
-
-    /// Blacklist flags are tracked separately via live events.
-    /// Whitelist fallback captured for this epoch at ingest time.
-    pub fn fallback_whitelist(&self) -> Address {
-        self.fallback_whitelist
-    }
-}
-
-/// Broadcast messages emitted by the resolver.
-#[derive(Clone, Debug)]
-pub enum LookaheadBroadcast {
-    /// Newly cached epoch data.
-    Epoch(LookaheadEpochUpdate),
-    /// Operator registration root was blacklisted.
-    Blacklisted { root: B256 },
-    /// Operator registration root was removed from blacklist.
-    Unblacklisted { root: B256 },
-}
-
-/// Epoch update broadcast structure.
-#[derive(Clone, Debug)]
-pub struct LookaheadEpochUpdate {
-    /// Epoch start timestamp (seconds since UNIX_EPOCH).
-    pub epoch_start: u64,
-    /// Cached epoch data.
-    pub epoch: CachedLookaheadEpoch,
-}
-
-/// Maintains a sliding cache of lookahead epochs and resolves the expected committer for a
-/// timestamp using `LookaheadPosted` events plus live blacklist/unblacklist events and whitelist
-/// fallbacks.
+/// Sliding resolver that answers “who should commit at this timestamp?” using cached lookahead
+/// events, historical blacklist timelines, and whitelist fallbacks.
 #[derive(Clone)]
 pub struct LookaheadResolver<P: Provider + Clone + Send + Sync + 'static> {
     /// Thin contract client helpers (Inbox/LookaheadStore).
     pub(crate) client: LookaheadClient<P>,
     /// Preconf whitelist contract instance for fallback selection.
-    preconf_whitelist: PreconfWhitelistInstance<P>,
+    pub(crate) preconf_whitelist: PreconfWhitelistInstance<P>,
     /// Provider for block lookups to snapshot whitelist fallbacks.
-    provider: P,
+    pub(crate) provider: P,
     /// Sliding window of cached epochs keyed by epoch start timestamp.
-    cache: Arc<DashMap<u64, CachedLookaheadEpoch>>,
-    /// Live blacklist state keyed by operator registration root.
-    blacklisted: Arc<DashMap<B256, ()>>,
+    pub(crate) cache: Arc<DashMap<u64, CachedLookaheadEpoch>>,
+    /// Time-aware blacklist history keyed by operator registration root.
+    pub(crate) blacklist_history: Arc<DashMap<B256, BlacklistTimeline>>,
     /// Maximum cached epochs (derived from on-chain lookahead buffer size).
     lookahead_buffer_size: usize,
     /// Beacon genesis timestamp for the connected chain.
@@ -151,7 +104,7 @@ where
             preconf_whitelist,
             provider,
             cache: Arc::new(DashMap::new()),
-            blacklisted: Arc::new(DashMap::new()),
+            blacklist_history: Arc::new(DashMap::new()),
             lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
             genesis_timestamp,
             epoch_tx: None,
@@ -217,7 +170,7 @@ where
                 let event =
                     Blacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
-                self.blacklisted.insert(event.operatorRegistrationRoot, ());
+                self.record_blacklist_event(event.operatorRegistrationRoot, event.timestamp.to())?;
                 if let Some(tx) = &self.epoch_tx {
                     let _ = tx.send(LookaheadBroadcast::Blacklisted {
                         root: event.operatorRegistrationRoot,
@@ -228,7 +181,10 @@ where
                 let event =
                     Unblacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
-                self.blacklisted.remove(&event.operatorRegistrationRoot);
+                self.record_unblacklist_event(
+                    event.operatorRegistrationRoot,
+                    event.timestamp.to(),
+                )?;
                 if let Some(tx) = &self.epoch_tx {
                     let _ = tx.send(LookaheadBroadcast::Unblacklisted {
                         root: event.operatorRegistrationRoot,
@@ -239,6 +195,25 @@ where
             }
         }
 
+        Ok(())
+    }
+
+    /// Record a blacklist event for an operator and prune history to the allowed lookback window.
+    fn record_blacklist_event(&self, root: B256, at: u64) -> Result<()> {
+        let cutoff = earliest_allowed_timestamp(self.genesis_timestamp)?;
+        let mut timeline = self.blacklist_history.entry(root).or_default();
+        timeline.apply(BlacklistEvent { at, flag: BlacklistFlag::Listed });
+        timeline.prune_before(cutoff);
+        Ok(())
+    }
+
+    /// Record an unblacklist event for an operator and prune history to the allowed lookback
+    /// window.
+    fn record_unblacklist_event(&self, root: B256, at: u64) -> Result<()> {
+        let cutoff = earliest_allowed_timestamp(self.genesis_timestamp)?;
+        let mut timeline = self.blacklist_history.entry(root).or_default();
+        timeline.apply(BlacklistEvent { at, flag: BlacklistFlag::Cleared });
+        timeline.prune_before(cutoff);
         Ok(())
     }
 
@@ -304,7 +279,7 @@ where
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
     ///
     /// Resolution rules (parity with `LookaheadStore._determineProposerContext`) without runtime
-    /// network I/O:
+    /// network I/O, evaluating blacklist state at the queried timestamp:
     /// - If the epoch has no lookahead slots (including epochs that already started but never
     ///   posted lookahead), use the cached current-epoch whitelist operator for the whole epoch
     ///   (`_handleEmptyCurrentLookahead`).
@@ -312,8 +287,8 @@ where
     ///   (`_handleSameEpochProposer` selection); if none exist and the first slot of the next epoch
     ///   is still ahead of `ts`, use that first slot (`_handleCrossEpochProposer`); otherwise fall
     ///   back to the cached current-epoch whitelist.
-    /// - If the chosen slot is currently blacklisted (tracked live via events), fall back to the
-    ///   cached current-epoch whitelist.
+    /// - If the chosen slot was blacklisted at the queried timestamp (tracked via historical
+    ///   events), fall back to the cached current-epoch whitelist.
     /// - Timestamps older than one epoch before the current epoch start are rejected as `TooOld`.
     pub async fn committer_for_timestamp(&self, timestamp: U256) -> Result<Address> {
         // Convert timestamp to u64 and check genesis boundary.
@@ -358,7 +333,7 @@ where
             Some(SlotOrigin::Current(idx)) => {
                 let slot = &curr_epoch.slots[idx];
                 // Check blacklist status.
-                if self.is_blacklisted(slot.registrationRoot) {
+                if self.was_blacklisted_at(slot.registrationRoot, ts) {
                     return Ok(curr_epoch.fallback_whitelist);
                 }
                 Ok(slot.committer)
@@ -370,7 +345,7 @@ where
                     .get(idx)
                     .ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
                 // Check blacklist status.
-                if self.is_blacklisted(slot.registrationRoot) {
+                if self.was_blacklisted_at(slot.registrationRoot, ts) {
                     return Ok(curr_epoch.fallback_whitelist);
                 }
                 Ok(slot.committer)
@@ -379,9 +354,11 @@ where
         }
     }
 
-    /// Return whether the operator registration root is currently blacklisted.
-    fn is_blacklisted(&self, registration_root: B256) -> bool {
-        self.blacklisted.contains_key(&registration_root)
+    /// Return whether the operator registration root was blacklisted at the provided timestamp.
+    fn was_blacklisted_at(&self, registration_root: B256, ts: u64) -> bool {
+        self.blacklist_history
+            .get(&registration_root)
+            .is_some_and(|timeline| timeline.was_blacklisted_at(ts))
     }
 
     /// Locate a block whose timestamp is within the given epoch window `[epoch_start,
@@ -436,7 +413,7 @@ where
     /// posted, mirroring `_handleEmptyCurrentLookahead` behavior.
     async fn synthetic_empty_epoch(&self, epoch_start: u64) -> Result<CachedLookaheadEpoch> {
         let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
+            .duration_since(std::time::UNIX_EPOCH)
             .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
             .as_secs();
 
@@ -481,191 +458,5 @@ where
                 .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
                 .block_on(self.committer_for_timestamp(l2_block_timestamp))
         }
-    }
-}
-
-/// Identifies which cached epoch supplies the slot for a timestamp.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SlotOrigin {
-    /// Slot comes from the current epoch cache; carries index into `slots`.
-    Current(usize),
-    /// Slot comes from the next epoch cache; carries index into that epoch's `slots`.
-    Next(usize),
-}
-
-/// Choose the first applicable lookahead slot for the timestamp, returning its origin and index.
-///
-/// Slots are ordered on-chain; pick the earliest slot with timestamp >= ts. If none in current
-/// epoch, allow the first slot of next epoch if its timestamp is still ahead of ts; otherwise none.
-fn pick_slot_origin(
-    ts: u64,
-    current_slots: &[LookaheadSlot],
-    next_slots: Option<&[LookaheadSlot]>,
-) -> Option<SlotOrigin> {
-    // If the current epoch has no lookahead slots, contract logic falls back to the whitelist for
-    // the whole epoch (`_handleEmptyCurrentLookahead`); do not borrow from the next epoch.
-    if current_slots.is_empty() {
-        return None;
-    }
-
-    // Find the first current epoch slot >= ts.
-    if let Some((idx, _)) =
-        current_slots.iter().enumerate().find(|(_, slot)| ts <= slot.timestamp.to::<u64>())
-    {
-        return Some(SlotOrigin::Current(idx));
-    }
-
-    // No current epoch slot matched; check the first slot of the next epoch if available.
-    if let Some(next) = next_slots &&
-        let Some(first) = next.first() &&
-        ts <= first.timestamp.to::<u64>()
-    {
-        return Some(SlotOrigin::Next(0));
-    }
-
-    // No suitable slot found.
-    None
-}
-
-/// Return the epoch start boundary (in seconds) that contains `ts`.
-///
-/// Assumes the provided `genesis_timestamp` is already aligned to the slot/epoch boundary; we do
-/// not snap misaligned timestamps up to the next 12-second multiple. Calculation simply floors to
-/// the nearest epoch based on the given genesis.
-fn epoch_start_for(ts: u64, genesis_timestamp: u64) -> u64 {
-    let elapsed = ts.saturating_sub(genesis_timestamp);
-    let epochs = elapsed / SECONDS_IN_EPOCH;
-    genesis_timestamp + epochs * SECONDS_IN_EPOCH
-}
-
-/// Return the earliest timestamp allowed for lookups based on the configured lookback window,
-/// aligned to the epoch boundary that contains "now".
-fn earliest_allowed_timestamp(genesis_timestamp: u64) -> Result<u64> {
-    let now = current_unix_timestamp()?;
-    Ok(earliest_allowed_timestamp_at(now, genesis_timestamp))
-}
-
-/// Pure helper to compute the earliest allowed timestamp for a supplied "now" value. Useful for
-/// tests.
-fn earliest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) -> u64 {
-    epoch_start_for(now, genesis_timestamp)
-        .saturating_sub(MAX_LOOKBACK_EPOCHS.saturating_mul(SECONDS_IN_EPOCH))
-}
-
-/// Current UNIX timestamp in seconds.
-fn current_unix_timestamp() -> Result<u64> {
-    Ok(SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
-        .as_secs())
-}
-
-/// Return the beacon genesis timestamp for known chains.
-///
-/// Mappings are derived from `LibPreconfConstants` and `LibNetwork`:
-/// - 1: Ethereum mainnet (1_606_824_023)
-/// - 17_000: Holesky (1_695_902_400)
-/// - 560_048: Hoodi (1_742_213_400)
-///
-/// Any other chain ID yields `None` and surfaces as `UnknownChain` to callers.
-fn genesis_timestamp_for_chain(chain_id: u64) -> Option<u64> {
-    match chain_id {
-        1 => Some(1_606_824_023),
-        17_000 => Some(1_695_902_400),
-        560_048 => Some(1_742_213_400),
-        _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use alloy_primitives::B256;
-
-    use super::*;
-
-    #[test]
-    fn epoch_start_floors_relative_to_genesis() {
-        let genesis = 1_000;
-        assert_eq!(epoch_start_for(genesis, genesis), genesis);
-        assert_eq!(epoch_start_for(genesis + 5, genesis), genesis);
-        assert_eq!(epoch_start_for(genesis + SECONDS_IN_SLOT, genesis), genesis);
-        assert_eq!(epoch_start_for(genesis + SECONDS_IN_EPOCH - 1, genesis), genesis);
-        assert_eq!(
-            epoch_start_for(genesis + SECONDS_IN_EPOCH + 1, genesis),
-            genesis + SECONDS_IN_EPOCH
-        );
-    }
-
-    #[test]
-    fn genesis_timestamp_known_and_unknown() {
-        assert_eq!(genesis_timestamp_for_chain(1), Some(1_606_824_023));
-        assert_eq!(genesis_timestamp_for_chain(17_000), Some(1_695_902_400));
-        assert_eq!(genesis_timestamp_for_chain(99999), None);
-    }
-
-    #[test]
-    fn cached_fallback_uses_epoch_aligned_snapshot() {
-        let addr_curr = Address::from([0x11u8; 20]);
-
-        let current =
-            CachedLookaheadEpoch { slots: Arc::new(vec![]), fallback_whitelist: addr_curr };
-
-        assert_eq!(current.fallback_whitelist, addr_curr);
-    }
-
-    #[test]
-    fn pick_slot_prefers_current_then_next_first() {
-        let current = vec![
-            LookaheadSlot {
-                timestamp: U256::from(200),
-                committer: Address::from([1u8; 20]),
-                registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
-            },
-            LookaheadSlot {
-                timestamp: U256::from(240),
-                committer: Address::from([2u8; 20]),
-                registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
-            },
-        ];
-
-        let next_first = LookaheadSlot {
-            timestamp: U256::from(400),
-            committer: Address::from([3u8; 20]),
-            registrationRoot: B256::ZERO,
-            validatorLeafIndex: U256::ZERO,
-        };
-
-        let picked = pick_slot_origin(210, &current, Some(&[next_first.clone()])).expect("slot");
-        assert_eq!(picked, SlotOrigin::Current(1));
-
-        let picked_next =
-            pick_slot_origin(300, &current, Some(&[next_first.clone()])).expect("next slot");
-        assert_eq!(picked_next, SlotOrigin::Next(0));
-
-        let none = pick_slot_origin(500, &current, Some(&[next_first]));
-        assert!(none.is_none());
-    }
-
-    #[test]
-    fn pick_slot_falls_back_when_current_empty_even_if_next_present() {
-        let next_first = LookaheadSlot {
-            timestamp: U256::from(400),
-            committer: Address::from([3u8; 20]),
-            registrationRoot: B256::ZERO,
-            validatorLeafIndex: U256::ZERO,
-        };
-
-        let picked = pick_slot_origin(210, &[], Some(&[next_first]));
-        assert!(picked.is_none());
-    }
-
-    #[test]
-    fn earliest_allowed_aligned_to_epoch_boundary() {
-        let genesis = 1_000;
-        let now = genesis + SECONDS_IN_EPOCH + 10;
-        let expected = epoch_start_for(now, genesis) - SECONDS_IN_EPOCH;
-        assert_eq!(earliest_allowed_timestamp_at(now, genesis), expected);
     }
 }
