@@ -509,15 +509,8 @@ contract Anchor is EssentialContract {
 
     error AncestorsHashMismatch();
     error InvalidAddress();
-    error InvalidAnchorBlockNumber();
-    error InvalidBlockIndex();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
-    error NonZeroAnchorBlockHash();
-    error NonZeroAnchorStateRoot();
-    error NonZeroBlockIndex();
     error ProposalIdMismatch();
-    error ProposerMismatch();
-    error ZeroBlockCount();
 }
