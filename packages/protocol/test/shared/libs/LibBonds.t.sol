@@ -24,7 +24,13 @@ contract LibBondsTest is Test {
         vm.warp(readyTimestamp + PROVING_WINDOW);
 
         LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
-            1, proposer, designatedProver, actualProver, readyTimestamp, PROVING_WINDOW, EXTENDED_PROVING_WINDOW
+            1,
+            proposer,
+            designatedProver,
+            actualProver,
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
         );
 
         assertEq(uint8(result.bondType), uint8(LibBonds.BondType.NONE));
@@ -37,7 +43,13 @@ contract LibBondsTest is Test {
         vm.warp(readyTimestamp + PROVING_WINDOW + 1);
 
         LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
-            1, proposer, designatedProver, actualProver, readyTimestamp, PROVING_WINDOW, EXTENDED_PROVING_WINDOW
+            1,
+            proposer,
+            designatedProver,
+            actualProver,
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
         );
 
         assertEq(uint8(result.bondType), uint8(LibBonds.BondType.LIVENESS));
@@ -52,7 +64,13 @@ contract LibBondsTest is Test {
         vm.warp(readyTimestamp + EXTENDED_PROVING_WINDOW + 1);
 
         LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
-            1, proposer, designatedProver, actualProver, readyTimestamp, PROVING_WINDOW, EXTENDED_PROVING_WINDOW
+            1,
+            proposer,
+            designatedProver,
+            actualProver,
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
         );
 
         assertEq(uint8(result.bondType), uint8(LibBonds.BondType.PROVABILITY));
@@ -79,5 +97,4 @@ contract LibBondsTest is Test {
         // No bond movement when payer == payee
         assertEq(uint8(result.bondType), uint8(LibBonds.BondType.NONE));
     }
-
 }

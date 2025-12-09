@@ -370,5 +370,4 @@ contract InboxProveTest is InboxTestBase {
         vm.prank(prover);
         inbox.prove(encodedInput, bytes(""));
     }
-
 }
