@@ -305,7 +305,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
 
             // Calculate the offset (index) of the first-time-proven in the batch as input.firstProposalId may be smaller thn or equal to  _state.lastFinalizedProposalId, so it may have been finalized already.
-            uint256 offset = state.lastFinalizedProposalId + 1 - input.firstProposalId;
+            uint48 offset = state.lastFinalizedProposalId + 1 - input.firstProposalId;
             
             if (offset == 0) {
                  require(state.lastFinalizedTransitionHash == input.firstProposalParentTransitionHash, ParentTransitionHashMismatch());
@@ -313,12 +313,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 require(state.lastFinalizedTransitionHash == input.proposals[offset - 1].transitionHash, ParentTransitionHashMismatch());
             }
             
-            // Process bond instruction for the first-time-proven proposal
-            // TODO: implement bond instruction calculation
-            // LibBonds.BondInstruction memory bondInstruction = ...;
-            // if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-            //     _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-            // }
+
+            // Calculate bond instruction for the first-time-proven proposal
+            LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction2(
+                input.firstProposalId + offset,
+                input.proposals[offset],
+                input.actualProver,
+                state.lastFinalizedTimestamp,
+                _provingWindow,
+                _extendedProvingWindow
+            );
+
+            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+            }
 
             // Save checkpoint if enough time has passed since the last one
             if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
@@ -327,7 +335,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // Update finalization state
-              _state.lastFinalizedProposalId = uint48(lastProposalId);
+             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedTransitionHash = input.proposals[numProposals - 1].transitionHash;
             _state.lastFinalizedTimestamp = uint48(block.timestamp);
 

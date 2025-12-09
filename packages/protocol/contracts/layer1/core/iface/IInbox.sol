@@ -141,7 +141,7 @@ interface IInbox {
     }
 
     /// @notice Metadata for a proposal used in prove2
-    struct ProposalMetadata {
+    struct ProposalState{
         /// @notice Address of the proposer.
         address proposer;
         /// @notice Address of the designated prover.
@@ -159,9 +159,10 @@ interface IInbox {
         /// @notice The transition hash of the parent of the first proposal.
         bytes32 firstProposalParentTransitionHash;
         /// @notice Array of proposal metadata for each proposal in the proof range.
-        ProposalMetadata[] proposals;
+        ProposalState[] proposals;
         /// @notice The checkpoint from the last transition.
         ICheckpointStore.Checkpoint lastCheckpoint;
+        address actualProver;
     }
 
 

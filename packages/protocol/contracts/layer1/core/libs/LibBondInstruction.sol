@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibBondInstruction
@@ -59,5 +60,42 @@ library LibBondInstruction {
                 payee: payee
             });
         }
+    }
+
+    /// @dev Calculates bond instruction from a ProposalState struct.
+    /// @param _proposalId The proposal ID.
+    /// @param _proposalState The proposal state containing proposer, designatedProver, and timestamp.
+    /// @param _actualProver The actual prover address (typically msg.sender).
+    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
+    /// @param _provingWindow The proving window in seconds.
+    /// @param _extendedProvingWindow The extended proving window in seconds.
+    /// @return bondInstruction_ A bond transfer instruction, or a BondType.NONE instruction when
+    ///         no transfer is required.
+    function calculateBondInstruction2(
+        uint48 _proposalId,
+        IInbox.ProposalState memory _proposalState,
+        address _actualProver,
+        uint48 _lastFinalizedTimestamp,
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow
+    )
+        internal
+        view
+        returns (LibBonds.BondInstruction memory bondInstruction_)
+    {
+        // Ready timestamp is the max of proposal timestamp and last finalized timestamp
+        uint48 readyTimestamp = _proposalState.timestamp > _lastFinalizedTimestamp
+            ? _proposalState.timestamp
+            : _lastFinalizedTimestamp;
+
+        return calculateBondInstruction(
+            _proposalId,
+            _proposalState.proposer,
+            _proposalState.designatedProver,
+            _actualProver,
+            readyTimestamp,
+            _provingWindow,
+            _extendedProvingWindow
+        );
     }
 }
