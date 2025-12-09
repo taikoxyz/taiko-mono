@@ -6,7 +6,7 @@ use std::{
 use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types::Log;
+use alloy_rpc_types::{BlockNumberOrTag, Log};
 use bindings::{
     lookahead_store::LookaheadStore::{Blacklisted, LookaheadPosted, Unblacklisted},
     preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance,
@@ -72,6 +72,8 @@ pub struct LookaheadResolver<P: Provider + Clone + Send + Sync + 'static> {
     pub(crate) client: LookaheadClient<P>,
     /// Preconf whitelist contract instance for fallback selection.
     preconf_whitelist: PreconfWhitelistInstance<P>,
+    /// Provider for block lookups to snapshot whitelist fallbacks.
+    provider: P,
     /// Sliding window of cached epochs keyed by epoch start timestamp.
     cache: Arc<DashMap<u64, CachedLookaheadEpoch>>,
     /// Live blacklist state keyed by operator registration root.
@@ -131,6 +133,7 @@ where
         Ok(Self {
             client,
             preconf_whitelist,
+            provider,
             cache: Arc::new(DashMap::new()),
             blacklisted: Arc::new(DashMap::new()),
             lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
@@ -318,13 +321,22 @@ where
                 return Err(LookaheadError::MissingLookahead(epoch_start));
             }
 
+            // Find a block within this epoch to snapshot the whitelist state.
+            let block_number = self.block_within_epoch(epoch_start).await?;
+            let Some(block_number) = block_number else {
+                return Err(LookaheadError::MissingLookahead(epoch_start));
+            };
+
+            // Snapshot the whitelist operator at that block.
             let fallback_current = self
                 .preconf_whitelist
                 .getOperatorForCurrentEpoch()
+                .block(BlockId::Number(block_number.into()))
                 .call()
                 .await
                 .map_err(LookaheadError::PreconfWhitelist)?;
 
+            // Cache an empty epoch entry.
             let cached = CachedLookaheadEpoch {
                 slots: Arc::new(vec![]),
                 fallback_whitelist: fallback_current,
@@ -366,6 +378,54 @@ where
     /// Return whether the operator registration root is currently blacklisted.
     fn is_blacklisted(&self, registration_root: B256) -> bool {
         self.blacklisted.contains_key(&registration_root)
+    }
+
+    /// Locate a block whose timestamp is within the given epoch window `[epoch_start,
+    /// epoch_start + SECONDS_IN_EPOCH)`. Returns the block number if found.
+    async fn block_within_epoch(&self, epoch_start: u64) -> Result<Option<u64>> {
+        let epoch_end = epoch_start.saturating_add(SECONDS_IN_EPOCH);
+
+        // Start from the latest block to reduce reorg risk.
+        let latest = self
+            .provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
+
+        let Some(block) = latest else { return Ok(None) };
+        let mut curr_num = block.number();
+        let mut curr_ts = block.header.timestamp;
+
+        if curr_ts < epoch_start {
+            return Ok(None);
+        }
+        if curr_ts < epoch_end {
+            return Ok(Some(curr_num));
+        }
+
+        // Step backwards one block at a time (bounded) to find any block inside the epoch window.
+        let mut attempts = 0u16;
+        while curr_num > 0 && attempts < 1024 {
+            curr_num = curr_num.saturating_sub(1);
+
+            let maybe_block = self
+                .provider
+                .get_block_by_number(BlockNumberOrTag::Number(curr_num))
+                .await
+                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
+
+            let Some(new_block) = maybe_block else { break };
+            curr_ts = new_block.header.timestamp;
+            if curr_ts < epoch_start {
+                return Ok(None);
+            }
+            if curr_ts < epoch_end {
+                return Ok(Some(new_block.number()));
+            }
+            attempts = attempts.saturating_add(1);
+        }
+
+        Ok(None)
     }
 }
 
