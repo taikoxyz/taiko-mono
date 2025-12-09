@@ -14,7 +14,7 @@ use std::{env, time::SystemTime};
 use alloy_primitives::{Address, U256};
 use anyhow::{Context, Result, anyhow};
 use protocol::{
-    preconfirmation::lookahead::LookaheadResolverWithDefaultProvider,
+    preconfirmation::lookahead::{LookaheadBroadcast, LookaheadResolverWithDefaultProvider},
     subscription_source::SubscriptionSource,
 };
 use tokio::task::JoinHandle;
@@ -38,12 +38,24 @@ async fn main() -> Result<()> {
     let mut epoch_rx = resolver.enable_epoch_channel(16);
     let epoch_logger: JoinHandle<()> = tokio::spawn(async move {
         while let Ok(update) = epoch_rx.recv().await {
-            println!(
-                "cached epoch {} with {} slots (whitelist fallback: {:?})",
-                update.epoch_start,
-                update.epoch.slots().len(),
-                update.epoch.fallback_whitelist(),
-            );
+            match update {
+                LookaheadBroadcast::Epoch(update) => {
+                    println!(
+                        "cached epoch {} with {} slots (whitelist fallback: {:?})",
+                        update.epoch_start,
+                        update.epoch.slots().len(),
+                        update.epoch.fallback_whitelist(),
+                    );
+                }
+                LookaheadBroadcast::Blacklisted { root } => {
+                    println!("operator blacklisted: {root:?}");
+                }
+                LookaheadBroadcast::Unblacklisted {
+                    root,
+                } => {
+                    println!("operator unblacklisted: {root:?}");
+                }
+            }
         }
     });
 

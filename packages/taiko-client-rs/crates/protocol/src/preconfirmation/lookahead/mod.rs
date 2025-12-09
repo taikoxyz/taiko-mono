@@ -11,7 +11,7 @@ pub use bindings::lookahead_store::ILookaheadStore::{
 };
 pub use client::LookaheadClient;
 pub use error::{LookaheadError, Result};
-pub use resolver::LookaheadResolver;
+pub use resolver::{LookaheadBroadcast, LookaheadResolver};
 
 /// Convenience alias for the default provider stack used by lookahead clients/resolvers.
 pub type LookaheadResolverWithDefaultProvider =

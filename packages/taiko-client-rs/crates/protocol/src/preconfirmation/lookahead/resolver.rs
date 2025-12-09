@@ -54,6 +54,17 @@ impl CachedLookaheadEpoch {
     }
 }
 
+/// Broadcast messages emitted by the resolver.
+#[derive(Clone, Debug)]
+pub enum LookaheadBroadcast {
+    /// Newly cached epoch data.
+    Epoch(LookaheadEpochUpdate),
+    /// Operator registration root was blacklisted.
+    Blacklisted { root: B256 },
+    /// Operator registration root was removed from blacklist.
+    Unblacklisted { root: B256 },
+}
+
 /// Epoch update broadcast structure.
 #[derive(Clone, Debug)]
 pub struct LookaheadEpochUpdate {
@@ -82,8 +93,8 @@ pub struct LookaheadResolver<P: Provider + Clone + Send + Sync + 'static> {
     lookahead_buffer_size: usize,
     /// Beacon genesis timestamp for the connected chain.
     genesis_timestamp: u64,
-    /// Optional broadcast sender for epoch updates.
-    epoch_tx: Option<broadcast::Sender<LookaheadEpochUpdate>>,
+    /// Optional broadcast sender for lookahead updates (epochs and blacklist changes).
+    epoch_tx: Option<broadcast::Sender<LookaheadBroadcast>>,
 }
 
 impl<P> LookaheadResolver<P>
@@ -157,18 +168,18 @@ where
         self.lookahead_buffer_size
     }
 
-    /// Enable an epoch broadcast channel; clones share the sender. Returns a receiver for updates.
+    /// Enable a broadcast channel; clones share the sender. Returns a receiver for updates.
     pub fn enable_epoch_channel(
         &mut self,
         capacity: usize,
-    ) -> broadcast::Receiver<LookaheadEpochUpdate> {
+    ) -> broadcast::Receiver<LookaheadBroadcast> {
         let (tx, rx) = broadcast::channel(capacity);
         self.epoch_tx = Some(tx);
         rx
     }
 
     /// Subscribe to epoch updates if broadcasting is enabled.
-    pub fn subscribe(&self) -> Option<broadcast::Receiver<LookaheadEpochUpdate>> {
+    pub fn subscribe(&self) -> Option<broadcast::Receiver<LookaheadBroadcast>> {
         self.epoch_tx.as_ref().map(|tx| tx.subscribe())
     }
 
@@ -202,12 +213,22 @@ where
                     Blacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
                 self.blacklisted.insert(event.operatorRegistrationRoot, ());
+                if let Some(tx) = &self.epoch_tx {
+                    let _ = tx.send(LookaheadBroadcast::Blacklisted {
+                        root: event.operatorRegistrationRoot,
+                    });
+                }
             } else if first_topic == Unblacklisted::SIGNATURE_HASH {
                 // Decode and apply unblacklist event.
                 let event =
                     Unblacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
                 self.blacklisted.remove(&event.operatorRegistrationRoot);
+                if let Some(tx) = &self.epoch_tx {
+                    let _ = tx.send(LookaheadBroadcast::Unblacklisted {
+                        root: event.operatorRegistrationRoot,
+                    });
+                }
             } else {
                 warn!(topic = ?first_topic, "unrecognized log topic");
             }
@@ -243,7 +264,10 @@ where
 
         // Broadcast the epoch update if channel is enabled.
         if let Some(tx) = &self.epoch_tx {
-            let _ = tx.send(LookaheadEpochUpdate { epoch_start, epoch: cached });
+            let _ = tx.send(LookaheadBroadcast::Epoch(LookaheadEpochUpdate {
+                epoch_start,
+                epoch: cached,
+            }));
         }
 
         // Evict oldest entries beyond buffer size.
