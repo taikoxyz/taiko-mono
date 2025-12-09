@@ -172,11 +172,15 @@ contract InboxProposeTest is InboxTestBase {
         payload_.derivation.sources[0] =
             IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
 
+        // Get the parent proposal hash from the ring buffer
+        bytes32 parentProposalHash = inbox.getProposalHash(_stateBefore.nextProposalId - 1);
+
         payload_.proposal = IInbox.Proposal({
             id: _stateBefore.nextProposalId,
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0,
             proposer: proposer,
+            parentProposalHash: parentProposalHash,
             derivationHash: bytes32(0)
         });
 
@@ -257,33 +261,6 @@ contract InboxProposeTest is InboxTestBase {
         state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
         state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
         state_.lastFinalizedTransitionHash = _stateBefore.lastFinalizedTransitionHash;
-    }
-
-    function _assertStateEqual(
-        IInbox.CoreState memory _actual,
-        IInbox.CoreState memory _expected
-    )
-        internal
-        pure
-    {
-        assertEq(_actual.nextProposalId, _expected.nextProposalId, "state nextProposalId");
-        assertEq(_actual.lastProposalBlockId, _expected.lastProposalBlockId, "state last block");
-        assertEq(
-            _actual.lastFinalizedProposalId, _expected.lastFinalizedProposalId, "state finalized id"
-        );
-        assertEq(
-            _actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts"
-        );
-        assertEq(
-            _actual.lastCheckpointTimestamp,
-            _expected.lastCheckpointTimestamp,
-            "state checkpoint ts"
-        );
-        assertEq(
-            _actual.lastFinalizedTransitionHash,
-            _expected.lastFinalizedTransitionHash,
-            "state transition hash"
-        );
     }
 
     function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {

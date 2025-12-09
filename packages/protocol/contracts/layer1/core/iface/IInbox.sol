@@ -77,6 +77,8 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
+        /// @notice Hash of the parent proposal (zero for genesis).
+        bytes32 parentProposalHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
     }

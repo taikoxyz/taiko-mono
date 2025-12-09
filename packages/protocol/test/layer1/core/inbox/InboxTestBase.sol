@@ -10,6 +10,7 @@ import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -114,11 +115,7 @@ abstract contract InboxTestBase is CommonTest {
             proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)"
         );
         proposerChecker.checkProposer(proposer, bytes(""));
-        bytes memory encodedInput = codec.encodeProposeInput(_input);
-        vm.recordLogs();
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
-        payload_ = _readProposedEvent();
+        payload_ = _proposeAndDecodeWithGas(_input, "");
     }
 
     function _proposeAndDecodeWithGas(
@@ -132,24 +129,28 @@ abstract contract InboxTestBase is CommonTest {
         vm.recordLogs();
         vm.startPrank(proposer);
 
-        vm.startSnapshotGas("shasta-propose", _benchName);
+        if (bytes(_benchName).length > 0) vm.startSnapshotGas("shasta-propose", _benchName);
         inbox.propose(bytes(""), encodedInput);
-        vm.stopSnapshotGas();
+        if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 
         vm.stopPrank();
         payload_ = _readProposedEvent();
     }
 
     function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
+        bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
+        require(eventData.length > 0, "Proposed event not found");
+        return codec.decodeProposedEvent(eventData);
+    }
+
+    function _findEventData(bytes32 _topic) private returns (bytes memory) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 proposedTopic = keccak256("Proposed(bytes)");
         for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length != 0 && logs[i].topics[0] == proposedTopic) {
-                bytes memory payload = abi.decode(logs[i].data, (bytes));
-                return codec.decodeProposedEvent(payload);
+            if (logs[i].topics.length != 0 && logs[i].topics[0] == _topic) {
+                return abi.decode(logs[i].data, (bytes));
             }
         }
-        revert("Proposed event not found");
+        return bytes("");
     }
 
     // ---------------------------------------------------------------------
@@ -193,25 +194,6 @@ abstract contract InboxTestBase is CommonTest {
         proposals_[2] = _p3;
     }
 
-    function _proposals(
-        IInbox.Proposal memory _p1,
-        IInbox.Proposal memory _p2,
-        IInbox.Proposal memory _p3,
-        IInbox.Proposal memory _p4,
-        IInbox.Proposal memory _p5
-    )
-        internal
-        pure
-        returns (IInbox.Proposal[] memory proposals_)
-    {
-        proposals_ = new IInbox.Proposal[](5);
-        proposals_[0] = _p1;
-        proposals_[1] = _p2;
-        proposals_[2] = _p3;
-        proposals_[3] = _p4;
-        proposals_[4] = _p5;
-    }
-
     function _transitions(IInbox.Transition memory _t1)
         internal
         pure
@@ -247,25 +229,6 @@ abstract contract InboxTestBase is CommonTest {
         transitions_[0] = _t1;
         transitions_[1] = _t2;
         transitions_[2] = _t3;
-    }
-
-    function _transitions(
-        IInbox.Transition memory _t1,
-        IInbox.Transition memory _t2,
-        IInbox.Transition memory _t3,
-        IInbox.Transition memory _t4,
-        IInbox.Transition memory _t5
-    )
-        internal
-        pure
-        returns (IInbox.Transition[] memory transitions_)
-    {
-        transitions_ = new IInbox.Transition[](5);
-        transitions_[0] = _t1;
-        transitions_[1] = _t2;
-        transitions_[2] = _t3;
-        transitions_[3] = _t4;
-        transitions_[4] = _t5;
     }
 
     function _setupMocks() internal virtual {
@@ -306,5 +269,147 @@ abstract contract InboxTestBase is CommonTest {
 
     function _addProposer(address _proposer) internal {
         proposerChecker.addOperator(_proposer, _proposer);
+    }
+
+    // ---------------------------------------------------------------------
+    // Block helpers
+    // ---------------------------------------------------------------------
+
+    function _advanceBlock() internal {
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+    }
+
+    // ---------------------------------------------------------------------
+    // Prove helpers
+    // ---------------------------------------------------------------------
+
+    function _checkpoint(bytes32 _stateRoot)
+        internal
+        view
+        returns (ICheckpointStore.Checkpoint memory)
+    {
+        return ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: blockhash(block.number - 1),
+            stateRoot: _stateRoot
+        });
+    }
+
+    function _transitionFor(
+        IInbox.ProposedEventPayload memory _proposal,
+        bytes32 _parentTransitionHash,
+        bytes32 _stateRoot,
+        address _designatedProver,
+        address _actualProver
+    )
+        internal
+        view
+        returns (IInbox.Transition memory)
+    {
+        return IInbox.Transition({
+            proposalHash: codec.hashProposal(_proposal.proposal),
+            parentTransitionHash: _parentTransitionHash,
+            checkpoint: _checkpoint(_stateRoot),
+            designatedProver: _designatedProver,
+            actualProver: _actualProver
+        });
+    }
+
+    function _proveAndDecode(IInbox.ProveInput memory _input)
+        internal
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
+        payload_ = _proveAndDecodeWithGas(_input, "", "");
+    }
+
+    function _proveAndDecodeWithGas(
+        IInbox.ProveInput memory _input,
+        string memory _profile,
+        string memory _benchName
+    )
+        internal
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
+        bytes memory encodedInput = codec.encodeProveInput(_input);
+        vm.recordLogs();
+        vm.startPrank(prover);
+
+        if (bytes(_benchName).length > 0) vm.startSnapshotGas(_profile, _benchName);
+        inbox.prove(encodedInput, bytes(""));
+        if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
+
+        vm.stopPrank();
+        payload_ = _readProvedEvent();
+    }
+
+    function _readProvedEvent() internal returns (IInbox.ProvedEventPayload memory payload_) {
+        bytes memory eventData = _findEventData(keccak256("Proved(bytes)"));
+        require(eventData.length > 0, "Proved event not found");
+        return codec.decodeProvedEvent(eventData);
+    }
+
+    // ---------------------------------------------------------------------
+    // Propose & prove batch helpers
+    // ---------------------------------------------------------------------
+
+    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
+        _setBlobHashes(3);
+        payload_ = _proposeAndDecode(_defaultProposeInput());
+    }
+
+    function _buildBatchInput(
+        uint256 _count,
+        bool _syncCheckpoint
+    )
+        internal
+        returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
+    {
+        input_.proposals = new IInbox.Proposal[](_count);
+        transitions_ = new IInbox.Transition[](_count);
+
+        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
+        for (uint256 i; i < _count; ++i) {
+            if (i != 0) _advanceBlock();
+            IInbox.ProposedEventPayload memory proposal = _proposeOne();
+            input_.proposals[i] = proposal.proposal;
+            transitions_[i] =
+                _transitionFor(proposal, parentHash, bytes32(uint256(i + 1)), prover, prover);
+            parentHash = codec.hashTransition(transitions_[i]);
+        }
+
+        input_.transitions = transitions_;
+        input_.syncCheckpoint = _syncCheckpoint;
+    }
+
+    // ---------------------------------------------------------------------
+    // Assertion helpers
+    // ---------------------------------------------------------------------
+
+    function _assertStateEqual(
+        IInbox.CoreState memory _actual,
+        IInbox.CoreState memory _expected
+    )
+        internal
+        pure
+    {
+        assertEq(_actual.nextProposalId, _expected.nextProposalId, "state nextProposalId");
+        assertEq(_actual.lastProposalBlockId, _expected.lastProposalBlockId, "state last block");
+        assertEq(
+            _actual.lastFinalizedProposalId, _expected.lastFinalizedProposalId, "state finalized id"
+        );
+        assertEq(
+            _actual.lastFinalizedTimestamp, _expected.lastFinalizedTimestamp, "state finalized ts"
+        );
+        assertEq(
+            _actual.lastCheckpointTimestamp,
+            _expected.lastCheckpointTimestamp,
+            "state checkpoint ts"
+        );
+        assertEq(
+            _actual.lastFinalizedTransitionHash,
+            _expected.lastFinalizedTransitionHash,
+            "state transition hash"
+        );
     }
 }

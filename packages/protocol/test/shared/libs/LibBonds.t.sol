@@ -2,244 +2,99 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
+import { LibBondInstruction } from "src/layer1/core/libs/LibBondInstruction.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 contract LibBondsTest is Test {
-    // ---------------------------------------------------------------
-    // Unit Tests for hashBondInstruction
-    // ---------------------------------------------------------------
+    uint48 constant PROVING_WINDOW = 1 hours;
+    uint48 constant EXTENDED_PROVING_WINDOW = 2 hours;
 
-    function test_hashBondInstruction_basic() public pure {
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        bytes32 hash = LibBonds.hashBondInstruction(instruction);
-
-        // Verify the hash is not zero
-        assertTrue(hash != bytes32(0), "hash should not be zero");
-
-        // Verify determinism - same input should produce same output
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction);
-        assertEq(hash, hash2, "hash should be deterministic");
-    }
-
-    function test_hashBondInstruction_differentProposalIds() public pure {
-        LibBonds.BondInstruction memory instruction1 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        LibBonds.BondInstruction memory instruction2 = LibBonds.BondInstruction({
-            proposalId: 2,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        bytes32 hash1 = LibBonds.hashBondInstruction(instruction1);
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction2);
-
-        assertTrue(hash1 != hash2, "different proposalIds should produce different hashes");
-    }
-
-    function test_hashBondInstruction_differentBondTypes() public pure {
-        LibBonds.BondInstruction memory instruction1 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.NONE,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        LibBonds.BondInstruction memory instruction2 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        LibBonds.BondInstruction memory instruction3 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        bytes32 hash1 = LibBonds.hashBondInstruction(instruction1);
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction2);
-        bytes32 hash3 = LibBonds.hashBondInstruction(instruction3);
-
-        assertTrue(hash1 != hash2, "NONE vs LIVENESS should produce different hashes");
-        assertTrue(hash2 != hash3, "LIVENESS vs PROVABILITY should produce different hashes");
-        assertTrue(hash1 != hash3, "NONE vs PROVABILITY should produce different hashes");
-    }
-
-    function test_hashBondInstruction_differentPayers() public pure {
-        LibBonds.BondInstruction memory instruction1 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x3333)
-        });
-
-        LibBonds.BondInstruction memory instruction2 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x2222),
-            payee: address(0x3333)
-        });
-
-        bytes32 hash1 = LibBonds.hashBondInstruction(instruction1);
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction2);
-
-        assertTrue(hash1 != hash2, "different payers should produce different hashes");
-    }
-
-    function test_hashBondInstruction_differentPayees() public pure {
-        LibBonds.BondInstruction memory instruction1 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x2222)
-        });
-
-        LibBonds.BondInstruction memory instruction2 = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x3333)
-        });
-
-        bytes32 hash1 = LibBonds.hashBondInstruction(instruction1);
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction2);
-
-        assertTrue(hash1 != hash2, "different payees should produce different hashes");
-    }
-
-    function test_hashBondInstruction_zeroValues() public pure {
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: 0, bondType: LibBonds.BondType.NONE, payer: address(0), payee: address(0)
-        });
-
-        bytes32 hash = LibBonds.hashBondInstruction(instruction);
-
-        assertTrue(hash != bytes32(0), "hash of zero values should not be zero");
-    }
-
-    function test_hashBondInstruction_maxValues() public pure {
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: type(uint48).max,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: address(type(uint160).max),
-            payee: address(type(uint160).max)
-        });
-
-        bytes32 hash = LibBonds.hashBondInstruction(instruction);
-
-        assertTrue(hash != bytes32(0), "max values should hash correctly");
-    }
-
-    function test_hashBondInstruction_samePayer_andPayee() public pure {
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: 1,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: address(0x1111),
-            payee: address(0x1111)
-        });
-
-        bytes32 hash = LibBonds.hashBondInstruction(instruction);
-
-        assertTrue(hash != bytes32(0), "same payer and payee should hash correctly");
-    }
+    address proposer = address(0x1);
+    address designatedProver = address(0x2);
+    address actualProver = address(0x3);
 
     // ---------------------------------------------------------------
-    // Fuzz Tests for hashBondInstruction
+    // calculateBondInstruction tests
     // ---------------------------------------------------------------
 
-    function testFuzz_hashBondInstruction_deterministic(
-        uint48 proposalId,
-        uint8 bondTypeRaw,
-        address payer,
-        address payee
-    )
-        public
-        pure
-    {
-        LibBonds.BondType bondType = LibBonds.BondType(bondTypeRaw % 3);
+    function test_calculateBondInstruction_onTime_returnsNone() public {
+        uint48 readyTimestamp = uint48(block.timestamp);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
-        });
+        // Prove within proving window
+        vm.warp(readyTimestamp + PROVING_WINDOW);
 
-        bytes32 hash1 = LibBonds.hashBondInstruction(instruction);
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction);
+        LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
+            1,
+            proposer,
+            designatedProver,
+            actualProver,
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
+        );
 
-        assertEq(hash1, hash2, "fuzz: hash should be deterministic");
+        assertEq(uint8(result.bondType), uint8(LibBonds.BondType.NONE));
     }
 
-    function testFuzz_hashBondInstruction_uniqueness(
-        uint48 proposalId1,
-        uint48 proposalId2,
-        uint8 bondTypeRaw1,
-        uint8 bondTypeRaw2,
-        address payer1,
-        address payer2,
-        address payee1,
-        address payee2
-    )
-        public
-        pure
-    {
-        LibBonds.BondType bondType1 = LibBonds.BondType(bondTypeRaw1 % 3);
-        LibBonds.BondType bondType2 = LibBonds.BondType(bondTypeRaw2 % 3);
+    function test_calculateBondInstruction_lateWithinExtended_returnsLiveness() public {
+        uint48 readyTimestamp = uint48(block.timestamp);
 
-        LibBonds.BondInstruction memory instruction1 = LibBonds.BondInstruction({
-            proposalId: proposalId1, bondType: bondType1, payer: payer1, payee: payee1
-        });
+        // Prove after proving window but within extended window
+        vm.warp(readyTimestamp + PROVING_WINDOW + 1);
 
-        LibBonds.BondInstruction memory instruction2 = LibBonds.BondInstruction({
-            proposalId: proposalId2, bondType: bondType2, payer: payer2, payee: payee2
-        });
+        LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
+            1,
+            proposer,
+            designatedProver,
+            actualProver,
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
+        );
 
-        bytes32 hash1 = LibBonds.hashBondInstruction(instruction1);
-        bytes32 hash2 = LibBonds.hashBondInstruction(instruction2);
-
-        // If any field differs, hashes should differ (with high probability)
-        bool allFieldsEqual = proposalId1 == proposalId2 && bondType1 == bondType2
-            && payer1 == payer2 && payee1 == payee2;
-
-        if (allFieldsEqual) {
-            assertEq(hash1, hash2, "fuzz: identical inputs should produce identical hashes");
-        } else {
-            // Note: In theory, different inputs could produce the same hash (collision),
-            // but this is astronomically unlikely with keccak256
-            assertTrue(hash1 != hash2, "fuzz: different inputs should produce different hashes");
-        }
+        assertEq(uint8(result.bondType), uint8(LibBonds.BondType.LIVENESS));
+        assertEq(result.payer, designatedProver);
+        assertEq(result.payee, actualProver);
     }
 
-    function testFuzz_hashBondInstruction_nonZeroOutput(
-        uint48 proposalId,
-        uint8 bondTypeRaw,
-        address payer,
-        address payee
-    )
-        public
-        pure
-    {
-        LibBonds.BondType bondType = LibBonds.BondType(bondTypeRaw % 3);
+    function test_calculateBondInstruction_veryLate_returnsProvability() public {
+        uint48 readyTimestamp = uint48(block.timestamp);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposalId, bondType: bondType, payer: payer, payee: payee
-        });
+        // Prove after extended proving window
+        vm.warp(readyTimestamp + EXTENDED_PROVING_WINDOW + 1);
 
-        bytes32 hash = LibBonds.hashBondInstruction(instruction);
+        LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
+            1,
+            proposer,
+            designatedProver,
+            actualProver,
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
+        );
 
-        // keccak256 should never return zero for any input
-        assertTrue(hash != bytes32(0), "fuzz: hash should never be zero");
+        assertEq(uint8(result.bondType), uint8(LibBonds.BondType.PROVABILITY));
+        assertEq(result.payer, proposer);
+        assertEq(result.payee, actualProver);
+    }
+
+    function test_calculateBondInstruction_samePayerPayee_returnsNone() public {
+        uint48 readyTimestamp = uint48(block.timestamp);
+
+        // Late proof but designated prover proves their own block
+        vm.warp(readyTimestamp + PROVING_WINDOW + 1);
+
+        LibBonds.BondInstruction memory result = LibBondInstruction.calculateBondInstruction(
+            1,
+            proposer,
+            designatedProver,
+            designatedProver, // actual prover same as designated
+            readyTimestamp,
+            PROVING_WINDOW,
+            EXTENDED_PROVING_WINDOW
+        );
+
+        // No bond movement when payer == payee
+        assertEq(uint8(result.bondType), uint8(LibBonds.BondType.NONE));
     }
 }
