@@ -51,10 +51,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
+        address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
-        address preconfWhitelist;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -102,6 +102,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");

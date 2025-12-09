@@ -213,6 +213,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint48 nextProposalId = _state.nextProposalId;
             uint48 lastProposalBlockId = _state.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _state.lastFinalizedProposalId;
+            require(nextProposalId > 0, ActivationRequired());
 
             (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId

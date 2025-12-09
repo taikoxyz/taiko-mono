@@ -42,6 +42,17 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    function test_propose_RevertWhen_NotActivated() public {
+        Inbox unactivated = _deployInbox();
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.expectRevert(Inbox.ActivationRequired.selector);
+        vm.prank(proposer);
+        unactivated.propose(bytes(""), encodedInput);
+    }
+
     function test_propose_RevertWhen_SameBlock() public {
         _setBlobHashes(2);
         IInbox.ProposeInput memory input = _defaultProposeInput();
