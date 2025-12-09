@@ -9,8 +9,8 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -153,84 +153,6 @@ abstract contract InboxTestBase is CommonTest {
         return bytes("");
     }
 
-    // ---------------------------------------------------------------------
-    // Array helpers (reusable across suites)
-    // ---------------------------------------------------------------------
-
-    function _proposals(IInbox.Proposal memory _p1)
-        internal
-        pure
-        returns (IInbox.Proposal[] memory proposals_)
-    {
-        proposals_ = new IInbox.Proposal[](1);
-        proposals_[0] = _p1;
-    }
-
-    function _proposals(
-        IInbox.Proposal memory _p1,
-        IInbox.Proposal memory _p2
-    )
-        internal
-        pure
-        returns (IInbox.Proposal[] memory proposals_)
-    {
-        proposals_ = new IInbox.Proposal[](2);
-        proposals_[0] = _p1;
-        proposals_[1] = _p2;
-    }
-
-    function _proposals(
-        IInbox.Proposal memory _p1,
-        IInbox.Proposal memory _p2,
-        IInbox.Proposal memory _p3
-    )
-        internal
-        pure
-        returns (IInbox.Proposal[] memory proposals_)
-    {
-        proposals_ = new IInbox.Proposal[](3);
-        proposals_[0] = _p1;
-        proposals_[1] = _p2;
-        proposals_[2] = _p3;
-    }
-
-    function _transitions(IInbox.Transition memory _t1)
-        internal
-        pure
-        returns (IInbox.Transition[] memory transitions_)
-    {
-        transitions_ = new IInbox.Transition[](1);
-        transitions_[0] = _t1;
-    }
-
-    function _transitions(
-        IInbox.Transition memory _t1,
-        IInbox.Transition memory _t2
-    )
-        internal
-        pure
-        returns (IInbox.Transition[] memory transitions_)
-    {
-        transitions_ = new IInbox.Transition[](2);
-        transitions_[0] = _t1;
-        transitions_[1] = _t2;
-    }
-
-    function _transitions(
-        IInbox.Transition memory _t1,
-        IInbox.Transition memory _t2,
-        IInbox.Transition memory _t3
-    )
-        internal
-        pure
-        returns (IInbox.Transition[] memory transitions_)
-    {
-        transitions_ = new IInbox.Transition[](3);
-        transitions_[0] = _t1;
-        transitions_[1] = _t2;
-        transitions_[2] = _t3;
-    }
-
     function _setupMocks() internal virtual {
         verifier = new MockProofVerifier();
     }
@@ -284,69 +206,112 @@ abstract contract InboxTestBase is CommonTest {
     // Prove helpers
     // ---------------------------------------------------------------------
 
-    function _checkpoint(bytes32 _stateRoot)
-        internal
-        view
-        returns (ICheckpointStore.Checkpoint memory)
-    {
-        return ICheckpointStore.Checkpoint({
-            blockNumber: uint48(block.number),
-            blockHash: blockhash(block.number - 1),
-            stateRoot: _stateRoot
-        });
+    function _prove(IInbox.ProveInput memory _input) internal {
+        _proveWithGas(_input, "", "");
     }
 
-    function _transitionFor(
-        IInbox.ProposedEventPayload memory _proposal,
-        bytes32 _parentTransitionHash,
-        bytes32 _stateRoot,
-        address _designatedProver,
-        address _actualProver
-    )
-        internal
-        view
-        returns (IInbox.Transition memory)
-    {
-        return IInbox.Transition({
-            proposalHash: codec.hashProposal(_proposal.proposal),
-            parentTransitionHash: _parentTransitionHash,
-            checkpoint: _checkpoint(_stateRoot),
-            designatedProver: _designatedProver,
-            actualProver: _actualProver
-        });
-    }
-
-    function _proveAndDecode(IInbox.ProveInput memory _input)
-        internal
-        returns (IInbox.ProvedEventPayload memory payload_)
-    {
-        payload_ = _proveAndDecodeWithGas(_input, "", "");
-    }
-
-    function _proveAndDecodeWithGas(
+    function _proveWithGas(
         IInbox.ProveInput memory _input,
         string memory _profile,
         string memory _benchName
     )
         internal
-        returns (IInbox.ProvedEventPayload memory payload_)
     {
-        bytes memory encodedInput = codec.encodeProveInput(_input);
-        vm.recordLogs();
+        bytes memory encodedInput = LibProveInputCodec.encode(_input);
         vm.startPrank(prover);
 
         if (bytes(_benchName).length > 0) vm.startSnapshotGas(_profile, _benchName);
-        inbox.prove(encodedInput, bytes(""));
+        inbox.prove(encodedInput, bytes("proof"));
         if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 
         vm.stopPrank();
-        payload_ = _readProvedEvent();
     }
 
-    function _readProvedEvent() internal returns (IInbox.ProvedEventPayload memory payload_) {
-        bytes memory eventData = _findEventData(keccak256("Proved(bytes)"));
-        require(eventData.length > 0, "Proved event not found");
-        return codec.decodeProvedEvent(eventData);
+    function _proposalStateFor(
+        IInbox.ProposedEventPayload memory _payload,
+        address _designatedProver,
+        bytes32 _blockHash
+    )
+        internal
+        pure
+        returns (IInbox.ProposalState memory)
+    {
+        return IInbox.ProposalState({
+            proposer: _payload.proposal.proposer,
+            designatedProver: _designatedProver,
+            timestamp: _payload.proposal.timestamp,
+            blockHash: _blockHash
+        });
+    }
+
+    function _proposalStates(IInbox.ProposalState memory _p1)
+        internal
+        pure
+        returns (IInbox.ProposalState[] memory proposalStates_)
+    {
+        proposalStates_ = new IInbox.ProposalState[](1);
+        proposalStates_[0] = _p1;
+    }
+
+    function _proposalStates(
+        IInbox.ProposalState memory _p1,
+        IInbox.ProposalState memory _p2
+    )
+        internal
+        pure
+        returns (IInbox.ProposalState[] memory proposalStates_)
+    {
+        proposalStates_ = new IInbox.ProposalState[](2);
+        proposalStates_[0] = _p1;
+        proposalStates_[1] = _p2;
+    }
+
+    function _proposalStates(
+        IInbox.ProposalState memory _p1,
+        IInbox.ProposalState memory _p2,
+        IInbox.ProposalState memory _p3
+    )
+        internal
+        pure
+        returns (IInbox.ProposalState[] memory proposalStates_)
+    {
+        proposalStates_ = new IInbox.ProposalState[](3);
+        proposalStates_[0] = _p1;
+        proposalStates_[1] = _p2;
+        proposalStates_[2] = _p3;
+    }
+
+    function _buildBatchInput(uint256 _count)
+        internal
+        returns (IInbox.ProveInput memory input_)
+    {
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](_count);
+
+        uint48 firstProposalId;
+        bytes32 parentBlockHash = inbox.getState().lastFinalizedBlockHash;
+
+        for (uint256 i; i < _count; ++i) {
+            if (i != 0) _advanceBlock();
+            IInbox.ProposedEventPayload memory payload = _proposeOne();
+
+            if (i == 0) {
+                firstProposalId = payload.proposal.id;
+            }
+
+            // Generate a unique block hash for this proposal
+            bytes32 blockHash = keccak256(abi.encode("blockHash", i + 1));
+            proposalStates[i] = _proposalStateFor(payload, prover, blockHash);
+            parentBlockHash = blockHash;
+        }
+
+        input_ = IInbox.ProveInput({
+            firstProposalId: firstProposalId,
+            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
+            actualProver: prover,
+            proposalStates: proposalStates
+        });
     }
 
     // ---------------------------------------------------------------------
@@ -356,30 +321,6 @@ abstract contract InboxTestBase is CommonTest {
     function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
         _setBlobHashes(3);
         payload_ = _proposeAndDecode(_defaultProposeInput());
-    }
-
-    function _buildBatchInput(
-        uint256 _count,
-        bool _syncCheckpoint
-    )
-        internal
-        returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
-    {
-        input_.proposals = new IInbox.Proposal[](_count);
-        transitions_ = new IInbox.Transition[](_count);
-
-        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
-        for (uint256 i; i < _count; ++i) {
-            if (i != 0) _advanceBlock();
-            IInbox.ProposedEventPayload memory proposal = _proposeOne();
-            input_.proposals[i] = proposal.proposal;
-            transitions_[i] =
-                _transitionFor(proposal, parentHash, bytes32(uint256(i + 1)), prover, prover);
-            parentHash = codec.hashTransition(transitions_[i]);
-        }
-
-        input_.transitions = transitions_;
-        input_.syncCheckpoint = _syncCheckpoint;
     }
 
     // ---------------------------------------------------------------------
@@ -407,8 +348,8 @@ abstract contract InboxTestBase is CommonTest {
             "state checkpoint ts"
         );
         assertEq(
-            _actual.lastFinalizedTransitionHash,
-            _expected.lastFinalizedTransitionHash,
+            _actual.lastFinalizedBlockHash,
+            _expected.lastFinalizedBlockHash,
             "state transition hash"
         );
     }

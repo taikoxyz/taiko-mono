@@ -50,9 +50,9 @@ library LibInboxSetup {
     /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
-    /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
-    /// @return proposal_ The genesis proposal.
     /// @return derivation_ The genesis derivation.
+    /// @return proposal_ The genesis proposal.
+    /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
     function activate(
         bytes32 _lastPacayaBlockHash,
         uint48 _activationTimestamp
@@ -62,9 +62,9 @@ library LibInboxSetup {
         returns (
             uint48 activationTimestamp_,
             IInbox.CoreState memory state_,
-            bytes32 genesisProposalHash_,
+            IInbox.Derivation memory derivation_,
             IInbox.Proposal memory proposal_,
-            IInbox.Derivation memory derivation_
+            bytes32 genesisProposalHash_
         )
     {
         // Validate activation parameters
@@ -79,10 +79,6 @@ library LibInboxSetup {
             activationTimestamp_ = _activationTimestamp;
         }
 
-        // Compute activation data
-        IInbox.Transition memory transition;
-        transition.checkpoint.blockHash = _lastPacayaBlockHash;
-
         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
         // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
@@ -90,7 +86,7 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedTransitionHash = LibHashOptimized.hashTransition(transition);
+        state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
 
         proposal_.derivationHash = LibHashOptimized.hashDerivation(derivation_);
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
