@@ -24,7 +24,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposedEventCodec.encode(_payload);
+        return LibProposedEventCodec.encodeProposedEventPayload(_payload);
     }
 
     /// @inheritdoc ICodec
@@ -33,7 +33,7 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        return LibProposedEventCodec.decode(_data);
+        return LibProposedEventCodec.decodeProposedEventPayload(_data);
     }
 
     // ---------------------------------------------------------------
@@ -46,7 +46,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProvedEventCodec.encode(_payload);
+        return LibProvedEventCodec.encodeProvedEventPayload(_payload);
     }
 
     /// @inheritdoc ICodec
@@ -55,7 +55,7 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        return LibProvedEventCodec.decode(_data);
+        return LibProvedEventCodec.decodeProvedEventPayload(_data);
     }
 
     // ---------------------------------------------------------------

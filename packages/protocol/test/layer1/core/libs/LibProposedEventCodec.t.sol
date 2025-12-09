@@ -43,10 +43,10 @@ contract LibProposedEventCodecTest is Test {
             })
         });
 
-        bytes memory encoded = LibProposedEventCodec.encode(payload);
+        bytes memory encoded = LibProposedEventCodec.encodeProposedEventPayload(payload);
         assertEq(encoded.length, harness.size(sources), "size mismatch");
 
-        IInbox.ProposedEventPayload memory decoded = LibProposedEventCodec.decode(encoded);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventCodec.decodeProposedEventPayload(encoded);
         _assertEqual(payload, decoded);
     }
 
@@ -87,7 +87,7 @@ contract LibProposedEventCodecTest is Test {
         });
 
         IInbox.ProposedEventPayload memory decoded =
-            LibProposedEventCodec.decode(LibProposedEventCodec.encode(payload));
+            LibProposedEventCodec.decodeProposedEventPayload(LibProposedEventCodec.encodeProposedEventPayload(payload));
 
         assertEq(decoded.derivation.sources.length, 2, "sources length");
         assertTrue(decoded.derivation.sources[0].isForcedInclusion, "forced flag");
