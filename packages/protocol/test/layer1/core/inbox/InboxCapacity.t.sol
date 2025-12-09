@@ -24,6 +24,24 @@ contract InboxCapacityTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    /// @notice Test propose succeeds at exact capacity boundary (capacity == 1)
+    /// ringBufferSize = 3, so max unfinalized = 2
+    /// After 1 proposal: numUnfinalized = 1, capacity = 3 - 1 - 1 = 1
+    function test_propose_succeedsWhen_CapacityExactlyOne() public {
+        _setBlobHashes(2);
+        _advanceBlock();
+
+        // First proposal: numUnfinalized becomes 1, capacity = 3 - 1 - 1 = 1
+        _proposeAndDecode(_defaultProposeInput());
+
+        // Second proposal should succeed at capacity = 1 (exact boundary)
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
+        assertEq(payload.proposal.id, 2, "should succeed at capacity boundary");
+
+        // After this: numUnfinalized = 2, capacity = 3 - 1 - 2 = 0, next should fail
+    }
+
     function _buildConfig() internal virtual override returns (IInbox.Config memory) {
         IInbox.Config memory cfg = super._buildConfig();
         cfg.ringBufferSize = 3;
@@ -52,20 +70,20 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
-        // Prove p1 using prove2
-        IInbox.ProposalState[] memory proposals = new IInbox.ProposalState[](1);
-        proposals[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        // Prove p1 using prove
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
 
-        IInbox.ProveInput2 memory proveInput = IInbox.ProveInput2({
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
             firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            proposals: proposals,
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
-            actualProver: prover
+            actualProver: prover,
+            proposalStates: proposalStates
         });
 
-        _prove2(proveInput);
+        _prove(proveInput);
 
         _advanceBlock();
         IInbox.ProposedEventPayload memory p6 =

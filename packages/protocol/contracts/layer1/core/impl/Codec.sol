@@ -6,8 +6,6 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
-import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
-import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title Codec
@@ -37,28 +35,6 @@ contract Codec is ICodec {
     }
 
     // ---------------------------------------------------------------
-    // ProvedEventCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @inheritdoc ICodec
-    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
-        external
-        pure
-        returns (bytes memory encoded_)
-    {
-        return LibProvedEventCodec.encode(_payload);
-    }
-
-    /// @inheritdoc ICodec
-    function decodeProvedEvent(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProvedEventPayload memory payload_)
-    {
-        return LibProvedEventCodec.decode(_data);
-    }
-
-    // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
 
@@ -81,28 +57,6 @@ contract Codec is ICodec {
     }
 
     // ---------------------------------------------------------------
-    // ProveInputCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @inheritdoc ICodec
-    function encodeProveInput(IInbox.ProveInput calldata _input)
-        external
-        pure
-        returns (bytes memory encoded_)
-    {
-        return LibProveInputCodec.encode(_input);
-    }
-
-    /// @inheritdoc ICodec
-    function decodeProveInput(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProveInput memory input_)
-    {
-        return LibProveInputCodec.decode(_data);
-    }
-
-    // ---------------------------------------------------------------
     // Hashing Functions
     // ---------------------------------------------------------------
 
@@ -118,24 +72,6 @@ contract Codec is ICodec {
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
-    }
-
-    /// @inheritdoc ICodec
-    function hashTransition(IInbox.Transition calldata _transition)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashTransition(_transition);
-    }
-
-    /// @inheritdoc ICodec
-    function hashTransitions(IInbox.Transition[] calldata _transitions)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashTransitions(_transitions);
     }
 
     /// @inheritdoc ICodec

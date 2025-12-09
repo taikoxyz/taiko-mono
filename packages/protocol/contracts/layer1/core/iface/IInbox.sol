@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -42,7 +41,7 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice The minimum number of proposals that must be finalized in a single prove2 call
+        /// @notice The minimum number of proposals that must be finalized in a single prove call
         uint8 minProposalsToFinalize;
     }
 
@@ -83,22 +82,6 @@ interface IInbox {
         bytes32 derivationHash;
     }
 
-    /// @notice Represents a transition about the state transition of a proposal.
-    struct Transition {
-        /// @notice The proposal's hash.
-        bytes32 proposalHash;
-        /// @notice The parent transition's hash, this is used to link the transition to its parent
-        /// transition to
-        /// finalize the corresponding proposal.
-        bytes32 parentTransitionHash;
-        /// @notice The end block header containing number, hash, and state root.
-        ICheckpointStore.Checkpoint checkpoint;
-        /// @notice The designated prover for this transition.
-        address designatedProver;
-        /// @notice The actual prover who submitted the proof.
-        address actualProver;
-    }
-
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
@@ -128,20 +111,8 @@ interface IInbox {
         uint8 numForcedInclusions;
     }
 
-    /// @notice Input data for the prove function
-    struct ProveInput {
-        /// @notice Array of proposals to prove.
-        Proposal[] proposals;
-        /// @notice Array of transitions containing proof details.
-        Transition[] transitions;
-        /// @notice Whether to sync the checkpoint from the last transition.
-        /// This has to be set to `true` if `_minCheckpointDelay` has passed, but can be set to `true`
-        /// before if you want to sync the checkpoint early.
-        bool syncCheckpoint;
-    }
-
-    /// @notice Metadata for a proposal used in prove2
-    struct ProposalState{
+    /// @notice Metadata for a proposal used in prove
+    struct ProposalState {
         /// @notice Address of the proposer.
         address proposer;
         /// @notice Address of the designated prover.
@@ -152,20 +123,21 @@ interface IInbox {
         bytes32 blockHash;
     }
 
-    /// @notice Input data for the prove2 function
-    struct ProveInput2 {
+    /// @notice Input data for the prove function
+    struct ProveInput {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The block hash of the parent of the first proposal.
+        /// @notice The block hash of the parent of the first proposal, this is used to verify block hash continuity in the proof.
         bytes32 firstProposalParentBlockHash;
-        /// @notice Array of proposal metadata for each proposal in the proof range.
-        ProposalState[] proposals;
-        /// @notice The checkpoint from the last transition.
+        /// @notice The last block number in the last proposal
         uint48 lastBlockNumber;
+        /// @notice The state root of the last block
         bytes32 lastStateRoot;
+        /// @notice The actual prover who submitted the proof.
         address actualProver;
+        /// @notice Array of proposal state for each proposal in the proof range.
+        ProposalState[] proposalStates;
     }
-
 
     /// @notice Payload data emitted in the Proposed event
     struct ProposedEventPayload {
@@ -177,20 +149,7 @@ interface IInbox {
 
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
-        /// @notice The proposal ID that was proven.
-        uint48 proposalId;
-        /// @notice The transition that was proven.
-        Transition transition;
-        /// @notice The bond instruction associated with the proof (BondType.NONE when unused).
-        LibBonds.BondInstruction bondInstruction;
-        /// @notice Signal hash emitted to L2 for bond processing (zero when unused).
-        bytes32 bondSignal;
-    }
-
-       /// @notice Payload data emitted in the Proved event
-    struct ProvedEventPayload2 {
-        ProveInput2 input;
-        LibBonds.BondInstruction bondInstruction;
+        ProveInput input;
     }
 
     // ---------------------------------------------------------------
@@ -205,10 +164,10 @@ interface IInbox {
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
- /// @notice Emitted when a proof is submitted
-    /// @param data The encoded ProvedEventPayload2
-    event Proved2(bytes data);
-
+    /// @notice Emitted when a bond instruction is signaled to L2
+    /// @param proposalId The proposal ID that triggered the bond instruction
+    /// @param bondInstruction The encoded bond instruction
+    event BondInstructionCreated(uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction);
 
     // ---------------------------------------------------------------
     // External Transactional Functions
@@ -218,12 +177,6 @@ interface IInbox {
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
-
-    /// @notice Proves a transition about some properties of a proposal, including its state
-    /// transition.
-    /// @param _data The encoded ProveInput struct.
-    /// @param _proof Validity proof for the transitions.
-    function prove(bytes calldata _data, bytes calldata _proof) external;
 
     // ---------------------------------------------------------------
     // External View Functions

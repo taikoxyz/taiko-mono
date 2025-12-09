@@ -4,134 +4,124 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProveInputCodecTest is Test {
     function test_encode_decode_roundtrip() public pure {
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
-        proposals[0] = IInbox.Proposal({
-            id: 1,
-            timestamp: 10,
-            endOfSubmissionWindowTimestamp: 11,
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
+        proposalStates[0] = IInbox.ProposalState({
             proposer: address(0x1111),
-            parentProposalHash: bytes32(uint256(1)),
-            derivationHash: bytes32(uint256(2))
+            designatedProver: address(0x2222),
+            timestamp: 100,
+            blockHash: bytes32(uint256(1))
         });
-        proposals[1] = IInbox.Proposal({
-            id: 2,
-            timestamp: 20,
-            endOfSubmissionWindowTimestamp: 21,
-            proposer: address(0x2222),
-            parentProposalHash: bytes32(uint256(3)),
-            derivationHash: bytes32(uint256(4))
-        });
-
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] = IInbox.Transition({
-            proposalHash: bytes32(uint256(11)),
-            parentTransitionHash: bytes32(uint256(12)),
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 99, blockHash: bytes32(uint256(13)), stateRoot: bytes32(uint256(14))
-            }),
-            designatedProver: address(0xAAAA),
-            actualProver: address(0xBBBB)
-        });
-        transitions[1] = IInbox.Transition({
-            proposalHash: bytes32(uint256(21)),
-            parentTransitionHash: bytes32(uint256(22)),
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 199, blockHash: bytes32(uint256(23)), stateRoot: bytes32(uint256(24))
-            }),
-            designatedProver: address(0xCCCC),
-            actualProver: address(0xDDDD)
+        proposalStates[1] = IInbox.ProposalState({
+            proposer: address(0x3333),
+            designatedProver: address(0x4444),
+            timestamp: 200,
+            blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals, transitions: transitions, syncCheckpoint: true
+            firstProposalId: 5,
+            firstProposalParentBlockHash: bytes32(uint256(99)),
+            lastBlockNumber: 1000,
+            lastStateRoot: bytes32(uint256(88)),
+            actualProver: address(0xAAAA),
+            proposalStates: proposalStates
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.proposals.length, 2, "proposal length");
-        assertEq(decoded.transitions.length, 2, "transition length");
-        assertEq(decoded.proposals[1].proposer, proposals[1].proposer, "proposal proposer");
+        assertEq(decoded.firstProposalId, input.firstProposalId, "firstProposalId");
         assertEq(
-            decoded.transitions[1].checkpoint.blockHash,
-            transitions[1].checkpoint.blockHash,
-            "checkpoint hash"
+            decoded.firstProposalParentBlockHash,
+            input.firstProposalParentBlockHash,
+            "firstProposalParentBlockHash"
         );
+        assertEq(decoded.proposalStates.length, 2, "proposalStates length");
+        assertEq(decoded.proposalStates[0].proposer, proposalStates[0].proposer, "proposalStates[0] proposer");
         assertEq(
-            decoded.transitions[0].designatedProver,
-            transitions[0].designatedProver,
-            "designated prover"
+            decoded.proposalStates[0].designatedProver,
+            proposalStates[0].designatedProver,
+            "proposalStates[0] designatedProver"
         );
-        assertTrue(decoded.syncCheckpoint, "sync checkpoint");
+        assertEq(decoded.proposalStates[0].timestamp, proposalStates[0].timestamp, "proposalStates[0] timestamp");
+        assertEq(decoded.proposalStates[0].blockHash, proposalStates[0].blockHash, "proposalStates[0] blockHash");
+        assertEq(decoded.proposalStates[1].proposer, proposalStates[1].proposer, "proposalStates[1] proposer");
+        assertEq(decoded.proposalStates[1].blockHash, proposalStates[1].blockHash, "proposalStates[1] blockHash");
+        assertEq(decoded.lastBlockNumber, input.lastBlockNumber, "lastBlockNumber");
+        assertEq(decoded.lastStateRoot, input.lastStateRoot, "lastStateRoot");
+        assertEq(decoded.actualProver, input.actualProver, "actualProver");
     }
 
-    function test_encode_RevertWhen_lengthsMismatch() public {
-        IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: new IInbox.Proposal[](1),
-            transitions: new IInbox.Transition[](0),
-            syncCheckpoint: true
+    function test_encode_decode_singleProposal() public pure {
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        proposalStates[0] = IInbox.ProposalState({
+            proposer: address(0x5555),
+            designatedProver: address(0x6666),
+            timestamp: 500,
+            blockHash: bytes32(uint256(55))
         });
 
-        vm.expectRevert(LibProveInputCodec.ProposalTransitionLengthMismatch.selector);
-        this._encodeExternal(input);
-    }
-
-    function test_decode_RevertWhen_lengthsMismatch() public {
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: _singleProposalArray(),
-            transitions: _singleTransitionArray(),
-            syncCheckpoint: true
+            firstProposalId: 1,
+            firstProposalParentBlockHash: bytes32(0),
+            lastBlockNumber: 50,
+            lastStateRoot: bytes32(uint256(66)),
+            actualProver: address(0xBBBB),
+            proposalStates: proposalStates
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
+        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        uint256 transitionsLengthOffset = 2 + (input.proposals.length * 102);
-        encoded[transitionsLengthOffset] = 0x00;
-        encoded[transitionsLengthOffset + 1] = 0x00; // set transitions length to zero to trigger mismatch
-
-        vm.expectRevert(LibProveInputCodec.ProposalTransitionLengthMismatch.selector);
-        this._decodeExternal(encoded);
+        assertEq(decoded.firstProposalId, 1, "firstProposalId");
+        assertEq(decoded.proposalStates.length, 1, "proposalStates length");
+        assertEq(decoded.proposalStates[0].proposer, address(0x5555), "proposer");
+        assertEq(decoded.actualProver, address(0xBBBB), "actualProver");
     }
 
-    function _singleProposalArray() private pure returns (IInbox.Proposal[] memory arr_) {
-        arr_ = new IInbox.Proposal[](1);
-        arr_[0] = IInbox.Proposal({
-            id: 7,
-            timestamp: 70,
-            endOfSubmissionWindowTimestamp: 75,
+    function test_encode_decode_emptyProposals() public pure {
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](0);
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: 0,
+            firstProposalParentBlockHash: bytes32(0),
+            lastBlockNumber: 0,
+            lastStateRoot: bytes32(0),
+            actualProver: address(0),
+            proposalStates: proposalStates
+        });
+
+        bytes memory encoded = LibProveInputCodec.encode(input);
+        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
+
+        assertEq(decoded.proposalStates.length, 0, "empty proposalStates");
+    }
+
+    function test_encode_deterministic() public pure {
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        proposalStates[0] = IInbox.ProposalState({
             proposer: address(0x1234),
-            parentProposalHash: bytes32(uint256(77)),
-            derivationHash: bytes32(uint256(78))
+            designatedProver: address(0x5678),
+            timestamp: 12_345,
+            blockHash: bytes32(uint256(9999))
         });
-    }
 
-    function _singleTransitionArray() private pure returns (IInbox.Transition[] memory arr_) {
-        arr_ = new IInbox.Transition[](1);
-        arr_[0] = IInbox.Transition({
-            proposalHash: bytes32(uint256(80)),
-            parentTransitionHash: bytes32(uint256(81)),
-            checkpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 90, blockHash: bytes32(uint256(82)), stateRoot: bytes32(uint256(83))
-            }),
-            designatedProver: address(0xAAAA),
-            actualProver: address(0xBBBB)
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: 42,
+            firstProposalParentBlockHash: bytes32(uint256(1111)),
+            lastBlockNumber: 888,
+            lastStateRoot: bytes32(uint256(7777)),
+            actualProver: address(0xCCCC),
+            proposalStates: proposalStates
         });
-    }
 
-    // External wrappers to ensure vm.expectRevert catches the revert (call depth increases).
-    function _encodeExternal(IInbox.ProveInput memory _input) external pure returns (bytes memory) {
-        return LibProveInputCodec.encode(_input);
-    }
+        bytes memory encoded1 = LibProveInputCodec.encode(input);
+        bytes memory encoded2 = LibProveInputCodec.encode(input);
 
-    function _decodeExternal(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProveInput memory)
-    {
-        return LibProveInputCodec.decode(_data);
+        assertEq(encoded1.length, encoded2.length, "length match");
+        assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
     }
 }

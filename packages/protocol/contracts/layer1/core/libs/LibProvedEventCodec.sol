@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title LibProvedEventCodec
 /// @notice Compact encoder/decoder for ProvedEventPayload using LibPackUnpack.
@@ -15,26 +14,23 @@ library LibProvedEventCodec {
         pure
         returns (bytes memory encoded_)
     {
-        encoded_ = new bytes(calculateProvedEventSize());
+        uint256 bufferSize = _calculateSize(_payload.input.proposalStates.length);
+        encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
 
-        ptr = P.packUint48(ptr, _payload.proposalId);
+        // Encode ProveInput
+        ptr = P.packUint48(ptr, _payload.input.firstProposalId);
+        ptr = P.packBytes32(ptr, _payload.input.firstProposalParentBlockHash);
+        ptr = P.packUint48(ptr, _payload.input.lastBlockNumber);
+        ptr = P.packBytes32(ptr, _payload.input.lastStateRoot);
+        ptr = P.packAddress(ptr, _payload.input.actualProver);
 
-        ptr = P.packBytes32(ptr, _payload.transition.proposalHash);
-        ptr = P.packBytes32(ptr, _payload.transition.parentTransitionHash);
-        ptr = P.packUint48(ptr, _payload.transition.checkpoint.blockNumber);
-        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
-        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
-        ptr = P.packAddress(ptr, _payload.transition.designatedProver);
-        ptr = P.packAddress(ptr, _payload.transition.actualProver);
-
-        ptr = P.packUint48(ptr, _payload.bondInstruction.proposalId);
-        ptr = P.packUint8(ptr, uint8(_payload.bondInstruction.bondType));
-        ptr = P.packAddress(ptr, _payload.bondInstruction.payer);
-        ptr = P.packAddress(ptr, _payload.bondInstruction.payee);
-
-        P.packBytes32(ptr, _payload.bondSignal);
+        P.checkArrayLength(_payload.input.proposalStates.length);
+        ptr = P.packUint16(ptr, uint16(_payload.input.proposalStates.length));
+        for (uint256 i; i < _payload.input.proposalStates.length; ++i) {
+            ptr = _encodeProposalState(ptr, _payload.input.proposalStates[i]);
+        }
     }
 
     /// @notice Decodes bytes into a ProvedEventPayload using compact encoding.
@@ -45,41 +41,70 @@ library LibProvedEventCodec {
     {
         uint256 ptr = P.dataPtr(_data);
 
-        (payload_.proposalId, ptr) = P.unpackUint48(ptr);
+        // Decode ProveInput
+        (payload_.input.firstProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.input.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.lastBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.input.lastStateRoot, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.actualProver, ptr) = P.unpackAddress(ptr);
 
-        (payload_.transition.proposalHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
-        (payload_.transition.designatedProver, ptr) = P.unpackAddress(ptr);
-        (payload_.transition.actualProver, ptr) = P.unpackAddress(ptr);
-
-        (payload_.bondInstruction.proposalId, ptr) = P.unpackUint48(ptr);
-
-        uint8 bondTypeValue;
-        (bondTypeValue, ptr) = P.unpackUint8(ptr);
-        require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
-        payload_.bondInstruction.bondType = LibBonds.BondType(bondTypeValue);
-
-        (payload_.bondInstruction.payer, ptr) = P.unpackAddress(ptr);
-        (payload_.bondInstruction.payee, ptr) = P.unpackAddress(ptr);
-
-        (payload_.bondSignal, ptr) = P.unpackBytes32(ptr);
+        uint16 proposalStatesLength;
+        (proposalStatesLength, ptr) = P.unpackUint16(ptr);
+        payload_.input.proposalStates = new IInbox.ProposalState[](proposalStatesLength);
+        for (uint256 i; i < proposalStatesLength; ++i) {
+            (payload_.input.proposalStates[i], ptr) = _decodeProposalState(ptr);
+        }
     }
 
-    /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload.
-    function calculateProvedEventSize() internal pure returns (uint256 size_) {
-        // proposalId: 6
-        // Transition: 174
-        // BondInstruction: 47
-        // bondSignal: 32
-        size_ = 259;
+    /// @dev Calculate the exact byte size needed for encoding a ProvedEventPayload.
+    /// @param _numProposalStates Number of proposal states in the input.
+    /// @return size_ Total byte size needed.
+    function _calculateSize(uint256 _numProposalStates) private pure returns (uint256 size_) {
+        unchecked {
+            // ProveInput fixed fields:
+            //   firstProposalId: 6 bytes
+            //   firstProposalParentBlockHash: 32 bytes
+            //   lastBlockNumber: 6 bytes
+            //   lastStateRoot: 32 bytes
+            //   actualProver: 20 bytes
+            //   proposalStates array length: 2 bytes
+            // Total ProveInput fixed: 98 bytes
+            //
+            // Per ProposalState:
+            //   proposer: 20 bytes
+            //   designatedProver: 20 bytes
+            //   timestamp: 6 bytes
+            //   blockHash: 32 bytes
+            // Total per proposal state: 78 bytes
+            //
+            // Total = 98 + (numProposalStates * 78)
+            size_ = 98 + (_numProposalStates * 78);
+        }
     }
 
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
+    function _encodeProposalState(
+        uint256 _ptr,
+        IInbox.ProposalState memory _state
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        newPtr_ = P.packAddress(_ptr, _state.proposer);
+        newPtr_ = P.packAddress(newPtr_, _state.designatedProver);
+        newPtr_ = P.packUint48(newPtr_, _state.timestamp);
+        newPtr_ = P.packBytes32(newPtr_, _state.blockHash);
+    }
 
-    error InvalidBondType();
+    function _decodeProposalState(uint256 _ptr)
+        private
+        pure
+        returns (IInbox.ProposalState memory state_, uint256 newPtr_)
+    {
+        (state_.proposer, newPtr_) = P.unpackAddress(_ptr);
+        (state_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (state_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (state_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
+    }
+
 }

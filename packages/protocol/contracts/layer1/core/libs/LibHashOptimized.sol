@@ -111,28 +111,6 @@ library LibHashOptimized {
         return result;
     }
 
-    /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash transition fields
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
-    }
-
-    /// @notice Memory-optimized hashing for arrays of Transitions
-    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions.
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    function hashTransitions(IInbox.Transition[] memory _transitions)
-        internal
-        pure
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
-    }
-
     /// @notice Hashing for prove input data combining proposal hash and prove input
     /// @dev TODO: Optimize this function using EfficientHashLib for gas savings
     /// @param _lastProposalHash The hash of the last proposal in the proof range
@@ -140,7 +118,7 @@ library LibHashOptimized {
     /// @return The hash of the prove input data
     function hashProveInput(
         bytes32 _lastProposalHash,
-        IInbox.ProveInput2 memory _input
+        IInbox.ProveInput memory _input
     )
         internal
         pure

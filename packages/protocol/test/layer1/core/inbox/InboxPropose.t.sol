@@ -282,4 +282,86 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
         payload_ = _readProposedEvent();
     }
+
+    // =========================================================================
+    // Boundary Tests - propose() conditions
+    // =========================================================================
+
+    /// @notice Test propose succeeds at exact block boundary (block.number == lastProposalBlockId + 1)
+    function test_propose_succeedsWhen_NextBlock() public {
+        _setBlobHashes(2);
+
+        // First proposal
+        _proposeAndDecode(_defaultProposeInput());
+        uint48 lastProposalBlockId = inbox.getState().lastProposalBlockId;
+
+        // Advance exactly 1 block
+        vm.roll(block.number + 1);
+        assertEq(block.number, lastProposalBlockId + 1, "should be exactly next block");
+
+        // Second proposal should succeed at exact boundary
+        IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
+        assertEq(payload.proposal.id, 2, "should be second proposal");
+    }
+
+    /// @notice Test propose succeeds at exact deadline boundary (block.timestamp == deadline)
+    function test_propose_succeedsWhen_DeadlineExact() public {
+        _setBlobHashes(1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.deadline = uint48(block.timestamp); // Exact boundary: timestamp == deadline
+
+        // Should succeed because block.timestamp <= deadline
+        IInbox.ProposedEventPayload memory payload = _proposeAndDecode(input);
+        assertEq(payload.proposal.id, 1, "should succeed at exact deadline");
+    }
+
+    /// @notice Test propose fails 1 second after deadline (block.timestamp == deadline + 1)
+    function test_propose_RevertWhen_OneSecondPastDeadline() public {
+        _setBlobHashes(1);
+
+        uint48 deadline = uint48(block.timestamp);
+        vm.warp(block.timestamp + 1); // Now timestamp > deadline
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.deadline = deadline;
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(Inbox.DeadlineExceeded.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
+    /// @notice Test permissionless proposal at exact boundary (timestamp == permissionlessTimestamp)
+    function test_propose_notPermissionlessWhen_AtExactPermissionlessTimestamp() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        // Calculate exact permissionlessTimestamp
+        // permissionlessTimestamp = forcedInclusionDelay * multiplier + oldestTimestamp
+        uint256 waitTime =
+            uint256(config.forcedInclusionDelay) * uint256(config.permissionlessInclusionMultiplier);
+
+        // Warp to exactly the permissionless timestamp
+        vm.warp(block.timestamp + waitTime);
+        vm.roll(block.number + 1);
+
+        // At exact boundary (timestamp == permissionlessTimestamp), NOT permissionless
+        // because condition is block.timestamp > permissionlessTimestamp (strict >)
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+
+        // Should NOT be permissionless at exact boundary, so unauthorized user fails
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(); // Will revert due to proposer check
+        vm.prank(David);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
 }

@@ -40,27 +40,6 @@ interface ICodec {
         returns (IInbox.ProposedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProvedEventCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes a ProvedEventPayload into bytes
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return encoded_ The encoded bytes
-    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
-        external
-        pure
-        returns (bytes memory encoded_);
-
-    /// @notice Decodes bytes into a ProvedEventPayload
-    /// @param _data The bytes to decode
-    /// @return payload_ The decoded ProvedEventPayload
-    /// @dev Reverts on malformed or truncated input data
-    function decodeProvedEvent(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProvedEventPayload memory payload_);
-
-    // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
 
@@ -82,27 +61,6 @@ interface ICodec {
         returns (IInbox.ProposeInput memory input_);
 
     // ---------------------------------------------------------------
-    // ProveInputCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes prove input data
-    /// @param _input The ProveInput to encode
-    /// @return encoded_ The encoded data
-    function encodeProveInput(IInbox.ProveInput calldata _input)
-        external
-        pure
-        returns (bytes memory encoded_);
-
-    /// @notice Decodes prove input data
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProveInput
-    /// @dev Reverts on malformed or truncated input data
-    function decodeProveInput(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProveInput memory input_);
-
-    // ---------------------------------------------------------------
     // Hashing Functions
     // ---------------------------------------------------------------
 
@@ -115,20 +73,6 @@ interface ICodec {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32);
-
-    /// @notice Hashing for Transition structs
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes32);
-
-    /// @notice Hashing for arrays of Transitions
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
-    function hashTransitions(IInbox.Transition[] calldata _transitions)
-        external
-        pure
-        returns (bytes32);
 
     /// @notice Hashing for BondInstruction structs
     /// @param _bondInstruction The bond instruction to hash
