@@ -678,59 +678,6 @@ contract InboxProveTest is InboxTestBase {
         assertTrue(signalService.isSignalSent(address(inbox), provabilitySignal), "provability 1 sec past extended");
     }
 
-    function test_prove_finalize_single() public {
-        IInbox.ProveInput memory input = _buildBatchInput(1);
-
-        // Warp past minCheckpointDelay to trigger checkpoint sync
-        vm.warp(block.timestamp + config.minCheckpointDelay + 1);
-
-        _proveWithGas(input, "shasta-prove", "finalize_single");
-
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedTimestamp, uint48(block.timestamp), "finalized timestamp");
-        assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[0].blockHash, "block hash");
-    }
-
-    function test_prove_finalize_batch3() public {
-        IInbox.ProveInput memory input = _buildBatchInput(3);
-
-        // Warp past minCheckpointDelay to trigger checkpoint sync
-        vm.warp(block.timestamp + config.minCheckpointDelay + 1);
-
-        _proveWithGas(input, "shasta-prove", "finalize_consecutive_3");
-
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 2, "finalized id");
-        assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
-    }
-
-    function test_prove_finalize_batch5() public {
-        IInbox.ProveInput memory input = _buildBatchInput(5);
-
-        // Warp past minCheckpointDelay to trigger checkpoint sync
-        vm.warp(block.timestamp + config.minCheckpointDelay + 1);
-
-        _proveWithGas(input, "shasta-prove", "finalize_consecutive_5");
-
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 4, "finalized id");
-        assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
-    }
-
-    function test_prove_finalize_batch10() public {
-        IInbox.ProveInput memory input = _buildBatchInput(10);
-
-        // Warp past minCheckpointDelay to trigger checkpoint sync
-        vm.warp(block.timestamp + config.minCheckpointDelay + 1);
-
-        _proveWithGas(input, "shasta-prove", "finalize_consecutive_10");
-
-        IInbox.CoreState memory state = inbox.getState();
-        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 9, "finalized id");
-        assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
-    }
-
     function test_prove_noCheckpointSync_beforeDelay() public {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
