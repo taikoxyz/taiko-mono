@@ -241,7 +241,7 @@ contract InboxProveTest is InboxTestBase {
             payer: p1.proposal.proposer,
             payee: prover
         });
-        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
+        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
         assertEq(state.lastFinalizedProposalId, p2.proposal.id, "finalized span");
         assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
         assertEq(
@@ -283,7 +283,7 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer,
             payee: prover
         });
-        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
+        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
         assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
         assertEq(
             uint8(provedPayload.bondInstruction.bondType),
