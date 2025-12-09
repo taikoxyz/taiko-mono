@@ -70,37 +70,4 @@ contract InboxFinalizeTest is InboxTestBase {
         vm.prank(prover);
         inbox.prove(encodedInput, bytes(""));
     }
-
-    // ---------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------
-
-    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
-        _setBlobHashes(3);
-        payload_ = _proposeAndDecode(_defaultProposeInput());
-    }
-
-    function _buildBatchInput(
-        uint256 _count,
-        bool _syncCheckpoint
-    )
-        internal
-        returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
-    {
-        input_.proposals = new IInbox.Proposal[](_count);
-        transitions_ = new IInbox.Transition[](_count);
-
-        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
-        for (uint256 i; i < _count; ++i) {
-            if (i != 0) _advanceBlock();
-            IInbox.ProposedEventPayload memory proposal = _proposeOne();
-            input_.proposals[i] = proposal.proposal;
-            transitions_[i] =
-                _transitionFor(proposal, parentHash, bytes32(uint256(i + 1)), prover, prover);
-            parentHash = codec.hashTransition(transitions_[i]);
-        }
-
-        input_.transitions = transitions_;
-        input_.syncCheckpoint = _syncCheckpoint;
-    }
 }

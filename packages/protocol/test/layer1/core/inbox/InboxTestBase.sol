@@ -193,25 +193,6 @@ abstract contract InboxTestBase is CommonTest {
         proposals_[2] = _p3;
     }
 
-    function _proposals(
-        IInbox.Proposal memory _p1,
-        IInbox.Proposal memory _p2,
-        IInbox.Proposal memory _p3,
-        IInbox.Proposal memory _p4,
-        IInbox.Proposal memory _p5
-    )
-        internal
-        pure
-        returns (IInbox.Proposal[] memory proposals_)
-    {
-        proposals_ = new IInbox.Proposal[](5);
-        proposals_[0] = _p1;
-        proposals_[1] = _p2;
-        proposals_[2] = _p3;
-        proposals_[3] = _p4;
-        proposals_[4] = _p5;
-    }
-
     function _transitions(IInbox.Transition memory _t1)
         internal
         pure
@@ -247,25 +228,6 @@ abstract contract InboxTestBase is CommonTest {
         transitions_[0] = _t1;
         transitions_[1] = _t2;
         transitions_[2] = _t3;
-    }
-
-    function _transitions(
-        IInbox.Transition memory _t1,
-        IInbox.Transition memory _t2,
-        IInbox.Transition memory _t3,
-        IInbox.Transition memory _t4,
-        IInbox.Transition memory _t5
-    )
-        internal
-        pure
-        returns (IInbox.Transition[] memory transitions_)
-    {
-        transitions_ = new IInbox.Transition[](5);
-        transitions_[0] = _t1;
-        transitions_[1] = _t2;
-        transitions_[2] = _t3;
-        transitions_[3] = _t4;
-        transitions_[4] = _t5;
     }
 
     function _setupMocks() internal virtual {
@@ -392,5 +354,38 @@ abstract contract InboxTestBase is CommonTest {
             }
         }
         revert("Proved event not found");
+    }
+
+    // ---------------------------------------------------------------------
+    // Propose & prove batch helpers
+    // ---------------------------------------------------------------------
+
+    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
+        _setBlobHashes(3);
+        payload_ = _proposeAndDecode(_defaultProposeInput());
+    }
+
+    function _buildBatchInput(
+        uint256 _count,
+        bool _syncCheckpoint
+    )
+        internal
+        returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
+    {
+        input_.proposals = new IInbox.Proposal[](_count);
+        transitions_ = new IInbox.Transition[](_count);
+
+        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
+        for (uint256 i; i < _count; ++i) {
+            if (i != 0) _advanceBlock();
+            IInbox.ProposedEventPayload memory proposal = _proposeOne();
+            input_.proposals[i] = proposal.proposal;
+            transitions_[i] =
+                _transitionFor(proposal, parentHash, bytes32(uint256(i + 1)), prover, prover);
+            parentHash = codec.hashTransition(transitions_[i]);
+        }
+
+        input_.transitions = transitions_;
+        input_.syncCheckpoint = _syncCheckpoint;
     }
 }

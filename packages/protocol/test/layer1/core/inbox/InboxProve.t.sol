@@ -241,7 +241,7 @@ contract InboxProveTest is InboxTestBase {
             payer: p1.proposal.proposer,
             payee: prover
         });
-        bytes32 expectedSignal = _bondSignal(expectedInstruction);
+        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
         assertEq(state.lastFinalizedProposalId, p2.proposal.id, "finalized span");
         assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
         assertEq(
@@ -283,7 +283,7 @@ contract InboxProveTest is InboxTestBase {
             payer: proposer,
             payee: prover
         });
-        bytes32 expectedSignal = _bondSignal(expectedInstruction);
+        bytes32 expectedSignal = LibBonds.hashBondInstruction(expectedInstruction);
         assertEq(provedPayload.bondSignal, expectedSignal, "bond signal");
         assertEq(
             uint8(provedPayload.bondInstruction.bondType),
@@ -371,44 +371,4 @@ contract InboxProveTest is InboxTestBase {
         inbox.prove(encodedInput, bytes(""));
     }
 
-    // ---------------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------------
-
-    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
-        _setBlobHashes(3);
-        payload_ = _proposeAndDecode(_defaultProposeInput());
-    }
-
-    function _buildBatchInput(
-        uint256 _count,
-        bool _syncCheckpoint
-    )
-        internal
-        returns (IInbox.ProveInput memory input_, IInbox.Transition[] memory transitions_)
-    {
-        input_.proposals = new IInbox.Proposal[](_count);
-        transitions_ = new IInbox.Transition[](_count);
-
-        bytes32 parentHash = inbox.getState().lastFinalizedTransitionHash;
-        for (uint256 i; i < _count; ++i) {
-            if (i != 0) _advanceBlock();
-            IInbox.ProposedEventPayload memory proposal = _proposeOne();
-            input_.proposals[i] = proposal.proposal;
-            transitions_[i] =
-                _transitionFor(proposal, parentHash, bytes32(uint256(i + 1)), prover, prover);
-            parentHash = codec.hashTransition(transitions_[i]);
-        }
-
-        input_.transitions = transitions_;
-        input_.syncCheckpoint = _syncCheckpoint;
-    }
-
-    function _bondSignal(LibBonds.BondInstruction memory _instruction)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_instruction));
-    }
 }
