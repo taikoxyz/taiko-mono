@@ -19,7 +19,7 @@ contract Codec is ICodec {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
-    function encodeProposedEventPayload(IInbox.ProposedEventPayload calldata _payload)
+    function encodeProposedEvent(IInbox.ProposedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_)
@@ -28,7 +28,7 @@ contract Codec is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function decodeProposedEventPayload(bytes calldata _data)
+    function decodeProposedEvent(bytes calldata _data)
         external
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
@@ -41,7 +41,7 @@ contract Codec is ICodec {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
-    function encodeProvedEventPayload(IInbox.ProvedEventPayload calldata _payload)
+    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_)
@@ -50,7 +50,7 @@ contract Codec is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function decodeProvedEventPayload(bytes calldata _data)
+    function decodeProvedEvent(bytes calldata _data)
         external
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
