@@ -407,11 +407,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
+            // Get the parent proposal hash from the ring buffer
+            bytes32 parentProposalHash = _proposalHashes[(_nextProposalId - 1) % _ringBufferSize];
+
             proposal_ = Proposal({
                 id: _nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
+                parentProposalHash: parentProposalHash,
                 derivationHash: LibHashOptimized.hashDerivation(derivation_)
             });
         }

@@ -32,6 +32,7 @@ contract LibProposedEventCodecTest is Test {
                 timestamp: 111,
                 endOfSubmissionWindowTimestamp: 0,
                 proposer: address(0x1234),
+                parentProposalHash: bytes32(uint256(9)),
                 derivationHash: bytes32(uint256(10))
             }),
             derivation: IInbox.Derivation({
@@ -74,6 +75,7 @@ contract LibProposedEventCodecTest is Test {
                 timestamp: 200,
                 endOfSubmissionWindowTimestamp: 300,
                 proposer: address(0xBEEF),
+                parentProposalHash: bytes32(uint256(13)),
                 derivationHash: bytes32(uint256(14))
             }),
             derivation: IInbox.Derivation({
