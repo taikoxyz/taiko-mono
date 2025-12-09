@@ -678,10 +678,6 @@ contract InboxProveTest is InboxTestBase {
         assertTrue(signalService.isSignalSent(address(inbox), provabilitySignal), "provability 1 sec past extended");
     }
 
-    // =========================================================================
-    // Finalization Tests (proving and finalization are coupled)
-    // =========================================================================
-
     function test_prove_finalize_single() public {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
