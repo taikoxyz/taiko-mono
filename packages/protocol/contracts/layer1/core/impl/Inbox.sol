@@ -198,7 +198,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
     ///      3. Updates core state and emits `Proposed` event
-    /// NOTE: This function can only be called once per block to prevent spams that can fill the ring buffer.
+    /// NOTE: This function can only be called once per block to prevent spams that can fill the
+    /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external onlyWhenActivated nonReentrant {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
@@ -222,22 +223,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     ///
-    /// The proof covers a contiguous range of proposals. The input contains an array of ProposalState
-    /// structs, each with the proposal's metadata and block hash. The proof range can start
-    /// at or before the last finalized proposal to handle race conditions where proposals get
-    /// finalized between proof generation and submission.
+    /// The proof covers a contiguous range of proposals. The input contains an array of
+    /// ProposalState structs, each with the proposal's metadata and block hash. The proof range
+    /// can start at or before the last finalized proposal to handle race conditions where
+    /// proposals get finalized between proof generation and submission.
     ///
     /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
     ///
     ///       lastFinalizedProposalId                nextProposalId
-    ///                             ↓                             ↓
+    ///                             ┆                             ┆
+    ///                             ▼                             ▼
     ///     0     1     2     3     4     5     6     7     8     9
     ///     ■─────■─────■─────■─────■─────□─────□─────□─────□─────
-    ///                       └── input.proposalStates[] ─┘
-    ///                       ↑     ↑                     ↑
-    ///              firstProposalId |            lastProposalId
-    ///                           offset (proposalStates[0..offset-1] already finalized)
-    ///
+    ///                       ▲           ▲                 ▲
+    ///                       ┆<-offset-> ┆                 ┆
+    ///                       ┆                             ┆
+    ///                       ┆<-  input.proposalStates[] ->┆ 
+    ///         firstProposalId                             lastProposalId
+    ///                           
     /// Key validation rules:
     /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
     /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
@@ -340,8 +343,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    /// @dev This function will revert if called before the first non-activation proposal is submitted
-    /// to make sure blocks have been produced already and the derivation can use the parent's block timestamp.
+    /// @dev This function will revert if called before the first non-activation proposal is
+    /// submitted to make sure blocks have been produced already and the derivation can use the
+    /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
@@ -391,8 +395,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
-    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals may
-    /// have been overwritten by a new one. You should verify that the hash matches the expected proposal.
+    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
+    /// may have been overwritten by a new one. You should verify that the hash matches the
+    /// expected proposal.
     /// @param _proposalId The ID of the proposal to query
     /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
@@ -436,7 +441,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _nextProposalId The proposal ID to assign.
     /// @param _lastProposalBlockId The last block number where a proposal was made.
     /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
-    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp and derivation hash set.
+    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp and derivation
+    /// hash set.
     /// @return derivation_ The derivation data for the proposal.
     function _buildProposal(
         ProposeInput memory _input,

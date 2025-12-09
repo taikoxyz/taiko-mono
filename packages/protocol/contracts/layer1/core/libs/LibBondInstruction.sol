@@ -11,12 +11,14 @@ library LibBondInstruction {
     ///
     /// Bond logic:
     /// - If proof is on-time (proposalAge <= provingWindow): No bond transfer
-    /// - If proof is late but within extended window: LIVENESS bond (designatedProver pays actualProver)
+    /// - If proof is late but within extended window: LIVENESS bond (designatedProver pays
+    ///   actualProver)
     /// - If proof is after extended window: PROVABILITY bond (proposer pays actualProver)
     /// - If payer == payee: No bond transfer
     ///
     /// @param _proposalId The proposal ID.
-    /// @param _proposalAge Time elapsed since the proposal became ready (block.timestamp - readyTimestamp).
+    /// @param _proposalAge Time elapsed since the proposal became ready
+    ///        (block.timestamp - readyTimestamp).
     /// @param _proposer The proposer address.
     /// @param _designatedProver The designated prover address.
     /// @param _actualProver The actual prover address.

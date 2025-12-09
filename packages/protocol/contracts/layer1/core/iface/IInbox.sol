@@ -127,7 +127,8 @@ interface IInbox {
     struct ProveInput {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The block hash of the parent of the first proposal, this is used to verify block hash continuity in the proof.
+        /// @notice The block hash of the parent of the first proposal, this is used
+        /// to verify block hash continuity in the proof.
         bytes32 firstProposalParentBlockHash;
         /// @notice The last block number in the last proposal
         uint48 lastBlockNumber;

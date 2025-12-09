@@ -33,8 +33,8 @@ library LibHashOptimized {
             // [5] sources length
             uint256 totalWords = 6 + sourcesLength;
 
-            // Each source contributes: element head (2) + blobSlice head (3) + blobHashes length (1)
-            // + blobHashes entries
+            // Each source contributes: element head (2) + blobSlice head (3) + blobHashes
+            // length (1) + blobHashes entries
             for (uint256 i; i < sourcesLength; ++i) {
                 totalWords += 6 + sources[i].blobSlice.blobHashes.length;
             }
