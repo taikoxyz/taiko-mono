@@ -87,6 +87,22 @@ abstract contract ProveTestBase is InboxTestBase {
         inbox.prove(encodedInput, bytes(""));
     }
 
+    function test_prove_RevertWhen_NotActivated() public {
+        Inbox unactivated = _deployInbox();
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: new IInbox.Proposal[](1),
+            transitions: new IInbox.Transition[](1),
+            syncCheckpoint: true
+        });
+        bytes memory encodedInput = codec.encodeProveInput(input);
+
+        // The prove function does not have a specific check for activation,
+        // but instead if there's no proposal to prove it will revert
+        vm.expectRevert(Inbox.InvalidProposalId.selector);
+        vm.prank(prover);
+        unactivated.prove(encodedInput, bytes(""));
+    }
+
     function test_prove_RevertWhen_SkippingProposal() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
