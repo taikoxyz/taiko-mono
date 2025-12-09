@@ -200,7 +200,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
-        require(activationTimestamp != 0, ActivationRequired());
+        require(_state.nextProposalId != 0, ActivationRequired());
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
@@ -227,7 +227,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// to be submitted as long as they advance the chain. This is necessary to avoid wasted prover work
     /// or transactions reverting.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
-        require(activationTimestamp != 0, ActivationRequired());
+        require(_state.nextProposalId != 0, ActivationRequired());
         // Decode and validate input
         ProveInput memory input = LibProveInputCodec.decode(_data);
         _validateProveInput(input);

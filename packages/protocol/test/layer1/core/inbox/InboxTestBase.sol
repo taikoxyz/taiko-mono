@@ -114,11 +114,7 @@ abstract contract InboxTestBase is CommonTest {
             proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)"
         );
         proposerChecker.checkProposer(proposer, bytes(""));
-        bytes memory encodedInput = codec.encodeProposeInput(_input);
-        vm.recordLogs();
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
-        payload_ = _readProposedEvent();
+        payload_ = _proposeAndDecodeWithGas(_input, "");
     }
 
     function _proposeAndDecodeWithGas(
@@ -132,24 +128,28 @@ abstract contract InboxTestBase is CommonTest {
         vm.recordLogs();
         vm.startPrank(proposer);
 
-        vm.startSnapshotGas("shasta-propose", _benchName);
+        if (bytes(_benchName).length > 0) vm.startSnapshotGas("shasta-propose", _benchName);
         inbox.propose(bytes(""), encodedInput);
-        vm.stopSnapshotGas();
+        if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 
         vm.stopPrank();
         payload_ = _readProposedEvent();
     }
 
     function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
+        bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
+        require(eventData.length > 0, "Proposed event not found");
+        return codec.decodeProposedEvent(eventData);
+    }
+
+    function _findEventData(bytes32 _topic) private returns (bytes memory) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 proposedTopic = keccak256("Proposed(bytes)");
         for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length != 0 && logs[i].topics[0] == proposedTopic) {
-                bytes memory payload = abi.decode(logs[i].data, (bytes));
-                return codec.decodeProposedEvent(payload);
+            if (logs[i].topics.length != 0 && logs[i].topics[0] == _topic) {
+                return abi.decode(logs[i].data, (bytes));
             }
         }
-        revert("Proposed event not found");
+        return bytes("");
     }
 
     // ---------------------------------------------------------------------
@@ -319,11 +319,7 @@ abstract contract InboxTestBase is CommonTest {
         internal
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        bytes memory encodedInput = codec.encodeProveInput(_input);
-        vm.recordLogs();
-        vm.prank(prover);
-        inbox.prove(encodedInput, bytes(""));
-        payload_ = _readProvedEvent();
+        payload_ = _proveAndDecodeWithGas(_input, "", "");
     }
 
     function _proveAndDecodeWithGas(
@@ -337,23 +333,19 @@ abstract contract InboxTestBase is CommonTest {
         bytes memory encodedInput = codec.encodeProveInput(_input);
         vm.recordLogs();
         vm.startPrank(prover);
-        vm.startSnapshotGas(_profile, _benchName);
+
+        if (bytes(_benchName).length > 0) vm.startSnapshotGas(_profile, _benchName);
         inbox.prove(encodedInput, bytes(""));
-        vm.stopSnapshotGas();
+        if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
+
         vm.stopPrank();
         payload_ = _readProvedEvent();
     }
 
     function _readProvedEvent() internal returns (IInbox.ProvedEventPayload memory payload_) {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 provedTopic = keccak256("Proved(bytes)");
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length != 0 && logs[i].topics[0] == provedTopic) {
-                bytes memory payload = abi.decode(logs[i].data, (bytes));
-                return codec.decodeProvedEvent(payload);
-            }
-        }
-        revert("Proved event not found");
+        bytes memory eventData = _findEventData(keccak256("Proved(bytes)"));
+        require(eventData.length > 0, "Proved event not found");
+        return codec.decodeProvedEvent(eventData);
     }
 
     // ---------------------------------------------------------------------
