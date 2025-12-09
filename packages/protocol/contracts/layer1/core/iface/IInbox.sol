@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -95,8 +96,8 @@ interface IInbox {
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The hash of the last finalized transition.
-        bytes32 lastFinalizedBlockHash;
+        /// @notice The hash of the last finalized checkpoint.
+        bytes32 lastFinalizedCheckpointHash;
     }
 
     /// @notice Input data for the propose function
@@ -111,33 +112,31 @@ interface IInbox {
         uint8 numForcedInclusions;
     }
 
-    /// @notice Metadata for a proposal used in prove
-    struct ProposalState {
+    /// @notice Transition data for a proposal used in prove
+    struct Transition {
         /// @notice Address of the proposer.
         address proposer;
         /// @notice Address of the designated prover.
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice Last block hash for the proposal.
-        bytes32 blockHash;
+        /// @notice checkpoint hash for the proposal.
+        bytes32 checkpointHash;
     }
 
     /// @notice Input data for the prove function
     struct ProveInput {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The block hash of the parent of the first proposal, this is used
+        /// @notice The checkpoint hash of the parent of the first proposal, this is used
         /// to verify block hash continuity in the proof.
-        bytes32 firstProposalParentBlockHash;
-        /// @notice The last block number in the last proposal
-        uint48 lastBlockNumber;
-        /// @notice The state root of the last block
-        bytes32 lastStateRoot;
+        bytes32 firstProposalParentCheckpointHash;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
-        /// @notice Array of proposal state for each proposal in the proof range.
-        ProposalState[] proposalStates;
+        /// @notice Array of transitions for each proposal in the proof range.
+        Transition[] transitions;
+        /// @notice The last block number in the last proposal
+        ICheckpointStore.Checkpoint lastCheckpoint;
     }
 
     /// @notice Payload data emitted in the Proposed event

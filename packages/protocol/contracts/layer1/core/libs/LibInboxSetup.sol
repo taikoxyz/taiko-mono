@@ -46,7 +46,7 @@ library LibInboxSetup {
     }
 
     /// @dev Validates activation and computes the initial state for inbox activation.
-    /// @param _lastPacayaBlockHash The hash of the last Pacaya block.
+    /// @param _lastPacayaCheckpointHash The checkpoint hash of the last Pacaya block.
     /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
@@ -54,7 +54,7 @@ library LibInboxSetup {
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
     function activate(
-        bytes32 _lastPacayaBlockHash,
+        bytes32 _lastPacayaCheckpointHash,
         uint48 _activationTimestamp
     )
         public
@@ -68,7 +68,7 @@ library LibInboxSetup {
         )
     {
         // Validate activation parameters
-        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
+        require(_lastPacayaCheckpointHash != 0, InvalidLastPacayaCheckpointHash());
         if (_activationTimestamp == 0) {
             activationTimestamp_ = uint48(block.timestamp);
         } else {
@@ -86,7 +86,7 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
+        state_.lastFinalizedCheckpointHash = _lastPacayaCheckpointHash;
 
         proposal_.derivationHash = LibHashOptimized.hashDerivation(derivation_);
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
@@ -102,7 +102,7 @@ library LibInboxSetup {
     error ExtendedWindowTooSmall();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
-    error InvalidLastPacayaBlockHash();
+    error InvalidLastPacayaCheckpointHash();
     error MinForcedInclusionCountZero();
     error MinProposalsToFinalizeTooBig();
     error MinProposalsToFinalizeTooSmall();
