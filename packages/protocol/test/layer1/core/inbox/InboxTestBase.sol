@@ -139,7 +139,7 @@ abstract contract InboxTestBase is CommonTest {
     function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
         bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
         require(eventData.length > 0, "Proposed event not found");
-        return codec.decodeProposedEvent(eventData);
+        return codec.decodeProposedEventPayload(eventData);
     }
 
     function _findEventData(bytes32 _topic) private returns (bytes memory) {

@@ -19,13 +19,13 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ICodec {
     // ---------------------------------------------------------------
-    // ProposedEventCodec Functions
+    // ProposedEventPayloadCodec Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes a ProposedEventPayload into bytes
     /// @param _payload The payload to encode
     /// @return encoded_ The encoded bytes
-    function encodeProposedEvent(IInbox.ProposedEventPayload calldata _payload)
+    function encodeProposedEventPayload(IInbox.ProposedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_);
@@ -34,19 +34,19 @@ interface ICodec {
     /// @param _data The encoded data
     /// @return payload_ The decoded payload
     /// @dev Reverts on malformed or truncated input data
-    function decodeProposedEvent(bytes calldata _data)
+    function decodeProposedEventPayload(bytes calldata _data)
         external
         pure
         returns (IInbox.ProposedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProvedEventCodec Functions
+    // ProvedEventPayloadCodec Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes a ProvedEventPayload into bytes
     /// @param _payload The ProvedEventPayload to encode
     /// @return encoded_ The encoded bytes
-    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
+    function encodeProvedEventPayload(IInbox.ProvedEventPayload calldata _payload)
         external
         pure
         returns (bytes memory encoded_);
@@ -55,7 +55,7 @@ interface ICodec {
     /// @param _data The bytes to decode
     /// @return payload_ The decoded ProvedEventPayload
     /// @dev Reverts on malformed or truncated input data
-    function decodeProvedEvent(bytes calldata _data)
+    function decodeProvedEventPayload(bytes calldata _data)
         external
         pure
         returns (IInbox.ProvedEventPayload memory payload_);
