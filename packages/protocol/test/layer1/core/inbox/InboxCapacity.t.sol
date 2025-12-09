@@ -9,22 +9,17 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 contract InboxCapacityTest is InboxTestBase {
     function test_propose_RevertWhen_CapacityExceeded() public {
         _setBlobHashes(3);
-        _nextBlock();
+        _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
-        _nextBlock();
+        _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
-        _nextBlock();
+        _advanceBlock();
         bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
         vm.expectRevert(Inbox.NotEnoughCapacity.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
-    }
-
-    function _nextBlock() private {
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 1);
     }
 
     function _buildConfig() internal virtual override returns (IInbox.Config memory) {
