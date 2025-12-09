@@ -273,11 +273,13 @@ where
 
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
     ///
-    /// Resolution rules (matches `LookaheadStore._determineProposerContext`) without runtime
+    /// Resolution rules (parity with `LookaheadStore._determineProposerContext`) without runtime
     /// network I/O:
-    /// - If the epoch has no lookahead slots, use the cached current-epoch whitelist operator.
-    /// - Otherwise pick the first slot whose timestamp is >= the queried timestamp; if none and the
-    ///   first slot of the next epoch is in the future of `ts`, use that first slot; otherwise fall
+    /// - If the epoch has no lookahead slots, use the cached current-epoch whitelist operator for
+    ///   the whole epoch (`_handleEmptyCurrentLookahead`).
+    /// - Otherwise pick the first slot whose timestamp is >= the queried timestamp
+    ///   (`_handleSameEpochProposer` selection); if none exist and the first slot of the next epoch
+    ///   is still ahead of `ts`, use that first slot (`_handleCrossEpochProposer`); otherwise fall
     ///   back to the cached current-epoch whitelist.
     /// - If the chosen slot was marked blacklisted at ingest, fall back to the cached current-epoch
     ///   whitelist.
@@ -299,15 +301,19 @@ where
         let current = self.cache.get(&epoch_start).map(|entry| entry.clone());
         let next = self.cache.get(&next_epoch_start).map(|entry| entry.clone());
 
+        // Ensure current epoch data is available.
         let curr_epoch = current.ok_or(LookaheadError::MissingLookahead(epoch_start))?;
+
+        // Select the appropriate slot origin and index.
         let selection =
             pick_slot_origin(ts, &curr_epoch.slots, next.as_ref().map(|n| n.slots.as_slice()));
 
+        // Resolve based on selection and blacklist status.
         match selection {
             Some(SlotOrigin::Current(idx)) => {
                 let slot = &curr_epoch.slots[idx];
-                let blacklisted = curr_epoch.slot_blacklisted.get(idx).copied().unwrap_or(false);
-                if blacklisted {
+                // Check blacklist status.
+                if curr_epoch.slot_blacklisted.get(idx).copied().unwrap_or(false) {
                     return Ok(curr_epoch.fallback_whitelist);
                 }
                 Ok(slot.committer)
@@ -318,8 +324,8 @@ where
                     .slots
                     .get(idx)
                     .ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
-                let blacklisted = next_epoch.slot_blacklisted.get(idx).copied().unwrap_or(false);
-                if blacklisted {
+                // Check blacklist status.
+                if next_epoch.slot_blacklisted.get(idx).copied().unwrap_or(false) {
                     return Ok(curr_epoch.fallback_whitelist);
                 }
                 Ok(slot.committer)
@@ -366,12 +372,20 @@ fn pick_slot_origin(
     current_slots: &[LookaheadSlot],
     next_slots: Option<&[LookaheadSlot]>,
 ) -> Option<SlotOrigin> {
+    // If the current epoch has no lookahead slots, contract logic falls back to the whitelist for
+    // the whole epoch (`_handleEmptyCurrentLookahead`); do not borrow from the next epoch.
+    if current_slots.is_empty() {
+        return None;
+    }
+
+    // Find the first current epoch slot >= ts.
     if let Some((idx, _)) =
         current_slots.iter().enumerate().find(|(_, slot)| ts <= slot.timestamp.to::<u64>())
     {
         return Some(SlotOrigin::Current(idx));
     }
 
+    // No current epoch slot matched; check the first slot of the next epoch if available.
     if let Some(next) = next_slots &&
         let Some(first) = next.first() &&
         ts <= first.timestamp.to::<u64>()
@@ -379,6 +393,7 @@ fn pick_slot_origin(
         return Some(SlotOrigin::Next(0));
     }
 
+    // No suitable slot found.
     None
 }
 
@@ -474,7 +489,7 @@ mod tests {
         };
 
         let picked = pick_slot_origin(210, &current, Some(&[next_first.clone()])).expect("slot");
-        assert_eq!(picked, SlotOrigin::Current(0));
+        assert_eq!(picked, SlotOrigin::Current(1));
 
         let picked_next =
             pick_slot_origin(300, &current, Some(&[next_first.clone()])).expect("next slot");
@@ -482,5 +497,18 @@ mod tests {
 
         let none = pick_slot_origin(500, &current, Some(&[next_first]));
         assert!(none.is_none());
+    }
+
+    #[test]
+    fn pick_slot_falls_back_when_current_empty_even_if_next_present() {
+        let next_first = LookaheadSlot {
+            timestamp: U256::from(400),
+            committer: Address::from([3u8; 20]),
+            registrationRoot: B256::ZERO,
+            validatorLeafIndex: U256::ZERO,
+        };
+
+        let picked = pick_slot_origin(210, &[], Some(&[next_first]));
+        assert!(picked.is_none());
     }
 }

@@ -19,13 +19,15 @@ pub type LookaheadResolverWithDefaultProvider =
 
 // Lookahead preconfirmation resolver.
 //
-// How `committer_for_timestamp` resolves a committer:
-// - Finds the first lookahead slot whose timestamp >= queried timestamp; if none, tries the first
-//   slot of the next epoch; otherwise falls back to the current-epoch whitelist.
+// How `committer_for_timestamp` resolves a committer (parity with
+// `LookaheadStore._determineProposerContext`):
+// - If the current epoch lookahead is empty, use the whitelist operator for the entire epoch.
+// - Otherwise pick the first current-epoch slot whose timestamp >= queried timestamp; if none and
+//   the first slot of the next epoch is still ahead of the queried timestamp, use that first slot;
+//   otherwise fall back to the current-epoch whitelist.
+// - Blacklisted slots always fall back to the cached current-epoch whitelist.
 // - All whitelist/blacklist checks are snapshotted at ingest (LookaheadPosted block); resolution is
 //   fully offline with no runtime network I/O.
-// - If the chosen slot was marked blacklisted at ingest, resolution falls back to the cached
-//   current-epoch whitelist snapshot.
 //
 // Integrators can call `committer_for_timestamp` to obtain the expected committer address for a
 // given L1 timestamp, matching LookaheadStore/PreconfWhitelist semantics.
