@@ -32,11 +32,11 @@ pub const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
 #[derive(Clone, Debug)]
 pub struct CachedLookaheadEpoch {
     /// Ordered lookahead slots for an epoch as emitted by `LookaheadPosted`.
-    pub slots: Arc<Vec<LookaheadSlot>>, // slots are already ordered on-chain
+    pub slots: Arc<Vec<LookaheadSlot>>,
     /// Snapshot of the whitelist operator for this epoch at the block that emitted the
     /// `LookaheadPosted` event. Used as a deterministic fallback when lookahead is empty or a slot
     /// is later deemed unusable.
-    pub fallback_whitelist: Option<Address>,
+    pub fallback_whitelist: Address,
     /// Per-slot blacklist flags, captured at the lookahead event block. Aligned with `slots`.
     pub slot_blacklisted: Arc<Vec<bool>>,
 }
@@ -53,7 +53,7 @@ impl CachedLookaheadEpoch {
     }
 
     /// Whitelist fallback captured for this epoch at ingest time.
-    pub fn fallback_whitelist(&self) -> Option<Address> {
+    pub fn fallback_whitelist(&self) -> Address {
         self.fallback_whitelist
     }
 }
@@ -239,18 +239,17 @@ where
     }
 
     /// Snapshot the whitelist fallback operator at a specific block, mirroring on-chain state used
-    /// when the lookahead event was emitted. Only the current-epoch whitelist is retained because
-    /// fallbacks always rely on the current epoch per contract semantics.
-    async fn snapshot_whitelist(&self, block: u64) -> Result<Option<Address>> {
+    /// when the lookahead event was emitted.
+    async fn snapshot_whitelist(&self, block: u64) -> Result<Address> {
         let current_query = self
             .preconf_whitelist
-            .getOperatorForCurrentEpoch()
+            .getOperatorForNextEpoch()
             .block(BlockId::Number(block.into()))
             .call()
             .await
             .map_err(LookaheadError::PreconfWhitelist)?;
 
-        Ok(Some(current_query))
+        Ok(current_query)
     }
 
     /// Precompute blacklist flags for a batch of slots at a specific block.
@@ -309,7 +308,7 @@ where
                 let slot = &curr_epoch.slots[idx];
                 let blacklisted = curr_epoch.slot_blacklisted.get(idx).copied().unwrap_or(false);
                 if blacklisted {
-                    return self.fallback_operator(curr_epoch.fallback_whitelist, epoch_start);
+                    return Ok(curr_epoch.fallback_whitelist);
                 }
                 Ok(slot.committer)
             }
@@ -321,17 +320,12 @@ where
                     .ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
                 let blacklisted = next_epoch.slot_blacklisted.get(idx).copied().unwrap_or(false);
                 if blacklisted {
-                    return self.fallback_operator(curr_epoch.fallback_whitelist, epoch_start);
+                    return Ok(curr_epoch.fallback_whitelist);
                 }
                 Ok(slot.committer)
             }
-            None => self.fallback_operator(curr_epoch.fallback_whitelist, epoch_start),
+            None => Ok(curr_epoch.fallback_whitelist),
         }
-    }
-
-    /// Resolve the whitelist fallback operator, preferring cached snapshot when provided.
-    fn fallback_operator(&self, cached: Option<Address>, epoch_start: u64) -> Result<Address> {
-        cached.ok_or(LookaheadError::MissingFallback(epoch_start))
     }
 }
 
@@ -448,11 +442,11 @@ mod tests {
 
         let current = CachedLookaheadEpoch {
             slots: Arc::new(vec![]),
-            fallback_whitelist: Some(addr_curr),
+            fallback_whitelist: addr_curr,
             slot_blacklisted: Arc::new(vec![]),
         };
 
-        assert_eq!(current.fallback_whitelist, Some(addr_curr));
+        assert_eq!(current.fallback_whitelist, addr_curr);
     }
 
     #[test]

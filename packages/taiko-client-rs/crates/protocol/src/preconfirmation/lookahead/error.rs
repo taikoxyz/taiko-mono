@@ -30,9 +30,6 @@ pub enum LookaheadError {
     /// Cached lookahead data for the epoch was not available.
     #[error("no lookahead data cached for epoch starting at {0}")]
     MissingLookahead(u64),
-    /// Cached whitelist fallback for the epoch was not available.
-    #[error("no whitelist fallback cached for epoch starting at {0}")]
-    MissingFallback(u64),
 }
 
 /// Result alias for lookahead operations.
