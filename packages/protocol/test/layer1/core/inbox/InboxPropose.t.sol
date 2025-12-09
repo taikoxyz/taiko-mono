@@ -287,7 +287,8 @@ contract InboxProposeTest is InboxTestBase {
     // Boundary Tests - propose() conditions
     // =========================================================================
 
-    /// @notice Test propose succeeds at exact block boundary (block.number == lastProposalBlockId + 1)
+    /// @notice Test propose succeeds at exact block boundary
+    /// (block.number == lastProposalBlockId + 1)
     function test_propose_succeedsWhen_NextBlock() public {
         _setBlobHashes(2);
 
@@ -332,7 +333,8 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
-    /// @notice Test permissionless proposal at exact boundary (timestamp == permissionlessTimestamp)
+    /// @notice Test permissionless proposal at exact boundary
+    /// (timestamp == permissionlessTimestamp)
     function test_propose_notPermissionlessWhen_AtExactPermissionlessTimestamp() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());

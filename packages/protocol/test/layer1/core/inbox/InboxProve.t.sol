@@ -529,7 +529,8 @@ contract InboxProveTest is InboxTestBase {
     // Boundary Tests - Bond instruction timing
     // =========================================================================
 
-    /// @notice Test proving at exact provingWindow boundary (proposalAge == provingWindow) - no bond
+    /// @notice Test proving at exact provingWindow boundary (proposalAge == provingWindow)
+    /// - no bond
     function test_prove_noBondSignal_atExactProvingWindowBoundary() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
 
@@ -629,7 +630,8 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input);
 
-        // At exact extendedProvingWindow boundary (proposalAge <= extendedProvingWindow), LIVENESS bond
+        // At exact extendedProvingWindow boundary (proposalAge <= extendedProvingWindow),
+        // LIVENESS bond
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: proposed.proposal.id,
             bondType: LibBonds.BondType.LIVENESS,
@@ -666,7 +668,8 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input);
 
-        // Past extendedProvingWindow triggers PROVABILITY bond (proposer pays, not designatedProver)
+        // Past extendedProvingWindow triggers PROVABILITY bond
+        // (proposer pays, not designatedProver)
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: proposed.proposal.id,
             bondType: LibBonds.BondType.PROVABILITY,
