@@ -27,7 +27,8 @@ contract LibProvedEventCodecTest is Test {
         });
 
         bytes memory encoded = LibProvedEventCodec.encodeProvedEventPayload(payload);
-        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decodeProvedEventPayload(encoded);
+        IInbox.ProvedEventPayload memory decoded =
+            LibProvedEventCodec.decodeProvedEventPayload(encoded);
 
         assertEq(decoded.input.firstProposalId, payload.input.firstProposalId, "firstProposalId");
         assertEq(
@@ -94,7 +95,8 @@ contract LibProvedEventCodecTest is Test {
         });
 
         bytes memory encoded = LibProvedEventCodec.encodeProvedEventPayload(payload);
-        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decodeProvedEventPayload(encoded);
+        IInbox.ProvedEventPayload memory decoded =
+            LibProvedEventCodec.decodeProvedEventPayload(encoded);
 
         assertEq(decoded.input.firstProposalId, 10, "firstProposalId");
         assertEq(decoded.input.proposalStates.length, 3, "proposalStates length");

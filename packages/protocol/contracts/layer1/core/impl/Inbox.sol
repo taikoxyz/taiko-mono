@@ -344,7 +344,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
             _state.lastFinalizedTimestamp = uint48(block.timestamp);
-            emit Proved(LibProvedEventCodec.encodeProvedEventPayload(ProvedEventPayload({ input: input })));
+            emit Proved(LibProvedEventCodec.encodeProvedEventPayload(
+                    ProvedEventPayload({ input: input })
+                ));
 
             // ---------------------------------------------------------
             // 7. Verify the proof
