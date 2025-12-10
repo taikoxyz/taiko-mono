@@ -278,7 +278,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 );
             if (bondInstruction.bondType != LibBonds.BondType.NONE) {
                 _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
             }
 
             // -----------------------------------------------------------------------------
