@@ -113,7 +113,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     uint48 public activationTimestamp;
 
     /// @notice Persisted core state (all uint48 fields packed into single slot).
-    CoreState internal _state;
+    CoreState public coreState;
 
     /// @notice The hash of the last finalized block (separate slot for gas optimization).
     bytes32 internal _lastFinalizedBlockHash;
@@ -178,7 +178,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
-        _state = state;
+        coreState = state;
         _lastFinalizedBlockHash = _lastPacayaBlockHash;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
@@ -200,7 +200,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateProposeInput(input);
 
             // Load entire CoreState into memory once (single SLOAD for the packed slot)
-            CoreState memory state = _state;
+            CoreState memory state = coreState;
             require(state.nextProposalId != 0, ActivationRequired());
 
             (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
@@ -216,7 +216,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastProposalBlockId = uint48(block.number);
 
             // Write entire CoreState back once (single SSTORE for the packed slot)
-            _state = state;
+            coreState = state;
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal, derivation);
@@ -254,7 +254,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
             // Load entire CoreState into memory once (single SLOAD for the packed slot)
-            CoreState memory state = _state;
+            CoreState memory state = coreState;
             require(state.nextProposalId != 0, ActivationRequired());
 
             ProveInput memory input = LibProveInputCodec.decode(_data);
@@ -349,7 +349,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedTimestamp = uint48(block.timestamp);
 
             // Write entire CoreState back once (single SSTORE for the packed slot)
-            _state = state;
+            coreState = state;
             // Write lastFinalizedBlockHash separately (separate storage slot)
             _lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
 
@@ -447,13 +447,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IInbox
-    function getState() external view returns (CoreState memory state_) {
-        state_ = _state;
-    }
-
-    /// @inheritdoc IInbox
     function getLastFinalizedBlockHash() external view returns (bytes32) {
         return _lastFinalizedBlockHash;
+    }
+
+    /// @notice Returns the core state as a struct (convenience wrapper for tests).
+    /// @dev The public `coreState` variable returns a tuple; this returns the struct.
+    function getCoreState() external view returns (CoreState memory) {
+        return coreState;
     }
 
     // ---------------------------------------------------------------

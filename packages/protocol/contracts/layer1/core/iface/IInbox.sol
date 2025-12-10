@@ -195,9 +195,6 @@ interface IInbox {
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
 
-    /// @notice Returns the current core state snapshot.
-    function getState() external view returns (CoreState memory state_);
-
     /// @notice Returns the hash of the last finalized block.
     /// @return The last finalized block hash.
     function getLastFinalizedBlockHash() external view returns (bytes32);
