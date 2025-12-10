@@ -185,7 +185,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
