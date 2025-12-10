@@ -168,6 +168,14 @@ where
             // PreconfWhitelist drives the live fallback timeline used when no valid slot exists.
             let is_lookahead = log.address() == self.client.lookahead_store_address();
             let is_whitelist = log.address() == self.preconf_whitelist_address();
+            let block_number = log.block_number.ok_or(LookaheadError::MissingLogField {
+                field: "block_number",
+                context: "ingesting LookaheadPosted",
+            })?;
+            let block_timestamp = log.block_timestamp.ok_or(LookaheadError::MissingLogField {
+                field: "block_timestamp",
+                context: "ingesting LookaheadPosted",
+            })?;
 
             if is_lookahead {
                 // LookaheadStore events update epoch cache and blacklist state; these are the
@@ -179,7 +187,7 @@ where
                     )
                     .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
 
-                    self.store_epoch(event, log.block_number, log.block_timestamp).await?;
+                    self.store_epoch(event, block_number, block_timestamp).await?;
                 } else if first_topic == Blacklisted::SIGNATURE_HASH {
                     // Blacklist events mark a slot's registration root as unusable going forward
                     // and broadcast the change if listeners are attached.
@@ -226,12 +234,7 @@ where
                 if first_topic == OperatorRemoved::SIGNATURE_HASH ||
                     first_topic == OperatorAdded::SIGNATURE_HASH
                 {
-                    // Block number is required to snapshot whitelist state at the exact fork
-                    // height where the event occurred.
-                    let block_number = log.block_number.ok_or_else(|| {
-                        LookaheadError::EventDecode("whitelist log missing block number".into())
-                    })?;
-                    self.record_whitelist_event(block_number, log.block_timestamp).await?;
+                    self.record_whitelist_event(block_number, block_timestamp).await?;
                 } else {
                     warn!(topic = ?first_topic, "unrecognized whitelist log topic");
                 }
@@ -265,29 +268,21 @@ where
     pub(crate) async fn store_epoch(
         &self,
         event: LookaheadPosted,
-        block_number: Option<u64>,
-        block_timestamp: Option<u64>,
+        block_number: u64,
+        block_timestamp: u64,
     ) -> Result<()> {
-        // Ensure we have the block number for snapshotting.
-        let block = block_number.ok_or_else(|| {
-            LookaheadError::EventDecode("lookahead log missing block number".into())
-        })?;
-
         // Snapshot whitelist state at the event block state.
-        let fallback_current = self.snapshot_whitelist(block).await?;
+        let fallback_current = self.snapshot_whitelist(block_number).await?;
 
         // Record baseline fallback for the epoch so live updates can override it.
-        self.record_fallback_baseline(
-            event.epochTimestamp.to(),
-            block_timestamp.unwrap_or(self.block_timestamp(block).await?),
-            fallback_current,
-        )
-        .await?;
+        self.record_fallback_baseline(event.epochTimestamp.to(), block_timestamp, fallback_current)
+            .await?;
 
         // Insert or update the cached epoch entry.
         let cached = CachedLookaheadEpoch {
             slots: Arc::new(event.lookaheadSlots),
             fallback_whitelist: fallback_current,
+            block_timestamp,
         };
 
         // Store in the cache keyed by epoch start timestamp.
@@ -334,19 +329,11 @@ where
 
     /// Record the current-epoch whitelist operator at the provided block into the fallback
     /// timeline, keyed by the epoch that contains the block timestamp.
-    async fn record_whitelist_event(
-        &self,
-        block_number: u64,
-        block_timestamp: Option<u64>,
-    ) -> Result<()> {
-        let ts = match block_timestamp {
-            Some(ts) => ts,
-            None => self.block_timestamp(block_number).await?,
-        };
-        let epoch_start = epoch_start_for(ts, self.genesis_timestamp);
+    async fn record_whitelist_event(&self, block_number: u64, block_timestamp: u64) -> Result<()> {
+        let epoch_start = epoch_start_for(block_timestamp, self.genesis_timestamp);
         let operator = self.whitelist_operator_at(block_number).await?;
 
-        self.fallback_timeline.apply(FallbackEvent { at: ts, operator });
+        self.fallback_timeline.apply(FallbackEvent { at: block_timestamp, operator });
         self.fallback_timeline.prune_before(earliest_allowed_timestamp(self.genesis_timestamp)?);
 
         // Ensure a baseline exists for the epoch in case the first observed event is a removal.
@@ -520,24 +507,6 @@ where
         Ok(None)
     }
 
-    /// Return the timestamp of the provided block number.
-    async fn block_timestamp(&self, block_number: u64) -> Result<u64> {
-        let block = self
-            .provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
-            .await
-            .map_err(|err| LookaheadError::BlockLookup { block_number, reason: err.to_string() })?;
-
-        let Some(block) = block else {
-            return Err(LookaheadError::BlockLookup {
-                block_number,
-                reason: "missing block data".into(),
-            });
-        };
-
-        Ok(block.header.timestamp)
-    }
-
     /// Snapshot the whitelist operator for the current epoch at the specified block.
     async fn whitelist_operator_at(&self, block_number: u64) -> Result<Address> {
         self.preconf_whitelist
@@ -581,9 +550,9 @@ where
             return Err(LookaheadError::MissingLookahead(epoch_start));
         }
 
-        let block_number = self.block_within_epoch(epoch_start).await?;
-        let Some(block_number) = block_number else {
-            return Err(LookaheadError::MissingLookahead(epoch_start));
+        let block_number = match self.block_within_epoch(epoch_start).await? {
+            Some(num) => num,
+            None => return Err(LookaheadError::MissingLookahead(epoch_start)),
         };
 
         let fallback_current = self
@@ -594,11 +563,26 @@ where
             .await
             .map_err(LookaheadError::PreconfWhitelist)?;
 
-        let block_ts = self.block_timestamp(block_number).await?;
+        // Fetch the block timestamp once for this synthetic epoch.
+        let block_ts = self
+            .provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map_err(|err| LookaheadError::BlockLookup { block_number, reason: err.to_string() })?
+            .ok_or(LookaheadError::BlockLookup {
+                block_number,
+                reason: "missing block data".into(),
+            })?
+            .header
+            .timestamp;
+
         self.record_fallback_baseline(epoch_start, block_ts, fallback_current).await?;
 
-        let cached =
-            CachedLookaheadEpoch { slots: Arc::new(vec![]), fallback_whitelist: fallback_current };
+        let cached = CachedLookaheadEpoch {
+            slots: Arc::new(vec![]),
+            fallback_whitelist: fallback_current,
+            block_timestamp: block_ts,
+        };
         self.cache.insert(epoch_start, cached.clone());
         Ok(cached)
     }

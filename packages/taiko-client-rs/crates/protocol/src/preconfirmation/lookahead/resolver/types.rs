@@ -13,6 +13,8 @@ pub struct CachedLookaheadEpoch {
     /// `LookaheadPosted` event. Used as a deterministic fallback when lookahead is empty or a slot
     /// is later deemed unusable.
     pub fallback_whitelist: Address,
+    /// Timestamp of the block that produced the cached lookahead (or synthetic epoch).
+    pub block_timestamp: u64,
 }
 
 impl CachedLookaheadEpoch {

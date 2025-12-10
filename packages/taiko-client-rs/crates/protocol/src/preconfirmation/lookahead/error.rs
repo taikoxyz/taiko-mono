@@ -15,6 +15,9 @@ pub enum LookaheadError {
     /// Failure when fetching a block by number from the provider.
     #[error("failed to fetch block {block_number}: {reason}")]
     BlockLookup { block_number: u64, reason: String },
+    /// Required log metadata was missing when ingesting events.
+    #[error("missing log field '{field}' while {context}")]
+    MissingLogField { field: &'static str, context: &'static str },
     /// Decoding of a lookahead event failed.
     #[error("failed to decode lookahead event: {0}")]
     EventDecode(String),
