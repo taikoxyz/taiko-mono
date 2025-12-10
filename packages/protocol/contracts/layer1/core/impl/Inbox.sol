@@ -290,7 +290,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             } else {
                 require(
                     block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay,
-                    CheckPointDelayHasPassed()
+                    CheckpointDelayHasPassed()
                 );
             }
 
@@ -639,7 +639,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
-    error CheckPointDelayHasPassed();
+    error CheckpointDelayHasPassed();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();

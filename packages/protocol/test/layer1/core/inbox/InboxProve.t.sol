@@ -605,7 +605,7 @@ contract InboxProveTest is InboxTestBase {
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.CheckPointDelayHasPassed.selector);
+        vm.expectRevert(Inbox.CheckpointDelayHasPassed.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
