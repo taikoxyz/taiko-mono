@@ -247,7 +247,7 @@ abstract contract InboxTestBase is CommonTest {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_count);
 
         uint48 firstProposalId;
-        bytes32 parentCheckpointHash = inbox.getState().lastFinalizedCheckpointHash;
+        bytes32 parentCheckpointHash = inbox.getCoreState().lastFinalizedCheckpointHash;
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
@@ -265,7 +265,7 @@ abstract contract InboxTestBase is CommonTest {
 
         input_ = IInbox.ProveInput({
             firstProposalId: firstProposalId,
-            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
+            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
             lastCheckpoint: ICheckpointStore.Checkpoint({

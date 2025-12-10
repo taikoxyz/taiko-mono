@@ -18,6 +18,10 @@ contract InboxCapacityTest is InboxTestBase {
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
+        // Third proposal fills remaining capacity (ringBufferSize=4 -> max unfinalized=3)
+        _advanceBlock();
+        _proposeAndDecode(_defaultProposeInput());
+
         _advanceBlock();
         bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
         vm.expectRevert(Inbox.NotEnoughCapacity.selector);
@@ -76,18 +80,20 @@ contract InboxRingBufferTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
         // Prove p1 and p2 using prove
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
-        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = _transitionFor(p1, prover, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(p2, prover, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
-            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[1].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(proveInput);
