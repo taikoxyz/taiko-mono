@@ -180,6 +180,11 @@ interface IInbox {
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
+    /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
+    /// @param _data The encoded ProveInput struct.
+    /// @param _proof The validity proof for the batch of proposals.
+    function prove(bytes calldata _data, bytes calldata _proof) external;
+
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------

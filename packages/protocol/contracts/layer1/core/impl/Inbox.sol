@@ -213,9 +213,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Verifies a batch proof covering multiple consecutive proposals and finalizes them.
+    /// @inheritdoc IInbox
     ///
-    /// The proof covers a contiguous range of proposals. The input contains an array of
+    /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
     /// proposals get finalized between proof generation and submission.
@@ -251,29 +251,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             CoreState memory state = _state;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
-            // ---------------------------------------------------------
-            // 1. Validate batch bounds
-            // ---------------------------------------------------------
-            uint256 numProposals = input.transitions.length;
-            require(numProposals > 0, EmptyBatch());
-            require(
-                input.firstProposalId <= state.lastFinalizedProposalId + 1,
-                FirstProposalIdTooLarge()
-            );
-
-            uint256 lastProposalId = input.firstProposalId + numProposals - 1;
-            require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
-            require(lastProposalId >= state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized());
+            // -------------------------------------------------------------------------------
+            // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
+            // -------------------------------------------------------------------------------
+            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
+                _validateBatchBoundsAndCalculateOffset(state, input);
 
             // ---------------------------------------------------------
-            // 2. Calculate offset to first unfinalized proposal
-            // ---------------------------------------------------------
-            // Some proposals in input.transitions[] may already be finalized.
-            // The offset points to the first proposal that will be finalized.
-            uint48 offset = state.lastFinalizedProposalId + 1 - input.firstProposalId;
-
-            // ---------------------------------------------------------
-            // 3. Verify block hash continuity
+            // 2. Verify block hash continuity
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedCheckpointHash.
             bytes32 expectedParentHash = offset == 0
@@ -282,7 +267,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(state.lastFinalizedCheckpointHash == expectedParentHash, ParentCheckpointHashMismatch());
 
             // ---------------------------------------------------------
-            // 4. Calculate proposal age and bond instruction
+            // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             Transition memory firstTransition = input.transitions[offset];
             uint256 proposalAge =
@@ -305,10 +290,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // -----------------------------------------------------------------------------
-            // 5. Sync checkpoint if provided, otherwise enforce delay
+            // 4. Sync checkpoint if provided, otherwise enforce delay
             // -----------------------------------------------------------------------------
-            bool syncCheckpoint = input.lastCheckpoint.blockHash != 0;
-            if (syncCheckpoint) {
+            if (input.lastCheckpoint.blockHash != 0) {
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 _state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
@@ -317,7 +301,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 6. Update core state and emit event
+            // 5. Update core state and emit event
             // ---------------------------------------------------------
             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
@@ -325,12 +309,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
-            // 7. Verify the proof
+            // 6. Verify the proof
             // ---------------------------------------------------------
-            bytes32 hashToProve = LibHashOptimized.hashProveInput(
-                _proposalHashes[lastProposalId % _ringBufferSize], input
-            );
-            _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
+            _verifyProof(lastProposalId, input, proposalAge, _proof);
         }
     }
 
@@ -423,7 +404,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Internal Functions
+    // Internal and Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
@@ -496,10 +477,41 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
+    function _validateBatchBoundsAndCalculateOffset(CoreState memory _coreState, ProveInput memory _input)
+        private
+        pure
+        returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
+    {
+        // Validate batch bounds
+        numProposals_ = _input.transitions.length;
+        require(numProposals_ > 0, EmptyBatch());
+        require(_input.firstProposalId <= _coreState.lastFinalizedProposalId + 1, FirstProposalIdTooLarge());
 
+        lastProposalId_ = _input.firstProposalId + numProposals_ - 1;
+        require(lastProposalId_ < _coreState.nextProposalId, LastProposalIdTooLarge());
+        require(lastProposalId_ >= _coreState.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized());
+
+        // Calculate offset to first unfinalized proposal.
+        // Some proposals in _input.transitions[] may already be finalized.
+        // The offset points to the first proposal that will be finalized.
+        offset_ = _coreState.lastFinalizedProposalId + 1 - _input.firstProposalId;
+    }
+
+    function _verifyProof(
+        uint256 _lastProposalId,
+        ProveInput memory _input,
+        uint256 _proposalAge,
+        bytes calldata _proof
+    )
+        private
+        view
+    {
+        bytes32 hashToProve = LibHashOptimized.hashProveInput(
+            _proposalHashes[_lastProposalId % _ringBufferSize], _input
+        );
+        _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
+    }
+    
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
     /// @param _feeRecipient Address to receive accumulated fees
