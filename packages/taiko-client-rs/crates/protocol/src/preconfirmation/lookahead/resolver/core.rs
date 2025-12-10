@@ -400,7 +400,6 @@ where
         let Some(block) = latest else { return Ok(None) };
         let mut curr_num = block.number();
         let mut curr_ts = block.header.timestamp;
-        let head_hash = block.header.hash;
 
         if curr_ts < epoch_start {
             return Ok(None);

@@ -1,7 +1,7 @@
 use alloy::primitives::Address;
-use event_scanner::ScannerMessage;
+use event_scanner::{Notification, ScannerMessage};
 
-use tokio::{task::JoinHandle, time::Duration};
+use tokio::{sync::oneshot, task::JoinHandle, time::Duration};
 use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
@@ -95,7 +95,11 @@ where
         let mut stream = scanner.subscribe(self.lookahead_filter());
         let resolver = self.clone();
 
+        // Signal when the scanner reports it has switched to live mode.
+        let (live_tx, live_rx) = oneshot::channel();
+
         let handle = tokio::spawn(async move {
+            let mut live_tx = Some(live_tx);
             // Start the scanner driver in the background to keep fetching logs from the provider.
             let runner = tokio::spawn(async move {
                 if let Err(err) = scanner.start().await {
@@ -134,6 +138,10 @@ where
                     }
                     Ok(ScannerMessage::Notification(note)) => {
                         info!(?note, "lookahead scanner notification");
+                        if matches!(note, Notification::SwitchingToLive)
+                            && let Some(tx) = live_tx.take() {
+                                let _ = tx.send(());
+                            }
                     }
                     Err(err) => error!(?err, "error from lookahead event stream"),
                 }
@@ -143,6 +151,11 @@ where
                 warn!(?err, "lookahead scanner runner join error");
             }
         });
+
+        // Wait until the scanner reports it is live before returning to callers.
+        live_rx
+            .await
+            .map_err(|_| LookaheadError::EventScanner("scanner exited before live".into()))?;
 
         Ok(handle)
     }
