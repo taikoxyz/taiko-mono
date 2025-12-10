@@ -199,9 +199,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
 
-            // Load entire CoreState into memory once (single SLOAD for the packed slot)
-            CoreState memory state = coreState;
-            require(state.nextProposalId != 0, ActivationRequired());
+            CoreState memory state = _loadCoreState();
 
             (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
                 input,
@@ -253,10 +251,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proof Validity proof for the batch of proposals
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-            // Load entire CoreState into memory once (single SLOAD for the packed slot)
-            CoreState memory state = coreState;
-            require(state.nextProposalId != 0, ActivationRequired());
-
+            CoreState memory state = _loadCoreState();
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
             // ---------------------------------------------------------
@@ -648,6 +643,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+    }
+
+    /// @dev Loads core state from storage and verifies activation.
+    /// @return state_ The loaded core state.
+    function _loadCoreState() private view returns (CoreState memory state_) {
+        state_ = coreState;
+        require(state_.nextProposalId != 0, ActivationRequired());
     }
 
     // ---------------------------------------------------------------
