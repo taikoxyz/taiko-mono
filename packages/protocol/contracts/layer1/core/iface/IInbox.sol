@@ -129,7 +129,7 @@ interface IInbox {
         /// @notice The block hash of the parent of the first proposal, this is used
         /// to verify block hash continuity in the proof.
         bytes32 firstProposalParentBlockHash;
-        // @notice The hash of the last proposal
+        /// @notice The hash of the last proposal
         bytes32 lastProposalHash;
         /// @notice The last block number in the last proposal
         uint48 lastBlockNumber;
