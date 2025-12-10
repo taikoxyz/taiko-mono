@@ -112,8 +112,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The timestamp when the first activation occurred.
     uint48 public activationTimestamp;
 
-    /// @notice Persisted core state.
+    /// @notice Persisted core state (all uint48 fields packed into single slot).
     CoreState internal _state;
+
+    /// @notice The hash of the last finalized block (separate slot for gas optimization).
+    bytes32 internal _lastFinalizedBlockHash;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -124,7 +127,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[37] private __gap;
+    uint256[36] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -178,6 +181,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         activationTimestamp = newActivationTimestamp;
         _state = state;
+        _lastFinalizedBlockHash = _lastPacayaBlockHash;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
         emit InboxActivated(_lastPacayaBlockHash);
@@ -203,19 +207,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
 
-            uint48 nextProposalId = _state.nextProposalId;
-             require(nextProposalId != 0, ActivationRequired());
-
-            uint48 lastProposalBlockId = _state.lastProposalBlockId;
-            uint48 lastFinalizedProposalId = _state.lastFinalizedProposalId;
-            require(nextProposalId > 0, ActivationRequired());
+            // Load entire CoreState into memory once (single SLOAD for the packed slot)
+            CoreState memory state = _state;
+            require(state.nextProposalId != 0, ActivationRequired());
 
             (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
-                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+                input,
+                _lookahead,
+                state.nextProposalId,
+                state.lastProposalBlockId,
+                state.lastFinalizedProposalId
             );
 
-            _state.nextProposalId = nextProposalId + 1;
-            _state.lastProposalBlockId = uint48(block.number);
+            // Update memory struct
+            state.nextProposalId += 1;
+            state.lastProposalBlockId = uint48(block.number);
+
+            // Write entire CoreState back once (single SSTORE for the packed slot)
+            _state = state;
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal, derivation);
@@ -258,6 +267,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         nonReentrant
     {
         unchecked {
+            // Load entire CoreState into memory once (single SLOAD for the packed slot)
             CoreState memory state = _state;
             require(state.nextProposalId != 0, ActivationRequired());
 
@@ -290,12 +300,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Verify block hash continuity
             // ---------------------------------------------------------
-            // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash = offset == 0
-                ? input.firstProposalParentBlockHash
-                : input.proposalStates[offset - 1].blockHash;
-            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
-
+            // The parent block hash must match the stored _lastFinalizedBlockHash.
+            {
+                bytes32 expectedParentHash = offset == 0
+                    ? input.firstProposalParentBlockHash
+                    : input.proposalStates[offset - 1].blockHash;
+                require(_lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+            }
 
             // ---------------------------------------------------------
             // 4. Verify the last proposal hash
@@ -308,24 +319,27 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 5. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            ProposalState memory firstProposal = input.proposalStates[offset];
-            uint256 proposalAge =
-                block.timestamp - firstProposal.timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge;
+            {
+                ProposalState memory firstProposal = input.proposalStates[offset];
+                proposalAge =
+                    block.timestamp - firstProposal.timestamp.max(state.lastFinalizedTimestamp);
 
-            // Bond transfers only apply to the first newly-finalized proposal.
-            LibBonds.BondInstruction memory bondInstruction =
-                LibBondInstruction.calculateBondInstruction(
-                    input.firstProposalId + offset,
-                    proposalAge,
-                    firstProposal.proposer,
-                    firstProposal.designatedProver,
-                    input.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
-                );
-            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+                // Bond transfers only apply to the first newly-finalized proposal.
+                LibBonds.BondInstruction memory bondInstruction =
+                    LibBondInstruction.calculateBondInstruction(
+                        input.firstProposalId + offset,
+                        proposalAge,
+                        firstProposal.proposer,
+                        firstProposal.designatedProver,
+                        input.actualProver,
+                        _provingWindow,
+                        _extendedProvingWindow
+                    );
+                if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+                    _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+                    emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+                }
             }
 
             // ---------------------------------------------------------
@@ -339,24 +353,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                         stateRoot: input.lastStateRoot
                     })
                 );
-                _state.lastCheckpointTimestamp = uint48(block.timestamp);
+                state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
 
             // ---------------------------------------------------------
             // 7. Update core state and emit event
             // ---------------------------------------------------------
-            _state.lastFinalizedProposalId = uint48(lastProposalId);
-            _state.lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
-            _state.lastFinalizedTimestamp = uint48(block.timestamp);
+            state.lastFinalizedProposalId = uint48(lastProposalId);
+            state.lastFinalizedTimestamp = uint48(block.timestamp);
+
+            // Write entire CoreState back once (single SSTORE for the packed slot)
+            _state = state;
+            // Write lastFinalizedBlockHash separately (separate storage slot)
+            _lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
+
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
             // 8. Verify the proof
             // ---------------------------------------------------------
-            bytes32 hashToProve = LibHashOptimized.hashProveInput(
-                input
-            );
-            _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
+            _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashProveInput(input), _proof);
         }
     }
 
@@ -447,6 +463,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function getState() external view returns (CoreState memory state_) {
         state_ = _state;
+    }
+
+    /// @inheritdoc IInbox
+    function getLastFinalizedBlockHash() external view returns (bytes32) {
+        return _lastFinalizedBlockHash;
     }
 
     // ---------------------------------------------------------------

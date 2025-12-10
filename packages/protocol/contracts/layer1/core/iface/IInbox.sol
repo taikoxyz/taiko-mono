@@ -83,8 +83,7 @@ interface IInbox {
     }
 
     /// @notice Represents the core state of the inbox.
-    /// @dev The first 5 uint48 fields (30 bytes) pack into slot 0, and
-    ///      lastFinalizedBlockHash occupies slot 1.
+    /// @dev All 5 uint48 fields (30 bytes) pack into a single storage slot.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
@@ -97,8 +96,6 @@ interface IInbox {
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The hash of the last finalized transition.
-        bytes32 lastFinalizedBlockHash;
     }
 
     /// @notice Input data for the propose function
@@ -200,4 +197,8 @@ interface IInbox {
 
     /// @notice Returns the current core state snapshot.
     function getState() external view returns (CoreState memory state_);
+
+    /// @notice Returns the hash of the last finalized block.
+    /// @return The last finalized block hash.
+    function getLastFinalizedBlockHash() external view returns (bytes32);
 }

@@ -285,7 +285,7 @@ abstract contract InboxTestBase is CommonTest {
 
         uint48 firstProposalId;
         uint48 lastProposalId;
-        bytes32 parentBlockHash = inbox.getState().lastFinalizedBlockHash;
+        bytes32 parentBlockHash = inbox.getLastFinalizedBlockHash();
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
@@ -304,7 +304,7 @@ abstract contract InboxTestBase is CommonTest {
 
         input_ = IInbox.ProveInput({
             firstProposalId: firstProposalId,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(lastProposalId),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -345,11 +345,6 @@ abstract contract InboxTestBase is CommonTest {
             _actual.lastCheckpointTimestamp,
             _expected.lastCheckpointTimestamp,
             "state checkpoint ts"
-        );
-        assertEq(
-            _actual.lastFinalizedBlockHash,
-            _expected.lastFinalizedBlockHash,
-            "state transition hash"
         );
     }
 }
