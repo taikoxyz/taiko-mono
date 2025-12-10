@@ -30,14 +30,15 @@ async fn main() -> Result<()> {
     let source: SubscriptionSource = ws.as_str().try_into().map_err(|e: String| anyhow!(e))?;
 
     // Build resolver and start background scanner, wait till the initial sync is done.
-    // Enable the optional epoch broadcast channel so we can observe cached epochs as they arrive.
+    // Enable the optional lookahead broadcast channel so we can observe cached epochs and
+    // blacklist updates as they are ingested.
     let (mut resolver, handle): (LookaheadResolverWithDefaultProvider, _) =
         LookaheadResolverWithDefaultProvider::new(inbox, source).await?;
 
-    // Optionally, enable an epoch update channel to observe cached epochs as they are ingested.
-    let mut epoch_rx = resolver.enable_epoch_channel(16);
+    // Optionally, enable an update channel to observe cached epochs and blacklist changes.
+    let mut updates_rx = resolver.enable_broadcast_channel(16);
     let epoch_logger: JoinHandle<()> = tokio::spawn(async move {
-        while let Ok(update) = epoch_rx.recv().await {
+        while let Ok(update) = updates_rx.recv().await {
             match update {
                 LookaheadBroadcast::Epoch(update) => {
                     println!(
@@ -58,6 +59,9 @@ async fn main() -> Result<()> {
     });
 
     // Query the committer for "now".
+    // Note: committer_for_timestamp accepts timestamps in the valid window
+    // [earliest_allowed_timestamp, latest_allowed_timestamp), from start of previous epoch through
+    // end of current epoch, and returns TooOld/TooNew otherwise.
     let now = SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| anyhow!("clock before UNIX_EPOCH"))?

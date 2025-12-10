@@ -54,7 +54,7 @@ pub struct LookaheadResolver<P: Provider + Clone + Send + Sync + 'static> {
     /// Beacon genesis timestamp for the connected chain.
     genesis_timestamp: u64,
     /// Optional broadcast sender for lookahead updates (epochs and blacklist changes).
-    epoch_tx: Option<broadcast::Sender<LookaheadBroadcast>>,
+    broadcast_tx: Option<broadcast::Sender<LookaheadBroadcast>>,
 }
 
 impl<P> LookaheadResolver<P>
@@ -109,7 +109,7 @@ where
             blacklist_history: Arc::new(DashMap::new()),
             lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
             genesis_timestamp,
-            epoch_tx: None,
+            broadcast_tx: None,
         })
     }
 
@@ -128,19 +128,20 @@ where
         self.lookahead_buffer_size
     }
 
-    /// Enable a broadcast channel; clones share the sender. Returns a receiver for updates.
-    pub fn enable_epoch_channel(
+    /// Enable a broadcast channel for lookahead updates; clones share the sender. Returns a
+    /// receiver for updates.
+    pub fn enable_broadcast_channel(
         &mut self,
         capacity: usize,
     ) -> broadcast::Receiver<LookaheadBroadcast> {
         let (tx, rx) = broadcast::channel(capacity);
-        self.epoch_tx = Some(tx);
+        self.broadcast_tx = Some(tx);
         rx
     }
 
-    /// Subscribe to epoch updates if broadcasting is enabled.
+    /// Subscribe to lookahead updates if broadcasting is enabled.
     pub fn subscribe(&self) -> Option<broadcast::Receiver<LookaheadBroadcast>> {
-        self.epoch_tx.as_ref().map(|tx| tx.subscribe())
+        self.broadcast_tx.as_ref().map(|tx| tx.subscribe())
     }
 
     /// Ingest a batch of logs and update the in-memory cache plus live blacklist state.
@@ -174,7 +175,7 @@ where
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
                 self.record_blacklist_event(event.operatorRegistrationRoot, event.timestamp.to())?;
                 // Broadcast blacklist update if channel is enabled.
-                if let Some(tx) = &self.epoch_tx {
+                if let Some(tx) = &self.broadcast_tx {
                     let _ = tx.send(LookaheadBroadcast::Blacklisted {
                         root: event.operatorRegistrationRoot,
                     });
@@ -189,7 +190,7 @@ where
                     event.timestamp.to(),
                 )?;
                 // Broadcast unblacklist update if channel is enabled.
-                if let Some(tx) = &self.epoch_tx {
+                if let Some(tx) = &self.broadcast_tx {
                     let _ = tx.send(LookaheadBroadcast::Unblacklisted {
                         root: event.operatorRegistrationRoot,
                     });
@@ -247,7 +248,7 @@ where
         self.cache.insert(epoch_start, cached.clone());
 
         // Broadcast the epoch update if channel is enabled.
-        if let Some(tx) = &self.epoch_tx {
+        if let Some(tx) = &self.broadcast_tx {
             let _ = tx.send(LookaheadBroadcast::Epoch(LookaheadEpochUpdate {
                 epoch_start,
                 epoch: cached,

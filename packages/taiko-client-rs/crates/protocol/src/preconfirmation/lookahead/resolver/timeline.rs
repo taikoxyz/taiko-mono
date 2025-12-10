@@ -85,5 +85,8 @@ mod tests {
         // After pruning, baseline begins at the last pre-cutoff event (100, cleared).
         assert!(!timeline.was_blacklisted_at(125));
         assert!(timeline.was_blacklisted_at(250));
+
+        timeline.prune_before(280);
+        assert!(!timeline.was_blacklisted_at(300));
     }
 }
