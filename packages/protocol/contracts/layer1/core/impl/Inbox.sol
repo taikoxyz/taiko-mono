@@ -221,34 +221,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Verifies a batch proof covering multiple consecutive proposals and finalizes them.
-    ///
-    /// The proof covers a contiguous range of proposals. The input contains an array of
-    /// ProposalState structs, each with the proposal's metadata and block hash. The proof range
-    /// can start at or before the last finalized proposal to handle race conditions where
-    /// proposals get finalized between proof generation and submission.
-    ///
-    /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
-    ///
-    ///       lastFinalizedProposalId                nextProposalId
-    ///                             ┆                             ┆
-    ///                             ▼                             ▼
-    ///     0     1     2     3     4     5     6     7     8     9
-    ///     ■─────■─────■─────■─────■─────□─────□─────□─────□─────
-    ///                       ▲           ▲                 ▲
-    ///                       ┆<-offset-> ┆                 ┆
-    ///                       ┆                             ┆
-    ///                       ┆<-  input.proposalStates[] ->┆
-    ///         firstProposalId                             lastProposalId
-    ///
-    /// Key validation rules:
-    /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
-    /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
-    /// 3. lastProposalId >= lastFinalizedProposalId + minProposalsToFinalize (must advance enough)
-    /// 4. The block hash chain must link to the stored lastFinalizedBlockHash
-    ///
-    /// @param _data Encoded ProveInput struct
-    /// @param _proof Validity proof for the batch of proposals
+    /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
             CoreState memory state = _loadCoreState();
@@ -360,7 +333,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// submitted to make sure blocks have been produced already and the derivation can use the
     /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        bytes32 proposalHash = getProposalHash(1);
+        bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
         uint256 refund = LibForcedInclusion.saveForcedInclusion(
@@ -433,12 +406,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return _coreState;
     }
 
-    /// @notice Retrieves the proposal hash for a given proposal ID
+    /// @inheritdoc IInbox
     /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
     /// may have been overwritten by a new one. You should verify that the hash matches the
     /// expected proposal.
-    /// @param _proposalId The ID of the proposal to query
-    /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
         proposalHash_ = _proposalHashes[_proposalId % _ringBufferSize];
     }

@@ -182,14 +182,37 @@ interface IInbox {
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
+    /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
+    /// @dev The proof covers a contiguous range of proposals. The input contains an array of
+    /// ProposalState structs, each with the proposal's metadata and block hash. The proof range
+    /// can start at or before the last finalized proposal to handle race conditions where
+    /// proposals get finalized between proof generation and submission.
+    ///
+    /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
+    ///
+    ///       lastFinalizedProposalId                nextProposalId
+    ///                             ┆                             ┆
+    ///                             ▼                             ▼
+    ///     0     1     2     3     4     5     6     7     8     9
+    ///     ■─────■─────■─────■─────■─────□─────□─────□─────□─────
+    ///                       ▲           ▲                 ▲
+    ///                       ┆<-offset-> ┆                 ┆
+    ///                       ┆                             ┆
+    ///                       ┆<-  input.proposalStates[] ->┆
+    ///         firstProposalId                             lastProposalId
+    ///
+    /// Key validation rules:
+    /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
+    /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
+    /// 3. lastProposalId >= lastFinalizedProposalId + minProposalsToFinalize (must advance enough)
+    /// 4. The block hash chain must link to the stored lastFinalizedBlockHash
+    /// @param _data Encoded ProveInput struct.
+    /// @param _proof Validity proof for the batch of proposals.
+    function prove(bytes calldata _data, bytes calldata _proof) external;
+
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------
-
-    /// @notice Returns the proposal hash for a given proposal ID.
-    /// @param _proposalId The proposal ID to look up.
-    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
@@ -198,4 +221,9 @@ interface IInbox {
     /// @notice Returns the current core state.
     /// @return The core state struct.
     function getCoreState() external view returns (CoreState memory);
+
+    /// @notice Returns the proposal hash for a given proposal ID.
+    /// @param _proposalId The proposal ID to look up.
+    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 }
