@@ -24,6 +24,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 5,
             firstProposalParentBlockHash: bytes32(uint256(99)),
+            lastProposalHash: bytes32(uint256(77)),
             lastBlockNumber: 1000,
             lastStateRoot: bytes32(uint256(88)),
             actualProver: address(0xAAAA),
@@ -87,6 +88,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
             firstProposalParentBlockHash: bytes32(0),
+            lastProposalHash: bytes32(uint256(11)),
             lastBlockNumber: 50,
             lastStateRoot: bytes32(uint256(66)),
             actualProver: address(0xBBBB),
@@ -108,6 +110,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 0,
             firstProposalParentBlockHash: bytes32(0),
+            lastProposalHash: bytes32(0),
             lastBlockNumber: 0,
             lastStateRoot: bytes32(0),
             actualProver: address(0),
@@ -132,6 +135,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 42,
             firstProposalParentBlockHash: bytes32(uint256(1111)),
+            lastProposalHash: bytes32(uint256(2222)),
             lastBlockNumber: 888,
             lastStateRoot: bytes32(uint256(7777)),
             actualProver: address(0xCCCC),

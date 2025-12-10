@@ -19,6 +19,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 firstProposalId: 5,
                 firstProposalParentBlockHash: bytes32(uint256(99)),
+                lastProposalHash: bytes32(uint256(77)),
                 lastBlockNumber: 1000,
                 lastStateRoot: bytes32(uint256(88)),
                 actualProver: address(0xAAAA),
@@ -86,6 +87,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 firstProposalId: 10,
                 firstProposalParentBlockHash: bytes32(uint256(999)),
+                lastProposalHash: bytes32(uint256(777)),
                 lastBlockNumber: 5000,
                 lastStateRoot: bytes32(uint256(888)),
                 actualProver: address(0xBBBB),
@@ -136,6 +138,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 firstProposalId: 42,
                 firstProposalParentBlockHash: bytes32(uint256(1111)),
+                lastProposalHash: bytes32(uint256(2222)),
                 lastBlockNumber: 888,
                 lastStateRoot: bytes32(uint256(7777)),
                 actualProver: address(0xDDDD),
@@ -170,6 +173,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 firstProposalId: 1,
                 firstProposalParentBlockHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(3)),
                 lastBlockNumber: 10,
                 lastStateRoot: bytes32(uint256(2)),
                 actualProver: address(0xAAAA),
@@ -179,7 +183,7 @@ contract LibProvedEventCodecTest is Test {
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
 
-        // Expected size: 98 + (2 * 78) = 98 + 156 = 254
-        assertEq(encoded.length, 254, "encoded size for 2 proposalStates");
+        // Expected size: 130 + (2 * 78) = 130 + 156 = 286
+        assertEq(encoded.length, 286, "encoded size for 2 proposalStates");
     }
 }

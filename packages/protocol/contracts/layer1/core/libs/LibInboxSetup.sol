@@ -38,7 +38,7 @@ library LibInboxSetup {
             _config.permissionlessInclusionMultiplier > 1,
             PermissionlessInclusionMultiplierTooSmall()
         );
-        require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeTooSmall());
+        require(_config.minProposalsToFinalize > 1, MinProposalsToFinalizeTooSmall());
         require(
             _config.minProposalsToFinalize < _config.ringBufferSize - 1,
             MinProposalsToFinalizeTooBig()
@@ -86,7 +86,6 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
 
         proposal_.derivationHash = LibHashOptimized.hashDerivation(derivation_);
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);

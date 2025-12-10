@@ -17,6 +17,7 @@ library LibProveInputCodec {
 
         ptr = P.packUint48(ptr, _input.firstProposalId);
         ptr = P.packBytes32(ptr, _input.firstProposalParentBlockHash);
+        ptr = P.packBytes32(ptr, _input.lastProposalHash);
         ptr = P.packUint48(ptr, _input.lastBlockNumber);
         ptr = P.packBytes32(ptr, _input.lastStateRoot);
         ptr = P.packAddress(ptr, _input.actualProver);
@@ -35,6 +36,7 @@ library LibProveInputCodec {
 
         (input_.firstProposalId, ptr) = P.unpackUint48(ptr);
         (input_.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
+        (input_.lastProposalHash, ptr) = P.unpackBytes32(ptr);
         (input_.lastBlockNumber, ptr) = P.unpackUint48(ptr);
         (input_.lastStateRoot, ptr) = P.unpackBytes32(ptr);
         (input_.actualProver, ptr) = P.unpackAddress(ptr);
@@ -55,11 +57,12 @@ library LibProveInputCodec {
             // Fixed fields:
             //   firstProposalId: 6 bytes
             //   firstProposalParentBlockHash: 32 bytes
+            //   lastProposalHash: 32 bytes
             //   lastBlockNumber: 6 bytes
             //   lastStateRoot: 32 bytes
             //   actualProver: 20 bytes
             //   proposalStates array length: 2 bytes
-            // Total fixed: 98 bytes
+            // Total fixed: 130 bytes
             //
             // Per ProposalState:
             //   proposer: 20 bytes
@@ -67,7 +70,7 @@ library LibProveInputCodec {
             //   timestamp: 6 bytes
             //   blockHash: 32 bytes
             // Total per proposal state: 78 bytes
-            size_ = 98 + (_numProposalStates * 78);
+            size_ = 130 + (_numProposalStates * 78);
         }
     }
 

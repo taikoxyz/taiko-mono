@@ -22,6 +22,7 @@ library LibProvedEventCodec {
         // Encode ProveInput
         ptr = P.packUint48(ptr, _payload.input.firstProposalId);
         ptr = P.packBytes32(ptr, _payload.input.firstProposalParentBlockHash);
+        ptr = P.packBytes32(ptr, _payload.input.lastProposalHash);
         ptr = P.packUint48(ptr, _payload.input.lastBlockNumber);
         ptr = P.packBytes32(ptr, _payload.input.lastStateRoot);
         ptr = P.packAddress(ptr, _payload.input.actualProver);
@@ -44,6 +45,7 @@ library LibProvedEventCodec {
         // Decode ProveInput
         (payload_.input.firstProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.input.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.lastProposalHash, ptr) = P.unpackBytes32(ptr);
         (payload_.input.lastBlockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.input.lastStateRoot, ptr) = P.unpackBytes32(ptr);
         (payload_.input.actualProver, ptr) = P.unpackAddress(ptr);
@@ -64,11 +66,12 @@ library LibProvedEventCodec {
             // ProveInput fixed fields:
             //   firstProposalId: 6 bytes
             //   firstProposalParentBlockHash: 32 bytes
+            //   lastProposalHash: 32 bytes
             //   lastBlockNumber: 6 bytes
             //   lastStateRoot: 32 bytes
             //   actualProver: 20 bytes
             //   proposalStates array length: 2 bytes
-            // Total ProveInput fixed: 98 bytes
+            // Total ProveInput fixed: 130 bytes
             //
             // Per ProposalState:
             //   proposer: 20 bytes
@@ -77,8 +80,8 @@ library LibProvedEventCodec {
             //   blockHash: 32 bytes
             // Total per proposal state: 78 bytes
             //
-            // Total = 98 + (numProposalStates * 78)
-            size_ = 98 + (_numProposalStates * 78);
+            // Total = 130 + (numProposalStates * 78)
+            size_ = 130 + (_numProposalStates * 78);
         }
     }
 

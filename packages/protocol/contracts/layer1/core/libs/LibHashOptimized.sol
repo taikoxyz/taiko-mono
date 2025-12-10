@@ -111,20 +111,55 @@ library LibHashOptimized {
         return result;
     }
 
-    /// @notice Hashing for prove input data combining proposal hash and prove input
-    /// @dev TODO: Optimize this function using EfficientHashLib for gas savings
-    /// @param _lastProposalHash The hash of the last proposal in the proof range
-    /// @param _input The prove input containing lastProposalId, lastCheckpoint, and transitionHashs
-    /// @return The hash of the prove input data
-    function hashProveInput(
-        bytes32 _lastProposalHash,
-        IInbox.ProveInput memory _input
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_lastProposalHash, _input));
+    /// @notice Optimized hashing for ProveInput structs
+    /// @dev Manually constructs the ABI-encoded layout to use EfficientHashLib
+    /// @param _input The prove input to hash
+    /// @return The hash of the prove input
+    function hashProveInput(IInbox.ProveInput memory _input) internal pure returns (bytes32) {
+        unchecked {
+            IInbox.ProposalState[] memory proposalStates = _input.proposalStates;
+            uint256 statesLength = proposalStates.length;
+
+            // Base words:
+            // [0] offset to tuple head (0x20)
+            // [1] firstProposalId
+            // [2] firstProposalParentBlockHash
+            // [3] lastProposalHash
+            // [4] lastBlockNumber
+            // [5] lastStateRoot
+            // [6] actualProver
+            // [7] offset to proposalStates (0xe0 = 7 * 32)
+            // [8] proposalStates length
+            uint256 totalWords = 9 + statesLength * 4;
+
+            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
+
+            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_input.firstProposalId)));
+            EfficientHashLib.set(buffer, 2, _input.firstProposalParentBlockHash);
+            EfficientHashLib.set(buffer, 3, _input.lastProposalHash);
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(_input.lastBlockNumber)));
+            EfficientHashLib.set(buffer, 5, _input.lastStateRoot);
+            EfficientHashLib.set(buffer, 6, bytes32(uint256(uint160(_input.actualProver))));
+            EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
+            EfficientHashLib.set(buffer, 8, bytes32(statesLength));
+
+            // Each ProposalState is a static struct with 4 fields (32 bytes each when encoded)
+            // proposer (address), designatedProver (address), timestamp (uint48), blockHash (bytes32)
+            for (uint256 i; i < statesLength; ++i) {
+                IInbox.ProposalState memory state = proposalStates[i];
+                uint256 base = 9 + i * 4;
+                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(state.proposer))));
+                EfficientHashLib.set(
+                    buffer, base + 1, bytes32(uint256(uint160(state.designatedProver)))
+                );
+                EfficientHashLib.set(buffer, base + 2, bytes32(uint256(state.timestamp)));
+                EfficientHashLib.set(buffer, base + 3, state.blockHash);
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
+        }
     }
 }

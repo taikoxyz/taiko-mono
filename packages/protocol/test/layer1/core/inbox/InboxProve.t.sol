@@ -39,7 +39,8 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(2),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -72,7 +73,8 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p3.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -81,7 +83,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         _prove(input);
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, 3, "finalized id");
     }
 }
@@ -92,9 +94,9 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_single");
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[0].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[0].blockHash, "block hash");
     }
 
     function test_prove_batch3() public {
@@ -102,9 +104,9 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_consecutive_3");
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 2, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[2].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[2].blockHash, "block hash");
     }
 
     function test_prove_batch5() public {
@@ -112,9 +114,9 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_consecutive_5");
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 4, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[4].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[4].blockHash, "block hash");
     }
 
     function test_prove_batch10() public {
@@ -122,15 +124,16 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_consecutive_10");
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 9, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[9].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[9].blockHash, "block hash");
     }
 
     function test_prove_RevertWhen_EmptyBatch() public {
         IInbox.ProveInput memory emptyInput = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: bytes32(0),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -158,7 +161,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 2, // lastFinalizedProposalId is 0, so max allowed is 1
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -192,7 +196,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -219,6 +224,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
             firstProposalParentBlockHash: bytes32(uint256(999)), // Wrong parent hash
+            lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -245,7 +251,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -282,7 +289,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -319,7 +327,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory firstInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p1.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot1"),
             actualProver: prover,
@@ -328,7 +337,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(firstInput);
 
-        assertEq(inbox.getState().lastFinalizedProposalId, p1.proposal.id, "p1 finalized");
+        assertEq(inbox.getCoreState().lastFinalizedProposalId, p1.proposal.id, "p1 finalized");
 
         // Now prove p1, p2, p3 (p1 already finalized - should be skipped)
         IInbox.ProposalState[] memory fullBatch = new IInbox.ProposalState[](3);
@@ -339,6 +348,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory fullInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
             firstProposalParentBlockHash: bytes32(0), // Ignored since offset > 0
+            lastProposalHash: inbox.getProposalHash(p3.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot3"),
             actualProver: prover,
@@ -347,9 +357,9 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(fullInput);
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, fullBatch[2].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), fullBatch[2].blockHash, "block hash");
     }
 
     function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
@@ -365,7 +375,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory firstInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p1.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot1"),
             actualProver: prover,
@@ -382,6 +393,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory fullInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
             firstProposalParentBlockHash: bytes32(0),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot2"),
             actualProver: prover,
@@ -437,7 +449,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover, // Same as designatedProver
@@ -471,11 +484,13 @@ contract InboxProveTest is InboxTestBase {
         // Test with firstProposalId = 1 (exact boundary)
         IInbox.ProveInput memory input = _buildBatchInput(1);
         assertEq(input.firstProposalId, 1, "firstProposalId should be 1");
-        assertEq(inbox.getState().lastFinalizedProposalId, 0, "lastFinalizedProposalId should be 0");
+        assertEq(
+            inbox.getCoreState().lastFinalizedProposalId, 0, "lastFinalizedProposalId should be 0"
+        );
 
         _prove(input);
 
-        assertEq(inbox.getState().lastFinalizedProposalId, 1, "should finalize");
+        assertEq(inbox.getCoreState().lastFinalizedProposalId, 1, "should finalize");
     }
 
     /// @notice Test lastProposalId at exact boundary (== nextProposalId - 1)
@@ -485,7 +500,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
         // After _buildBatchInput(1), we have 1 proposal, nextProposalId = 2
-        assertEq(inbox.getState().nextProposalId, 2, "nextProposalId should be 2");
+        assertEq(inbox.getCoreState().nextProposalId, 2, "nextProposalId should be 2");
 
         // lastProposalId = firstProposalId + numProposals - 1 = 1 + 1 - 1 = 1
         uint256 lastProposalId = input.firstProposalId + input.proposalStates.length - 1;
@@ -494,7 +509,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input);
 
-        assertEq(inbox.getState().lastFinalizedProposalId, 1, "should finalize");
+        assertEq(inbox.getCoreState().lastFinalizedProposalId, 1, "should finalize");
     }
 
     /// @notice Test lastProposalId fails when == nextProposalId (just past boundary)
@@ -519,7 +534,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -556,7 +572,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -596,7 +613,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -636,7 +654,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -677,7 +696,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -707,7 +727,7 @@ contract InboxProveTest is InboxTestBase {
         // Do NOT warp past minCheckpointDelay - checkpoint should not sync
         _prove(input);
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
         // Checkpoint timestamp should remain 0 (initial value) since delay hasn't passed
         assertEq(state.lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
@@ -718,7 +738,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input1 = _buildBatchInput(1);
         _prove(input1);
 
-        uint48 checkpointBefore = inbox.getState().lastCheckpointTimestamp;
+        uint48 checkpointBefore = inbox.getCoreState().lastCheckpointTimestamp;
         assertEq(checkpointBefore, 0, "checkpoint not synced initially");
 
         // Advance block and propose another
@@ -733,7 +753,8 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input2 = IInbox.ProveInput({
             firstProposalId: p2.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot2"),
             actualProver: prover,
@@ -742,7 +763,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input2);
 
-        IInbox.CoreState memory state = inbox.getState();
+        IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint synced");
     }
 }

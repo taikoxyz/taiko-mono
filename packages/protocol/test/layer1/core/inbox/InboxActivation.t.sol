@@ -46,6 +46,7 @@ contract InboxActivationTest is InboxTestBase {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
             firstProposalParentBlockHash: bytes32(0),
+            lastProposalHash: bytes32(0),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
