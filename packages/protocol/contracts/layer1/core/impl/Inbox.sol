@@ -200,7 +200,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         external
         onlyWhenActivated
-        nonReentrant
     {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
@@ -257,7 +256,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         external
         onlyWhenActivated
-        nonReentrant
     {
         unchecked {
             CoreState memory state = _state;
