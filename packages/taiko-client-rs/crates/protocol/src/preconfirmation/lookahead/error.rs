@@ -24,6 +24,9 @@ pub enum LookaheadError {
     /// The requested timestamp is older than the supported lookback window.
     #[error("timestamp {0} is older than the allowed lookback window")]
     TooOld(u64),
+    /// The requested timestamp lies in a future epoch (beyond the current epoch boundary).
+    #[error("timestamp {0} is beyond the current epoch window")]
+    TooNew(u64),
     /// Chain ID not recognised for genesis timestamp resolution.
     #[error("unsupported chain id {0} for preconf genesis lookup")]
     UnknownChain(u64),

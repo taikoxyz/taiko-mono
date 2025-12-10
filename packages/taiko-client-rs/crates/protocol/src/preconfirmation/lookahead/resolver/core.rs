@@ -26,7 +26,7 @@ use super::{
     },
     epoch::{
         MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, earliest_allowed_timestamp, epoch_start_for,
-        genesis_timestamp_for_chain,
+        genesis_timestamp_for_chain, latest_allowed_timestamp,
     },
     timeline::{BlacklistEvent, BlacklistFlag, BlacklistTimeline},
     types::{
@@ -310,6 +310,12 @@ where
             return Err(LookaheadError::TooOld(ts));
         }
 
+        // Reject timestamps beyond the current epoch window; resolver only serves up to "now" epoch.
+        let latest_allowed = latest_allowed_timestamp(self.genesis_timestamp)?;
+        if ts >= latest_allowed {
+            return Err(LookaheadError::TooNew(ts));
+        }
+
         // Calculate epoch boundaries.
         let epoch_start = epoch_start_for(ts, self.genesis_timestamp);
         let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
@@ -320,8 +326,7 @@ where
 
         // Ensure current epoch data is available. If the epoch has already started but no
         // lookahead was posted, fall back to the current whitelist operator and cache an empty
-        // epoch to mirror `_handleEmptyCurrentLookahead`. Future epochs without lookahead still
-        // surface as missing to callers.
+        // epoch to mirror `_handleEmptyCurrentLookahead`.
         let curr_epoch = if let Some(epoch) = current {
             epoch
         } else {
