@@ -7,7 +7,9 @@ use alloy_rpc_types::{BlockNumberOrTag, Log};
 use async_trait::async_trait;
 use bindings::{
     lookahead_store::LookaheadStore::{Blacklisted, LookaheadPosted, Unblacklisted},
-    preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance,
+    preconf_whitelist::PreconfWhitelist::{
+        OperatorAdded, OperatorRemoved, PreconfWhitelistInstance,
+    },
 };
 use dashmap::DashMap;
 use event_scanner::EventFilter;
@@ -27,7 +29,9 @@ use super::{
         earliest_allowed_timestamp_at, epoch_start_for, genesis_timestamp_for_chain,
         latest_allowed_timestamp_at,
     },
-    timeline::{BlacklistEvent, BlacklistFlag, BlacklistTimeline},
+    timeline::{
+        BlacklistEvent, BlacklistFlag, BlacklistTimeline, FallbackEvent, FallbackTimelineStore,
+    },
     types::{
         CachedLookaheadEpoch, LookaheadBroadcast, LookaheadEpochUpdate, SlotOrigin,
         pick_slot_origin,
@@ -44,6 +48,8 @@ pub struct LookaheadResolver<P: Provider + Clone + Send + Sync + 'static> {
     pub(crate) preconf_whitelist: PreconfWhitelistInstance<P>,
     /// Provider for block lookups to snapshot whitelist fallbacks.
     pub(crate) provider: P,
+    /// Chronological history of whitelist fallback operators keyed by timestamp.
+    pub(crate) fallback_timeline: FallbackTimelineStore,
     /// Sliding window of cached epochs keyed by epoch start timestamp.
     pub(crate) cache: Arc<DashMap<u64, CachedLookaheadEpoch>>,
     /// Time-aware blacklist history keyed by operator registration root.
@@ -104,6 +110,7 @@ where
             client,
             preconf_whitelist,
             provider,
+            fallback_timeline: FallbackTimelineStore::new(),
             cache: Arc::new(DashMap::new()),
             blacklist_history: Arc::new(DashMap::new()),
             lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
@@ -116,10 +123,15 @@ where
     /// resolved LookaheadStore.
     pub fn lookahead_filter(&self) -> EventFilter {
         EventFilter::new()
-            .contract_address(self.client.lookahead_store_address())
+            .contract_addresses([
+                self.client.lookahead_store_address(),
+                self.preconf_whitelist_address(),
+            ])
             .event(LookaheadPosted::SIGNATURE)
             .event(Unblacklisted::SIGNATURE)
             .event(Blacklisted::SIGNATURE)
+            .event(OperatorAdded::SIGNATURE)
+            .event(OperatorRemoved::SIGNATURE)
     }
 
     /// Number of epochs cached, matching the on-chain lookahead buffer size.
@@ -151,55 +163,78 @@ where
         I: IntoIterator<Item = Log>,
     {
         for log in logs.into_iter() {
-            if log.address() != self.client.lookahead_store_address() {
-                continue;
-            }
-
             let Some(first_topic) = log.topics().first().copied() else { continue };
+            // Partition by contract: LookaheadStore drives lookahead cache + blacklist timelines;
+            // PreconfWhitelist drives the live fallback timeline used when no valid slot exists.
+            let is_lookahead = log.address() == self.client.lookahead_store_address();
+            let is_whitelist = log.address() == self.preconf_whitelist_address();
 
-            // Decode and handle each event type.
-            if first_topic == LookaheadPosted::SIGNATURE_HASH {
-                // Decode the lookahead posted event and store it.
-                let event = LookaheadPosted::decode_raw_log(
-                    log.topics().to_vec(),
-                    log.data().data.as_ref(),
-                )
-                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
+            if is_lookahead {
+                // LookaheadStore events update epoch cache and blacklist state; these are the
+                // primary inputs for picking committers without further RPCs.
+                if first_topic == LookaheadPosted::SIGNATURE_HASH {
+                    let event = LookaheadPosted::decode_raw_log(
+                        log.topics().to_vec(),
+                        log.data().data.as_ref(),
+                    )
+                    .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
 
-                self.store_epoch(event, log.block_number).await?;
-            } else if first_topic == Blacklisted::SIGNATURE_HASH {
-                // Decode and apply blacklist event.
-                let event =
-                    Blacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
-                        .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
-                self.record_blacklist_event(event.operatorRegistrationRoot, event.timestamp.to())?;
-                // Broadcast blacklist update if channel is enabled.
-                if let Some(tx) = &self.broadcast_tx &&
-                    let Err(err) = tx.send(LookaheadBroadcast::Blacklisted {
-                        root: event.operatorRegistrationRoot,
-                    })
-                {
-                    warn!(?err, "failed to broadcast blacklist event");
+                    self.store_epoch(event, log.block_number, log.block_timestamp).await?;
+                } else if first_topic == Blacklisted::SIGNATURE_HASH {
+                    // Blacklist events mark a slot's registration root as unusable going forward
+                    // and broadcast the change if listeners are attached.
+                    let event = Blacklisted::decode_raw_log(
+                        log.topics().to_vec(),
+                        log.data().data.as_ref(),
+                    )
+                    .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
+                    self.record_blacklist_event(
+                        event.operatorRegistrationRoot,
+                        event.timestamp.to(),
+                    )?;
+                    if let Some(tx) = &self.broadcast_tx &&
+                        let Err(err) = tx.send(LookaheadBroadcast::Blacklisted {
+                            root: event.operatorRegistrationRoot,
+                        })
+                    {
+                        warn!(?err, "failed to broadcast blacklist event");
+                    }
+                } else if first_topic == Unblacklisted::SIGNATURE_HASH {
+                    // Unblacklist events restore eligibility for the registration root.
+                    let event = Unblacklisted::decode_raw_log(
+                        log.topics().to_vec(),
+                        log.data().data.as_ref(),
+                    )
+                    .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
+                    self.record_unblacklist_event(
+                        event.operatorRegistrationRoot,
+                        event.timestamp.to(),
+                    )?;
+                    if let Some(tx) = &self.broadcast_tx &&
+                        let Err(err) = tx.send(LookaheadBroadcast::Unblacklisted {
+                            root: event.operatorRegistrationRoot,
+                        })
+                    {
+                        warn!(?err, "failed to broadcast unblacklist event");
+                    }
+                } else {
+                    warn!(topic = ?first_topic, "unrecognized lookahead log topic");
                 }
-            } else if first_topic == Unblacklisted::SIGNATURE_HASH {
-                // Decode and apply unblacklist event.
-                let event =
-                    Unblacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
-                        .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
-                self.record_unblacklist_event(
-                    event.operatorRegistrationRoot,
-                    event.timestamp.to(),
-                )?;
-                // Broadcast unblacklist update if channel is enabled.
-                if let Some(tx) = &self.broadcast_tx &&
-                    let Err(err) = tx.send(LookaheadBroadcast::Unblacklisted {
-                        root: event.operatorRegistrationRoot,
-                    })
+            } else if is_whitelist {
+                // Whitelist events adjust the fallback operator timeline so gap/blacklist paths
+                // mirror on-chain selection mid-epoch.
+                if first_topic == OperatorRemoved::SIGNATURE_HASH ||
+                    first_topic == OperatorAdded::SIGNATURE_HASH
                 {
-                    warn!(?err, "failed to broadcast unblacklist event");
+                    // Block number is required to snapshot whitelist state at the exact fork
+                    // height where the event occurred.
+                    let block_number = log.block_number.ok_or_else(|| {
+                        LookaheadError::EventDecode("whitelist log missing block number".into())
+                    })?;
+                    self.record_whitelist_event(block_number, log.block_timestamp).await?;
+                } else {
+                    warn!(topic = ?first_topic, "unrecognized whitelist log topic");
                 }
-            } else {
-                warn!(topic = ?first_topic, "unrecognized log topic");
             }
         }
 
@@ -231,6 +266,7 @@ where
         &self,
         event: LookaheadPosted,
         block_number: Option<u64>,
+        block_timestamp: Option<u64>,
     ) -> Result<()> {
         // Ensure we have the block number for snapshotting.
         let block = block_number.ok_or_else(|| {
@@ -239,6 +275,14 @@ where
 
         // Snapshot whitelist state at the event block state.
         let fallback_current = self.snapshot_whitelist(block).await?;
+
+        // Record baseline fallback for the epoch so live updates can override it.
+        self.record_fallback_baseline(
+            event.epochTimestamp.to(),
+            block_timestamp.unwrap_or(self.block_timestamp(block).await?),
+            fallback_current,
+        )
+        .await?;
 
         // Insert or update the cached epoch entry.
         let cached = CachedLookaheadEpoch {
@@ -286,6 +330,28 @@ where
             .map_err(LookaheadError::PreconfWhitelist)?;
 
         Ok(current_query)
+    }
+
+    /// Record the current-epoch whitelist operator at the provided block into the fallback
+    /// timeline, keyed by the epoch that contains the block timestamp.
+    async fn record_whitelist_event(
+        &self,
+        block_number: u64,
+        block_timestamp: Option<u64>,
+    ) -> Result<()> {
+        let ts = match block_timestamp {
+            Some(ts) => ts,
+            None => self.block_timestamp(block_number).await?,
+        };
+        let epoch_start = epoch_start_for(ts, self.genesis_timestamp);
+        let operator = self.whitelist_operator_at(block_number).await?;
+
+        self.fallback_timeline.apply(FallbackEvent { at: ts, operator });
+        self.fallback_timeline.prune_before(earliest_allowed_timestamp(self.genesis_timestamp)?);
+
+        // Ensure a baseline exists for the epoch in case the first observed event is a removal.
+        self.fallback_timeline.ensure_baseline(epoch_start, operator);
+        Ok(())
     }
 
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
@@ -354,7 +420,9 @@ where
                 let slot = &curr_epoch.slots[idx];
                 // Check blacklist status.
                 if self.was_blacklisted_at(slot.registrationRoot, ts) {
-                    return Ok(curr_epoch.fallback_whitelist);
+                    return self
+                        .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
+                        .await;
                 }
                 Ok(slot.committer)
             }
@@ -373,12 +441,14 @@ where
                     })?;
                 // Check blacklist status.
                 if self.was_blacklisted_at(slot.registrationRoot, ts) {
-                    return Ok(curr_epoch.fallback_whitelist);
+                    return self
+                        .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
+                        .await;
                 }
                 Ok(slot.committer)
             }
             // Fallback to current epoch whitelist operator.
-            None => Ok(curr_epoch.fallback_whitelist),
+            None => self.resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist).await,
         }
     }
 
@@ -387,6 +457,19 @@ where
         self.blacklist_history
             .get(&registration_root)
             .is_some_and(|timeline| timeline.was_blacklisted_at(ts))
+    }
+
+    /// Resolve the whitelist fallback operator for the given timestamp using the live timeline,
+    /// inserting the provided baseline when no history exists for the epoch.
+    async fn resolve_fallback(
+        &self,
+        ts: u64,
+        epoch_start: u64,
+        baseline: Address,
+    ) -> Result<Address> {
+        self.fallback_timeline.prune_before(earliest_allowed_timestamp(self.genesis_timestamp)?);
+        self.fallback_timeline.ensure_baseline(epoch_start, baseline);
+        Ok(self.fallback_timeline.operator_at(ts).unwrap_or(baseline))
     }
 
     /// Locate a block whose timestamp is within the given epoch window `[epoch_start,
@@ -437,6 +520,52 @@ where
         Ok(None)
     }
 
+    /// Return the timestamp of the provided block number.
+    async fn block_timestamp(&self, block_number: u64) -> Result<u64> {
+        let block = self
+            .provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map_err(|err| LookaheadError::BlockLookup { block_number, reason: err.to_string() })?;
+
+        let Some(block) = block else {
+            return Err(LookaheadError::BlockLookup {
+                block_number,
+                reason: "missing block data".into(),
+            });
+        };
+
+        Ok(block.header.timestamp)
+    }
+
+    /// Snapshot the whitelist operator for the current epoch at the specified block.
+    async fn whitelist_operator_at(&self, block_number: u64) -> Result<Address> {
+        self.preconf_whitelist
+            .getOperatorForCurrentEpoch()
+            .block(BlockId::Number(block_number.into()))
+            .call()
+            .await
+            .map_err(LookaheadError::PreconfWhitelist)
+    }
+
+    /// Record a baseline fallback for the epoch if none exists before `epoch_start`.
+    async fn record_fallback_baseline(
+        &self,
+        epoch_start: u64,
+        at: u64,
+        operator: Address,
+    ) -> Result<()> {
+        self.fallback_timeline.apply(FallbackEvent { at, operator });
+        self.fallback_timeline.prune_before(earliest_allowed_timestamp(self.genesis_timestamp)?);
+        self.fallback_timeline.ensure_baseline(epoch_start, operator);
+        Ok(())
+    }
+
+    /// Return the address of the preconfirmation whitelist contract.
+    fn preconf_whitelist_address(&self) -> Address {
+        *self.preconf_whitelist.address()
+    }
+
     /// Materialize and cache an empty epoch entry when the *current* epoch has started but no
     /// lookahead was posted, mirroring `_handleEmptyCurrentLookahead` behavior. Past epochs should
     /// not be synthesized; if invoked after the epoch end, treat it as missing lookahead.
@@ -464,6 +593,9 @@ where
             .call()
             .await
             .map_err(LookaheadError::PreconfWhitelist)?;
+
+        let block_ts = self.block_timestamp(block_number).await?;
+        self.record_fallback_baseline(epoch_start, block_ts, fallback_current).await?;
 
         let cached =
             CachedLookaheadEpoch { slots: Arc::new(vec![]), fallback_whitelist: fallback_current };

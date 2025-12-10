@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use alloy_primitives::Address;
+use arc_swap::ArcSwap;
 use tracing::warn;
 
 /// Blacklist status change for a single operator at a specific timestamp.
@@ -73,6 +77,122 @@ impl BlacklistTimeline {
     }
 }
 
+/// Timestamped fallback change for the preconf whitelist operator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FallbackEvent {
+    /// Seconds since UNIX epoch when the change was observed (block timestamp).
+    pub at: u64,
+    /// Whitelist operator valid from `at` until the next recorded change.
+    pub operator: Address,
+}
+
+/// Chronological history of whitelist fallback operators, kept small by pruning to the
+/// resolver's lookback window while retaining the last pre-cutoff state as baseline.
+#[derive(Debug, Default, Clone)]
+pub struct FallbackTimeline {
+    /// Ordered fallback changes; first entry is treated as baseline for lookups.
+    events: Vec<FallbackEvent>,
+}
+
+impl FallbackTimeline {
+    /// Insert or replace a fallback event, preserving timestamp order.
+    pub fn apply(&mut self, event: FallbackEvent) {
+        let idx = self.events.partition_point(|e| e.at <= event.at);
+        if idx > 0 && self.events[idx - 1].at == event.at {
+            self.events[idx - 1] = event;
+        } else {
+            self.events.insert(idx, event);
+        }
+    }
+
+    /// Ensure a baseline exists at or before `at`; if none, insert the provided operator at `at`.
+    pub fn ensure_baseline(&mut self, at: u64, operator: Address) {
+        if self.operator_at(at).is_none() {
+            self.apply(FallbackEvent { at, operator });
+        }
+    }
+
+    /// Remove history older than `cutoff`, keeping the last pre-cutoff entry as the new baseline.
+    pub fn prune_before(&mut self, cutoff: u64) {
+        if self.events.is_empty() {
+            return;
+        }
+
+        let keep_from = self.events.partition_point(|e| e.at < cutoff);
+        if keep_from == 0 {
+            return;
+        }
+
+        let last_before = self.events[keep_from - 1];
+        let baseline_idx = keep_from - 1;
+        self.events.drain(..baseline_idx);
+        if let Some(first) = self.events.get_mut(0) {
+            *first = last_before;
+        }
+    }
+
+    /// Return the active fallback operator at `ts`, if any history exists.
+    pub fn operator_at(&self, ts: u64) -> Option<Address> {
+        if self.events.is_empty() {
+            return None;
+        }
+
+        let idx = self.events.partition_point(|e| e.at <= ts);
+        let evt = if idx == 0 { self.events[0] } else { self.events[idx - 1] };
+        Some(evt.operator)
+    }
+}
+
+/// Copy-on-write wrapper over `FallbackTimeline` providing lock-free reads and atomic updates.
+#[derive(Debug, Default)]
+pub struct FallbackTimelineStore {
+    inner: ArcSwap<FallbackTimeline>,
+}
+
+impl Clone for FallbackTimelineStore {
+    fn clone(&self) -> Self {
+        Self { inner: ArcSwap::from(self.inner.load_full()) }
+    }
+}
+
+impl FallbackTimelineStore {
+    /// Create a new store seeded with an empty timeline.
+    pub fn new() -> Self {
+        Self { inner: ArcSwap::from_pointee(FallbackTimeline::default()) }
+    }
+
+    /// Insert or replace a fallback event, preserving timestamp order.
+    pub fn apply(&self, event: FallbackEvent) {
+        self.update(|timeline| timeline.apply(event));
+    }
+
+    /// Ensure a baseline exists at or before `at`; if none, insert the provided operator at `at`.
+    pub fn ensure_baseline(&self, at: u64, operator: Address) {
+        // Fast-path read: skip COW if baseline already exists.
+        if self.operator_at(at).is_some() {
+            return;
+        }
+        self.update(|timeline| timeline.ensure_baseline(at, operator));
+    }
+
+    /// Remove history older than `cutoff`, keeping the last pre-cutoff entry as the new baseline.
+    pub fn prune_before(&self, cutoff: u64) {
+        self.update(|timeline| timeline.prune_before(cutoff));
+    }
+
+    /// Return the active fallback operator at `ts`, if any history exists.
+    pub fn operator_at(&self, ts: u64) -> Option<Address> {
+        let timeline = self.inner.load_full();
+        timeline.operator_at(ts)
+    }
+
+    fn update(&self, f: impl FnOnce(&mut FallbackTimeline)) {
+        let mut next = (*self.inner.load_full()).clone();
+        f(&mut next);
+        self.inner.store(Arc::new(next));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,5 +217,33 @@ mod tests {
 
         timeline.prune_before(280);
         assert!(!timeline.was_blacklisted_at(300));
+    }
+
+    #[test]
+    fn fallback_timeline_tracks_mid_epoch_changes() {
+        let mut timeline = FallbackTimeline::default();
+        let a = Address::from([1u8; 20]);
+        let b = Address::from([2u8; 20]);
+
+        timeline.ensure_baseline(1_000, a);
+        timeline.apply(FallbackEvent { at: 1_500, operator: b });
+
+        assert_eq!(timeline.operator_at(1_200), Some(a));
+        assert_eq!(timeline.operator_at(1_600), Some(b));
+    }
+
+    #[test]
+    fn fallback_timeline_prunes_preserving_baseline() {
+        let mut timeline = FallbackTimeline::default();
+        let a = Address::from([1u8; 20]);
+        let b = Address::from([2u8; 20]);
+
+        timeline.apply(FallbackEvent { at: 1_000, operator: a });
+        timeline.apply(FallbackEvent { at: 2_000, operator: b });
+
+        timeline.prune_before(1_500);
+
+        assert_eq!(timeline.operator_at(1_600), Some(a));
+        assert_eq!(timeline.operator_at(2_100), Some(b));
     }
 }

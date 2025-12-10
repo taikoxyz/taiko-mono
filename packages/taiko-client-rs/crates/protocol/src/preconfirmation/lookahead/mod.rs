@@ -28,8 +28,9 @@ pub type LookaheadResolverWithDefaultProvider =
 //   otherwise fall back to the current-epoch whitelist.
 // - Blacklisted slots always fall back to the cached current-epoch whitelist (driven by live
 //   Blacklisted/Unblacklisted events).
-// - Whitelist fallback is snapshotted at ingest (LookaheadPosted block); blacklist state is updated
-//   incrementally from events so resolution matches on-chain checks without runtime RPC calls.
+// - Whitelist fallback now follows live PreconfWhitelist events (OperatorAdded/Removed), seeded by
+//   the initial LookaheadPosted snapshot; mid-epoch removals therefore change the fallback
+//   committer without additional RPCs.
 // - Lookups are bounded: timestamps earlier than `earliest_allowed_timestamp` (one full epoch
 //   behind "now") are rejected as `TooOld`, and timestamps at or beyond `latest_allowed_timestamp`
 //   (end of the current epoch) are rejected as `TooNew`.

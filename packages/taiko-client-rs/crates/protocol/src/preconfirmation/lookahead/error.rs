@@ -12,6 +12,9 @@ pub enum LookaheadError {
     /// Failure when querying the preconfirmation whitelist.
     #[error("failed to call preconf whitelist: {0}")]
     PreconfWhitelist(alloy_contract::Error),
+    /// Failure when fetching a block by number from the provider.
+    #[error("failed to fetch block {block_number}: {reason}")]
+    BlockLookup { block_number: u64, reason: String },
     /// Decoding of a lookahead event failed.
     #[error("failed to decode lookahead event: {0}")]
     EventDecode(String),
