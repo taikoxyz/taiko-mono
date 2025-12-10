@@ -25,6 +25,7 @@ contracts_shared=(
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
+"contracts/shared/signal/SignalServiceForkRouter.sol:SignalServiceForkRouter"
 )
 
 # Layer 1 contracts
@@ -51,6 +52,7 @@ contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
+"contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
 )
 
 # Update storage layout for a single contract
