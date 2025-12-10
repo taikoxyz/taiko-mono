@@ -86,6 +86,40 @@ contract InboxProveMinProposalsTest is InboxTestBase {
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, 3, "finalized id");
     }
+
+    /// @notice Test proving succeeds with fewer proposals than minProposalsToFinalize
+    /// when half the proving window has elapsed
+    function test_prove_succeedsWhen_HalfProvingWindowElapsed_FewerThanMinProposals() public {
+        // Propose only 2 blocks (less than minProposalsToFinalize = 3)
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+
+        // Warp to exactly half the proving window from the last proposal timestamp
+        // provingWindow = 2 hours, so half = 1 hour
+        vm.warp(p2.proposal.timestamp + config.provingWindow / 2);
+
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
+        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: 1,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
+            actualProver: prover,
+            proposalStates: proposalStates
+        });
+
+        // Should succeed: lastProposalId (2) < minProposalsToFinalize (3) but
+        // block.timestamp >= lastProposalTimestamp + provingWindow/2
+        _prove(input);
+
+        IInbox.CoreState memory state = inbox.getCoreState();
+        assertEq(state.lastFinalizedProposalId, 2, "finalized id");
+    }
 }
 
 contract InboxProveTest is InboxTestBase {
