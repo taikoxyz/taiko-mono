@@ -282,10 +282,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 3. Verify block hash continuity
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
-                bytes32 expectedParentHash = offset == 0
-                    ? input.firstProposalParentBlockHash
-                    : input.proposalStates[offset - 1].blockHash;
-                require(lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+            bytes32 expectedParentHash = offset == 0
+                ? input.firstProposalParentBlockHash
+                : input.proposalStates[offset - 1].blockHash;
+            require(lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
             // ---------------------------------------------------------
             // 4. Verify the last proposal hash
@@ -406,8 +406,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
-
-  
 
     /// @inheritdoc IInbox
     function getConfig() external view returns (Config memory config_) {

@@ -23,4 +23,4 @@ pragma solidity ^0.8.24;
 //   lastFinalizedBlockHash         | bytes32                                            | Slot: 253  | Offset: 0    | Bytes: 32  
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32  
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[36]                                        | Slot: 257  | Offset: 0    | Bytes: 1152
+//   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
