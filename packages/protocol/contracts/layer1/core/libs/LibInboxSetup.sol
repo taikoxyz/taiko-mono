@@ -38,7 +38,7 @@ library LibInboxSetup {
             _config.permissionlessInclusionMultiplier > 1,
             PermissionlessInclusionMultiplierTooSmall()
         );
-        require(_config.minProposalsToFinalize > 1, MinProposalsToFinalizeTooSmall());
+        require(_config.minProposalsToFinalize > 0, MinProposalsToFinalizeTooSmall());
         require(
             _config.minProposalsToFinalize < _config.ringBufferSize - 1,
             MinProposalsToFinalizeTooBig()
