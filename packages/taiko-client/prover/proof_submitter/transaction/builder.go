@@ -134,7 +134,10 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 
 		for i, proofResponse := range batchProof.ProofResponses {
 			if len(proofResponse.Opts.ShastaOptions().Headers) == 0 {
-				return nil, fmt.Errorf("no headers in proof response options for proposal ID %d", proposals[i].Id)
+				return nil, fmt.Errorf(
+					"no headers in proof response options for proposal ID %d",
+					proofResponse.Meta.Shasta().GetProposal(),
+				)
 			}
 			proposals[i] = proofResponse.Meta.Shasta().GetProposal()
 			lastHeader := proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1]
@@ -144,17 +147,20 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				return nil, encoding.TryParsingCustomError(err)
 			}
 
+			// Set first proposal information.
 			if i == 0 {
 				input.FirstProposalId = proposals[i].Id
 				input.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
 			}
 
+			// Set last proposal information.
 			if i == len(batchProof.ProofResponses)-1 {
 				input.LastBlockNumber = lastHeader.Number
 				input.LastProposalHash = proposalHash
 				input.LastStateRoot = lastHeader.Root
 			}
 
+			// Fetch anchor proposal state, which contains the designated prover for the proposal.
 			_, anchorProposalState, err := a.rpc.GetShastaAnchorState(&bind.CallOpts{BlockHash: lastHeader.Hash()})
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch anchor proposal state: %w", err)
