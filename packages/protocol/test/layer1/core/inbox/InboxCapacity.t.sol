@@ -8,9 +8,13 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
+/// @dev ringBufferSize = 4, minProposalsToFinalize = 1, so max unfinalized = 3
 contract InboxCapacityTest is InboxTestBase {
     function test_propose_RevertWhen_CapacityExceeded() public {
-        _setBlobHashes(3);
+        _setBlobHashes(4);
+        _advanceBlock();
+        _proposeAndDecode(_defaultProposeInput());
+
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
@@ -25,26 +29,30 @@ contract InboxCapacityTest is InboxTestBase {
     }
 
     /// @notice Test propose succeeds at exact capacity boundary (capacity == 1)
-    /// ringBufferSize = 3, so max unfinalized = 2
-    /// After 1 proposal: numUnfinalized = 1, capacity = 3 - 1 - 1 = 1
+    /// ringBufferSize = 4, so max unfinalized = 3
+    /// After 2 proposals: numUnfinalized = 2, capacity = 4 - 1 - 2 = 1
     function test_propose_succeedsWhen_CapacityExactlyOne() public {
-        _setBlobHashes(2);
+        _setBlobHashes(3);
         _advanceBlock();
 
-        // First proposal: numUnfinalized becomes 1, capacity = 3 - 1 - 1 = 1
+        // First proposal: numUnfinalized becomes 1
         _proposeAndDecode(_defaultProposeInput());
 
-        // Second proposal should succeed at capacity = 1 (exact boundary)
+        // Second proposal: numUnfinalized becomes 2, capacity = 4 - 1 - 2 = 1
+        _advanceBlock();
+        _proposeAndDecode(_defaultProposeInput());
+
+        // Third proposal should succeed at capacity = 1 (exact boundary)
         _advanceBlock();
         IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
-        assertEq(payload.proposal.id, 2, "should succeed at capacity boundary");
+        assertEq(payload.proposal.id, 3, "should succeed at capacity boundary");
 
-        // After this: numUnfinalized = 2, capacity = 3 - 1 - 2 = 0, next should fail
+        // After this: numUnfinalized = 3, capacity = 4 - 1 - 3 = 0, next should fail
     }
 
     function _buildConfig() internal virtual override returns (IInbox.Config memory) {
         IInbox.Config memory cfg = super._buildConfig();
-        cfg.ringBufferSize = 3;
+        cfg.ringBufferSize = 4;
         return cfg;
     }
 }
@@ -62,7 +70,7 @@ contract InboxRingBufferTest is InboxTestBase {
         _setBlobHashes(6);
         IInbox.ProposedEventPayload memory p1 = _proposeAndDecode(_defaultProposeInput());
         _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
+        IInbox.ProposedEventPayload memory p2 = _proposeAndDecode(_defaultProposeInput());
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
         _advanceBlock();
@@ -70,14 +78,15 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
-        // Prove p1 using prove
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        // Prove p1 and p2 using prove
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
         proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
             firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
-            lastProposalHash: inbox.getProposalHash(p1.proposal.id),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,

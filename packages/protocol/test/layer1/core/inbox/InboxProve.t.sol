@@ -89,14 +89,14 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 }
 
 contract InboxProveTest is InboxTestBase {
-    function test_prove_single() public {
-        IInbox.ProveInput memory input = _buildBatchInput(1);
+    function test_prove_batch2() public {
+        IInbox.ProveInput memory input = _buildBatchInput(2);
 
-        _proveWithGas(input, "shasta-prove", "prove_single");
+        _proveWithGas(input, "shasta-prove", "prove_batch_2");
 
         IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
-        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[0].blockHash, "block hash");
+        assertEq(state.lastFinalizedProposalId, input.firstProposalId + 1, "finalized id");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[1].blockHash, "block hash");
     }
 
     function test_prove_batch3() public {
@@ -211,20 +211,18 @@ contract InboxProveTest is InboxTestBase {
     }
 
     function test_prove_RevertWhen_ParentBlockHashMismatch() public {
-        _proposeOne();
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
-            proposer: proposer,
-            designatedProver: prover,
-            timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash")
-        });
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
+        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
             firstProposalParentBlockHash: bytes32(uint256(999)), // Wrong parent hash
-            lastProposalHash: inbox.getProposalHash(1),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
             actualProver: prover,
@@ -273,24 +271,27 @@ contract InboxProveTest is InboxTestBase {
     }
 
     function test_prove_emitsLivenessBond_withinExtendedWindow() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
         // Move past proving window but still within extended window
         vm.warp(block.timestamp + config.provingWindow + 1);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
         // Different designated prover than actual prover to trigger liveness bond
         proposalStates[0] = IInbox.ProposalState({
-            proposer: proposed.proposal.proposer,
+            proposer: p1.proposal.proposer,
             designatedProver: proposer, // Different from prover
-            timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            timestamp: p1.proposal.timestamp,
+            blockHash: keccak256("blockHash1")
         });
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: proposed.proposal.id,
+            firstProposalId: p1.proposal.id,
             firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
-            lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
@@ -301,7 +302,7 @@ contract InboxProveTest is InboxTestBase {
 
         // Verify bond signal was sent for LIVENESS
         LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
-            proposalId: proposed.proposal.id,
+            proposalId: p1.proposal.id,
             bondType: LibBonds.BondType.LIVENESS,
             payer: proposer, // designatedProver pays
             payee: prover // actualProver receives
