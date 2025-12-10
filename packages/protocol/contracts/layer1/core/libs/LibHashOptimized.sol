@@ -150,7 +150,9 @@ library LibHashOptimized {
                 IInbox.ProposalState memory state = proposalStates[i];
                 uint256 base = 9 + i * 4;
                 EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(state.proposer))));
-                EfficientHashLib.set(buffer, base + 1, bytes32(uint256(uint160(state.designatedProver))));
+                EfficientHashLib.set(
+                    buffer, base + 1, bytes32(uint256(uint160(state.designatedProver)))
+                );
                 EfficientHashLib.set(buffer, base + 2, bytes32(uint256(state.timestamp)));
                 EfficientHashLib.set(buffer, base + 3, state.blockHash);
             }

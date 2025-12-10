@@ -155,8 +155,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minProposalsToFinalize = _config.minProposalsToFinalize;
     }
 
-  
-
     // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
@@ -196,13 +194,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(
-        bytes calldata _lookahead,
-        bytes calldata _data
-    )
-        external
-        nonReentrant
-    {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
@@ -259,13 +251,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(
-        bytes calldata _data,
-        bytes calldata _proof
-    )
-        external
-        nonReentrant
-    {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
             // Load entire CoreState into memory once (single SLOAD for the packed slot)
             CoreState memory state = _state;

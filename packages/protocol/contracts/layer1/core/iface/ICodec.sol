@@ -127,10 +127,5 @@ interface ICodec {
     /// @notice Hashing for prove input data combining proposal hash and prove input
     /// @param _input The prove input to hash
     /// @return The hash of the prove input
-    function hashProveInput(
-        IInbox.ProveInput calldata _input
-    )
-        external
-        pure
-        returns (bytes32);
+    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32);
 }
