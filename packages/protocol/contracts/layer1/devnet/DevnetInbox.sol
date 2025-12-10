@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
@@ -11,7 +10,7 @@ import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetInbox is InboxOptimized {
+contract DevnetInbox is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -36,11 +35,11 @@ contract DevnetInbox is InboxOptimized {
         address _signalService,
         address _codec
     )
-        InboxOptimized(IInbox.Config({
+        Inbox(Config({
                 codec: _codec,
-                signalService: _signalService,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                signalService: _signalService,
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
                 ringBufferSize: _RING_BUFFER_SIZE,
@@ -50,7 +49,8 @@ contract DevnetInbox is InboxOptimized {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                minProposalsToFinalize: 1
             }))
     { }
 
@@ -65,10 +65,4 @@ contract DevnetInbox is InboxOptimized {
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidCoreState();
 }

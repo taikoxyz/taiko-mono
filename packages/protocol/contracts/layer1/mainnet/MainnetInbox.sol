@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized } from "src/layer1/core/impl/InboxOptimized.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
@@ -10,9 +9,9 @@ import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
 
 /// @title ShastaMainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
-/// with optimized reentrancy lock implementation and efficient hashing.
+/// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is InboxOptimized {
+contract MainnetInbox is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -36,11 +35,11 @@ contract MainnetInbox is InboxOptimized {
         address _proposerChecker,
         address _codec
     )
-        InboxOptimized(IInbox.Config({
+        Inbox(Config({
                 codec: _codec,
-                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                signalService: LibL1Addrs.SIGNAL_SERVICE,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,
                 ringBufferSize: _RING_BUFFER_SIZE,
@@ -50,7 +49,8 @@ contract MainnetInbox is InboxOptimized {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                minProposalsToFinalize: 1
             }))
     { }
 
@@ -65,10 +65,4 @@ contract MainnetInbox is InboxOptimized {
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidCoreState();
 }

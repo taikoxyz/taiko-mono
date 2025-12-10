@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
@@ -13,71 +12,8 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibHashOptimized {
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    /// @notice Precomputed hash of empty bytes for gas optimization
-    bytes32 private constant EMPTY_BYTES_HASH = keccak256("");
-
-    // ---------------------------------------------------------------
     // Core Structure Hashing Functions
     // ---------------------------------------------------------------
-
-    /// @notice Optimized hashing for blob hashes array
-    /// @dev Efficiently hashes an array of blob hashes with explicit length inclusion
-    /// @param _blobHashes The blob hashes array to hash
-    /// @return The hash of the blob hashes array
-    function hashBlobHashesArray(bytes32[] memory _blobHashes) internal pure returns (bytes32) {
-        unchecked {
-            uint256 length = _blobHashes.length;
-            if (length == 0) {
-                return EMPTY_BYTES_HASH;
-            }
-
-            if (length == 1) {
-                return EfficientHashLib.hash(bytes32(length), _blobHashes[0]);
-            }
-
-            if (length == 2) {
-                return EfficientHashLib.hash(bytes32(length), _blobHashes[0], _blobHashes[1]);
-            }
-
-            bytes32[] memory buffer = EfficientHashLib.malloc(length + 1);
-            EfficientHashLib.set(buffer, 0, bytes32(length));
-
-            for (uint256 i; i < length; ++i) {
-                EfficientHashLib.set(buffer, i + 1, _blobHashes[i]);
-            }
-
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
-        }
-    }
-
-    /// @notice Optimized hashing for Checkpoint structs
-    /// @dev Efficiently hashes the 3 main fields of a checkpoint
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return EfficientHashLib.hash(
-            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
-        );
-    }
-
-    /// @notice Optimized hashing for CoreState structs
-    /// @dev Efficiently packs and hashes all core state fields
-    /// @param _coreState The core state to hash
-    /// @return The hash of the core state
-    function hashCoreState(IInbox.CoreState memory _coreState) internal pure returns (bytes32) {
-        // Struct fields are encoded directly to keep compatibility if ordering changes.
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_coreState));
-    }
 
     /// @notice Optimized hashing for Derivation structs
     /// @dev Manually constructs the ABI-encoded layout to avoid nested abi.encode calls
@@ -97,8 +33,8 @@ library LibHashOptimized {
             // [5] sources length
             uint256 totalWords = 6 + sourcesLength;
 
-            // Each source contributes: element head (2) + blobSlice head (3) + blobHashes length (1)
-            // + blobHashes entries
+            // Each source contributes: element head (2) + blobSlice head (3) + blobHashes
+            // length (1) + blobHashes entries
             for (uint256 i; i < sourcesLength; ++i) {
                 totalWords += 6 + sources[i].blobSlice.blobHashes.length;
             }
@@ -161,66 +97,69 @@ library LibHashOptimized {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
-        bytes32[] memory buffer = EfficientHashLib.malloc(5);
+        bytes32[] memory buffer = EfficientHashLib.malloc(6);
 
         EfficientHashLib.set(buffer, 0, bytes32(uint256(_proposal.id)));
         EfficientHashLib.set(buffer, 1, bytes32(uint256(_proposal.timestamp)));
         EfficientHashLib.set(buffer, 2, bytes32(uint256(_proposal.endOfSubmissionWindowTimestamp)));
         EfficientHashLib.set(buffer, 3, bytes32(uint256(uint160(_proposal.proposer))));
-        EfficientHashLib.set(buffer, 4, _proposal.derivationHash);
+        EfficientHashLib.set(buffer, 4, _proposal.parentProposalHash);
+        EfficientHashLib.set(buffer, 5, _proposal.derivationHash);
 
         bytes32 result = EfficientHashLib.hash(buffer);
         EfficientHashLib.free(buffer);
         return result;
     }
 
-    /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash transition fields
-    /// @param _transition The transition to hash
-    /// @return The hash of the transition
-    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transition));
-    }
+    /// @notice Optimized hashing for ProveInput structs
+    /// @dev Manually constructs the ABI-encoded layout to use EfficientHashLib
+    /// @param _input The prove input to hash
+    /// @return The hash of the prove input
+    function hashProveInput(IInbox.ProveInput memory _input) internal pure returns (bytes32) {
+        unchecked {
+            IInbox.ProposalState[] memory proposalStates = _input.proposalStates;
+            uint256 statesLength = proposalStates.length;
 
-    /// @notice Memory-optimized hashing for arrays of Transitions
-    /// @dev Pre-allocates scratch buffer and prefixes array length to prevent hash collisions.
-    /// @param _transitions The transitions array to hash
-    /// @return The hash of the transitions array
-    function hashTransitions(IInbox.Transition[] memory _transitions)
-        internal
-        pure
-        returns (bytes32)
-    {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_transitions));
-    }
+            // Base words:
+            // [0] offset to tuple head (0x20)
+            // [1] firstProposalId
+            // [2] firstProposalParentBlockHash
+            // [3] lastProposalHash
+            // [4] lastBlockNumber
+            // [5] lastStateRoot
+            // [6] actualProver
+            // [7] offset to proposalStates (0xe0 = 7 * 32)
+            // [8] proposalStates length
+            uint256 totalWords = 9 + statesLength * 4;
 
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
+            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
-    /// @notice Hashes a single derivation source efficiently
-    /// @dev Internal helper to hash DerivationSource struct with BlobSlice
-    /// @param _source The derivation source to hash
-    /// @return The hash of the derivation source
-    function _hashDerivationSource(IInbox.DerivationSource memory _source)
-        private
-        pure
-        returns (bytes32)
-    {
-        // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
-        bytes32 blobHashesHash = hashBlobHashesArray(_source.blobSlice.blobHashes);
+            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_input.firstProposalId)));
+            EfficientHashLib.set(buffer, 2, _input.firstProposalParentBlockHash);
+            EfficientHashLib.set(buffer, 3, _input.lastProposalHash);
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(_input.lastBlockNumber)));
+            EfficientHashLib.set(buffer, 5, _input.lastStateRoot);
+            EfficientHashLib.set(buffer, 6, bytes32(uint256(uint160(_input.actualProver))));
+            EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
+            EfficientHashLib.set(buffer, 8, bytes32(statesLength));
 
-        bytes32 blobSliceHash = EfficientHashLib.hash(
-            blobHashesHash,
-            bytes32(uint256(_source.blobSlice.offset)),
-            bytes32(uint256(_source.blobSlice.timestamp))
-        );
+            // Each ProposalState is a static struct with 4 fields (32 bytes each when encoded)
+            // proposer (address), designatedProver (address), timestamp (uint48), blockHash (bytes32)
+            for (uint256 i; i < statesLength; ++i) {
+                IInbox.ProposalState memory state = proposalStates[i];
+                uint256 base = 9 + i * 4;
+                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(state.proposer))));
+                EfficientHashLib.set(
+                    buffer, base + 1, bytes32(uint256(uint160(state.designatedProver)))
+                );
+                EfficientHashLib.set(buffer, base + 2, bytes32(uint256(state.timestamp)));
+                EfficientHashLib.set(buffer, base + 3, state.blockHash);
+            }
 
-        return
-            EfficientHashLib.hash(
-                bytes32(uint256(_source.isForcedInclusion ? 1 : 0)), blobSliceHash
-            );
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
+        }
     }
 }
