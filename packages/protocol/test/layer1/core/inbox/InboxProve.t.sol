@@ -484,7 +484,9 @@ contract InboxProveTest is InboxTestBase {
         // Test with firstProposalId = 1 (exact boundary)
         IInbox.ProveInput memory input = _buildBatchInput(1);
         assertEq(input.firstProposalId, 1, "firstProposalId should be 1");
-        assertEq(inbox.getCoreState().lastFinalizedProposalId, 0, "lastFinalizedProposalId should be 0");
+        assertEq(
+            inbox.getCoreState().lastFinalizedProposalId, 0, "lastFinalizedProposalId should be 0"
+        );
 
         _prove(input);
 
