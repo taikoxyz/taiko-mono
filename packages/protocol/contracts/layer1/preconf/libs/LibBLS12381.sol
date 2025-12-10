@@ -8,9 +8,6 @@ pragma solidity ^0.8.24;
 library LibBLS12381 {
     using LibBLS12381 for *;
 
-    error LEN_IN_BYTES_TOO_LARGE();
-    error DST_TOO_LONG();
-
     struct FieldPoint2 {
         uint256[2] u;
         uint256[2] u_I;
@@ -325,11 +322,11 @@ library LibBLS12381 {
         uint256 ell = (lenInBytes - 1) / 32 + 1;
 
         // 2.  ABORT if ell > 255 or len_in_bytes > 65535 or len(DST) > 255
-        require(ell <= 255, LEN_IN_BYTES_TOO_LARGE());
+        require(ell <= 255, "len_in_bytes too large for sha256");
         // Not really needed because of parameter type
         // require(lenInBytes <= 65535, "len_in_bytes too large");
         // no length normalizing via hashing
-        require(dst.length <= 255, DST_TOO_LONG());
+        require(dst.length <= 255, "dst too long");
 
         bytes memory dstPrime = bytes.concat(dst, bytes1(uint8(dst.length)));
 

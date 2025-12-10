@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -19,7 +19,7 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ICodec {
     // ---------------------------------------------------------------
-    // ProposedEventCodec Functions
+    // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes a ProposedEventPayload into bytes
@@ -40,7 +40,7 @@ interface ICodec {
         returns (IInbox.ProposedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProvedEventCodec Functions
+    // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes a ProvedEventPayload into bytes
@@ -61,7 +61,7 @@ interface ICodec {
         returns (IInbox.ProvedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProposeInputCodec Functions
+    // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes propose input data
@@ -82,7 +82,7 @@ interface ICodec {
         returns (IInbox.ProposeInput memory input_);
 
     // ---------------------------------------------------------------
-    // ProveInputCodec Functions
+    // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
     /// @notice Encodes prove input data
@@ -106,6 +106,19 @@ interface ICodec {
     // Hashing Functions
     // ---------------------------------------------------------------
 
+    /// @notice Hashing for Checkpoint structs
+    /// @param _checkpoint The checkpoint to hash
+    /// @return The hash of the checkpoint
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
+        external
+        pure
+        returns (bytes32);
+
+    /// @notice Hashing for CoreState structs
+    /// @param _coreState The core state to hash
+    /// @return The hash of the core state
+    function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32);
+
     /// @notice Hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
@@ -116,16 +129,17 @@ interface ICodec {
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32);
 
-    /// @notice Hashing for BondInstruction structs
-    /// @param _bondInstruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
+    /// @notice Hashing for Transition structs
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransition(IInbox.Transition calldata _transition) external pure returns (bytes32);
+
+    /// @notice Hashing for arrays of Transitions
+    /// @param _transitions The transitions array to hash
+    /// @return The hash of the transitions array
+    /// @dev Large arrays may cause excessive gas usage or out-of-gas errors
+    function hashTransitions(IInbox.Transition[] calldata _transitions)
         external
         pure
         returns (bytes32);
-
-    /// @notice Hashing for prove input data combining proposal hash and prove input
-    /// @param _input The prove input to hash
-    /// @return The hash of the prove input
-    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32);
 }

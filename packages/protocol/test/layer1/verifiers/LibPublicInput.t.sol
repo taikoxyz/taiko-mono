@@ -10,17 +10,17 @@ contract LibPublicInputTest is Test {
     function test_hashPublicInputs_ComputesExpectedHash() external pure {
         bytes32 aggregatedHash = bytes32(uint256(0x1234));
         address verifier = address(0xBEEF);
-        address proofSigner = address(0xCAFE);
+        address newInstance = address(0xCAFE);
         uint64 chainId = 167;
 
         bytes32 actual =
-            LibPublicInput.hashPublicInputs(aggregatedHash, verifier, proofSigner, chainId);
+            LibPublicInput.hashPublicInputs(aggregatedHash, verifier, newInstance, chainId);
         bytes32 expected = EfficientHashLib.hash(
             bytes32("VERIFY_PROOF"),
             bytes32(uint256(chainId)),
             bytes32(uint256(uint160(verifier))),
             aggregatedHash,
-            bytes32(uint256(uint160(proofSigner)))
+            bytes32(uint256(uint160(newInstance)))
         );
 
         assertEq(actual, expected);
@@ -34,13 +34,13 @@ contract LibPublicInputTest is Test {
     function _callHashPublicInputs(
         bytes32 aggregatedHash,
         address verifier,
-        address proofSigner,
+        address newInstance,
         uint64 chainId
     )
         external
         pure
         returns (bytes32)
     {
-        return LibPublicInput.hashPublicInputs(aggregatedHash, verifier, proofSigner, chainId);
+        return LibPublicInput.hashPublicInputs(aggregatedHash, verifier, newInstance, chainId);
     }
 }

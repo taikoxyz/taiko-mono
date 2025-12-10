@@ -8,14 +8,11 @@ import "src/layer1/verifiers/IProofVerifier.sol";
 /// @dev ONLY FOR TESTING - DO NOT USE IN PRODUCTION
 /// @custom:security-contact security@taiko.xyz
 contract OpVerifier is IProofVerifier {
-    error OP_INVALID_TRANSITIONS_HASH();
-    error OP_INVALID_PROOF();
-
     /// @inheritdoc IProofVerifier
     /// @dev This is a dummy implementation that always succeeds
     function verifyProof(
         uint256, /* _proposalAge */
-        bytes32 _proveInputHash,
+        bytes32 _transitionsHash,
         bytes calldata _proof
     )
         external
@@ -23,7 +20,7 @@ contract OpVerifier is IProofVerifier {
     {
         // Dummy verifier - no actual verification
         // Just check that we received some data to avoid misuse
-        require(_proveInputHash != bytes32(0), OP_INVALID_TRANSITIONS_HASH());
-        require(_proof.length > 0, OP_INVALID_PROOF());
+        require(_transitionsHash != bytes32(0), "Invalid transitions hash");
+        require(_proof.length > 0, "Invalid proof");
     }
 }

@@ -12,7 +12,7 @@ on:
 jobs:
   claude-review:
     # Run for non-draft PRs that are not marked to be skipped that are not on forks
-    if: (github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge') && github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot'))
+    if: (github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge') && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [arc-runner-set]
     permissions:
       contents: read
@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 

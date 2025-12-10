@@ -39,9 +39,6 @@ library Asn1Decode {
     using NodePtr for uint256;
     using BytesUtils for bytes;
 
-    error NOT_TYPE_OCTET_STRING();
-    error NOT_A_CONSTRUCTED_TYPE();
-
     /*
     * @dev Get the root node. First step in traversing an ASN1 structure
     * @param der The DER-encoded ASN1 structure
@@ -64,7 +61,7 @@ library Asn1Decode {
         pure
         returns (uint256)
     {
-        require(der[ptr.ixs()] == 0x04, NOT_TYPE_OCTET_STRING());
+        require(der[ptr.ixs()] == 0x04, "Not type OCTET STRING");
         return _readNodeLength(der, ptr.ixf());
     }
 
@@ -85,7 +82,7 @@ library Asn1Decode {
     * @return A pointer to the first child node
     */
     function firstChildOf(bytes memory der, uint256 ptr) internal pure returns (uint256) {
-        require(der[ptr.ixs()] & 0x20 == 0x20, NOT_A_CONSTRUCTED_TYPE());
+        require(der[ptr.ixs()] & 0x20 == 0x20, "Not a constructed type");
         return _readNodeLength(der, ptr.ixf());
     }
 

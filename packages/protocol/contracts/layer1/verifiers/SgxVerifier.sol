@@ -71,10 +71,9 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
-    error SGX_INVALID_CHAIN_ID();
 
     constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
-        require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
+        require(_taikoChainId != 0, "Invalid chain id");
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
 

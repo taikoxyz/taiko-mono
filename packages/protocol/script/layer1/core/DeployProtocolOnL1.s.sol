@@ -7,8 +7,6 @@ import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1Ve
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-
-import "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
@@ -51,7 +49,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
-        address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
@@ -102,11 +99,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
-        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
-        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -170,24 +165,30 @@ contract DeployProtocolOnL1 is DeployCapability {
         returns (address shastaInbox)
     {
         // Deploy whitelist
-        address whitelist = config.preconfWhitelist;
-        if (whitelist == address(0)) {
-            whitelist = deployProxy({
-                name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
-            });
-        } else {
-            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
-        }
+        address whitelist = deployProxy({
+            name: "preconf_whitelist",
+            impl: address(new PreconfWhitelist()),
+            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
+        });
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
         // Get dependencies
-        address signalService =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
+        address bondToken =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
 
-        if (signalService == address(0)) {
+        address signalService;
+        bool signalServiceExists = true;
+        try IResolver(sharedResolver)
+            .resolve(uint64(block.chainid), "signal_service", false) returns (
+            address existing
+        ) {
+            signalService = existing;
+        } catch {
+            signalServiceExists = false;
+        }
+
+        if (!signalServiceExists) {
             SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
             signalService = deployProxy({
                 name: "signal_service",
@@ -202,7 +203,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(proofVerifier, whitelist, signalService, address(new Codec()))
+                new DevnetInbox(proofVerifier, whitelist, bondToken, signalService, address(0))
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
@@ -212,13 +213,16 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
 
-        SignalService(signalService)
-            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
-        console2.log("SignalService upgraded with Shasta inbox authorized syncer");
+        if (!signalServiceExists) {
+            SignalService upgradedSignalServiceImpl =
+                new SignalService(shastaInbox, config.remoteSigSvc);
+            SignalService(signalService).upgradeTo(address(upgradedSignalServiceImpl));
+            console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
-        if (config.contractOwner != msg.sender) {
-            Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
-            console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
+            if (config.contractOwner != msg.sender) {
+                Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
+                console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
+            }
         }
     }
 

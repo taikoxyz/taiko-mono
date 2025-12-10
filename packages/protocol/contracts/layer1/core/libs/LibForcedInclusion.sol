@@ -99,8 +99,7 @@ library LibForcedInclusion {
     /// @dev Returns an empty array if `_start` is outside the valid range [head, tail) or if
     ///      `_maxCount` is zero. Otherwise returns actual stored entries from the queue.
     /// @param _start The queue index to start reading from (must be in range [head, tail)).
-    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty
-    ///        array.
+    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty array.
     /// @return inclusions_ Forced inclusions from the queue starting at `_start`. The actual length
     ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
     function getForcedInclusions(

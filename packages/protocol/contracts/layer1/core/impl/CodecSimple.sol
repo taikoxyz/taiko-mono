@@ -3,19 +3,15 @@ pragma solidity ^0.8.24;
 
 import { ICodec } from "../iface/ICodec.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
-import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
-import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
-import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
-import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { LibHashSimple } from "../libs/LibHashSimple.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
-/// @title Codec
-/// @notice Codec contract wrapping LibHashOptimized for optimized hashing
+/// @title CodecSimple
+/// @notice Codec contract wrapping LibHashSimple for basic hashing
 /// @custom:security-contact security@taiko.xyz
-contract Codec is ICodec {
+contract CodecSimple is ICodec {
     // ---------------------------------------------------------------
-    // ProposedEventCodec Functions
+    // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -24,7 +20,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposedEventCodec.encode(_payload);
+        return abi.encode(_payload);
     }
 
     /// @inheritdoc ICodec
@@ -33,11 +29,11 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {
-        return LibProposedEventCodec.decode(_data);
+        return abi.decode(_data, (IInbox.ProposedEventPayload));
     }
 
     // ---------------------------------------------------------------
-    // ProvedEventCodec Functions
+    // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -46,7 +42,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProvedEventCodec.encode(_payload);
+        return abi.encode(_payload);
     }
 
     /// @inheritdoc ICodec
@@ -55,11 +51,11 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
-        return LibProvedEventCodec.decode(_data);
+        return abi.decode(_data, (IInbox.ProvedEventPayload));
     }
 
     // ---------------------------------------------------------------
-    // ProposeInputCodec Functions
+    // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -68,7 +64,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposeInputCodec.encode(_input);
+        return abi.encode(_input);
     }
 
     /// @inheritdoc ICodec
@@ -77,11 +73,11 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProposeInput memory input_)
     {
-        return LibProposeInputCodec.decode(_data);
+        return abi.decode(_data, (IInbox.ProposeInput));
     }
 
     // ---------------------------------------------------------------
-    // ProveInputCodec Functions
+    // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
@@ -90,7 +86,7 @@ contract Codec is ICodec {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProveInputCodec.encode(_input);
+        return abi.encode(_input);
     }
 
     /// @inheritdoc ICodec
@@ -99,7 +95,7 @@ contract Codec is ICodec {
         pure
         returns (IInbox.ProveInput memory input_)
     {
-        return LibProveInputCodec.decode(_data);
+        return abi.decode(_data, (IInbox.ProveInput));
     }
 
     // ---------------------------------------------------------------
@@ -107,30 +103,48 @@ contract Codec is ICodec {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashSimple.hashCheckpoint(_checkpoint);
+    }
+
+    /// @inheritdoc ICodec
+    function hashCoreState(IInbox.CoreState calldata _coreState) external pure returns (bytes32) {
+        return LibHashSimple.hashCoreState(_coreState);
+    }
+
+    /// @inheritdoc ICodec
     function hashDerivation(IInbox.Derivation calldata _derivation)
         external
         pure
         returns (bytes32)
     {
-        return LibHashOptimized.hashDerivation(_derivation);
+        return LibHashSimple.hashDerivation(_derivation);
     }
 
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
-        return LibHashOptimized.hashProposal(_proposal);
+        return LibHashSimple.hashProposal(_proposal);
     }
 
     /// @inheritdoc ICodec
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
+    function hashTransition(IInbox.Transition calldata _transition)
         external
         pure
         returns (bytes32)
     {
-        return LibBonds.hashBondInstruction(_bondInstruction);
+        return LibHashSimple.hashTransition(_transition);
     }
 
     /// @inheritdoc ICodec
-    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32) {
-        return LibHashOptimized.hashProveInput(_input);
+    function hashTransitions(IInbox.Transition[] calldata _transitions)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashSimple.hashTransitions(_transitions);
     }
 }

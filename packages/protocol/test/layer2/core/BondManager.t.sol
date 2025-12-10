@@ -921,7 +921,7 @@ contract BondManagerTest is Test {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
-        bytes32 signal = LibBonds.hashBondInstruction(instruction);
+        bytes32 signal = keccak256(abi.encode(instruction));
 
         vm.prank(L1_INBOX);
         signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
@@ -931,7 +931,8 @@ contract BondManagerTest is Test {
 
         bondManager.processBondSignal(instruction, "");
 
-        assertTrue(bondManager.processedSignals(signal));
+        bytes32 signalId = keccak256(abi.encode(L1_CHAIN_ID, L1_INBOX, signal));
+        assertTrue(bondManager.processedSignals(signalId));
         assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
         assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND);
     }
@@ -945,9 +946,9 @@ contract BondManagerTest is Test {
         });
 
         vm.prank(L1_INBOX);
-        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(first));
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, keccak256(abi.encode(first)));
         vm.prank(L1_INBOX);
-        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(second));
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, keccak256(abi.encode(second)));
 
         vm.prank(Alice);
         bondManager.deposit(500 ether);

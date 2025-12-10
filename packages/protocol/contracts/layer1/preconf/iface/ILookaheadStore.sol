@@ -88,8 +88,13 @@ interface ILookaheadStore {
     error OperatorHasNotOptedIn();
     error OperatorHasNotRegistered();
     error OperatorHasUnregistered();
+    error PosterHasBeenSlashed();
+    error PosterHasInsufficientCollateral();
+    error PosterHasNotOptedIn();
+    error PosterHasUnregistered();
     error ProposerIsNotPreconfer();
     error ProposerIsNotFallbackPreconfer();
+    error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(

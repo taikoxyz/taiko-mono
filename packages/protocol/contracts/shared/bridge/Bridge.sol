@@ -86,6 +86,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     error B_INVALID_GAS_LIMIT();
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
+    error B_INSUFFICIENT_GAS();
     error B_MESSAGE_NOT_SENT();
     error B_PERMISSION_DENIED();
     error B_PROOF_TOO_LARGE();

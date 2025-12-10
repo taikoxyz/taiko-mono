@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProposeInputCodec
+/// @title LibProposeInputDecoder
 /// @notice Compact encoder/decoder for propose inputs using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
-library LibProposeInputCodec {
+library LibProposeInputDecoder {
     /// @notice Encodes propose data using compact packing.
     function encode(IInbox.ProposeInput memory _input)
         internal

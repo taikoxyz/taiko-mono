@@ -29,12 +29,10 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
     error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
-    error RISC_ZERO_INVALID_CHAIN_ID();
-    error RISC_ZERO_INVALID_GROTH16_VERIFIER();
 
     constructor(uint64 _taikoChainId, address _riscoGroth16Verifier, address _owner) {
-        require(_taikoChainId != 0, RISC_ZERO_INVALID_CHAIN_ID());
-        require(_riscoGroth16Verifier != address(0), RISC_ZERO_INVALID_GROTH16_VERIFIER());
+        require(_taikoChainId != 0, "Invalid chain id");
+        require(_riscoGroth16Verifier != address(0), "Invalid risc0 groth16 verifier");
         taikoChainId = _taikoChainId;
         riscoGroth16Verifier = _riscoGroth16Verifier;
 

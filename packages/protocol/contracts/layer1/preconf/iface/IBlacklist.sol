@@ -30,6 +30,7 @@ interface IBlacklist {
 
     error BlacklistDelayNotMet();
     error NotOverseer();
+    error NotOwnerOrOverseer();
     error OperatorAlreadyBlacklisted();
     error OperatorNotBlacklisted();
     error UnblacklistDelayNotMet();

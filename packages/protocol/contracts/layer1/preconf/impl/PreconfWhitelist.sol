@@ -25,8 +25,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @dev The number of epochs before a newly added operator becomes active.
     uint8 public constant OPERATOR_CHANGE_DELAY = 2;
     /// @dev The number of epochs to use as delay when selecting an operator.
-    ///      This needs to be 2 epochs or more to ensure the randomness seed source is stable
-    ///      across epochs.
+    ///      This needs to be 2 epochs or more to ensure the randomness seed source is stable across epochs.
     uint8 public constant RANDOMNESS_DELAY = 2;
 
     // ---------------------------------------------------------------
@@ -52,8 +51,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @dev Deprecated variable. Kept for storage compatibility.
     bool private _deprecatedHavingPerfectOperators;
     /// @notice The epoch when the latest operator was or will be activated.
-    /// @dev No need to reinitialize the contract, this value starts at 0
-    ///      (i.e. no pending activations)
+    /// @dev No need to reinitialize the contract, this value starts at 0(i.e. no pending activations)
     uint32 public latestActivationEpoch;
 
     /// @dev The addresses that can eject operators from the whitelist.
@@ -240,16 +238,14 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @dev Returns the operator for the given epoch
-    /// This function is not affected by operators that are added mid-epoch, since it filters
-    /// active ones.
+    /// This function is not affected by operators that are added mid-epoch, since it filters active ones.
     /// NOTE: We optimize for the common case where all operators are active.
     /// In that case we don't scan the entire operator set or check if the operator is active.
     /// @param _epochTimestamp The timestamp of the epoch to get the operator for.
     /// @return The operator for the given epoch.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
         unchecked {
-            // Get epoch-stable randomness with a delayed applied. This avoids querying future
-            // beacon roots.
+            // Get epoch-stable randomness with a delayed applied. This avoids querying future beacon roots.
             uint256 delaySeconds = RANDOMNESS_DELAY * LibPreconfConstants.SECONDS_IN_EPOCH;
             uint256 ts = uint256(_epochTimestamp);
             uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
@@ -261,8 +257,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             if (_operatorCount == 0) return address(0);
             uint256 randomNumber = _getRandomNumber(randomnessTs);
             if (_epochTimestamp >= _latestActivationEpoch) {
-                // Fast path: This means all operators are active, so we can just select one without
-                // checking
+                // Fast path: This means all operators are active, so we can just select one without checking
                 return operatorMapping[randomNumber % _operatorCount];
             }
 
@@ -293,8 +288,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     error CannotRemoveLastOperator();
     error InvalidOperatorIndex();
+    error InvalidOperatorCount();
     error InvalidOperatorAddress();
     error OperatorAlreadyExists();
+    error OperatorAlreadyRemoved();
+    error OperatorNotAvailableYet();
     error NoActiveOperatorRemaining();
     error NotOwnerOrEjecter();
 }
