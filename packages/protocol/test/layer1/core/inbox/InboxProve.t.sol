@@ -662,7 +662,9 @@ contract InboxProveTest is InboxTestBase {
             firstProposalParentCheckpointHash: _parentCheckpointHash,
             actualProver: prover,
             transitions: _transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0, blockHash: 0, stateRoot: 0
+            })
         });
     }
 

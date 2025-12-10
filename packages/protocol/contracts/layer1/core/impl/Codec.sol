@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
@@ -10,6 +9,7 @@ import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title Codec
 /// @notice Codec contract wrapping LibHashOptimized for optimized hashing

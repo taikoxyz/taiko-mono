@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
