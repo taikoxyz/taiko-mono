@@ -66,8 +66,7 @@ abstract contract InboxTestBase is CommonTest {
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
             minCheckpointDelay: 60_000, // large enough for skipping checkpoints in prove benches
-            permissionlessInclusionMultiplier: 5,
-            minProposalsToFinalize: 1
+            permissionlessInclusionMultiplier: 5
         });
     }
 

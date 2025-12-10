@@ -114,11 +114,6 @@ contract InboxActivationTest is InboxTestBase {
             config.forcedInclusionFeeInGwei,
             "forcedInclusionFeeInGwei mismatch"
         );
-        assertEq(
-            cfg.minProposalsToFinalize,
-            config.minProposalsToFinalize,
-            "minProposalsToFinalize mismatch"
-        );
         assertEq(cfg.codec, config.codec, "codec mismatch");
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
@@ -221,23 +216,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.permissionlessInclusionMultiplier = 1; // Must be > 1
 
         vm.expectRevert(LibInboxSetup.PermissionlessInclusionMultiplierTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinProposalsToFinalizeTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.minProposalsToFinalize = 0;
-
-        vm.expectRevert(LibInboxSetup.MinProposalsToFinalizeTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinProposalsToFinalizeTooBig() public {
-        IInbox.Config memory cfg = _buildConfig();
-        // minProposalsToFinalize must be < ringBufferSize - 1
-        cfg.minProposalsToFinalize = uint8(cfg.ringBufferSize - 1);
-
-        vm.expectRevert(LibInboxSetup.MinProposalsToFinalizeTooBig.selector);
         new Inbox(cfg);
     }
 }

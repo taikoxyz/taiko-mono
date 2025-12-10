@@ -102,9 +102,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
-    /// @notice The minimum number of proposals that must be finalized in a single prove call.
-    uint8 internal immutable _minProposalsToFinalize;
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -149,7 +146,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
-        _minProposalsToFinalize = _config.minProposalsToFinalize;
     }
 
     // ---------------------------------------------------------------
@@ -250,7 +246,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Key validation rules:
     /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
     /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
-    /// 3. lastProposalId >= lastFinalizedProposalId + minProposalsToFinalize (must advance enough)
+    /// 3. lastProposalId >= lastFinalizedProposalId + 1 (must advance at least one proposal)
     /// 4. The checkpoint hash must link to the lastFinalizedCheckpointHash
     ///
     /// @param _data Encoded ProveInput struct
@@ -279,10 +275,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             uint256 lastProposalId = input.firstProposalId + numProposals - 1;
             require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
-            require(
-                lastProposalId >= state.lastFinalizedProposalId + _minProposalsToFinalize,
-                LastProposalIdTooSmall()
-            );
+            require(lastProposalId >= state.lastFinalizedProposalId + 1, LastProposalIdTooSmall());
 
             // ---------------------------------------------------------
             // 2. Calculate offset to first unfinalized proposal
@@ -431,8 +424,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
-            minProposalsToFinalize: _minProposalsToFinalize
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
 

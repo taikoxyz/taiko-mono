@@ -38,11 +38,6 @@ library LibInboxSetup {
             _config.permissionlessInclusionMultiplier > 1,
             PermissionlessInclusionMultiplierTooSmall()
         );
-        require(_config.minProposalsToFinalize != 0, MinProposalsToFinalizeTooSmall());
-        require(
-            _config.minProposalsToFinalize < _config.ringBufferSize - 1,
-            MinProposalsToFinalizeTooBig()
-        );
     }
 
     /// @dev Validates activation and computes the initial state for inbox activation.
@@ -104,8 +99,6 @@ library LibInboxSetup {
     error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaCheckpointHash();
     error MinForcedInclusionCountZero();
-    error MinProposalsToFinalizeTooBig();
-    error MinProposalsToFinalizeTooSmall();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();

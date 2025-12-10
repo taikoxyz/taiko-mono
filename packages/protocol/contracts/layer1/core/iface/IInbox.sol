@@ -42,8 +42,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice The minimum number of proposals that must be finalized in a single prove call
-        uint8 minProposalsToFinalize;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
