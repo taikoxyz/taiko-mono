@@ -130,14 +130,7 @@ contract Codec is ICodec {
     }
 
     /// @inheritdoc ICodec
-    function hashProveInput(
-        bytes32 _lastProposalHash,
-        IInbox.ProveInput calldata _input
-    )
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashProveInput(_lastProposalHash, _input);
+    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32) {
+        return LibHashOptimized.hashProveInput(_input);
     }
 }

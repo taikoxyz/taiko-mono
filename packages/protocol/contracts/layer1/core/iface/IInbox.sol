@@ -83,6 +83,8 @@ interface IInbox {
     }
 
     /// @notice Represents the core state of the inbox.
+    /// @dev The first 5 uint48 fields (30 bytes) pack into slot 0, and
+    ///      lastFinalizedBlockHash occupies slot 1.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
@@ -130,6 +132,8 @@ interface IInbox {
         /// @notice The block hash of the parent of the first proposal, this is used
         /// to verify block hash continuity in the proof.
         bytes32 firstProposalParentBlockHash;
+        // @notice The hash of the last proposal
+        bytes32 lastProposalHash;
         /// @notice The last block number in the last proposal
         uint48 lastBlockNumber;
         /// @notice The state root of the last block

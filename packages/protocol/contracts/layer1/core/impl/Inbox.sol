@@ -152,13 +152,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minProposalsToFinalize = _config.minProposalsToFinalize;
     }
 
-    // ---------------------------------------------------------------
-    // Modifiers
-    // ---------------------------------------------------------------
-    modifier onlyWhenActivated() {
-        require(_state.nextProposalId != 0, ActivationRequired());
-        _;
-    }
+  
 
     // ---------------------------------------------------------------
     // External Functions
@@ -203,7 +197,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes calldata _data
     )
         external
-        onlyWhenActivated
         nonReentrant
     {
         unchecked {
@@ -211,6 +204,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateProposeInput(input);
 
             uint48 nextProposalId = _state.nextProposalId;
+             require(nextProposalId != 0, ActivationRequired());
+
             uint48 lastProposalBlockId = _state.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _state.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
@@ -260,11 +255,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes calldata _proof
     )
         external
-        onlyWhenActivated
         nonReentrant
     {
         unchecked {
             CoreState memory state = _state;
+            require(state.nextProposalId != 0, ActivationRequired());
+
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
             // ---------------------------------------------------------
@@ -300,8 +296,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 : input.proposalStates[offset - 1].blockHash;
             require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
+
             // ---------------------------------------------------------
-            // 4. Calculate proposal age and bond instruction
+            // 4. Verify the last proposal hash
+            // ---------------------------------------------------------
+            require(
+                input.lastProposalHash == _proposalHashes[lastProposalId % _ringBufferSize],
+                LastProposalHashMismatch()
+            );
+
+            // ---------------------------------------------------------
+            // 5. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             ProposalState memory firstProposal = input.proposalStates[offset];
             uint256 proposalAge =
@@ -324,7 +329,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 5. Sync checkpoint if minimum delay has passed
+            // 6. Sync checkpoint if minimum delay has passed
             // ---------------------------------------------------------
             if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
                 _signalService.saveCheckpoint(
@@ -338,7 +343,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 6. Update core state and emit event
+            // 7. Update core state and emit event
             // ---------------------------------------------------------
             _state.lastFinalizedProposalId = uint48(lastProposalId);
             _state.lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
@@ -346,10 +351,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
-            // 7. Verify the proof
+            // 8. Verify the proof
             // ---------------------------------------------------------
             bytes32 hashToProve = LibHashOptimized.hashProveInput(
-                _proposalHashes[lastProposalId % _ringBufferSize], input
+                input
             );
             _proofVerifier.verifyProof(proposalAge, hashToProve, _proof);
         }
@@ -652,6 +657,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error LastProposalIdTooLarge();
+    error LastProposalHashMismatch();
     error LastProposalIdTooSmall();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();

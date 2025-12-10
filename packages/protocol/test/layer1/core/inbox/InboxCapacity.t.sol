@@ -77,6 +77,7 @@ contract InboxRingBufferTest is InboxTestBase {
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
             firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            lastProposalHash: inbox.getProposalHash(p1.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,

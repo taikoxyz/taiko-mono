@@ -284,6 +284,7 @@ abstract contract InboxTestBase is CommonTest {
         IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](_count);
 
         uint48 firstProposalId;
+        uint48 lastProposalId;
         bytes32 parentBlockHash = inbox.getState().lastFinalizedBlockHash;
 
         for (uint256 i; i < _count; ++i) {
@@ -293,6 +294,7 @@ abstract contract InboxTestBase is CommonTest {
             if (i == 0) {
                 firstProposalId = payload.proposal.id;
             }
+            lastProposalId = payload.proposal.id;
 
             // Generate a unique block hash for this proposal
             bytes32 blockHash = keccak256(abi.encode("blockHash", i + 1));
@@ -303,6 +305,7 @@ abstract contract InboxTestBase is CommonTest {
         input_ = IInbox.ProveInput({
             firstProposalId: firstProposalId,
             firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
+            lastProposalHash: inbox.getProposalHash(lastProposalId),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
             actualProver: prover,
