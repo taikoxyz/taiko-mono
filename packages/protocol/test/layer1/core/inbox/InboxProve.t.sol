@@ -562,24 +562,56 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
         vm.warp(block.timestamp + config.minCheckpointDelay + 1);
 
-        IInbox.Transition[] memory transitions = _transitionArrayFor(p2, keccak256("checkpoint2"));
+        // Create checkpoint first, then compute its hash for the transition
+        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: keccak256("blockHash2"),
+            stateRoot: keccak256("stateRoot2")
+        });
+        bytes32 checkpointHash = codec.hashCheckpoint(lastCheckpoint);
+
+        IInbox.Transition[] memory transitions = _transitionArrayFor(p2, checkpointHash);
 
         IInbox.ProveInput memory input2 = IInbox.ProveInput({
             firstProposalId: p2.proposal.id,
             firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: transitions[0].checkpointHash,
-                stateRoot: keccak256("stateRoot2")
-            })
+            lastCheckpoint: lastCheckpoint
         });
 
         _prove(input2);
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint synced");
+    }
+
+    function test_prove_RevertWhen_CheckpointHashMismatch() public {
+        IInbox.ProposedEventPayload memory payload = _proposeOne();
+
+        // Create a checkpoint
+        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: keccak256("blockHash"),
+            stateRoot: keccak256("stateRoot")
+        });
+
+        // Use a different hash in the transition (not matching hashCheckpoint(lastCheckpoint))
+        bytes32 wrongCheckpointHash = keccak256("wrongCheckpointHash");
+        IInbox.Transition[] memory transitions = _transitionArrayFor(payload, wrongCheckpointHash);
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: payload.proposal.id,
+            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
+            actualProver: prover,
+            transitions: transitions,
+            lastCheckpoint: lastCheckpoint
+        });
+
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.CheckpointHashMismatch.selector);
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes("proof"));
     }
 
     function test_prove_RevertWhen_CheckpointMissingAfterDelay() public {
@@ -617,26 +649,39 @@ contract InboxProveTest is InboxTestBase {
         uint48 _firstProposalId,
         bytes32 _parentCheckpointHash,
         IInbox.Transition[] memory _transitions,
-        bytes32 _stateRoot
+        bytes32 // _stateRoot - unused, kept for backward compatibility
     )
         internal
         view
         returns (IInbox.ProveInput memory)
     {
-        bytes32 lastCheckpointHash = _transitions.length == 0
-            ? bytes32(0)
-            : _transitions[_transitions.length - 1].checkpointHash;
-
+        // Use empty checkpoint to skip the new checkpoint hash validation.
+        // Tests that specifically need checkpoint syncing should use _buildInputWithCheckpoint.
         return IInbox.ProveInput({
             firstProposalId: _firstProposalId,
             firstProposalParentCheckpointHash: _parentCheckpointHash,
             actualProver: prover,
             transitions: _transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: lastCheckpointHash,
-                stateRoot: _stateRoot
-            })
+            lastCheckpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
+        });
+    }
+
+    function _buildInputWithCheckpoint(
+        uint48 _firstProposalId,
+        bytes32 _parentCheckpointHash,
+        IInbox.Transition[] memory _transitions,
+        ICheckpointStore.Checkpoint memory _lastCheckpoint
+    )
+        internal
+        view
+        returns (IInbox.ProveInput memory)
+    {
+        return IInbox.ProveInput({
+            firstProposalId: _firstProposalId,
+            firstProposalParentCheckpointHash: _parentCheckpointHash,
+            actualProver: prover,
+            transitions: _transitions,
+            lastCheckpoint: _lastCheckpoint
         });
     }
 

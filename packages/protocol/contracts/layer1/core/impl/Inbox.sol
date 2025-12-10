@@ -247,9 +247,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _validateBatchBoundsAndCalculateOffset(state, input);
 
             // ---------------------------------------------------------
-            // 2. Verify block hash continuity
+            // 2. Verify checkpoint hash continuity
             // ---------------------------------------------------------
-            // The parent block hash must match the stored lastFinalizedCheckpointHash.
+            // The parent checkpoint hash must match the stored lastFinalizedCheckpointHash.
             bytes32 expectedParentHash = offset == 0
                 ? input.firstProposalParentCheckpointHash
                 : input.transitions[offset - 1].checkpointHash;
@@ -285,8 +285,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 4. Sync checkpoint if provided, otherwise enforce delay
             // -----------------------------------------------------------------------------
             if (input.lastCheckpoint.blockHash != 0) {
+                require(input.transitions[numProposals - 1].checkpointHash == LibHashOptimized.hashCheckpoint(input.lastCheckpoint), CheckpointHashMismatch());
                 _signalService.saveCheckpoint(input.lastCheckpoint);
-                _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
+                state.lastCheckpointTimestamp = uint48(block.timestamp);
             } else {
                 require(
                     block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay,
@@ -297,10 +298,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 5. Update core state and emit event
             // ---------------------------------------------------------
-            _coreState.lastFinalizedProposalId = uint48(lastProposalId);
-            _coreState.lastFinalizedCheckpointHash =
-            input.transitions[numProposals - 1].checkpointHash;
-            _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
+            state.lastFinalizedProposalId = uint48(lastProposalId);
+            state.lastFinalizedTimestamp = uint48(block.timestamp);
+            state.lastFinalizedCheckpointHash =
+                input.transitions[numProposals - 1].checkpointHash;
+
+            _coreState = state;
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
@@ -472,6 +475,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
+    /// @dev Validates the batch bounds and calculates the offset to the first unfinalized proposal.
+    /// @param _state The core state.
+    /// @param _input The prove input.
+    /// @return numProposals_ The number of proposals in the batch.
+    /// @return lastProposalId_ The ID of the last proposal in the batch.
+    /// @return offset_ The offset to the first unfinalized proposal.
     function _validateBatchBoundsAndCalculateOffset(
         CoreState memory _state,
         ProveInput memory _input
@@ -640,6 +649,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointDelayHasPassed();
+    error CheckpointHashMismatch();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();

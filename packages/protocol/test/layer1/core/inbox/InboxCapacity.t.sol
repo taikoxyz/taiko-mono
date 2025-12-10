@@ -79,21 +79,25 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
+        // Create checkpoint first, then compute its hash for the transition
+        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: keccak256("blockHash2"),
+            stateRoot: keccak256("stateRoot")
+        });
+        bytes32 checkpoint2Hash = codec.hashCheckpoint(lastCheckpoint);
+
         // Prove p1 and p2 using prove
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = _transitionFor(p1, prover, keccak256("checkpoint1"));
-        transitions[1] = _transitionFor(p2, prover, keccak256("checkpoint2"));
+        transitions[1] = _transitionFor(p2, prover, checkpoint2Hash);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
             firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: transitions[1].checkpointHash,
-                stateRoot: keccak256("stateRoot")
-            })
+            lastCheckpoint: lastCheckpoint
         });
 
         _prove(proveInput);

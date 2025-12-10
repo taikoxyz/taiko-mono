@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
@@ -118,6 +119,15 @@ contract Codec is ICodec {
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
+    }
+
+    /// @inheritdoc ICodec
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashOptimized.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc ICodec

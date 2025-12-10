@@ -247,7 +247,6 @@ abstract contract InboxTestBase is CommonTest {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_count);
 
         uint48 firstProposalId;
-        bytes32 parentCheckpointHash = inbox.getCoreState().lastFinalizedCheckpointHash;
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
@@ -257,22 +256,29 @@ abstract contract InboxTestBase is CommonTest {
                 firstProposalId = payload.proposal.id;
             }
 
-            // Generate a unique checkpoint hash for this proposal
-            bytes32 checkpointHash = keccak256(abi.encode("checkpointHash", i + 1));
+            // Generate a unique checkpoint for this proposal and hash it
+            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: keccak256(abi.encode("blockHash", i + 1)),
+                stateRoot: keccak256(abi.encode("stateRoot", i + 1))
+            });
+            bytes32 checkpointHash = codec.hashCheckpoint(checkpoint);
             transitions[i] = _transitionFor(payload, prover, checkpointHash);
-            parentCheckpointHash = checkpointHash;
         }
+
+        // Last checkpoint matches the last transition's checkpointHash
+        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: keccak256(abi.encode("blockHash", _count)),
+            stateRoot: keccak256(abi.encode("stateRoot", _count))
+        });
 
         input_ = IInbox.ProveInput({
             firstProposalId: firstProposalId,
             firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: parentCheckpointHash,
-                stateRoot: keccak256("stateRoot")
-            })
+            lastCheckpoint: lastCheckpoint
         });
     }
 
