@@ -60,7 +60,8 @@ pub enum SlotOrigin {
 /// Choose the first applicable lookahead slot for the timestamp, returning its origin and index.
 ///
 /// Slots are ordered on-chain; pick the earliest slot with timestamp >= ts. If none in current
-/// epoch, allow the first slot of next epoch if its timestamp is still ahead of ts; otherwise none.
+/// epoch, allow the first slot of next epoch if its timestamp is still ahead of ts; otherwise None
+/// (caller should fall back to whitelist).
 pub fn pick_slot_origin(
     ts: u64,
     current_slots: &[LookaheadSlot],
@@ -127,7 +128,7 @@ mod tests {
             pick_slot_origin(300, &current, Some(&[next_first.clone()])).expect("next slot");
         assert_eq!(picked_next, SlotOrigin::Next(0));
 
-        let none = pick_slot_origin(500, &current, Some(&[next_first]));
+        let none = pick_slot_origin(500, &current, Some(&[next_first.clone()]));
         assert!(none.is_none());
     }
 

@@ -176,10 +176,12 @@ where
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
                 self.record_blacklist_event(event.operatorRegistrationRoot, event.timestamp.to())?;
                 // Broadcast blacklist update if channel is enabled.
-                if let Some(tx) = &self.broadcast_tx {
-                    let _ = tx.send(LookaheadBroadcast::Blacklisted {
+                if let Some(tx) = &self.broadcast_tx &&
+                    let Err(err) = tx.send(LookaheadBroadcast::Blacklisted {
                         root: event.operatorRegistrationRoot,
-                    });
+                    })
+                {
+                    warn!(?err, "failed to broadcast blacklist event");
                 }
             } else if first_topic == Unblacklisted::SIGNATURE_HASH {
                 // Decode and apply unblacklist event.
@@ -191,10 +193,12 @@ where
                     event.timestamp.to(),
                 )?;
                 // Broadcast unblacklist update if channel is enabled.
-                if let Some(tx) = &self.broadcast_tx {
-                    let _ = tx.send(LookaheadBroadcast::Unblacklisted {
+                if let Some(tx) = &self.broadcast_tx &&
+                    let Err(err) = tx.send(LookaheadBroadcast::Unblacklisted {
                         root: event.operatorRegistrationRoot,
-                    });
+                    })
+                {
+                    warn!(?err, "failed to broadcast unblacklist event");
                 }
             } else {
                 warn!(topic = ?first_topic, "unrecognized log topic");
@@ -249,15 +253,18 @@ where
         self.cache.insert(epoch_start, cached.clone());
 
         // Broadcast the epoch update if channel is enabled.
-        if let Some(tx) = &self.broadcast_tx {
-            let _ = tx.send(LookaheadBroadcast::Epoch(LookaheadEpochUpdate {
+        if let Some(tx) = &self.broadcast_tx &&
+            let Err(err) = tx.send(LookaheadBroadcast::Epoch(LookaheadEpochUpdate {
                 epoch_start,
                 epoch: cached,
-            }));
+            }))
+        {
+            warn!(?err, "failed to broadcast epoch update");
         }
 
         // Evict oldest entries once we exceed the on-chain lookahead buffer. We keep one extra
         // entry to cover the current+next epoch window (mirror of contract ring buffer behavior).
+        // Cache size is bounded by on-chain ring buffer, so O(n) scan is acceptable here.
         while self.cache.len() > self.lookahead_buffer_size + 1 {
             if let Some(oldest) = self.cache.iter().map(|e| *e.key()).min() {
                 self.cache.remove(&oldest);
@@ -383,7 +390,7 @@ where
     async fn block_within_epoch(&self, epoch_start: u64) -> Result<Option<u64>> {
         let epoch_end = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
-        // Start from the latest block to reduce reorg risk.
+        // Start from the latest block to reduce reorg risk (see basic head-hash check below).
         let latest = self
             .provider
             .get_block_by_number(BlockNumberOrTag::Latest)
@@ -393,6 +400,7 @@ where
         let Some(block) = latest else { return Ok(None) };
         let mut curr_num = block.number();
         let mut curr_ts = block.header.timestamp;
+        let head_hash = block.header.hash;
 
         if curr_ts < epoch_start {
             return Ok(None);

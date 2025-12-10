@@ -117,10 +117,7 @@ where
                                 let resolver = resolver.clone();
                                 let logs = logs.clone();
                                 async move {
-                                    resolver
-                                        .ingest_logs(logs.clone())
-                                        .await
-                                        .map_err(IngestError::Retryable)
+                                    resolver.ingest_logs(logs).await.map_err(IngestError::Retryable)
                                 }
                             },
                             // Retry on every failure; we do not drop lookahead logs.

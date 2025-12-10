@@ -1,3 +1,5 @@
+use tracing::warn;
+
 /// Blacklist status change for a single operator at a specific timestamp.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlacklistFlag {
@@ -28,6 +30,9 @@ impl BlacklistTimeline {
     pub fn apply(&mut self, event: BlacklistEvent) {
         let idx = self.events.partition_point(|e| e.at <= event.at);
         if idx > 0 && self.events[idx - 1].at == event.at {
+            if self.events[idx - 1].flag != event.flag {
+                warn!(at = event.at, ?event.flag, prev = ?self.events[idx - 1].flag, "duplicate blacklist timestamp, overriding");
+            }
             self.events[idx - 1] = event;
         } else {
             self.events.insert(idx, event);

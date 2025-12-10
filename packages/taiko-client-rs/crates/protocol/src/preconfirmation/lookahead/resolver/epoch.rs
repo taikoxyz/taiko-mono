@@ -7,7 +7,8 @@ pub const SECONDS_IN_SLOT: u64 = 12;
 /// Duration of one epoch in seconds (32 slots).
 pub const SECONDS_IN_EPOCH: u64 = SECONDS_IN_SLOT * 32;
 /// Maximum backward block scans when searching for a block within an epoch. One epoch is ~32 EL
-/// blocks on a 12s cadence; 256 provides ample slack while keeping lookup bounded.
+/// blocks on a 12s cadence; 256 (~8 epochs of headroom) provides ample slack while keeping lookup
+/// bounded.
 pub const MAX_BACKWARD_STEPS: u16 = 256;
 /// Maximum number of epochs allowed for lookback when resolving a committer.
 pub(crate) const MAX_LOOKBACK_EPOCHS: u64 = 1;
