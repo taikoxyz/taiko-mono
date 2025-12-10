@@ -36,6 +36,11 @@ pub enum LookaheadError {
     /// Cached lookahead data for the epoch was not available.
     #[error("no lookahead data cached for epoch starting at {0}")]
     MissingLookahead(u64),
+    /// Cached lookahead slots were internally inconsistent (index out of bounds).
+    #[error(
+        "lookahead cache corrupt for epoch starting at {epoch_start}: slot index {index} out of bounds (len {len})"
+    )]
+    CorruptLookaheadCache { epoch_start: u64, index: usize, len: usize },
 }
 
 /// Result alias for lookahead operations.

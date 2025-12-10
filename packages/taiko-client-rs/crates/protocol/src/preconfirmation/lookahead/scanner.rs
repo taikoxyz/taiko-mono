@@ -138,10 +138,11 @@ where
                     }
                     Ok(ScannerMessage::Notification(note)) => {
                         info!(?note, "lookahead scanner notification");
-                        if matches!(note, Notification::SwitchingToLive)
-                            && let Some(tx) = live_tx.take() {
-                                let _ = tx.send(());
-                            }
+                        if matches!(note, Notification::SwitchingToLive) &&
+                            let Some(tx) = live_tx.take()
+                        {
+                            let _ = tx.send(());
+                        }
                     }
                     Err(err) => error!(?err, "error from lookahead event stream"),
                 }
