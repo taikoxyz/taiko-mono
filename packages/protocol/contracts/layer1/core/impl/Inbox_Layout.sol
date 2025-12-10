@@ -7,19 +7,19 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 
 // solhint-disable max-line-length
-//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1   
-//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1   
+//   _initialized                   | uint8                                              | Slot: 0    | Offset: 0    | Bytes: 1
+//   _initializing                  | bool                                               | Slot: 0    | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[50]                                        | Slot: 1    | Offset: 0    | Bytes: 1600
-//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20  
+//   _owner                         | address                                            | Slot: 51   | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 52   | Offset: 0    | Bytes: 1568
-//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20  
+//   _pendingOwner                  | address                                            | Slot: 101  | Offset: 0    | Bytes: 20
 //   __gap                          | uint256[49]                                        | Slot: 102  | Offset: 0    | Bytes: 1568
 //   __gapFromOldAddressResolver    | uint256[50]                                        | Slot: 151  | Offset: 0    | Bytes: 1600
-//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
-//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
+//   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1
+//   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   activationTimestamp            | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
-//   _state                         | struct IInbox.CoreState                            | Slot: 252  | Offset: 0    | Bytes: 64  
-//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
+//   activationTimestamp            | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6
+//   _state                         | struct IInbox.CoreState                            | Slot: 252  | Offset: 0    | Bytes: 64
+//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64
 //   __gap                          | uint256[37]                                        | Slot: 257  | Offset: 0    | Bytes: 1184

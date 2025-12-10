@@ -4,18 +4,18 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibProposedEventEncoder } from "src/layer1/core/libs/LibProposedEventEncoder.sol";
+import { LibProposedEventCodec } from "src/layer1/core/libs/LibProposedEventCodec.sol";
 
-contract LibProposedEventEncoderHarness {
+contract LibProposedEventCodecHarness {
     function size(IInbox.DerivationSource[] memory _sources) external pure returns (uint256) {
-        return LibProposedEventEncoder.calculateProposedEventSize(_sources);
+        return LibProposedEventCodec.calculateProposedEventSize(_sources);
     }
 }
 
-contract LibProposedEventEncoderTest is Test {
-    LibProposedEventEncoderHarness private harness = new LibProposedEventEncoderHarness();
+contract LibProposedEventCodecTest is Test {
+    LibProposedEventCodecHarness private harness = new LibProposedEventCodecHarness();
 
-    function test_encode_decode_singleSource() public {
+    function test_encode_decode_singleSource() public view {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
@@ -32,6 +32,7 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 111,
                 endOfSubmissionWindowTimestamp: 0,
                 proposer: address(0x1234),
+                parentProposalHash: bytes32(uint256(9)),
                 derivationHash: bytes32(uint256(10))
             }),
             derivation: IInbox.Derivation({
@@ -42,14 +43,14 @@ contract LibProposedEventEncoderTest is Test {
             })
         });
 
-        bytes memory encoded = LibProposedEventEncoder.encode(payload);
+        bytes memory encoded = LibProposedEventCodec.encode(payload);
         assertEq(encoded.length, harness.size(sources), "size mismatch");
 
-        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventCodec.decode(encoded);
         _assertEqual(payload, decoded);
     }
 
-    function test_encode_decode_mixedSources() public {
+    function test_encode_decode_mixedSources() public pure {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](2);
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: true,
@@ -74,6 +75,7 @@ contract LibProposedEventEncoderTest is Test {
                 timestamp: 200,
                 endOfSubmissionWindowTimestamp: 300,
                 proposer: address(0xBEEF),
+                parentProposalHash: bytes32(uint256(13)),
                 derivationHash: bytes32(uint256(14))
             }),
             derivation: IInbox.Derivation({
@@ -85,7 +87,7 @@ contract LibProposedEventEncoderTest is Test {
         });
 
         IInbox.ProposedEventPayload memory decoded =
-            LibProposedEventEncoder.decode(LibProposedEventEncoder.encode(payload));
+            LibProposedEventCodec.decode(LibProposedEventCodec.encode(payload));
 
         assertEq(decoded.derivation.sources.length, 2, "sources length");
         assertTrue(decoded.derivation.sources[0].isForcedInclusion, "forced flag");
