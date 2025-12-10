@@ -18,7 +18,6 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title Inbox
@@ -110,7 +109,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     uint48 public activationTimestamp;
 
     /// @notice Persisted core state.
-    CoreState internal _state;
+    CoreState internal _coreState;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -121,7 +120,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[37] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -171,7 +170,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ) = LibInboxSetup.activate(_lastPacayaCheckpointHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
-        _state = state;
+        _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
         emit InboxActivated(_lastPacayaCheckpointHash);
@@ -196,17 +195,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
 
-            uint48 nextProposalId = _state.nextProposalId;
-            uint48 lastProposalBlockId = _state.lastProposalBlockId;
-            uint48 lastFinalizedProposalId = _state.lastFinalizedProposalId;
+            uint48 nextProposalId = _coreState.nextProposalId;
+            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
+            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
             (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
 
-            _state.nextProposalId = nextProposalId + 1;
-            _state.lastProposalBlockId = uint48(block.number);
+            _coreState.nextProposalId = nextProposalId + 1;
+            _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal, derivation);
@@ -248,7 +247,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         external
     {
         unchecked {
-            CoreState memory state = _state;
+            CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
             // -------------------------------------------------------------------------------
@@ -294,7 +293,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -----------------------------------------------------------------------------
             if (input.lastCheckpoint.blockHash != 0) {
                 _signalService.saveCheckpoint(input.lastCheckpoint);
-                _state.lastCheckpointTimestamp = uint48(block.timestamp);
+                _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
             }
             else {
                 require(block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay, CheckPointDelayHasPassed());
@@ -303,9 +302,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 5. Update core state and emit event
             // ---------------------------------------------------------
-            _state.lastFinalizedProposalId = uint48(lastProposalId);
-            _state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
-            _state.lastFinalizedTimestamp = uint48(block.timestamp);
+            _coreState.lastFinalizedProposalId = uint48(lastProposalId);
+            _coreState.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
+            _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
@@ -337,7 +336,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // External View Functions
+    // External and Public View Functions
     // ---------------------------------------------------------------
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
@@ -367,17 +366,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
-    /// @notice Retrieves the proposal hash for a given proposal ID
-    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
-    /// may have been overwritten by a new one. You should verify that the hash matches the
-    /// expected proposal.
-    /// @param _proposalId The ID of the proposal to query
-    /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
-        uint256 bufferSlot = _proposalId % _ringBufferSize;
-        proposalHash_ = _proposalHashes[bufferSlot];
-    }
-
     /// @inheritdoc IInbox
     function getConfig() external view returns (Config memory config_) {
         config_ = Config({
@@ -396,11 +384,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
-    }
-
-    /// @inheritdoc IInbox
-    function getState() external view returns (CoreState memory state_) {
-        state_ = _state;
     }
 
     // ---------------------------------------------------------------
@@ -471,13 +454,29 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    function getCoreState() external view returns (CoreState memory) {
+        return _coreState;
+    }
+
+    /// @inheritdoc IInbox
+    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
+    /// may have been overwritten by a new one. You should verify that the hash matches the
+    /// expected proposal.
+    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
+        proposalHash_ = _proposalHashes[_proposalId % _ringBufferSize];
+    }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    function _validateBatchBoundsAndCalculateOffset(CoreState memory _coreState, ProveInput memory _input)
+    function _validateBatchBoundsAndCalculateOffset(CoreState memory _state, ProveInput memory _input)
         private
         pure
         returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
@@ -485,16 +484,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Validate batch bounds
         numProposals_ = _input.transitions.length;
         require(numProposals_ > 0, EmptyBatch());
-        require(_input.firstProposalId <= _coreState.lastFinalizedProposalId + 1, FirstProposalIdTooLarge());
+        require(_input.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge());
 
         lastProposalId_ = _input.firstProposalId + numProposals_ - 1;
-        require(lastProposalId_ < _coreState.nextProposalId, LastProposalIdTooLarge());
-        require(lastProposalId_ >= _coreState.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized());
+        require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
+        require(lastProposalId_ >= _state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized());
 
         // Calculate offset to first unfinalized proposal.
         // Some proposals in _input.transitions[] may already be finalized.
         // The offset points to the first proposal that will be finalized.
-        offset_ = _coreState.lastFinalizedProposalId + 1 - _input.firstProposalId;
+        offset_ = _state.lastFinalizedProposalId + 1 - _input.firstProposalId;
     }
 
     function _verifyProof(

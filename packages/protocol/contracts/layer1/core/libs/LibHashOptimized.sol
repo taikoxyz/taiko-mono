@@ -111,11 +111,12 @@ library LibHashOptimized {
         return result;
     }
 
-    /// @notice Hashing for prove input data combining proposal hash and prove input
-    /// @dev TODO: Optimize this function using EfficientHashLib for gas savings
-    /// @param _lastProposalHash The hash of the last proposal in the proof range
-    /// @param _input The prove input containing lastProposalId, lastCheckpoint, and transitionHashs
-    /// @return The hash of the prove input data
+    /// @notice Optimized hashing for prove inputs and the corresponding proposal hash.
+    /// @dev Produces the same digest as `keccak256(abi.encode(_lastProposalHash, _input))`
+    ///      while minimizing memory allocations.
+    /// @param _lastProposalHash The hash of the last proposal in the batch.
+    /// @param _input The prove input to hash.
+    /// @return The hash of the prove input.
     function hashProveInput(
         bytes32 _lastProposalHash,
         IInbox.ProveInput memory _input
@@ -124,7 +125,61 @@ library LibHashOptimized {
         pure
         returns (bytes32)
     {
-        /// forge-lint: disable-next-line(asm-keccak256)
-        return keccak256(abi.encode(_lastProposalHash, _input));
+        unchecked {
+            IInbox.Transition[] memory transitions = _input.transitions;
+            uint256 transitionsLength = transitions.length;
+
+            // Top-level layout (abi.encode):
+            // [0] lastProposalHash
+            // [1] offset to prove input (0x40)
+            //
+            // ProveInput static section (starts at word 2):
+            // [2] firstProposalId
+            // [3] firstProposalParentCheckpointHash
+            // [4] actualProver
+            // [5] offset to transitions (0xe0)
+            // [6] lastCheckpoint.blockNumber
+            // [7] lastCheckpoint.blockHash
+            // [8] lastCheckpoint.stateRoot
+            //
+            // Transitions array (starts at word 9):
+            // [9] length
+            // [10...] transition elements (4 words each)
+            uint256 totalWords = 10 + transitionsLength * 4;
+
+            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
+
+            // Top-level head
+            EfficientHashLib.set(buffer, 0, _lastProposalHash);
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(0x40)));
+
+            // ProveInput static fields
+            EfficientHashLib.set(buffer, 2, bytes32(uint256(_input.firstProposalId)));
+            EfficientHashLib.set(buffer, 3, _input.firstProposalParentCheckpointHash);
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_input.actualProver))));
+            EfficientHashLib.set(buffer, 5, bytes32(uint256(0xe0)));
+            EfficientHashLib.set(buffer, 6, bytes32(uint256(_input.lastCheckpoint.blockNumber)));
+            EfficientHashLib.set(buffer, 7, _input.lastCheckpoint.blockHash);
+            EfficientHashLib.set(buffer, 8, _input.lastCheckpoint.stateRoot);
+
+            // Transitions array
+            EfficientHashLib.set(buffer, 9, bytes32(transitionsLength));
+
+            uint256 base = 10;
+            for (uint256 i; i < transitionsLength; ++i) {
+                IInbox.Transition memory transition = transitions[i];
+                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(transition.proposer))));
+                EfficientHashLib.set(
+                    buffer, base + 1, bytes32(uint256(uint160(transition.designatedProver)))
+                );
+                EfficientHashLib.set(buffer, base + 2, bytes32(uint256(transition.timestamp)));
+                EfficientHashLib.set(buffer, base + 3, transition.checkpointHash);
+                base += 4;
+            }
+
+            bytes32 result = EfficientHashLib.hash(buffer);
+            EfficientHashLib.free(buffer);
+            return result;
+        }
     }
 }

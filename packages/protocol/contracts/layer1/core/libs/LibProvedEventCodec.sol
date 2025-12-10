@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibProvedEventCodec
 /// @notice Compact encoder/decoder for ProvedEventPayload using LibPackUnpack.

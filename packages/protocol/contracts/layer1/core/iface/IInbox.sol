@@ -82,6 +82,7 @@ interface IInbox {
     }
 
     /// @notice Represents the core state of the inbox.
+    /// @dev All 5 uint48 fields (30 bytes) pack into a single storage slot.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
@@ -189,15 +190,16 @@ interface IInbox {
     // External View Functions
     // ---------------------------------------------------------------
 
-    /// @notice Returns the proposal hash for a given proposal ID.
-    /// @param _proposalId The proposal ID to look up.
-    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
-
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
 
-    /// @notice Returns the current core state snapshot.
-    function getState() external view returns (CoreState memory state_);
+    /// @notice Returns the current core state.
+    /// @return The core state struct.
+    function getCoreState() external view returns (CoreState memory);
+
+    /// @notice Returns the proposal hash for a given proposal ID.
+    /// @param _proposalId The proposal ID to look up.
+    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 }

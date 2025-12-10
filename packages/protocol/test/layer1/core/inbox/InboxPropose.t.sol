@@ -13,7 +13,7 @@ contract InboxProposeTest is InboxTestBase {
         _setBlobHashes(1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        IInbox.CoreState memory stateBefore = inbox.getState();
+        IInbox.CoreState memory stateBefore = inbox.getCoreState();
 
         IInbox.ProposedEventPayload memory expected =
             _buildExpectedProposedPayload(stateBefore, input);
@@ -22,7 +22,7 @@ contract InboxProposeTest is InboxTestBase {
             _proposeAndDecodeWithGas(input, "propose_single");
         _assertPayloadEqual(actual, expected);
 
-        IInbox.CoreState memory stateAfter = inbox.getState();
+        IInbox.CoreState memory stateAfter = inbox.getCoreState();
         assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
         _assertStateEqual(stateAfter, _expectedStateAfterProposal(stateBefore));
         assertEq(
@@ -307,7 +307,7 @@ contract InboxProposeTest is InboxTestBase {
 
         // First proposal
         _proposeAndDecode(_defaultProposeInput());
-        uint48 lastProposalBlockId = inbox.getState().lastProposalBlockId;
+        uint48 lastProposalBlockId = inbox.getCoreState().lastProposalBlockId;
 
         // Advance exactly 1 block
         vm.roll(block.number + 1);
