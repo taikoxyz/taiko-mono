@@ -91,7 +91,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         // Stay within half the proving window - proposal is still "young"
         // provingWindow = 2 hours, so half = 1 hour
-        // block.timestamp <= lastProposalTimestamp + provingWindow/2
+        // block.timestamp < lastProposalTimestamp + provingWindow/2
         // No warp needed - we're still at the proposal timestamp
 
         IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
@@ -109,21 +109,21 @@ contract InboxProveMinProposalsTest is InboxTestBase {
         });
 
         // Should succeed: lastProposalId (2) < minProposalsToFinalize (3) but
-        // block.timestamp <= lastProposalTimestamp + provingWindow/2 (proposal is young)
+        // block.timestamp < lastProposalTimestamp + provingWindow/2 (proposal is young)
         _prove(input);
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, 2, "finalized id");
     }
 
-    /// @notice Test proving succeeds at the exact boundary (half proving window)
-    function test_prove_succeedsWhen_AtExactHalfProvingWindowBoundary() public {
+    /// @notice Test proving reverts at the exact boundary (half proving window) with strict less than
+    function test_prove_RevertWhen_AtExactHalfProvingWindowBoundary() public {
         // Propose only 2 blocks (less than minProposalsToFinalize = 3)
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        // Warp to exactly half the proving window - should still succeed (<=)
+        // Warp to exactly half the proving window - should revert with strict less than (<)
         vm.warp(p2.proposal.timestamp + config.provingWindow / 2);
 
         IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
@@ -140,11 +140,12 @@ contract InboxProveMinProposalsTest is InboxTestBase {
             proposalStates: proposalStates
         });
 
-        // Should succeed at exact boundary: block.timestamp == lastProposalTimestamp + provingWindow/2
-        _prove(input);
-
-        IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, 2, "finalized id");
+        // Should revert at exact boundary: block.timestamp == lastProposalTimestamp + provingWindow/2
+        // because condition is strict less than (<), not less than or equal (<=)
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.prank(prover);
+        vm.expectRevert(Inbox.LastProposalNotYoungEnough.selector);
+        inbox.prove(encodedInput, bytes("proof"));
     }
 }
 
