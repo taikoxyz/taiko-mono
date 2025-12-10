@@ -439,14 +439,18 @@ where
         Ok(None)
     }
 
-    /// Materialize and cache an empty epoch entry when the epoch has started but no lookahead was
-    /// posted, mirroring `_handleEmptyCurrentLookahead` behavior.
+    /// Materialize and cache an empty epoch entry when the *current* epoch has started but no
+    /// lookahead was posted, mirroring `_handleEmptyCurrentLookahead` behavior. Past epochs should
+    /// not be synthesized; if invoked after the epoch end, treat it as missing lookahead.
     async fn synthetic_empty_epoch(
         &self,
         epoch_start: u64,
         now: u64,
     ) -> Result<CachedLookaheadEpoch> {
         if now < epoch_start {
+            return Err(LookaheadError::MissingLookahead(epoch_start));
+        }
+        if now >= epoch_start.saturating_add(SECONDS_IN_EPOCH) {
             return Err(LookaheadError::MissingLookahead(epoch_start));
         }
 
