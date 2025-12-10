@@ -29,13 +29,6 @@ var (
 	_ = abi.ConvertType
 )
 
-// ICheckpointStoreCheckpoint is an auto generated low-level Go binding around an user-defined struct.
-type ICheckpointStoreCheckpoint struct {
-	BlockNumber *big.Int
-	BlockHash   [32]byte
-	StateRoot   [32]byte
-}
-
 // IInboxDerivation is an auto generated low-level Go binding around an user-defined struct.
 type IInboxDerivation struct {
 	OriginBlockNumber  *big.Int
@@ -56,7 +49,16 @@ type IInboxProposal struct {
 	Timestamp                      *big.Int
 	EndOfSubmissionWindowTimestamp *big.Int
 	Proposer                       common.Address
+	ParentProposalHash             [32]byte
 	DerivationHash                 [32]byte
+}
+
+// IInboxProposalState is an auto generated low-level Go binding around an user-defined struct.
+type IInboxProposalState struct {
+	Proposer         common.Address
+	DesignatedProver common.Address
+	Timestamp        *big.Int
+	BlockHash        [32]byte
 }
 
 // IInboxProposeInput is an auto generated low-level Go binding around an user-defined struct.
@@ -74,143 +76,127 @@ type IInboxProposedEventPayload struct {
 
 // IInboxProveInput is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProveInput struct {
-	Proposals      []IInboxProposal
-	Transitions    []IInboxTransition
-	SyncCheckpoint bool
+	FirstProposalId              *big.Int
+	FirstProposalParentBlockHash [32]byte
+	LastProposalHash             [32]byte
+	LastBlockNumber              *big.Int
+	LastStateRoot                [32]byte
+	ActualProver                 common.Address
+	ProposalStates               []IInboxProposalState
 }
 
 // IInboxProvedEventPayload is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProvedEventPayload struct {
-	ProposalId      *big.Int
-	Transition      IInboxTransition
-	BondInstruction LibBondsBondInstruction
-	BondSignal      [32]byte
+	Input IInboxProveInput
 }
 
-// IInboxTransition is an auto generated low-level Go binding around an user-defined struct.
-type IInboxTransition struct {
-	ProposalHash         [32]byte
-	ParentTransitionHash [32]byte
-	Checkpoint           ICheckpointStoreCheckpoint
-	DesignatedProver     common.Address
-	ActualProver         common.Address
+// CodecClientMetaData contains all meta data concerning the CodecClient contract.
+var CodecClientMetaData = &bind.MetaData{
+	ABI: "[{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProposedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"parentProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposalStates\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.ProposalState[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProvedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposalStates\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.ProposalState[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"parentProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposalStates\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.ProposalState[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposalStates\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.ProposalState[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashBondInstruction\",\"inputs\":[{\"name\":\"_bondInstruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashDerivation\",\"inputs\":[{\"name\":\"_derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashProposal\",\"inputs\":[{\"name\":\"_proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"parentProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposalStates\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.ProposalState[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"LengthExceedsUint16\",\"inputs\":[]}]",
 }
 
-// LibBondsBondInstruction is an auto generated low-level Go binding around an user-defined struct.
-type LibBondsBondInstruction struct {
-	ProposalId *big.Int
-	BondType   uint8
-	Payer      common.Address
-	Payee      common.Address
+// CodecClientABI is the input ABI used to generate the binding from.
+// Deprecated: Use CodecClientMetaData.ABI instead.
+var CodecClientABI = CodecClientMetaData.ABI
+
+// CodecClient is an auto generated Go binding around an Ethereum contract.
+type CodecClient struct {
+	CodecClientCaller     // Read-only binding to the contract
+	CodecClientTransactor // Write-only binding to the contract
+	CodecClientFilterer   // Log filterer for contract events
 }
 
-// CodecOptimizedClientMetaData contains all meta data concerning the CodecOptimizedClient contract.
-var CodecOptimizedClientMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProposedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"syncCheckpoint\",\"type\":\"bool\",\"internalType\":\"bool\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProvedEvent\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"payload_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondInstruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondSignal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"syncCheckpoint\",\"type\":\"bool\",\"internalType\":\"bool\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEvent\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondInstruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"bondSignal\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCheckpoint\",\"inputs\":[{\"name\":\"_checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCoreState\",\"inputs\":[{\"name\":\"_coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashDerivation\",\"inputs\":[{\"name\":\"_derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashProposal\",\"inputs\":[{\"name\":\"_proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransition\",\"inputs\":[{\"name\":\"_transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashTransitions\",\"inputs\":[{\"name\":\"_transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint16\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalTransitionLengthMismatch\",\"inputs\":[]}]",
-}
-
-// CodecOptimizedClientABI is the input ABI used to generate the binding from.
-// Deprecated: Use CodecOptimizedClientMetaData.ABI instead.
-var CodecOptimizedClientABI = CodecOptimizedClientMetaData.ABI
-
-// CodecOptimizedClient is an auto generated Go binding around an Ethereum contract.
-type CodecOptimizedClient struct {
-	CodecOptimizedClientCaller     // Read-only binding to the contract
-	CodecOptimizedClientTransactor // Write-only binding to the contract
-	CodecOptimizedClientFilterer   // Log filterer for contract events
-}
-
-// CodecOptimizedClientCaller is an auto generated read-only Go binding around an Ethereum contract.
-type CodecOptimizedClientCaller struct {
+// CodecClientCaller is an auto generated read-only Go binding around an Ethereum contract.
+type CodecClientCaller struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// CodecOptimizedClientTransactor is an auto generated write-only Go binding around an Ethereum contract.
-type CodecOptimizedClientTransactor struct {
+// CodecClientTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type CodecClientTransactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// CodecOptimizedClientFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
-type CodecOptimizedClientFilterer struct {
+// CodecClientFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type CodecClientFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// CodecOptimizedClientSession is an auto generated Go binding around an Ethereum contract,
+// CodecClientSession is an auto generated Go binding around an Ethereum contract,
 // with pre-set call and transact options.
-type CodecOptimizedClientSession struct {
-	Contract     *CodecOptimizedClient // Generic contract binding to set the session for
-	CallOpts     bind.CallOpts         // Call options to use throughout this session
-	TransactOpts bind.TransactOpts     // Transaction auth options to use throughout this session
+type CodecClientSession struct {
+	Contract     *CodecClient      // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
-// CodecOptimizedClientCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// CodecClientCallerSession is an auto generated read-only Go binding around an Ethereum contract,
 // with pre-set call options.
-type CodecOptimizedClientCallerSession struct {
-	Contract *CodecOptimizedClientCaller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts               // Call options to use throughout this session
+type CodecClientCallerSession struct {
+	Contract *CodecClientCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts      // Call options to use throughout this session
 }
 
-// CodecOptimizedClientTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// CodecClientTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 // with pre-set transact options.
-type CodecOptimizedClientTransactorSession struct {
-	Contract     *CodecOptimizedClientTransactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts               // Transaction auth options to use throughout this session
+type CodecClientTransactorSession struct {
+	Contract     *CodecClientTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
 }
 
-// CodecOptimizedClientRaw is an auto generated low-level Go binding around an Ethereum contract.
-type CodecOptimizedClientRaw struct {
-	Contract *CodecOptimizedClient // Generic contract binding to access the raw methods on
+// CodecClientRaw is an auto generated low-level Go binding around an Ethereum contract.
+type CodecClientRaw struct {
+	Contract *CodecClient // Generic contract binding to access the raw methods on
 }
 
-// CodecOptimizedClientCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
-type CodecOptimizedClientCallerRaw struct {
-	Contract *CodecOptimizedClientCaller // Generic read-only contract binding to access the raw methods on
+// CodecClientCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type CodecClientCallerRaw struct {
+	Contract *CodecClientCaller // Generic read-only contract binding to access the raw methods on
 }
 
-// CodecOptimizedClientTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
-type CodecOptimizedClientTransactorRaw struct {
-	Contract *CodecOptimizedClientTransactor // Generic write-only contract binding to access the raw methods on
+// CodecClientTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type CodecClientTransactorRaw struct {
+	Contract *CodecClientTransactor // Generic write-only contract binding to access the raw methods on
 }
 
-// NewCodecOptimizedClient creates a new instance of CodecOptimizedClient, bound to a specific deployed contract.
-func NewCodecOptimizedClient(address common.Address, backend bind.ContractBackend) (*CodecOptimizedClient, error) {
-	contract, err := bindCodecOptimizedClient(address, backend, backend, backend)
+// NewCodecClient creates a new instance of CodecClient, bound to a specific deployed contract.
+func NewCodecClient(address common.Address, backend bind.ContractBackend) (*CodecClient, error) {
+	contract, err := bindCodecClient(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &CodecOptimizedClient{CodecOptimizedClientCaller: CodecOptimizedClientCaller{contract: contract}, CodecOptimizedClientTransactor: CodecOptimizedClientTransactor{contract: contract}, CodecOptimizedClientFilterer: CodecOptimizedClientFilterer{contract: contract}}, nil
+	return &CodecClient{CodecClientCaller: CodecClientCaller{contract: contract}, CodecClientTransactor: CodecClientTransactor{contract: contract}, CodecClientFilterer: CodecClientFilterer{contract: contract}}, nil
 }
 
-// NewCodecOptimizedClientCaller creates a new read-only instance of CodecOptimizedClient, bound to a specific deployed contract.
-func NewCodecOptimizedClientCaller(address common.Address, caller bind.ContractCaller) (*CodecOptimizedClientCaller, error) {
-	contract, err := bindCodecOptimizedClient(address, caller, nil, nil)
+// NewCodecClientCaller creates a new read-only instance of CodecClient, bound to a specific deployed contract.
+func NewCodecClientCaller(address common.Address, caller bind.ContractCaller) (*CodecClientCaller, error) {
+	contract, err := bindCodecClient(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &CodecOptimizedClientCaller{contract: contract}, nil
+	return &CodecClientCaller{contract: contract}, nil
 }
 
-// NewCodecOptimizedClientTransactor creates a new write-only instance of CodecOptimizedClient, bound to a specific deployed contract.
-func NewCodecOptimizedClientTransactor(address common.Address, transactor bind.ContractTransactor) (*CodecOptimizedClientTransactor, error) {
-	contract, err := bindCodecOptimizedClient(address, nil, transactor, nil)
+// NewCodecClientTransactor creates a new write-only instance of CodecClient, bound to a specific deployed contract.
+func NewCodecClientTransactor(address common.Address, transactor bind.ContractTransactor) (*CodecClientTransactor, error) {
+	contract, err := bindCodecClient(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &CodecOptimizedClientTransactor{contract: contract}, nil
+	return &CodecClientTransactor{contract: contract}, nil
 }
 
-// NewCodecOptimizedClientFilterer creates a new log filterer instance of CodecOptimizedClient, bound to a specific deployed contract.
-func NewCodecOptimizedClientFilterer(address common.Address, filterer bind.ContractFilterer) (*CodecOptimizedClientFilterer, error) {
-	contract, err := bindCodecOptimizedClient(address, nil, nil, filterer)
+// NewCodecClientFilterer creates a new log filterer instance of CodecClient, bound to a specific deployed contract.
+func NewCodecClientFilterer(address common.Address, filterer bind.ContractFilterer) (*CodecClientFilterer, error) {
+	contract, err := bindCodecClient(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &CodecOptimizedClientFilterer{contract: contract}, nil
+	return &CodecClientFilterer{contract: contract}, nil
 }
 
-// bindCodecOptimizedClient binds a generic wrapper to an already deployed contract.
-func bindCodecOptimizedClient(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := CodecOptimizedClientMetaData.GetAbi()
+// bindCodecClient binds a generic wrapper to an already deployed contract.
+func bindCodecClient(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := CodecClientMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
@@ -221,46 +207,46 @@ func bindCodecOptimizedClient(address common.Address, caller bind.ContractCaller
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_CodecOptimizedClient *CodecOptimizedClientRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _CodecOptimizedClient.Contract.CodecOptimizedClientCaller.contract.Call(opts, result, method, params...)
+func (_CodecClient *CodecClientRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _CodecClient.Contract.CodecClientCaller.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_CodecOptimizedClient *CodecOptimizedClientRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _CodecOptimizedClient.Contract.CodecOptimizedClientTransactor.contract.Transfer(opts)
+func (_CodecClient *CodecClientRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _CodecClient.Contract.CodecClientTransactor.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_CodecOptimizedClient *CodecOptimizedClientRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _CodecOptimizedClient.Contract.CodecOptimizedClientTransactor.contract.Transact(opts, method, params...)
+func (_CodecClient *CodecClientRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _CodecClient.Contract.CodecClientTransactor.contract.Transact(opts, method, params...)
 }
 
 // Call invokes the (constant) contract method with params as input values and
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_CodecOptimizedClient *CodecOptimizedClientCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _CodecOptimizedClient.Contract.contract.Call(opts, result, method, params...)
+func (_CodecClient *CodecClientCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _CodecClient.Contract.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_CodecOptimizedClient *CodecOptimizedClientTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _CodecOptimizedClient.Contract.contract.Transfer(opts)
+func (_CodecClient *CodecClientTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _CodecClient.Contract.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_CodecOptimizedClient *CodecOptimizedClientTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _CodecOptimizedClient.Contract.contract.Transact(opts, method, params...)
+func (_CodecClient *CodecClientTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _CodecClient.Contract.contract.Transact(opts, method, params...)
 }
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
 // Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposeInput(opts *bind.CallOpts, _data []byte) (IInboxProposeInput, error) {
+func (_CodecClient *CodecClientCaller) DecodeProposeInput(opts *bind.CallOpts, _data []byte) (IInboxProposeInput, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProposeInput", _data)
+	err := _CodecClient.contract.Call(opts, &out, "decodeProposeInput", _data)
 
 	if err != nil {
 		return *new(IInboxProposeInput), err
@@ -275,23 +261,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposeInput(opts
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
 // Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
-	return _CodecOptimizedClient.Contract.DecodeProposeInput(&_CodecOptimizedClient.CallOpts, _data)
+func (_CodecClient *CodecClientSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
+	return _CodecClient.Contract.DecodeProposeInput(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
 // Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
-	return _CodecOptimizedClient.Contract.DecodeProposeInput(&_CodecOptimizedClient.CallOpts, _data)
+func (_CodecClient *CodecClientCallerSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
+	return _CodecClient.Contract.DecodeProposeInput(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProposedEvent is a free data retrieval call binding the contract method 0x5d27cc95.
 //
-// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposedEvent(opts *bind.CallOpts, _data []byte) (IInboxProposedEventPayload, error) {
+// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
+func (_CodecClient *CodecClientCaller) DecodeProposedEvent(opts *bind.CallOpts, _data []byte) (IInboxProposedEventPayload, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProposedEvent", _data)
+	err := _CodecClient.contract.Call(opts, &out, "decodeProposedEvent", _data)
 
 	if err != nil {
 		return *new(IInboxProposedEventPayload), err
@@ -305,24 +291,24 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProposedEvent(opt
 
 // DecodeProposedEvent is a free data retrieval call binding the contract method 0x5d27cc95.
 //
-// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProposedEvent(_data []byte) (IInboxProposedEventPayload, error) {
-	return _CodecOptimizedClient.Contract.DecodeProposedEvent(&_CodecOptimizedClient.CallOpts, _data)
+// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
+func (_CodecClient *CodecClientSession) DecodeProposedEvent(_data []byte) (IInboxProposedEventPayload, error) {
+	return _CodecClient.Contract.DecodeProposedEvent(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProposedEvent is a free data retrieval call binding the contract method 0x5d27cc95.
 //
-// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProposedEvent(_data []byte) (IInboxProposedEventPayload, error) {
-	return _CodecOptimizedClient.Contract.DecodeProposedEvent(&_CodecOptimizedClient.CallOpts, _data)
+// Solidity: function decodeProposedEvent(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) payload_)
+func (_CodecClient *CodecClientCallerSession) DecodeProposedEvent(_data []byte) (IInboxProposedEventPayload, error) {
+	return _CodecClient.Contract.DecodeProposedEvent(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],bool) input_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProveInput(opts *bind.CallOpts, _data []byte) (IInboxProveInput, error) {
+// Solidity: function decodeProveInput(bytes _data) pure returns((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) input_)
+func (_CodecClient *CodecClientCaller) DecodeProveInput(opts *bind.CallOpts, _data []byte) (IInboxProveInput, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProveInput", _data)
+	err := _CodecClient.contract.Call(opts, &out, "decodeProveInput", _data)
 
 	if err != nil {
 		return *new(IInboxProveInput), err
@@ -336,24 +322,24 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProveInput(opts *
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],bool) input_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
-	return _CodecOptimizedClient.Contract.DecodeProveInput(&_CodecOptimizedClient.CallOpts, _data)
+// Solidity: function decodeProveInput(bytes _data) pure returns((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) input_)
+func (_CodecClient *CodecClientSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
+	return _CodecClient.Contract.DecodeProveInput(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],bool) input_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
-	return _CodecOptimizedClient.Contract.DecodeProveInput(&_CodecOptimizedClient.CallOpts, _data)
+// Solidity: function decodeProveInput(bytes _data) pure returns((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) input_)
+func (_CodecClient *CodecClientCallerSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
+	return _CodecClient.Contract.DecodeProveInput(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProvedEvent is a free data retrieval call binding the contract method 0x26303962.
 //
-// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) payload_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProvedEvent(opts *bind.CallOpts, _data []byte) (IInboxProvedEventPayload, error) {
+// Solidity: function decodeProvedEvent(bytes _data) pure returns(((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[])) payload_)
+func (_CodecClient *CodecClientCaller) DecodeProvedEvent(opts *bind.CallOpts, _data []byte) (IInboxProvedEventPayload, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "decodeProvedEvent", _data)
+	err := _CodecClient.contract.Call(opts, &out, "decodeProvedEvent", _data)
 
 	if err != nil {
 		return *new(IInboxProvedEventPayload), err
@@ -367,24 +353,24 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) DecodeProvedEvent(opts 
 
 // DecodeProvedEvent is a free data retrieval call binding the contract method 0x26303962.
 //
-// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) payload_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) DecodeProvedEvent(_data []byte) (IInboxProvedEventPayload, error) {
-	return _CodecOptimizedClient.Contract.DecodeProvedEvent(&_CodecOptimizedClient.CallOpts, _data)
+// Solidity: function decodeProvedEvent(bytes _data) pure returns(((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[])) payload_)
+func (_CodecClient *CodecClientSession) DecodeProvedEvent(_data []byte) (IInboxProvedEventPayload, error) {
+	return _CodecClient.Contract.DecodeProvedEvent(&_CodecClient.CallOpts, _data)
 }
 
 // DecodeProvedEvent is a free data retrieval call binding the contract method 0x26303962.
 //
-// Solidity: function decodeProvedEvent(bytes _data) pure returns((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) payload_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) DecodeProvedEvent(_data []byte) (IInboxProvedEventPayload, error) {
-	return _CodecOptimizedClient.Contract.DecodeProvedEvent(&_CodecOptimizedClient.CallOpts, _data)
+// Solidity: function decodeProvedEvent(bytes _data) pure returns(((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[])) payload_)
+func (_CodecClient *CodecClientCallerSession) DecodeProvedEvent(_data []byte) (IInboxProvedEventPayload, error) {
+	return _CodecClient.Contract.DecodeProvedEvent(&_CodecClient.CallOpts, _data)
 }
 
 // EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
 //
 // Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposeInput(opts *bind.CallOpts, _input IInboxProposeInput) ([]byte, error) {
+func (_CodecClient *CodecClientCaller) EncodeProposeInput(opts *bind.CallOpts, _input IInboxProposeInput) ([]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProposeInput", _input)
+	err := _CodecClient.contract.Call(opts, &out, "encodeProposeInput", _input)
 
 	if err != nil {
 		return *new([]byte), err
@@ -399,23 +385,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposeInput(opts
 // EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
 //
 // Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProposeInput(&_CodecOptimizedClient.CallOpts, _input)
+func (_CodecClient *CodecClientSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProposeInput(&_CodecClient.CallOpts, _input)
 }
 
 // EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
 //
 // Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProposeInput(&_CodecOptimizedClient.CallOpts, _input)
+func (_CodecClient *CodecClientCallerSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProposeInput(&_CodecClient.CallOpts, _input)
 }
 
-// EncodeProposedEvent is a free data retrieval call binding the contract method 0x65763483.
+// EncodeProposedEvent is a free data retrieval call binding the contract method 0xa4aeca67.
 //
-// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposedEvent(opts *bind.CallOpts, _payload IInboxProposedEventPayload) ([]byte, error) {
+// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientCaller) EncodeProposedEvent(opts *bind.CallOpts, _payload IInboxProposedEventPayload) ([]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProposedEvent", _payload)
+	err := _CodecClient.contract.Call(opts, &out, "encodeProposedEvent", _payload)
 
 	if err != nil {
 		return *new([]byte), err
@@ -427,26 +413,26 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProposedEvent(opt
 
 }
 
-// EncodeProposedEvent is a free data retrieval call binding the contract method 0x65763483.
+// EncodeProposedEvent is a free data retrieval call binding the contract method 0xa4aeca67.
 //
-// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProposedEvent(_payload IInboxProposedEventPayload) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProposedEvent(&_CodecOptimizedClient.CallOpts, _payload)
+// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientSession) EncodeProposedEvent(_payload IInboxProposedEventPayload) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProposedEvent(&_CodecClient.CallOpts, _payload)
 }
 
-// EncodeProposedEvent is a free data retrieval call binding the contract method 0x65763483.
+// EncodeProposedEvent is a free data retrieval call binding the contract method 0xa4aeca67.
 //
-// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProposedEvent(_payload IInboxProposedEventPayload) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProposedEvent(&_CodecOptimizedClient.CallOpts, _payload)
+// Solidity: function encodeProposedEvent(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[])) _payload) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientCallerSession) EncodeProposedEvent(_payload IInboxProposedEventPayload) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProposedEvent(&_CodecClient.CallOpts, _payload)
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0x71989c76.
+// EncodeProveInput is a free data retrieval call binding the contract method 0x233d8bef.
 //
-// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],bool) _input) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProveInput(opts *bind.CallOpts, _input IInboxProveInput) ([]byte, error) {
+// Solidity: function encodeProveInput((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) _input) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientCaller) EncodeProveInput(opts *bind.CallOpts, _input IInboxProveInput) ([]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProveInput", _input)
+	err := _CodecClient.contract.Call(opts, &out, "encodeProveInput", _input)
 
 	if err != nil {
 		return *new([]byte), err
@@ -458,26 +444,26 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProveInput(opts *
 
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0x71989c76.
+// EncodeProveInput is a free data retrieval call binding the contract method 0x233d8bef.
 //
-// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],bool) _input) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProveInput(&_CodecOptimizedClient.CallOpts, _input)
+// Solidity: function encodeProveInput((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) _input) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProveInput(&_CodecClient.CallOpts, _input)
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0x71989c76.
+// EncodeProveInput is a free data retrieval call binding the contract method 0x233d8bef.
 //
-// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[],bool) _input) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProveInput(&_CodecOptimizedClient.CallOpts, _input)
+// Solidity: function encodeProveInput((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) _input) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientCallerSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProveInput(&_CodecClient.CallOpts, _input)
 }
 
-// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa3f5bb4b.
+// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa1867888.
 //
-// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) _payload) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProvedEvent(opts *bind.CallOpts, _payload IInboxProvedEventPayload) ([]byte, error) {
+// Solidity: function encodeProvedEvent(((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[])) _payload) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientCaller) EncodeProvedEvent(opts *bind.CallOpts, _payload IInboxProvedEventPayload) ([]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "encodeProvedEvent", _payload)
+	err := _CodecClient.contract.Call(opts, &out, "encodeProvedEvent", _payload)
 
 	if err != nil {
 		return *new([]byte), err
@@ -489,26 +475,26 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) EncodeProvedEvent(opts 
 
 }
 
-// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa3f5bb4b.
+// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa1867888.
 //
-// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) _payload) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) EncodeProvedEvent(_payload IInboxProvedEventPayload) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProvedEvent(&_CodecOptimizedClient.CallOpts, _payload)
+// Solidity: function encodeProvedEvent(((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[])) _payload) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientSession) EncodeProvedEvent(_payload IInboxProvedEventPayload) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProvedEvent(&_CodecClient.CallOpts, _payload)
 }
 
-// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa3f5bb4b.
+// EncodeProvedEvent is a free data retrieval call binding the contract method 0xa1867888.
 //
-// Solidity: function encodeProvedEvent((uint48,(bytes32,bytes32,(uint48,bytes32,bytes32),address,address),(uint48,uint8,address,address),bytes32) _payload) pure returns(bytes encoded_)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) EncodeProvedEvent(_payload IInboxProvedEventPayload) ([]byte, error) {
-	return _CodecOptimizedClient.Contract.EncodeProvedEvent(&_CodecOptimizedClient.CallOpts, _payload)
+// Solidity: function encodeProvedEvent(((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[])) _payload) pure returns(bytes encoded_)
+func (_CodecClient *CodecClientCallerSession) EncodeProvedEvent(_payload IInboxProvedEventPayload) ([]byte, error) {
+	return _CodecClient.Contract.EncodeProvedEvent(&_CodecClient.CallOpts, _payload)
 }
 
-// HashCheckpoint is a free data retrieval call binding the contract method 0x7989aa10.
+// HashBondInstruction is a free data retrieval call binding the contract method 0x5a213615.
 //
-// Solidity: function hashCheckpoint((uint48,bytes32,bytes32) _checkpoint) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashCheckpoint(opts *bind.CallOpts, _checkpoint ICheckpointStoreCheckpoint) ([32]byte, error) {
+// Solidity: function hashBondInstruction((uint48,uint8,address,address) _bondInstruction) pure returns(bytes32)
+func (_CodecClient *CodecClientCaller) HashBondInstruction(opts *bind.CallOpts, _bondInstruction LibBondsBondInstruction) ([32]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashCheckpoint", _checkpoint)
+	err := _CodecClient.contract.Call(opts, &out, "hashBondInstruction", _bondInstruction)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -520,57 +506,26 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashCheckpoint(opts *bi
 
 }
 
-// HashCheckpoint is a free data retrieval call binding the contract method 0x7989aa10.
+// HashBondInstruction is a free data retrieval call binding the contract method 0x5a213615.
 //
-// Solidity: function hashCheckpoint((uint48,bytes32,bytes32) _checkpoint) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashCheckpoint(_checkpoint ICheckpointStoreCheckpoint) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashCheckpoint(&_CodecOptimizedClient.CallOpts, _checkpoint)
+// Solidity: function hashBondInstruction((uint48,uint8,address,address) _bondInstruction) pure returns(bytes32)
+func (_CodecClient *CodecClientSession) HashBondInstruction(_bondInstruction LibBondsBondInstruction) ([32]byte, error) {
+	return _CodecClient.Contract.HashBondInstruction(&_CodecClient.CallOpts, _bondInstruction)
 }
 
-// HashCheckpoint is a free data retrieval call binding the contract method 0x7989aa10.
+// HashBondInstruction is a free data retrieval call binding the contract method 0x5a213615.
 //
-// Solidity: function hashCheckpoint((uint48,bytes32,bytes32) _checkpoint) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashCheckpoint(_checkpoint ICheckpointStoreCheckpoint) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashCheckpoint(&_CodecOptimizedClient.CallOpts, _checkpoint)
-}
-
-// HashCoreState is a free data retrieval call binding the contract method 0x217b8da0.
-//
-// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,uint48,bytes32) _coreState) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashCoreState(opts *bind.CallOpts, _coreState IInboxCoreState) ([32]byte, error) {
-	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashCoreState", _coreState)
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// HashCoreState is a free data retrieval call binding the contract method 0x217b8da0.
-//
-// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,uint48,bytes32) _coreState) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashCoreState(_coreState IInboxCoreState) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashCoreState(&_CodecOptimizedClient.CallOpts, _coreState)
-}
-
-// HashCoreState is a free data retrieval call binding the contract method 0x217b8da0.
-//
-// Solidity: function hashCoreState((uint48,uint48,uint48,uint48,uint48,bytes32) _coreState) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashCoreState(_coreState IInboxCoreState) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashCoreState(&_CodecOptimizedClient.CallOpts, _coreState)
+// Solidity: function hashBondInstruction((uint48,uint8,address,address) _bondInstruction) pure returns(bytes32)
+func (_CodecClient *CodecClientCallerSession) HashBondInstruction(_bondInstruction LibBondsBondInstruction) ([32]byte, error) {
+	return _CodecClient.Contract.HashBondInstruction(&_CodecClient.CallOpts, _bondInstruction)
 }
 
 // HashDerivation is a free data retrieval call binding the contract method 0xb8b02e0e.
 //
 // Solidity: function hashDerivation((uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]) _derivation) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashDerivation(opts *bind.CallOpts, _derivation IInboxDerivation) ([32]byte, error) {
+func (_CodecClient *CodecClientCaller) HashDerivation(opts *bind.CallOpts, _derivation IInboxDerivation) ([32]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashDerivation", _derivation)
+	err := _CodecClient.contract.Call(opts, &out, "hashDerivation", _derivation)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -585,23 +540,23 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashDerivation(opts *bi
 // HashDerivation is a free data retrieval call binding the contract method 0xb8b02e0e.
 //
 // Solidity: function hashDerivation((uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]) _derivation) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashDerivation(_derivation IInboxDerivation) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashDerivation(&_CodecOptimizedClient.CallOpts, _derivation)
+func (_CodecClient *CodecClientSession) HashDerivation(_derivation IInboxDerivation) ([32]byte, error) {
+	return _CodecClient.Contract.HashDerivation(&_CodecClient.CallOpts, _derivation)
 }
 
 // HashDerivation is a free data retrieval call binding the contract method 0xb8b02e0e.
 //
 // Solidity: function hashDerivation((uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]) _derivation) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashDerivation(_derivation IInboxDerivation) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashDerivation(&_CodecOptimizedClient.CallOpts, _derivation)
+func (_CodecClient *CodecClientCallerSession) HashDerivation(_derivation IInboxDerivation) ([32]byte, error) {
+	return _CodecClient.Contract.HashDerivation(&_CodecClient.CallOpts, _derivation)
 }
 
-// HashProposal is a free data retrieval call binding the contract method 0x85b627a2.
+// HashProposal is a free data retrieval call binding the contract method 0xa1ec9333.
 //
-// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32) _proposal) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashProposal(opts *bind.CallOpts, _proposal IInboxProposal) ([32]byte, error) {
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,bytes32) _proposal) pure returns(bytes32)
+func (_CodecClient *CodecClientCaller) HashProposal(opts *bind.CallOpts, _proposal IInboxProposal) ([32]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashProposal", _proposal)
+	err := _CodecClient.contract.Call(opts, &out, "hashProposal", _proposal)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -613,26 +568,26 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashProposal(opts *bind
 
 }
 
-// HashProposal is a free data retrieval call binding the contract method 0x85b627a2.
+// HashProposal is a free data retrieval call binding the contract method 0xa1ec9333.
 //
-// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32) _proposal) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashProposal(&_CodecOptimizedClient.CallOpts, _proposal)
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,bytes32) _proposal) pure returns(bytes32)
+func (_CodecClient *CodecClientSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
+	return _CodecClient.Contract.HashProposal(&_CodecClient.CallOpts, _proposal)
 }
 
-// HashProposal is a free data retrieval call binding the contract method 0x85b627a2.
+// HashProposal is a free data retrieval call binding the contract method 0xa1ec9333.
 //
-// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32) _proposal) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashProposal(&_CodecOptimizedClient.CallOpts, _proposal)
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,bytes32) _proposal) pure returns(bytes32)
+func (_CodecClient *CodecClientCallerSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
+	return _CodecClient.Contract.HashProposal(&_CodecClient.CallOpts, _proposal)
 }
 
-// HashTransition is a free data retrieval call binding the contract method 0x2833bf29.
+// HashProveInput is a free data retrieval call binding the contract method 0xf479ca8c.
 //
-// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32),address,address) _transition) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransition(opts *bind.CallOpts, _transition IInboxTransition) ([32]byte, error) {
+// Solidity: function hashProveInput((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) _input) pure returns(bytes32)
+func (_CodecClient *CodecClientCaller) HashProveInput(opts *bind.CallOpts, _input IInboxProveInput) ([32]byte, error) {
 	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashTransition", _transition)
+	err := _CodecClient.contract.Call(opts, &out, "hashProveInput", _input)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -644,47 +599,16 @@ func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransition(opts *bi
 
 }
 
-// HashTransition is a free data retrieval call binding the contract method 0x2833bf29.
+// HashProveInput is a free data retrieval call binding the contract method 0xf479ca8c.
 //
-// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32),address,address) _transition) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashTransition(_transition IInboxTransition) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransition(&_CodecOptimizedClient.CallOpts, _transition)
+// Solidity: function hashProveInput((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) _input) pure returns(bytes32)
+func (_CodecClient *CodecClientSession) HashProveInput(_input IInboxProveInput) ([32]byte, error) {
+	return _CodecClient.Contract.HashProveInput(&_CodecClient.CallOpts, _input)
 }
 
-// HashTransition is a free data retrieval call binding the contract method 0x2833bf29.
+// HashProveInput is a free data retrieval call binding the contract method 0xf479ca8c.
 //
-// Solidity: function hashTransition((bytes32,bytes32,(uint48,bytes32,bytes32),address,address) _transition) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashTransition(_transition IInboxTransition) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransition(&_CodecOptimizedClient.CallOpts, _transition)
-}
-
-// HashTransitions is a free data retrieval call binding the contract method 0x012b5fd7.
-//
-// Solidity: function hashTransitions((bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[] _transitions) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCaller) HashTransitions(opts *bind.CallOpts, _transitions []IInboxTransition) ([32]byte, error) {
-	var out []interface{}
-	err := _CodecOptimizedClient.contract.Call(opts, &out, "hashTransitions", _transitions)
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// HashTransitions is a free data retrieval call binding the contract method 0x012b5fd7.
-//
-// Solidity: function hashTransitions((bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[] _transitions) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientSession) HashTransitions(_transitions []IInboxTransition) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransitions(&_CodecOptimizedClient.CallOpts, _transitions)
-}
-
-// HashTransitions is a free data retrieval call binding the contract method 0x012b5fd7.
-//
-// Solidity: function hashTransitions((bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[] _transitions) pure returns(bytes32)
-func (_CodecOptimizedClient *CodecOptimizedClientCallerSession) HashTransitions(_transitions []IInboxTransition) ([32]byte, error) {
-	return _CodecOptimizedClient.Contract.HashTransitions(&_CodecOptimizedClient.CallOpts, _transitions)
+// Solidity: function hashProveInput((uint48,bytes32,bytes32,uint48,bytes32,address,(address,address,uint48,bytes32)[]) _input) pure returns(bytes32)
+func (_CodecClient *CodecClientCallerSession) HashProveInput(_input IInboxProveInput) ([32]byte, error) {
+	return _CodecClient.Contract.HashProveInput(&_CodecClient.CallOpts, _input)
 }

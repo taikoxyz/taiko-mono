@@ -1517,9 +1517,9 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	state, err := c.ShastaClients.Inbox.GetState(opts)
+	state, err := c.ShastaClients.Inbox.GetCoreState(opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the Shasta Inbox state: %w", err)
+		return nil, fmt.Errorf("failed to get the Shasta Inbox core state: %w", err)
 	}
 
 	return &state, nil
@@ -1651,18 +1651,6 @@ func (c *Client) GetProposalByIDShasta(
 	}
 
 	return payload, log, nil
-}
-
-// HashTransitionShasta hashes the transition by Shasta Inbox Codec contract.
-func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.IInboxTransition) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.InboxCodec.HashTransition(opts, *ts)
 }
 
 // EncodeProveInput encodes the prove method input by Shasta Inbox Codec contract.
