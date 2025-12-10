@@ -128,7 +128,10 @@ interface ICodec {
     /// @param _lastProposalHash The hash of the last proposal in the batch
     /// @param _input The prove input to hash
     /// @return The hash of the prove input payload
-    function hashProveInput(bytes32 _lastProposalHash, IInbox.ProveInput calldata _input)
+    function hashProveInput(
+        bytes32 _lastProposalHash,
+        IInbox.ProveInput calldata _input
+    )
         external
         pure
         returns (bytes32);

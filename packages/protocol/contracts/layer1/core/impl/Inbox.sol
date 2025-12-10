@@ -185,12 +185,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(
-        bytes calldata _lookahead,
-        bytes calldata _data
-    )
-        external
-    {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
             _validateProposeInput(input);
@@ -240,12 +235,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(
-        bytes calldata _data,
-        bytes calldata _proof
-    )
-        external
-    {
+    function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
@@ -263,7 +253,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 expectedParentHash = offset == 0
                 ? input.firstProposalParentCheckpointHash
                 : input.transitions[offset - 1].checkpointHash;
-            require(state.lastFinalizedCheckpointHash == expectedParentHash, ParentCheckpointHashMismatch());
+            require(
+                state.lastFinalizedCheckpointHash == expectedParentHash,
+                ParentCheckpointHashMismatch()
+            );
 
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
@@ -294,16 +287,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             if (input.lastCheckpoint.blockHash != 0) {
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
-            }
-            else {
-                require(block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay, CheckPointDelayHasPassed());
+            } else {
+                require(
+                    block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay,
+                    CheckPointDelayHasPassed()
+                );
             }
 
             // ---------------------------------------------------------
             // 5. Update core state and emit event
             // ---------------------------------------------------------
             _coreState.lastFinalizedProposalId = uint48(lastProposalId);
-            _coreState.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
+            _coreState.lastFinalizedCheckpointHash =
+            input.transitions[numProposals - 1].checkpointHash;
             _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
@@ -476,7 +472,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    function _validateBatchBoundsAndCalculateOffset(CoreState memory _state, ProveInput memory _input)
+    function _validateBatchBoundsAndCalculateOffset(
+        CoreState memory _state,
+        ProveInput memory _input
+    )
         private
         pure
         returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
@@ -484,11 +483,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Validate batch bounds
         numProposals_ = _input.transitions.length;
         require(numProposals_ > 0, EmptyBatch());
-        require(_input.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge());
+        require(
+            _input.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge()
+        );
 
         lastProposalId_ = _input.firstProposalId + numProposals_ - 1;
         require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
-        require(lastProposalId_ >= _state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized());
+        require(
+            lastProposalId_ >= _state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized()
+        );
 
         // Calculate offset to first unfinalized proposal.
         // Some proposals in _input.transitions[] may already be finalized.
@@ -510,7 +513,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         );
         _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
     }
-    
+
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
     /// @param _feeRecipient Address to receive accumulated fees

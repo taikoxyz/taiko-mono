@@ -44,27 +44,45 @@ contract LibProveInputCodecTest is Test {
             "firstProposalParentCheckpointHash"
         );
         assertEq(decoded.transitions.length, 2, "transitions length");
-        assertEq(decoded.transitions[0].proposer, transitions[0].proposer, "transitions[0] proposer");
+        assertEq(
+            decoded.transitions[0].proposer, transitions[0].proposer, "transitions[0] proposer"
+        );
         assertEq(
             decoded.transitions[0].designatedProver,
             transitions[0].designatedProver,
             "transitions[0] designatedProver"
         );
-        assertEq(decoded.transitions[0].timestamp, transitions[0].timestamp, "transitions[0] timestamp");
+        assertEq(
+            decoded.transitions[0].timestamp, transitions[0].timestamp, "transitions[0] timestamp"
+        );
         assertEq(
             decoded.transitions[0].checkpointHash,
             transitions[0].checkpointHash,
             "transitions[0] checkpointHash"
         );
-        assertEq(decoded.transitions[1].proposer, transitions[1].proposer, "transitions[1] proposer");
+        assertEq(
+            decoded.transitions[1].proposer, transitions[1].proposer, "transitions[1] proposer"
+        );
         assertEq(
             decoded.transitions[1].checkpointHash,
             transitions[1].checkpointHash,
             "transitions[1] checkpointHash"
         );
-        assertEq(decoded.lastCheckpoint.blockNumber, input.lastCheckpoint.blockNumber, "lastCheckpoint blockNumber");
-        assertEq(decoded.lastCheckpoint.blockHash, input.lastCheckpoint.blockHash, "lastCheckpoint blockHash");
-        assertEq(decoded.lastCheckpoint.stateRoot, input.lastCheckpoint.stateRoot, "lastCheckpoint stateRoot");
+        assertEq(
+            decoded.lastCheckpoint.blockNumber,
+            input.lastCheckpoint.blockNumber,
+            "lastCheckpoint blockNumber"
+        );
+        assertEq(
+            decoded.lastCheckpoint.blockHash,
+            input.lastCheckpoint.blockHash,
+            "lastCheckpoint blockHash"
+        );
+        assertEq(
+            decoded.lastCheckpoint.stateRoot,
+            input.lastCheckpoint.stateRoot,
+            "lastCheckpoint stateRoot"
+        );
         assertEq(decoded.actualProver, input.actualProver, "actualProver");
     }
 
@@ -107,9 +125,7 @@ contract LibProveInputCodecTest is Test {
             actualProver: address(0),
             transitions: transitions,
             lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 0,
-                blockHash: bytes32(0),
-                stateRoot: bytes32(0)
+                blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
             })
         });
 

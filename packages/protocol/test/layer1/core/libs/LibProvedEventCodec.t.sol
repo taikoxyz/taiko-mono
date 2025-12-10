@@ -41,7 +41,9 @@ contract LibProvedEventCodecTest is Test {
         );
         assertEq(decoded.input.transitions.length, 1, "transitions length");
         assertEq(
-            decoded.input.transitions[0].proposer, transitions[0].proposer, "transitions[0] proposer"
+            decoded.input.transitions[0].proposer,
+            transitions[0].proposer,
+            "transitions[0] proposer"
         );
         assertEq(
             decoded.input.transitions[0].designatedProver,
