@@ -240,12 +240,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint256 lastProposalId = input.firstProposalId + numProposals - 1;
             require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
 
-            uint48 lastProposalTimestamp = input.proposalStates[numProposals - 1].timestamp;
-            require(
-                lastProposalId >= state.lastFinalizedProposalId + _minProposalsToFinalize
-                    || block.timestamp >= lastProposalTimestamp + _provingWindow / 2,
-                LastProposalIdTooSmall()
-            );
+            if (lastProposalId < state.lastFinalizedProposalId + _minProposalsToFinalize) {
+                // If the number of proposals to be proved is less than the minimum number of
+                // proposals to finalize, we need to verify that the last proposal is young enough.
+                uint48 lastProposalTimestamp = input.proposalStates[numProposals - 1].timestamp;
+                require(
+                    block.timestamp <= lastProposalTimestamp + _provingWindow / 2,
+                    LastProposalNotYoungEnough()
+                );
+            }
 
             // ---------------------------------------------------------
             // 2. Calculate offset to first unfinalized proposal
@@ -635,7 +638,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error IncorrectProposalCount();
     error LastProposalIdTooLarge();
     error LastProposalHashMismatch();
-    error LastProposalIdTooSmall();
+    error LastProposalNotYoungEnough();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
