@@ -20,7 +20,7 @@ const INGEST_BACKOFF_MAX_MS: u64 = 5_000;
 /// Number of historical events to sync from when starting the scanner. We only need a short
 /// window matching the resolver's lookback.
 const INITIAL_EVENT_HISTORY: usize =
-    (super::resolver::MAX_LOOKBACK_EPOCHS as usize).saturating_add(1);
+    (super::resolver::MAX_LOOKBACK_EPOCHS as usize).saturating_add(2);
 
 /// Error wrapper used to classify ingest failures; all variants are retryable.
 #[derive(Debug)]
