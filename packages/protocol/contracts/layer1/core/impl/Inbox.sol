@@ -242,8 +242,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             uint48 lastProposalTimestamp = input.proposalStates[numProposals - 1].timestamp;
             require(
-                lastProposalId >= state.lastFinalizedProposalId + _minProposalsToFinalize ||
-                block.timestamp >= lastProposalTimestamp + _provingWindow / 2,
+                lastProposalId >= state.lastFinalizedProposalId + _minProposalsToFinalize
+                    || block.timestamp >= lastProposalTimestamp + _provingWindow / 2,
                 LastProposalIdTooSmall()
             );
 
