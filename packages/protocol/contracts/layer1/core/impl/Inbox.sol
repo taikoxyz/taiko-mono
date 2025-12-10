@@ -278,7 +278,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-             // ---------------------------------------------------------
+            // ---------------------------------------------------------
             // 1. Decode and load core state
             // ---------------------------------------------------------
             ProveInput memory input = LibProveInputCodec.decode(_data);
