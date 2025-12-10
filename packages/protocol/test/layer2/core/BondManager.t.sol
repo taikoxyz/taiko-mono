@@ -1,43 +1,59 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { TestERC20 } from "../../mocks/TestERC20.sol";
-import { CommonTest } from "../../shared/CommonTest.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "forge-std/src/Test.sol";
 import { BondManager } from "src/layer2/core/BondManager.sol";
 import { IBondManager } from "src/layer2/core/IBondManager.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { MockSignalService } from "test/layer1/core/inbox/mocks/MockContracts.sol";
+import { TestERC20 } from "test/mocks/TestERC20.sol";
 
-contract BondManagerTest is CommonTest {
-    BondManager bondManager;
-    TestERC20 bondToken;
+contract BondManagerTest is Test {
+    uint256 private constant MIN_BOND = 10 ether;
+    uint48 private constant WITHDRAWAL_DELAY = 7 days;
+    uint256 private constant LIVENESS_BOND = 2 ether;
+    uint256 private constant PROVABILITY_BOND = 3 ether;
+    uint64 private constant L1_CHAIN_ID = 11_337;
+    address private constant L1_INBOX = address(0xBEEF);
 
-    address authorized = vm.addr(0x100);
-    uint256 minBond = 10 ether;
-    uint48 withdrawalDelay = 7 days;
+    address internal Alice = address(0xA11CE);
+    address internal Bob = address(0xB0B);
+    address internal Carol = address(0xCA201);
+    address internal David = address(0xDA7ED);
+    address internal Emma = address(0xE11A);
 
-    function setUpOnEthereum() internal override {
-        // Deploy bond token
+    BondManager internal bondManager;
+    TestERC20 internal bondToken;
+    MockSignalService internal signalService;
+    address internal operator;
+
+    function setUp() public {
+        operator = address(this);
         bondToken = new TestERC20("Bond Token", "BOND");
+        signalService = new MockSignalService();
 
-        // Deploy BondManager
-        BondManager impl = new BondManager(authorized, address(bondToken), minBond, withdrawalDelay);
-
+        BondManager impl = new BondManager(
+            address(bondToken),
+            MIN_BOND,
+            WITHDRAWAL_DELAY,
+            operator,
+            signalService,
+            L1_INBOX,
+            L1_CHAIN_ID,
+            LIVENESS_BOND,
+            PROVABILITY_BOND
+        );
         bondManager = BondManager(
-            deploy({
-                name: "bond_manager",
-                impl: address(impl),
-                data: abi.encodeCall(BondManager.init, (deployer))
-            })
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (operator))))
         );
 
-        // Fund test accounts with bond tokens
         bondToken.mint(Alice, 1000 ether);
         bondToken.mint(Bob, 1000 ether);
         bondToken.mint(Carol, 1000 ether);
         bondToken.mint(David, 1000 ether);
         bondToken.mint(Emma, 1000 ether);
-
-        // Approve BondManager to spend tokens
-        vm.stopPrank();
 
         vm.startPrank(Alice);
         bondToken.approve(address(bondManager), type(uint256).max);
@@ -58,8 +74,6 @@ contract BondManagerTest is CommonTest {
         vm.startPrank(Emma);
         bondToken.approve(address(bondManager), type(uint256).max);
         vm.stopPrank();
-
-        vm.startPrank(deployer);
     }
 
     // ---------------------------------------------------------------
@@ -67,11 +81,16 @@ contract BondManagerTest is CommonTest {
     // ---------------------------------------------------------------
 
     function test_init_ImmutableVariablesSetCorrectly() external view {
-        assertEq(bondManager.authorized(), authorized);
         assertEq(address(bondManager.bondToken()), address(bondToken));
-        assertEq(bondManager.minBond(), minBond);
-        assertEq(bondManager.withdrawalDelay(), withdrawalDelay);
-        assertEq(bondManager.owner(), deployer);
+        assertEq(bondManager.minBond(), MIN_BOND);
+        assertEq(bondManager.withdrawalDelay(), WITHDRAWAL_DELAY);
+        assertEq(bondManager.bondOperator(), operator);
+        assertEq(address(bondManager.signalService()), address(signalService));
+        assertEq(bondManager.l1Inbox(), L1_INBOX);
+        assertEq(bondManager.l1ChainId(), L1_CHAIN_ID);
+        assertEq(bondManager.livenessBond(), LIVENESS_BOND);
+        assertEq(bondManager.provabilityBond(), PROVABILITY_BOND);
+        assertEq(bondManager.owner(), operator);
     }
 
     // ---------------------------------------------------------------
@@ -151,17 +170,24 @@ contract BondManagerTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // Authorized Debit Tests
+    // Operator Debit/Credit Tests
     // ---------------------------------------------------------------
 
-    function test_debitBond_AuthorizedCanDebit() external {
+    function test_debitBond_OnlyOperatorCanCall() external {
+        vm.prank(Alice);
+        bondManager.deposit(50 ether);
+
+        vm.prank(Alice);
+        vm.expectRevert(abi.encodeWithSelector(EssentialContract.ACCESS_DENIED.selector));
+        bondManager.debitBond(Alice, 20 ether);
+    }
+
+    function test_debitBond_BestEffortDebitAndEvent() external {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
         vm.expectEmit();
         emit IBondManager.BondDebited(Alice, 20 ether);
-
-        vm.prank(authorized);
         uint256 debited = bondManager.debitBond(Alice, 20 ether);
 
         assertEq(debited, 20 ether);
@@ -172,82 +198,27 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        vm.prank(authorized);
         uint256 debited = bondManager.debitBond(Alice, 100 ether);
 
-        assertEq(debited, 50 ether, "Should return actual balance");
-        assertEq(bondManager.getBondBalance(Alice), 0);
-    }
-
-    function test_debitBond_CapsAtAvailableBalance() external {
-        vm.prank(Alice);
-        bondManager.deposit(30 ether);
-
-        vm.prank(authorized);
-        uint256 debited = bondManager.debitBond(Alice, 50 ether);
-
-        assertEq(debited, 30 ether);
+        assertEq(debited, 50 ether);
         assertEq(bondManager.getBondBalance(Alice), 0);
     }
 
     function test_debitBond_ReturnsZeroWhenNoBalance() external {
-        vm.prank(authorized);
         uint256 debited = bondManager.debitBond(Alice, 10 ether);
-
         assertEq(debited, 0);
     }
 
-    function test_debitBond_NoEventWhenZeroDebited() external {
-        // No expectEmit call - we expect NO event
-        vm.prank(authorized);
-        bondManager.debitBond(Alice, 10 ether);
-    }
-
-    function test_debitBond_RevertWhen_UnauthorizedCaller() external {
-        vm.prank(Alice);
-        bondManager.deposit(50 ether);
-
-        vm.expectRevert();
-        vm.prank(Bob);
-        bondManager.debitBond(Alice, 20 ether);
-    }
-
-    function test_debitBond_RevertWhen_CallerIsOwner() external {
-        vm.prank(Alice);
-        bondManager.deposit(50 ether);
-
-        vm.expectRevert();
-        vm.prank(deployer);
-        bondManager.debitBond(Alice, 20 ether);
-    }
-
-    // ---------------------------------------------------------------
-    // Authorized Credit Tests
-    // ---------------------------------------------------------------
-
-    function test_creditBond_AuthorizedCanCredit() external {
-        vm.expectEmit();
-        emit IBondManager.BondCredited(Alice, 30 ether);
-
-        vm.prank(authorized);
-        bondManager.creditBond(Alice, 30 ether);
-
-        assertEq(bondManager.getBondBalance(Alice), 30 ether);
-    }
-
     function test_creditBond_CreditsAccumulate() external {
-        vm.startPrank(authorized);
+        vm.expectEmit();
+        emit IBondManager.BondCredited(Alice, 20 ether);
         bondManager.creditBond(Alice, 20 ether);
+
+        vm.expectEmit();
+        emit IBondManager.BondCredited(Alice, 10 ether);
         bondManager.creditBond(Alice, 10 ether);
-        vm.stopPrank();
 
         assertEq(bondManager.getBondBalance(Alice), 30 ether);
-    }
-
-    function test_creditBond_RevertWhen_UnauthorizedCaller() external {
-        vm.expectRevert();
-        vm.prank(Bob);
-        bondManager.creditBond(Alice, 30 ether);
     }
 
     // ---------------------------------------------------------------
@@ -258,7 +229,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        uint256 expectedMaturity = block.timestamp + withdrawalDelay;
+        uint256 expectedMaturity = block.timestamp + WITHDRAWAL_DELAY;
 
         vm.expectEmit();
         emit IBondManager.WithdrawalRequested(Alice, expectedMaturity);
@@ -317,7 +288,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay + 1 days);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY + 1 days);
 
         vm.prank(Alice);
         bondManager.cancelWithdrawal();
@@ -398,7 +369,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay - 1);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY - 1);
 
         vm.expectRevert(BondManager.MustMaintainMinBond.selector);
         vm.prank(Alice);
@@ -412,7 +383,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay - 1);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY - 1);
 
         vm.prank(Alice);
         bondManager.withdraw(Alice, 40 ether);
@@ -431,7 +402,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
         uint256 aliceInitialBalance = bondToken.balanceOf(Alice);
 
@@ -452,7 +423,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
         vm.prank(Alice);
         bondManager.withdraw(Alice, 30 ether);
@@ -467,7 +438,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        uint256 maturityTime = block.timestamp + withdrawalDelay;
+        uint256 maturityTime = block.timestamp + WITHDRAWAL_DELAY;
         vm.warp(maturityTime);
 
         vm.prank(Alice);
@@ -477,15 +448,10 @@ contract BondManagerTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // CRITICAL: Vulnerability Fix Tests
+    // Vulnerability Fix Tests
     // ---------------------------------------------------------------
 
     function test_withdraw_RevertWhen_ExceedingBalanceAfterMaturity() external {
-        // This test validates the fix for the critical vulnerability where
-        // an attacker could drain the contract by requesting more than their balance
-        // after the withdrawal delay matured
-
-        // Setup: Multiple users deposit
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
@@ -495,61 +461,44 @@ contract BondManagerTest is CommonTest {
         vm.prank(Carol);
         bondManager.deposit(75 ether);
 
-        // Alice requests withdrawal and waits for delay
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
-        // Alice tries to withdraw entire contract balance (225 ether)
-        // but should only receive her actual balance (50 ether)
         uint256 contractBalance = bondToken.balanceOf(address(bondManager));
         assertEq(contractBalance, 225 ether);
 
         uint256 aliceInitialBalance = bondToken.balanceOf(Alice);
 
-        // Alice attempts to withdraw more than her balance
         vm.prank(Alice);
         bondManager.withdraw(Alice, 225 ether);
 
-        // Verify Alice only received her actual balance, not the requested amount
         assertEq(bondToken.balanceOf(Alice), aliceInitialBalance + 50 ether);
         assertEq(bondManager.getBondBalance(Alice), 0);
-
-        // Verify other users' balances are intact
         assertEq(bondManager.getBondBalance(Bob), 100 ether);
         assertEq(bondManager.getBondBalance(Carol), 75 ether);
-
-        // Verify contract still has the other users' funds
         assertEq(bondToken.balanceOf(address(bondManager)), 175 ether);
     }
 
     function test_withdraw_TransfersExactDebitedAmountOnly() external {
-        // This test ensures that the fix properly uses the debited amount
-        // from _debitBond rather than the requested amount
-
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
         uint256 aliceInitialBalance = bondToken.balanceOf(Alice);
 
-        // Request 1000 ether but only have 50 ether
         vm.prank(Alice);
         bondManager.withdraw(Alice, 1000 ether);
 
-        // Verify only 50 ether was transferred
         assertEq(bondToken.balanceOf(Alice), aliceInitialBalance + 50 ether);
     }
 
     function test_withdraw_DrainAttemptWithMultipleUsers() external {
-        // Advanced vulnerability test: Ensure one user cannot drain funds
-        // even with multiple withdrawal attempts
-
         vm.prank(Alice);
         bondManager.deposit(30 ether);
 
@@ -559,17 +508,14 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
         uint256 bobBalanceBefore = bondManager.getBondBalance(Bob);
 
-        // Alice attempts to drain contract
         vm.prank(Alice);
         bondManager.withdraw(Alice, type(uint256).max);
 
         assertEq(bondManager.getBondBalance(Alice), 0);
-
-        // Bob's balance should be unchanged
         assertEq(bondManager.getBondBalance(Bob), bobBalanceBefore);
         assertEq(bondToken.balanceOf(address(bondManager)), 100 ether);
     }
@@ -626,33 +572,23 @@ contract BondManagerTest is CommonTest {
     // ---------------------------------------------------------------
 
     function test_integration_DepositDebitCreditWithdraw() external {
-        // Alice deposits
         vm.prank(Alice);
         bondManager.deposit(100 ether);
 
         assertEq(bondManager.getBondBalance(Alice), 100 ether);
 
-        // Authorized debits some bond
-        vm.prank(authorized);
         uint256 debited = bondManager.debitBond(Alice, 30 ether);
-
         assertEq(debited, 30 ether);
         assertEq(bondManager.getBondBalance(Alice), 70 ether);
 
-        // Authorized credits some bond back
-        vm.prank(authorized);
         bondManager.creditBond(Alice, 20 ether);
-
         assertEq(bondManager.getBondBalance(Alice), 90 ether);
 
-        // Alice requests withdrawal
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        // Wait for maturity
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
-        // Alice withdraws
         vm.prank(Alice);
         bondManager.withdraw(Alice, 90 ether);
 
@@ -660,7 +596,6 @@ contract BondManagerTest is CommonTest {
     }
 
     function test_integration_MultipleUsersInteracting() external {
-        // Multiple users deposit
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
@@ -670,29 +605,19 @@ contract BondManagerTest is CommonTest {
         vm.prank(Carol);
         bondManager.deposit(100 ether);
 
-        // Check sufficient bonds
         assertTrue(bondManager.hasSufficientBond(Alice, 40 ether));
         assertTrue(bondManager.hasSufficientBond(Bob, 65 ether));
         assertTrue(bondManager.hasSufficientBond(Carol, 90 ether));
 
-        // Alice requests withdrawal
         vm.prank(Alice);
         bondManager.requestWithdrawal();
-
-        // Alice is now inactive
         assertFalse(bondManager.hasSufficientBond(Alice, 0));
 
-        // But Bob and Carol are still active
         assertTrue(bondManager.hasSufficientBond(Bob, 0));
         assertTrue(bondManager.hasSufficientBond(Carol, 0));
 
-        // Authorized debits from Bob
-        vm.prank(authorized);
         bondManager.debitBond(Bob, 50 ether);
-
         assertEq(bondManager.getBondBalance(Bob), 25 ether);
-
-        // Bob now has insufficient bond
         assertFalse(bondManager.hasSufficientBond(Bob, 16 ether));
     }
 
@@ -700,39 +625,29 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        // Alice is active
         assertTrue(bondManager.hasSufficientBond(Alice, 40 ether));
 
-        // Alice requests withdrawal
         vm.prank(Alice);
         bondManager.requestWithdrawal();
-
-        // Alice is now inactive
         assertFalse(bondManager.hasSufficientBond(Alice, 40 ether));
 
-        // Alice cancels withdrawal
         vm.prank(Alice);
         bondManager.cancelWithdrawal();
-
-        // Alice is active again
         assertTrue(bondManager.hasSufficientBond(Alice, 40 ether));
     }
 
     function test_integration_DepositToMultipleTimesFromDifferentUsers() external {
-        // Alice and Bob both deposit to Carol
         vm.prank(Alice);
         bondManager.depositTo(Carol, 30 ether);
 
         vm.prank(Bob);
         bondManager.depositTo(Carol, 40 ether);
 
-        // Carol deposits for herself
         vm.prank(Carol);
         bondManager.deposit(30 ether);
 
         assertEq(bondManager.getBondBalance(Carol), 100 ether);
 
-        // Carol can withdraw excess
         vm.prank(Carol);
         bondManager.withdraw(Carol, 90 ether);
 
@@ -760,7 +675,6 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        vm.prank(authorized);
         uint256 debited = bondManager.debitBond(Alice, 0);
 
         assertEq(debited, 0);
@@ -771,7 +685,6 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        vm.prank(authorized);
         bondManager.creditBond(Alice, 0);
 
         assertEq(bondManager.getBondBalance(Alice), 50 ether);
@@ -803,13 +716,10 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        // Authorized debits most of the balance
-        vm.prank(authorized);
         bondManager.debitBond(Alice, 45 ether);
 
         assertEq(bondManager.getBondBalance(Alice), 5 ether);
 
-        // Alice can still request withdrawal with remaining balance
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
@@ -824,13 +734,10 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        // Authorized can still credit bond even after withdrawal request
-        vm.prank(authorized);
         bondManager.creditBond(Alice, 25 ether);
 
         assertEq(bondManager.getBondBalance(Alice), 75 ether);
 
-        // Withdrawal request is still active
         (, uint48 requestedAt) = bondManager.bond(Alice);
         assertTrue(requestedAt > 0);
     }
@@ -842,8 +749,6 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        // Authorized can debit even after withdrawal request
-        vm.prank(authorized);
         uint256 debited = bondManager.debitBond(Alice, 30 ether);
 
         assertEq(debited, 30 ether);
@@ -851,7 +756,6 @@ contract BondManagerTest is CommonTest {
     }
 
     function test_edgeCase_MaxUint256Deposit() external {
-        // Test with a very large amount (not max to avoid overflow)
         uint256 largeAmount = 1_000_000_000 ether;
 
         bondToken.mint(Alice, largeAmount);
@@ -865,9 +769,6 @@ contract BondManagerTest is CommonTest {
     }
 
     function test_security_BondAccountingInvariant() external {
-        // This test verifies that the sum of all bond balances
-        // never exceeds the contract's token balance
-
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
@@ -884,7 +785,6 @@ contract BondManagerTest is CommonTest {
 
         assertEq(totalBonds, contractBalance);
 
-        // Withdraw some funds
         vm.prank(Alice);
         bondManager.withdraw(Alice, 40 ether);
 
@@ -897,8 +797,6 @@ contract BondManagerTest is CommonTest {
     }
 
     function test_security_CannotReenterDeposit() external {
-        // Testing nonReentrant modifier on deposit
-        // This would require a malicious token, so we just verify the modifier exists
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
@@ -906,7 +804,6 @@ contract BondManagerTest is CommonTest {
     }
 
     function test_security_CannotReenterWithdraw() external {
-        // Testing nonReentrant modifier on withdraw
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
@@ -966,7 +863,7 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        vm.warp(block.timestamp + withdrawalDelay - 1);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY - 1);
 
         vm.expectRevert(BondManager.MustMaintainMinBond.selector);
         vm.prank(Alice);
@@ -980,7 +877,6 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
-        // Wait much longer than the delay period (e.g., 365 days)
         vm.warp(block.timestamp + 365 days);
 
         vm.prank(Alice);
@@ -993,7 +889,6 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.deposit(50 ether);
 
-        // First cycle
         vm.prank(Alice);
         bondManager.requestWithdrawal();
 
@@ -1002,7 +897,6 @@ contract BondManagerTest is CommonTest {
         vm.prank(Alice);
         bondManager.cancelWithdrawal();
 
-        // Second cycle
         vm.warp(block.timestamp + 1 days);
 
         vm.prank(Alice);
@@ -1010,12 +904,60 @@ contract BondManagerTest is CommonTest {
 
         uint256 secondRequestTime = block.timestamp;
 
-        vm.warp(block.timestamp + withdrawalDelay);
+        vm.warp(block.timestamp + WITHDRAWAL_DELAY);
 
         vm.prank(Alice);
         bondManager.withdraw(Alice, 50 ether);
 
         assertEq(bondManager.getBondBalance(Alice), 0);
-        assertGe(block.timestamp, secondRequestTime + withdrawalDelay);
+        assertGe(block.timestamp, secondRequestTime + WITHDRAWAL_DELAY);
+    }
+
+    // ---------------------------------------------------------------
+    // Signal Processing Tests
+    // ---------------------------------------------------------------
+
+    function test_processBondSignal_transfersBonds() external {
+        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
+        });
+        bytes32 signal = LibBonds.hashBondInstruction(instruction);
+
+        vm.prank(L1_INBOX);
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
+
+        vm.prank(Alice);
+        bondManager.deposit(LIVENESS_BOND * 2);
+
+        bondManager.processBondSignal(instruction, "");
+
+        assertTrue(bondManager.processedSignals(signal));
+        assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND);
+    }
+
+    function test_processBondSignal_allowsOutOfOrderConsumption() external {
+        LibBonds.BondInstruction memory first = LibBonds.BondInstruction({
+            proposalId: 1, bondType: LibBonds.BondType.PROVABILITY, payer: Alice, payee: Bob
+        });
+        LibBonds.BondInstruction memory second = LibBonds.BondInstruction({
+            proposalId: 2, bondType: LibBonds.BondType.LIVENESS, payer: Carol, payee: David
+        });
+
+        vm.prank(L1_INBOX);
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(first));
+        vm.prank(L1_INBOX);
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(second));
+
+        vm.prank(Alice);
+        bondManager.deposit(500 ether);
+        vm.prank(Carol);
+        bondManager.deposit(500 ether);
+
+        bondManager.processBondSignal(second, "");
+        bondManager.processBondSignal(first, "");
+
+        assertEq(bondManager.getBondBalance(first.payee), PROVABILITY_BOND);
+        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND);
     }
 }
