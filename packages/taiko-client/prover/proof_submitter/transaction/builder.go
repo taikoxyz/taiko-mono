@@ -154,7 +154,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			}
 
 			input.ProposalStates = append(input.ProposalStates, shastaBindings.IInboxProposalState{
-				Proposer:         txOpts.From,
+				Proposer:         proposals[i].Proposer,
 				DesignatedProver: anchorProposalState.DesignatedProver,
 				Timestamp:        proposals[i].Timestamp,
 				BlockHash:        lastHeader.Hash(),
