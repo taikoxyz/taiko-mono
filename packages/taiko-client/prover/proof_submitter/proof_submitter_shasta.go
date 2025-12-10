@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -150,7 +149,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			L2BlockNums:          l2BlockNums,
 			DesignatedProver:     proposalState.DesignatedProver,
 			ParentTransitionHash: parentTransitionHash,
-			Checkpoint: &shastaBindings.ICheckpointStoreCheckpoint{
+			Checkpoint: &proofProducer.Checkpoint{
 				BlockNumber: header.Number,
 				BlockHash:   header.Hash(),
 				StateRoot:   header.Root,
