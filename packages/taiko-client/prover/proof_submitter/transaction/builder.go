@@ -128,7 +128,14 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			input     = &shastaBindings.IInboxProveInput{ActualProver: txOpts.From}
 		)
 
+		if len(batchProof.ProofResponses) == 0 {
+			return nil, fmt.Errorf("no proof responses in batch proof")
+		}
+
 		for i, proofResponse := range batchProof.ProofResponses {
+			if len(proofResponse.Opts.ShastaOptions().Headers) == 0 {
+				return nil, fmt.Errorf("no headers in proof response options for proposal ID %d", proposals[i].Id)
+			}
 			proposals[i] = proofResponse.Meta.Shasta().GetProposal()
 			lastHeader := proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1]
 
@@ -169,6 +176,16 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				"designatedProver", batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
 				"actualProver", txOpts.From,
 			)
+		}
+
+		// Validate consecutive proposals
+		for i := 1; i < len(proposals); i++ {
+			if proposals[i].Id.Uint64() != proposals[i-1].Id.Uint64()+1 {
+				return nil, fmt.Errorf(
+					"non-consecutive proposals: %d -> %d",
+					proposals[i-1].Id,
+					proposals[i].Id)
+			}
 		}
 
 		inputData, err := a.rpc.EncodeProveInput(&bind.CallOpts{Context: txOpts.Context}, input)
