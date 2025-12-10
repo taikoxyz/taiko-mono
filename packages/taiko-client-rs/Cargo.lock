@@ -6324,6 +6324,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-rpc-types",
  "anyhow",
+ "async-trait",
  "bindings",
  "dashmap 6.1.0",
  "event-scanner",

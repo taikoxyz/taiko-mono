@@ -4,16 +4,14 @@ use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::{BlockNumberOrTag, Log};
+use async_trait::async_trait;
 use bindings::{
     lookahead_store::LookaheadStore::{Blacklisted, LookaheadPosted, Unblacklisted},
     preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance,
 };
 use dashmap::DashMap;
 use event_scanner::EventFilter;
-use tokio::{
-    runtime::{Builder, Handle},
-    sync::broadcast,
-};
+use tokio::sync::broadcast;
 use tracing::warn;
 
 use crate::preconfirmation::lookahead::resolver::epoch::current_unix_timestamp;
@@ -474,22 +472,13 @@ where
     }
 }
 
+#[async_trait]
 impl<P> PreconfSignerResolver for LookaheadResolver<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Blocking convenience wrapper around `committer_for_timestamp` to satisfy the synchronous
-    /// `PreconfSignerResolver` trait. Mirrors resolver behavior including empty-epoch fallback and
-    /// live blacklist checks.
-    fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address> {
-        if let Ok(handle) = Handle::try_current() {
-            handle.block_on(self.committer_for_timestamp(l2_block_timestamp))
-        } else {
-            Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
-                .block_on(self.committer_for_timestamp(l2_block_timestamp))
-        }
+    /// Return the address allowed to sign the commitment covering `l2_block_timestamp`.
+    async fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address> {
+        self.committer_for_timestamp(l2_block_timestamp).await
     }
 }

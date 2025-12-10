@@ -6,6 +6,7 @@ mod error;
 mod resolver;
 mod scanner;
 
+use async_trait::async_trait;
 pub use bindings::lookahead_store::ILookaheadStore::{
     LookaheadData, LookaheadSlot, ProposerContext,
 };
@@ -43,7 +44,8 @@ pub type LookaheadResolverWithDefaultProvider =
 /// earlier than the `earliest_allowed_timestamp` (one full epoch behind "now") are rejected as
 /// `TooOld`, and timestamps at or beyond the `latest_allowed_timestamp` (end of the current epoch)
 /// are rejected as `TooNew`.
+#[async_trait]
 pub trait PreconfSignerResolver {
     /// Return the address allowed to sign the commitment covering `l2_block_timestamp`.
-    fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address>;
+    async fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address>;
 }

@@ -16,6 +16,7 @@ alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
+async-trait = { workspace = true }
 bindings = { path = "../bindings" }
 dashmap = { workspace = true }
 event-scanner = { workspace = true }
