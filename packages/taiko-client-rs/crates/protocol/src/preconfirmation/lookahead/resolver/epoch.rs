@@ -24,25 +24,26 @@ pub(crate) fn epoch_start_for(ts: u64, genesis_timestamp: u64) -> u64 {
 }
 
 /// Return the earliest timestamp allowed for lookups based on the configured lookback window,
-/// aligned to the epoch boundary that contains "now".
+/// aligned to the epoch boundary that contains "now". Acts as the lower bound for resolver queries.
 pub(crate) fn earliest_allowed_timestamp(genesis_timestamp: u64) -> Result<u64> {
     Ok(earliest_allowed_timestamp_at(current_unix_timestamp()?, genesis_timestamp))
 }
 
 /// Pure helper to compute the earliest allowed timestamp for a supplied "now" value. Useful for
-/// tests.
+/// tests. Pairs with `latest_allowed_timestamp_at` to bound valid query timestamps.
 pub(crate) fn earliest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) -> u64 {
     epoch_start_for(now, genesis_timestamp)
         .saturating_sub(MAX_LOOKBACK_EPOCHS.saturating_mul(SECONDS_IN_EPOCH))
 }
 
 /// Latest timestamp (exclusive) allowed for lookups, aligned to the end of the current epoch that
-/// contains "now".
+/// contains "now". Acts as the upper bound for resolver queries.
 pub(crate) fn latest_allowed_timestamp(genesis_timestamp: u64) -> Result<u64> {
     Ok(latest_allowed_timestamp_at(current_unix_timestamp()?, genesis_timestamp))
 }
 
 /// Pure helper to compute the latest allowed timestamp (exclusive) for a supplied "now" value.
+/// Pairs with `earliest_allowed_timestamp_at` to define the valid window.
 pub(crate) fn latest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) -> u64 {
     let current_epoch_start = epoch_start_for(now, genesis_timestamp);
     current_epoch_start.saturating_add(SECONDS_IN_EPOCH)

@@ -293,7 +293,9 @@ where
     ///   back to the cached current-epoch whitelist.
     /// - If the chosen slot was blacklisted at the queried timestamp (tracked via historical
     ///   events), fall back to the cached current-epoch whitelist.
-    /// - Timestamps older than one epoch before the current epoch start are rejected as `TooOld`.
+    /// - Timestamps earlier than `earliest_allowed_timestamp` (one full epoch behind "now") are
+    ///   rejected as `TooOld`; timestamps at or beyond `latest_allowed_timestamp` (end of the
+    ///   current epoch) are rejected as `TooNew`.
     pub async fn committer_for_timestamp(&self, timestamp: U256) -> Result<Address> {
         // Convert timestamp to u64 and check genesis boundary.
         let ts = u64::try_from(timestamp)
@@ -310,7 +312,8 @@ where
             return Err(LookaheadError::TooOld(ts));
         }
 
-        // Reject timestamps beyond the current epoch window; resolver only serves up to "now" epoch.
+        // Reject timestamps beyond the current epoch window; resolver only serves up to "now"
+        // epoch.
         let latest_allowed = latest_allowed_timestamp(self.genesis_timestamp)?;
         if ts >= latest_allowed {
             return Err(LookaheadError::TooNew(ts));

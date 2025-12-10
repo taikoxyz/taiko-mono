@@ -29,6 +29,9 @@ pub type LookaheadResolverWithDefaultProvider =
 //   Blacklisted/Unblacklisted events).
 // - Whitelist fallback is snapshotted at ingest (LookaheadPosted block); blacklist state is updated
 //   incrementally from events so resolution matches on-chain checks without runtime RPC calls.
+// - Lookups are bounded: timestamps earlier than `earliest_allowed_timestamp` (one full epoch
+//   behind "now") are rejected as `TooOld`, and timestamps at or beyond `latest_allowed_timestamp`
+//   (end of the current epoch) are rejected as `TooNew`.
 //
 // Integrators can call `committer_for_timestamp` to obtain the expected committer address for a
 // given L1 timestamp, matching LookaheadStore/PreconfWhitelist semantics.
@@ -36,7 +39,10 @@ pub type LookaheadResolverWithDefaultProvider =
 /// Resolves the expected signer for a preconfirmation commitment at a given L2 block timestamp.
 ///
 /// P2P validation uses this to check that a received commitment was signed by the committer
-/// scheduled for the L2 block containing `l2_block_timestamp`.
+/// scheduled for the L2 block containing `l2_block_timestamp`. Lookups are bounded: timestamps
+/// earlier than the `earliest_allowed_timestamp` (one full epoch behind "now") are rejected as
+/// `TooOld`, and timestamps at or beyond the `latest_allowed_timestamp` (end of the current epoch)
+/// are rejected as `TooNew`.
 pub trait PreconfSignerResolver {
     /// Return the address allowed to sign the commitment covering `l2_block_timestamp`.
     fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address>;
