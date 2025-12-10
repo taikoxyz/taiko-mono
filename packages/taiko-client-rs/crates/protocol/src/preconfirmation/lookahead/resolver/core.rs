@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::SystemTime};
+use std::sync::Arc;
 
 use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
@@ -15,6 +15,8 @@ use tokio::{
     sync::broadcast,
 };
 use tracing::warn;
+
+use crate::preconfirmation::lookahead::resolver::epoch::current_unix_timestamp;
 
 use super::{
     super::{
@@ -171,6 +173,7 @@ where
                     Blacklisted::decode_raw_log(log.topics().to_vec(), log.data().data.as_ref())
                         .map_err(|err| LookaheadError::EventDecode(err.to_string()))?;
                 self.record_blacklist_event(event.operatorRegistrationRoot, event.timestamp.to())?;
+                // Broadcast blacklist update if channel is enabled.
                 if let Some(tx) = &self.epoch_tx {
                     let _ = tx.send(LookaheadBroadcast::Blacklisted {
                         root: event.operatorRegistrationRoot,
@@ -185,6 +188,7 @@ where
                     event.operatorRegistrationRoot,
                     event.timestamp.to(),
                 )?;
+                // Broadcast unblacklist update if channel is enabled.
                 if let Some(tx) = &self.epoch_tx {
                     let _ = tx.send(LookaheadBroadcast::Unblacklisted {
                         root: event.operatorRegistrationRoot,
@@ -324,12 +328,9 @@ where
             self.synthetic_empty_epoch(epoch_start).await?
         };
 
-        // Select the appropriate slot origin and index.
-        let selection =
-            pick_slot_origin(ts, &curr_epoch.slots, next.as_ref().map(|n| n.slots.as_slice()));
-
         // Resolve based on selection and blacklist status.
-        match selection {
+        match pick_slot_origin(ts, &curr_epoch.slots, next.as_ref().map(|n| n.slots.as_slice())) {
+            // Select from current epoch slots.
             Some(SlotOrigin::Current(idx)) => {
                 let slot = &curr_epoch.slots[idx];
                 // Check blacklist status.
@@ -338,6 +339,7 @@ where
                 }
                 Ok(slot.committer)
             }
+            // Select from next epoch slots.
             Some(SlotOrigin::Next(idx)) => {
                 let next_epoch = next.ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
                 let slot = next_epoch
@@ -350,6 +352,7 @@ where
                 }
                 Ok(slot.committer)
             }
+            // Fallback to current epoch whitelist operator.
             None => Ok(curr_epoch.fallback_whitelist),
         }
     }
@@ -412,12 +415,7 @@ where
     /// Materialize and cache an empty epoch entry when the epoch has started but no lookahead was
     /// posted, mirroring `_handleEmptyCurrentLookahead` behavior.
     async fn synthetic_empty_epoch(&self, epoch_start: u64) -> Result<CachedLookaheadEpoch> {
-        let now = SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
-            .as_secs();
-
-        if now < epoch_start {
+        if current_unix_timestamp()? < epoch_start {
             return Err(LookaheadError::MissingLookahead(epoch_start));
         }
 

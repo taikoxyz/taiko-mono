@@ -26,8 +26,7 @@ pub(crate) fn epoch_start_for(ts: u64, genesis_timestamp: u64) -> u64 {
 /// Return the earliest timestamp allowed for lookups based on the configured lookback window,
 /// aligned to the epoch boundary that contains "now".
 pub(crate) fn earliest_allowed_timestamp(genesis_timestamp: u64) -> Result<u64> {
-    let now = current_unix_timestamp()?;
-    Ok(earliest_allowed_timestamp_at(now, genesis_timestamp))
+    Ok(earliest_allowed_timestamp_at(current_unix_timestamp()?, genesis_timestamp))
 }
 
 /// Pure helper to compute the earliest allowed timestamp for a supplied "now" value. Useful for
