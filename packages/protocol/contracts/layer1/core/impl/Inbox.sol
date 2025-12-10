@@ -305,7 +305,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 // proposals to finalize, we need to verify that the last proposal is young enough.
                 uint48 lastProposalTimestamp = input.proposalStates[numProposals - 1].timestamp;
                 require(
-                  block.timestamp  < lastProposalTimestamp  + _provingWindow / 2,
+                    block.timestamp < lastProposalTimestamp + _provingWindow / 2,
                     LastProposalNotYoungEnough()
                 );
             }
