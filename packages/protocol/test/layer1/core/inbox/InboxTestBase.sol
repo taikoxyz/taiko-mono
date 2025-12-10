@@ -10,6 +10,7 @@ import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -225,65 +226,28 @@ abstract contract InboxTestBase is CommonTest {
         vm.stopPrank();
     }
 
-    function _proposalStateFor(
+    function _transitionFor(
         IInbox.ProposedEventPayload memory _payload,
         address _designatedProver,
-        bytes32 _blockHash
+        bytes32 _checkpointHash
     )
         internal
         pure
-        returns (IInbox.ProposalState memory)
+        returns (IInbox.Transition memory)
     {
-        return IInbox.ProposalState({
+        return IInbox.Transition({
             proposer: _payload.proposal.proposer,
             designatedProver: _designatedProver,
             timestamp: _payload.proposal.timestamp,
-            blockHash: _blockHash
+            checkpointHash: _checkpointHash
         });
     }
 
-    function _proposalStates(IInbox.ProposalState memory _p1)
-        internal
-        pure
-        returns (IInbox.ProposalState[] memory proposalStates_)
-    {
-        proposalStates_ = new IInbox.ProposalState[](1);
-        proposalStates_[0] = _p1;
-    }
-
-    function _proposalStates(
-        IInbox.ProposalState memory _p1,
-        IInbox.ProposalState memory _p2
-    )
-        internal
-        pure
-        returns (IInbox.ProposalState[] memory proposalStates_)
-    {
-        proposalStates_ = new IInbox.ProposalState[](2);
-        proposalStates_[0] = _p1;
-        proposalStates_[1] = _p2;
-    }
-
-    function _proposalStates(
-        IInbox.ProposalState memory _p1,
-        IInbox.ProposalState memory _p2,
-        IInbox.ProposalState memory _p3
-    )
-        internal
-        pure
-        returns (IInbox.ProposalState[] memory proposalStates_)
-    {
-        proposalStates_ = new IInbox.ProposalState[](3);
-        proposalStates_[0] = _p1;
-        proposalStates_[1] = _p2;
-        proposalStates_[2] = _p3;
-    }
-
     function _buildBatchInput(uint256 _count) internal returns (IInbox.ProveInput memory input_) {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](_count);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](_count);
 
         uint48 firstProposalId;
-        bytes32 parentBlockHash = inbox.getState().lastFinalizedBlockHash;
+        bytes32 parentCheckpointHash = inbox.getState().lastFinalizedCheckpointHash;
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
@@ -293,19 +257,22 @@ abstract contract InboxTestBase is CommonTest {
                 firstProposalId = payload.proposal.id;
             }
 
-            // Generate a unique block hash for this proposal
-            bytes32 blockHash = keccak256(abi.encode("blockHash", i + 1));
-            proposalStates[i] = _proposalStateFor(payload, prover, blockHash);
-            parentBlockHash = blockHash;
+            // Generate a unique checkpoint hash for this proposal
+            bytes32 checkpointHash = keccak256(abi.encode("checkpointHash", i + 1));
+            transitions[i] = _transitionFor(payload, prover, checkpointHash);
+            parentCheckpointHash = checkpointHash;
         }
 
         input_ = IInbox.ProveInput({
             firstProposalId: firstProposalId,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: parentCheckpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
     }
 
@@ -343,8 +310,8 @@ abstract contract InboxTestBase is CommonTest {
             "state checkpoint ts"
         );
         assertEq(
-            _actual.lastFinalizedBlockHash,
-            _expected.lastFinalizedBlockHash,
+            _actual.lastFinalizedCheckpointHash,
+            _expected.lastFinalizedCheckpointHash,
             "state transition hash"
         );
     }

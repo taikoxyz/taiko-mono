@@ -4,30 +4,34 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProveInputCodecTest is Test {
     function test_encode_decode_roundtrip() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            checkpointHash: bytes32(uint256(1))
         });
-        proposalStates[1] = IInbox.ProposalState({
+        transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            checkpointHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 5,
-            firstProposalParentBlockHash: bytes32(uint256(99)),
-            lastBlockNumber: 1000,
-            lastStateRoot: bytes32(uint256(88)),
+            firstProposalParentCheckpointHash: bytes32(uint256(99)),
             actualProver: address(0xAAAA),
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 1000,
+                blockHash: transitions[1].checkpointHash,
+                stateRoot: bytes32(uint256(88))
+            })
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
@@ -35,107 +39,105 @@ contract LibProveInputCodecTest is Test {
 
         assertEq(decoded.firstProposalId, input.firstProposalId, "firstProposalId");
         assertEq(
-            decoded.firstProposalParentBlockHash,
-            input.firstProposalParentBlockHash,
-            "firstProposalParentBlockHash"
+            decoded.firstProposalParentCheckpointHash,
+            input.firstProposalParentCheckpointHash,
+            "firstProposalParentCheckpointHash"
         );
-        assertEq(decoded.proposalStates.length, 2, "proposalStates length");
+        assertEq(decoded.transitions.length, 2, "transitions length");
+        assertEq(decoded.transitions[0].proposer, transitions[0].proposer, "transitions[0] proposer");
         assertEq(
-            decoded.proposalStates[0].proposer,
-            proposalStates[0].proposer,
-            "proposalStates[0] proposer"
+            decoded.transitions[0].designatedProver,
+            transitions[0].designatedProver,
+            "transitions[0] designatedProver"
         );
+        assertEq(decoded.transitions[0].timestamp, transitions[0].timestamp, "transitions[0] timestamp");
         assertEq(
-            decoded.proposalStates[0].designatedProver,
-            proposalStates[0].designatedProver,
-            "proposalStates[0] designatedProver"
+            decoded.transitions[0].checkpointHash,
+            transitions[0].checkpointHash,
+            "transitions[0] checkpointHash"
         );
+        assertEq(decoded.transitions[1].proposer, transitions[1].proposer, "transitions[1] proposer");
         assertEq(
-            decoded.proposalStates[0].timestamp,
-            proposalStates[0].timestamp,
-            "proposalStates[0] timestamp"
+            decoded.transitions[1].checkpointHash,
+            transitions[1].checkpointHash,
+            "transitions[1] checkpointHash"
         );
-        assertEq(
-            decoded.proposalStates[0].blockHash,
-            proposalStates[0].blockHash,
-            "proposalStates[0] blockHash"
-        );
-        assertEq(
-            decoded.proposalStates[1].proposer,
-            proposalStates[1].proposer,
-            "proposalStates[1] proposer"
-        );
-        assertEq(
-            decoded.proposalStates[1].blockHash,
-            proposalStates[1].blockHash,
-            "proposalStates[1] blockHash"
-        );
-        assertEq(decoded.lastBlockNumber, input.lastBlockNumber, "lastBlockNumber");
-        assertEq(decoded.lastStateRoot, input.lastStateRoot, "lastStateRoot");
+        assertEq(decoded.lastCheckpoint.blockNumber, input.lastCheckpoint.blockNumber, "lastCheckpoint blockNumber");
+        assertEq(decoded.lastCheckpoint.blockHash, input.lastCheckpoint.blockHash, "lastCheckpoint blockHash");
+        assertEq(decoded.lastCheckpoint.stateRoot, input.lastCheckpoint.stateRoot, "lastCheckpoint stateRoot");
         assertEq(decoded.actualProver, input.actualProver, "actualProver");
     }
 
     function test_encode_decode_singleProposal() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 500,
-            blockHash: bytes32(uint256(55))
+            checkpointHash: bytes32(uint256(55))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: bytes32(0),
-            lastBlockNumber: 50,
-            lastStateRoot: bytes32(uint256(66)),
+            firstProposalParentCheckpointHash: bytes32(0),
             actualProver: address(0xBBBB),
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 50,
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: bytes32(uint256(66))
+            })
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
         assertEq(decoded.firstProposalId, 1, "firstProposalId");
-        assertEq(decoded.proposalStates.length, 1, "proposalStates length");
-        assertEq(decoded.proposalStates[0].proposer, address(0x5555), "proposer");
+        assertEq(decoded.transitions.length, 1, "transitions length");
+        assertEq(decoded.transitions[0].proposer, address(0x5555), "proposer");
         assertEq(decoded.actualProver, address(0xBBBB), "actualProver");
     }
 
     function test_encode_decode_emptyProposals() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](0);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 0,
-            firstProposalParentBlockHash: bytes32(0),
-            lastBlockNumber: 0,
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: bytes32(0),
             actualProver: address(0),
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            })
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.proposalStates.length, 0, "empty proposalStates");
+        assertEq(decoded.transitions.length, 0, "empty transitions");
     }
 
     function test_encode_deterministic() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
-            blockHash: bytes32(uint256(9999))
+            checkpointHash: bytes32(uint256(9999))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 42,
-            firstProposalParentBlockHash: bytes32(uint256(1111)),
-            lastBlockNumber: 888,
-            lastStateRoot: bytes32(uint256(7777)),
+            firstProposalParentCheckpointHash: bytes32(uint256(1111)),
             actualProver: address(0xCCCC),
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 888,
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: bytes32(uint256(7777))
+            })
         });
 
         bytes memory encoded1 = LibProveInputCodec.encode(input);

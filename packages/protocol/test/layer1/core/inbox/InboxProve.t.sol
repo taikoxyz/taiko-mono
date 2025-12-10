@@ -7,6 +7,7 @@ import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract InboxProveTest is InboxTestBase {
     function test_prove_single() public {
@@ -16,7 +17,9 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[0].blockHash, "block hash");
+        assertEq(
+            state.lastFinalizedCheckpointHash, input.transitions[0].checkpointHash, "checkpoint hash"
+        );
     }
 
     function test_prove_batch3() public {
@@ -26,7 +29,9 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 2, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[2].blockHash, "block hash");
+        assertEq(
+            state.lastFinalizedCheckpointHash, input.transitions[2].checkpointHash, "checkpoint hash"
+        );
     }
 
     function test_prove_batch5() public {
@@ -36,7 +41,9 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 4, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[4].blockHash, "block hash");
+        assertEq(
+            state.lastFinalizedCheckpointHash, input.transitions[4].checkpointHash, "checkpoint hash"
+        );
     }
 
     function test_prove_batch10() public {
@@ -46,17 +53,22 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 9, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, input.proposalStates[9].blockHash, "block hash");
+        assertEq(
+            state.lastFinalizedCheckpointHash, input.transitions[9].checkpointHash, "checkpoint hash"
+        );
     }
 
     function test_prove_RevertWhen_EmptyBatch() public {
         IInbox.ProveInput memory emptyInput = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: new IInbox.ProposalState[](0)
+            transitions: new IInbox.Transition[](0),
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: 0,
+                blockHash: bytes32(0),
+                stateRoot: bytes32(0)
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(emptyInput);
@@ -70,21 +82,24 @@ contract InboxProveTest is InboxTestBase {
         _proposeOne();
 
         // Try to prove starting from proposal 2 (which would skip proposal 1)
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 2, // lastFinalizedProposalId is 0, so max allowed is 1
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: bytes32(uint256(1))
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
@@ -98,27 +113,30 @@ contract InboxProveTest is InboxTestBase {
         _proposeOne();
 
         // Try to prove proposals 1 and 2 when only 1 exists
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash1")
+            checkpointHash: keccak256("checkpointHash1")
         });
-        proposalStates[1] = IInbox.ProposalState({
+        transitions[1] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash2")
+            checkpointHash: keccak256("checkpointHash2")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[1].checkpointHash,
+                stateRoot: bytes32(uint256(1))
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
@@ -127,28 +145,31 @@ contract InboxProveTest is InboxTestBase {
         inbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_prove_RevertWhen_ParentBlockHashMismatch() public {
+    function test_prove_RevertWhen_ParentCheckpointHashMismatch() public {
         _proposeOne();
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: bytes32(uint256(999)), // Wrong parent hash
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: bytes32(uint256(999)), // Wrong parent hash
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: bytes32(uint256(1))
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
+        vm.expectRevert(Inbox.ParentCheckpointHashMismatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
@@ -161,17 +182,20 @@ contract InboxProveTest is InboxTestBase {
         // Move past the extended proving window to trigger PROVABILITY bond
         vm.warp(block.timestamp + config.extendedProvingWindow + 1);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
-        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = _transitionFor(p1, prover, keccak256("checkpointHash1"));
+        transitions[1] = _transitionFor(p2, prover, keccak256("checkpointHash2"));
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[1].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -193,22 +217,25 @@ contract InboxProveTest is InboxTestBase {
         // Move past proving window but still within extended window
         vm.warp(block.timestamp + config.provingWindow + 1);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         // Different designated prover than actual prover to trigger liveness bond
-        proposalStates[0] = IInbox.ProposalState({
+        transitions[0] = IInbox.Transition({
             proposer: proposed.proposal.proposer,
             designatedProver: proposer, // Different from prover
             timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -235,17 +262,20 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p3 = _proposeOne();
 
         // First, prove just p1
-        IInbox.ProposalState[] memory firstBatch = new IInbox.ProposalState[](1);
-        bytes32 p1BlockHash = keccak256("blockHash1");
-        firstBatch[0] = _proposalStateFor(p1, prover, p1BlockHash);
+        IInbox.Transition[] memory firstBatch = new IInbox.Transition[](1);
+        bytes32 p1CheckpointHash = keccak256("checkpointHash1");
+        firstBatch[0] = _transitionFor(p1, prover, p1CheckpointHash);
 
         IInbox.ProveInput memory firstInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot1"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: firstBatch
+            transitions: firstBatch,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: p1CheckpointHash,
+                stateRoot: keccak256("stateRoot1")
+            })
         });
 
         _prove(firstInput);
@@ -253,25 +283,30 @@ contract InboxProveTest is InboxTestBase {
         assertEq(inbox.getState().lastFinalizedProposalId, p1.proposal.id, "p1 finalized");
 
         // Now prove p1, p2, p3 (p1 already finalized - should be skipped)
-        IInbox.ProposalState[] memory fullBatch = new IInbox.ProposalState[](3);
-        fullBatch[0] = _proposalStateFor(p1, prover, p1BlockHash);
-        fullBatch[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
-        fullBatch[2] = _proposalStateFor(p3, prover, keccak256("blockHash3"));
+        IInbox.Transition[] memory fullBatch = new IInbox.Transition[](3);
+        fullBatch[0] = _transitionFor(p1, prover, p1CheckpointHash);
+        fullBatch[1] = _transitionFor(p2, prover, keccak256("checkpointHash2"));
+        fullBatch[2] = _transitionFor(p3, prover, keccak256("checkpointHash3"));
 
         IInbox.ProveInput memory fullInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: bytes32(0), // Ignored since offset > 0
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot3"),
+            firstProposalParentCheckpointHash: bytes32(0), // Ignored since offset > 0
             actualProver: prover,
-            proposalStates: fullBatch
+            transitions: fullBatch,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: fullBatch[2].checkpointHash,
+                stateRoot: keccak256("stateRoot3")
+            })
         });
 
         _prove(fullInput);
 
         IInbox.CoreState memory state = inbox.getState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(state.lastFinalizedBlockHash, fullBatch[2].blockHash, "block hash");
+        assertEq(
+            state.lastFinalizedCheckpointHash, fullBatch[2].checkpointHash, "checkpoint hash"
+        );
     }
 
     function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
@@ -281,37 +316,43 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
         // First, prove p1
-        bytes32 p1BlockHash = keccak256("blockHash1");
-        IInbox.ProposalState[] memory firstBatch = new IInbox.ProposalState[](1);
-        firstBatch[0] = _proposalStateFor(p1, prover, p1BlockHash);
+        bytes32 p1CheckpointHash = keccak256("checkpointHash1");
+        IInbox.Transition[] memory firstBatch = new IInbox.Transition[](1);
+        firstBatch[0] = _transitionFor(p1, prover, p1CheckpointHash);
 
         IInbox.ProveInput memory firstInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot1"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: firstBatch
+            transitions: firstBatch,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: p1CheckpointHash,
+                stateRoot: keccak256("stateRoot1")
+            })
         });
 
         _prove(firstInput);
 
         // Try to prove p1, p2 with wrong p1 block hash (doesn't match finalized)
-        IInbox.ProposalState[] memory fullBatch = new IInbox.ProposalState[](2);
-        fullBatch[0] = _proposalStateFor(p1, prover, keccak256("wrongBlockHash")); // Wrong!
-        fullBatch[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+        IInbox.Transition[] memory fullBatch = new IInbox.Transition[](2);
+        fullBatch[0] = _transitionFor(p1, prover, keccak256("wrongCheckpointHash")); // Wrong!
+        fullBatch[1] = _transitionFor(p2, prover, keccak256("checkpointHash2"));
 
         IInbox.ProveInput memory fullInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: bytes32(0),
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot2"),
+            firstProposalParentCheckpointHash: bytes32(0),
             actualProver: prover,
-            proposalStates: fullBatch
+            transitions: fullBatch,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: fullBatch[1].checkpointHash,
+                stateRoot: keccak256("stateRoot2")
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(fullInput);
-        vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
+        vm.expectRevert(Inbox.ParentCheckpointHashMismatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
@@ -349,21 +390,24 @@ contract InboxProveTest is InboxTestBase {
         vm.warp(block.timestamp + config.provingWindow + 1);
 
         // Set designatedProver = actualProver so payer == payee
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposed.proposal.proposer,
             designatedProver: prover, // Same as actualProver
             timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover, // Same as designatedProver
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -410,7 +454,7 @@ contract InboxProveTest is InboxTestBase {
         assertEq(inbox.getState().nextProposalId, 2, "nextProposalId should be 2");
 
         // lastProposalId = firstProposalId + numProposals - 1 = 1 + 1 - 1 = 1
-        uint256 lastProposalId = input.firstProposalId + input.proposalStates.length - 1;
+        uint256 lastProposalId = input.firstProposalId + input.transitions.length - 1;
         assertEq(lastProposalId, 1, "lastProposalId at exact boundary");
         // Verify: lastProposalId (1) < nextProposalId (2) → passes
 
@@ -425,27 +469,30 @@ contract InboxProveTest is InboxTestBase {
         _proposeOne();
 
         // Try to prove 2 proposals (lastProposalId = 2 == nextProposalId)
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash1")
+            checkpointHash: keccak256("checkpointHash1")
         });
-        proposalStates[1] = IInbox.ProposalState({
+        transitions[1] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash2")
+            checkpointHash: keccak256("checkpointHash2")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[1].checkpointHash,
+                stateRoot: bytes32(uint256(1))
+            })
         });
 
         // lastProposalId = 1 + 2 - 1 = 2, nextProposalId = 2
@@ -468,21 +515,24 @@ contract InboxProveTest is InboxTestBase {
         // Warp to exactly provingWindow (proposalAge == provingWindow)
         vm.warp(proposed.proposal.timestamp + config.provingWindow);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposed.proposal.proposer,
             designatedProver: proposer, // Different from actualProver
             timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -508,21 +558,24 @@ contract InboxProveTest is InboxTestBase {
         // Warp to provingWindow + 1 (just past boundary)
         vm.warp(proposed.proposal.timestamp + config.provingWindow + 1);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposed.proposal.proposer,
             designatedProver: proposer, // Different from actualProver to trigger bond
             timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -548,21 +601,24 @@ contract InboxProveTest is InboxTestBase {
         // Warp to exactly extendedProvingWindow (proposalAge == extendedProvingWindow)
         vm.warp(proposed.proposal.timestamp + config.extendedProvingWindow);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposed.proposal.proposer,
             designatedProver: proposer, // Different from actualProver to trigger bond
             timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -589,21 +645,24 @@ contract InboxProveTest is InboxTestBase {
         // Warp to extendedProvingWindow + 1 (just past boundary)
         vm.warp(proposed.proposal.timestamp + config.extendedProvingWindow + 1);
 
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposed.proposal.proposer,
             designatedProver: proposer, // Different from actualProver
             timestamp: proposed.proposal.timestamp,
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpointHash")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(input);
@@ -625,6 +684,11 @@ contract InboxProveTest is InboxTestBase {
 
     function test_prove_noCheckpointSync_beforeDelay() public {
         IInbox.ProveInput memory input = _buildBatchInput(1);
+        input.lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 0,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0)
+        });
 
         // Do NOT warp past minCheckpointDelay - checkpoint should not sync
         _prove(input);
@@ -635,31 +699,35 @@ contract InboxProveTest is InboxTestBase {
         assertEq(state.lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
     }
 
-    function test_prove_checkpointSyncsAfterDelay() public {
+    function test_prove_checkpointSyncsWhenProvided() public {
         // First prove without checkpoint sync
         IInbox.ProveInput memory input1 = _buildBatchInput(1);
+        input1.lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 0,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0)
+        });
         _prove(input1);
 
-        uint48 checkpointBefore = inbox.getState().lastCheckpointTimestamp;
-        assertEq(checkpointBefore, 0, "checkpoint not synced initially");
+        assertEq(inbox.getState().lastCheckpointTimestamp, 0, "checkpoint not synced initially");
 
-        // Advance block and propose another
+        // Advance block and propose another without waiting for minCheckpointDelay
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        // Warp past minCheckpointDelay
-        vm.warp(block.timestamp + config.minCheckpointDelay + 1);
-
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = _transitionFor(p2, prover, keccak256("checkpointHash2"));
 
         IInbox.ProveInput memory input2 = IInbox.ProveInput({
             firstProposalId: p2.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot2"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot2")
+            })
         });
 
         _prove(input2);

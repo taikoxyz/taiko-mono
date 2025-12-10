@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
 contract InboxCapacityTest is InboxTestBase {
@@ -71,16 +72,19 @@ contract InboxRingBufferTest is InboxTestBase {
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
         // Prove p1 using prove
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = _transitionFor(p1, prover, keccak256("checkpointHash1"));
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getState().lastFinalizedBlockHash,
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: keccak256("stateRoot")
+            })
         });
 
         _prove(proveInput);

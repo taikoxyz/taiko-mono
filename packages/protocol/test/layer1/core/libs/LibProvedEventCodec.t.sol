@@ -4,25 +4,29 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProvedEventCodec } from "src/layer1/core/libs/LibProvedEventCodec.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProvedEventCodecTest is Test {
     function test_encode_decode_single_proposal() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            checkpointHash: bytes32(uint256(1))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
                 firstProposalId: 5,
-                firstProposalParentBlockHash: bytes32(uint256(99)),
-                lastBlockNumber: 1000,
-                lastStateRoot: bytes32(uint256(88)),
+                firstProposalParentCheckpointHash: bytes32(uint256(99)),
                 actualProver: address(0xAAAA),
-                proposalStates: proposalStates
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 1000,
+                    blockHash: transitions[0].checkpointHash,
+                    stateRoot: bytes32(uint256(88))
+                })
             })
         });
 
@@ -31,65 +35,79 @@ contract LibProvedEventCodecTest is Test {
 
         assertEq(decoded.input.firstProposalId, payload.input.firstProposalId, "firstProposalId");
         assertEq(
-            decoded.input.firstProposalParentBlockHash,
-            payload.input.firstProposalParentBlockHash,
-            "firstProposalParentBlockHash"
+            decoded.input.firstProposalParentCheckpointHash,
+            payload.input.firstProposalParentCheckpointHash,
+            "firstProposalParentCheckpointHash"
         );
-        assertEq(decoded.input.proposalStates.length, 1, "proposalStates length");
+        assertEq(decoded.input.transitions.length, 1, "transitions length");
         assertEq(
-            decoded.input.proposalStates[0].proposer,
-            proposalStates[0].proposer,
-            "proposalStates[0] proposer"
+            decoded.input.transitions[0].proposer, transitions[0].proposer, "transitions[0] proposer"
         );
         assertEq(
-            decoded.input.proposalStates[0].designatedProver,
-            proposalStates[0].designatedProver,
-            "proposalStates[0] designatedProver"
+            decoded.input.transitions[0].designatedProver,
+            transitions[0].designatedProver,
+            "transitions[0] designatedProver"
         );
         assertEq(
-            decoded.input.proposalStates[0].timestamp,
-            proposalStates[0].timestamp,
-            "proposalStates[0] timestamp"
+            decoded.input.transitions[0].timestamp,
+            transitions[0].timestamp,
+            "transitions[0] timestamp"
         );
         assertEq(
-            decoded.input.proposalStates[0].blockHash,
-            proposalStates[0].blockHash,
-            "proposalStates[0] blockHash"
+            decoded.input.transitions[0].checkpointHash,
+            transitions[0].checkpointHash,
+            "transitions[0] checkpointHash"
         );
-        assertEq(decoded.input.lastBlockNumber, payload.input.lastBlockNumber, "lastBlockNumber");
-        assertEq(decoded.input.lastStateRoot, payload.input.lastStateRoot, "lastStateRoot");
+        assertEq(
+            decoded.input.lastCheckpoint.blockNumber,
+            payload.input.lastCheckpoint.blockNumber,
+            "lastCheckpoint blockNumber"
+        );
+        assertEq(
+            decoded.input.lastCheckpoint.blockHash,
+            payload.input.lastCheckpoint.blockHash,
+            "lastCheckpoint blockHash"
+        );
+        assertEq(
+            decoded.input.lastCheckpoint.stateRoot,
+            payload.input.lastCheckpoint.stateRoot,
+            "lastCheckpoint stateRoot"
+        );
         assertEq(decoded.input.actualProver, payload.input.actualProver, "actualProver");
     }
 
     function test_encode_decode_multiple_proposals() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](3);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](3);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            checkpointHash: bytes32(uint256(1))
         });
-        proposalStates[1] = IInbox.ProposalState({
+        transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            checkpointHash: bytes32(uint256(2))
         });
-        proposalStates[2] = IInbox.ProposalState({
+        transitions[2] = IInbox.Transition({
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 300,
-            blockHash: bytes32(uint256(3))
+            checkpointHash: bytes32(uint256(3))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
                 firstProposalId: 10,
-                firstProposalParentBlockHash: bytes32(uint256(999)),
-                lastBlockNumber: 5000,
-                lastStateRoot: bytes32(uint256(888)),
+                firstProposalParentCheckpointHash: bytes32(uint256(999)),
                 actualProver: address(0xBBBB),
-                proposalStates: proposalStates
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 5000,
+                    blockHash: transitions[2].checkpointHash,
+                    stateRoot: bytes32(uint256(888))
+                })
             })
         });
 
@@ -97,49 +115,52 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.input.firstProposalId, 10, "firstProposalId");
-        assertEq(decoded.input.proposalStates.length, 3, "proposalStates length");
+        assertEq(decoded.input.transitions.length, 3, "transitions length");
 
         for (uint256 i; i < 3; ++i) {
             assertEq(
-                decoded.input.proposalStates[i].proposer,
-                proposalStates[i].proposer,
-                string.concat("proposalStates[", vm.toString(i), "] proposer")
+                decoded.input.transitions[i].proposer,
+                transitions[i].proposer,
+                string.concat("transitions[", vm.toString(i), "] proposer")
             );
             assertEq(
-                decoded.input.proposalStates[i].designatedProver,
-                proposalStates[i].designatedProver,
-                string.concat("proposalStates[", vm.toString(i), "] designatedProver")
+                decoded.input.transitions[i].designatedProver,
+                transitions[i].designatedProver,
+                string.concat("transitions[", vm.toString(i), "] designatedProver")
             );
             assertEq(
-                decoded.input.proposalStates[i].timestamp,
-                proposalStates[i].timestamp,
-                string.concat("proposalStates[", vm.toString(i), "] timestamp")
+                decoded.input.transitions[i].timestamp,
+                transitions[i].timestamp,
+                string.concat("transitions[", vm.toString(i), "] timestamp")
             );
             assertEq(
-                decoded.input.proposalStates[i].blockHash,
-                proposalStates[i].blockHash,
-                string.concat("proposalStates[", vm.toString(i), "] blockHash")
+                decoded.input.transitions[i].checkpointHash,
+                transitions[i].checkpointHash,
+                string.concat("transitions[", vm.toString(i), "] checkpointHash")
             );
         }
     }
 
     function test_encode_deterministic() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
-            blockHash: bytes32(uint256(9999))
+            checkpointHash: bytes32(uint256(9999))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
                 firstProposalId: 42,
-                firstProposalParentBlockHash: bytes32(uint256(1111)),
-                lastBlockNumber: 888,
-                lastStateRoot: bytes32(uint256(7777)),
+                firstProposalParentCheckpointHash: bytes32(uint256(1111)),
                 actualProver: address(0xDDDD),
-                proposalStates: proposalStates
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 888,
+                    blockHash: transitions[0].checkpointHash,
+                    stateRoot: bytes32(uint256(7777))
+                })
             })
         });
 
@@ -151,35 +172,38 @@ contract LibProvedEventCodecTest is Test {
     }
 
     function test_encoded_size() public pure {
-        // Test that encoded size matches expected formula: 98 + (numProposalStates * 78)
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = IInbox.ProposalState({
+        // Test that encoded size matches expected formula: 130 + (numTransitions * 78)
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            checkpointHash: bytes32(uint256(1))
         });
-        proposalStates[1] = IInbox.ProposalState({
+        transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            checkpointHash: bytes32(uint256(2))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
                 firstProposalId: 1,
-                firstProposalParentBlockHash: bytes32(0),
-                lastBlockNumber: 10,
-                lastStateRoot: bytes32(uint256(2)),
+                firstProposalParentCheckpointHash: bytes32(0),
                 actualProver: address(0xAAAA),
-                proposalStates: proposalStates
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 10,
+                    blockHash: transitions[1].checkpointHash,
+                    stateRoot: bytes32(uint256(2))
+                })
             })
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
 
-        // Expected size: 98 + (2 * 78) = 98 + 156 = 254
-        assertEq(encoded.length, 254, "encoded size for 2 proposalStates");
+        // Expected size: 130 + (2 * 78) = 130 + 156 = 286
+        assertEq(encoded.length, 286, "encoded size for 2 transitions");
     }
 }
