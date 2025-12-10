@@ -8,7 +8,7 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
-/// @notice Test contract with minProposalsToFinalize = 3 to test LastProposalIdTooSmall
+/// @notice Test contract with minProposalsToFinalize = 3 to test LastProposalNotYoungEnough
 contract InboxProveMinProposalsTest is InboxTestBase {
     function _buildConfig() internal override returns (IInbox.Config memory) {
         IInbox.Config memory cfg = super._buildConfig();
@@ -16,26 +16,20 @@ contract InboxProveMinProposalsTest is InboxTestBase {
         return cfg;
     }
 
-    function test_prove_RevertWhen_LastProposalIdTooSmall() public {
+    /// @notice Test that proving reverts when fewer proposals than minProposalsToFinalize
+    /// and the last proposal is too old (past half proving window)
+    function test_prove_RevertWhen_LastProposalNotYoungEnough() public {
         // Propose 2 blocks (not enough - need minProposalsToFinalize = 3)
-        _proposeOne();
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
-        _proposeOne();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
 
-        // Try to prove only 2 proposals when minProposalsToFinalize = 3
+        // Warp past half the proving window - proposal is now "too old"
+        vm.warp(p2.proposal.timestamp + config.provingWindow / 2 + 1);
+
         IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = IInbox.ProposalState({
-            proposer: proposer,
-            designatedProver: prover,
-            timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash1")
-        });
-        proposalStates[1] = IInbox.ProposalState({
-            proposer: proposer,
-            designatedProver: prover,
-            timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash2")
-        });
+        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
@@ -48,7 +42,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.LastProposalIdTooSmall.selector);
+        vm.expectRevert(Inbox.LastProposalNotYoungEnough.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
@@ -85,6 +79,73 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, 3, "finalized id");
+    }
+
+    /// @notice Test proving succeeds with fewer proposals than minProposalsToFinalize
+    /// when the last proposal is still young (within half proving window)
+    function test_prove_succeedsWhen_LastProposalYoung_FewerThanMinProposals() public {
+        // Propose only 2 blocks (less than minProposalsToFinalize = 3)
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+
+        // Stay within half the proving window - proposal is still "young"
+        // provingWindow = 2 hours, so half = 1 hour
+        // block.timestamp < lastProposalTimestamp + provingWindow/2
+        // No warp needed - we're still at the proposal timestamp
+
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
+        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: 1,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
+            actualProver: prover,
+            proposalStates: proposalStates
+        });
+
+        // Should succeed: lastProposalId (2) < minProposalsToFinalize (3) but
+        // block.timestamp < lastProposalTimestamp + provingWindow/2 (proposal is young)
+        _prove(input);
+
+        IInbox.CoreState memory state = inbox.getCoreState();
+        assertEq(state.lastFinalizedProposalId, 2, "finalized id");
+    }
+
+    /// @notice Test proving reverts at the exact boundary (half proving window) with strict less than
+    function test_prove_RevertWhen_AtExactHalfProvingWindowBoundary() public {
+        // Propose only 2 blocks (less than minProposalsToFinalize = 3)
+        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        _advanceBlock();
+        IInbox.ProposedEventPayload memory p2 = _proposeOne();
+
+        // Warp to exactly half the proving window - should revert with strict less than (<)
+        vm.warp(p2.proposal.timestamp + config.provingWindow / 2);
+
+        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
+        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
+        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: 1,
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
+            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
+            lastBlockNumber: uint48(block.number),
+            lastStateRoot: keccak256("stateRoot"),
+            actualProver: prover,
+            proposalStates: proposalStates
+        });
+
+        // Should revert at exact boundary: block.timestamp == lastProposalTimestamp + provingWindow/2
+        // because condition is strict less than (<), not less than or equal (<=)
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.prank(prover);
+        vm.expectRevert(Inbox.LastProposalNotYoungEnough.selector);
+        inbox.prove(encodedInput, bytes("proof"));
     }
 }
 

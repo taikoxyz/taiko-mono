@@ -196,20 +196,74 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
+            // ---------------------------------------------------------
+            // 1. Decode and validate input
+            // ---------------------------------------------------------
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
-            _validateProposeInput(input);
+            require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
 
             CoreState memory state = _loadCoreState();
 
-            (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
-                input,
-                _lookahead,
-                state.nextProposalId,
-                state.lastProposalBlockId,
-                state.lastFinalizedProposalId
+            // ---------------------------------------------------------
+            // 2. Validate proposal constraints
+            // ---------------------------------------------------------
+            // Enforce one propose call per Ethereum block to prevent spam attacks that could
+            // deplete the ring buffer
+            require(block.number > state.lastProposalBlockId, CannotProposeInCurrentBlock());
+            require(
+                _getAvailableCapacity(state.nextProposalId, state.lastFinalizedProposalId) > 0,
+                NotEnoughCapacity()
             );
 
-            // Update memory struct
+            // ---------------------------------------------------------
+            // 3. Process forced inclusions
+            // ---------------------------------------------------------
+            ConsumptionResult memory result =
+                _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
+
+            result.sources[result.sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
+
+            // ---------------------------------------------------------
+            // 4. Check proposer authorization
+            // ---------------------------------------------------------
+            // If forced inclusion is old enough, allow anyone to propose
+            // and set endOfSubmissionWindowTimestamp = 0
+            // Otherwise, only the current preconfer can propose
+            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
+                ? 0
+                : _proposerChecker.checkProposer(msg.sender, _lookahead);
+
+            // ---------------------------------------------------------
+            // 5. Build derivation data
+            // ---------------------------------------------------------
+            // Use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+            Derivation memory derivation = Derivation({
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: result.sources
+            });
+
+            // ---------------------------------------------------------
+            // 6. Build proposal
+            // ---------------------------------------------------------
+            // Get the parent proposal hash from the ring buffer
+            bytes32 parentProposalHash = getProposalHash(state.nextProposalId - 1);
+
+            Proposal memory proposal = Proposal({
+                id: state.nextProposalId,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                parentProposalHash: parentProposalHash,
+                derivationHash: LibHashOptimized.hashDerivation(derivation)
+            });
+
+            // ---------------------------------------------------------
+            // 7. Update state and emit event
+            // ---------------------------------------------------------
             state.nextProposalId += 1;
             state.lastProposalBlockId = uint48(block.number);
 
@@ -224,11 +278,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-            CoreState memory state = _loadCoreState();
+            // ---------------------------------------------------------
+            // 1. Decode and load core state
+            // ---------------------------------------------------------
             ProveInput memory input = LibProveInputCodec.decode(_data);
+            CoreState memory state = _loadCoreState();
 
             // ---------------------------------------------------------
-            // 1. Validate batch bounds
+            // 2. Validate batch bounds
             // ---------------------------------------------------------
             uint256 numProposals = input.proposalStates.length;
             require(numProposals > 0, EmptyBatch());
@@ -239,20 +296,29 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             uint256 lastProposalId = input.firstProposalId + numProposals - 1;
             require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
-            require(
-                lastProposalId >= state.lastFinalizedProposalId + _minProposalsToFinalize,
-                LastProposalIdTooSmall()
-            );
 
             // ---------------------------------------------------------
-            // 2. Calculate offset to first unfinalized proposal
+            // 3. Check enough proposals are proved for finalization
+            // ---------------------------------------------------------
+            if (lastProposalId < state.lastFinalizedProposalId + _minProposalsToFinalize) {
+                // If the number of proposals to be proved is less than the minimum number of
+                // proposals to finalize, we need to verify that the last proposal is young enough.
+                uint48 lastProposalTimestamp = input.proposalStates[numProposals - 1].timestamp;
+                require(
+                  block.timestamp  < lastProposalTimestamp  + _provingWindow / 2,
+                    LastProposalNotYoungEnough()
+                );
+            }
+
+            // ---------------------------------------------------------
+            // 4. Calculate offset to first unfinalized proposal
             // ---------------------------------------------------------
             // Some proposals in input.proposalStates[] may already be finalized.
             // The offset points to the first proposal that will be newly finalized.
             uint48 offset = state.lastFinalizedProposalId + 1 - input.firstProposalId;
 
             // ---------------------------------------------------------
-            // 3. Verify block hash continuity
+            // 5. Verify block hash continuity
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
             bytes32 expectedParentHash = offset == 0
@@ -261,15 +327,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
             // ---------------------------------------------------------
-            // 4. Verify the last proposal hash
+            // 6. Verify the last proposal hash
             // ---------------------------------------------------------
+            // The prover verifies that a list of consecutive proposals computes the same
+            // last proposal hash, and that the last proposal ID in the list matches lastProposalId.
             require(
                 input.lastProposalHash == getProposalHash(uint48(lastProposalId)),
                 LastProposalHashMismatch()
             );
 
             // ---------------------------------------------------------
-            // 5. Calculate proposal age and bond instruction
+            // 7. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             uint256 proposalAge;
             {
@@ -295,7 +363,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 6. Sync checkpoint if minimum delay has passed
+            // 8. Sync checkpoint if minimum delay has passed
             // ---------------------------------------------------------
             if (block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
                 _signalService.saveCheckpoint(
@@ -309,7 +377,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 7. Update core state and emit event
+            // 9. Update core state and emit event
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
@@ -322,7 +390,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
-            // 8. Verify the proof
+            // 10. Verify the proof
             // ---------------------------------------------------------
             _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashProveInput(input), _proof);
         }
@@ -417,70 +485,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
-
-    /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
-    /// @param _input The propose input data.
-    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
-    /// @param _nextProposalId The proposal ID to assign.
-    /// @param _lastProposalBlockId The last block number where a proposal was made.
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
-    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp and derivation
-    /// hash set.
-    /// @return derivation_ The derivation data for the proposal.
-    function _buildProposal(
-        ProposeInput memory _input,
-        bytes calldata _lookahead,
-        uint48 _nextProposalId,
-        uint48 _lastProposalBlockId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        returns (Proposal memory proposal_, Derivation memory derivation_)
-    {
-        unchecked {
-            // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the ring buffer
-            require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
-            require(
-                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0,
-                NotEnoughCapacity()
-            );
-
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
-
-            result.sources[result.sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
-
-            // If forced inclusion is old enough, allow anyone to propose
-            // and set endOfSubmissionWindowTimestamp = 0
-            // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
-                ? 0
-                : _proposerChecker.checkProposer(msg.sender, _lookahead);
-
-            // Use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
-            derivation_ = Derivation({
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
-            });
-
-            // Get the parent proposal hash from the ring buffer
-            bytes32 parentProposalHash = getProposalHash(_nextProposalId - 1);
-
-            proposal_ = Proposal({
-                id: _nextProposalId,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                parentProposalHash: parentProposalHash,
-                derivationHash: LibHashOptimized.hashDerivation(derivation_)
-            });
-        }
-    }
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
@@ -606,12 +610,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Validates propose function inputs.
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
     /// @dev Loads core state from storage and verifies activation.
     /// @return state_ The loaded core state.
     function _loadCoreState() private view returns (CoreState memory state_) {
@@ -630,7 +628,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error IncorrectProposalCount();
     error LastProposalIdTooLarge();
     error LastProposalHashMismatch();
-    error LastProposalIdTooSmall();
+    error LastProposalNotYoungEnough();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
