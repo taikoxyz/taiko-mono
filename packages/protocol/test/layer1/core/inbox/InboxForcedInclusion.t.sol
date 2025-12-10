@@ -181,7 +181,9 @@ contract InboxForcedInclusionTest is InboxTestBase {
         inclusions = inbox.getForcedInclusions(1, 10);
         assertEq(inclusions.length, 2, "should return 2 inclusions starting from index 1");
         assertEq(inclusions[0].blobSlice.blobHashes[0], keccak256(abi.encode("blob", 2)), "start1");
-        assertEq(inclusions[1].blobSlice.blobHashes[0], keccak256(abi.encode("blob", 3)), "start1-next");
+        assertEq(
+            inclusions[1].blobSlice.blobHashes[0], keccak256(abi.encode("blob", 3)), "start1-next"
+        );
     }
 
     function test_getCurrentForcedInclusionFee_scalesWithQueueDepth() public {
@@ -206,8 +208,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
             inbox.saveForcedInclusion{ value: fee }(forcedRef);
         }
 
-        uint64 expectedFee =
-            uint64((uint256(baseFee) * (threshold + 2)) / threshold);
+        uint64 expectedFee = uint64((uint256(baseFee) * (threshold + 2)) / threshold);
         assertEq(inbox.getCurrentForcedInclusionFee(), expectedFee, "fee scales linearly");
     }
 
