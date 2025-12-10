@@ -117,7 +117,6 @@ type ProofRequestOptionsShasta struct {
 	RethProofAggregationGenerated bool
 	L2BlockNums                   []*big.Int
 	DesignatedProver              common.Address
-	ParentTransitionHash          common.Hash
 	Checkpoint                    *Checkpoint
 	LastAnchorBlockNumber         *big.Int
 }

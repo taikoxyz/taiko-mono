@@ -131,24 +131,14 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		return err
 	}
 	proposalID := meta.Shasta().GetProposal().Id
-	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, proposalID)
-	if err != nil {
-		log.Warn(
-			"Failed to build parent Shasta transition hash",
-			"proposalID", proposalID,
-			"error", err,
-		)
-		return err
-	}
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
-			ProposalID:           proposalID,
-			ProverAddress:        s.proverAddress,
-			EventL1Hash:          meta.GetRawBlockHash(),
-			Headers:              []*types.Header{header},
-			L2BlockNums:          l2BlockNums,
-			DesignatedProver:     proposalState.DesignatedProver,
-			ParentTransitionHash: parentTransitionHash,
+			ProposalID:       proposalID,
+			ProverAddress:    s.proverAddress,
+			EventL1Hash:      meta.GetRawBlockHash(),
+			Headers:          []*types.Header{header},
+			L2BlockNums:      l2BlockNums,
+			DesignatedProver: proposalState.DesignatedProver,
 			Checkpoint: &proofProducer.Checkpoint{
 				BlockNumber: header.Number,
 				BlockHash:   header.Hash(),

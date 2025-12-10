@@ -4,5 +4,5 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#anchor;
-pub mod r#codec_optimized;
+pub mod r#codec;
 pub mod r#inbox;

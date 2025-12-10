@@ -647,9 +647,9 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		return reorgCheckResult, nil
 	}
 
-	transition, err := s.rpc.GetLastVerifiedTransitionShasta(ctx, coreState)
+	payload, err := s.rpc.GetLastVerifiedPayloadShasta(ctx, coreState)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get last verified transition: %w", err)
+		return nil, fmt.Errorf("failed to get last verified Proved event payload: %w", err)
 	}
 
 	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
@@ -658,7 +658,8 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 	}
 
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
-	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == transition.Checkpoint.BlockHash {
+	lastBlockHashInPayload := payload.Input.ProposalStates[len(payload.Input.ProposalStates)-1].BlockHash
+	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == lastBlockHashInPayload {
 		return reorgCheckResult, nil
 	}
 
@@ -666,7 +667,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		"Verified block mismatch",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
-		"transitionBlockHash", common.Hash(transition.Checkpoint.BlockHash),
+		"transitionBlockHash", common.Hash(lastBlockHashInPayload),
 	)
 
 	// For Shasta, we simply reset to genesis if there is a mismatch.
