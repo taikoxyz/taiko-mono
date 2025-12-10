@@ -116,7 +116,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     CoreState public coreState;
 
     /// @notice The hash of the last finalized block (separate slot for gas optimization).
-    bytes32 internal _lastFinalizedBlockHash;
+    bytes32 public lastFinalizedBlockHash;
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -179,7 +179,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         activationTimestamp = newActivationTimestamp;
         coreState = state;
-        _lastFinalizedBlockHash = _lastPacayaBlockHash;
+        lastFinalizedBlockHash = _lastPacayaBlockHash;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
         emit InboxActivated(_lastPacayaBlockHash);
@@ -286,12 +286,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Verify block hash continuity
             // ---------------------------------------------------------
-            // The parent block hash must match the stored _lastFinalizedBlockHash.
+            // The parent block hash must match the stored lastFinalizedBlockHash.
             {
                 bytes32 expectedParentHash = offset == 0
                     ? input.firstProposalParentBlockHash
                     : input.proposalStates[offset - 1].blockHash;
-                require(_lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+                require(lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
             }
 
             // ---------------------------------------------------------
@@ -351,7 +351,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Write entire CoreState back once (single SSTORE for the packed slot)
             coreState = state;
             // Write lastFinalizedBlockHash separately (separate storage slot)
-            _lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
+            lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
 
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
@@ -444,11 +444,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
             minProposalsToFinalize: _minProposalsToFinalize
         });
-    }
-
-    /// @inheritdoc IInbox
-    function getLastFinalizedBlockHash() external view returns (bytes32) {
-        return _lastFinalizedBlockHash;
     }
 
     /// @notice Returns the core state as a struct (convenience wrapper for tests).

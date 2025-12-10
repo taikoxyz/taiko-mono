@@ -39,7 +39,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(2),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
@@ -73,7 +73,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(p3.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -96,7 +96,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
-        assertEq(inbox.getLastFinalizedBlockHash(), input.proposalStates[0].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[0].blockHash, "block hash");
     }
 
     function test_prove_batch3() public {
@@ -106,7 +106,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 2, "finalized id");
-        assertEq(inbox.getLastFinalizedBlockHash(), input.proposalStates[2].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[2].blockHash, "block hash");
     }
 
     function test_prove_batch5() public {
@@ -116,7 +116,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 4, "finalized id");
-        assertEq(inbox.getLastFinalizedBlockHash(), input.proposalStates[4].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[4].blockHash, "block hash");
     }
 
     function test_prove_batch10() public {
@@ -126,13 +126,13 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 9, "finalized id");
-        assertEq(inbox.getLastFinalizedBlockHash(), input.proposalStates[9].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[9].blockHash, "block hash");
     }
 
     function test_prove_RevertWhen_EmptyBatch() public {
         IInbox.ProveInput memory emptyInput = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: bytes32(0),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
@@ -161,7 +161,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 2, // lastFinalizedProposalId is 0, so max allowed is 1
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
@@ -196,7 +196,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
@@ -251,7 +251,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -289,7 +289,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -327,7 +327,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory firstInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(p1.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot1"),
@@ -359,7 +359,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(inbox.getLastFinalizedBlockHash(), fullBatch[2].blockHash, "block hash");
+        assertEq(inbox.lastFinalizedBlockHash(), fullBatch[2].blockHash, "block hash");
     }
 
     function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
@@ -375,7 +375,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory firstInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(p1.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot1"),
@@ -449,7 +449,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -532,7 +532,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(1),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: bytes32(0),
@@ -570,7 +570,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -611,7 +611,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -652,7 +652,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -694,7 +694,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: proposed.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(proposed.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot"),
@@ -751,7 +751,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.ProveInput memory input2 = IInbox.ProveInput({
             firstProposalId: p2.proposal.id,
-            firstProposalParentBlockHash: inbox.getLastFinalizedBlockHash(),
+            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
             lastProposalHash: inbox.getProposalHash(p2.proposal.id),
             lastBlockNumber: uint48(block.number),
             lastStateRoot: keccak256("stateRoot2"),

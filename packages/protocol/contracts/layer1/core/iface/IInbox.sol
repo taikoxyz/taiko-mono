@@ -194,8 +194,4 @@ interface IInbox {
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
-
-    /// @notice Returns the hash of the last finalized block.
-    /// @return The last finalized block hash.
-    function getLastFinalizedBlockHash() external view returns (bytes32);
 }
