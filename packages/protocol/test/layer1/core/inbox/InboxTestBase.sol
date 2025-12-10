@@ -347,15 +347,4 @@ abstract contract InboxTestBase is CommonTest {
             "state checkpoint ts"
         );
     }
-
-    /// @dev Helper to get CoreState as a struct (public variable returns tuple).
-    function _getCoreState() internal view returns (IInbox.CoreState memory state_) {
-        (
-            state_.nextProposalId,
-            state_.lastProposalBlockId,
-            state_.lastFinalizedProposalId,
-            state_.lastFinalizedTimestamp,
-            state_.lastCheckpointTimestamp
-        ) = inbox.coreState();
-    }
 }

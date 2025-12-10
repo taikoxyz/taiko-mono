@@ -113,7 +113,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     uint48 public activationTimestamp;
 
     /// @notice Persisted core state (all uint48 fields packed into single slot).
-    CoreState public coreState;
+    CoreState internal _coreState;
 
     /// @notice The hash of the last finalized block (separate slot for gas optimization).
     bytes32 public lastFinalizedBlockHash;
@@ -178,7 +178,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
-        coreState = state;
+        _coreState = state;
         lastFinalizedBlockHash = _lastPacayaBlockHash;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
@@ -214,7 +214,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastProposalBlockId = uint48(block.number);
 
             // Write entire CoreState back once (single SSTORE for the packed slot)
-            coreState = state;
+            _coreState = state;
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal, derivation);
@@ -342,7 +342,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedTimestamp = uint48(block.timestamp);
 
             // Write entire CoreState back once (single SSTORE for the packed slot)
-            coreState = state;
+            _coreState = state;
             // Write lastFinalizedBlockHash separately (separate storage slot)
             lastFinalizedBlockHash = input.proposalStates[numProposals - 1].blockHash;
 
@@ -426,6 +426,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
             minProposalsToFinalize: _minProposalsToFinalize
         });
+    }
+
+    /// @inheritdoc IInbox
+    function getCoreState() external view returns (CoreState memory) {
+        return _coreState;
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -639,7 +644,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Loads core state from storage and verifies activation.
     /// @return state_ The loaded core state.
     function _loadCoreState() private view returns (CoreState memory state_) {
-        state_ = coreState;
+        state_ = _coreState;
         require(state_.nextProposalId != 0, ActivationRequired());
     }
 

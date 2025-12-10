@@ -194,4 +194,8 @@ interface IInbox {
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
+
+    /// @notice Returns the current core state.
+    /// @return The core state struct.
+    function getCoreState() external view returns (CoreState memory);
 }
