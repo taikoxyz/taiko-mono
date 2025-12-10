@@ -48,8 +48,12 @@ impl BlacklistTimeline {
 
         // Preserve the last pre-cutoff event as the new baseline.
         let last_before = self.events[keep_from - 1];
-        self.events.drain(..keep_from.saturating_sub(1));
-        self.events[0] = last_before;
+        let baseline_idx = keep_from - 1;
+        // Drop everything earlier than the baseline event.
+        self.events.drain(..baseline_idx);
+        if let Some(first) = self.events.get_mut(0) {
+            *first = last_before;
+        }
     }
 
     /// Return blacklist state at the supplied timestamp.

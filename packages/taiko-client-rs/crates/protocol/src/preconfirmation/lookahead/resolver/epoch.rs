@@ -36,12 +36,6 @@ pub(crate) fn earliest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) ->
         .saturating_sub(MAX_LOOKBACK_EPOCHS.saturating_mul(SECONDS_IN_EPOCH))
 }
 
-/// Latest timestamp (exclusive) allowed for lookups, aligned to the end of the current epoch that
-/// contains "now". Acts as the upper bound for resolver queries.
-pub(crate) fn latest_allowed_timestamp(genesis_timestamp: u64) -> Result<u64> {
-    Ok(latest_allowed_timestamp_at(current_unix_timestamp()?, genesis_timestamp))
-}
-
 /// Pure helper to compute the latest allowed timestamp (exclusive) for a supplied "now" value.
 /// Pairs with `earliest_allowed_timestamp_at` to define the valid window.
 pub(crate) fn latest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) -> u64 {

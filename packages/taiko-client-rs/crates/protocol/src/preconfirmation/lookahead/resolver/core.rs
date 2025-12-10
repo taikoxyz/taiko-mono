@@ -25,8 +25,9 @@ use super::{
         error::{LookaheadError, Result},
     },
     epoch::{
-        MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, earliest_allowed_timestamp, epoch_start_for,
-        genesis_timestamp_for_chain, latest_allowed_timestamp,
+        MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, earliest_allowed_timestamp,
+        earliest_allowed_timestamp_at, epoch_start_for, genesis_timestamp_for_chain,
+        latest_allowed_timestamp_at,
     },
     timeline::{BlacklistEvent, BlacklistFlag, BlacklistTimeline},
     types::{
@@ -255,7 +256,8 @@ where
             }));
         }
 
-        // Evict oldest entries beyond buffer size.
+        // Evict oldest entries once we exceed the on-chain lookahead buffer. We keep one extra
+        // entry to cover the current+next epoch window (mirror of contract ring buffer behavior).
         while self.cache.len() > self.lookahead_buffer_size + 1 {
             if let Some(oldest) = self.cache.iter().map(|e| *e.key()).min() {
                 self.cache.remove(&oldest);
@@ -307,15 +309,18 @@ where
             return Err(LookaheadError::BeforeGenesis(ts));
         }
 
+        // Get current time for bounding lookups.
+        let now = current_unix_timestamp()?;
+
         // Reject timestamps older than the configured lookback window to avoid unbounded lookups.
-        let earliest_allowed = earliest_allowed_timestamp(self.genesis_timestamp)?;
+        let earliest_allowed = earliest_allowed_timestamp_at(now, self.genesis_timestamp);
         if ts < earliest_allowed {
             return Err(LookaheadError::TooOld(ts));
         }
 
         // Reject timestamps beyond the current epoch window; resolver only serves up to "now"
         // epoch.
-        let latest_allowed = latest_allowed_timestamp(self.genesis_timestamp)?;
+        let latest_allowed = latest_allowed_timestamp_at(now, self.genesis_timestamp);
         if ts >= latest_allowed {
             return Err(LookaheadError::TooNew(ts));
         }
@@ -334,7 +339,7 @@ where
         let curr_epoch = if let Some(epoch) = current {
             epoch
         } else {
-            self.synthetic_empty_epoch(epoch_start).await?
+            self.synthetic_empty_epoch(epoch_start, now).await?
         };
 
         // Resolve based on selection and blacklist status.
@@ -423,8 +428,12 @@ where
 
     /// Materialize and cache an empty epoch entry when the epoch has started but no lookahead was
     /// posted, mirroring `_handleEmptyCurrentLookahead` behavior.
-    async fn synthetic_empty_epoch(&self, epoch_start: u64) -> Result<CachedLookaheadEpoch> {
-        if current_unix_timestamp()? < epoch_start {
+    async fn synthetic_empty_epoch(
+        &self,
+        epoch_start: u64,
+        now: u64,
+    ) -> Result<CachedLookaheadEpoch> {
+        if now < epoch_start {
             return Err(LookaheadError::MissingLookahead(epoch_start));
         }
 
