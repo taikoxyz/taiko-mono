@@ -83,7 +83,7 @@ contract InboxProveMinProposalsTest is InboxTestBase {
 
         _prove(input);
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, 3, "finalized id");
     }
 }
@@ -94,7 +94,7 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_single");
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
         assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[0].blockHash, "block hash");
     }
@@ -104,7 +104,7 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_consecutive_3");
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 2, "finalized id");
         assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[2].blockHash, "block hash");
     }
@@ -114,7 +114,7 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_consecutive_5");
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 4, "finalized id");
         assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[4].blockHash, "block hash");
     }
@@ -124,7 +124,7 @@ contract InboxProveTest is InboxTestBase {
 
         _proveWithGas(input, "shasta-prove", "prove_consecutive_10");
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId + 9, "finalized id");
         assertEq(inbox.lastFinalizedBlockHash(), input.proposalStates[9].blockHash, "block hash");
     }
@@ -337,7 +337,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(firstInput);
 
-        assertEq(inbox.getCoreState().lastFinalizedProposalId, p1.proposal.id, "p1 finalized");
+        assertEq(_getCoreState().lastFinalizedProposalId, p1.proposal.id, "p1 finalized");
 
         // Now prove p1, p2, p3 (p1 already finalized - should be skipped)
         IInbox.ProposalState[] memory fullBatch = new IInbox.ProposalState[](3);
@@ -357,7 +357,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(fullInput);
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
         assertEq(inbox.lastFinalizedBlockHash(), fullBatch[2].blockHash, "block hash");
     }
@@ -484,13 +484,11 @@ contract InboxProveTest is InboxTestBase {
         // Test with firstProposalId = 1 (exact boundary)
         IInbox.ProveInput memory input = _buildBatchInput(1);
         assertEq(input.firstProposalId, 1, "firstProposalId should be 1");
-        assertEq(
-            inbox.getCoreState().lastFinalizedProposalId, 0, "lastFinalizedProposalId should be 0"
-        );
+        assertEq(_getCoreState().lastFinalizedProposalId, 0, "lastFinalizedProposalId should be 0");
 
         _prove(input);
 
-        assertEq(inbox.getCoreState().lastFinalizedProposalId, 1, "should finalize");
+        assertEq(_getCoreState().lastFinalizedProposalId, 1, "should finalize");
     }
 
     /// @notice Test lastProposalId at exact boundary (== nextProposalId - 1)
@@ -500,7 +498,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
         // After _buildBatchInput(1), we have 1 proposal, nextProposalId = 2
-        assertEq(inbox.getCoreState().nextProposalId, 2, "nextProposalId should be 2");
+        assertEq(_getCoreState().nextProposalId, 2, "nextProposalId should be 2");
 
         // lastProposalId = firstProposalId + numProposals - 1 = 1 + 1 - 1 = 1
         uint256 lastProposalId = input.firstProposalId + input.proposalStates.length - 1;
@@ -509,7 +507,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input);
 
-        assertEq(inbox.getCoreState().lastFinalizedProposalId, 1, "should finalize");
+        assertEq(_getCoreState().lastFinalizedProposalId, 1, "should finalize");
     }
 
     /// @notice Test lastProposalId fails when == nextProposalId (just past boundary)
@@ -727,7 +725,7 @@ contract InboxProveTest is InboxTestBase {
         // Do NOT warp past minCheckpointDelay - checkpoint should not sync
         _prove(input);
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastFinalizedProposalId, input.firstProposalId, "finalized id");
         // Checkpoint timestamp should remain 0 (initial value) since delay hasn't passed
         assertEq(state.lastCheckpointTimestamp, 0, "checkpoint timestamp unchanged");
@@ -738,7 +736,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input1 = _buildBatchInput(1);
         _prove(input1);
 
-        uint48 checkpointBefore = inbox.getCoreState().lastCheckpointTimestamp;
+        uint48 checkpointBefore = _getCoreState().lastCheckpointTimestamp;
         assertEq(checkpointBefore, 0, "checkpoint not synced initially");
 
         // Advance block and propose another
@@ -763,7 +761,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input2);
 
-        IInbox.CoreState memory state = inbox.getCoreState();
+        IInbox.CoreState memory state = _getCoreState();
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint synced");
     }
 }

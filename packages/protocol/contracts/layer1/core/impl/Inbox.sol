@@ -293,7 +293,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 4. Verify the last proposal hash
             // ---------------------------------------------------------
             require(
-                input.lastProposalHash == _proposalHashes[lastProposalId % _ringBufferSize],
+                input.lastProposalHash == getProposalHash(uint48(lastProposalId)),
                 LastProposalHashMismatch()
             );
 
@@ -362,7 +362,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// submitted to make sure blocks have been produced already and the derivation can use the
     /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        bytes32 proposalHash = _proposalHashes[1];
+        bytes32 proposalHash = getProposalHash(1);
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
         uint256 refund = LibForcedInclusion.saveForcedInclusion(
@@ -379,7 +379,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // External View Functions
+    // External and Public View Functions
     // ---------------------------------------------------------------
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
@@ -409,16 +409,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
-    /// @notice Retrieves the proposal hash for a given proposal ID
-    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
-    /// may have been overwritten by a new one. You should verify that the hash matches the
-    /// expected proposal.
-    /// @param _proposalId The ID of the proposal to query
-    /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
-        uint256 bufferSlot = _proposalId % _ringBufferSize;
-        proposalHash_ = _proposalHashes[bufferSlot];
-    }
+  
 
     /// @inheritdoc IInbox
     function getConfig() external view returns (Config memory config_) {
@@ -441,10 +432,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         });
     }
 
-    /// @notice Returns the core state as a struct (convenience wrapper for tests).
-    /// @dev The public `coreState` variable returns a tuple; this returns the struct.
-    function getCoreState() external view returns (CoreState memory) {
-        return coreState;
+    /// @notice Retrieves the proposal hash for a given proposal ID
+    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
+    /// may have been overwritten by a new one. You should verify that the hash matches the
+    /// expected proposal.
+    /// @param _proposalId The ID of the proposal to query
+    /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
+    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
+        proposalHash_ = _proposalHashes[_proposalId % _ringBufferSize];
     }
 
     // ---------------------------------------------------------------
@@ -502,7 +497,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             // Get the parent proposal hash from the ring buffer
-            bytes32 parentProposalHash = _proposalHashes[(_nextProposalId - 1) % _ringBufferSize];
+            bytes32 parentProposalHash = getProposalHash(_nextProposalId - 1);
 
             proposal_ = Proposal({
                 id: _nextProposalId,
