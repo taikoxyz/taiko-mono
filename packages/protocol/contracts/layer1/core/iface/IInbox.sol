@@ -133,12 +133,10 @@ interface IInbox {
         address actualProver;
         /// @notice Array of transitions for each proposal in the proof range.
         Transition[] transitions;
-        /// @notice The last checkpoint of the last proposal
+        /// @notice Checkpoint of the last proposal.
+        /// Must be provided if you want to update the checkpoint stored on-chain. 
+        /// It is mandatory to fill it if `_minCheckpointDelay` has passed since the last sync.
         ICheckpointStore.Checkpoint lastCheckpoint;
-        /// @notice Whether to sync the checkpoint from the last transition.
-        /// This has to be set to `true` if `_minCheckpointDelay` has passed, but can be set to `true`
-        /// before if you want to sync the checkpoint early.
-        bool syncCheckpoint;
     }
 
     /// @notice Payload data emitted in the Proposed event

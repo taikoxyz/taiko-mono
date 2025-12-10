@@ -216,7 +216,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     ///
     /// The proof covers a contiguous range of proposals. The input contains an array of
-    /// Transition structs, each with the proposal's metadata and block hash. The proof range
+    /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
     /// proposals get finalized between proof generation and submission.
     ///
@@ -263,13 +263,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             uint256 lastProposalId = input.firstProposalId + numProposals - 1;
             require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
-            require(lastProposalId >= state.lastFinalizedProposalId + 1, LastProposalIdTooSmall());
+            require(lastProposalId >= state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized());
 
             // ---------------------------------------------------------
             // 2. Calculate offset to first unfinalized proposal
             // ---------------------------------------------------------
             // Some proposals in input.transitions[] may already be finalized.
-            // The offset points to the first proposal that will be newly finalized.
+            // The offset points to the first proposal that will be finalized.
             uint48 offset = state.lastFinalizedProposalId + 1 - input.firstProposalId;
 
             // ---------------------------------------------------------
@@ -279,7 +279,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             bytes32 expectedParentHash = offset == 0
                 ? input.firstProposalParentCheckpointHash
                 : input.transitions[offset - 1].checkpointHash;
-            require(state.lastFinalizedCheckpointHash == expectedParentHash, ParentBlockHashMismatch());
+            require(state.lastFinalizedCheckpointHash == expectedParentHash, ParentCheckpointHashMismatch());
 
             // ---------------------------------------------------------
             // 4. Calculate proposal age and bond instruction
@@ -304,10 +304,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
             }
 
-            // ---------------------------------------------------------
-            // 5. Sync checkpoint if minimum delay has passed
-            // ---------------------------------------------------------
-            if (input.syncCheckpoint) {
+            // -----------------------------------------------------------------------------
+            // 5. Sync checkpoint if provided, otherwise enforce delay
+            // -----------------------------------------------------------------------------
+            bool syncCheckpoint = input.lastCheckpoint.blockHash != 0;
+            if (syncCheckpoint) {
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 _state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
@@ -630,8 +631,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error LastProposalIdTooLarge();
-    error LastProposalIdTooSmall();
+    error LastProposalAlreadyFinalized();
     error NotEnoughCapacity();
-    error ParentBlockHashMismatch();
+    error ParentCheckpointHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }
