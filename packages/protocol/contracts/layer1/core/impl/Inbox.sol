@@ -263,6 +263,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 4. Verify the last proposal hash
             // ---------------------------------------------------------
+            // The prover verifies that a list of consecutive proposals computes the same
+            // last proposal hash, and that the last proposal ID in the list matches lastProposalId.
             require(
                 input.lastProposalHash == getProposalHash(uint48(lastProposalId)),
                 LastProposalHashMismatch()
