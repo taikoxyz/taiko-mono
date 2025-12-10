@@ -149,14 +149,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Modifiers
-    // ---------------------------------------------------------------
-    modifier onlyWhenActivated() {
-        require(_state.nextProposalId != 0, ActivationRequired());
-        _;
-    }
-
-    // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
 
@@ -199,7 +191,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes calldata _data
     )
         external
-        onlyWhenActivated
     {
         unchecked {
             ProposeInput memory input = LibProposeInputCodec.decode(_data);
@@ -255,7 +246,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes calldata _proof
     )
         external
-        onlyWhenActivated
     {
         unchecked {
             CoreState memory state = _state;
