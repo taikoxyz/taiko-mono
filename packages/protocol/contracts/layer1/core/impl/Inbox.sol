@@ -243,14 +243,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -------------------------------------------------------------------------------
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
+            Commitment memory c = input.commitment;
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateBatchBoundsAndCalculateOffset(state, input);
+                _validateBatchBoundsAndCalculateOffset(state, c);
 
             // ---------------------------------------------------------
             // 2. Verify checkpoint hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent checkpoint hash must match the stored lastFinalizedCheckpointHash.
-            Commitment memory c = input.commitment;
             bytes32 expectedParentHash = offset == 0
                 ? c.firstProposalParentCheckpointHash
                 : c.transitions[offset - 1].checkpointHash;
@@ -474,36 +474,37 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Validates the batch bounds and calculates the offset to the first unfinalized proposal.
     /// @param _state The core state.
-    /// @param _input The prove input.
+    /// @param _commitment The commitment data.
     /// @return numProposals_ The number of proposals in the batch.
     /// @return lastProposalId_ The ID of the last proposal in the batch.
     /// @return offset_ The offset to the first unfinalized proposal.
     function _validateBatchBoundsAndCalculateOffset(
         CoreState memory _state,
-        ProveInput memory _input
+        Commitment memory _commitment
     )
         private
         pure
         returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
     {
-        // Validate batch bounds
-        Commitment memory c = _input.commitment;
-        numProposals_ = c.transitions.length;
+        unchecked{
+        numProposals_ = _commitment.transitions.length;
         require(numProposals_ > 0, EmptyBatch());
         require(
-            c.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge()
+            _commitment.firstProposalId <= _state.lastFinalizedProposalId + 1,
+            FirstProposalIdTooLarge()
         );
 
-        lastProposalId_ = c.firstProposalId + numProposals_ - 1;
+        lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
         require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
         require(
             lastProposalId_ >= _state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized()
         );
 
         // Calculate offset to first unfinalized proposal.
-        // Some proposals in _input.commitment.transitions[] may already be finalized.
+        // Some proposals in _commitment.transitions[] may already be finalized.
         // The offset points to the first proposal that will be finalized.
-        offset_ = _state.lastFinalizedProposalId + 1 - c.firstProposalId;
+        offset_ = _state.lastFinalizedProposalId + 1 - _commitment.firstProposalId;
+        }
     }
 
 
