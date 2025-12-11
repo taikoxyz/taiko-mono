@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title LibPackUnpack
 /// @notice Library providing low-level packing/unpacking functions for compact binary encoding
