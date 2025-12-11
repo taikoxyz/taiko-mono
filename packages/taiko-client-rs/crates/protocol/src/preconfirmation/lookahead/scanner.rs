@@ -1,4 +1,5 @@
 use alloy::primitives::Address;
+use alloy_rpc_types::BlockNumberOrTag;
 use event_scanner::{Notification, ScannerMessage};
 
 use tokio::{sync::oneshot, task::JoinHandle, time::Duration};
@@ -7,7 +8,9 @@ use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 
 use super::{
-    LookaheadResolverWithDefaultProvider, error::LookaheadError, resolver::LookaheadResolver,
+    LookaheadResolverWithDefaultProvider,
+    error::LookaheadError,
+    resolver::{LookaheadResolver, SECONDS_IN_EPOCH, SECONDS_IN_SLOT},
 };
 use crate::subscription_source::SubscriptionSource;
 
@@ -17,10 +20,8 @@ use super::error::Result;
 const INGEST_BACKOFF_BASE_MS: u64 = 200;
 /// Upper bound for the exponential backoff delay between ingest retries (milliseconds).
 const INGEST_BACKOFF_MAX_MS: u64 = 5_000;
-/// Number of historical events to sync from when starting the scanner. We only need a short
-/// window matching the resolver's lookback.
-const INITIAL_EVENT_HISTORY: usize =
-    (super::resolver::MAX_LOOKBACK_EPOCHS as usize).saturating_add(2);
+/// Number of epochs to backfill when starting the scanner.
+const SCAN_EPOCH_LOOKBACK: u64 = 3;
 
 /// Error wrapper used to classify ingest failures; all variants are retryable.
 #[derive(Debug)]
@@ -83,12 +84,25 @@ where
         info!(
             buffer = self.lookahead_buffer_size(),
             source = ?source,
-            "starting lookahead scanner from latest buffer"
+            "starting lookahead scanner from three-epoch backfill"
         );
 
-        // Initialize the event scanner.
+        // Compute a starting block approximately three epochs behind the current head to capture
+        // recent history without relying on an event-count heuristic.
+        let latest = self
+            .provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(|err| LookaheadError::EventScanner(err.to_string()))?
+            .ok_or_else(|| LookaheadError::EventScanner("missing latest block".into()))?;
+
+        let blocks_per_epoch = SECONDS_IN_EPOCH / SECONDS_IN_SLOT;
+        let backfill_blocks = blocks_per_epoch.saturating_mul(SCAN_EPOCH_LOOKBACK);
+        let start_block = latest.number().saturating_sub(backfill_blocks);
+
+        // Initialize the event scanner from the computed block.
         let mut scanner = source
-            .to_event_scanner_sync_from_latest_scanning(INITIAL_EVENT_HISTORY)
+            .to_event_scanner_from_tag(BlockNumberOrTag::Number(start_block))
             .await
             .map_err(|err| LookaheadError::EventScanner(err.to_string()))?;
 
