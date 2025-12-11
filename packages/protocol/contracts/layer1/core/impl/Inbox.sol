@@ -514,9 +514,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         view
     {
-        bytes32 hashToProve = LibHashOptimized.hashProveInput(
-            getProposalHash(uint48(_lastProposalId)), _input
-        );
+        bytes32 hashToProve =
+            LibHashOptimized.hashProveInput(getProposalHash(uint48(_lastProposalId)), _input);
         _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
     }
 
