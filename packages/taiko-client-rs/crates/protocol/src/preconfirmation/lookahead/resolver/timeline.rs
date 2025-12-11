@@ -154,6 +154,7 @@ pub struct FallbackTimelineStore {
 }
 
 impl Clone for FallbackTimelineStore {
+    /// Clone the store, sharing the underlying timeline.
     fn clone(&self) -> Self {
         Self { inner: ArcSwap::from(self.inner.load_full()) }
     }
@@ -193,6 +194,7 @@ impl FallbackTimelineStore {
         timeline.operator_at(ts)
     }
 
+    /// Internal helper to perform a copy-on-write update.
     fn update(&self, f: impl FnOnce(&mut FallbackTimeline)) {
         let mut next = (*self.inner.load_full()).clone();
         f(&mut next);

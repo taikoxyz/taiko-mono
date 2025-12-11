@@ -959,4 +959,173 @@ mod tests {
             assert_eq!(result, fallback);
         });
     }
+
+    #[test]
+    fn committer_errors_on_too_old_timestamp() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            // Position genesis two epochs back so earliest_allowed is well above zero.
+            let genesis = now.saturating_sub(SECONDS_IN_EPOCH * 2);
+            let earliest_allowed = earliest_allowed_timestamp_at(now, genesis);
+            let too_old_ts = earliest_allowed.saturating_sub(1);
+
+            let latest_block = make_block(1, now);
+            let blocks = DashMap::new();
+
+            let resolver = test_resolver_with_cache(
+                DashMap::new(),
+                FallbackTimelineStore::new(),
+                DashMap::new(),
+                2,
+                genesis,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: Address::from([0x01; 20]),
+                    next: Address::from([0x02; 20]),
+                    addr: Address::from([0x03; 20]),
+                },
+                FakeStore { addr: Address::from([0x04; 20]) },
+            );
+
+            let result = resolver.committer_for_timestamp(U256::from(too_old_ts)).await;
+            assert!(matches!(result, Err(LookaheadError::TooOld(ts)) if ts == too_old_ts));
+        });
+    }
+
+    #[test]
+    fn committer_errors_on_too_new_timestamp() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            let genesis = now.saturating_sub(SECONDS_IN_EPOCH * 2);
+            let latest_allowed = latest_allowed_timestamp_at(now, genesis);
+            let too_new_ts = latest_allowed;
+
+            let latest_block = make_block(2, now);
+            let blocks = DashMap::new();
+
+            let resolver = test_resolver_with_cache(
+                DashMap::new(),
+                FallbackTimelineStore::new(),
+                DashMap::new(),
+                2,
+                genesis,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: Address::from([0x11; 20]),
+                    next: Address::from([0x12; 20]),
+                    addr: Address::from([0x13; 20]),
+                },
+                FakeStore { addr: Address::from([0x14; 20]) },
+            );
+
+            let result = resolver.committer_for_timestamp(U256::from(too_new_ts)).await;
+            assert!(matches!(result, Err(LookaheadError::TooNew(ts)) if ts == too_new_ts));
+        });
+    }
+
+    #[test]
+    fn committer_synthesizes_empty_epoch_when_missing_cache() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            let genesis = now.saturating_sub(SECONDS_IN_EPOCH * 2);
+            let epoch_start = epoch_start_for(now, genesis);
+
+            // Provide a latest block that sits inside the current epoch window so
+            // `block_within_epoch` can materialize an empty epoch.
+            let latest_block = make_block(10, epoch_start + 10);
+            let blocks = DashMap::new();
+
+            let fallback = Address::from([0xaa; 20]);
+
+            let resolver = test_resolver_with_cache(
+                DashMap::new(),
+                FallbackTimelineStore::new(),
+                DashMap::new(),
+                2,
+                genesis,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: fallback,
+                    next: fallback,
+                    addr: Address::from([0xbb; 20]),
+                },
+                FakeStore { addr: Address::from([0xcc; 20]) },
+            );
+
+            let result = resolver.committer_for_timestamp(U256::from(epoch_start + 20)).await;
+            assert_eq!(result.unwrap(), fallback);
+        });
+    }
+
+    #[test]
+    fn ingest_logs_populates_cache_and_resolves_slot() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            let genesis = now.saturating_sub(SECONDS_IN_EPOCH * 3);
+            let epoch_start = epoch_start_for(now, genesis);
+            let slot_ts = epoch_start + 10;
+            let committer = Address::from([0x21; 20]);
+            let root = B256::from([2u8; 32]);
+
+            // Build a LookaheadPosted log with one slot.
+            let slot = BindingLookaheadSlot {
+                timestamp: U256::from(slot_ts),
+                committer,
+                registrationRoot: root,
+                validatorLeafIndex: U256::ZERO,
+            };
+            let store_addr = Address::from([0x44; 20]);
+            let event = LookaheadPosted {
+                epochTimestamp: U256::from(epoch_start),
+                lookaheadHash: B256::ZERO,
+                lookaheadSlots: vec![slot],
+            };
+            let log_data = event.encode_log_data();
+            let inner = alloy_primitives::Log::new_unchecked(
+                store_addr,
+                log_data.topics().to_vec(),
+                log_data.data.clone(),
+            );
+            let block_number = 123u64;
+            let log = Log {
+                inner,
+                block_hash: None,
+                block_number: Some(block_number),
+                block_timestamp: Some(epoch_start),
+                transaction_hash: None,
+                transaction_index: None,
+                log_index: None,
+                removed: false,
+            };
+
+            // Resolver with empty cache; ingest will populate.
+            let latest_block = make_block(block_number, now);
+            let blocks = DashMap::new();
+            let fallback = Address::from([0x55; 20]);
+
+            let resolver = test_resolver_with_cache(
+                DashMap::new(),
+                FallbackTimelineStore::new(),
+                DashMap::new(),
+                2,
+                genesis,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: fallback,
+                    next: fallback,
+                    addr: Address::from([0x33; 20]),
+                },
+                FakeStore { addr: store_addr },
+            );
+
+            resolver.ingest_logs(vec![log]).await.unwrap();
+
+            let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
+            assert_eq!(result, committer);
+        });
+    }
 }
