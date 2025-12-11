@@ -22,20 +22,17 @@ library LibProvedEventCodec {
 
         // Encode Commitment
         ptr = P.packUint48(ptr, c.firstProposalId);
-        ptr = P.packBytes32(ptr, c.firstProposalParentCheckpointHash);
+        ptr = P.packBytes32(ptr, c.firstProposalParentBlockHash);
         ptr = P.packBytes32(ptr, c.lastProposalHash);
         ptr = P.packAddress(ptr, c.actualProver);
+        ptr = P.packUint48(ptr, c.endBlockNumber);
+        ptr = P.packBytes32(ptr, c.endStateRoot);
 
         P.checkArrayLength(c.transitions.length);
         ptr = P.packUint16(ptr, uint16(c.transitions.length));
         for (uint256 i; i < c.transitions.length; ++i) {
             ptr = _encodeTransition(ptr, c.transitions[i]);
         }
-
-        // Encode lastCheckpoint
-        ptr = P.packUint48(ptr, c.lastCheckpoint.blockNumber);
-        ptr = P.packBytes32(ptr, c.lastCheckpoint.blockHash);
-        ptr = P.packBytes32(ptr, c.lastCheckpoint.stateRoot);
 
         // Encode forceCheckpointSync
         P.packUint8(ptr, _payload.input.forceCheckpointSync ? 1 : 0);
@@ -51,9 +48,11 @@ library LibProvedEventCodec {
 
         // Decode Commitment
         (payload_.input.commitment.firstProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.input.commitment.firstProposalParentCheckpointHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.commitment.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.input.commitment.lastProposalHash, ptr) = P.unpackBytes32(ptr);
         (payload_.input.commitment.actualProver, ptr) = P.unpackAddress(ptr);
+        (payload_.input.commitment.endBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.input.commitment.endStateRoot, ptr) = P.unpackBytes32(ptr);
 
         uint16 transitionsLength;
         (transitionsLength, ptr) = P.unpackUint16(ptr);
@@ -61,11 +60,6 @@ library LibProvedEventCodec {
         for (uint256 i; i < transitionsLength; ++i) {
             (payload_.input.commitment.transitions[i], ptr) = _decodeTransition(ptr);
         }
-
-        // Decode lastCheckpoint
-        (payload_.input.commitment.lastCheckpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.input.commitment.lastCheckpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.input.commitment.lastCheckpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
 
         // Decode forceCheckpointSync
         uint8 forceCheckpointSyncByte;
@@ -80,25 +74,24 @@ library LibProvedEventCodec {
         unchecked {
             // ProveInput fixed fields:
             //   firstProposalId: 6 bytes
-            //   firstProposalParentCheckpointHash: 32 bytes
+            //   firstProposalParentBlockHash: 32 bytes
             //   lastProposalHash: 32 bytes
             //   actualProver: 20 bytes
+            //   endBlockNumber: 6 bytes
+            //   endStateRoot: 32 bytes
             //   transitions array length: 2 bytes
-            //   lastCheckpoint.blockNumber: 6 bytes
-            //   lastCheckpoint.blockHash: 32 bytes
-            //   lastCheckpoint.stateRoot: 32 bytes
             //   forceCheckpointSync: 1 byte
-            // Total ProveInput fixed: 163 bytes
+            // Total ProveInput fixed: 131 bytes
             //
             // Per Transition:
             //   proposer: 20 bytes
             //   designatedProver: 20 bytes
             //   timestamp: 6 bytes
-            //   checkpointHash: 32 bytes
+            //   blockHash: 32 bytes
             // Total per transition: 78 bytes
             //
-            // Total = 163 + (numTransitions * 78)
-            size_ = 163 + (_numTransitions * 78);
+            // Total = 131 + (numTransitions * 78)
+            size_ = 131 + (_numTransitions * 78);
         }
     }
 
@@ -113,7 +106,7 @@ library LibProvedEventCodec {
         newPtr_ = P.packAddress(_ptr, _transition.proposer);
         newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
         newPtr_ = P.packUint48(newPtr_, _transition.timestamp);
-        newPtr_ = P.packBytes32(newPtr_, _transition.checkpointHash);
+        newPtr_ = P.packBytes32(newPtr_, _transition.blockHash);
     }
 
     function _decodeTransition(uint256 _ptr)
@@ -124,6 +117,6 @@ library LibProvedEventCodec {
         (transition_.proposer, newPtr_) = P.unpackAddress(_ptr);
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (transition_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 }

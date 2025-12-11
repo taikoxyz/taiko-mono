@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -95,8 +94,8 @@ interface IInbox {
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The hash of the last finalized checkpoint.
-        bytes32 lastFinalizedCheckpointHash;
+        /// @notice The block hash of the last finalized proposal.
+        bytes32 lastFinalizedBlockHash;
     }
 
     /// @notice Input data for the propose function
@@ -119,8 +118,8 @@ interface IInbox {
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice checkpoint hash for the proposal.
-        bytes32 checkpointHash;
+        /// @notice end block hash for the proposal.
+        bytes32 blockHash;
     }
 
     /// @notice Commitment data that the prover commits to when submitting a proof.
@@ -129,15 +128,17 @@ interface IInbox {
         uint48 firstProposalId;
         /// @notice The checkpoint hash of the parent of the first proposal, this is used
         /// to verify checkpoint continuity in the proof.
-        bytes32 firstProposalParentCheckpointHash;
+        bytes32 firstProposalParentBlockHash;
         /// @notice The hash of the last proposal being proven.
         bytes32 lastProposalHash;
         /// @notice The actual prover who generated the proof.
         address actualProver;
+        /// @notice The block number for the end L2 block in this proposal.
+        uint48 endBlockNumber;
+        /// @notice The state root for the end L2 block in this proposal.
+        bytes32 endStateRoot;
         /// @notice Array of transitions for each proposal in the proof range.
         Transition[] transitions;
-        /// @notice Checkpoint of the last proposal.
-        ICheckpointStore.Checkpoint lastCheckpoint;
     }
 
     /// @notice Input data for the prove function
