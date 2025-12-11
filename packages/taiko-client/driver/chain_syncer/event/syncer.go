@@ -657,6 +657,9 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
 
+	if len(payload.Input.Commitment.Transitions) == 0 {
+		return nil, fmt.Errorf("no transitions found in the last verified payload")
+	}
 	lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
 	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == lastTransition.BlockHash {
