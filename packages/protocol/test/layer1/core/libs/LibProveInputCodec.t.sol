@@ -24,7 +24,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: 5,
-                firstProposalParentCheckpointHash: bytes32(uint256(99)),
+                firstProposalParentBlockHash: bytes32(uint256(99)),
                 lastProposalHash: bytes32(uint256(100)),
                 actualProver: address(0xAAAA),
                 endBlockNumber: 1000,
@@ -41,9 +41,9 @@ contract LibProveInputCodecTest is Test {
             decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
         );
         assertEq(
-            decoded.commitment.firstProposalParentCheckpointHash,
-            input.commitment.firstProposalParentCheckpointHash,
-            "firstProposalParentCheckpointHash"
+            decoded.commitment.firstProposalParentBlockHash,
+            input.commitment.firstProposalParentBlockHash,
+            "firstProposalParentBlockHash"
         );
         assertEq(
             decoded.commitment.lastProposalHash,
@@ -107,7 +107,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: 1,
-                firstProposalParentCheckpointHash: bytes32(0),
+                firstProposalParentBlockHash: bytes32(0),
                 lastProposalHash: bytes32(uint256(101)),
                 actualProver: address(0xBBBB),
                 endBlockNumber: 50,
@@ -133,7 +133,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: 0,
-                firstProposalParentCheckpointHash: bytes32(0),
+                firstProposalParentBlockHash: bytes32(0),
                 lastProposalHash: bytes32(0),
                 actualProver: address(0),
                 endBlockNumber: 0,
@@ -161,7 +161,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: 42,
-                firstProposalParentCheckpointHash: bytes32(uint256(1111)),
+                firstProposalParentBlockHash: bytes32(uint256(1111)),
                 lastProposalHash: bytes32(uint256(2222)),
                 actualProver: address(0xCCCC),
                 endBlockNumber: 888,

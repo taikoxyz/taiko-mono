@@ -147,7 +147,7 @@ contract InboxProveTest is InboxTestBase {
         inbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_prove_RevertWhen_ParentCheckpointHashMismatch() public {
+    function test_prove_RevertWhen_ParentBlockHashMismatch() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
@@ -160,7 +160,7 @@ contract InboxProveTest is InboxTestBase {
             _buildInput(1, bytes32(uint256(999)), transitions, keccak256("stateRoot"));
 
         bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.ParentCheckpointHashMismatch.selector);
+        vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
@@ -223,7 +223,7 @@ contract InboxProveTest is InboxTestBase {
             _buildInput(p1.proposal.id, bytes32(0), fullBatch, keccak256("stateRoot2"));
 
         bytes memory encodedInput = codec.encodeProveInput(fullInput);
-        vm.expectRevert(Inbox.ParentCheckpointHashMismatch.selector);
+        vm.expectRevert(Inbox.ParentBlockHashMismatch.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
@@ -544,7 +544,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: 1,
-                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedBlockHash,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
                 lastProposalHash: inbox.getProposalHash(1),
                 actualProver: prover,
                 endBlockNumber: 0,
@@ -567,7 +567,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input1 = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: 1,
-                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedBlockHash,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
                 lastProposalHash: inbox.getProposalHash(1),
                 actualProver: prover,
                 endBlockNumber: 0,
@@ -595,7 +595,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input2 = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: p2.proposal.id,
-                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedBlockHash,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
                 lastProposalHash: inbox.getProposalHash(p2.proposal.id),
                 actualProver: prover,
                 endBlockNumber: endBlockNumber,
@@ -626,7 +626,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: p2.proposal.id,
-                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedBlockHash,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
                 lastProposalHash: inbox.getProposalHash(p2.proposal.id),
                 actualProver: prover,
                 endBlockNumber: 0,
@@ -647,7 +647,7 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     function _buildInput(
         uint48 _firstProposalId,
-        bytes32 _parentCheckpointHash,
+        bytes32 _parentBlockHash,
         IInbox.Transition[] memory _transitions,
         bytes32 // _stateRoot - unused, kept for backward compatibility
     )
@@ -661,7 +661,7 @@ contract InboxProveTest is InboxTestBase {
         return IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: _firstProposalId,
-                firstProposalParentCheckpointHash: _parentCheckpointHash,
+                firstProposalParentBlockHash: _parentBlockHash,
                 lastProposalHash: inbox.getProposalHash(lastProposalId),
                 actualProver: prover,
                 endBlockNumber: 0,
@@ -674,7 +674,7 @@ contract InboxProveTest is InboxTestBase {
 
     function _buildInputWithCheckpoint(
         uint48 _firstProposalId,
-        bytes32 _parentCheckpointHash,
+        bytes32 _parentBlockHash,
         IInbox.Transition[] memory _transitions,
         uint48 _endBlockNumber,
         bytes32 _endStateRoot
@@ -687,7 +687,7 @@ contract InboxProveTest is InboxTestBase {
         return IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: _firstProposalId,
-                firstProposalParentCheckpointHash: _parentCheckpointHash,
+                firstProposalParentBlockHash: _parentBlockHash,
                 lastProposalHash: inbox.getProposalHash(lastProposalId),
                 actualProver: prover,
                 endBlockNumber: _endBlockNumber,

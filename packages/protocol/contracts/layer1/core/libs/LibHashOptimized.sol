@@ -124,7 +124,7 @@ library LibHashOptimized {
             //
             // Commitment static section (starts at word 1):
             // [1] firstProposalId
-            // [2] firstProposalParentCheckpointHash
+            // [2] firstProposalParentBlockHash
             // [3] lastProposalHash
             // [4] actualProver
             // [5] endBlockNumber
@@ -143,7 +143,7 @@ library LibHashOptimized {
 
             // Commitment static fields
             EfficientHashLib.set(buffer, 1, bytes32(uint256(_commitment.firstProposalId)));
-            EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentCheckpointHash);
+            EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentBlockHash);
             EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
             EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_commitment.actualProver))));
             EfficientHashLib.set(buffer, 5, bytes32(uint256(_commitment.endBlockNumber)));

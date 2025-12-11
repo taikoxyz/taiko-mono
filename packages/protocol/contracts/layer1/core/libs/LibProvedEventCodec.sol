@@ -22,7 +22,7 @@ library LibProvedEventCodec {
 
         // Encode Commitment
         ptr = P.packUint48(ptr, c.firstProposalId);
-        ptr = P.packBytes32(ptr, c.firstProposalParentCheckpointHash);
+        ptr = P.packBytes32(ptr, c.firstProposalParentBlockHash);
         ptr = P.packBytes32(ptr, c.lastProposalHash);
         ptr = P.packAddress(ptr, c.actualProver);
         ptr = P.packUint48(ptr, c.endBlockNumber);
@@ -48,7 +48,7 @@ library LibProvedEventCodec {
 
         // Decode Commitment
         (payload_.input.commitment.firstProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.input.commitment.firstProposalParentCheckpointHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.commitment.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.input.commitment.lastProposalHash, ptr) = P.unpackBytes32(ptr);
         (payload_.input.commitment.actualProver, ptr) = P.unpackAddress(ptr);
         (payload_.input.commitment.endBlockNumber, ptr) = P.unpackUint48(ptr);
@@ -74,7 +74,7 @@ library LibProvedEventCodec {
         unchecked {
             // ProveInput fixed fields:
             //   firstProposalId: 6 bytes
-            //   firstProposalParentCheckpointHash: 32 bytes
+            //   firstProposalParentBlockHash: 32 bytes
             //   lastProposalHash: 32 bytes
             //   actualProver: 20 bytes
             //   endBlockNumber: 6 bytes

@@ -253,11 +253,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
             bytes32 expectedParentHash = offset == 0
-                ? c.firstProposalParentCheckpointHash
+                ? c.firstProposalParentBlockHash
                 : c.transitions[offset - 1].blockHash;
             require(
                 state.lastFinalizedBlockHash == expectedParentHash,
-                ParentCheckpointHashMismatch()
+                ParentBlockHashMismatch()
             );
 
             require(
@@ -646,6 +646,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
-    error ParentCheckpointHashMismatch();
+    error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }

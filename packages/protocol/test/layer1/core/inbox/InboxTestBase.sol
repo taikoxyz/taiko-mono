@@ -273,7 +273,7 @@ abstract contract InboxTestBase is CommonTest {
         input_ = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: firstProposalId,
-                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedBlockHash,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
                 lastProposalHash: lastProposalHash,
                 actualProver: prover,
                 endBlockNumber: uint48(block.number),

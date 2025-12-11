@@ -17,7 +17,7 @@ library LibProveInputCodec {
         uint256 ptr = P.dataPtr(encoded_);
 
         ptr = P.packUint48(ptr, c.firstProposalId);
-        ptr = P.packBytes32(ptr, c.firstProposalParentCheckpointHash);
+        ptr = P.packBytes32(ptr, c.firstProposalParentBlockHash);
         ptr = P.packBytes32(ptr, c.lastProposalHash);
         ptr = P.packAddress(ptr, c.actualProver);
         ptr = P.packUint48(ptr, c.endBlockNumber);
@@ -39,7 +39,7 @@ library LibProveInputCodec {
         uint256 ptr = P.dataPtr(_data);
 
         (input_.commitment.firstProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.commitment.firstProposalParentCheckpointHash, ptr) = P.unpackBytes32(ptr);
+        (input_.commitment.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
         (input_.commitment.lastProposalHash, ptr) = P.unpackBytes32(ptr);
         (input_.commitment.actualProver, ptr) = P.unpackAddress(ptr);
         (input_.commitment.endBlockNumber, ptr) = P.unpackUint48(ptr);
@@ -65,7 +65,7 @@ library LibProveInputCodec {
         unchecked {
             // Fixed fields:
             //   firstProposalId: 6 bytes
-            //   firstProposalParentCheckpointHash: 32 bytes
+            //   firstProposalParentBlockHash: 32 bytes
             //   lastProposalHash: 32 bytes
             //   actualProver: 20 bytes
             //   endBlockNumber: 6 bytes

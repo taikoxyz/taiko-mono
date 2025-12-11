@@ -128,7 +128,7 @@ interface IInbox {
         uint48 firstProposalId;
         /// @notice The checkpoint hash of the parent of the first proposal, this is used
         /// to verify checkpoint continuity in the proof.
-        bytes32 firstProposalParentCheckpointHash;
+        bytes32 firstProposalParentBlockHash;
         /// @notice The hash of the last proposal being proven.
         bytes32 lastProposalHash;
         /// @notice The actual prover who generated the proof.

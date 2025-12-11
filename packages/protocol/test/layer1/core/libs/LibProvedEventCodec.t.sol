@@ -19,7 +19,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 commitment: IInbox.Commitment({
                     firstProposalId: 5,
-                    firstProposalParentCheckpointHash: bytes32(uint256(99)),
+                    firstProposalParentBlockHash: bytes32(uint256(99)),
                     lastProposalHash: bytes32(uint256(100)),
                     actualProver: address(0xAAAA),
                     endBlockNumber: 1000,
@@ -39,9 +39,9 @@ contract LibProvedEventCodecTest is Test {
             "firstProposalId"
         );
         assertEq(
-            decoded.input.commitment.firstProposalParentCheckpointHash,
-            payload.input.commitment.firstProposalParentCheckpointHash,
-            "firstProposalParentCheckpointHash"
+            decoded.input.commitment.firstProposalParentBlockHash,
+            payload.input.commitment.firstProposalParentBlockHash,
+            "firstProposalParentBlockHash"
         );
         assertEq(
             decoded.input.commitment.lastProposalHash,
@@ -111,7 +111,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 commitment: IInbox.Commitment({
                     firstProposalId: 10,
-                    firstProposalParentCheckpointHash: bytes32(uint256(999)),
+                    firstProposalParentBlockHash: bytes32(uint256(999)),
                     lastProposalHash: bytes32(uint256(1000)),
                     actualProver: address(0xBBBB),
                     endBlockNumber: 5000,
@@ -165,7 +165,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 commitment: IInbox.Commitment({
                     firstProposalId: 42,
-                    firstProposalParentCheckpointHash: bytes32(uint256(1111)),
+                    firstProposalParentBlockHash: bytes32(uint256(1111)),
                     lastProposalHash: bytes32(uint256(2222)),
                     actualProver: address(0xDDDD),
                     endBlockNumber: 888,
@@ -203,7 +203,7 @@ contract LibProvedEventCodecTest is Test {
             input: IInbox.ProveInput({
                 commitment: IInbox.Commitment({
                     firstProposalId: 1,
-                    firstProposalParentCheckpointHash: bytes32(0),
+                    firstProposalParentBlockHash: bytes32(0),
                     lastProposalHash: bytes32(uint256(3)),
                     actualProver: address(0xAAAA),
                     endBlockNumber: 10,
