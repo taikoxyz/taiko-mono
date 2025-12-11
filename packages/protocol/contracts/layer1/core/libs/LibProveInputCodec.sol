@@ -20,6 +20,8 @@ library LibProveInputCodec {
         ptr = P.packBytes32(ptr, c.firstProposalParentCheckpointHash);
         ptr = P.packBytes32(ptr, c.lastProposalHash);
         ptr = P.packAddress(ptr, c.actualProver);
+        ptr = P.packUint48(ptr, c.endBlockNumber);
+        ptr = P.packBytes32(ptr, c.endStateRoot);
 
         P.checkArrayLength(c.transitions.length);
         ptr = P.packUint16(ptr, uint16(c.transitions.length));
@@ -27,11 +29,6 @@ library LibProveInputCodec {
             _encodeTransition(ptr, c.transitions[i]);
             ptr += 78; // Transition size: 20 + 20 + 6 + 32 = 78 bytes
         }
-
-        // Encode lastCheckpoint
-        ptr = P.packUint48(ptr, c.lastCheckpoint.blockNumber);
-        ptr = P.packBytes32(ptr, c.lastCheckpoint.blockHash);
-        ptr = P.packBytes32(ptr, c.lastCheckpoint.stateRoot);
 
         // Encode forceCheckpointSync
         P.packUint8(ptr, _input.forceCheckpointSync ? 1 : 0);
@@ -45,6 +42,8 @@ library LibProveInputCodec {
         (input_.commitment.firstProposalParentCheckpointHash, ptr) = P.unpackBytes32(ptr);
         (input_.commitment.lastProposalHash, ptr) = P.unpackBytes32(ptr);
         (input_.commitment.actualProver, ptr) = P.unpackAddress(ptr);
+        (input_.commitment.endBlockNumber, ptr) = P.unpackUint48(ptr);
+        (input_.commitment.endStateRoot, ptr) = P.unpackBytes32(ptr);
 
         uint16 transitionsLength;
         (transitionsLength, ptr) = P.unpackUint16(ptr);
@@ -52,11 +51,6 @@ library LibProveInputCodec {
         for (uint256 i; i < transitionsLength; ++i) {
             (input_.commitment.transitions[i], ptr) = _decodeTransition(ptr);
         }
-
-        // Decode lastCheckpoint
-        (input_.commitment.lastCheckpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (input_.commitment.lastCheckpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (input_.commitment.lastCheckpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
 
         // Decode forceCheckpointSync
         uint8 forceCheckpointSyncByte;
@@ -74,12 +68,11 @@ library LibProveInputCodec {
             //   firstProposalParentCheckpointHash: 32 bytes
             //   lastProposalHash: 32 bytes
             //   actualProver: 20 bytes
+            //   endBlockNumber: 6 bytes
+            //   endStateRoot: 32 bytes
             //   transitions array length: 2 bytes
-            //   lastCheckpoint.blockNumber: 6 bytes
-            //   lastCheckpoint.blockHash: 32 bytes
-            //   lastCheckpoint.stateRoot: 32 bytes
             //   forceCheckpointSync: 1 byte
-            // Total fixed: 163 bytes
+            // Total fixed: 131 bytes
             //
             // Per Transition:
             //   proposer: 20 bytes
@@ -87,7 +80,7 @@ library LibProveInputCodec {
             //   timestamp: 6 bytes
             //   blockHash: 32 bytes
             // Total per transition: 78 bytes
-            size_ = 163 + (_numTransitions * 78);
+            size_ = 131 + (_numTransitions * 78);
         }
     }
 

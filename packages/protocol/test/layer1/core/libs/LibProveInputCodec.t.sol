@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProveInputCodecTest is Test {
     function test_encode_decode_roundtrip() public pure {
@@ -28,12 +27,9 @@ contract LibProveInputCodecTest is Test {
                 firstProposalParentCheckpointHash: bytes32(uint256(99)),
                 lastProposalHash: bytes32(uint256(100)),
                 actualProver: address(0xAAAA),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 1000,
-                    blockHash: transitions[1].blockHash,
-                    stateRoot: bytes32(uint256(88))
-                })
+                endBlockNumber: 1000,
+                endStateRoot: bytes32(uint256(88)),
+                transitions: transitions
             }),
             forceCheckpointSync: true
         });
@@ -86,19 +82,14 @@ contract LibProveInputCodecTest is Test {
             "transitions[1] blockHash"
         );
         assertEq(
-            decoded.commitment.lastCheckpoint.blockNumber,
-            input.commitment.lastCheckpoint.blockNumber,
-            "lastCheckpoint blockNumber"
+            decoded.commitment.endBlockNumber,
+            input.commitment.endBlockNumber,
+            "endBlockNumber"
         );
         assertEq(
-            decoded.commitment.lastCheckpoint.blockHash,
-            input.commitment.lastCheckpoint.blockHash,
-            "lastCheckpoint blockHash"
-        );
-        assertEq(
-            decoded.commitment.lastCheckpoint.stateRoot,
-            input.commitment.lastCheckpoint.stateRoot,
-            "lastCheckpoint stateRoot"
+            decoded.commitment.endStateRoot,
+            input.commitment.endStateRoot,
+            "endStateRoot"
         );
         assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
         assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
@@ -119,12 +110,9 @@ contract LibProveInputCodecTest is Test {
                 firstProposalParentCheckpointHash: bytes32(0),
                 lastProposalHash: bytes32(uint256(101)),
                 actualProver: address(0xBBBB),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 50,
-                    blockHash: transitions[0].blockHash,
-                    stateRoot: bytes32(uint256(66))
-                })
+                endBlockNumber: 50,
+                endStateRoot: bytes32(uint256(66)),
+                transitions: transitions
             }),
             forceCheckpointSync: false
         });
@@ -148,10 +136,9 @@ contract LibProveInputCodecTest is Test {
                 firstProposalParentCheckpointHash: bytes32(0),
                 lastProposalHash: bytes32(0),
                 actualProver: address(0),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
-                })
+                endBlockNumber: 0,
+                endStateRoot: bytes32(0),
+                transitions: transitions
             }),
             forceCheckpointSync: false
         });
@@ -177,12 +164,9 @@ contract LibProveInputCodecTest is Test {
                 firstProposalParentCheckpointHash: bytes32(uint256(1111)),
                 lastProposalHash: bytes32(uint256(2222)),
                 actualProver: address(0xCCCC),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 888,
-                    blockHash: transitions[0].blockHash,
-                    stateRoot: bytes32(uint256(7777))
-                })
+                endBlockNumber: 888,
+                endStateRoot: bytes32(uint256(7777)),
+                transitions: transitions
             }),
             forceCheckpointSync: true
         });

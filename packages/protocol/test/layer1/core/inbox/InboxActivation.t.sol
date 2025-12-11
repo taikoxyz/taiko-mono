@@ -8,7 +8,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Tests for Inbox activation and pre-activation behavior
 contract InboxActivationTest is InboxTestBase {
@@ -50,12 +49,9 @@ contract InboxActivationTest is InboxTestBase {
                 firstProposalParentCheckpointHash: bytes32(0),
                 lastProposalHash: bytes32(uint256(123)),
                 actualProver: prover,
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: uint48(block.number),
-                    blockHash: transitions[0].blockHash,
-                    stateRoot: bytes32(uint256(1))
-                })
+                endBlockNumber: uint48(block.number),
+                endStateRoot: bytes32(uint256(1)),
+                transitions: transitions
             }),
             forceCheckpointSync: false
         });
@@ -66,8 +62,8 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_activate_RevertWhen_InvalidLastPacayaCheckpointHash() public {
-        vm.expectRevert(LibInboxSetup.InvalidLastPacayaCheckpointHash.selector);
+    function test_activate_RevertWhen_InvalidLastPacayaBlockHash() public {
+        vm.expectRevert(LibInboxSetup.InvalidLastPacayaBlockHash.selector);
         nonActivatedInbox.activate(bytes32(0));
     }
 

@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProvedEventCodec } from "src/layer1/core/libs/LibProvedEventCodec.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProvedEventCodecTest is Test {
     function test_encode_decode_single_proposal() public pure {
@@ -23,12 +22,9 @@ contract LibProvedEventCodecTest is Test {
                     firstProposalParentCheckpointHash: bytes32(uint256(99)),
                     lastProposalHash: bytes32(uint256(100)),
                     actualProver: address(0xAAAA),
-                    transitions: transitions,
-                    lastCheckpoint: ICheckpointStore.Checkpoint({
-                        blockNumber: 1000,
-                        blockHash: transitions[0].blockHash,
-                        stateRoot: bytes32(uint256(88))
-                    })
+                    endBlockNumber: 1000,
+                    endStateRoot: bytes32(uint256(88)),
+                    transitions: transitions
                 }),
                 forceCheckpointSync: false
             })
@@ -74,19 +70,14 @@ contract LibProvedEventCodecTest is Test {
             "transitions[0] blockHash"
         );
         assertEq(
-            decoded.input.commitment.lastCheckpoint.blockNumber,
-            payload.input.commitment.lastCheckpoint.blockNumber,
-            "lastCheckpoint blockNumber"
+            decoded.input.commitment.endBlockNumber,
+            payload.input.commitment.endBlockNumber,
+            "endBlockNumber"
         );
         assertEq(
-            decoded.input.commitment.lastCheckpoint.blockHash,
-            payload.input.commitment.lastCheckpoint.blockHash,
-            "lastCheckpoint blockHash"
-        );
-        assertEq(
-            decoded.input.commitment.lastCheckpoint.stateRoot,
-            payload.input.commitment.lastCheckpoint.stateRoot,
-            "lastCheckpoint stateRoot"
+            decoded.input.commitment.endStateRoot,
+            payload.input.commitment.endStateRoot,
+            "endStateRoot"
         );
         assertEq(
             decoded.input.commitment.actualProver,
@@ -123,12 +114,9 @@ contract LibProvedEventCodecTest is Test {
                     firstProposalParentCheckpointHash: bytes32(uint256(999)),
                     lastProposalHash: bytes32(uint256(1000)),
                     actualProver: address(0xBBBB),
-                    transitions: transitions,
-                    lastCheckpoint: ICheckpointStore.Checkpoint({
-                        blockNumber: 5000,
-                        blockHash: transitions[2].blockHash,
-                        stateRoot: bytes32(uint256(888))
-                    })
+                    endBlockNumber: 5000,
+                    endStateRoot: bytes32(uint256(888)),
+                    transitions: transitions
                 }),
                 forceCheckpointSync: true
             })
@@ -180,12 +168,9 @@ contract LibProvedEventCodecTest is Test {
                     firstProposalParentCheckpointHash: bytes32(uint256(1111)),
                     lastProposalHash: bytes32(uint256(2222)),
                     actualProver: address(0xDDDD),
-                    transitions: transitions,
-                    lastCheckpoint: ICheckpointStore.Checkpoint({
-                        blockNumber: 888,
-                        blockHash: transitions[0].blockHash,
-                        stateRoot: bytes32(uint256(7777))
-                    })
+                    endBlockNumber: 888,
+                    endStateRoot: bytes32(uint256(7777)),
+                    transitions: transitions
                 }),
                 forceCheckpointSync: false
             })
@@ -221,12 +206,9 @@ contract LibProvedEventCodecTest is Test {
                     firstProposalParentCheckpointHash: bytes32(0),
                     lastProposalHash: bytes32(uint256(3)),
                     actualProver: address(0xAAAA),
-                    transitions: transitions,
-                    lastCheckpoint: ICheckpointStore.Checkpoint({
-                        blockNumber: 10,
-                        blockHash: transitions[1].blockHash,
-                        stateRoot: bytes32(uint256(2))
-                    })
+                    endBlockNumber: 10,
+                    endStateRoot: bytes32(uint256(2)),
+                    transitions: transitions
                 }),
                 forceCheckpointSync: false
             })
@@ -234,7 +216,7 @@ contract LibProvedEventCodecTest is Test {
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
 
-        // Expected size: 163 + (2 * 78) = 163 + 156 = 319
-        assertEq(encoded.length, 319, "encoded size for 2 transitions");
+        // Expected size: 131 + (2 * 78) = 131 + 156 = 287
+        assertEq(encoded.length, 287, "encoded size for 2 transitions");
     }
 }
