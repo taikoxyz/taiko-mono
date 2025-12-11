@@ -14,26 +14,28 @@ library LibProvedEventCodec {
         pure
         returns (bytes memory encoded_)
     {
-        uint256 bufferSize = _calculateSize(_payload.input.transitions.length);
+        IInbox.Commitment memory c = _payload.input.commitment;
+        uint256 bufferSize = _calculateSize(c.transitions.length);
         encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
 
-        // Encode ProveInput
-        ptr = P.packUint48(ptr, _payload.input.firstProposalId);
-        ptr = P.packBytes32(ptr, _payload.input.firstProposalParentCheckpointHash);
-        ptr = P.packAddress(ptr, _payload.input.actualProver);
+        // Encode Commitment
+        ptr = P.packUint48(ptr, c.firstProposalId);
+        ptr = P.packBytes32(ptr, c.firstProposalParentCheckpointHash);
+        ptr = P.packBytes32(ptr, c.lastProposalHash);
+        ptr = P.packAddress(ptr, c.actualProver);
 
-        P.checkArrayLength(_payload.input.transitions.length);
-        ptr = P.packUint16(ptr, uint16(_payload.input.transitions.length));
-        for (uint256 i; i < _payload.input.transitions.length; ++i) {
-            ptr = _encodeTransition(ptr, _payload.input.transitions[i]);
+        P.checkArrayLength(c.transitions.length);
+        ptr = P.packUint16(ptr, uint16(c.transitions.length));
+        for (uint256 i; i < c.transitions.length; ++i) {
+            ptr = _encodeTransition(ptr, c.transitions[i]);
         }
 
         // Encode lastCheckpoint
-        ptr = P.packUint48(ptr, _payload.input.lastCheckpoint.blockNumber);
-        ptr = P.packBytes32(ptr, _payload.input.lastCheckpoint.blockHash);
-        ptr = P.packBytes32(ptr, _payload.input.lastCheckpoint.stateRoot);
+        ptr = P.packUint48(ptr, c.lastCheckpoint.blockNumber);
+        ptr = P.packBytes32(ptr, c.lastCheckpoint.blockHash);
+        ptr = P.packBytes32(ptr, c.lastCheckpoint.stateRoot);
 
         // Encode forceCheckpointSync
         P.packUint8(ptr, _payload.input.forceCheckpointSync ? 1 : 0);
@@ -47,22 +49,23 @@ library LibProvedEventCodec {
     {
         uint256 ptr = P.dataPtr(_data);
 
-        // Decode ProveInput
-        (payload_.input.firstProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.input.firstProposalParentCheckpointHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.input.actualProver, ptr) = P.unpackAddress(ptr);
+        // Decode Commitment
+        (payload_.input.commitment.firstProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.input.commitment.firstProposalParentCheckpointHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.commitment.lastProposalHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.commitment.actualProver, ptr) = P.unpackAddress(ptr);
 
         uint16 transitionsLength;
         (transitionsLength, ptr) = P.unpackUint16(ptr);
-        payload_.input.transitions = new IInbox.Transition[](transitionsLength);
+        payload_.input.commitment.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
-            (payload_.input.transitions[i], ptr) = _decodeTransition(ptr);
+            (payload_.input.commitment.transitions[i], ptr) = _decodeTransition(ptr);
         }
 
         // Decode lastCheckpoint
-        (payload_.input.lastCheckpoint.blockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.input.lastCheckpoint.blockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.input.lastCheckpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.commitment.lastCheckpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.input.commitment.lastCheckpoint.blockHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.input.commitment.lastCheckpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
 
         // Decode forceCheckpointSync
         uint8 forceCheckpointSyncByte;
@@ -78,13 +81,14 @@ library LibProvedEventCodec {
             // ProveInput fixed fields:
             //   firstProposalId: 6 bytes
             //   firstProposalParentCheckpointHash: 32 bytes
+            //   lastProposalHash: 32 bytes
             //   actualProver: 20 bytes
             //   transitions array length: 2 bytes
             //   lastCheckpoint.blockNumber: 6 bytes
             //   lastCheckpoint.blockHash: 32 bytes
             //   lastCheckpoint.stateRoot: 32 bytes
             //   forceCheckpointSync: 1 byte
-            // Total ProveInput fixed: 131 bytes
+            // Total ProveInput fixed: 163 bytes
             //
             // Per Transition:
             //   proposer: 20 bytes
@@ -93,8 +97,8 @@ library LibProvedEventCodec {
             //   checkpointHash: 32 bytes
             // Total per transition: 78 bytes
             //
-            // Total = 131 + (numTransitions * 78)
-            size_ = 131 + (_numTransitions * 78);
+            // Total = 163 + (numTransitions * 78)
+            size_ = 163 + (_numTransitions * 78);
         }
     }
 

@@ -247,32 +247,35 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 _validateBatchBoundsAndCalculateOffset(state, input);
 
             // ---------------------------------------------------------
-            // 2. Verify checkpoint hash continuity
+            // 2. Verify checkpoint hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent checkpoint hash must match the stored lastFinalizedCheckpointHash.
+            Commitment memory c = input.commitment;
             bytes32 expectedParentHash = offset == 0
-                ? input.firstProposalParentCheckpointHash
-                : input.transitions[offset - 1].checkpointHash;
+                ? c.firstProposalParentCheckpointHash
+                : c.transitions[offset - 1].checkpointHash;
             require(
                 state.lastFinalizedCheckpointHash == expectedParentHash,
                 ParentCheckpointHashMismatch()
             );
 
+            require(c.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch());
+
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            Transition memory firstTransition = input.transitions[offset];
+            Transition memory transitionAtOffset = c.transitions[offset];
             uint256 proposalAge =
-                block.timestamp - firstTransition.timestamp.max(state.lastFinalizedTimestamp);
+                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
             // Bond transfers only apply to the first newly-finalized proposal.
             LibBonds.BondInstruction memory bondInstruction =
                 LibBondInstruction.calculateBondInstruction(
-                    input.firstProposalId + offset,
+                    c.firstProposalId + offset,
                     proposalAge,
-                    firstTransition.proposer,
-                    firstTransition.designatedProver,
-                    input.actualProver,
+                    transitionAtOffset.proposer,
+                    transitionAtOffset.designatedProver,
+                    c.actualProver,
                     _provingWindow,
                     _extendedProvingWindow
                 );
@@ -288,7 +291,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 input.forceCheckpointSync
                     || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
             ) {
-                _signalService.saveCheckpoint(input.lastCheckpoint);
+                _signalService.saveCheckpoint(c.lastCheckpoint);
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
 
@@ -297,7 +300,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
+            state.lastFinalizedCheckpointHash = c.transitions[numProposals - 1].checkpointHash;
 
             _coreState = state;
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
@@ -305,7 +308,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
-            _verifyProof(lastProposalId, input, proposalAge, _proof);
+        _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashCommitment(c), _proof);
         }
     }
 
@@ -486,37 +489,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
     {
         // Validate batch bounds
-        numProposals_ = _input.transitions.length;
+        Commitment memory c = _input.commitment;
+        numProposals_ = c.transitions.length;
         require(numProposals_ > 0, EmptyBatch());
         require(
-            _input.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge()
+            c.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge()
         );
 
-        lastProposalId_ = _input.firstProposalId + numProposals_ - 1;
+        lastProposalId_ = c.firstProposalId + numProposals_ - 1;
         require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
         require(
             lastProposalId_ >= _state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized()
         );
 
         // Calculate offset to first unfinalized proposal.
-        // Some proposals in _input.transitions[] may already be finalized.
+        // Some proposals in _input.commitment.transitions[] may already be finalized.
         // The offset points to the first proposal that will be finalized.
-        offset_ = _state.lastFinalizedProposalId + 1 - _input.firstProposalId;
+        offset_ = _state.lastFinalizedProposalId + 1 - c.firstProposalId;
     }
 
-    function _verifyProof(
-        uint256 _lastProposalId,
-        ProveInput memory _input,
-        uint256 _proposalAge,
-        bytes calldata _proof
-    )
-        private
-        view
-    {
-        bytes32 hashToProve =
-            LibHashOptimized.hashProveInput(getProposalHash(_lastProposalId), _input);
-        _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
-    }
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
@@ -648,8 +639,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
-    error LastProposalIdTooLarge();
     error LastProposalAlreadyFinalized();
+    error LastProposalHashMismatch();
+    error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentCheckpointHashMismatch();
     error UnprocessedForcedInclusionIsDue();

@@ -93,11 +93,14 @@ contract InboxRingBufferTest is InboxTestBase {
         transitions[1] = _transitionFor(p2, prover, checkpoint2Hash);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            firstProposalId: p1.proposal.id,
-            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
-            actualProver: prover,
-            transitions: transitions,
-            lastCheckpoint: lastCheckpoint,
+            commitment: IInbox.Commitment({
+                firstProposalId: p1.proposal.id,
+                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
+                lastProposalHash: inbox.getProposalHash(p2.proposal.id),
+                actualProver: prover,
+                transitions: transitions,
+                lastCheckpoint: lastCheckpoint
+            }),
             forceCheckpointSync: false
         });
 

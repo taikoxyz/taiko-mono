@@ -111,33 +111,25 @@ library LibHashOptimized {
         return result;
     }
 
-    /// @notice Optimized hashing for prove inputs and the corresponding proposal hash.
-    /// @dev Produces the same digest as `keccak256(abi.encode(_lastProposalHash, _input))`
+    /// @notice Optimized hashing for commitment data.
+    /// @dev Produces the same digest as `keccak256(abi.encode(_commitment))`
     ///      while minimizing memory allocations.
-    /// @param _lastProposalHash The hash of the last proposal in the batch.
-    /// @param _input The prove input to hash.
-    /// @return The hash of the prove input.
-    function hashProveInput(
-        bytes32 _lastProposalHash,
-        IInbox.ProveInput memory _input
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
+    /// @param _commitment The commitment data to hash.
+    /// @return The hash of the commitment.
+    function hashCommitment(IInbox.Commitment memory _commitment) internal pure returns (bytes32) {
         unchecked {
-            IInbox.Transition[] memory transitions = _input.transitions;
+            IInbox.Transition[] memory transitions = _commitment.transitions;
             uint256 transitionsLength = transitions.length;
 
-            // Top-level layout (abi.encode):
-            // [0] lastProposalHash
-            // [1] offset to prove input (0x40)
+            // Commitment layout (abi.encode):
+            // [0] offset to commitment (0x20)
             //
-            // ProveInput static section (starts at word 2):
-            // [2] firstProposalId
-            // [3] firstProposalParentCheckpointHash
+            // Commitment static section (starts at word 1):
+            // [1] firstProposalId
+            // [2] firstProposalParentCheckpointHash
+            // [3] lastProposalHash
             // [4] actualProver
-            // [5] offset to transitions (0xe0)
+            // [5] offset to transitions (0x100)
             // [6] lastCheckpoint.blockNumber
             // [7] lastCheckpoint.blockHash
             // [8] lastCheckpoint.stateRoot
@@ -150,17 +142,17 @@ library LibHashOptimized {
             bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
             // Top-level head
-            EfficientHashLib.set(buffer, 0, _lastProposalHash);
-            EfficientHashLib.set(buffer, 1, bytes32(uint256(0x40)));
+            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
 
-            // ProveInput static fields
-            EfficientHashLib.set(buffer, 2, bytes32(uint256(_input.firstProposalId)));
-            EfficientHashLib.set(buffer, 3, _input.firstProposalParentCheckpointHash);
-            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_input.actualProver))));
-            EfficientHashLib.set(buffer, 5, bytes32(uint256(0xe0)));
-            EfficientHashLib.set(buffer, 6, bytes32(uint256(_input.lastCheckpoint.blockNumber)));
-            EfficientHashLib.set(buffer, 7, _input.lastCheckpoint.blockHash);
-            EfficientHashLib.set(buffer, 8, _input.lastCheckpoint.stateRoot);
+            // Commitment static fields
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_commitment.firstProposalId)));
+            EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentCheckpointHash);
+            EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_commitment.actualProver))));
+            EfficientHashLib.set(buffer, 5, bytes32(uint256(0x100)));
+            EfficientHashLib.set(buffer, 6, bytes32(uint256(_commitment.lastCheckpoint.blockNumber)));
+            EfficientHashLib.set(buffer, 7, _commitment.lastCheckpoint.blockHash);
+            EfficientHashLib.set(buffer, 8, _commitment.lastCheckpoint.stateRoot);
 
             // Transitions array
             EfficientHashLib.set(buffer, 9, bytes32(transitionsLength));

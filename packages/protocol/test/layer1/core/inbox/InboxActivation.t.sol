@@ -45,14 +45,17 @@ contract InboxActivationTest is InboxTestBase {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 1,
-            firstProposalParentCheckpointHash: bytes32(0),
-            actualProver: prover,
-            transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: transitions[0].checkpointHash,
-                stateRoot: bytes32(uint256(1))
+            commitment: IInbox.Commitment({
+                firstProposalId: 1,
+                firstProposalParentCheckpointHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(123)),
+                actualProver: prover,
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: uint48(block.number),
+                    blockHash: transitions[0].checkpointHash,
+                    stateRoot: bytes32(uint256(1))
+                })
             }),
             forceCheckpointSync: false
         });

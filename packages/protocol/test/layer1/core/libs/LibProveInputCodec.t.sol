@@ -23,14 +23,17 @@ contract LibProveInputCodecTest is Test {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 5,
-            firstProposalParentCheckpointHash: bytes32(uint256(99)),
-            actualProver: address(0xAAAA),
-            transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 1000,
-                blockHash: transitions[1].checkpointHash,
-                stateRoot: bytes32(uint256(88))
+            commitment: IInbox.Commitment({
+                firstProposalId: 5,
+                firstProposalParentCheckpointHash: bytes32(uint256(99)),
+                lastProposalHash: bytes32(uint256(100)),
+                actualProver: address(0xAAAA),
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 1000,
+                    blockHash: transitions[1].checkpointHash,
+                    stateRoot: bytes32(uint256(88))
+                })
             }),
             forceCheckpointSync: true
         });
@@ -38,53 +41,70 @@ contract LibProveInputCodecTest is Test {
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.firstProposalId, input.firstProposalId, "firstProposalId");
         assertEq(
-            decoded.firstProposalParentCheckpointHash,
-            input.firstProposalParentCheckpointHash,
+            decoded.commitment.firstProposalId,
+            input.commitment.firstProposalId,
+            "firstProposalId"
+        );
+        assertEq(
+            decoded.commitment.firstProposalParentCheckpointHash,
+            input.commitment.firstProposalParentCheckpointHash,
             "firstProposalParentCheckpointHash"
         );
-        assertEq(decoded.transitions.length, 2, "transitions length");
         assertEq(
-            decoded.transitions[0].proposer, transitions[0].proposer, "transitions[0] proposer"
+            decoded.commitment.lastProposalHash,
+            input.commitment.lastProposalHash,
+            "lastProposalHash"
+        );
+        assertEq(decoded.commitment.transitions.length, 2, "transitions length");
+        assertEq(
+            decoded.commitment.transitions[0].proposer,
+            transitions[0].proposer,
+            "transitions[0] proposer"
         );
         assertEq(
-            decoded.transitions[0].designatedProver,
+            decoded.commitment.transitions[0].designatedProver,
             transitions[0].designatedProver,
             "transitions[0] designatedProver"
         );
         assertEq(
-            decoded.transitions[0].timestamp, transitions[0].timestamp, "transitions[0] timestamp"
+            decoded.commitment.transitions[0].timestamp,
+            transitions[0].timestamp,
+            "transitions[0] timestamp"
         );
         assertEq(
-            decoded.transitions[0].checkpointHash,
+            decoded.commitment.transitions[0].checkpointHash,
             transitions[0].checkpointHash,
             "transitions[0] checkpointHash"
         );
         assertEq(
-            decoded.transitions[1].proposer, transitions[1].proposer, "transitions[1] proposer"
+            decoded.commitment.transitions[1].proposer,
+            transitions[1].proposer,
+            "transitions[1] proposer"
         );
         assertEq(
-            decoded.transitions[1].checkpointHash,
+            decoded.commitment.transitions[1].checkpointHash,
             transitions[1].checkpointHash,
             "transitions[1] checkpointHash"
         );
         assertEq(
-            decoded.lastCheckpoint.blockNumber,
-            input.lastCheckpoint.blockNumber,
+            decoded.commitment.lastCheckpoint.blockNumber,
+            input.commitment.lastCheckpoint.blockNumber,
             "lastCheckpoint blockNumber"
         );
         assertEq(
-            decoded.lastCheckpoint.blockHash,
-            input.lastCheckpoint.blockHash,
+            decoded.commitment.lastCheckpoint.blockHash,
+            input.commitment.lastCheckpoint.blockHash,
             "lastCheckpoint blockHash"
         );
         assertEq(
-            decoded.lastCheckpoint.stateRoot,
-            input.lastCheckpoint.stateRoot,
+            decoded.commitment.lastCheckpoint.stateRoot,
+            input.commitment.lastCheckpoint.stateRoot,
             "lastCheckpoint stateRoot"
         );
-        assertEq(decoded.actualProver, input.actualProver, "actualProver");
+        assertEq(
+            decoded.commitment.actualProver, input.commitment.actualProver, "actualProver"
+        );
         assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
@@ -98,14 +118,17 @@ contract LibProveInputCodecTest is Test {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 1,
-            firstProposalParentCheckpointHash: bytes32(0),
-            actualProver: address(0xBBBB),
-            transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 50,
-                blockHash: transitions[0].checkpointHash,
-                stateRoot: bytes32(uint256(66))
+            commitment: IInbox.Commitment({
+                firstProposalId: 1,
+                firstProposalParentCheckpointHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(101)),
+                actualProver: address(0xBBBB),
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 50,
+                    blockHash: transitions[0].checkpointHash,
+                    stateRoot: bytes32(uint256(66))
+                })
             }),
             forceCheckpointSync: false
         });
@@ -113,10 +136,10 @@ contract LibProveInputCodecTest is Test {
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.firstProposalId, 1, "firstProposalId");
-        assertEq(decoded.transitions.length, 1, "transitions length");
-        assertEq(decoded.transitions[0].proposer, address(0x5555), "proposer");
-        assertEq(decoded.actualProver, address(0xBBBB), "actualProver");
+        assertEq(decoded.commitment.firstProposalId, 1, "firstProposalId");
+        assertEq(decoded.commitment.transitions.length, 1, "transitions length");
+        assertEq(decoded.commitment.transitions[0].proposer, address(0x5555), "proposer");
+        assertEq(decoded.commitment.actualProver, address(0xBBBB), "actualProver");
         assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
 
@@ -124,12 +147,15 @@ contract LibProveInputCodecTest is Test {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 0,
-            firstProposalParentCheckpointHash: bytes32(0),
-            actualProver: address(0),
-            transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
+            commitment: IInbox.Commitment({
+                firstProposalId: 0,
+                firstProposalParentCheckpointHash: bytes32(0),
+                lastProposalHash: bytes32(0),
+                actualProver: address(0),
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
+                })
             }),
             forceCheckpointSync: false
         });
@@ -137,7 +163,7 @@ contract LibProveInputCodecTest is Test {
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.transitions.length, 0, "empty transitions");
+        assertEq(decoded.commitment.transitions.length, 0, "empty transitions");
     }
 
     function test_encode_deterministic() public pure {
@@ -150,14 +176,17 @@ contract LibProveInputCodecTest is Test {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 42,
-            firstProposalParentCheckpointHash: bytes32(uint256(1111)),
-            actualProver: address(0xCCCC),
-            transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: 888,
-                blockHash: transitions[0].checkpointHash,
-                stateRoot: bytes32(uint256(7777))
+            commitment: IInbox.Commitment({
+                firstProposalId: 42,
+                firstProposalParentCheckpointHash: bytes32(uint256(1111)),
+                lastProposalHash: bytes32(uint256(2222)),
+                actualProver: address(0xCCCC),
+                transitions: transitions,
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 888,
+                    blockHash: transitions[0].checkpointHash,
+                    stateRoot: bytes32(uint256(7777))
+                })
             }),
             forceCheckpointSync: true
         });

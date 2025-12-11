@@ -273,12 +273,19 @@ abstract contract InboxTestBase is CommonTest {
             stateRoot: keccak256(abi.encode("stateRoot", _count))
         });
 
+        // Get the last proposal hash from the ring buffer
+        uint256 lastProposalId = firstProposalId + _count - 1;
+        bytes32 lastProposalHash = inbox.getProposalHash(lastProposalId);
+
         input_ = IInbox.ProveInput({
-            firstProposalId: firstProposalId,
-            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
-            actualProver: prover,
-            transitions: transitions,
-            lastCheckpoint: lastCheckpoint,
+            commitment: IInbox.Commitment({
+                firstProposalId: firstProposalId,
+                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
+                lastProposalHash: lastProposalHash,
+                actualProver: prover,
+                transitions: transitions,
+                lastCheckpoint: lastCheckpoint
+            }),
             forceCheckpointSync: false
         });
     }

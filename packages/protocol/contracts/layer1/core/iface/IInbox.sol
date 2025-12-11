@@ -123,19 +123,27 @@ interface IInbox {
         bytes32 checkpointHash;
     }
 
-    /// @notice Input data for the prove function
-    struct ProveInput {
+    /// @notice Commitment data that the prover commits to when submitting a proof.
+    struct Commitment {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
         /// @notice The checkpoint hash of the parent of the first proposal, this is used
         /// to verify checkpoint continuity in the proof.
         bytes32 firstProposalParentCheckpointHash;
-        /// @notice The actual prover who submitted the proof.
+        /// @notice The hash of the last proposal being proven.
+        bytes32 lastProposalHash;
+        /// @notice The actual prover who generated the proof.
         address actualProver;
         /// @notice Array of transitions for each proposal in the proof range.
         Transition[] transitions;
         /// @notice Checkpoint of the last proposal.
         ICheckpointStore.Checkpoint lastCheckpoint;
+    }
+
+    /// @notice Input data for the prove function
+    struct ProveInput {
+        /// @notice The commitment data that the proof verifies.
+        Commitment commitment;
         /// @notice Whether to force syncing the last checkpoint even if the minimum delay
         /// has not passed.
         bool forceCheckpointSync;
