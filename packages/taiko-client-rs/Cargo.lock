@@ -10725,7 +10725,6 @@ dependencies = [
  "hyper",
  "hyper-util",
  "once_cell",
- "proposer",
  "rpc",
  "serde",
  "serde_json",
