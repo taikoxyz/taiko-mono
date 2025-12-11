@@ -442,7 +442,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             // Get the parent proposal hash from the ring buffer
-            bytes32 parentProposalHash = _proposalHashes[(_nextProposalId - 1) % _ringBufferSize];
+            bytes32 parentProposalHash = getProposalHash(_nextProposalId - 1);
 
             proposal_ = Proposal({
                 id: _nextProposalId,
@@ -520,7 +520,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
     {
         bytes32 hashToProve = LibHashOptimized.hashProveInput(
-            _proposalHashes[_lastProposalId % _ringBufferSize], _input
+            getProposalHash(_lastProposalId), _input
         );
         _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
     }
