@@ -112,8 +112,6 @@ library LibHashOptimized {
     }
 
     /// @notice Optimized hashing for commitment data.
-    /// @dev Produces the same digest as `keccak256(abi.encode(_commitment))`
-    ///      while minimizing memory allocations.
     /// @param _commitment The commitment data to hash.
     /// @return The hash of the commitment.
     function hashCommitment(IInbox.Commitment memory _commitment) internal pure returns (bytes32) {
