@@ -29,10 +29,7 @@ enum IngestError {
     Retryable(super::error::LookaheadError),
 }
 
-impl<P> LookaheadResolver<P>
-where
-    P: alloy_provider::Provider + Clone + Send + Sync + 'static,
-{
+impl LookaheadResolver {
     /// Construct a resolver and immediately start a background event-scanner from the latest
     /// events (sized by on-chain lookahead buffer). Returns the resolver and a join handle for the
     /// scanner task. Genesis is inferred for known chains (1 mainnet, 17_000 Holesky, 560_048
@@ -90,8 +87,8 @@ where
         // Compute a starting block approximately three epochs behind the current head to capture
         // recent history without relying on an event-count heuristic.
         let latest = self
-            .provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
+            .block_reader
+            .latest_block()
             .await
             .map_err(|err| LookaheadError::EventScanner(err.to_string()))?
             .ok_or_else(|| LookaheadError::EventScanner("missing latest block".into()))?;

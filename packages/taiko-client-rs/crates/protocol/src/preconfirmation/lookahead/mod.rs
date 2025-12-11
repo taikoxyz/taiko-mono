@@ -15,7 +15,6 @@
 //!   (end of the current epoch) are rejected as `TooNew`.
 
 use alloy_primitives::{Address, U256};
-use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 
 mod client;
 mod error;
@@ -31,8 +30,7 @@ pub use error::{LookaheadError, Result};
 pub use resolver::{LookaheadBroadcast, LookaheadResolver};
 
 /// Convenience alias for the default provider stack used by lookahead clients/resolvers.
-pub type LookaheadResolverWithDefaultProvider =
-    LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>;
+pub type LookaheadResolverWithDefaultProvider = LookaheadResolver;
 
 /// Resolves the expected signer for a preconfirmation commitment at a given L2 block timestamp,
 /// matching the documented lookahead resolver behavior above.
