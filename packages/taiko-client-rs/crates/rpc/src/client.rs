@@ -12,8 +12,7 @@ use alloy_provider::{
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    anchor::Anchor::AnchorInstance, codec_optimized::CodecOptimized::CodecOptimizedInstance,
-    inbox::Inbox::InboxInstance,
+    anchor::Anchor::AnchorInstance, codec::Codec::CodecInstance, inbox::Inbox::InboxInstance,
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -33,7 +32,7 @@ pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWall
 #[derive(Clone, Debug)]
 pub struct ShastaProtocolInstance<P: Provider + Clone> {
     pub inbox: InboxInstance<P>,
-    pub codec: CodecOptimizedInstance<P>,
+    pub codec: CodecInstance<P>,
     pub anchor: AnchorInstance<RootProvider>,
 }
 
@@ -92,8 +91,7 @@ impl<P: Provider + Clone> Client<P> {
             build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
-        let codec =
-            CodecOptimizedInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
+        let codec = CodecInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
         let anchor = AnchorInstance::new(
             get_treasury_address(l2_provider.get_chain_id().await?),
             l2_auth_provider.clone(),
