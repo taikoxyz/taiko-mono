@@ -21,6 +21,16 @@ impl NetworkDriver {
                             .validate_gossip_commitment(&propagation_source, &msg)
                             .is_ok()
                         {
+                            if let Some(score) =
+                                self.swarm.behaviour().gossipsub.peer_score(&propagation_source)
+                            {
+                                let new_score = (score + 0.05).clamp(-10.0, 10.0);
+                                let _ = self
+                                    .swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .set_application_score(&propagation_source, new_score);
+                            }
                             // TODO: reintroduce lookahead/schedule gating and parent linkage
                             // checks.
                             let _ = self
@@ -37,7 +47,7 @@ impl NetworkDriver {
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
                             let block_number =
                                 uint256_to_u256(&msg.commitment.preconf.block_number);
-                            self.commitments_store.insert(block_number, msg.clone());
+                            self.storage.insert_commitment(block_number, msg.clone());
                             let _ = self.events_tx.try_send(NetworkEvent::GossipSignedCommitment {
                                 from: propagation_source,
                                 msg: Box::new(msg),
@@ -67,8 +77,19 @@ impl NetworkDriver {
                                 &propagation_source,
                                 MessageAcceptance::Reject,
                             );
-                        metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "decode").increment(1);
+                        metrics::counter!("p2p_gossip_invalid", "kind" => "commitment", "reason" => "decode")
+                            .increment(1);
                         self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
+                        if let Some(score) =
+                            self.swarm.behaviour().gossipsub.peer_score(&propagation_source)
+                        {
+                            let new_score = (score - 1.0).clamp(-10.0, 10.0);
+                            let _ = self
+                                .swarm
+                                .behaviour_mut()
+                                .gossipsub
+                                .set_application_score(&propagation_source, new_score);
+                        }
                         self.emit_error(
                             NetworkErrorKind::GossipDecode,
                             "invalid signed commitment gossip",
@@ -83,6 +104,16 @@ impl NetworkDriver {
                             .validate_gossip_raw_txlist(&propagation_source, &msg)
                             .is_ok()
                         {
+                            if let Some(score) =
+                                self.swarm.behaviour().gossipsub.peer_score(&propagation_source)
+                            {
+                                let new_score = (score + 0.05).clamp(-10.0, 10.0);
+                                let _ = self
+                                    .swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .set_application_score(&propagation_source, new_score);
+                            }
                             let _ = self
                                 .swarm
                                 .behaviour_mut()
@@ -96,7 +127,7 @@ impl NetworkDriver {
                                 .increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
                             let hash = bytes32_to_b256(&msg.raw_tx_list_hash);
-                            self.txlist_store.insert(hash, msg.clone());
+                            self.storage.insert_txlist(hash, msg.clone());
                             let _ = self.events_tx.try_send(NetworkEvent::GossipRawTxList {
                                 from: propagation_source,
                                 msg: Box::new(msg),
@@ -126,8 +157,19 @@ impl NetworkDriver {
                                 &propagation_source,
                                 MessageAcceptance::Reject,
                             );
-                        metrics::counter!("p2p_gossip_invalid", "kind" => "raw_txlists", "reason" => "decode").increment(1);
+                        metrics::counter!("p2p_gossip_invalid", "kind" => "raw_txlists", "reason" => "decode")
+                            .increment(1);
                         self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
+                        if let Some(score) =
+                            self.swarm.behaviour().gossipsub.peer_score(&propagation_source)
+                        {
+                            let new_score = (score - 1.0).clamp(-10.0, 10.0);
+                            let _ = self
+                                .swarm
+                                .behaviour_mut()
+                                .gossipsub
+                                .set_application_score(&propagation_source, new_score);
+                        }
                         self.emit_error(
                             NetworkErrorKind::GossipDecode,
                             "invalid raw txlist gossip",

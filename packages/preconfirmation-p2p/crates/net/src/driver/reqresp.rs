@@ -1,6 +1,5 @@
 use std::task::{Context, Poll};
 
-use alloy_primitives::U256;
 use libp2p::request_response as rr;
 use preconfirmation_types::{
     GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
@@ -76,16 +75,16 @@ impl NetworkDriver {
                     let _ = self
                         .events_tx
                         .try_send(NetworkEvent::InboundCommitmentsRequest { from: peer });
-                    let mut list = preconfirmation_types::CommitmentList::default();
                     let cap = request
                         .max_count
                         .min(preconfirmation_types::MAX_COMMITMENTS_PER_RESPONSE as u32);
-                    for (_, commit) in self
-                        .commitments_store
-                        .range(uint256_to_u256(&request.start_block_number)..=U256::MAX)
-                        .take(cap as usize)
-                    {
-                        list.push(commit.clone());
+                    let mut list = preconfirmation_types::CommitmentList::default();
+                    let commits = self.storage.commitments_from(
+                        uint256_to_u256(&request.start_block_number),
+                        cap as usize,
+                    );
+                    for commit in commits.into_iter().take(cap as usize) {
+                        list.push(commit);
                     }
                     let resp = GetCommitmentsByNumberResponse { commitments: list };
                     let _ = self.swarm.behaviour_mut().commitments_rr.send_response(channel, resp);
@@ -177,7 +176,7 @@ impl NetworkDriver {
                         .events_tx
                         .try_send(NetworkEvent::InboundRawTxListRequest { from: peer });
                     let hash = bytes32_to_b256(&request.raw_tx_list_hash);
-                    if let Some(msg) = self.txlist_store.get(&hash) {
+                    if let Some(msg) = self.storage.get_txlist(&hash) {
                         let resp = GetRawTxListResponse {
                             raw_tx_list_hash: msg.raw_tx_list_hash.clone(),
                             anchor_block_number: preconfirmation_types::Uint256::default(),

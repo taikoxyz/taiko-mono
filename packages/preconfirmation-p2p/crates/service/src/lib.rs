@@ -15,7 +15,7 @@ use tokio::{
 
 use libp2p::PeerId;
 pub use preconfirmation_net::{
-    LookaheadResolver, NetworkCommand, NetworkConfig, NetworkDriver, NetworkEvent,
+    LookaheadResolver, NetworkCommand, NetworkConfig, NetworkDriver, NetworkEvent, PreconfStorage,
     event::{NetworkError, NetworkErrorKind},
 };
 use preconfirmation_types::{
@@ -87,7 +87,7 @@ impl P2pService {
     /// A `Result` which is `Ok(Self)` on successful startup, or an `anyhow::Error`
     /// if the network driver fails to initialize.
     pub fn start(config: NetworkConfig) -> Result<Self> {
-        Self::start_with_lookahead(config, None)
+        Self::start_with_lookahead_and_storage(config, None, None)
     }
 
     /// Starts the P2P service with an optional lookahead resolver for commitment validation.
@@ -95,7 +95,17 @@ impl P2pService {
         config: NetworkConfig,
         lookahead: Option<std::sync::Arc<dyn LookaheadResolver>>,
     ) -> Result<Self> {
-        let (mut driver, handle) = NetworkDriver::new_with_lookahead(config, lookahead)?;
+        Self::start_with_lookahead_and_storage(config, lookahead, None)
+    }
+
+    /// Starts the P2P service with optional lookahead and storage backends.
+    pub fn start_with_lookahead_and_storage(
+        config: NetworkConfig,
+        lookahead: Option<std::sync::Arc<dyn LookaheadResolver>>,
+        storage: Option<std::sync::Arc<dyn PreconfStorage>>,
+    ) -> Result<Self> {
+        let (mut driver, handle) =
+            NetworkDriver::new_with_lookahead_and_storage(config, lookahead, storage)?;
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
 
         let command_tx = handle.commands;

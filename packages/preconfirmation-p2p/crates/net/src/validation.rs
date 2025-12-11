@@ -26,7 +26,8 @@ use preconfirmation_types::{
 pub trait LookaheadResolver: Send + Sync {
     /// Return the expected signer for a slot ending at `submission_window_end`.
     fn signer_for_timestamp(&self, submission_window_end: &Uint256) -> Result<Address, String>;
-    /// Return the expected slot end timestamp for `submission_window_end` (used to enforce equality).
+    /// Return the expected slot end timestamp for `submission_window_end` (used to enforce
+    /// equality).
     fn expected_slot_end(&self, submission_window_end: &Uint256) -> Result<Uint256, String>;
 }
 
@@ -304,6 +305,41 @@ mod tests {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
         let msg = sample_signed_commitment(slasher.clone());
         let adapter = LookaheadValidationAdapter::new(Some(slasher), Arc::new(RejectResolver {}));
+        assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
+    }
+
+    #[test]
+    fn lookahead_rejects_wrong_signer() {
+        let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
+        let msg = sample_signed_commitment(slasher.clone());
+        let wrong_signer = alloy_primitives::Address::ZERO;
+        let adapter = LookaheadValidationAdapter::new(
+            Some(slasher),
+            Arc::new(AcceptResolver {
+                signer: wrong_signer,
+                slot_end: msg.commitment.preconf.submission_window_end.clone(),
+            }),
+        );
+        assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
+    }
+
+    #[test]
+    fn lookahead_rejects_slot_end_mismatch() {
+        let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
+        let mut msg = sample_signed_commitment(slasher.clone());
+        msg.commitment.preconf.submission_window_end = Uint256::from(10u64);
+        let adapter = LookaheadValidationAdapter::new(
+            Some(slasher),
+            Arc::new(AcceptResolver {
+                signer: preconfirmation_types::public_key_to_address(
+                    &secp256k1::PublicKey::from_secret_key(
+                        &secp256k1::Secp256k1::new(),
+                        &SecretKey::from_slice(&[9u8; 32]).unwrap(),
+                    ),
+                ),
+                slot_end: Uint256::from(11u64),
+            }),
+        );
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 }

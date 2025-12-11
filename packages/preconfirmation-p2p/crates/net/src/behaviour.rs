@@ -77,20 +77,42 @@ impl NetBehaviour {
             .subscribe(&topics.1)
             .map_err(|e| anyhow::anyhow!("subscribe raw txlists: {e}"))?;
 
-        // Reuse kona_peers light preset (keeps Kona tuning) and override thresholds to the spec
-        // values. We keep ValidationMode permissive/unsigned for test stability; signed/strict
-        // validation should be enabled upstream once transport/signing policy is settled.
-        use kona_peers::PeerScoreLevel;
-        let topic_hashes = vec![topics.0.hash().clone(), topics.1.hash().clone()];
-        if let Some(params) = PeerScoreLevel::Light.to_params(topic_hashes, true, 2) {
-            let mut thresholds = PeerScoreLevel::thresholds();
-            thresholds.gossip_threshold = -1.0;
-            thresholds.publish_threshold = -2.0;
-            thresholds.graylist_threshold = -5.0;
-            thresholds.accept_px_threshold = 0.0;
-            thresholds.opportunistic_graft_threshold = 0.5;
-            let _ = gossipsub.with_peer_score(params, thresholds);
+        // Spec §7.1 scoring: enable gossipsub v1.1 scoring with app feedback-like weights.
+        use libp2p::gossipsub::{PeerScoreParams, PeerScoreThresholds, TopicScoreParams};
+        let thresholds = PeerScoreThresholds {
+            gossip_threshold: -1.0,
+            publish_threshold: -2.0,
+            graylist_threshold: -5.0,
+            accept_px_threshold: 0.0,
+            opportunistic_graft_threshold: 0.5,
+        };
+
+        // Build per-topic params aligned with the spec defaults.
+        let mut topic_params = std::collections::HashMap::new();
+        for topic in [&topics.0, &topics.1] {
+            let p = TopicScoreParams {
+                invalid_message_deliveries_weight: 2.0,
+                invalid_message_deliveries_decay: 0.99,
+                first_message_deliveries_weight: 0.5,
+                first_message_deliveries_decay: 0.999,
+                time_in_mesh_weight: 0.0,
+                time_in_mesh_quantum: std::time::Duration::from_secs(1),
+                time_in_mesh_cap: 3600.0,
+                ..Default::default()
+            };
+            topic_params.insert(topic.hash().clone(), p);
         }
+
+        let params = PeerScoreParams {
+            topics: topic_params,
+            app_specific_weight: 1.0,
+            decay_interval: std::time::Duration::from_secs(10),
+            decay_to_zero: 0.1,
+            retain_score: std::time::Duration::from_secs(3600),
+            ..Default::default()
+        };
+
+        let _ = gossipsub.with_peer_score(params, thresholds);
 
         let reqresp_cfg = rr::Config::default()
             .with_request_timeout(cfg.request_timeout)

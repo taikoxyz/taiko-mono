@@ -13,7 +13,6 @@ mod tests;
 
 use std::{collections::VecDeque, num::NonZeroU8, str::FromStr, sync::Arc};
 
-use alloy_primitives::{B256, U256};
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
 use tokio::{
     sync::mpsc::{self, Receiver, Sender, error::TrySendError},
@@ -31,6 +30,7 @@ use crate::{
         PeerAction, ReputationBackend, ReputationConfig, ReqRespKind, RequestRateLimiter,
         reth_adapter::RethReputationAdapter,
     },
+    storage::{PreconfStorage, default_storage},
     validation::{
         LocalValidationAdapter, LookaheadResolver, LookaheadValidationAdapter, ValidationAdapter,
     },
@@ -78,10 +78,8 @@ pub struct NetworkDriver {
     head: PreconfHead,
     /// Kona connection gater for managing inbound and outbound connections.
     kona_gater: kona_gossip::ConnectionGater,
-    /// Stored commitments keyed by block number for req/resp serving.
-    commitments_store: std::collections::BTreeMap<U256, preconfirmation_types::SignedCommitment>,
-    /// Stored raw txlists keyed by hash for req/resp serving.
-    txlist_store: std::collections::HashMap<B256, preconfirmation_types::RawTxListGossip>,
+    /// Storage backend for commitments/txlists (in-memory by default).
+    storage: std::sync::Arc<dyn PreconfStorage>,
 }
 
 /// Constructs the reputation backend adapter. At runtime this delegates to the reth-backed
@@ -114,13 +112,22 @@ fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
 impl NetworkDriver {
     /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
     pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkHandle)> {
-        Self::new_with_lookahead(cfg, None)
+        Self::new_with_lookahead_and_storage(cfg, None, None)
     }
 
     /// Constructs a new `NetworkDriver` with an optional lookahead resolver for validation.
     pub fn new_with_lookahead(
         cfg: NetworkConfig,
         lookahead: Option<Arc<dyn LookaheadResolver>>,
+    ) -> anyhow::Result<(Self, NetworkHandle)> {
+        Self::new_with_lookahead_and_storage(cfg, lookahead, None)
+    }
+
+    /// Constructs a new `NetworkDriver` with optional lookahead resolver and storage backend.
+    pub fn new_with_lookahead_and_storage(
+        cfg: NetworkConfig,
+        lookahead: Option<Arc<dyn LookaheadResolver>>,
+        storage: Option<std::sync::Arc<dyn PreconfStorage>>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
         let dial_factor = {
             let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();
@@ -197,8 +204,7 @@ impl NetworkDriver {
                 connected_peers: 0,
                 head: PreconfHead::default(),
                 kona_gater: build_kona_gater(&cfg),
-                commitments_store: std::collections::BTreeMap::new(),
-                txlist_store: std::collections::HashMap::new(),
+                storage: storage.unwrap_or_else(default_storage),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
         ))
