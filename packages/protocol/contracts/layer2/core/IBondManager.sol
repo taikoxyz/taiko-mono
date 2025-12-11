@@ -79,10 +79,14 @@ interface IBondManager {
     function getBondBalance(address _address) external view returns (uint256);
 
     /// @notice Deposit ERC20 bond tokens into the manager.
+    /// @dev Does not cancel a pending withdrawal; callers must invoke `cancelWithdrawal` to
+    /// reactivate their bond status.
     /// @param _amount The amount to deposit.
     function deposit(uint256 _amount) external;
 
     /// @notice Deposit ERC20 bond tokens for another address.
+    /// @dev Does not cancel the recipient's pending withdrawal; the recipient must call
+    /// `cancelWithdrawal` to reactivate their bond status.
     /// @param _recipient The address to credit the bond to.
     /// @param _amount The amount to deposit.
     function depositTo(address _recipient, uint256 _amount) external;
@@ -107,7 +111,9 @@ interface IBondManager {
         returns (bool);
 
     /// @notice Request to start the withdrawal process
-    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal
+    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal. Proposers
+    /// should self-eject before calling to avoid having subsequent proposals classified as
+    /// low-bond.
     function requestWithdrawal() external;
 
     /// @notice Cancel withdrawal request to reactivate the account
