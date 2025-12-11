@@ -262,7 +262,7 @@ abstract contract InboxTestBase is CommonTest {
                 blockHash: keccak256(abi.encode("blockHash", i + 1)),
                 stateRoot: keccak256(abi.encode("stateRoot", i + 1))
             });
-            bytes32 checkpointHash = keccak256(abi.encode(checkpoint));
+            bytes32 checkpointHash = codec.hashCheckpoint(checkpoint);
             transitions[i] = _transitionFor(payload, prover, checkpointHash);
         }
 

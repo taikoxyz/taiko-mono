@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
@@ -105,6 +106,26 @@ library LibHashOptimized {
         EfficientHashLib.set(buffer, 3, bytes32(uint256(uint160(_proposal.proposer))));
         EfficientHashLib.set(buffer, 4, _proposal.parentProposalHash);
         EfficientHashLib.set(buffer, 5, _proposal.derivationHash);
+
+        bytes32 result = EfficientHashLib.hash(buffer);
+        EfficientHashLib.free(buffer);
+        return result;
+    }
+
+    /// @notice Optimized hashing for Checkpoint structs
+    /// @dev Uses efficient 3-field hashing for checkpoint data
+    /// @param _checkpoint The checkpoint to hash
+    /// @return The hash of the checkpoint
+    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes32[] memory buffer = EfficientHashLib.malloc(3);
+
+        EfficientHashLib.set(buffer, 0, bytes32(uint256(_checkpoint.blockNumber)));
+        EfficientHashLib.set(buffer, 1, _checkpoint.blockHash);
+        EfficientHashLib.set(buffer, 2, _checkpoint.stateRoot);
 
         bytes32 result = EfficientHashLib.hash(buffer);
         EfficientHashLib.free(buffer);

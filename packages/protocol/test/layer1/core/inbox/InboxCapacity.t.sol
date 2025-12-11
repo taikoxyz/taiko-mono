@@ -85,7 +85,7 @@ contract InboxRingBufferTest is InboxTestBase {
             blockHash: keccak256("blockHash2"),
             stateRoot: keccak256("stateRoot")
         });
-        bytes32 checkpoint2Hash = keccak256(abi.encode(lastCheckpoint));
+        bytes32 checkpoint2Hash = codec.hashCheckpoint(lastCheckpoint);
 
         // Prove p1 and p2 using prove
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);

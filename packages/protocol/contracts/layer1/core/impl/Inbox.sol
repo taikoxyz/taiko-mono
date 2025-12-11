@@ -284,6 +284,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 4. Sync checkpoint if provided, otherwise enforce delay
             // -----------------------------------------------------------------------------
             if (input.lastCheckpoint.blockHash != 0) {
+                require(
+                    input.transitions[numProposals - 1].checkpointHash
+                        == LibHashOptimized.hashCheckpoint(input.lastCheckpoint),
+                    CheckpointHashMismatch()
+                );
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             } else {
@@ -301,7 +306,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
+            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
 
             // ---------------------------------------------------------
             // 6. Verify the proof
@@ -437,7 +442,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             // Get the parent proposal hash from the ring buffer
+<<<<<<< HEAD
             bytes32 parentProposalHash = getProposalHash(_nextProposalId - 1);
+=======
+            bytes32 parentProposalHash = _proposalHashes[(_nextProposalId - 1) % _ringBufferSize];
+>>>>>>> origin/taiko-alethia-protocol-v3.0.0
 
             proposal_ = Proposal({
                 id: _nextProposalId,
@@ -515,7 +524,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
     {
         bytes32 hashToProve = LibHashOptimized.hashProveInput(
+<<<<<<< HEAD
             getProposalHash(uint48(_lastProposalId)), _input
+=======
+            _proposalHashes[_lastProposalId % _ringBufferSize], _input
+>>>>>>> origin/taiko-alethia-protocol-v3.0.0
         );
         _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
     }
@@ -646,6 +659,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointDelayHasPassed();
+<<<<<<< HEAD
+=======
+    error CheckpointHashMismatch();
+>>>>>>> origin/taiko-alethia-protocol-v3.0.0
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();

@@ -568,7 +568,7 @@ contract InboxProveTest is InboxTestBase {
             blockHash: keccak256("blockHash2"),
             stateRoot: keccak256("stateRoot2")
         });
-        bytes32 checkpointHash = keccak256(abi.encode(lastCheckpoint));
+        bytes32 checkpointHash = codec.hashCheckpoint(lastCheckpoint);
 
         IInbox.Transition[] memory transitions = _transitionArrayFor(p2, checkpointHash);
 
@@ -584,6 +584,34 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint synced");
+    }
+
+    function test_prove_RevertWhen_CheckpointHashMismatch() public {
+        IInbox.ProposedEventPayload memory payload = _proposeOne();
+
+        // Create a checkpoint
+        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: keccak256("blockHash"),
+            stateRoot: keccak256("stateRoot")
+        });
+
+        // Use a different hash in the transition (not matching hashCheckpoint(lastCheckpoint))
+        bytes32 wrongCheckpointHash = keccak256("wrongCheckpointHash");
+        IInbox.Transition[] memory transitions = _transitionArrayFor(payload, wrongCheckpointHash);
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            firstProposalId: payload.proposal.id,
+            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
+            actualProver: prover,
+            transitions: transitions,
+            lastCheckpoint: lastCheckpoint
+        });
+
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.CheckpointHashMismatch.selector);
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes("proof"));
     }
 
     function test_prove_RevertWhen_CheckpointMissingAfterDelay() public {
