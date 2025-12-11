@@ -27,19 +27,20 @@ library LibBonds {
     }
 
     // ---------------------------------------------------------------
-    // Internal Functions
+    // Functions
     // ---------------------------------------------------------------
 
-    function aggregateBondInstruction(
-        bytes32 _bondInstructionsHash,
-        BondInstruction memory _bondInstruction
-    )
+    /// @dev Hashing for BondInstruction structs using keccak256 and abi.encode
+    /// @dev We didn't optimize this function using EfficientHashLib for
+    ///      gas savings because it's not expected to be called frequently.
+    /// @param _bondInstruction The bond instruction to hash
+    /// @return The hash of the bond instruction
+    function hashBondInstruction(BondInstruction memory _bondInstruction)
         internal
         pure
         returns (bytes32)
     {
-        return _bondInstruction.proposalId == 0 || _bondInstruction.bondType == BondType.NONE
-            ? _bondInstructionsHash
-            : keccak256(abi.encode(_bondInstructionsHash, _bondInstruction));
+        /// forge-lint: disable-next-line(asm-keccak256)
+        return keccak256(abi.encode(_bondInstruction));
     }
 }
