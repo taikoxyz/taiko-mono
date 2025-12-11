@@ -152,6 +152,7 @@ impl LookaheadResolver {
 
     /// Enable a broadcast channel for lookahead updates; clones share the sender. Returns a
     /// receiver for updates.
+    #[must_use = "receiver must be stored to receive updates"]
     pub fn enable_broadcast_channel(
         &mut self,
         capacity: usize,
