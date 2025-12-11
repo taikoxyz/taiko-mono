@@ -277,8 +277,9 @@ impl LookaheadResolver {
         block_number: u64,
         block_timestamp: u64,
     ) -> Result<()> {
-        // Snapshot whitelist state at the event block state.
-        let fallback_current = self.preconf_whitelist.current_operator(block_number).await?;
+        // Snapshot whitelist state at the event block: use the operator designated for the epoch
+        // being posted (next-epoch operator at this block).
+        let fallback_current = self.preconf_whitelist.next_operator(block_number).await?;
 
         let epoch_start = event.epochTimestamp.to::<u64>();
 
