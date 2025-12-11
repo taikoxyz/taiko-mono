@@ -194,5 +194,5 @@ interface IInbox {
     /// @notice Returns the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+    function getProposalHash(uint256 _proposalId) external view returns (bytes32 proposalHash_);
 }

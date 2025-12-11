@@ -287,13 +287,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 input.forceCheckpointSync
                     || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
             ) {
-                if (input.lastCheckpoint.blockHash != 0) {
-                    require(
-                        input.transitions[numProposals - 1].checkpointHash
-                            == LibHashOptimized.hashCheckpoint(input.lastCheckpoint),
-                        CheckpointHashMismatch()
-                    );
-                }
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
@@ -306,7 +299,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
+            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload( input )));
 
             // ---------------------------------------------------------
             // 6. Verify the proof
@@ -442,7 +435,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
 
             // Get the parent proposal hash from the ring buffer
-            bytes32 parentProposalHash = _proposalHashes[(_nextProposalId - 1) % _ringBufferSize];
+            bytes32 parentProposalHash = getProposalHash(_nextProposalId - 1);
 
             proposal_ = Proposal({
                 id: _nextProposalId,
@@ -463,17 +456,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
     /// may have been overwritten by a new one. You should verify that the hash matches the
     /// expected proposal.
-    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
+    function getProposalHash(uint256 _proposalId) public view returns (bytes32 proposalHash_) {
         proposalHash_ = _proposalHashes[_proposalId % _ringBufferSize];
     }
 
     // ---------------------------------------------------------------
-    // Internal Functions
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
-    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
+    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
@@ -520,7 +513,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
     {
         bytes32 hashToProve = LibHashOptimized.hashProveInput(
-            _proposalHashes[_lastProposalId % _ringBufferSize], _input
+            getProposalHash(_lastProposalId), _input
         );
         _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
     }
@@ -651,7 +644,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointDelayHasPassed();
-    error CheckpointHashMismatch();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
