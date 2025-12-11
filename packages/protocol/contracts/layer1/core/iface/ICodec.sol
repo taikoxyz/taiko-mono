@@ -127,8 +127,5 @@ interface ICodec {
     /// @notice Hashing for commitment data
     /// @param _commitment The commitment data to hash
     /// @return The hash of the commitment
-    function hashCommitment(IInbox.Commitment calldata _commitment)
-        external
-        pure
-        returns (bytes32);
+    function hashCommitment(IInbox.Commitment calldata _commitment) external pure returns (bytes32);
 }

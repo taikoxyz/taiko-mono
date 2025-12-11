@@ -150,7 +150,9 @@ library LibHashOptimized {
             EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
             EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_commitment.actualProver))));
             EfficientHashLib.set(buffer, 5, bytes32(uint256(0x100)));
-            EfficientHashLib.set(buffer, 6, bytes32(uint256(_commitment.lastCheckpoint.blockNumber)));
+            EfficientHashLib.set(
+                buffer, 6, bytes32(uint256(_commitment.lastCheckpoint.blockNumber))
+            );
             EfficientHashLib.set(buffer, 7, _commitment.lastCheckpoint.blockHash);
             EfficientHashLib.set(buffer, 8, _commitment.lastCheckpoint.stateRoot);
 

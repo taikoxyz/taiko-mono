@@ -42,9 +42,7 @@ contract LibProveInputCodecTest is Test {
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
         assertEq(
-            decoded.commitment.firstProposalId,
-            input.commitment.firstProposalId,
-            "firstProposalId"
+            decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
         );
         assertEq(
             decoded.commitment.firstProposalParentCheckpointHash,
@@ -102,9 +100,7 @@ contract LibProveInputCodecTest is Test {
             input.commitment.lastCheckpoint.stateRoot,
             "lastCheckpoint stateRoot"
         );
-        assertEq(
-            decoded.commitment.actualProver, input.commitment.actualProver, "actualProver"
-        );
+        assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
         assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 

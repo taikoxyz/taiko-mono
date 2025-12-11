@@ -34,7 +34,9 @@ contract InboxProveTest is InboxTestBase {
         _proveWithGas(input, "shasta-prove", "prove_batch_2");
 
         IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, input.commitment.firstProposalId + 1, "finalized id");
+        assertEq(
+            state.lastFinalizedProposalId, input.commitment.firstProposalId + 1, "finalized id"
+        );
         assertEq(
             state.lastFinalizedCheckpointHash,
             input.commitment.transitions[1].checkpointHash,
@@ -48,7 +50,9 @@ contract InboxProveTest is InboxTestBase {
         _proveWithGas(input, "shasta-prove", "prove_batch_3");
 
         IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, input.commitment.firstProposalId + 2, "finalized id");
+        assertEq(
+            state.lastFinalizedProposalId, input.commitment.firstProposalId + 2, "finalized id"
+        );
         assertEq(
             state.lastFinalizedCheckpointHash,
             input.commitment.transitions[2].checkpointHash,
@@ -62,7 +66,9 @@ contract InboxProveTest is InboxTestBase {
         _proveWithGas(input, "shasta-prove", "prove_batch_5");
 
         IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, input.commitment.firstProposalId + 4, "finalized id");
+        assertEq(
+            state.lastFinalizedProposalId, input.commitment.firstProposalId + 4, "finalized id"
+        );
         assertEq(
             state.lastFinalizedCheckpointHash,
             input.commitment.transitions[4].checkpointHash,
@@ -76,7 +82,9 @@ contract InboxProveTest is InboxTestBase {
         _proveWithGas(input, "shasta-prove", "prove_batch_10");
 
         IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, input.commitment.firstProposalId + 9, "finalized id");
+        assertEq(
+            state.lastFinalizedProposalId, input.commitment.firstProposalId + 9, "finalized id"
+        );
         assertEq(
             state.lastFinalizedCheckpointHash,
             input.commitment.transitions[9].checkpointHash,

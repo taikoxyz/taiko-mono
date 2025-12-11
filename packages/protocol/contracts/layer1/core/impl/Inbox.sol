@@ -259,7 +259,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 ParentCheckpointHashMismatch()
             );
 
-            require(c.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch());
+            require(
+                c.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch()
+            );
 
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
@@ -308,7 +310,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
-        _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashCommitment(c), _proof);
+            _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashCommitment(c), _proof);
         }
     }
 
@@ -458,7 +460,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
     /// may have been overwritten by a new one. You should verify that the hash matches the
     /// expected proposal.
-    function getProposalHash(uint256 _proposalId) public view returns (bytes32 ) {
+    function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
         return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
@@ -503,7 +505,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
         }
     }
-
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
