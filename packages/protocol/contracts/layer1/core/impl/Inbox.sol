@@ -299,7 +299,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload( input )));
+            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
 
             // ---------------------------------------------------------
             // 6. Verify the proof
@@ -512,9 +512,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         view
     {
-        bytes32 hashToProve = LibHashOptimized.hashProveInput(
-            getProposalHash(_lastProposalId), _input
-        );
+        bytes32 hashToProve =
+            LibHashOptimized.hashProveInput(getProposalHash(_lastProposalId), _input);
         _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
     }
 
