@@ -309,7 +309,14 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 		s.Nil(err)
 
-		data, err := encoding.ShastaInboxABI.Pack("activate", l2Head.Hash())
+		checkpointHash, err := s.RPCClient.HashCheckpointShasta(nil, &shastaBindings.ICheckpointStoreCheckpoint{
+			BlockNumber: l2Head.Number,
+			BlockHash:   l2Head.Hash(),
+			StateRoot:   l2Head.Root,
+		})
+		s.Nil(err)
+
+		data, err := encoding.ShastaInboxABI.Pack("activate", checkpointHash)
 		s.Nil(err)
 		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
 		s.Nil(err)

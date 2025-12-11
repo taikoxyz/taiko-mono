@@ -12,8 +12,10 @@ PROTOCOL_DIR="${PROTOCOL_DIR:-$SCRIPT_DIR/../protocol}"
 forge bind \
   --root "${PROTOCOL_DIR}" \
   --select '^Inbox$' \
-  --select '^CodecOptimized$' \
+  --select '^Codec$' \
   --select '^Anchor$' \
+  --select '^LookaheadStore$' \
+  --select '^PreconfWhitelist$' \
   --bindings-path crates/bindings \
   --crate-name bindings \
   --overwrite \

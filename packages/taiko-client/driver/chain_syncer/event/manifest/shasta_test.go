@@ -226,7 +226,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
-	parentTime := uint64(1_000)
+	parentTime := uint64(1_000 + manifest.TimestampMaxOffset)
 	parentHeader := &types.Header{
 		Number:   big.NewInt(1),
 		GasLimit: 30_000_000,
