@@ -9,7 +9,6 @@ import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title Codec
 /// @notice Codec contract wrapping LibHashOptimized for optimized hashing
@@ -119,15 +118,6 @@ contract Codec is ICodec {
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
-    }
-
-    /// @inheritdoc ICodec
-    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashCheckpoint(_checkpoint);
     }
 
     /// @inheritdoc ICodec
