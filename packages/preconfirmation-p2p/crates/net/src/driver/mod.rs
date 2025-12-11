@@ -11,7 +11,7 @@ mod reqresp;
 #[cfg(test)]
 mod tests;
 
-use std::{collections::VecDeque, num::NonZeroU8, str::FromStr};
+use std::{collections::VecDeque, num::NonZeroU8, str::FromStr, sync::Arc};
 
 use alloy_primitives::{B256, U256};
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
@@ -31,7 +31,9 @@ use crate::{
         PeerAction, ReputationBackend, ReputationConfig, ReqRespKind, RequestRateLimiter,
         reth_adapter::RethReputationAdapter,
     },
-    validation::{LocalValidationAdapter, ValidationAdapter},
+    validation::{
+        LocalValidationAdapter, LookaheadResolver, LookaheadValidationAdapter, ValidationAdapter,
+    },
 };
 use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
 use preconfirmation_types::{PreconfHead, address_to_bytes20};
@@ -112,6 +114,14 @@ fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
 impl NetworkDriver {
     /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
     pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkHandle)> {
+        Self::new_with_lookahead(cfg, None)
+    }
+
+    /// Constructs a new `NetworkDriver` with an optional lookahead resolver for validation.
+    pub fn new_with_lookahead(
+        cfg: NetworkConfig,
+        lookahead: Option<Arc<dyn LookaheadResolver>>,
+    ) -> anyhow::Result<(Self, NetworkHandle)> {
         let dial_factor = {
             let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();
             NonZeroU8::new(dial).unwrap_or_else(|| NonZeroU8::new(1).unwrap())
@@ -173,9 +183,15 @@ impl NetworkDriver {
                 commitments_out: VecDeque::new(),
                 raw_txlists_out: VecDeque::new(),
                 head_out: VecDeque::new(),
-                validator: Box::new(LocalValidationAdapter::new(
-                    cfg.slasher_address.map(address_to_bytes20),
-                )),
+                validator: match lookahead {
+                    Some(resolver) => Box::new(LookaheadValidationAdapter::new(
+                        cfg.slasher_address.map(address_to_bytes20),
+                        resolver,
+                    )) as Box<dyn ValidationAdapter>,
+                    None => Box::new(LocalValidationAdapter::new(
+                        cfg.slasher_address.map(address_to_bytes20),
+                    )),
+                },
                 discovery_rx,
                 _discovery_task: discovery_task,
                 connected_peers: 0,

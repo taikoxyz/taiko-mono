@@ -25,3 +25,4 @@ pub use discovery::{Discovery, DiscoveryConfig, DiscoveryEvent};
 pub use driver::{NetworkDriver, NetworkHandle};
 pub use event::{NetworkError, NetworkErrorKind, NetworkEvent};
 pub use reputation::{PeerAction, PeerReputation, PeerScore, ReputationEvent};
+pub use validation::LookaheadResolver;

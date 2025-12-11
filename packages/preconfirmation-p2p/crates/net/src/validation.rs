@@ -1,8 +1,8 @@
 //! Validation adapter for gossip and req/resp payloads.
 //!
 //! This indirection makes it straightforward to swap in an upstream validator (e.g., from
-//! Kona/Lighthouse) without changing the driver/service API. The default implementation delegates
-//! to the existing local validators in `preconfirmation_types`.
+//! Kona/Lighthouse or a lookahead resolver) without changing the driver/service API. The default
+//! implementation delegates to the existing local validators in `preconfirmation_types`.
 //!
 //! Upstream expectations: a replacement should implement `ValidationAdapter` for the three
 //! req/resp protocols (commitments/raw txlist/head) plus the two gossip payloads. Validation is
@@ -10,14 +10,25 @@
 //! module is added later, wire it in by constructing the adapter in the driver instead of
 //! `LocalValidationAdapter`; no public API changes are required.
 
+use std::sync::Arc;
+
+use alloy_primitives::Address;
 use libp2p::PeerId;
 
 use preconfirmation_types::{
     Bytes20, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
-    SignedCommitment, validate_commitments_response, validate_head_response,
+    SignedCommitment, Uint256, validate_commitments_response, validate_head_response,
     validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
     verify_signed_commitment,
 };
+
+/// Resolver that can validate commitments against an external lookahead schedule.
+pub trait LookaheadResolver: Send + Sync {
+    /// Return the expected signer for a slot ending at `submission_window_end`.
+    fn signer_for_timestamp(&self, submission_window_end: &Uint256) -> Result<Address, String>;
+    /// Return the expected slot end timestamp for `submission_window_end` (used to enforce equality).
+    fn expected_slot_end(&self, submission_window_end: &Uint256) -> Result<Uint256, String>;
+}
 
 /// Adapter trait for validating inbound gossip and request/response payloads.
 pub trait ValidationAdapter: Send + Sync {
@@ -122,6 +133,78 @@ impl ValidationAdapter for LocalValidationAdapter {
     }
 }
 
+/// Validation adapter that calls into an external lookahead resolver after basic checks.
+pub struct LookaheadValidationAdapter {
+    expected_slasher: Option<Bytes20>,
+    resolver: Arc<dyn LookaheadResolver>,
+}
+
+impl LookaheadValidationAdapter {
+    pub fn new(expected_slasher: Option<Bytes20>, resolver: Arc<dyn LookaheadResolver>) -> Self {
+        Self { expected_slasher, resolver }
+    }
+}
+
+impl ValidationAdapter for LookaheadValidationAdapter {
+    fn validate_gossip_commitment(
+        &self,
+        from: &PeerId,
+        msg: &SignedCommitment,
+    ) -> Result<(), String> {
+        let local = LocalValidationAdapter::new(self.expected_slasher.clone());
+        local.validate_gossip_commitment(from, msg)?;
+
+        let recovered = verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        let slot_end = &msg.commitment.preconf.submission_window_end;
+        let expected_signer = self.resolver.signer_for_timestamp(slot_end)?;
+        if recovered != expected_signer {
+            return Err("unexpected signer for slot".into());
+        }
+        let expected_end = self.resolver.expected_slot_end(slot_end)?;
+        if &expected_end != slot_end {
+            return Err("submissionWindowEnd mismatch".into());
+        }
+
+        Ok(())
+    }
+
+    fn validate_gossip_raw_txlist(
+        &self,
+        from: &PeerId,
+        msg: &RawTxListGossip,
+    ) -> Result<(), String> {
+        LocalValidationAdapter::new(self.expected_slasher.clone())
+            .validate_gossip_raw_txlist(from, msg)
+    }
+
+    fn validate_commitments_response(
+        &self,
+        from: &PeerId,
+        resp: &GetCommitmentsByNumberResponse,
+    ) -> Result<(), String> {
+        LocalValidationAdapter::new(self.expected_slasher.clone())
+            .validate_commitments_response(from, resp)
+    }
+
+    fn validate_raw_txlist_response(
+        &self,
+        from: &PeerId,
+        resp: &GetRawTxListResponse,
+    ) -> Result<(), String> {
+        LocalValidationAdapter::new(self.expected_slasher.clone())
+            .validate_raw_txlist_response(from, resp)
+    }
+
+    fn validate_head_response(
+        &self,
+        from: &PeerId,
+        resp: &preconfirmation_types::PreconfHead,
+    ) -> Result<(), String> {
+        LocalValidationAdapter::new(self.expected_slasher.clone())
+            .validate_head_response(from, resp)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +248,62 @@ mod tests {
         let adapter = LocalValidationAdapter::new(Some(expected.clone()));
         let wrong = Vector::try_from(vec![8u8; 20]).unwrap();
         let msg = sample_signed_commitment(wrong);
+        assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
+    }
+
+    struct AcceptResolver {
+        signer: Address,
+        slot_end: Uint256,
+    }
+    impl LookaheadResolver for AcceptResolver {
+        fn signer_for_timestamp(
+            &self,
+            _submission_window_end: &Uint256,
+        ) -> Result<Address, String> {
+            Ok(self.signer)
+        }
+        fn expected_slot_end(&self, _submission_window_end: &Uint256) -> Result<Uint256, String> {
+            Ok(self.slot_end.clone())
+        }
+    }
+
+    struct RejectResolver;
+    impl LookaheadResolver for RejectResolver {
+        fn signer_for_timestamp(
+            &self,
+            _submission_window_end: &Uint256,
+        ) -> Result<Address, String> {
+            Err("rejected".into())
+        }
+        fn expected_slot_end(&self, _submission_window_end: &Uint256) -> Result<Uint256, String> {
+            Err("rejected".into())
+        }
+    }
+
+    #[test]
+    fn lookahead_adapter_delegates_ok() {
+        let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
+        let msg = sample_signed_commitment(slasher.clone());
+        let adapter = LookaheadValidationAdapter::new(
+            Some(slasher.clone()),
+            Arc::new(AcceptResolver {
+                signer: preconfirmation_types::public_key_to_address(
+                    &secp256k1::PublicKey::from_secret_key(
+                        &secp256k1::Secp256k1::new(),
+                        &SecretKey::from_slice(&[9u8; 32]).unwrap(),
+                    ),
+                ),
+                slot_end: msg.commitment.preconf.submission_window_end.clone(),
+            }),
+        );
+        assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
+    }
+
+    #[test]
+    fn lookahead_adapter_propagates_error() {
+        let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
+        let msg = sample_signed_commitment(slasher.clone());
+        let adapter = LookaheadValidationAdapter::new(Some(slasher), Arc::new(RejectResolver {}));
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 }
