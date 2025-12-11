@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { MockProofVerifier } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
@@ -8,13 +9,12 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { CommonTest } from "test/shared/CommonTest.sol";
 import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
-import { MockProofVerifier } from "./mocks/MockContracts.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxTestBase
 /// @notice Shared setup and helpers for Inbox tests.
@@ -182,8 +182,7 @@ abstract contract InboxTestBase is CommonTest {
 
     function _mockBeaconBlockRoot() internal {
         vm.etch(
-            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
-            address(new MockBeaconBlockRoot()).code
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new MockBeaconBlockRoot()).code
         );
     }
 
