@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -116,14 +115,6 @@ interface ICodec {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32);
-
-    /// @notice Hashing for Checkpoint structs
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
-        external
-        pure
-        returns (bytes32);
 
     /// @notice Hashing for BondInstruction structs
     /// @param _bondInstruction The bond instruction to hash

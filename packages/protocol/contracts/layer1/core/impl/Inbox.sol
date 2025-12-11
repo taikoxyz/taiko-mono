@@ -284,11 +284,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 4. Sync checkpoint if provided, otherwise enforce delay
             // -----------------------------------------------------------------------------
             if (input.lastCheckpoint.blockHash != 0) {
-                require(
-                    input.transitions[numProposals - 1].checkpointHash
-                        == LibHashOptimized.hashCheckpoint(input.lastCheckpoint),
-                    CheckpointHashMismatch()
-                );
                 _signalService.saveCheckpoint(input.lastCheckpoint);
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             } else {
@@ -306,7 +301,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
+            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
 
             // ---------------------------------------------------------
             // 6. Verify the proof
@@ -651,7 +646,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointDelayHasPassed();
-    error CheckpointHashMismatch();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
