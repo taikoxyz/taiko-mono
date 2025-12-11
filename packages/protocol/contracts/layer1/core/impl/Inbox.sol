@@ -438,20 +438,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
-            // Get the parent proposal hash from the ring buffer
-            bytes32 parentProposalHash = getProposalHash(_nextProposalId - 1);
-
             proposal_ = Proposal({
                 id: _nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: parentProposalHash,
+                parentProposalHash: getProposalHash(_nextProposalId - 1),
                 derivationHash: LibHashOptimized.hashDerivation(derivation_)
             });
         }
     }
 
+    /// @inheritdoc IInbox
     function getCoreState() external view returns (CoreState memory) {
         return _coreState;
     }
@@ -460,8 +458,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
     /// may have been overwritten by a new one. You should verify that the hash matches the
     /// expected proposal.
-    function getProposalHash(uint256 _proposalId) public view returns (bytes32 proposalHash_) {
-        proposalHash_ = _proposalHashes[_proposalId % _ringBufferSize];
+    function getProposalHash(uint256 _proposalId) public view returns (bytes32 ) {
+        return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
     // ---------------------------------------------------------------
