@@ -104,12 +104,14 @@ fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, 
             commitments_out: VecDeque::new(),
             raw_txlists_out: VecDeque::new(),
             head_out: VecDeque::new(),
-            validator: Box::new(LocalValidationAdapter),
+            validator: Box::new(LocalValidationAdapter::new(None)),
             discovery_rx: None,
             _discovery_task: None,
             connected_peers: 0,
             head: PreconfHead::default(),
             kona_gater: super::build_kona_gater(cfg),
+            commitments_store: std::collections::BTreeMap::new(),
+            txlist_store: std::collections::HashMap::new(),
         },
         NetworkHandle { events: events_rx, commands: cmd_tx },
     )
@@ -156,7 +158,7 @@ async fn gossipsub_and_reqresp_roundtrip() {
         let peer1_id = *driver1.swarm.local_peer_id();
         let peer2_id = *driver2.swarm.local_peer_id();
         let mut addr2_full = addr2.clone();
-        addr2_full.push(libp2p::multiaddr::Protocol::P2p(peer2_id.into()));
+        addr2_full.push(libp2p::multiaddr::Protocol::P2p(peer2_id));
 
         driver1.swarm.dial(addr2_full.clone()).unwrap();
 
@@ -204,12 +206,11 @@ async fn gossipsub_and_reqresp_roundtrip() {
         for _ in 0..400 {
             pump_async(&mut driver1).await;
             pump_async(&mut driver2).await;
-            if let Ok(ev) = handle2.events.try_recv() {
-                if let NetworkEvent::GossipSignedCommitment { msg, .. } = ev {
-                    assert_eq!(*msg, commit);
-                    received = true;
-                    break;
-                }
+            if let Ok(NetworkEvent::GossipSignedCommitment { msg, .. }) = handle2.events.try_recv()
+            {
+                assert_eq!(*msg, commit);
+                received = true;
+                break;
             }
             if tokio::time::Instant::now() >= deadline {
                 break;
@@ -234,11 +235,9 @@ async fn gossipsub_and_reqresp_roundtrip() {
         for _ in 0..400 {
             pump_async(&mut driver1).await;
             pump_async(&mut driver2).await;
-            if let Ok(ev) = handle1.events.try_recv() {
-                if let NetworkEvent::ReqRespCommitments { .. } = ev {
-                    got_resp = true;
-                    break;
-                }
+            if let Ok(NetworkEvent::ReqRespCommitments { .. }) = handle1.events.try_recv() {
+                got_resp = true;
+                break;
             }
             if tokio::time::Instant::now() >= deadline {
                 break;

@@ -72,8 +72,6 @@ pub struct SignedCommitment {
 pub struct RawTxListGossip {
     /// Hash of the raw tx list payload.
     pub raw_tx_list_hash: Bytes32,
-    /// Anchor block number tied to the tx list.
-    pub anchor_block_number: Uint256,
     /// Compressed RLP-encoded tx list bytes.
     pub txlist: TxListBytes, // compressed RLP(tx list)
 }
@@ -256,11 +254,8 @@ mod tests {
     #[test]
     fn txlist_size_cap_allows_equal_limit() {
         let txlist = TxListBytes::try_from(vec![0u8; MAX_TXLIST_BYTES]).unwrap();
-        let msg = RawTxListGossip {
-            raw_tx_list_hash: Vector::try_from(vec![5u8; 32]).unwrap(),
-            anchor_block_number: Uint256::from(10u64),
-            txlist,
-        };
+        let msg =
+            RawTxListGossip { raw_tx_list_hash: Vector::try_from(vec![5u8; 32]).unwrap(), txlist };
         let bytes = ssz_rs::serialize(&msg).unwrap();
         let decoded = RawTxListGossip::deserialize(&bytes).unwrap();
         assert_eq!(msg, decoded);

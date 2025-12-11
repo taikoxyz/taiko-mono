@@ -13,6 +13,7 @@ mod tests;
 
 use std::{collections::VecDeque, num::NonZeroU8, str::FromStr};
 
+use alloy_primitives::{B256, U256};
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
 use tokio::{
     sync::mpsc::{self, Receiver, Sender, error::TrySendError},
@@ -33,7 +34,7 @@ use crate::{
     validation::{LocalValidationAdapter, ValidationAdapter},
 };
 use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
-use preconfirmation_types::PreconfHead;
+use preconfirmation_types::{PreconfHead, address_to_bytes20};
 use ssz_rs::Deserialize;
 
 /// Handle returned to the service layer; exposes the event receiver and command sender endpoints.
@@ -75,6 +76,10 @@ pub struct NetworkDriver {
     head: PreconfHead,
     /// Kona connection gater for managing inbound and outbound connections.
     kona_gater: kona_gossip::ConnectionGater,
+    /// Stored commitments keyed by block number for req/resp serving.
+    commitments_store: std::collections::BTreeMap<U256, preconfirmation_types::SignedCommitment>,
+    /// Stored raw txlists keyed by hash for req/resp serving.
+    txlist_store: std::collections::HashMap<B256, preconfirmation_types::RawTxListGossip>,
 }
 
 /// Constructs the reputation backend adapter. At runtime this delegates to the reth-backed
@@ -168,12 +173,16 @@ impl NetworkDriver {
                 commitments_out: VecDeque::new(),
                 raw_txlists_out: VecDeque::new(),
                 head_out: VecDeque::new(),
-                validator: Box::new(LocalValidationAdapter),
+                validator: Box::new(LocalValidationAdapter::new(
+                    cfg.slasher_address.map(address_to_bytes20),
+                )),
                 discovery_rx,
                 _discovery_task: discovery_task,
                 connected_peers: 0,
                 head: PreconfHead::default(),
                 kona_gater: build_kona_gater(&cfg),
+                commitments_store: std::collections::BTreeMap::new(),
+                txlist_store: std::collections::HashMap::new(),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
         ))

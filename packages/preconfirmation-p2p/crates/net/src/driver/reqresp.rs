@@ -1,9 +1,10 @@
 use std::task::{Context, Poll};
 
+use alloy_primitives::U256;
 use libp2p::request_response as rr;
 use preconfirmation_types::{
     GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
-    GetRawTxListRequest, GetRawTxListResponse, PreconfHead,
+    GetRawTxListRequest, GetRawTxListResponse, PreconfHead, bytes32_to_b256, uint256_to_u256,
 };
 
 use super::*;
@@ -53,7 +54,7 @@ impl NetworkDriver {
     ) {
         match ev {
             rr::Event::Message { peer, message, .. } => match message {
-                rr::Message::Request { channel, .. } => {
+                rr::Message::Request { request, channel, .. } => {
                     if self.reputation.is_banned(&peer) {
                         metrics::counter!("p2p_reqresp_dropped", "kind" => "commitments", "reason" => "banned").increment(1);
                         return;
@@ -75,11 +76,19 @@ impl NetworkDriver {
                     let _ = self
                         .events_tx
                         .try_send(NetworkEvent::InboundCommitmentsRequest { from: peer });
-                    let _ = self
-                        .swarm
-                        .behaviour_mut()
-                        .commitments_rr
-                        .send_response(channel, GetCommitmentsByNumberResponse::default());
+                    let mut list = preconfirmation_types::CommitmentList::default();
+                    let cap = request
+                        .max_count
+                        .min(preconfirmation_types::MAX_COMMITMENTS_PER_RESPONSE as u32);
+                    for (_, commit) in self
+                        .commitments_store
+                        .range(uint256_to_u256(&request.start_block_number)..=U256::MAX)
+                        .take(cap as usize)
+                    {
+                        list.push(commit.clone());
+                    }
+                    let resp = GetCommitmentsByNumberResponse { commitments: list };
+                    let _ = self.swarm.behaviour_mut().commitments_rr.send_response(channel, resp);
                     metrics::counter!("p2p_reqresp_success", "kind" => "commitments", "direction" => "inbound").increment(1);
                     self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                 }
@@ -145,7 +154,7 @@ impl NetworkDriver {
     ) {
         match ev {
             rr::Event::Message { peer, message, .. } => match message {
-                rr::Message::Request { channel, .. } => {
+                rr::Message::Request { request, channel, .. } => {
                     if self.reputation.is_banned(&peer) {
                         metrics::counter!("p2p_reqresp_dropped", "kind" => "raw_txlists", "reason" => "banned").increment(1);
                         return;
@@ -167,13 +176,22 @@ impl NetworkDriver {
                     let _ = self
                         .events_tx
                         .try_send(NetworkEvent::InboundRawTxListRequest { from: peer });
-                    let _ = self
-                        .swarm
-                        .behaviour_mut()
-                        .raw_txlists_rr
-                        .send_response(channel, GetRawTxListResponse::default());
-                    metrics::counter!("p2p_reqresp_success", "kind" => "raw_txlists", "direction" => "inbound").increment(1);
-                    self.apply_reputation(peer, PeerAction::ReqRespSuccess);
+                    let hash = bytes32_to_b256(&request.raw_tx_list_hash);
+                    if let Some(msg) = self.txlist_store.get(&hash) {
+                        let resp = GetRawTxListResponse {
+                            raw_tx_list_hash: msg.raw_tx_list_hash.clone(),
+                            anchor_block_number: preconfirmation_types::Uint256::default(),
+                            txlist: msg.txlist.clone(),
+                        };
+                        let _ =
+                            self.swarm.behaviour_mut().raw_txlists_rr.send_response(channel, resp);
+                        metrics::counter!("p2p_reqresp_success", "kind" => "raw_txlists", "direction" => "inbound").increment(1);
+                        self.apply_reputation(peer, PeerAction::ReqRespSuccess);
+                    } else {
+                        metrics::counter!("p2p_reqresp_error", "kind" => "raw_txlists", "reason" => "not_found").increment(1);
+                        self.apply_reputation(peer, PeerAction::ReqRespError);
+                        // Let requester time out if we can't serve the data.
+                    }
                 }
                 rr::Message::Response { response, .. } => {
                     if self.validator.validate_raw_txlist_response(&peer, &response).is_ok() {

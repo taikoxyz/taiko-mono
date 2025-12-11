@@ -20,6 +20,7 @@ async-trait.workspace = true
 discv5.workspace = true
 futures.workspace = true
 ipnet.workspace = true
+alloy-primitives.workspace = true
 libp2p = { workspace = true, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "noise", "yamux", "macros", "tokio"] }
 libp2p-allow-block-list.workspace = true
 libp2p-connection-limits.workspace = true

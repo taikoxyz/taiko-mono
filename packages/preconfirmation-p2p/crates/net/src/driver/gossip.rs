@@ -1,5 +1,5 @@
 use libp2p::gossipsub::{self, MessageAcceptance};
-use preconfirmation_types::{RawTxListGossip, SignedCommitment};
+use preconfirmation_types::{RawTxListGossip, SignedCommitment, bytes32_to_b256, uint256_to_u256};
 
 use super::*;
 
@@ -35,6 +35,9 @@ impl NetworkDriver {
                             metrics::counter!("p2p_gossip_valid", "kind" => "commitment")
                                 .increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
+                            let block_number =
+                                uint256_to_u256(&msg.commitment.preconf.block_number);
+                            self.commitments_store.insert(block_number, msg.clone());
                             let _ = self.events_tx.try_send(NetworkEvent::GossipSignedCommitment {
                                 from: propagation_source,
                                 msg: Box::new(msg),
@@ -92,6 +95,8 @@ impl NetworkDriver {
                             metrics::counter!("p2p_gossip_valid", "kind" => "raw_txlists")
                                 .increment(1);
                             self.apply_reputation(propagation_source, PeerAction::GossipValid);
+                            let hash = bytes32_to_b256(&msg.raw_tx_list_hash);
+                            self.txlist_store.insert(hash, msg.clone());
                             let _ = self.events_tx.try_send(NetworkEvent::GossipRawTxList {
                                 from: propagation_source,
                                 msg: Box::new(msg),

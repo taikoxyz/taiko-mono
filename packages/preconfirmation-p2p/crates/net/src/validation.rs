@@ -13,9 +13,10 @@
 use libp2p::PeerId;
 
 use preconfirmation_types::{
-    GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
-    validate_commitments_response, validate_head_response, validate_preconfirmation_basic,
-    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment,
+    Bytes20, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
+    SignedCommitment, validate_commitments_response, validate_head_response,
+    validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
+    verify_signed_commitment,
 };
 
 /// Adapter trait for validating inbound gossip and request/response payloads.
@@ -57,7 +58,15 @@ pub trait ValidationAdapter: Send + Sync {
 }
 
 /// Default adapter that reuses the existing local validators.
-pub struct LocalValidationAdapter;
+pub struct LocalValidationAdapter {
+    expected_slasher: Option<Bytes20>,
+}
+
+impl LocalValidationAdapter {
+    pub fn new(expected_slasher: Option<Bytes20>) -> Self {
+        Self { expected_slasher }
+    }
+}
 
 impl ValidationAdapter for LocalValidationAdapter {
     /// Validate a signed commitment gossip message using local signature checks.
@@ -67,6 +76,11 @@ impl ValidationAdapter for LocalValidationAdapter {
         msg: &SignedCommitment,
     ) -> Result<(), String> {
         verify_signed_commitment(msg).map_err(|e| e.to_string()).and_then(|_| {
+            if let Some(expected) = &self.expected_slasher
+                && &msg.commitment.slasher_address != expected
+            {
+                return Err("slasher_address mismatch".to_string());
+            }
             validate_preconfirmation_basic(&msg.commitment.preconf).map_err(|e| e.to_string())
         })
     }
@@ -105,5 +119,52 @@ impl ValidationAdapter for LocalValidationAdapter {
         resp: &preconfirmation_types::PreconfHead,
     ) -> Result<(), String> {
         validate_head_response(resp).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use preconfirmation_types::{
+        Bytes20, PreconfCommitment, Preconfirmation, Uint256, sign_commitment,
+    };
+    use secp256k1::SecretKey;
+    use ssz_rs::Vector;
+
+    fn sample_signed_commitment(slasher: Bytes20) -> SignedCommitment {
+        let preconf = Preconfirmation {
+            eop: false,
+            block_number: Uint256::from(1u64),
+            timestamp: Uint256::from(1u64),
+            gas_limit: Uint256::from(1u64),
+            coinbase: Vector::try_from(vec![0u8; 20]).unwrap(),
+            anchor_block_number: Uint256::from(1u64),
+            raw_tx_list_hash: Vector::try_from(vec![1u8; 32]).unwrap(),
+            parent_preconfirmation_hash: Vector::try_from(vec![2u8; 32]).unwrap(),
+            submission_window_end: Uint256::from(1u64),
+            prover_auth: Vector::try_from(vec![3u8; 20]).unwrap(),
+            proposal_id: Uint256::from(4u64),
+        };
+        let commitment = PreconfCommitment { preconf, slasher_address: slasher };
+        let sk = SecretKey::from_slice(&[9u8; 32]).unwrap();
+        let sig = sign_commitment(&commitment, &sk).unwrap();
+        SignedCommitment { commitment, signature: sig }
+    }
+
+    #[test]
+    fn slasher_address_enforced_when_expected() {
+        let expected = Vector::try_from(vec![7u8; 20]).unwrap();
+        let adapter = LocalValidationAdapter::new(Some(expected.clone()));
+        let msg = sample_signed_commitment(expected);
+        assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
+    }
+
+    #[test]
+    fn slasher_mismatch_rejected() {
+        let expected = Vector::try_from(vec![7u8; 20]).unwrap();
+        let adapter = LocalValidationAdapter::new(Some(expected.clone()));
+        let wrong = Vector::try_from(vec![8u8; 20]).unwrap();
+        let msg = sample_signed_commitment(wrong);
+        assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 }

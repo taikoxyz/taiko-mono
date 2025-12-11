@@ -3,6 +3,8 @@ use std::{
     time::Duration,
 };
 
+use alloy_primitives::Address;
+
 /// Network configuration (libp2p + discv5) with conservative defaults used by the preconfirmation
 /// P2P stack.
 ///
@@ -47,6 +49,8 @@ pub struct NetworkConfig {
     pub max_requests_per_window: u32,
     /// Maximum concurrent inbound+outbound req/resp streams (libp2p request-response config).
     pub max_reqresp_concurrent_streams: usize,
+    /// Expected slasher address (spec §4.2); if set, gossip validation enforces it.
+    pub slasher_address: Option<Address>,
     /// Maximum pending inbound connections (None = unlimited).
     pub max_pending_incoming: Option<u32>,
     /// Maximum pending outbound connections (None = unlimited).
@@ -110,6 +114,7 @@ impl Default for NetworkConfig {
             request_window: Duration::from_secs(10),
             max_requests_per_window: 8,
             max_reqresp_concurrent_streams: 100,
+            slasher_address: None,
             max_pending_incoming: Some(40),
             max_pending_outgoing: Some(40),
             max_established_incoming: Some(110),
