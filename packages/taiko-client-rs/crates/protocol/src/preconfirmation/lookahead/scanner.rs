@@ -132,7 +132,7 @@ where
                         if let Err(IngestError::Retryable(err)) = retry_result {
                             error!(
                                 ?err,
-                                "failed to ingest lookahead logs after continuous retries"
+                                "unexpected failure in lookahead log ingestion retry mechanism"
                             );
                         }
                     }

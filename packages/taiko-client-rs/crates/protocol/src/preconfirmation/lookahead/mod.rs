@@ -18,26 +18,25 @@ pub use resolver::{LookaheadBroadcast, LookaheadResolver};
 pub type LookaheadResolverWithDefaultProvider =
     LookaheadResolver<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
-// Lookahead preconfirmation resolver.
-//
-// How `committer_for_timestamp` resolves a committer (parity with
-// `LookaheadStore._determineProposerContext`):
-// - If the current epoch lookahead is empty, use the whitelist operator for the entire epoch.
-// - Otherwise pick the first current-epoch slot whose timestamp >= queried timestamp; if none and
-//   the first slot of the next epoch is still ahead of the queried timestamp, use that first slot;
-//   otherwise fall back to the current-epoch whitelist.
-// - Blacklisted slots always fall back to the cached current-epoch whitelist (driven by live
-//   Blacklisted/Unblacklisted events).
-// - Whitelist fallback now follows live PreconfWhitelist events (OperatorAdded/Removed), seeded by
-//   the initial LookaheadPosted snapshot; mid-epoch removals therefore change the fallback
-//   committer without additional RPCs.
-// - Lookups are bounded: timestamps earlier than `earliest_allowed_timestamp` (one full epoch
-//   behind "now") are rejected as `TooOld`, and timestamps at or beyond `latest_allowed_timestamp`
-//   (end of the current epoch) are rejected as `TooNew`.
-//
-// Integrators can call `committer_for_timestamp` to obtain the expected committer address for a
-// given L1 timestamp, matching LookaheadStore/PreconfWhitelist semantics.
-//
+/// Lookahead preconfirmation resolver.
+///
+/// Resolver behavior mirrors `LookaheadStore._determineProposerContext`:
+/// - If the current epoch lookahead is empty, use the whitelist operator for the entire epoch.
+/// - Otherwise pick the first current-epoch slot whose timestamp >= queried timestamp; if none and
+///   the first slot of the next epoch is still ahead of the queried timestamp, use that first slot;
+///   otherwise fall back to the current-epoch whitelist.
+/// - Blacklisted slots always fall back to the cached current-epoch whitelist (driven by live
+///   `Blacklisted`/`Unblacklisted` events).
+/// - Whitelist fallback follows live `PreconfWhitelist` events (OperatorAdded/Removed), seeded by
+///   the initial `LookaheadPosted` snapshot; mid-epoch removals therefore change the fallback
+///   committer without additional RPCs.
+/// - Lookups are bounded: timestamps earlier than `earliest_allowed_timestamp` (one full epoch
+///   behind "now") are rejected as `TooOld`, and timestamps at or beyond `latest_allowed_timestamp`
+///   (end of the current epoch) are rejected as `TooNew`.
+///
+/// Integrators can call `committer_for_timestamp` to obtain the expected committer address for a
+/// given timestamp, matching `LookaheadStore`/`PreconfWhitelist` semantics.
+///
 /// Resolves the expected signer for a preconfirmation commitment at a given L2 block timestamp.
 ///
 /// P2P validation uses this to check that a received commitment was signed by the committer

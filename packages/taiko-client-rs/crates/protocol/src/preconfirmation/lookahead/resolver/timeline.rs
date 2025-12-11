@@ -72,7 +72,11 @@ impl BlacklistTimeline {
         }
 
         let idx = self.events.partition_point(|e| e.at <= ts);
-        let evt = if idx == 0 { self.events[0] } else { self.events[idx - 1] };
+        if idx == 0 {
+            return false;
+        }
+
+        let evt = self.events[idx - 1];
         matches!(evt.flag, BlacklistFlag::Listed)
     }
 }
@@ -220,6 +224,41 @@ mod tests {
 
         timeline.prune_before(280);
         assert!(!timeline.was_blacklisted_at(300));
+    }
+
+    #[test]
+    fn blacklist_timeline_future_event_does_not_apply_to_past() {
+        let mut timeline = BlacklistTimeline::default();
+        timeline.apply(BlacklistEvent { at: 100, flag: BlacklistFlag::Listed });
+
+        assert!(!timeline.was_blacklisted_at(50));
+        assert!(timeline.was_blacklisted_at(150));
+    }
+
+    #[test]
+    fn blacklist_timeline_respects_list_and_clear_sequence() {
+        let mut timeline = BlacklistTimeline::default();
+        timeline.apply(BlacklistEvent { at: 100, flag: BlacklistFlag::Listed });
+        timeline.apply(BlacklistEvent { at: 150, flag: BlacklistFlag::Cleared });
+
+        assert!(timeline.was_blacklisted_at(120));
+        assert!(!timeline.was_blacklisted_at(151));
+        assert!(!timeline.was_blacklisted_at(200));
+    }
+
+    #[test]
+    fn blacklist_timeline_baseline_after_prune_handles_pre_history_queries() {
+        let mut timeline = BlacklistTimeline::default();
+        timeline.apply(BlacklistEvent { at: 50, flag: BlacklistFlag::Listed });
+        timeline.apply(BlacklistEvent { at: 100, flag: BlacklistFlag::Cleared });
+        timeline.apply(BlacklistEvent { at: 200, flag: BlacklistFlag::Listed });
+
+        timeline.prune_before(125);
+
+        // Baseline event is the cleared entry at 100; times before it should not be blacklisted.
+        assert!(!timeline.was_blacklisted_at(80));
+        assert!(!timeline.was_blacklisted_at(150));
+        assert!(timeline.was_blacklisted_at(220));
     }
 
     #[test]

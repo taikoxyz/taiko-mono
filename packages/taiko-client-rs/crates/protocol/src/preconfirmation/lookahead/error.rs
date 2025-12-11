@@ -36,6 +36,9 @@ pub enum LookaheadError {
     /// Chain reorg detected while locating a block.
     #[error("chain reorg detected while locating block for epoch")]
     ReorgDetected,
+    /// System clock produced an invalid (pre-UNIX) timestamp.
+    #[error("system time error: {0}")]
+    SystemTime(String),
     /// Chain ID not recognised for genesis timestamp resolution.
     #[error("unsupported chain id {0} for preconf genesis lookup")]
     UnknownChain(u64),

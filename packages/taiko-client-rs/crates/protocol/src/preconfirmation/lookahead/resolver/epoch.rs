@@ -48,7 +48,7 @@ pub(crate) fn latest_allowed_timestamp_at(now: u64, genesis_timestamp: u64) -> u
 pub(crate) fn current_unix_timestamp() -> Result<u64> {
     Ok(SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
+        .map_err(|err| LookaheadError::SystemTime(err.to_string()))?
         .as_secs())
 }
 

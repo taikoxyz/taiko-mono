@@ -434,10 +434,6 @@ where
             // Select from next epoch slots.
             Some(SlotOrigin::Next(idx)) => {
                 let next_epoch = next.ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
-                debug_assert!(
-                    idx < next_epoch.slots.len(),
-                    "pick_slot_origin must not return out-of-bounds indices"
-                );
                 let slot =
                     next_epoch.slots.get(idx).ok_or(LookaheadError::CorruptLookaheadCache {
                         epoch_start: next_epoch_start,
