@@ -273,7 +273,7 @@ bool isWhitelistedProver = _isWhitelistedProver();
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             uint256 proposalAge =
-                _buildBondInstruction(isWhitelistedProver, state, c, offset);
+                _createBondInstruction(isWhitelistedProver, state, c, offset);
 
 
 
@@ -594,7 +594,7 @@ bool isWhitelistedProver = _isWhitelistedProver();
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
     /// @return proposalAge_ The calculated proposal age (0 if whitelisted prover).
-    function _buildBondInstruction(
+    function _createBondInstruction(
         bool _isWhitelisted,
         CoreState memory _state,
         Commitment memory _commitment,
