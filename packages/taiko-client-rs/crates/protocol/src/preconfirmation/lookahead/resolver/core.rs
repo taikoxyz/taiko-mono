@@ -3,7 +3,7 @@ use std::sync::Arc;
 use alloy::{eips::BlockId, sol_types::SolEvent};
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types::{BlockNumberOrTag, Log};
+use alloy_rpc_types::{BlockNumberOrTag, Log, eth::Block as RpcBlock};
 use async_trait::async_trait;
 use bindings::{
     lookahead_store::LookaheadStore::{Blacklisted, LookaheadPosted, Unblacklisted},
@@ -274,9 +274,11 @@ where
         // Snapshot whitelist state at the event block state.
         let fallback_current = self.snapshot_whitelist(block_number).await?;
 
-        // Record baseline fallback for the epoch so live updates can override it.
-        self.record_fallback_baseline(event.epochTimestamp.to(), block_timestamp, fallback_current)
-            .await?;
+        let epoch_start = event.epochTimestamp.to::<u64>();
+
+        // Record baseline fallback for the epoch anchored at the epoch boundary (not the post
+        // block) so it activates only when that epoch begins.
+        self.record_fallback_baseline(epoch_start, epoch_start, fallback_current).await?;
 
         // Insert or update the cached epoch entry.
         let cached = CachedLookaheadEpoch {
@@ -286,7 +288,6 @@ where
         };
 
         // Store in the cache keyed by epoch start timestamp.
-        let epoch_start = event.epochTimestamp.to::<u64>();
         self.cache.insert(epoch_start, cached.clone());
 
         // Broadcast the epoch update if channel is enabled.
@@ -331,13 +332,30 @@ where
     /// timeline, keyed by the epoch that contains the block timestamp.
     async fn record_whitelist_event(&self, block_number: u64, block_timestamp: u64) -> Result<()> {
         let epoch_start = epoch_start_for(block_timestamp, self.genesis_timestamp);
-        let operator = self.whitelist_operator_at(block_number).await?;
+        let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
-        self.fallback_timeline.apply(FallbackEvent { at: block_timestamp, operator });
+        let current_epoch_operator = self.whitelist_operator_at(block_number).await?;
+        let next_epoch_operator = self
+            .preconf_whitelist
+            .getOperatorForNextEpoch()
+            .block(BlockId::Number(block_number.into()))
+            .call()
+            .await
+            .map_err(LookaheadError::PreconfWhitelist)?;
+
+        // Apply the operator change to the fallback timeline, pruning history to the allowed
+        // lookback window. Current epoch takes effect at the event block; next epoch at the epoch
+        // boundary so it cannot retroactively affect the current epoch.
+        self.fallback_timeline
+            .apply(FallbackEvent { at: block_timestamp, operator: current_epoch_operator });
+        self.fallback_timeline
+            .apply(FallbackEvent { at: next_epoch_start, operator: next_epoch_operator });
+
         self.fallback_timeline.prune_before(earliest_allowed_timestamp(self.genesis_timestamp)?);
 
-        // Ensure a baseline exists for the epoch in case the first observed event is a removal.
-        self.fallback_timeline.ensure_baseline(epoch_start, operator);
+        // Ensure baselines exist even if the first observed change is a removal.
+        self.fallback_timeline.ensure_baseline(epoch_start, current_epoch_operator);
+        self.fallback_timeline.ensure_baseline(next_epoch_start, next_epoch_operator);
         Ok(())
     }
 
@@ -460,8 +478,8 @@ where
     }
 
     /// Locate a block whose timestamp is within the given epoch window `[epoch_start,
-    /// epoch_start + SECONDS_IN_EPOCH)`. Returns the block number if found.
-    async fn block_within_epoch(&self, epoch_start: u64) -> Result<Option<u64>> {
+    /// epoch_start + SECONDS_IN_EPOCH)`. Returns the full block if found.
+    async fn block_within_epoch(&self, epoch_start: u64) -> Result<Option<RpcBlock>> {
         let epoch_end = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
         // Start from the latest block to reduce reorg risk (see basic head-hash check below).
@@ -479,7 +497,7 @@ where
             return Ok(None);
         }
         if curr_ts < epoch_end {
-            return Ok(Some(curr_num));
+            return Ok(Some(block));
         }
 
         // Step backwards one block at a time (bounded) to find any block inside the epoch window.
@@ -499,7 +517,7 @@ where
                 return Ok(None);
             }
             if curr_ts < epoch_end {
-                return Ok(Some(new_block.number()));
+                return Ok(Some(new_block));
             }
             attempts = attempts.saturating_add(1);
         }
@@ -550,38 +568,26 @@ where
             return Err(LookaheadError::MissingLookahead(epoch_start));
         }
 
-        let block_number = match self.block_within_epoch(epoch_start).await? {
-            Some(num) => num,
+        let block = match self.block_within_epoch(epoch_start).await? {
+            Some(block) => block,
             None => return Err(LookaheadError::MissingLookahead(epoch_start)),
         };
 
         let fallback_current = self
             .preconf_whitelist
             .getOperatorForCurrentEpoch()
-            .block(BlockId::Number(block_number.into()))
+            .block(BlockId::Number(block.number().into()))
             .call()
             .await
             .map_err(LookaheadError::PreconfWhitelist)?;
 
-        // Fetch the block timestamp once for this synthetic epoch.
-        let block_ts = self
-            .provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
-            .await
-            .map_err(|err| LookaheadError::BlockLookup { block_number, reason: err.to_string() })?
-            .ok_or(LookaheadError::BlockLookup {
-                block_number,
-                reason: "missing block data".into(),
-            })?
-            .header
-            .timestamp;
-
-        self.record_fallback_baseline(epoch_start, block_ts, fallback_current).await?;
+        self.record_fallback_baseline(epoch_start, block.header.timestamp, fallback_current)
+            .await?;
 
         let cached = CachedLookaheadEpoch {
             slots: Arc::new(vec![]),
             fallback_whitelist: fallback_current,
-            block_timestamp: block_ts,
+            block_timestamp: block.header.timestamp,
         };
         self.cache.insert(epoch_start, cached.clone());
         Ok(cached)

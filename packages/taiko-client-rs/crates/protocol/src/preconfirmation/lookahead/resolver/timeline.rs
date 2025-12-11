@@ -168,9 +168,12 @@ impl FallbackTimelineStore {
 
     /// Ensure a baseline exists at or before `at`; if none, insert the provided operator at `at`.
     pub fn ensure_baseline(&self, at: u64, operator: Address) {
-        // Fast-path read: skip COW if baseline already exists.
+        // Fast-path read: skip COW if an event at or before `at` already exists.
         if self.operator_at(at).is_some() {
-            return;
+            let earliest = self.inner.load_full().events.first().copied();
+            if earliest.is_some_and(|evt| evt.at <= at) {
+                return;
+            }
         }
         self.update(|timeline| timeline.ensure_baseline(at, operator));
     }
