@@ -245,7 +245,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -------------------------------------------------------------------------------
             Commitment memory c = input.commitment;
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateBatchBoundsAndCalculateOffset(state, c);
+                _validateCommitment(state, c);
 
             // ---------------------------------------------------------
             // 2. Verify checkpoint hash continuity and last proposal hash
@@ -474,13 +474,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Validates the batch bounds and calculates the offset to the first unfinalized proposal.
+    /// @dev Validates the batch bounds in the Commitment and calculates the offset
+    ///      to the first unfinalized proposal.
     /// @param _state The core state.
     /// @param _commitment The commitment data.
     /// @return numProposals_ The number of proposals in the batch.
     /// @return lastProposalId_ The ID of the last proposal in the batch.
     /// @return offset_ The offset to the first unfinalized proposal.
-    function _validateBatchBoundsAndCalculateOffset(
+    function _validateCommitment(
         CoreState memory _state,
         Commitment memory _commitment
     )
