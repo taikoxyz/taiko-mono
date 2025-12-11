@@ -41,7 +41,6 @@ type RaikoProposals struct {
 	L1InclusionBlockNumber *big.Int         `json:"l1_inclusion_block_number"`
 	L2BlockNumbers         []*big.Int       `json:"l2_block_numbers"`
 	DesignatedProver       string           `json:"designated_prover"`
-	ParentTransitionHash   string           `json:"parent_transition_hash"`
 	Checkpoint             *RaikoCheckpoint `json:"checkpoint"`
 	LastAnchorBlockNumber  *big.Int         `json:"last_anchor_block_number"`
 }
@@ -293,7 +292,6 @@ func (s *ComposeProofProducer) requestBatchProof(
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
 				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],
-				ParentTransitionHash:   opts[i].ShastaOptions().ParentTransitionHash.Hex()[2:],
 				Checkpoint: &RaikoCheckpoint{
 					BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
 					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],

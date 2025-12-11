@@ -12,7 +12,7 @@ use alloy::{
     rpc::types::TransactionRequest,
 };
 use alloy_network::TransactionBuilder4844;
-use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
+use bindings::codec::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
     constants::{MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET},

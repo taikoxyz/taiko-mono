@@ -362,7 +362,6 @@ func (d *Driver) reportProtocolStatusShasta() {
 		"📖 Shasta protocol status",
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		"lastFinalizedTimestamp", coreState.LastFinalizedTimestamp,
-		"lastFinalizedTransitionHash", common.Hash(coreState.LastFinalizedTransitionHash),
 		"nextProposalID", coreState.NextProposalId,
 	)
 }
