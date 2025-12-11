@@ -272,7 +272,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            uint256 proposalAge = _createBondInstruction(isWhitelistedProver, state, c, offset);
+            uint256 proposalAge;
+            if (!isWhitelistedProver) {
+                proposalAge = _createBondInstruction(state, c, offset);
+            }
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -586,13 +589,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Calculates proposal age and emits bond instruction if applicable.
-    /// @param _isWhitelisted Whether the caller is the whitelisted prover.
     /// @param _state The current core state.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
     /// @return proposalAge_ The calculated proposal age (0 if whitelisted prover).
     function _createBondInstruction(
-        bool _isWhitelisted,
         CoreState memory _state,
         Commitment memory _commitment,
         uint48 _offset
@@ -600,8 +601,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (uint256 proposalAge_)
     {
-        if (_isWhitelisted) return 0;
-
         proposalAge_ = block.timestamp
             - _commitment.transitions[_offset].timestamp.max(_state.lastFinalizedTimestamp);
 
