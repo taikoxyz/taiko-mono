@@ -144,8 +144,9 @@ interface IInbox {
     struct ProveInput {
         /// @notice The commitment data that the proof verifies.
         Commitment commitment;
-        /// @notice Whether to force syncing the last checkpoint even if the minimum delay
-        /// has not passed.
+        /// @notice Whether to force syncing the last checkpoint even if the minimum
+        /// delay has not passed
+        /// @dev This allows checkpoint synchronization ahead of schedule.
         bool forceCheckpointSync;
     }
 
