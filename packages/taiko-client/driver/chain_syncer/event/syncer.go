@@ -657,8 +657,9 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
 
+	lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
-	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == payload.Input.LastCheckpoint.BlockHash {
+	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == lastTransition.BlockHash {
 		return reorgCheckResult, nil
 	}
 
@@ -666,7 +667,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		"Verified block mismatch",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
-		"transitionBlockHash", common.Hash(payload.Input.LastCheckpoint.BlockHash),
+		"transitionBlockHash", common.Hash(lastTransition.BlockHash),
 	)
 
 	// For Shasta, we simply reset to genesis if there is a mismatch.
