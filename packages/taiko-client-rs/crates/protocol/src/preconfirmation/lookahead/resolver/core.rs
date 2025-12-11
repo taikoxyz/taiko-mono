@@ -134,6 +134,7 @@ impl LookaheadResolver {
 
     /// Build an event filter for `LookaheadPosted` plus blacklist/unblacklist events emitted by the
     /// resolved LookaheadStore.
+    #[must_use = "filter must be passed to a scanner"]
     pub fn lookahead_filter(&self) -> EventFilter {
         EventFilter::new()
             .contract_addresses([self.client.address(), self.preconf_whitelist.address()])
