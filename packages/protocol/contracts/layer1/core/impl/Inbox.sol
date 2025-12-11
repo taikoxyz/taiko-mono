@@ -242,7 +242,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-bool isWhitelistedProver = _isWhitelistedProver();
+            bool isWhitelistedProver = _isWhitelistedProver();
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -272,10 +272,7 @@ bool isWhitelistedProver = _isWhitelistedProver();
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            uint256 proposalAge =
-                _createBondInstruction(isWhitelistedProver, state, c, offset);
-
-
+            uint256 proposalAge = _createBondInstruction(isWhitelistedProver, state, c, offset);
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint

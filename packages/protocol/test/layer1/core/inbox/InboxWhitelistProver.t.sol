@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
@@ -136,7 +136,9 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 lastProposalHash: lastProposalHash,
                 actualProver: _actualProver,
                 transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 0, blockHash: 0, stateRoot: 0
+                })
             }),
             forceCheckpointSync: false
         });
@@ -160,7 +162,9 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 lastProposalHash: inbox.getProposalHash(lastProposalId),
                 actualProver: _actualProver,
                 transitions: _transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({ blockNumber: 0, blockHash: 0, stateRoot: 0 })
+                lastCheckpoint: ICheckpointStore.Checkpoint({
+                    blockNumber: 0, blockHash: 0, stateRoot: 0
+                })
             }),
             forceCheckpointSync: false
         });
