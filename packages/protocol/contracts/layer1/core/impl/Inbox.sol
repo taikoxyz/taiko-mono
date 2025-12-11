@@ -252,13 +252,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 2. Verify checkpoint hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash = offset == 0
-                ? c.firstProposalParentBlockHash
-                : c.transitions[offset - 1].blockHash;
-            require(
-                state.lastFinalizedBlockHash == expectedParentHash,
-                ParentBlockHashMismatch()
-            );
+            bytes32 expectedParentHash =
+                offset == 0 ? c.firstProposalParentBlockHash : c.transitions[offset - 1].blockHash;
+            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
             require(
                 c.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch()
@@ -294,11 +290,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 input.forceCheckpointSync
                     || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
             ) {
-                _signalService.saveCheckpoint(ICheckpointStore.Checkpoint({
-                    blockNumber: c.endBlockNumber,
-                    stateRoot: c.endStateRoot,
-                    blockHash: c.transitions[numProposals - 1].blockHash
-                }));
+                _signalService.saveCheckpoint(
+                    ICheckpointStore.Checkpoint({
+                        blockNumber: c.endBlockNumber,
+                        stateRoot: c.endStateRoot,
+                        blockHash: c.transitions[numProposals - 1].blockHash
+                    })
+                );
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
 

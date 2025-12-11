@@ -137,7 +137,7 @@ interface IInbox {
         uint48 endBlockNumber;
         /// @notice The state root for the end L2 block in this proposal.
         bytes32 endStateRoot;
-          /// @notice Array of transitions for each proposal in the proof range.
+        /// @notice Array of transitions for each proposal in the proof range.
         Transition[] transitions;
     }
 

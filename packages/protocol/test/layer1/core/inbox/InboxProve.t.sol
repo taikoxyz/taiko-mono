@@ -21,9 +21,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, input.commitment.firstProposalId, "finalized id");
         assertEq(
-            state.lastFinalizedBlockHash,
-            input.commitment.transitions[0].blockHash,
-            "checkpoint"
+            state.lastFinalizedBlockHash, input.commitment.transitions[0].blockHash, "checkpoint"
         );
     }
 
@@ -96,10 +94,7 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     function test_prove_RevertWhen_EmptyBatch() public {
         IInbox.ProveInput memory emptyInput = _buildInput(
-            1,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            new IInbox.Transition[](0),
-            bytes32(0)
+            1, inbox.getCoreState().lastFinalizedBlockHash, new IInbox.Transition[](0), bytes32(0)
         );
 
         bytes memory encodedInput = codec.encodeProveInput(emptyInput);

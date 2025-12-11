@@ -82,15 +82,9 @@ contract LibProveInputCodecTest is Test {
             "transitions[1] blockHash"
         );
         assertEq(
-            decoded.commitment.endBlockNumber,
-            input.commitment.endBlockNumber,
-            "endBlockNumber"
+            decoded.commitment.endBlockNumber, input.commitment.endBlockNumber, "endBlockNumber"
         );
-        assertEq(
-            decoded.commitment.endStateRoot,
-            input.commitment.endStateRoot,
-            "endStateRoot"
-        );
+        assertEq(decoded.commitment.endStateRoot, input.commitment.endStateRoot, "endStateRoot");
         assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
         assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
