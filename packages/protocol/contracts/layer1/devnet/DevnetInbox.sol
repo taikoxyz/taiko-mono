@@ -49,7 +49,8 @@ contract DevnetInbox is Inbox {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                permissionlessInclusionMultiplier: 5,
+                whitelistProver: address(0)
             }))
     { }
 

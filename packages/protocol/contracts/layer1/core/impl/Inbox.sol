@@ -101,6 +101,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
+    /// @notice The whitelisted prover address (address(0) means no whitelist)
+    address internal immutable _whitelistProver;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -145,6 +148,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
+        _whitelistProver = _config.whitelistProver;
     }
 
     // ---------------------------------------------------------------
@@ -237,6 +241,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proof Validity proof for the batch of proposals
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
+
+bool isWhitelistedProver = _isWhitelistedProver();
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -266,25 +272,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            Transition memory transitionAtOffset = c.transitions[offset];
             uint256 proposalAge =
-                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
+                _buildBondInstruction(isWhitelistedProver, state, c, offset);
 
-            // Bond transfers only apply to the first newly-finalized proposal.
-            LibBonds.BondInstruction memory bondInstruction =
-                LibBondInstruction.calculateBondInstruction(
-                    c.firstProposalId + offset,
-                    proposalAge,
-                    transitionAtOffset.proposer,
-                    transitionAtOffset.designatedProver,
-                    c.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
-                );
-            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
-            }
+
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -382,7 +373,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
+            whitelistProver: _whitelistProver
         });
     }
 
@@ -590,6 +582,48 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    function _isWhitelistedProver() private view returns (bool) {
+        if (_whitelistProver == address(0)) return false;
+        require(msg.sender == _whitelistProver, OnlyWhitelistedProverCanCall());
+        return true;
+    }
+
+    /// @dev Calculates proposal age and emits bond instruction if applicable.
+    /// @param _isWhitelisted Whether the caller is the whitelisted prover.
+    /// @param _state The current core state.
+    /// @param _commitment The commitment data.
+    /// @param _offset The offset to the first unfinalized proposal.
+    /// @return proposalAge_ The calculated proposal age (0 if whitelisted prover).
+    function _buildBondInstruction(
+        bool _isWhitelisted,
+        CoreState memory _state,
+        Commitment memory _commitment,
+        uint48 _offset
+    )
+        private
+        returns (uint256 proposalAge_)
+    {
+        if (_isWhitelisted) return 0;
+
+        proposalAge_ = block.timestamp
+            - _commitment.transitions[_offset].timestamp.max(_state.lastFinalizedTimestamp);
+
+        LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
+            _commitment.firstProposalId + _offset,
+            proposalAge_,
+            _commitment.transitions[_offset].proposer,
+            _commitment.transitions[_offset].designatedProver,
+            _commitment.actualProver,
+            _provingWindow,
+            _extendedProvingWindow
+        );
+
+        if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+        }
+    }
+
     /// @dev Emits the Proposed event
     function _emitProposedEvent(
         Proposal memory _proposal,
@@ -641,6 +675,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
+    error OnlyWhitelistedProverCanCall();
     error ParentCheckpointHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }
