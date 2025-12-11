@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
@@ -164,6 +165,13 @@ interface IInbox {
     /// @notice Emitted when a proof is submitted
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
+
+    /// @notice Emitted when a bond instruction is signaled to L2
+    /// @param proposalId The proposal ID that triggered the bond instruction
+    /// @param bondInstruction The encoded bond instruction
+    event BondInstructionCreated(
+        uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions
