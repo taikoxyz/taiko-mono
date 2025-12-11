@@ -163,6 +163,7 @@ impl LookaheadResolver {
     }
 
     /// Subscribe to lookahead updates if broadcasting is enabled.
+     #[must_use = "receiver must be stored to receive updates"]
     pub fn subscribe(&self) -> Option<broadcast::Receiver<LookaheadBroadcast>> {
         self.broadcast_tx.as_ref().map(|tx| tx.subscribe())
     }
