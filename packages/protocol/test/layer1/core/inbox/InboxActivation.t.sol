@@ -41,7 +41,7 @@ contract InboxActivationTest is InboxTestBase {
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            checkpointHash: keccak256("checkpoint")
+            blockHash: keccak256("checkpoint")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -53,7 +53,7 @@ contract InboxActivationTest is InboxTestBase {
                 transitions: transitions,
                 lastCheckpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(block.number),
-                    blockHash: transitions[0].checkpointHash,
+                    blockHash: transitions[0].blockHash,
                     stateRoot: bytes32(uint256(1))
                 })
             }),

@@ -13,7 +13,7 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
@@ -26,7 +26,7 @@ contract LibProvedEventCodecTest is Test {
                     transitions: transitions,
                     lastCheckpoint: ICheckpointStore.Checkpoint({
                         blockNumber: 1000,
-                        blockHash: transitions[0].checkpointHash,
+                        blockHash: transitions[0].blockHash,
                         stateRoot: bytes32(uint256(88))
                     })
                 }),
@@ -69,9 +69,9 @@ contract LibProvedEventCodecTest is Test {
             "transitions[0] timestamp"
         );
         assertEq(
-            decoded.input.commitment.transitions[0].checkpointHash,
-            transitions[0].checkpointHash,
-            "transitions[0] checkpointHash"
+            decoded.input.commitment.transitions[0].blockHash,
+            transitions[0].blockHash,
+            "transitions[0] blockHash"
         );
         assertEq(
             decoded.input.commitment.lastCheckpoint.blockNumber,
@@ -101,19 +101,19 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            checkpointHash: bytes32(uint256(2))
+            blockHash: bytes32(uint256(2))
         });
         transitions[2] = IInbox.Transition({
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 300,
-            checkpointHash: bytes32(uint256(3))
+            blockHash: bytes32(uint256(3))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
@@ -126,7 +126,7 @@ contract LibProvedEventCodecTest is Test {
                     transitions: transitions,
                     lastCheckpoint: ICheckpointStore.Checkpoint({
                         blockNumber: 5000,
-                        blockHash: transitions[2].checkpointHash,
+                        blockHash: transitions[2].blockHash,
                         stateRoot: bytes32(uint256(888))
                     })
                 }),
@@ -157,9 +157,9 @@ contract LibProvedEventCodecTest is Test {
                 string.concat("transitions[", vm.toString(i), "] timestamp")
             );
             assertEq(
-                decoded.input.commitment.transitions[i].checkpointHash,
-                transitions[i].checkpointHash,
-                string.concat("transitions[", vm.toString(i), "] checkpointHash")
+                decoded.input.commitment.transitions[i].blockHash,
+                transitions[i].blockHash,
+                string.concat("transitions[", vm.toString(i), "] blockHash")
             );
         }
     }
@@ -170,7 +170,7 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
-            checkpointHash: bytes32(uint256(9999))
+            blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
@@ -183,7 +183,7 @@ contract LibProvedEventCodecTest is Test {
                     transitions: transitions,
                     lastCheckpoint: ICheckpointStore.Checkpoint({
                         blockNumber: 888,
-                        blockHash: transitions[0].checkpointHash,
+                        blockHash: transitions[0].blockHash,
                         stateRoot: bytes32(uint256(7777))
                     })
                 }),
@@ -205,13 +205,13 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            checkpointHash: bytes32(uint256(2))
+            blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
@@ -224,7 +224,7 @@ contract LibProvedEventCodecTest is Test {
                     transitions: transitions,
                     lastCheckpoint: ICheckpointStore.Checkpoint({
                         blockNumber: 10,
-                        blockHash: transitions[1].checkpointHash,
+                        blockHash: transitions[1].blockHash,
                         stateRoot: bytes32(uint256(2))
                     })
                 }),

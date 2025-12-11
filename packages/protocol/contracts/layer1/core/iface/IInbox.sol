@@ -119,8 +119,8 @@ interface IInbox {
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice checkpoint hash for the proposal.
-        bytes32 checkpointHash;
+        /// @notice block hash for the proposal.
+        bytes32 blockHash;
     }
 
     /// @notice Commitment data that the prover commits to when submitting a proof.

@@ -165,7 +165,7 @@ library LibHashOptimized {
                     buffer, base + 1, bytes32(uint256(uint160(transition.designatedProver)))
                 );
                 EfficientHashLib.set(buffer, base + 2, bytes32(uint256(transition.timestamp)));
-                EfficientHashLib.set(buffer, base + 3, transition.checkpointHash);
+                EfficientHashLib.set(buffer, base + 3, transition.blockHash);
                 base += 4;
             }
 

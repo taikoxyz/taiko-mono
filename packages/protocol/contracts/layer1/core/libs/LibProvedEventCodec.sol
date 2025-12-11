@@ -94,7 +94,7 @@ library LibProvedEventCodec {
             //   proposer: 20 bytes
             //   designatedProver: 20 bytes
             //   timestamp: 6 bytes
-            //   checkpointHash: 32 bytes
+            //   blockHash: 32 bytes
             // Total per transition: 78 bytes
             //
             // Total = 163 + (numTransitions * 78)
@@ -113,7 +113,7 @@ library LibProvedEventCodec {
         newPtr_ = P.packAddress(_ptr, _transition.proposer);
         newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
         newPtr_ = P.packUint48(newPtr_, _transition.timestamp);
-        newPtr_ = P.packBytes32(newPtr_, _transition.checkpointHash);
+        newPtr_ = P.packBytes32(newPtr_, _transition.blockHash);
     }
 
     function _decodeTransition(uint256 _ptr)
@@ -124,6 +124,6 @@ library LibProvedEventCodec {
         (transition_.proposer, newPtr_) = P.unpackAddress(_ptr);
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (transition_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 }

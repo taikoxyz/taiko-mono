@@ -253,7 +253,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // The parent checkpoint hash must match the stored lastFinalizedCheckpointHash.
             bytes32 expectedParentHash = offset == 0
                 ? c.firstProposalParentCheckpointHash
-                : c.transitions[offset - 1].checkpointHash;
+                : c.transitions[offset - 1].blockHash;
             require(
                 state.lastFinalizedCheckpointHash == expectedParentHash,
                 ParentCheckpointHashMismatch()
@@ -302,7 +302,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedCheckpointHash = c.transitions[numProposals - 1].checkpointHash;
+            state.lastFinalizedCheckpointHash = c.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));

@@ -13,13 +13,13 @@ contract LibProveInputCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            checkpointHash: bytes32(uint256(2))
+            blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -31,7 +31,7 @@ contract LibProveInputCodecTest is Test {
                 transitions: transitions,
                 lastCheckpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 1000,
-                    blockHash: transitions[1].checkpointHash,
+                    blockHash: transitions[1].blockHash,
                     stateRoot: bytes32(uint256(88))
                 })
             }),
@@ -71,9 +71,9 @@ contract LibProveInputCodecTest is Test {
             "transitions[0] timestamp"
         );
         assertEq(
-            decoded.commitment.transitions[0].checkpointHash,
-            transitions[0].checkpointHash,
-            "transitions[0] checkpointHash"
+            decoded.commitment.transitions[0].blockHash,
+            transitions[0].blockHash,
+            "transitions[0] blockHash"
         );
         assertEq(
             decoded.commitment.transitions[1].proposer,
@@ -81,9 +81,9 @@ contract LibProveInputCodecTest is Test {
             "transitions[1] proposer"
         );
         assertEq(
-            decoded.commitment.transitions[1].checkpointHash,
-            transitions[1].checkpointHash,
-            "transitions[1] checkpointHash"
+            decoded.commitment.transitions[1].blockHash,
+            transitions[1].blockHash,
+            "transitions[1] blockHash"
         );
         assertEq(
             decoded.commitment.lastCheckpoint.blockNumber,
@@ -110,7 +110,7 @@ contract LibProveInputCodecTest is Test {
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 500,
-            checkpointHash: bytes32(uint256(55))
+            blockHash: bytes32(uint256(55))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -122,7 +122,7 @@ contract LibProveInputCodecTest is Test {
                 transitions: transitions,
                 lastCheckpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 50,
-                    blockHash: transitions[0].checkpointHash,
+                    blockHash: transitions[0].blockHash,
                     stateRoot: bytes32(uint256(66))
                 })
             }),
@@ -168,7 +168,7 @@ contract LibProveInputCodecTest is Test {
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
-            checkpointHash: bytes32(uint256(9999))
+            blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -180,7 +180,7 @@ contract LibProveInputCodecTest is Test {
                 transitions: transitions,
                 lastCheckpoint: ICheckpointStore.Checkpoint({
                     blockNumber: 888,
-                    blockHash: transitions[0].checkpointHash,
+                    blockHash: transitions[0].blockHash,
                     stateRoot: bytes32(uint256(7777))
                 })
             }),

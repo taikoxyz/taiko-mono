@@ -23,7 +23,7 @@ contract InboxProveTest is InboxTestBase {
         assertEq(state.lastFinalizedProposalId, input.commitment.firstProposalId, "finalized id");
         assertEq(
             state.lastFinalizedCheckpointHash,
-            input.commitment.transitions[0].checkpointHash,
+            input.commitment.transitions[0].blockHash,
             "checkpoint"
         );
     }
@@ -39,7 +39,7 @@ contract InboxProveTest is InboxTestBase {
         );
         assertEq(
             state.lastFinalizedCheckpointHash,
-            input.commitment.transitions[1].checkpointHash,
+            input.commitment.transitions[1].blockHash,
             "checkpoint hash"
         );
     }
@@ -55,7 +55,7 @@ contract InboxProveTest is InboxTestBase {
         );
         assertEq(
             state.lastFinalizedCheckpointHash,
-            input.commitment.transitions[2].checkpointHash,
+            input.commitment.transitions[2].blockHash,
             "checkpoint hash"
         );
     }
@@ -71,7 +71,7 @@ contract InboxProveTest is InboxTestBase {
         );
         assertEq(
             state.lastFinalizedCheckpointHash,
-            input.commitment.transitions[4].checkpointHash,
+            input.commitment.transitions[4].blockHash,
             "checkpoint hash"
         );
     }
@@ -87,7 +87,7 @@ contract InboxProveTest is InboxTestBase {
         );
         assertEq(
             state.lastFinalizedCheckpointHash,
-            input.commitment.transitions[9].checkpointHash,
+            input.commitment.transitions[9].blockHash,
             "checkpoint hash"
         );
     }
@@ -197,7 +197,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.CoreState memory state = inbox.getCoreState();
         assertEq(state.lastFinalizedProposalId, p3.proposal.id, "finalized id");
-        assertEq(state.lastFinalizedCheckpointHash, fullBatch[2].checkpointHash, "checkpoint hash");
+        assertEq(state.lastFinalizedCheckpointHash, fullBatch[2].blockHash, "checkpoint hash");
     }
 
     function test_prove_RevertWhen_FinalizedPrefixHashMismatch() public {
@@ -274,7 +274,7 @@ contract InboxProveTest is InboxTestBase {
             proposer: p1.proposal.proposer,
             designatedProver: proposer, // different from actual prover
             timestamp: p1.proposal.timestamp,
-            checkpointHash: keccak256("checkpoint1")
+            blockHash: keccak256("checkpoint1")
         });
         transitions[1] = _transitionFor(p2, prover, keccak256("checkpoint2"));
 
@@ -594,9 +594,9 @@ contract InboxProveTest is InboxTestBase {
             blockHash: keccak256("blockHash2"),
             stateRoot: keccak256("stateRoot2")
         });
-        bytes32 checkpointHash = keccak256(abi.encode(lastCheckpoint));
+        bytes32 blockHash = keccak256(abi.encode(lastCheckpoint));
 
-        IInbox.Transition[] memory transitions = _transitionArrayFor(p2, checkpointHash);
+        IInbox.Transition[] memory transitions = _transitionArrayFor(p2, blockHash);
 
         IInbox.ProveInput memory input2 = IInbox.ProveInput({
             commitment: IInbox.Commitment({
@@ -705,13 +705,13 @@ contract InboxProveTest is InboxTestBase {
 
     function _transitionArrayFor(
         IInbox.ProposedEventPayload memory _payload,
-        bytes32 _checkpointHash
+        bytes32 _blockHash
     )
         internal
         view
         returns (IInbox.Transition[] memory transitions_)
     {
         transitions_ = new IInbox.Transition[](1);
-        transitions_[0] = _transitionFor(_payload, prover, _checkpointHash);
+        transitions_[0] = _transitionFor(_payload, prover, _blockHash);
     }
 }
