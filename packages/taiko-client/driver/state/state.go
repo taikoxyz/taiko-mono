@@ -148,8 +148,8 @@ func (s *State) eventLoop(ctx context.Context) {
 			log.Info(
 				"📈 Shasta batches proven and verified",
 				"firstBatchID", payload.Input.FirstProposalId,
-				"checkpointNumber", payload.Input.LastBlockNumber,
-				"checkpointHash", common.Hash(payload.Input.ProposalStates[len(payload.Input.ProposalStates)-1].BlockHash),
+				"checkpointNumber", payload.Input.LastCheckpoint.BlockNumber,
+				"checkpointHash", common.Hash(payload.Input.LastCheckpoint.BlockHash),
 			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(

@@ -1508,6 +1508,21 @@ func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBinding
 	return c.ShastaClients.InboxCodec.HashProposal(opts, *proposal)
 }
 
+// HashCheckpointShasta hashes the checkpoint by Shasta Inbox Codec contract.
+func (c *Client) HashCheckpointShasta(
+	opts *bind.CallOpts,
+	checkpoint *shastaBindings.ICheckpointStoreCheckpoint,
+) (common.Hash, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	defer cancel()
+
+	return c.ShastaClients.InboxCodec.HashCheckpoint(opts, *checkpoint)
+}
+
 // GetCoreStateShasta gets the core state from Shasta Inbox contract.
 func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 	var cancel context.CancelFunc
@@ -1583,7 +1598,7 @@ func (c *Client) GetLastVerifiedPayloadShasta(ctx context.Context, coreState *sh
 			return nil, fmt.Errorf("failed to decode proved event payload from Shasta Inbox: %w", err)
 		}
 
-		lastProposalID := payload.Input.FirstProposalId.Uint64() + uint64(len(payload.Input.ProposalStates)) - 1
+		lastProposalID := payload.Input.FirstProposalId.Uint64() + uint64(len(payload.Input.Transitions)) - 1
 
 		if lastProposalID != coreState.LastFinalizedProposalId.Uint64() {
 			continue
