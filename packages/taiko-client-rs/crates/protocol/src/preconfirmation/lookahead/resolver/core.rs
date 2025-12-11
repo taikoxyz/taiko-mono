@@ -163,7 +163,7 @@ impl LookaheadResolver {
     }
 
     /// Subscribe to lookahead updates if broadcasting is enabled.
-     #[must_use = "receiver must be stored to receive updates"]
+    #[must_use = "receiver must be stored to receive updates"]
     pub fn subscribe(&self) -> Option<broadcast::Receiver<LookaheadBroadcast>> {
         self.broadcast_tx.as_ref().map(|tx| tx.subscribe())
     }
@@ -181,10 +181,10 @@ impl LookaheadResolver {
                 field: "block_number",
                 context: "ingesting LookaheadPosted",
             })?;
-            let block_timestamp = log.block_timestamp.ok_or(LookaheadError::MissingLogField {
-                field: "block_timestamp",
-                context: "ingesting LookaheadPosted",
-            })?;
+            let block_timestamp = match log.block_timestamp {
+                Some(ts) => ts,
+                None => self.fetch_block_timestamp(block_number).await?,
+            };
 
             if log.address() == self.client.address() {
                 // LookaheadStore events update epoch cache and blacklist state; these are the
@@ -347,6 +347,19 @@ impl LookaheadResolver {
         self.fallback_timeline.ensure_baseline(epoch_start, current_epoch_operator);
         self.fallback_timeline.ensure_baseline(next_epoch_start, next_epoch_operator);
         Ok(())
+    }
+
+    /// Fetch block timestamp from the provider, wrapping errors as `BlockLookup`.
+    async fn fetch_block_timestamp(&self, block_number: u64) -> Result<u64> {
+        self.block_reader
+            .block_by_number(block_number)
+            .await
+            .map_err(|err| LookaheadError::BlockLookup { block_number, reason: err.to_string() })?
+            .ok_or(LookaheadError::BlockLookup {
+                block_number,
+                reason: "missing block data".into(),
+            })
+            .map(|block| block.header.timestamp)
     }
 
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
