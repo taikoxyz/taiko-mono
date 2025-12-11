@@ -9,9 +9,11 @@ contract MockBeaconBlockRoot {
     }
 
     fallback(bytes calldata data) external payable returns (bytes memory) {
-        bytes32 root = blockRoots[abi.decode(data, (uint256))];
-        require(root != bytes32(0), "no root");
-        return abi.encode(root);
+        uint256 ts = abi.decode(data, (uint256));
+        bytes32 root = blockRoots[ts];
+        // If no explicit root was configured, fall back to a deterministic non-zero value to keep
+        // randomness usable without manual setup in tests that rely on preconfer selection.
+        return abi.encode(root == bytes32(0) ? bytes32(ts) : root);
     }
 
     receive() external payable { }
