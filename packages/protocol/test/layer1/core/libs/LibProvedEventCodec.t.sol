@@ -26,7 +26,8 @@ contract LibProvedEventCodecTest is Test {
                     blockNumber: 1000,
                     blockHash: transitions[0].checkpointHash,
                     stateRoot: bytes32(uint256(88))
-                })
+                }),
+                forceCheckpointSync: false
             })
         });
 
@@ -109,7 +110,8 @@ contract LibProvedEventCodecTest is Test {
                     blockNumber: 5000,
                     blockHash: transitions[2].checkpointHash,
                     stateRoot: bytes32(uint256(888))
-                })
+                }),
+                forceCheckpointSync: true
             })
         });
 
@@ -162,7 +164,8 @@ contract LibProvedEventCodecTest is Test {
                     blockNumber: 888,
                     blockHash: transitions[0].checkpointHash,
                     stateRoot: bytes32(uint256(7777))
-                })
+                }),
+                forceCheckpointSync: false
             })
         });
 
@@ -199,13 +202,14 @@ contract LibProvedEventCodecTest is Test {
                     blockNumber: 10,
                     blockHash: transitions[1].checkpointHash,
                     stateRoot: bytes32(uint256(2))
-                })
+                }),
+                forceCheckpointSync: false
             })
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
 
-        // Expected size: 130 + (2 * 78) = 130 + 156 = 286
-        assertEq(encoded.length, 286, "encoded size for 2 transitions");
+        // Expected size: 131 + (2 * 78) = 131 + 156 = 287
+        assertEq(encoded.length, 287, "encoded size for 2 transitions");
     }
 }

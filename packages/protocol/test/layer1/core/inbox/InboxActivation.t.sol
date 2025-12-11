@@ -53,7 +53,8 @@ contract InboxActivationTest is InboxTestBase {
                 blockNumber: uint48(block.number),
                 blockHash: transitions[0].checkpointHash,
                 stateRoot: bytes32(uint256(1))
-            })
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);

@@ -31,7 +31,8 @@ contract LibProveInputCodecTest is Test {
                 blockNumber: 1000,
                 blockHash: transitions[1].checkpointHash,
                 stateRoot: bytes32(uint256(88))
-            })
+            }),
+            forceCheckpointSync: true
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
@@ -84,6 +85,7 @@ contract LibProveInputCodecTest is Test {
             "lastCheckpoint stateRoot"
         );
         assertEq(decoded.actualProver, input.actualProver, "actualProver");
+        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
     function test_encode_decode_singleProposal() public pure {
@@ -104,7 +106,8 @@ contract LibProveInputCodecTest is Test {
                 blockNumber: 50,
                 blockHash: transitions[0].checkpointHash,
                 stateRoot: bytes32(uint256(66))
-            })
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
@@ -114,6 +117,7 @@ contract LibProveInputCodecTest is Test {
         assertEq(decoded.transitions.length, 1, "transitions length");
         assertEq(decoded.transitions[0].proposer, address(0x5555), "proposer");
         assertEq(decoded.actualProver, address(0xBBBB), "actualProver");
+        assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
 
     function test_encode_decode_emptyProposals() public pure {
@@ -126,7 +130,8 @@ contract LibProveInputCodecTest is Test {
             transitions: transitions,
             lastCheckpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: bytes32(0), stateRoot: bytes32(0)
-            })
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
@@ -153,7 +158,8 @@ contract LibProveInputCodecTest is Test {
                 blockNumber: 888,
                 blockHash: transitions[0].checkpointHash,
                 stateRoot: bytes32(uint256(7777))
-            })
+            }),
+            forceCheckpointSync: true
         });
 
         bytes memory encoded1 = LibProveInputCodec.encode(input);

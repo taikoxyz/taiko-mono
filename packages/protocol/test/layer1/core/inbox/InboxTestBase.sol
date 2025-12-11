@@ -278,7 +278,8 @@ abstract contract InboxTestBase is CommonTest {
             firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
-            lastCheckpoint: lastCheckpoint
+            lastCheckpoint: lastCheckpoint,
+            forceCheckpointSync: false
         });
     }
 

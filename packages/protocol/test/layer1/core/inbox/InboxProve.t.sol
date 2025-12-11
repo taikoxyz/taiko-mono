@@ -8,6 +8,7 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
 
 contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
@@ -532,7 +533,8 @@ contract InboxProveTest is InboxTestBase {
             transitions: _transitionArrayFor(_proposeOne(), keccak256("checkpoint")),
             lastCheckpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: 0, stateRoot: 0
-            })
+            }),
+            forceCheckpointSync: false
         });
 
         _prove(input);
@@ -551,7 +553,8 @@ contract InboxProveTest is InboxTestBase {
             transitions: _transitionArrayFor(_proposeOne(), keccak256("checkpoint1")),
             lastCheckpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: 0, stateRoot: 0
-            })
+            }),
+            forceCheckpointSync: false
         });
         _prove(input1);
 
@@ -577,7 +580,8 @@ contract InboxProveTest is InboxTestBase {
             firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
-            lastCheckpoint: lastCheckpoint
+            lastCheckpoint: lastCheckpoint,
+            forceCheckpointSync: false
         });
 
         _prove(input2);
@@ -605,7 +609,8 @@ contract InboxProveTest is InboxTestBase {
             firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
             transitions: transitions,
-            lastCheckpoint: lastCheckpoint
+            lastCheckpoint: lastCheckpoint,
+            forceCheckpointSync: true
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
@@ -633,11 +638,12 @@ contract InboxProveTest is InboxTestBase {
             transitions: transitions,
             lastCheckpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: 0, stateRoot: 0
-            })
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.CheckpointDelayHasPassed.selector);
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }
@@ -664,7 +670,8 @@ contract InboxProveTest is InboxTestBase {
             transitions: _transitions,
             lastCheckpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0, blockHash: 0, stateRoot: 0
-            })
+            }),
+            forceCheckpointSync: false
         });
     }
 
@@ -683,7 +690,8 @@ contract InboxProveTest is InboxTestBase {
             firstProposalParentCheckpointHash: _parentCheckpointHash,
             actualProver: prover,
             transitions: _transitions,
-            lastCheckpoint: _lastCheckpoint
+            lastCheckpoint: _lastCheckpoint,
+            forceCheckpointSync: false
         });
     }
 

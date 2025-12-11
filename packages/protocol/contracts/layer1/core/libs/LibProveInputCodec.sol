@@ -30,6 +30,9 @@ library LibProveInputCodec {
         ptr = P.packUint48(ptr, _input.lastCheckpoint.blockNumber);
         ptr = P.packBytes32(ptr, _input.lastCheckpoint.blockHash);
         ptr = P.packBytes32(ptr, _input.lastCheckpoint.stateRoot);
+
+        // Encode forceCheckpointSync
+        P.packUint8(ptr, _input.forceCheckpointSync ? 1 : 0);
     }
 
     /// @notice Decodes ProveInput data using compact packing.
@@ -51,6 +54,11 @@ library LibProveInputCodec {
         (input_.lastCheckpoint.blockNumber, ptr) = P.unpackUint48(ptr);
         (input_.lastCheckpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (input_.lastCheckpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+
+        // Decode forceCheckpointSync
+        uint8 forceCheckpointSyncByte;
+        (forceCheckpointSyncByte,) = P.unpackUint8(ptr);
+        input_.forceCheckpointSync = forceCheckpointSyncByte != 0;
     }
 
     /// @dev Calculate the size needed for encoding.
@@ -66,7 +74,8 @@ library LibProveInputCodec {
             //   lastCheckpoint.blockNumber: 6 bytes
             //   lastCheckpoint.blockHash: 32 bytes
             //   lastCheckpoint.stateRoot: 32 bytes
-            // Total fixed: 130 bytes
+            //   forceCheckpointSync: 1 byte
+            // Total fixed: 131 bytes
             //
             // Per Transition:
             //   proposer: 20 bytes
@@ -74,7 +83,7 @@ library LibProveInputCodec {
             //   timestamp: 6 bytes
             //   checkpointHash: 32 bytes
             // Total per transition: 78 bytes
-            size_ = 130 + (_numTransitions * 78);
+            size_ = 131 + (_numTransitions * 78);
         }
     }
 

@@ -34,6 +34,9 @@ library LibProvedEventCodec {
         ptr = P.packUint48(ptr, _payload.input.lastCheckpoint.blockNumber);
         ptr = P.packBytes32(ptr, _payload.input.lastCheckpoint.blockHash);
         ptr = P.packBytes32(ptr, _payload.input.lastCheckpoint.stateRoot);
+
+        // Encode forceCheckpointSync
+        P.packUint8(ptr, _payload.input.forceCheckpointSync ? 1 : 0);
     }
 
     /// @notice Decodes bytes into a ProvedEventPayload using compact encoding.
@@ -60,6 +63,11 @@ library LibProvedEventCodec {
         (payload_.input.lastCheckpoint.blockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.input.lastCheckpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.input.lastCheckpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
+
+        // Decode forceCheckpointSync
+        uint8 forceCheckpointSyncByte;
+        (forceCheckpointSyncByte,) = P.unpackUint8(ptr);
+        payload_.input.forceCheckpointSync = forceCheckpointSyncByte != 0;
     }
 
     /// @dev Calculate the exact byte size needed for encoding a ProvedEventPayload.
@@ -75,7 +83,8 @@ library LibProvedEventCodec {
             //   lastCheckpoint.blockNumber: 6 bytes
             //   lastCheckpoint.blockHash: 32 bytes
             //   lastCheckpoint.stateRoot: 32 bytes
-            // Total ProveInput fixed: 130 bytes
+            //   forceCheckpointSync: 1 byte
+            // Total ProveInput fixed: 131 bytes
             //
             // Per Transition:
             //   proposer: 20 bytes
@@ -84,8 +93,8 @@ library LibProvedEventCodec {
             //   checkpointHash: 32 bytes
             // Total per transition: 78 bytes
             //
-            // Total = 130 + (numTransitions * 78)
-            size_ = 130 + (_numTransitions * 78);
+            // Total = 131 + (numTransitions * 78)
+            size_ = 131 + (_numTransitions * 78);
         }
     }
 
