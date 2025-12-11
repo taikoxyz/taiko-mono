@@ -8,6 +8,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Tests for Inbox activation and pre-activation behavior
 contract InboxActivationTest is InboxTestBase {
@@ -35,32 +36,34 @@ contract InboxActivationTest is InboxTestBase {
     }
 
     function test_prove_RevertWhen_NotActivated() public {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash")
+            checkpointHash: keccak256("checkpoint")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             firstProposalId: 1,
-            firstProposalParentBlockHash: bytes32(0),
-            lastProposalHash: bytes32(0),
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
+            firstProposalParentCheckpointHash: bytes32(0),
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: ICheckpointStore.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: transitions[0].checkpointHash,
+                stateRoot: bytes32(uint256(1))
+            })
         });
 
-        bytes memory encodedInput = abi.encode(input);
-        vm.expectRevert(Inbox.ActivationRequired.selector);
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
         vm.prank(prover);
         nonActivatedInbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_activate_RevertWhen_InvalidLastPacayaBlockHash() public {
-        vm.expectRevert(LibInboxSetup.InvalidLastPacayaBlockHash.selector);
+    function test_activate_RevertWhen_InvalidLastPacayaCheckpointHash() public {
+        vm.expectRevert(LibInboxSetup.InvalidLastPacayaCheckpointHash.selector);
         nonActivatedInbox.activate(bytes32(0));
     }
 
@@ -114,11 +117,6 @@ contract InboxActivationTest is InboxTestBase {
             cfg.forcedInclusionFeeInGwei,
             config.forcedInclusionFeeInGwei,
             "forcedInclusionFeeInGwei mismatch"
-        );
-        assertEq(
-            cfg.minProposalsToFinalize,
-            config.minProposalsToFinalize,
-            "minProposalsToFinalize mismatch"
         );
         assertEq(cfg.codec, config.codec, "codec mismatch");
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
@@ -222,23 +220,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.permissionlessInclusionMultiplier = 1; // Must be > 1
 
         vm.expectRevert(LibInboxSetup.PermissionlessInclusionMultiplierTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinProposalsToFinalizeTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.minProposalsToFinalize = 0;
-
-        vm.expectRevert(LibInboxSetup.MinProposalsToFinalizeTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinProposalsToFinalizeTooBig() public {
-        IInbox.Config memory cfg = _buildConfig();
-        // minProposalsToFinalize must be < ringBufferSize - 1
-        cfg.minProposalsToFinalize = uint8(cfg.ringBufferSize - 1);
-
-        vm.expectRevert(LibInboxSetup.MinProposalsToFinalizeTooBig.selector);
         new Inbox(cfg);
     }
 }

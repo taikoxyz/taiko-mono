@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -116,6 +117,14 @@ interface ICodec {
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32);
 
+    /// @notice Hashing for Checkpoint structs
+    /// @param _checkpoint The checkpoint to hash
+    /// @return The hash of the checkpoint
+    function hashCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
+        external
+        pure
+        returns (bytes32);
+
     /// @notice Hashing for BondInstruction structs
     /// @param _bondInstruction The bond instruction to hash
     /// @return The hash of the bond instruction
@@ -125,7 +134,14 @@ interface ICodec {
         returns (bytes32);
 
     /// @notice Hashing for prove input data combining proposal hash and prove input
+    /// @param _lastProposalHash The hash of the last proposal in the batch
     /// @param _input The prove input to hash
-    /// @return The hash of the prove input
-    function hashProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes32);
+    /// @return The hash of the prove input payload
+    function hashProveInput(
+        bytes32 _lastProposalHash,
+        IInbox.ProveInput calldata _input
+    )
+        external
+        pure
+        returns (bytes32);
 }

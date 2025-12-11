@@ -31,7 +31,7 @@ library LibBonds {
     // ---------------------------------------------------------------
 
     /// @dev Hashing for BondInstruction structs using keccak256 and abi.encode
-    /// @dev We didn't optimize this function using EfficientHashLib for
+    /// @dev This function is not optimized using EfficientHashLib for
     ///      gas savings because it's not expected to be called frequently.
     /// @param _bondInstruction The bond instruction to hash
     /// @return The hash of the bond instruction

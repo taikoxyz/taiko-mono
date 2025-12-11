@@ -6,18 +6,19 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
-/// @dev ringBufferSize = 4, minProposalsToFinalize = 1, so max unfinalized = 3
 contract InboxCapacityTest is InboxTestBase {
     function test_propose_RevertWhen_CapacityExceeded() public {
-        _setBlobHashes(4);
+        _setBlobHashes(3);
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
+        // Third proposal fills remaining capacity (ringBufferSize=4 -> max unfinalized=3)
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
 
@@ -78,19 +79,25 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
+        // Create checkpoint first, then compute its hash for the transition
+        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(block.number),
+            blockHash: keccak256("blockHash2"),
+            stateRoot: keccak256("stateRoot")
+        });
+        bytes32 checkpoint2Hash = codec.hashCheckpoint(lastCheckpoint);
+
         // Prove p1 and p2 using prove
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = _proposalStateFor(p1, prover, keccak256("blockHash1"));
-        proposalStates[1] = _proposalStateFor(p2, prover, keccak256("blockHash2"));
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = _transitionFor(p1, prover, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(p2, prover, checkpoint2Hash);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             firstProposalId: p1.proposal.id,
-            firstProposalParentBlockHash: inbox.lastFinalizedBlockHash(),
-            lastProposalHash: inbox.getProposalHash(p2.proposal.id),
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: keccak256("stateRoot"),
+            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
             actualProver: prover,
-            proposalStates: proposalStates
+            transitions: transitions,
+            lastCheckpoint: lastCheckpoint
         });
 
         _prove(proveInput);
