@@ -283,7 +283,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            if (input.forceCheckpointSync || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay) {
+            if (
+                input.forceCheckpointSync
+                    || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
+            ) {
                 if (input.lastCheckpoint.blockHash != 0) {
                     require(
                         input.transitions[numProposals - 1].checkpointHash
