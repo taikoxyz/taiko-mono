@@ -6,3 +6,5 @@
 pub mod r#anchor;
 pub mod r#codec;
 pub mod r#inbox;
+pub mod r#lookahead_store;
+pub mod r#preconf_whitelist;

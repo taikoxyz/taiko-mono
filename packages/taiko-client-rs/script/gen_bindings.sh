@@ -14,6 +14,8 @@ forge bind \
   --select '^Inbox$' \
   --select '^Codec$' \
   --select '^Anchor$' \
+  --select '^LookaheadStore$' \
+  --select '^PreconfWhitelist$' \
   --bindings-path crates/bindings \
   --crate-name bindings \
   --overwrite \
