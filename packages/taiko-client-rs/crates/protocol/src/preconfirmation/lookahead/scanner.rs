@@ -2,7 +2,7 @@ use alloy::primitives::Address;
 use alloy_rpc_types::BlockNumberOrTag;
 use event_scanner::{Notification, ScannerMessage};
 
-use tokio::{sync::oneshot, task::JoinHandle, time::Duration};
+use tokio::{sync::oneshot, time::Duration};
 use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
@@ -12,7 +12,10 @@ use super::{
     error::LookaheadError,
     resolver::{LookaheadResolver, SECONDS_IN_EPOCH, SECONDS_IN_SLOT},
 };
-use crate::subscription_source::SubscriptionSource;
+use crate::{
+    preconfirmation::lookahead::resolver::scanner_handle::LookaheadScannerHandle,
+    subscription_source::SubscriptionSource,
+};
 
 use super::error::Result;
 
@@ -37,7 +40,7 @@ impl LookaheadResolver {
     pub async fn new(
         inbox_address: Address,
         source: SubscriptionSource,
-    ) -> Result<(LookaheadResolverWithDefaultProvider, JoinHandle<()>)> {
+    ) -> Result<(LookaheadResolverWithDefaultProvider, LookaheadScannerHandle)> {
         let provider = source
             .to_provider()
             .await
@@ -55,7 +58,7 @@ impl LookaheadResolver {
         inbox_address: Address,
         source: SubscriptionSource,
         genesis_timestamp: u64,
-    ) -> Result<(LookaheadResolverWithDefaultProvider, JoinHandle<()>)> {
+    ) -> Result<(LookaheadResolverWithDefaultProvider, LookaheadScannerHandle)> {
         let provider = source
             .to_provider()
             .await
@@ -77,7 +80,7 @@ impl LookaheadResolver {
     pub async fn spawn_scanner_from_latest(
         &self,
         source: &SubscriptionSource,
-    ) -> Result<JoinHandle<()>> {
+    ) -> Result<LookaheadScannerHandle> {
         info!(
             buffer = self.lookahead_buffer_size(),
             source = ?source,
@@ -169,6 +172,6 @@ impl LookaheadResolver {
             .await
             .map_err(|_| LookaheadError::EventScanner("scanner exited before live".into()))?;
 
-        Ok(handle)
+        Ok(LookaheadScannerHandle::new(handle))
     }
 }

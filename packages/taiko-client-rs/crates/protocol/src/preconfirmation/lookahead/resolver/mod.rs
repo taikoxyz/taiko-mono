@@ -8,6 +8,7 @@
 
 mod core;
 mod epoch;
+pub mod scanner_handle;
 mod timeline;
 mod types;
 

@@ -1,4 +1,5 @@
-//! Minimal demo: start `LookaheadResolver` with the built-in event scanner and query a committer.
+//! Minimal demo: start `LookaheadResolver` with the built-in event scanner (three-epoch backfill)
+//! and query a committer.
 //!
 //! Run with a WebSocket L1 endpoint and Inbox address:
 //! `cargo run -p protocol --example lookahead_resolver -- \
@@ -6,8 +7,8 @@
 //!     --inbox 0x0000000000000000000000000000000000000000`
 //!
 //! Known chains inferred by `new`: mainnet (1), Holesky (17_000), Hoodi (560_048).
-//! For custom or unknown networks, use `LookaheadResolver::new_with_genesis` and pass the beacon
-//! genesis timestamp explicitly; the default `new` infers genesis only for those known IDs.
+//! For custom or unknown networks, pass `--genesis <beacon_timestamp>` to use
+//! `LookaheadResolver::new_with_genesis`; the default `new` infers genesis only for the known IDs.
 
 use std::{env, time::SystemTime};
 
@@ -17,7 +18,6 @@ use protocol::{
     preconfirmation::lookahead::{LookaheadBroadcast, LookaheadResolverWithDefaultProvider},
     subscription_source::SubscriptionSource,
 };
-use tokio::task::JoinHandle;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -29,15 +29,14 @@ async fn main() -> Result<()> {
 
     let source: SubscriptionSource = ws.as_str().try_into().map_err(|e: String| anyhow!(e))?;
 
-    // Build resolver and start background scanner, wait till the initial sync is done.
-    // Enable the optional lookahead broadcast channel so we can observe cached epochs and
-    // blacklist updates as they are ingested.
-    let (mut resolver, handle): (LookaheadResolverWithDefaultProvider, _) =
+    // Build resolver and start background scanner; hold the handle so the scanner keeps running
+    // for the lifetime of the example (it aborts on drop).
+    let (mut resolver, _scanner_handle) =
         LookaheadResolverWithDefaultProvider::new(inbox, source).await?;
 
     // Optionally, enable an update channel to observe cached epochs and blacklist changes.
     let mut updates_rx = resolver.enable_broadcast_channel(16);
-    let epoch_logger: JoinHandle<()> = tokio::spawn(async move {
+    tokio::spawn(async move {
         while let Ok(update) = updates_rx.recv().await {
             match update {
                 LookaheadBroadcast::Epoch(update) => {
@@ -72,14 +71,6 @@ async fn main() -> Result<()> {
         .context("failed to resolve committer")?;
 
     println!("Committer for timestamp {now}: {signer:?}");
-
-    // Keep running briefly so the scanner stays alive for demonstration purposes.
-    // In real services, you would hold onto `handle` for the process lifetime.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-    // Clean up background tasks.
-    handle.abort();
-    epoch_logger.abort();
 
     Ok(())
 }
