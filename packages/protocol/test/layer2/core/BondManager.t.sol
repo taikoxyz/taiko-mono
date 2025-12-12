@@ -123,6 +123,21 @@ contract BondManagerTest is Test {
         assertEq(bondManager.getBondBalance(Alice), 50 ether);
     }
 
+    function test_deposit_DoesNotCancelWithdrawalRequest() external {
+        vm.prank(Alice);
+        bondManager.deposit(MIN_BOND);
+
+        vm.prank(Alice);
+        bondManager.requestWithdrawal();
+
+        vm.prank(Alice);
+        bondManager.deposit(1 ether);
+
+        (, uint48 requestedAt) = bondManager.bond(Alice);
+        assertGt(requestedAt, 0);
+        assertFalse(bondManager.hasSufficientBond(Alice, 0));
+    }
+
     function test_deposit_RevertWhen_ZeroAmountApproval() external {
         vm.prank(Alice);
         bondToken.approve(address(bondManager), 0);
@@ -167,6 +182,21 @@ contract BondManagerTest is Test {
         bondManager.depositTo(Carol, 20 ether);
 
         assertEq(bondManager.getBondBalance(Carol), 50 ether);
+    }
+
+    function test_depositTo_DoesNotCancelWithdrawalRequest() external {
+        vm.prank(Bob);
+        bondManager.depositTo(Carol, MIN_BOND);
+
+        vm.prank(Carol);
+        bondManager.requestWithdrawal();
+
+        vm.prank(Bob);
+        bondManager.depositTo(Carol, 1 ether);
+
+        (, uint48 requestedAt) = bondManager.bond(Carol);
+        assertGt(requestedAt, 0);
+        assertFalse(bondManager.hasSufficientBond(Carol, 0));
     }
 
     // ---------------------------------------------------------------
