@@ -141,12 +141,20 @@ interface IInbox {
         Transition[] transitions;
     }
 
-    /// @notice Input data for the prove function
+    /// @notice Input data for the prove function.
+    /// @dev This struct contains two categories of data:
+    ///      1. Commitment data - What the prover is actually proving. This must be fully
+    ///         determined before proof generation and is the only input to the prover's
+    ///         guest program.
+    ///      2. Usage options - Parameters that can be decided after proof generation
+    ///         (e.g., whether to proactively write a checkpoint). The prover system can
+    ///         choose or adjust these options using additional data during or after
+    ///         proof generation.
     struct ProveInput {
         /// @notice The commitment data that the proof verifies.
         Commitment commitment;
         /// @notice Whether to force syncing the last checkpoint even if the minimum
-        /// delay has not passed
+        /// delay has not passed.
         /// @dev This allows checkpoint synchronization ahead of schedule.
         bool forceCheckpointSync;
     }
