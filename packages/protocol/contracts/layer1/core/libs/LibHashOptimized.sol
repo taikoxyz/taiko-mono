@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib
@@ -112,81 +111,49 @@ library LibHashOptimized {
         return result;
     }
 
-    /// @notice Optimized hashing for Checkpoint structs
-    /// @dev Uses efficient 3-field hashing for checkpoint data
-    /// @param _checkpoint The checkpoint to hash
-    /// @return The hash of the checkpoint
-    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32[] memory buffer = EfficientHashLib.malloc(3);
-
-        EfficientHashLib.set(buffer, 0, bytes32(uint256(_checkpoint.blockNumber)));
-        EfficientHashLib.set(buffer, 1, _checkpoint.blockHash);
-        EfficientHashLib.set(buffer, 2, _checkpoint.stateRoot);
-
-        bytes32 result = EfficientHashLib.hash(buffer);
-        EfficientHashLib.free(buffer);
-        return result;
-    }
-
-    /// @notice Optimized hashing for prove inputs and the corresponding proposal hash.
-    /// @dev Produces the same digest as `keccak256(abi.encode(_lastProposalHash, _input))`
-    ///      while minimizing memory allocations.
-    /// @param _lastProposalHash The hash of the last proposal in the batch.
-    /// @param _input The prove input to hash.
-    /// @return The hash of the prove input.
-    function hashProveInput(
-        bytes32 _lastProposalHash,
-        IInbox.ProveInput memory _input
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
+    /// @notice Optimized hashing for commitment data.
+    /// @param _commitment The commitment data to hash.
+    /// @return The hash of the commitment.
+    function hashCommitment(IInbox.Commitment memory _commitment) internal pure returns (bytes32) {
         unchecked {
-            IInbox.Transition[] memory transitions = _input.transitions;
+            IInbox.Transition[] memory transitions = _commitment.transitions;
             uint256 transitionsLength = transitions.length;
 
-            // Top-level layout (abi.encode):
-            // [0] lastProposalHash
-            // [1] offset to prove input (0x40)
+            // Commitment layout (abi.encode):
+            // [0] offset to commitment (0x20)
             //
-            // ProveInput static section (starts at word 2):
-            // [2] firstProposalId
-            // [3] firstProposalParentCheckpointHash
+            // Commitment static section (starts at word 1):
+            // [1] firstProposalId
+            // [2] firstProposalParentBlockHash
+            // [3] lastProposalHash
             // [4] actualProver
-            // [5] offset to transitions (0xe0)
-            // [6] lastCheckpoint.blockNumber
-            // [7] lastCheckpoint.blockHash
-            // [8] lastCheckpoint.stateRoot
+            // [5] endBlockNumber
+            // [6] endStateRoot
+            // [7] offset to transitions (0xe0)
             //
-            // Transitions array (starts at word 9):
-            // [9] length
-            // [10...] transition elements (4 words each)
-            uint256 totalWords = 10 + transitionsLength * 4;
+            // Transitions array (starts at word 8):
+            // [8] length
+            // [9...] transition elements (4 words each)
+            uint256 totalWords = 9 + transitionsLength * 4;
 
             bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
             // Top-level head
-            EfficientHashLib.set(buffer, 0, _lastProposalHash);
-            EfficientHashLib.set(buffer, 1, bytes32(uint256(0x40)));
+            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
 
-            // ProveInput static fields
-            EfficientHashLib.set(buffer, 2, bytes32(uint256(_input.firstProposalId)));
-            EfficientHashLib.set(buffer, 3, _input.firstProposalParentCheckpointHash);
-            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_input.actualProver))));
-            EfficientHashLib.set(buffer, 5, bytes32(uint256(0xe0)));
-            EfficientHashLib.set(buffer, 6, bytes32(uint256(_input.lastCheckpoint.blockNumber)));
-            EfficientHashLib.set(buffer, 7, _input.lastCheckpoint.blockHash);
-            EfficientHashLib.set(buffer, 8, _input.lastCheckpoint.stateRoot);
+            // Commitment static fields
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_commitment.firstProposalId)));
+            EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentBlockHash);
+            EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_commitment.actualProver))));
+            EfficientHashLib.set(buffer, 5, bytes32(uint256(_commitment.endBlockNumber)));
+            EfficientHashLib.set(buffer, 6, _commitment.endStateRoot);
+            EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
 
             // Transitions array
-            EfficientHashLib.set(buffer, 9, bytes32(transitionsLength));
+            EfficientHashLib.set(buffer, 8, bytes32(transitionsLength));
 
-            uint256 base = 10;
+            uint256 base = 9;
             for (uint256 i; i < transitionsLength; ++i) {
                 IInbox.Transition memory transition = transitions[i];
                 EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(transition.proposer))));
@@ -194,7 +161,7 @@ library LibHashOptimized {
                     buffer, base + 1, bytes32(uint256(uint160(transition.designatedProver)))
                 );
                 EfficientHashLib.set(buffer, base + 2, bytes32(uint256(transition.timestamp)));
-                EfficientHashLib.set(buffer, base + 3, transition.checkpointHash);
+                EfficientHashLib.set(buffer, base + 3, transition.blockHash);
                 base += 4;
             }
 

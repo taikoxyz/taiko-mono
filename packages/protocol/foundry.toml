@@ -10,6 +10,8 @@ solc_version = "0.8.30"
 evm_version = "prague"
 # Fuzzing configuration (updated for newer Foundry versions)
 fuzz = { runs = 200, show_logs = false }
+# Exclude genesis tests - they require special setup via genesis.test.sh
+no_match_path = "test/genesis/*"
 
 # Note: yul is not a standard Foundry config option in newer versions
 

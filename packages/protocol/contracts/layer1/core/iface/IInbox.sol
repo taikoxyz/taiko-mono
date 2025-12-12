@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -94,8 +94,8 @@ interface IInbox {
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The hash of the last finalized checkpoint.
-        bytes32 lastFinalizedCheckpointHash;
+        /// @notice The block hash of the last finalized proposal.
+        bytes32 lastFinalizedBlockHash;
     }
 
     /// @notice Input data for the propose function
@@ -118,25 +118,45 @@ interface IInbox {
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice checkpoint hash for the proposal.
-        bytes32 checkpointHash;
+        /// @notice end block hash for the proposal.
+        bytes32 blockHash;
     }
 
-    /// @notice Input data for the prove function
-    struct ProveInput {
+    /// @notice Commitment data that the prover commits to when submitting a proof.
+    struct Commitment {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
         /// @notice The checkpoint hash of the parent of the first proposal, this is used
         /// to verify checkpoint continuity in the proof.
-        bytes32 firstProposalParentCheckpointHash;
-        /// @notice The actual prover who submitted the proof.
+        bytes32 firstProposalParentBlockHash;
+        /// @notice The hash of the last proposal being proven.
+        bytes32 lastProposalHash;
+        /// @notice The actual prover who generated the proof.
         address actualProver;
+        /// @notice The block number for the end L2 block in this proposal.
+        uint48 endBlockNumber;
+        /// @notice The state root for the end L2 block in this proposal.
+        bytes32 endStateRoot;
         /// @notice Array of transitions for each proposal in the proof range.
         Transition[] transitions;
-        /// @notice Checkpoint of the last proposal.
-        /// Must be provided if you want to update the checkpoint stored on-chain.
-        /// It is mandatory to fill it if `_minCheckpointDelay` has passed since the last sync.
-        ICheckpointStore.Checkpoint lastCheckpoint;
+    }
+
+    /// @notice Input data for the prove function.
+    /// @dev This struct contains two categories of data:
+    ///      1. Commitment data - What the prover is actually proving. This must be fully
+    ///         determined before proof generation and is the only input to the prover's
+    ///         guest program.
+    ///      2. Usage options - Parameters that can be decided after proof generation
+    ///         (e.g., whether to proactively write a checkpoint). The prover system can
+    ///         choose or adjust these options using additional data during or after
+    ///         proof generation.
+    struct ProveInput {
+        /// @notice The commitment data that the proof verifies.
+        Commitment commitment;
+        /// @notice Whether to force syncing the last checkpoint even if the minimum
+        /// delay has not passed.
+        /// @dev This allows checkpoint synchronization ahead of schedule.
+        bool forceCheckpointSync;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -163,6 +183,13 @@ interface IInbox {
     /// @notice Emitted when a proof is submitted
     /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
+
+    /// @notice Emitted when a bond instruction is signaled to L2
+    /// @param proposalId The proposal ID that triggered the bond instruction
+    /// @param bondInstruction The encoded bond instruction
+    event BondInstructionCreated(
+        uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions
@@ -193,5 +220,5 @@ interface IInbox {
     /// @notice Returns the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+    function getProposalHash(uint256 _proposalId) external view returns (bytes32 proposalHash_);
 }
