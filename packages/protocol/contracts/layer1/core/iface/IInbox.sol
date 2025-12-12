@@ -16,6 +16,8 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The prover whitelist contract (address(0) means no whitelist)
+        address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The proving window in seconds

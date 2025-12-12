@@ -19,7 +19,7 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox = _deployNonActivatedInbox();
     }
 
-    function _deployNonActivatedInbox() internal returns (Inbox) {
+    function _deployNonActivatedInbox() private returns (Inbox) {
         address impl = address(new Inbox(config));
         return Inbox(address(new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this))))));
     }

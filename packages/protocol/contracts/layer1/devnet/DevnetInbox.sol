@@ -32,6 +32,7 @@ contract DevnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
+        address _proverWhitelist,
         address _signalService,
         address _codec
     )
@@ -39,6 +40,7 @@ contract DevnetInbox is Inbox {
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                proverWhitelist: _proverWhitelist,
                 signalService: _signalService,
                 provingWindow: 2 hours,
                 extendedProvingWindow: 4 hours,
