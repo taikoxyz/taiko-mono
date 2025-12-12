@@ -151,14 +151,8 @@ interface IInbox {
     ///         choose or adjust these options using additional data during or after
     ///         proof generation.
     struct ProveInput {
-        // -------------------------------------------------------------------
-        // Commitment data (input to the prover's guest program)
-        // -------------------------------------------------------------------
         /// @notice The commitment data that the proof verifies.
         Commitment commitment;
-        // -------------------------------------------------------------------
-        // Usage options (can be adjusted after proof generation)
-        // -------------------------------------------------------------------
         /// @notice Whether to force syncing the last checkpoint even if the minimum
         /// delay has not passed.
         /// @dev This allows checkpoint synchronization ahead of schedule.
