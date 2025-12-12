@@ -203,7 +203,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// - When payer != payee, the remaining 50% goes to the payee.
     /// - When payer == payee, 40% is refunded and 10% is awarded to the caller of this function.
     //    This is to provide the incentive for someone to call this function.
-    function processBondSignal(
+    function processBondInstruction(
         LibBonds.BondInstruction calldata _instruction,
         bytes calldata _proof
     )
@@ -220,13 +220,13 @@ contract BondManager is EssentialContract, IBondManager {
 
         uint256 amount = _bondAmountFor(_instruction.bondType);
         if (amount == 0) {
-            emit BondSignalProcessed(signal, _instruction, 0);
+            emit BondInstructionProcessed(signal, _instruction, 0);
             return;
         }
 
         uint256 debited = _debitBond(_instruction.payer, amount);
         if (debited == 0) {
-            emit BondSignalProcessed(signal, _instruction, 0);
+            emit BondInstructionProcessed(signal, _instruction, 0);
             return;
         }
 
@@ -241,7 +241,7 @@ contract BondManager is EssentialContract, IBondManager {
             if (payeeAmount > 0) _creditBond(_instruction.payee, payeeAmount);
         }
 
-        emit BondSignalProcessed(signal, _instruction, debited);
+        emit BondInstructionProcessed(signal, _instruction, debited);
     }
 
     // ---------------------------------------------------------------

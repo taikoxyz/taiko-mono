@@ -944,7 +944,7 @@ contract BondManagerTest is Test {
     // Signal Processing Tests
     // ---------------------------------------------------------------
 
-    function test_processBondSignal_transfersBonds() external {
+    function test_processBondInstruction_transfersBonds() external {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
@@ -956,14 +956,14 @@ contract BondManagerTest is Test {
         vm.prank(Alice);
         bondManager.deposit(LIVENESS_BOND * 2);
 
-        bondManager.processBondSignal(instruction, "");
+        bondManager.processBondInstruction(instruction, "");
 
         assertTrue(bondManager.processedSignals(signal));
         assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
         assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND / 2);
     }
 
-    function test_processBondSignal_allowsOutOfOrderConsumption() external {
+    function test_processBondInstruction_allowsOutOfOrderConsumption() external {
         LibBonds.BondInstruction memory first = LibBonds.BondInstruction({
             proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
@@ -981,14 +981,14 @@ contract BondManagerTest is Test {
         vm.prank(Carol);
         bondManager.deposit(500 ether);
 
-        bondManager.processBondSignal(second, "");
-        bondManager.processBondSignal(first, "");
+        bondManager.processBondInstruction(second, "");
+        bondManager.processBondInstruction(first, "");
 
         assertEq(bondManager.getBondBalance(first.payee), LIVENESS_BOND / 2);
         assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND / 2);
     }
 
-    function test_processBondSignal_selfSlash_distributesAndRewardsCaller() external {
+    function test_processBondInstruction_selfSlash_distributesAndRewardsCaller() external {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Alice
         });
@@ -1001,7 +1001,7 @@ contract BondManagerTest is Test {
         bondManager.deposit(LIVENESS_BOND * 2);
 
         vm.prank(Emma);
-        bondManager.processBondSignal(instruction, "");
+        bondManager.processBondInstruction(instruction, "");
 
         // 50% burned, 40% returned to payer, 10% to caller
         assertEq(bondManager.getBondBalance(Alice), (LIVENESS_BOND * 4) / 10 + LIVENESS_BOND);

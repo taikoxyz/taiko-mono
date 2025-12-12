@@ -53,8 +53,8 @@ interface IBondManager {
     /// @notice Emitted when a withdrawal request is cancelled
     event WithdrawalCancelled(address indexed account);
 
-    /// @notice Emitted when a bond signal is processed.
-    event BondSignalProcessed(
+    /// @notice Emitted when a bond instruction is processed.
+    event BondInstructionProcessed(
         bytes32 indexed signal, LibBonds.BondInstruction instruction, uint256 debitedAmount
     );
 
@@ -109,10 +109,10 @@ interface IBondManager {
     /// @dev Can be called during or after the withdrawal delay period
     function cancelWithdrawal() external;
 
-    /// @notice Processes a proved bond signal from L1 with best-effort debits/credits.
+    /// @notice Processes a proved bond instruction from L1 with best-effort debits/credits.
     /// @param _instruction Bond instruction tied to the signal.
     /// @param _proof Merkle proof that the signal was sent on L1.
-    function processBondSignal(
+    function processBondInstruction(
         LibBonds.BondInstruction calldata _instruction,
         bytes calldata _proof
     )
