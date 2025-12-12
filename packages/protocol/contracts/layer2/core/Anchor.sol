@@ -110,9 +110,6 @@ contract Anchor is EssentialContract {
     /// @notice Bond amount in Wei for liveness guarantees.
     uint256 public immutable livenessBond;
 
-    /// @notice Bond amount in Wei for provability guarantees.
-    uint256 public immutable provabilityBond;
-
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
@@ -170,13 +167,11 @@ contract Anchor is EssentialContract {
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _bondManager The address of the bond manager.
     /// @param _livenessBond The liveness bond amount in Wei.
-    /// @param _provabilityBond The provability bond amount in Wei.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
         ICheckpointStore _checkpointStore,
         IBondManager _bondManager,
         uint256 _livenessBond,
-        uint256 _provabilityBond,
         uint64 _l1ChainId
     ) {
         // Validate addresses
@@ -191,7 +186,6 @@ contract Anchor is EssentialContract {
         checkpointStore = _checkpointStore;
         bondManager = _bondManager;
         livenessBond = _livenessBond;
-        provabilityBond = _provabilityBond;
         l1ChainId = _l1ChainId;
     }
 

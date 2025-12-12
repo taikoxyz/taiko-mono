@@ -42,7 +42,6 @@ contract MainnetInbox is Inbox {
                 proposerChecker: _proposerChecker,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
                 provingWindow: 4 hours,
-                extendedProvingWindow: 8 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,

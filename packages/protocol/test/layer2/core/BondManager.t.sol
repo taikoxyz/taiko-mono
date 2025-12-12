@@ -14,7 +14,6 @@ contract BondManagerTest is Test {
     uint256 private constant MIN_BOND = 10 ether;
     uint48 private constant WITHDRAWAL_DELAY = 7 days;
     uint256 private constant LIVENESS_BOND = 2 ether;
-    uint256 private constant PROVABILITY_BOND = 3 ether;
     uint64 private constant L1_CHAIN_ID = 11_337;
     address private constant L1_INBOX = address(0xBEEF);
 
@@ -42,8 +41,7 @@ contract BondManagerTest is Test {
             signalService,
             L1_INBOX,
             L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            LIVENESS_BOND
         );
         bondManager = BondManager(
             address(new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (operator))))
@@ -89,7 +87,6 @@ contract BondManagerTest is Test {
         assertEq(bondManager.l1Inbox(), L1_INBOX);
         assertEq(bondManager.l1ChainId(), L1_CHAIN_ID);
         assertEq(bondManager.livenessBond(), LIVENESS_BOND);
-        assertEq(bondManager.provabilityBond(), PROVABILITY_BOND);
         assertEq(bondManager.owner(), operator);
     }
 
@@ -963,12 +960,12 @@ contract BondManagerTest is Test {
 
         assertTrue(bondManager.processedSignals(signal));
         assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
-        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND / 2);
     }
 
     function test_processBondSignal_allowsOutOfOrderConsumption() external {
         LibBonds.BondInstruction memory first = LibBonds.BondInstruction({
-            proposalId: 1, bondType: LibBonds.BondType.PROVABILITY, payer: Alice, payee: Bob
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
         LibBonds.BondInstruction memory second = LibBonds.BondInstruction({
             proposalId: 2, bondType: LibBonds.BondType.LIVENESS, payer: Carol, payee: David
@@ -987,7 +984,27 @@ contract BondManagerTest is Test {
         bondManager.processBondSignal(second, "");
         bondManager.processBondSignal(first, "");
 
-        assertEq(bondManager.getBondBalance(first.payee), PROVABILITY_BOND);
-        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(first.payee), LIVENESS_BOND / 2);
+        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND / 2);
+    }
+
+    function test_processBondSignal_selfSlash_distributesAndRewardsCaller() external {
+        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Alice
+        });
+        bytes32 signal = keccak256(abi.encode(instruction));
+
+        vm.prank(L1_INBOX);
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
+
+        vm.prank(Alice);
+        bondManager.deposit(LIVENESS_BOND * 2);
+
+        vm.prank(Emma);
+        bondManager.processBondSignal(instruction, "");
+
+        // 50% burned, 40% returned to payer, 10% to caller
+        assertEq(bondManager.getBondBalance(Alice), (LIVENESS_BOND * 4) / 10 + LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Emma), LIVENESS_BOND / 10);
     }
 }

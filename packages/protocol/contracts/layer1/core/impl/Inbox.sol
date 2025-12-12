@@ -74,9 +74,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
-    /// @notice The extended proving window in seconds.
-    uint48 internal immutable _extendedProvingWindow;
-
     /// @notice Maximum delay allowed between sequential proofs to remain on time.
     uint48 internal immutable _maxProofSubmissionDelay;
 
@@ -141,7 +138,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
-        _extendedProvingWindow = _config.extendedProvingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
@@ -271,7 +267,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             Transition memory transitionAtOffset = commitment.transitions[offset];
-            uint256 proposalAge = block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge =
+                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
             // Bond transfers only apply to the first newly-finalized proposal.
             LibBonds.BondInstruction memory bondInstruction =
@@ -280,11 +277,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                     transitionAtOffset.timestamp,
                     state.lastFinalizedTimestamp,
                     _maxProofSubmissionDelay,
-                    transitionAtOffset.proposer,
                     transitionAtOffset.designatedProver,
                     commitment.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
+                    _provingWindow
                 );
             if (bondInstruction.bondType != LibBonds.BondType.NONE) {
                 _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
@@ -387,7 +382,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proposerChecker: address(_proposerChecker),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
