@@ -243,7 +243,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-            bool isWhitelistedProver = _checkProver();
+            bool whitelistEnabled = _checkProver();
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -274,7 +274,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             uint256 proposalAge;
-            if (!isWhitelistedProver) {
+            if (!whitelistEnabled) {
                 proposalAge = _createBondInstruction(state, c, offset);
             }
 
@@ -583,12 +583,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    function _checkProver() private view returns (bool) {
-        (bool isWhitelisted, uint256 proverCount) = _proverChecker.isProverWhitelisted(msg.sender);
-        require(proverCount == 0 || isWhitelisted, OnlyWhitelistedProverCanCall());
-        return isWhitelisted;
-    }
-
     /// @dev Calculates proposal age and emits bond instruction if applicable.
     /// @param _state The current core state.
     /// @param _commitment The commitment data.
@@ -656,6 +650,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+    }
+
+    /// @dev Checks if the caller is an authorized prover
+    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
+    function _checkProver() private view returns (bool whitelistEnabled_) {
+        if (address(_proverChecker) == address(0)) return false;
+
+        (bool isWhitelisted, uint256 proverCount) = _proverChecker.isProverWhitelisted(msg.sender);
+        require(proverCount == 0 || isWhitelisted, OnlyWhitelistedProverCanCall());
+        return proverCount != 0;
     }
 
     // ---------------------------------------------------------------

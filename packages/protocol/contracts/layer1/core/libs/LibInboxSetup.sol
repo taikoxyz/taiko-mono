@@ -24,7 +24,6 @@ library LibInboxSetup {
         require(_config.codec != address(0), CodecZero());
         require(_config.proofVerifier != address(0), ProofVerifierZero());
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
-        require(_config.proverChecker != address(0), ProverCheckerZero());
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
         require(_config.extendedProvingWindow > _config.provingWindow, ExtendedWindowTooSmall());
@@ -103,7 +102,6 @@ library LibInboxSetup {
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
-    error ProverCheckerZero();
     error ProvingWindowZero();
     error RingBufferSizeTooSmall();
     error SignalServiceZero();
