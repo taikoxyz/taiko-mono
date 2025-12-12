@@ -568,23 +568,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-        unchecked{
-        uint256 livenessWindowDeadline = ( _commitment.transitions[_offset].timestamp + _provingWindow).max(_coreState.lastFinalizedTimestamp+_maxProofSubmissionDelay);
+        unchecked {
+            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
+                    + _provingWindow)
+            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
-        // On-time proof - no bond transfer needed.
-        if (block.timestamp <= livenessWindowDeadline) {
-            return;
-        }
+            // On-time proof - no bond transfer needed.
+            if (block.timestamp <= livenessWindowDeadline) {
+                return;
+            }
 
-        LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
-            proposalId: _commitment.firstProposalId + _offset,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: _commitment.transitions[_offset].designatedProver,
-            payee: _commitment.actualProver
-        });
+            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
+                proposalId: _commitment.firstProposalId + _offset,
+                bondType: LibBonds.BondType.LIVENESS,
+                payer: _commitment.transitions[_offset].designatedProver,
+                payee: _commitment.actualProver
+            });
 
-        _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-        emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
         }
     }
 
