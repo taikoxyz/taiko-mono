@@ -318,13 +318,13 @@ contract BondManager is EssentialContract, IBondManager {
     // Errors
     // ---------------------------------------------------------------
 
+    error InvalidAddress();
+    error InvalidBondType();
+    error InvalidL1ChainId();
     error MustMaintainMinBond();
+    error NoBondInstruction();
     error NoBondToWithdraw();
     error NoWithdrawalRequested();
-    error WithdrawalAlreadyRequested();
-    error InvalidAddress();
-    error InvalidL1ChainId();
-    error InvalidBondType();
-    error NoBondInstruction();
     error SignalAlreadyProcessed();
+    error WithdrawalAlreadyRequested();
 }
