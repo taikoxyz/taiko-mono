@@ -252,6 +252,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
             Commitment memory commitment = input.commitment;
+
+            // `offset` is the index of the next-to-finalize proposal in the transitions array.
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
@@ -270,14 +272,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Calculate proposal age and bond instruction
+            // 3. Calculate proposal age and process bond instruction
             // ---------------------------------------------------------
 
-            uint256 nextToFinalizeProposalAge =   block.timestamp
+            // `proposalAge` is the age of the next-to-finalize proposal.
+            uint256 proposalAge =   block.timestamp
             - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
 
             if (!isWhitelistEnabled) {
-                 _processBondInstruction(state, commitment, offset, nextToFinalizeProposalAge);
+                 _processBondInstruction(commitment, offset, proposalAge);
             }
 
             // -----------------------------------------------------------------------------
@@ -311,7 +314,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 6. Verify the proof
             // ---------------------------------------------------------
             _proofVerifier.verifyProof(
-                nextToFinalizeProposalAge, LibHashOptimized.hashCommitment(commitment), _proof
+                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
             );
         }
     }
@@ -594,22 +597,20 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Calculates proposal age and emits bond instruction if applicable.
-    /// @param _state The current core state.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    /// @param _nextToFinalizeProposalAge The age of the next to finalize proposal.
+    /// @param _proposalAge The age of the next to finalize proposal.
     function _processBondInstruction(
-        CoreState memory _state,
         Commitment memory _commitment,
         uint48 _offset,
-        uint256 _nextToFinalizeProposalAge
+        uint256 _proposalAge
     )
         private
     {
 
         LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
             _commitment.firstProposalId + _offset,
-            _nextToFinalizeProposalAge,
+            _proposalAge,
             _commitment.transitions[_offset].proposer,
             _commitment.transitions[_offset].designatedProver,
             _commitment.actualProver,
