@@ -106,7 +106,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
         IInbox.ProveInput memory input = _buildBatchInputWithProver(1, prover);
 
         bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.OnlyWhitelistedProverCanCall.selector);
+        vm.expectRevert(Inbox.ProverNotWhitelisted.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
     }

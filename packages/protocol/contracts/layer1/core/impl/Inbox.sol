@@ -669,7 +669,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
         if (proverCount == 0) return false;
 
-        require(isWhitelisted, OnlyWhitelistedProverCanCall());
+        require(isWhitelisted, ProverNotWhitelisted());
         return true;
     }
 
@@ -687,7 +687,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
-    error OnlyWhitelistedProverCanCall();
     error ParentBlockHashMismatch();
+    error ProverNotWhitelisted();
     error UnprocessedForcedInclusionIsDue();
 }
