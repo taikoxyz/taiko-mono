@@ -374,7 +374,7 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
 
 ```solidity
 library IInbox {
-    struct Config { address codec; address proofVerifier; address proposerChecker; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+    struct Config { address codec; address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
     struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
 }
 ```*/
@@ -391,7 +391,7 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address proofVerifier; address proposerChecker; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+struct Config { address codec; address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -402,6 +402,8 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
         pub proofVerifier: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub proposerChecker: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub proverWhitelist: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub signalService: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
@@ -439,6 +441,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
+            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<256>,
@@ -452,6 +455,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
@@ -486,6 +490,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     value.codec,
                     value.proofVerifier,
                     value.proposerChecker,
+                    value.proverWhitelist,
                     value.signalService,
                     value.provingWindow,
                     value.extendedProvingWindow,
@@ -508,17 +513,18 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     codec: tuple.0,
                     proofVerifier: tuple.1,
                     proposerChecker: tuple.2,
-                    signalService: tuple.3,
-                    provingWindow: tuple.4,
-                    extendedProvingWindow: tuple.5,
-                    ringBufferSize: tuple.6,
-                    basefeeSharingPctg: tuple.7,
-                    minForcedInclusionCount: tuple.8,
-                    forcedInclusionDelay: tuple.9,
-                    forcedInclusionFeeInGwei: tuple.10,
-                    forcedInclusionFeeDoubleThreshold: tuple.11,
-                    minCheckpointDelay: tuple.12,
-                    permissionlessInclusionMultiplier: tuple.13,
+                    proverWhitelist: tuple.3,
+                    signalService: tuple.4,
+                    provingWindow: tuple.5,
+                    extendedProvingWindow: tuple.6,
+                    ringBufferSize: tuple.7,
+                    basefeeSharingPctg: tuple.8,
+                    minForcedInclusionCount: tuple.9,
+                    forcedInclusionDelay: tuple.10,
+                    forcedInclusionFeeInGwei: tuple.11,
+                    forcedInclusionFeeDoubleThreshold: tuple.12,
+                    minCheckpointDelay: tuple.13,
+                    permissionlessInclusionMultiplier: tuple.14,
                 }
             }
         }
@@ -539,6 +545,9 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.proposerChecker,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.proverWhitelist,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.signalService,
@@ -657,7 +666,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address proofVerifier,address proposerChecker,address signalService,uint48 provingWindow,uint48 extendedProvingWindow,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
+                    "Config(address codec,address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,uint48 provingWindow,uint48 extendedProvingWindow,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
                 )
             }
             #[inline]
@@ -683,6 +692,10 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.proposerChecker,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.proverWhitelist,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
@@ -766,6 +779,9 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                         &rust.proposerChecker,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.proverWhitelist,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.signalService,
                     )
                     + <alloy::sol_types::sol_data::Uint<
@@ -837,6 +853,10 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.proposerChecker,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.proverWhitelist,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
@@ -2595,6 +2615,7 @@ library IInbox {
         address codec;
         address proofVerifier;
         address proposerChecker;
+        address proverWhitelist;
         address signalService;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
@@ -2660,6 +2681,7 @@ interface Inbox {
     error NoBlobs();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
+    error ProverNotWhitelisted();
     error REENTRANT_CALL();
     error UnprocessedForcedInclusionIsDue();
     error ZERO_ADDRESS();
@@ -2733,6 +2755,11 @@ interface Inbox {
           },
           {
             "name": "proposerChecker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "proverWhitelist",
             "type": "address",
             "internalType": "address"
           },
@@ -2851,6 +2878,11 @@ interface Inbox {
           },
           {
             "name": "proposerChecker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "proverWhitelist",
             "type": "address",
             "internalType": "address"
           },
@@ -3639,6 +3671,11 @@ interface Inbox {
   {
     "type": "error",
     "name": "ParentBlockHashMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProverNotWhitelisted",
     "inputs": []
   },
   {
@@ -5049,6 +5086,79 @@ error ParentBlockHashMismatch();
             > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "ParentBlockHashMismatch()";
             const SELECTOR: [u8; 4] = [25u8, 128u8, 112u8, 179u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Custom error with signature `ProverNotWhitelisted()` and selector `0xc1a58f19`.
+```solidity
+error ProverNotWhitelisted();
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct ProverNotWhitelisted;
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        type UnderlyingSolTuple<'a> = ();
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = ();
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<ProverNotWhitelisted> for UnderlyingRustTuple<'_> {
+            fn from(value: ProverNotWhitelisted) -> Self {
+                ()
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for ProverNotWhitelisted {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolError for ProverNotWhitelisted {
+            type Parameters<'a> = UnderlyingSolTuple<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "ProverNotWhitelisted()";
+            const SELECTOR: [u8; 4] = [193u8, 165u8, 143u8, 25u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -11689,6 +11799,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         ParentBlockHashMismatch(ParentBlockHashMismatch),
         #[allow(missing_docs)]
+        ProverNotWhitelisted(ProverNotWhitelisted),
+        #[allow(missing_docs)]
         REENTRANT_CALL(REENTRANT_CALL),
         #[allow(missing_docs)]
         UnprocessedForcedInclusionIsDue(UnprocessedForcedInclusionIsDue),
@@ -11720,6 +11832,7 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
             [152u8, 206u8, 38u8, 154u8],
             [186u8, 116u8, 216u8, 15u8],
             [186u8, 230u8, 226u8, 169u8],
+            [193u8, 165u8, 143u8, 25u8],
             [194u8, 229u8, 52u8, 125u8],
             [195u8, 142u8, 150u8, 55u8],
             [223u8, 198u8, 13u8, 133u8],
@@ -11735,7 +11848,7 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
     impl alloy_sol_types::SolInterface for InboxErrors {
         const NAME: &'static str = "InboxErrors";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 23usize;
+        const COUNT: usize = 24usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -11793,6 +11906,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 }
                 Self::ParentBlockHashMismatch(_) => {
                     <ParentBlockHashMismatch as alloy_sol_types::SolError>::SELECTOR
+                }
+                Self::ProverNotWhitelisted(_) => {
+                    <ProverNotWhitelisted as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::REENTRANT_CALL(_) => {
                     <REENTRANT_CALL as alloy_sol_types::SolError>::SELECTOR
@@ -11974,6 +12090,17 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                             .map(InboxErrors::INVALID_PAUSE_STATUS)
                     }
                     INVALID_PAUSE_STATUS
+                },
+                {
+                    fn ProverNotWhitelisted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxErrors> {
+                        <ProverNotWhitelisted as alloy_sol_types::SolError>::abi_decode_raw(
+                                data,
+                            )
+                            .map(InboxErrors::ProverNotWhitelisted)
+                    }
+                    ProverNotWhitelisted
                 },
                 {
                     fn EmptyBatch(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
@@ -12235,6 +12362,17 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     INVALID_PAUSE_STATUS
                 },
                 {
+                    fn ProverNotWhitelisted(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxErrors> {
+                        <ProverNotWhitelisted as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(InboxErrors::ProverNotWhitelisted)
+                    }
+                    ProverNotWhitelisted
+                },
+                {
                     fn EmptyBatch(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
                         <EmptyBatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
@@ -12428,6 +12566,11 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         inner,
                     )
                 }
+                Self::ProverNotWhitelisted(inner) => {
+                    <ProverNotWhitelisted as alloy_sol_types::SolError>::abi_encoded_size(
+                        inner,
+                    )
+                }
                 Self::REENTRANT_CALL(inner) => {
                     <REENTRANT_CALL as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
@@ -12553,6 +12696,12 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 }
                 Self::ParentBlockHashMismatch(inner) => {
                     <ParentBlockHashMismatch as alloy_sol_types::SolError>::abi_encode_raw(
+                        inner,
+                        out,
+                    )
+                }
+                Self::ProverNotWhitelisted(inner) => {
+                    <ProverNotWhitelisted as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
