@@ -338,7 +338,7 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(ProposalParams calldata _proposalParams) private {
-        uint256 provingFee;
+        uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, provingFee) =
         getDesignatedProver(
             _proposalParams.proposalId,
@@ -347,7 +347,7 @@ contract Anchor is EssentialContract {
             _proposalState.designatedProver
         );
 
-        if (provingFee > 0) {
+        if (proverFee > 0) {
             uint256 debited = bondManager.debitBond(_proposalParams.proposer, provingFee);
             bondManager.creditBond(_proposalState.designatedProver, debited);
         }
