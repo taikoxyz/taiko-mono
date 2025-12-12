@@ -136,8 +136,7 @@ contract TestGenerateGenesis is Test {
                     SignalService(getPredeployedContractAddress("SignalService")),
                     contractOwner,
                     uint64(l1ChainId),
-                    livenessBond,
-                    provabilityBond
+                    livenessBond
                 )
             )
         );
@@ -158,7 +157,6 @@ contract TestGenerateGenesis is Test {
             getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
         );
         assertEq(livenessBond, taikoAnchorProxy.livenessBond());
-        assertEq(provabilityBond, taikoAnchorProxy.provabilityBond());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
