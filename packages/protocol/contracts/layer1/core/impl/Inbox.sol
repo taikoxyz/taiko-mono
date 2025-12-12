@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { IProverChecker } from "../iface/IProverChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -101,8 +102,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
-    /// @notice The whitelisted prover address (address(0) means no whitelist)
-    address internal immutable _whitelistProver;
+    /// @notice The prover checker contract (address(0) means no whitelist)
+    IProverChecker internal immutable _proverChecker;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -148,7 +149,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
-        _whitelistProver = _config.whitelistProver;
+        _proverChecker = IProverChecker(_config.proverChecker);
     }
 
     // ---------------------------------------------------------------
@@ -374,7 +375,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
-            whitelistProver: _whitelistProver
+            proverChecker: address(_proverChecker)
         });
     }
 
@@ -583,8 +584,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     function _isWhitelistedProver() private view returns (bool) {
-        if (_whitelistProver == address(0)) return false;
-        require(msg.sender == _whitelistProver, OnlyWhitelistedProverCanCall());
+        if (address(_proverChecker) == address(0)) return false;
+        bool isWhitelisted = _proverChecker.isProver(msg.sender);
+        require(isWhitelisted, OnlyWhitelistedProverCanCall());
         return true;
     }
 

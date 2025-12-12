@@ -1,19 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ProverChecker } from "src/layer1/core/impl/ProverChecker.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract InboxWhitelistProverTest is InboxTestBase {
     address internal whitelistedProver = address(0x1234);
+    ProverChecker internal proverChecker;
 
     function _buildConfig() internal override returns (IInbox.Config memory) {
         codec = ICodec(new Codec());
+
+        // Deploy and setup ProverChecker
+        ProverChecker proverCheckerImpl = new ProverChecker();
+        proverChecker = ProverChecker(
+            address(
+                new ERC1967Proxy(
+                    address(proverCheckerImpl), abi.encodeCall(ProverChecker.init, (address(this)))
+                )
+            )
+        );
+        proverChecker.setProver(whitelistedProver, true);
 
         return IInbox.Config({
             codec: address(codec),
@@ -30,7 +44,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
             forcedInclusionFeeDoubleThreshold: 50,
             minCheckpointDelay: 60_000,
             permissionlessInclusionMultiplier: 5,
-            whitelistProver: whitelistedProver
+            proverChecker: address(proverChecker)
         });
     }
 

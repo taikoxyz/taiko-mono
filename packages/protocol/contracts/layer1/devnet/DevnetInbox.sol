@@ -50,7 +50,7 @@ contract DevnetInbox is Inbox {
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5,
-                whitelistProver: address(0)
+                proverChecker: address(0)
             }))
     { }
 
