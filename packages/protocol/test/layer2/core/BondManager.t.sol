@@ -810,5 +810,4 @@ contract BondManagerTest is Test {
         assertEq(bondManager.getBondBalance(Alice), 0);
         assertGe(block.timestamp, secondRequestTime + WITHDRAWAL_DELAY);
     }
-
 }

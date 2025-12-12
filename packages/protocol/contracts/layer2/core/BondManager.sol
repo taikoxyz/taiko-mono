@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
-import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
@@ -119,8 +119,6 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         emit BondDeposited(msg.sender, recipient, _amount);
     }
 
-
-
     /// @inheritdoc IBondManager
     function requestWithdrawal() external nonReentrant {
         Bond storage bond_ = bond[msg.sender];
@@ -160,12 +158,10 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
     // External View Functions
     // ---------------------------------------------------------------
 
-
     /// @inheritdoc IBondManager
     function getBondBalance(address _address) external view returns (uint256) {
         return _getBondBalance(_address);
     }
-
 
     /// @inheritdoc IBondManager
     function hasSufficientBond(
@@ -193,16 +189,15 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
     )
         internal
     {
-        require (_instruction.bondType == LibBonds.BondType.LIVENESS, InvalidBondType());
+        require(_instruction.bondType == LibBonds.BondType.LIVENESS, InvalidBondType());
         require(_instruction.payer != _instruction.payee, InvalidRecipient());
 
         uint256 amount = _bondAmountFor(_instruction.bondType);
         require(amount != 0, NoBondInstruction());
 
-        uint256 debited
-             = _debitBond(_instruction.payer, amount);
-            _creditBond(_instruction.payee, debited);
-        
+        uint256 debited = _debitBond(_instruction.payer, amount);
+        _creditBond(_instruction.payee, debited);
+
         emit BondInstructionProcessed(_msgHash, _instruction, debited);
     }
 
@@ -261,7 +256,7 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         return 0;
     }
 
-      /// @dev Internal implementation for getting the bond balance
+    /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
     function _getBondBalance(address _address) internal view returns (uint256) {

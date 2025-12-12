@@ -337,13 +337,12 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(ProposalParams calldata _proposalParams) private {
-        (_proposalState.isLowBondProposal, _proposalState.designatedProver,) =
-            getDesignatedProver(
-                _proposalParams.proposalId,
-                _proposalParams.proposer,
-                _proposalParams.proverAuth,
-                _proposalState.designatedProver
-            );
+        (_proposalState.isLowBondProposal, _proposalState.designatedProver,) = getDesignatedProver(
+            _proposalParams.proposalId,
+            _proposalParams.proposer,
+            _proposalParams.proverAuth,
+            _proposalState.designatedProver
+        );
 
         _proposalState.proposalId = _proposalParams.proposalId;
     }

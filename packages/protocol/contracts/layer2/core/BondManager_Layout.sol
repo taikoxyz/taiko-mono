@@ -19,5 +19,4 @@ pragma solidity ^0.8.24;
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   bond                           | mapping(address => struct IBondManager.Bond)       | Slot: 251  | Offset: 0    | Bytes: 32  
-//   processedSignals               | mapping(bytes32 => bool)                           | Slot: 252  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[44]                                        | Slot: 253  | Offset: 0    | Bytes: 1408
+//   __gap                          | uint256[46]                                        | Slot: 252  | Offset: 0    | Bytes: 1472
