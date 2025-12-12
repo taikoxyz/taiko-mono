@@ -648,7 +648,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Calculates and emits bond instruction if applicable.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processBondInstruction(Commitment memory _commitment, uint48 _offset) private {
+    function _processBondInstruction(
+        Commitment memory _commitment,
+        uint48 _offset
+    )
+        private
+    {
         Transition memory transition = _commitment.transitions[_offset];
         LibBonds.BondInstruction memory bondInstruction = _calculateBondInstruction(
             _commitment.firstProposalId + _offset,
