@@ -14,7 +14,6 @@ contract BondManagerTest is Test {
     uint256 private constant MIN_BOND = 10 ether;
     uint48 private constant WITHDRAWAL_DELAY = 7 days;
     uint256 private constant LIVENESS_BOND = 2 ether;
-    uint256 private constant PROVABILITY_BOND = 3 ether;
     uint64 private constant L1_CHAIN_ID = 11_337;
     address private constant L1_INBOX = address(0xBEEF);
 
@@ -42,8 +41,7 @@ contract BondManagerTest is Test {
             signalService,
             L1_INBOX,
             L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            LIVENESS_BOND
         );
         bondManager = BondManager(
             address(new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (operator))))
@@ -89,7 +87,6 @@ contract BondManagerTest is Test {
         assertEq(bondManager.l1Inbox(), L1_INBOX);
         assertEq(bondManager.l1ChainId(), L1_CHAIN_ID);
         assertEq(bondManager.livenessBond(), LIVENESS_BOND);
-        assertEq(bondManager.provabilityBond(), PROVABILITY_BOND);
         assertEq(bondManager.owner(), operator);
     }
 
@@ -921,7 +918,7 @@ contract BondManagerTest is Test {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
-        bytes32 signal = keccak256(abi.encode(instruction));
+        bytes32 signal = LibBonds.hashBondInstruction(instruction);
 
         vm.prank(L1_INBOX);
         signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
@@ -931,24 +928,23 @@ contract BondManagerTest is Test {
 
         bondManager.processBondSignal(instruction, "");
 
-        bytes32 signalId = keccak256(abi.encode(L1_CHAIN_ID, L1_INBOX, signal));
-        assertTrue(bondManager.processedSignals(signalId));
+        assertTrue(bondManager.processedSignals(signal));
         assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
         assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND / 2);
     }
 
     function test_processBondSignal_allowsOutOfOrderConsumption() external {
         LibBonds.BondInstruction memory first = LibBonds.BondInstruction({
-            proposalId: 1, bondType: LibBonds.BondType.PROVABILITY, payer: Alice, payee: Bob
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
         LibBonds.BondInstruction memory second = LibBonds.BondInstruction({
             proposalId: 2, bondType: LibBonds.BondType.LIVENESS, payer: Carol, payee: David
         });
 
         vm.prank(L1_INBOX);
-        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, keccak256(abi.encode(first)));
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(first));
         vm.prank(L1_INBOX);
-        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, keccak256(abi.encode(second)));
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(second));
 
         vm.prank(Alice);
         bondManager.deposit(500 ether);
@@ -958,7 +954,7 @@ contract BondManagerTest is Test {
         bondManager.processBondSignal(second, "");
         bondManager.processBondSignal(first, "");
 
-        assertEq(bondManager.getBondBalance(first.payee), PROVABILITY_BOND / 2);
+        assertEq(bondManager.getBondBalance(first.payee), LIVENESS_BOND / 2);
         assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND / 2);
     }
 

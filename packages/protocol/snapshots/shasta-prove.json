@@ -1,18 +1,7 @@
 {
-  "finalize_consecutive_10_Inbox": "113464",
-  "finalize_consecutive_10_InboxOptimized": "112342",
-  "finalize_consecutive_3_Inbox": "86069",
-  "finalize_consecutive_3_InboxOptimized": "84755",
-  "finalize_consecutive_5_Inbox": "93737",
-  "finalize_consecutive_5_InboxOptimized": "92521",
-  "finalize_single_Inbox": "78617",
-  "finalize_single_InboxOptimized": "77155",
-  "prove_consecutive_10_Inbox": "58847",
-  "prove_consecutive_10_InboxOptimized": "57739",
-  "prove_consecutive_3_Inbox": "31466",
-  "prove_consecutive_3_InboxOptimized": "30152",
-  "prove_consecutive_5_Inbox": "39134",
-  "prove_consecutive_5_InboxOptimized": "37918",
-  "prove_single_Inbox": "24014",
-  "prove_single_InboxOptimized": "22548"
+  "prove_batch_10": "35675",
+  "prove_batch_2": "20589",
+  "prove_batch_3": "22599",
+  "prove_batch_5": "26351",
+  "prove_single": "18871"
 }

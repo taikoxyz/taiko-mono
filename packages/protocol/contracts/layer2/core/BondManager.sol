@@ -50,15 +50,14 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     /// @notice L1 chain ID where bond signals originate.
     uint64 public immutable l1ChainId;
 
-    /// @notice Bond amounts (Wei) for liveness and provability bonds.
+    /// @notice Bond amount (Wei) for liveness bonds.
     uint256 public immutable livenessBond;
-    uint256 public immutable provabilityBond;
 
     /// @notice Per-account bond state
     mapping(address account => Bond bond) public bond;
 
     /// @notice Tracks processed bond signals to prevent double application.
-    mapping(bytes32 signalId => bool processed) public processedSignals;
+    mapping(bytes32 signal => bool processed) public processedSignals;
 
     uint256[44] private __gap;
 
@@ -75,7 +74,6 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     /// @param _l1Inbox L1 inbox address expected to emit bond signals.
     /// @param _l1ChainId Source chain ID for bond signals.
     /// @param _livenessBond Liveness bond amount (Wei).
-    /// @param _provabilityBond Provability bond amount (Wei).
     constructor(
         address _bondToken,
         uint256 _minBond,
@@ -84,8 +82,7 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         ISignalService _signalService,
         address _l1Inbox,
         uint64 _l1ChainId,
-        uint256 _livenessBond,
-        uint256 _provabilityBond
+        uint256 _livenessBond
     ) {
         require(_bondToken != address(0), InvalidAddress());
         require(_bondOperator != address(0), InvalidAddress());
@@ -100,7 +97,6 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         l1Inbox = _l1Inbox;
         l1ChainId = _l1ChainId;
         livenessBond = _livenessBond;
-        provabilityBond = _provabilityBond;
     }
 
     /// @notice Initializes the BondManager contract
@@ -217,12 +213,11 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     {
         _validateBondInstruction(_instruction);
 
-        bytes32 signal = _bondSignalHash(_instruction);
-        bytes32 signalId = _signalId(signal);
-        require(!processedSignals[signalId], SignalAlreadyProcessed());
+        bytes32 signal = LibBonds.hashBondInstruction(_instruction);
+        require(!processedSignals[signal], SignalAlreadyProcessed());
 
         signalService.proveSignalReceived(l1ChainId, l1Inbox, signal, _proof);
-        processedSignals[signalId] = true;
+        processedSignals[signal] = true;
 
         uint256 amount = _bondAmountFor(_instruction.bondType);
         if (amount == 0) {
@@ -306,35 +301,14 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         if (_bondType == LibBonds.BondType.LIVENESS) {
             return livenessBond;
         }
-        if (_bondType == LibBonds.BondType.PROVABILITY) {
-            return provabilityBond;
-        }
         return 0;
-    }
-
-    /// @dev Calculates the hash of a bond instruction
-    /// @param _instruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function _bondSignalHash(LibBonds.BondInstruction memory _instruction)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_instruction));
-    }
-
-    /// @dev Calculates the id of a given signal
-    /// @param _signal The signal to calculate the id for
-    /// @return The id of the signal
-    function _signalId(bytes32 _signal) internal view returns (bytes32) {
-        return keccak256(abi.encode(l1ChainId, l1Inbox, _signal));
     }
 
     /// @dev Validates a bond instruction. Reverts if the bond instruction is invalid.
     /// @param _instruction The bond instruction to validate
     function _validateBondInstruction(LibBonds.BondInstruction memory _instruction) internal pure {
         if (_instruction.bondType == LibBonds.BondType.NONE) revert NoBondInstruction();
-        if (uint8(_instruction.bondType) > uint8(LibBonds.BondType.LIVENESS)) {
+        if (_instruction.bondType != LibBonds.BondType.LIVENESS) {
             revert InvalidBondType();
         }
     }
