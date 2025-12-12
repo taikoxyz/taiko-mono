@@ -12,7 +12,7 @@ contract ProverCheckerTest is CommonTest {
     address internal prover2 = address(0x1002);
     address internal prover3 = address(0x1003);
 
-    event ProverUpdated(address indexed prover, bool enabled);
+    event ProverWhitelisted(address indexed prover, bool enabled);
 
     function setUp() public virtual override {
         super.setUp();
@@ -43,7 +43,7 @@ contract ProverCheckerTest is CommonTest {
 
     function test_whitelistProver_enablesProver() public {
         vm.expectEmit(true, false, false, true);
-        emit ProverUpdated(prover1, true);
+        emit ProverWhitelisted(prover1, true);
 
         proverChecker.whitelistProver(prover1, true);
 
@@ -57,7 +57,7 @@ contract ProverCheckerTest is CommonTest {
         proverChecker.whitelistProver(prover1, true);
 
         vm.expectEmit(true, false, false, true);
-        emit ProverUpdated(prover1, false);
+        emit ProverWhitelisted(prover1, false);
 
         proverChecker.whitelistProver(prover1, false);
 

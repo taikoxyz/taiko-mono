@@ -27,7 +27,7 @@ contract ProverChecker is EssentialContract, IProverChecker {
     /// @notice Emitted when a prover is enabled or disabled
     /// @param prover The address of the prover
     /// @param enabled True if the prover was enabled, false if disabled
-    event ProverUpdated(address indexed prover, bool enabled);
+    event ProverWhitelisted(address indexed prover, bool enabled);
 
     // ---------------------------------------------------------------
     // External Functions
@@ -52,7 +52,7 @@ contract ProverChecker is EssentialContract, IProverChecker {
         } else {
             --proverCount;
         }
-        emit ProverUpdated(_prover, _enabled);
+        emit ProverWhitelisted(_prover, _enabled);
     }
 
     /// @inheritdoc IProverChecker
