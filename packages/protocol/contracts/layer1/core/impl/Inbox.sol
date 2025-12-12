@@ -6,7 +6,6 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
@@ -280,16 +279,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                LibBonds.BondInstruction memory bondInstruction =
-                    LibBondInstruction.calculateBondInstruction(
-                        commitment.firstProposalId + offset,
-                        transitionAtOffset.timestamp,
-                        state.lastFinalizedTimestamp,
-                        _maxProofSubmissionDelay,
-                        transitionAtOffset.designatedProver,
-                        commitment.actualProver,
-                        _provingWindow
-                    );
+                LibBonds.BondInstruction memory bondInstruction = _calculateBondInstruction(
+                    commitment.firstProposalId + offset,
+                    transitionAtOffset.timestamp,
+                    state.lastFinalizedTimestamp,
+                    transitionAtOffset.designatedProver,
+                    commitment.actualProver
+                );
                 if (bondInstruction.bondType != LibBonds.BondType.NONE) {
                     _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
                     emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
@@ -657,6 +653,46 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // The offset points to the first proposal that will be finalized.
             offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
         }
+    }
+
+    /// @dev Calculates bond instruction for a sequential prove call.
+    /// @dev Bond instruction rules:
+    ///      - On-time (within provingWindow + sequential grace): No bond changes.
+    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
+    ///        same address (L2 processing handles slashing/reward splits).
+    /// @param _proposalId The proposal ID.
+    /// @param _proposalTimestamp The proposal timestamp.
+    /// @param _priorFinalizedTimestamp The timestamp when the last proposal was finalized.
+    /// @param _designatedProver The designated prover address.
+    /// @param _actualProver The actual prover address.
+    /// @return bondInstruction_ A bond transfer instruction, or a BondType.NONE instruction when
+    ///         no transfer is required.
+    function _calculateBondInstruction(
+        uint48 _proposalId,
+        uint256 _proposalTimestamp,
+        uint48 _priorFinalizedTimestamp,
+        address _designatedProver,
+        address _actualProver
+    )
+        private
+        view
+        returns (LibBonds.BondInstruction memory bondInstruction_)
+    {
+        uint256 proposalDeadline = _proposalTimestamp + _provingWindow;
+        uint256 sequentialDeadline = uint256(_priorFinalizedTimestamp) + _maxProofSubmissionDelay;
+        uint256 livenessWindowDeadline = proposalDeadline.max(sequentialDeadline);
+
+        // On-time proof - no bond transfer needed.
+        if (block.timestamp <= livenessWindowDeadline) {
+            return bondInstruction_;
+        }
+
+        bondInstruction_ = LibBonds.BondInstruction({
+            proposalId: _proposalId,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: _designatedProver,
+            payee: _actualProver
+        });
     }
 
     // ---------------------------------------------------------------
