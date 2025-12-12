@@ -11,7 +11,6 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 
 contract AnchorTest is Test {
     uint256 private constant LIVENESS_BOND = 5 ether;
-    uint256 private constant PROVABILITY_BOND = 7 ether;
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
     address private constant L1_INBOX = address(0xBEEF);
@@ -49,15 +48,13 @@ contract AnchorTest is Test {
         );
 
         BondManager bondManagerImpl = new BondManager(
-            address(token),
-            0,
-            0,
-            address(this),
-            signalService,
-            L1_INBOX,
             L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            L1_INBOX,
+            address(this), // bridge (placeholder)
+            address(token),
+            0, // minBond
+            0, // withdrawalDelay
+            LIVENESS_BOND
         );
         bondManager = BondManager(
             address(
@@ -67,8 +64,7 @@ contract AnchorTest is Test {
             )
         );
 
-        Anchor anchorImpl =
-            new Anchor(signalService, bondManager, LIVENESS_BOND, PROVABILITY_BOND, L1_CHAIN_ID);
+        Anchor anchorImpl = new Anchor(signalService, bondManager);
         anchor = Anchor(
             address(
                 new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
@@ -76,15 +72,13 @@ contract AnchorTest is Test {
         );
 
         BondManager anchorBondManagerImpl = new BondManager(
-            address(token),
-            0,
-            0,
-            address(anchor),
-            signalService,
-            L1_INBOX,
             L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            L1_INBOX,
+            address(this), // bridge (placeholder)
+            address(token),
+            0, // minBond
+            0, // withdrawalDelay
+            LIVENESS_BOND
         );
         bondManager.upgradeTo(address(anchorBondManagerImpl));
 
@@ -98,13 +92,13 @@ contract AnchorTest is Test {
         token.mint(proposer, INITIAL_PROPOSER_BOND);
         vm.startPrank(proposer);
         token.approve(address(bondManager), type(uint256).max);
-        bondManager.deposit(INITIAL_PROPOSER_BOND);
+        bondManager.deposit(address(0), INITIAL_PROPOSER_BOND);
         vm.stopPrank();
 
         token.mint(proverCandidate, INITIAL_PROVER_BOND);
         vm.startPrank(proverCandidate);
         token.approve(address(bondManager), type(uint256).max);
-        bondManager.deposit(INITIAL_PROVER_BOND);
+        bondManager.deposit(address(0), INITIAL_PROVER_BOND);
         vm.stopPrank();
     }
 
@@ -125,8 +119,9 @@ contract AnchorTest is Test {
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 1 ether);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
+        // Prover fee transfer removed - bond balances unchanged
+        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND);
+        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND);
 
         ICheckpointStore.Checkpoint memory saved =
             signalService.getCheckpoint(blockParams.anchorBlockNumber);
@@ -192,8 +187,9 @@ contract AnchorTest is Test {
         assertEq(proposalState.proposalId, 2);
         assertEq(proposalState.designatedProver, proverCandidate);
         assertEq(blockState.anchorBlockNumber, blockParams2.anchorBlockNumber);
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 3 ether);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 3 ether);
+        // Prover fee transfer removed - bond balances unchanged
+        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND);
+        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND);
     }
 
     function test_anchorV4_fallsBackToProposerWhenAuthInvalid() external {
@@ -221,10 +217,12 @@ contract AnchorTest is Test {
     function test_getDesignatedProver_ReturnsLowBondWhenInsufficient() external {
         bytes memory auth = _buildProverAuth(1, 5 ether);
 
-        vm.prank(address(anchor));
-        bondManager.debitBond(proposer, type(uint256).max);
-        vm.prank(address(anchor));
-        bondManager.creditBond(proposer, 1 ether);
+        // Reduce proposer's bond to below minimum by withdrawing
+        vm.startPrank(proposer);
+        bondManager.requestWithdrawal();
+        vm.warp(block.timestamp + 8 days); // Wait past withdrawal delay
+        bondManager.withdraw(proposer, INITIAL_PROPOSER_BOND - 1 ether);
+        vm.stopPrank();
 
         (bool isLowBond, address designated, uint256 provingFee) =
             anchor.getDesignatedProver(1, proposer, auth, proverCandidate);

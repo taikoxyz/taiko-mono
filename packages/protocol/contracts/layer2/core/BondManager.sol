@@ -2,30 +2,35 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
-import { IBondProcessor } from "./IBondProcessor.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./BondManager_Layout.sol"; // DO NOT DELETE
 
 /// @title BondManager
-/// @notice L2 bond manager handling deposits/withdrawals and L1 bond-signal processing.
-/// @dev Combines bond accounting and signal verification so bond movements happen in one place:
+/// @notice L2 bond manager handling deposits/withdrawals and L1 bond instruction processing.
+/// @dev Combines bond accounting and bridge message handling so bond movements happen in one place:
 ///      - Standard deposit/withdraw logic with optional minimum bond and withdrawal delay.
-///      - Processes proved L1 bond signals (provability/liveness) with best-effort debits/credits.
+///      - Processes bond instructions received via bridge from L1.
 /// @custom:security-contact security@taiko.xyz
-contract BondManager is EssentialContract, IBondManager, IBondProcessor {
+contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Address allowed to call debitBond and creditBond.
-    address public immutable bondOperator;
+    /// @notice L1 chain ID where bond instructions originate.
+    uint64 public immutable l1ChainId;
+
+    /// @notice L1 inbox address expected to send bond instructions.
+    address public immutable l1Inbox;
+
+    /// @notice L2 bridge contract for receiving bond instructions from L1.
+    address public immutable bridge;
 
     /// @notice ERC20 token used as bond.
     IERC20 public immutable bondToken;
@@ -35,71 +40,52 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
 
     /// @notice Time delay required before withdrawal after request
     /// @dev WARNING: In theory operations can remain unfinalized indefinitely, but in practice
-    /// after
-    ///      the `extendedProvingWindow` the incentives are very strong for finalization.
-    ///      A safe value for this is `extendedProvingWindow` + buffer, for example, 2 weeks.
+    /// after the `extendedProvingWindow` the incentives are very strong for finalization.
+    /// A safe value for this is `extendedProvingWindow` + buffer, for example, 2 weeks.
     uint48 public immutable withdrawalDelay;
 
-    /// @notice L2 signal service used to verify bond processing signals.
-    ISignalService public immutable signalService;
-
-    /// @notice L1 inbox address expected to emit bond signals.
-    address public immutable l1Inbox;
-
-    /// @notice L1 chain ID where bond signals originate.
-    uint64 public immutable l1ChainId;
-
-    /// @notice Bond amounts (Wei) for liveness and provability bonds.
+    /// @notice Bond amount (Wei) for liveness bond.
     uint256 public immutable livenessBond;
-    uint256 public immutable provabilityBond;
 
     /// @notice Per-account bond state
     mapping(address account => Bond bond) public bond;
 
-    /// @notice Tracks processed bond signals to prevent double application.
-    mapping(bytes32 signal => bool processed) public processedSignals;
-
-    uint256[44] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
     /// @notice Constructor disables initializers for upgradeable pattern
-    /// @param _bondToken The ERC20 bond token address
-    /// @param _minBond The minimum bond required
-    /// @param _withdrawalDelay The delay period for withdrawals (e.g., 7 days)
-    /// @param _bondOperator Address allowed to debit/credit bonds.
-    /// @param _signalService Signal service contract on L2.
-    /// @param _l1Inbox L1 inbox address expected to emit bond signals.
-    /// @param _l1ChainId Source chain ID for bond signals.
+    /// @param _l1ChainId Source chain ID for bond instructions.
+    /// @param _l1Inbox L1 inbox address expected to send bond instructions.
+    /// @param _bridge L2 bridge contract address.
+    /// @param _bondToken The ERC20 bond token address.
+    /// @param _minBond The minimum bond required.
+    /// @param _withdrawalDelay The delay period for withdrawals (e.g., 7 days).
     /// @param _livenessBond Liveness bond amount (Wei).
-    /// @param _provabilityBond Provability bond amount (Wei).
     constructor(
+        uint64 _l1ChainId,
+        address _l1Inbox,
+        address _bridge,
         address _bondToken,
         uint256 _minBond,
         uint48 _withdrawalDelay,
-        address _bondOperator,
-        ISignalService _signalService,
-        address _l1Inbox,
-        uint64 _l1ChainId,
-        uint256 _livenessBond,
-        uint256 _provabilityBond
+        uint256 _livenessBond
     ) {
-        require(_bondToken != address(0), InvalidAddress());
-        require(_bondOperator != address(0), InvalidAddress());
-        require(address(_signalService) != address(0) && _l1Inbox != address(0), InvalidAddress());
+        require(
+            _bridge != address(0) && _l1Inbox != address(0) && _bondToken != address(0),
+            InvalidAddress()
+        );
         require(_l1ChainId != 0, InvalidL1ChainId());
 
+        l1ChainId = _l1ChainId;
+        l1Inbox = _l1Inbox;
+        bridge = _bridge;
         bondToken = IERC20(_bondToken);
         minBond = _minBond;
         withdrawalDelay = _withdrawalDelay;
-        bondOperator = _bondOperator;
-        signalService = _signalService;
-        l1Inbox = _l1Inbox;
-        l1ChainId = _l1ChainId;
         livenessBond = _livenessBond;
-        provabilityBond = _provabilityBond;
     }
 
     /// @notice Initializes the BondManager contract
@@ -109,63 +95,31 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     }
 
     // ---------------------------------------------------------------
-    // External Functions
+    // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IBondManager
-    function debitBond(
-        address _address,
-        uint256 _bond
-    )
-        external
-        onlyFrom(bondOperator)
-        returns (uint256 amountDebited_)
-    {
-        amountDebited_ = _debitBond(_address, _bond);
+    /// @inheritdoc IMessageInvocable
+    function onMessageInvocation(bytes calldata _data) external payable whenNotPaused nonReentrant {
+        if (msg.sender != bridge) revert InvalidCaller();
+
+        IBridge.Context memory ctx = IBridge(bridge).context();
+        require(ctx.srcChainId == l1ChainId, InvalidSourceChainId());
+        require(ctx.from == l1Inbox, InvalidSourceSender());
+
+        LibBonds.BondInstruction memory instruction = abi.decode(_data, (LibBonds.BondInstruction));
+        _processBondInstruction(ctx.msgHash, instruction);
     }
 
     /// @inheritdoc IBondManager
-    function creditBond(address _address, uint256 _bond) external onlyFrom(bondOperator) {
-        _creditBond(_address, _bond);
-    }
-
-    /// @inheritdoc IBondManager
-    function getBondBalance(address _address) external view returns (uint256) {
-        return _getBondBalance(_address);
-    }
-
-    /// @inheritdoc IBondManager
-    function deposit(uint256 _amount) external nonReentrant {
-        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
-
-        _creditBond(msg.sender, _amount);
-
-        emit BondDeposited(msg.sender, _amount);
-    }
-
-    /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
-        require(_recipient != address(0), InvalidRecipient());
+    function deposit(address _recipient, uint256 _amount) external nonReentrant {
+        address recipient = _recipient == address(0) ? msg.sender : _recipient;
 
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
-
-        _creditBond(_recipient, _amount);
-
-        emit BondDepositedFor(msg.sender, _recipient, _amount);
+        _creditBond(recipient, _amount);
+        emit BondDeposited(msg.sender, recipient, _amount);
     }
 
-    /// @inheritdoc IBondManager
-    function hasSufficientBond(
-        address _address,
-        uint256 _additionalBond
-    )
-        external
-        view
-        returns (bool)
-    {
-        Bond storage bond_ = bond[_address];
-        return bond_.balance >= minBond + _additionalBond && bond_.withdrawalRequestedAt == 0;
-    }
+
 
     /// @inheritdoc IBondManager
     function requestWithdrawal() external nonReentrant {
@@ -202,35 +156,55 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         _withdraw(msg.sender, _to, _amount);
     }
 
-    /// @inheritdoc IBondProcessor
-    function processBondSignal(
-        LibBonds.BondInstruction calldata _instruction,
-        bytes calldata _proof
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
+
+    /// @inheritdoc IBondManager
+    function getBondBalance(address _address) external view returns (uint256) {
+        return _getBondBalance(_address);
+    }
+
+
+    /// @inheritdoc IBondManager
+    function hasSufficientBond(
+        address _address,
+        uint256 _additionalBond
     )
         external
-        nonReentrant
+        view
+        returns (bool)
     {
-        _validateBondInstruction(_instruction);
-
-        bytes32 signal = LibBonds.hashBondInstruction(_instruction);
-        require(!processedSignals[signal], SignalAlreadyProcessed());
-
-        signalService.proveSignalReceived(l1ChainId, l1Inbox, signal, _proof);
-        processedSignals[signal] = true;
-
-        uint256 amount = _bondAmountFor(_instruction.bondType);
-        if (amount != 0 && _instruction.payer != _instruction.payee) {
-            uint256 debited = _debitBond(_instruction.payer, amount);
-            _creditBond(_instruction.payee, debited);
-            emit BondSignalProcessed(signal, _instruction, debited);
-        } else {
-            emit BondSignalProcessed(signal, _instruction, 0);
-        }
+        Bond storage bond_ = bond[_address];
+        return bond_.balance >= minBond + _additionalBond && bond_.withdrawalRequestedAt == 0;
     }
 
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Processes a bond instruction received from L1.
+    /// @param _msgHash The hash of the bridge message.
+    /// @param _instruction The bond instruction to process.
+    function _processBondInstruction(
+        bytes32 _msgHash,
+        LibBonds.BondInstruction memory _instruction
+    )
+        internal
+    {
+        require (_instruction.bondType == LibBonds.BondType.LIVENESS, InvalidBondType());
+        require(_instruction.payer != _instruction.payee, InvalidRecipient());
+
+        uint256 amount = _bondAmountFor(_instruction.bondType);
+        require(amount != 0, NoBondInstruction());
+
+        uint256 debited
+             = _debitBond(_instruction.payer, amount);
+            _creditBond(_instruction.payee, debited);
+        
+        emit BondInstructionProcessed(_msgHash, _instruction, debited);
+    }
 
     /// @dev Internal implementation for debiting a bond
     /// @param _address The address to debit the bond from
@@ -284,22 +258,10 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
         if (_bondType == LibBonds.BondType.LIVENESS) {
             return livenessBond;
         }
-        if (_bondType == LibBonds.BondType.PROVABILITY) {
-            return provabilityBond;
-        }
         return 0;
     }
 
-    /// @dev Validates a bond instruction. Reverts if the bond instruction is invalid.
-    /// @param _instruction The bond instruction to validate
-    function _validateBondInstruction(LibBonds.BondInstruction memory _instruction) internal pure {
-        if (_instruction.bondType == LibBonds.BondType.NONE) revert NoBondInstruction();
-        if (uint8(_instruction.bondType) > uint8(LibBonds.BondType.LIVENESS)) {
-            revert InvalidBondType();
-        }
-    }
-
-    /// @dev Internal implementation for getting the bond balance
+      /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
     function _getBondBalance(address _address) internal view returns (uint256) {
@@ -307,17 +269,31 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     }
 
     // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when a bond instruction is processed.
+    /// @param msgHash The hash of the bridge message.
+    /// @param instruction The bond instruction that was processed.
+    /// @param debitedAmount The amount debited from the payer.
+    event BondInstructionProcessed(
+        bytes32 indexed msgHash, LibBonds.BondInstruction instruction, uint256 debitedAmount
+    );
+
+    // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
+    error InvalidAddress();
+    error InvalidBondType();
+    error InvalidCaller();
+    error InvalidL1ChainId();
     error InvalidRecipient();
+    error InvalidSourceChainId();
+    error InvalidSourceSender();
     error MustMaintainMinBond();
+    error NoBondInstruction();
     error NoBondToWithdraw();
     error NoWithdrawalRequested();
     error WithdrawalAlreadyRequested();
-    error InvalidAddress();
-    error InvalidL1ChainId();
-    error InvalidBondType();
-    error NoBondInstruction();
-    error SignalAlreadyProcessed();
 }

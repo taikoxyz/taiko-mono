@@ -74,17 +74,6 @@ contract Anchor is EssentialContract {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    /// @dev Minimum calldata length for decoding a `ProverAuth` payload safely.
-    /// This equals the ABI-encoded size of:
-    ///   - uint48 proposalId: 32 bytes (padded)
-    ///   - address proposer: 32 bytes (padded)
-    ///   - uint256 provingFee: 32 bytes (padded)
-    ///   - bytes offset: 32 bytes
-    ///   - bytes length: 32 bytes
-    ///   - minimum signature data: 65 bytes (r, s, v for ECDSA)
-    /// Total: 32 + 32 + 32 + 32 + 32 + 65 = 225 bytes
-    uint256 private constant MIN_PROVER_AUTH_LENGTH = 225;
-
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
@@ -107,15 +96,6 @@ contract Anchor is EssentialContract {
     /// @notice Checkpoint store for storing L1 block data.
     ICheckpointStore public immutable checkpointStore;
 
-    /// @notice Bond amount in Wei for liveness guarantees.
-    uint256 public immutable livenessBond;
-
-    /// @notice Bond amount in Wei for provability guarantees.
-    uint256 public immutable provabilityBond;
-
-    /// @notice The L1's chain ID.
-    uint64 public immutable l1ChainId;
-
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -126,7 +106,6 @@ contract Anchor is EssentialContract {
     /// @dev Slots used by the Pacaya anchor contract itself.
     /// slot1: publicInputHash
     /// slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
-    /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
@@ -169,30 +148,17 @@ contract Anchor is EssentialContract {
     /// @notice Initializes the Anchor contract.
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _bondManager The address of the bond manager.
-    /// @param _livenessBond The liveness bond amount in Wei.
-    /// @param _provabilityBond The provability bond amount in Wei.
-    /// @param _l1ChainId The L1 chain ID.
-    constructor(
-        ICheckpointStore _checkpointStore,
-        IBondManager _bondManager,
-        uint256 _livenessBond,
-        uint256 _provabilityBond,
-        uint64 _l1ChainId
-    ) {
+    constructor(ICheckpointStore _checkpointStore, IBondManager _bondManager) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
         require(address(_bondManager) != address(0), InvalidAddress());
 
-        // Validate chain IDs
-        require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
+        // Validate chain ID
         require(block.chainid > 1 && block.chainid <= type(uint64).max, InvalidL2ChainId());
 
         // Assign immutables
         checkpointStore = _checkpointStore;
         bondManager = _bondManager;
-        livenessBond = _livenessBond;
-        provabilityBond = _provabilityBond;
-        l1ChainId = _l1ChainId;
     }
 
     /// @notice Initializes the owner of the Anchor.
@@ -340,10 +306,6 @@ contract Anchor is EssentialContract {
         view
         returns (address signer_, uint256 provingFee_)
     {
-        if (_proverAuth.length < MIN_PROVER_AUTH_LENGTH) {
-            return (_proposer, 0);
-        }
-
         ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
 
         if (!_isMatchingProverAuthContext(proverAuth, _proposalId, _proposer)) {
@@ -375,19 +337,13 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(ProposalParams calldata _proposalParams) private {
-        uint256 proverFee;
-        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
+        (_proposalState.isLowBondProposal, _proposalState.designatedProver,) =
             getDesignatedProver(
                 _proposalParams.proposalId,
                 _proposalParams.proposer,
                 _proposalParams.proverAuth,
                 _proposalState.designatedProver
             );
-
-        if (proverFee > 0) {
-            bondManager.debitBond(_proposalParams.proposer, proverFee);
-            bondManager.creditBond(_proposalState.designatedProver, proverFee);
-        }
 
         _proposalState.proposalId = _proposalParams.proposalId;
     }
@@ -509,7 +465,6 @@ contract Anchor is EssentialContract {
 
     error AncestorsHashMismatch();
     error InvalidAddress();
-    error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
     error ProposalIdMismatch();
