@@ -250,9 +250,9 @@ func (p *Prover) eventLoop() {
 			return
 		case batchProof := <-p.batchProofGenerationCh:
 			// Submit proofs without blocking.
-			go p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
+			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
-			go p.withRetry(func() error { return p.requestProofOp(req.Meta) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
