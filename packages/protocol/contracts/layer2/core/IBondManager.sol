@@ -46,17 +46,6 @@ interface IBondManager {
     /// @notice Emitted when a withdrawal request is cancelled
     event WithdrawalCancelled(address indexed account);
 
-
-    
-    /// @notice Emitted when a bond instruction is processed.
-    /// @param msgHash The hash of the bridge message.
-    /// @param instruction The bond instruction that was processed.
-    /// @param debitedAmount The amount debited from the payer.
-    event BondInstructionProcessed(
-        bytes32 indexed msgHash, LibBonds.BondInstruction instruction, uint256 debitedAmount
-    );
-
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
