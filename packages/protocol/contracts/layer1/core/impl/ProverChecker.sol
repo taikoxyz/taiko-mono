@@ -56,7 +56,11 @@ contract ProverChecker is EssentialContract, IProverChecker {
     }
 
     /// @inheritdoc IProverChecker
-    function isProver(address _prover) external view returns (bool isWhitelisted_, uint256 proverCount_) {
+    function isProverWhitelisted(address _prover)
+        external
+        view
+        returns (bool isWhitelisted_, uint256 proverCount_)
+    {
         proverCount_ = proverCount;
         if (proverCount_ > 0) {
             isWhitelisted_ = _provers[_prover];

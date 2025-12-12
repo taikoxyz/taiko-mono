@@ -584,7 +584,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     function _checkProver() private view returns (bool) {
-        (bool isWhitelisted, uint256 proverCount) = _proverChecker.isProver(msg.sender);
+        (bool isWhitelisted, uint256 proverCount) = _proverChecker.isProverWhitelisted(msg.sender);
         require(proverCount == 0 || isWhitelisted, OnlyWhitelistedProverCanCall());
         return isWhitelisted;
     }
