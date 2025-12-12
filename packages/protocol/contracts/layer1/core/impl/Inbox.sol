@@ -19,6 +19,7 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title Inbox
@@ -52,7 +53,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Events
     // ---------------------------------------------------------------
 
-    event InboxActivated(bytes32 lastPacayaCheckpointHash);
+    event InboxActivated(bytes32 lastPacayaBlockHash);
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -164,21 +165,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Activates the inbox so that it can start accepting proposals.
     /// @dev Can be called multiple times within the activation window to handle reorgs.
-    /// @param _lastPacayaCheckpointHash The checkpoint hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaCheckpointHash) external onlyOwner {
+    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
+    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
             Derivation memory derivation,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.activate(_lastPacayaCheckpointHash, activationTimestamp);
+        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
-        emit InboxActivated(_lastPacayaCheckpointHash);
+        emit InboxActivated(_lastPacayaBlockHash);
     }
 
     /// @inheritdoc IInbox
@@ -236,7 +237,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
     /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
     /// 3. lastProposalId >= lastFinalizedProposalId + 1 (must advance at least one proposal)
-    /// 4. The checkpoint hash must link to the lastFinalizedCheckpointHash
+    /// 4. The block hash must link to the lastFinalizedBlockHash
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
@@ -250,24 +251,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -------------------------------------------------------------------------------
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
-            Commitment memory c = input.commitment;
+            Commitment memory commitment = input.commitment;
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateCommitment(state, c);
+                _validateCommitment(state, commitment);
 
             // ---------------------------------------------------------
             // 2. Verify checkpoint hash continuity and last proposal hash
             // ---------------------------------------------------------
-            // The parent checkpoint hash must match the stored lastFinalizedCheckpointHash.
+            // The parent block hash must match the stored lastFinalizedBlockHash.
             bytes32 expectedParentHash = offset == 0
-                ? c.firstProposalParentCheckpointHash
-                : c.transitions[offset - 1].checkpointHash;
-            require(
-                state.lastFinalizedCheckpointHash == expectedParentHash,
-                ParentCheckpointHashMismatch()
-            );
+                ? commitment.firstProposalParentBlockHash
+                : commitment.transitions[offset - 1].blockHash;
+            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
             require(
-                c.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch()
+                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                LastProposalHashMismatch()
             );
 
             // ---------------------------------------------------------
@@ -285,7 +284,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 input.forceCheckpointSync
                     || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
             ) {
-                _signalService.saveCheckpoint(c.lastCheckpoint);
+                _signalService.saveCheckpoint(
+                    ICheckpointStore.Checkpoint({
+                        blockNumber: commitment.endBlockNumber,
+                        stateRoot: commitment.endStateRoot,
+                        blockHash: commitment.transitions[numProposals - 1].blockHash
+                    })
+                );
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
 
@@ -294,7 +299,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedCheckpointHash = c.transitions[numProposals - 1].checkpointHash;
+            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
@@ -302,7 +307,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
-            _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashCommitment(c), _proof);
+            _proofVerifier.verifyProof(
+                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
+            );
         }
     }
 
@@ -678,5 +685,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error NotEnoughCapacity();
     error OnlyWhitelistedProverCanCall();
     error ParentCheckpointHashMismatch();
+    error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }
