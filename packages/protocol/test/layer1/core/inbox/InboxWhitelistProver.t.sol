@@ -14,6 +14,10 @@ contract InboxWhitelistProverTest is InboxTestBase {
     address internal whitelistedProver = address(0x1234);
     ProverWhitelist internal proverWhitelist;
 
+    // ---------------------------------------------------------------
+    // Hooks (internal override - state-changing)
+    // ---------------------------------------------------------------
+
     function _buildConfig() internal override returns (IInbox.Config memory) {
         codec = ICodec(new Codec());
 
@@ -47,6 +51,10 @@ contract InboxWhitelistProverTest is InboxTestBase {
             permissionlessInclusionMultiplier: 5
         });
     }
+
+    // ---------------------------------------------------------------
+    // Tests (public - state-changing)
+    // ---------------------------------------------------------------
 
     function test_prove_succeedsWhen_CallerIsWhitelistedProver() public {
         IInbox.ProveInput memory input = _buildBatchInputWithProver(1, whitelistedProver);
@@ -104,8 +112,9 @@ contract InboxWhitelistProverTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
-    // Helpers
+    // Helpers (internal - state-changing)
     // ---------------------------------------------------------------------
+
     function _proveAs(address _proverAddr, IInbox.ProveInput memory _input) internal {
         bytes memory encodedInput = codec.encodeProveInput(_input);
         vm.prank(_proverAddr);
@@ -156,6 +165,10 @@ contract InboxWhitelistProverTest is InboxTestBase {
             forceCheckpointSync: false
         });
     }
+
+    // ---------------------------------------------------------------------
+    // Helpers (internal view)
+    // ---------------------------------------------------------------------
 
     function _buildInputWithProver(
         uint48 _firstProposalId,

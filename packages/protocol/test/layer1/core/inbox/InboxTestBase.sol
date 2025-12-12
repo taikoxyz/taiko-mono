@@ -52,6 +52,10 @@ abstract contract InboxTestBase is CommonTest {
         vm.warp(INITIAL_BLOCK_TIMESTAMP);
     }
 
+    // ---------------------------------------------------------------
+    // Hooks (internal virtual - state-changing)
+    // ---------------------------------------------------------------
+
     function _buildConfig() internal virtual returns (IInbox.Config memory) {
         codec = ICodec(new Codec());
 
@@ -74,85 +78,9 @@ abstract contract InboxTestBase is CommonTest {
         });
     }
 
-    // ---------------------------------------------------------------
-    // Hooks
-    // ---------------------------------------------------------------
-
     function _deployInbox() internal virtual returns (Inbox) {
         address impl = address(new Inbox(config));
         return _deployProxy(impl);
-    }
-
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
-
-    function _deployProxy(address _impl) internal returns (Inbox) {
-        return Inbox(address(new ERC1967Proxy(_impl, abi.encodeCall(Inbox.init, (address(this))))));
-    }
-
-    function _setBlobHashes(uint256 _count) internal {
-        vm.blobhashes(_getBlobHashes(_count));
-    }
-
-    function _getBlobHashes(uint256 _count) internal pure returns (bytes32[] memory hashes_) {
-        hashes_ = new bytes32[](_count);
-        for (uint256 i; i < _count; ++i) {
-            hashes_[i] = keccak256(abi.encode("blob", i));
-        }
-    }
-
-    function _defaultProposeInput() internal pure returns (IInbox.ProposeInput memory input_) {
-        input_.deadline = 0;
-        input_.blobReference = LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
-        input_.numForcedInclusions = 0;
-    }
-
-    function _proposeAndDecode(IInbox.ProposeInput memory _input)
-        internal
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
-        assertEq(
-            proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)"
-        );
-        proposerChecker.checkProposer(proposer, bytes(""));
-        payload_ = _proposeAndDecodeWithGas(_input, "");
-    }
-
-    function _proposeAndDecodeWithGas(
-        IInbox.ProposeInput memory _input,
-        string memory _benchName
-    )
-        internal
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        bytes memory encodedInput = codec.encodeProposeInput(_input);
-        vm.recordLogs();
-        vm.startPrank(proposer);
-
-        if (bytes(_benchName).length > 0) vm.startSnapshotGas("shasta-propose", _benchName);
-        inbox.propose(bytes(""), encodedInput);
-        if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
-
-        vm.stopPrank();
-        payload_ = _readProposedEvent();
-    }
-
-    function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
-        bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
-        require(eventData.length > 0, "Proposed event not found");
-        return codec.decodeProposedEvent(eventData);
-    }
-
-    function _findEventData(bytes32 _topic) private returns (bytes memory) {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length != 0 && logs[i].topics[0] == _topic) {
-                return abi.decode(logs[i].data, (bytes));
-            }
-        }
-        return bytes("");
     }
 
     function _setupMocks() internal virtual {
@@ -164,6 +92,14 @@ abstract contract InboxTestBase is CommonTest {
         proposerChecker = _deployProposerChecker();
         proverWhitelistContract = _deployProverWhitelist();
         _addProposer(proposer);
+    }
+
+    // ---------------------------------------------------------------
+    // Deploy helpers (internal - state-changing)
+    // ---------------------------------------------------------------
+
+    function _deployProxy(address _impl) internal returns (Inbox) {
+        return Inbox(address(new ERC1967Proxy(_impl, abi.encodeCall(Inbox.init, (address(this))))));
     }
 
     function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {
@@ -208,7 +144,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     // ---------------------------------------------------------------------
-    // Block helpers
+    // Block helpers (internal - state-changing)
     // ---------------------------------------------------------------------
 
     function _advanceBlock() internal {
@@ -216,8 +152,58 @@ abstract contract InboxTestBase is CommonTest {
         vm.warp(block.timestamp + 1);
     }
 
+    function _setBlobHashes(uint256 _count) internal {
+        vm.blobhashes(_getBlobHashes(_count));
+    }
+
     // ---------------------------------------------------------------------
-    // Prove helpers
+    // Propose helpers (internal - state-changing)
+    // ---------------------------------------------------------------------
+
+    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
+        _setBlobHashes(3);
+        payload_ = _proposeAndDecode(_defaultProposeInput());
+    }
+
+    function _proposeAndDecode(IInbox.ProposeInput memory _input)
+        internal
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
+        assertEq(
+            proposerChecker.getOperatorForCurrentEpoch(), proposer, "active proposer (propose)"
+        );
+        proposerChecker.checkProposer(proposer, bytes(""));
+        payload_ = _proposeAndDecodeWithGas(_input, "");
+    }
+
+    function _proposeAndDecodeWithGas(
+        IInbox.ProposeInput memory _input,
+        string memory _benchName
+    )
+        internal
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        bytes memory encodedInput = codec.encodeProposeInput(_input);
+        vm.recordLogs();
+        vm.startPrank(proposer);
+
+        if (bytes(_benchName).length > 0) vm.startSnapshotGas("shasta-propose", _benchName);
+        inbox.propose(bytes(""), encodedInput);
+        if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
+
+        vm.stopPrank();
+        payload_ = _readProposedEvent();
+    }
+
+    function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
+        bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
+        require(eventData.length > 0, "Proposed event not found");
+        return codec.decodeProposedEvent(eventData);
+    }
+
+    // ---------------------------------------------------------------------
+    // Prove helpers (internal - state-changing)
     // ---------------------------------------------------------------------
 
     function _prove(IInbox.ProveInput memory _input) internal {
@@ -239,23 +225,6 @@ abstract contract InboxTestBase is CommonTest {
         if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 
         vm.stopPrank();
-    }
-
-    function _transitionFor(
-        IInbox.ProposedEventPayload memory _payload,
-        address _designatedProver,
-        bytes32 _blockHash
-    )
-        internal
-        pure
-        returns (IInbox.Transition memory)
-    {
-        return IInbox.Transition({
-            proposer: _payload.proposal.proposer,
-            designatedProver: _designatedProver,
-            timestamp: _payload.proposal.timestamp,
-            blockHash: _blockHash
-        });
     }
 
     function _buildBatchInput(uint256 _count) internal returns (IInbox.ProveInput memory input_) {
@@ -300,17 +269,52 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     // ---------------------------------------------------------------------
-    // Propose & prove batch helpers
+    // Private helpers (state-changing)
     // ---------------------------------------------------------------------
 
-    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
-        _setBlobHashes(3);
-        payload_ = _proposeAndDecode(_defaultProposeInput());
+    function _findEventData(bytes32 _topic) private returns (bytes memory) {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics.length != 0 && logs[i].topics[0] == _topic) {
+                return abi.decode(logs[i].data, (bytes));
+            }
+        }
+        return bytes("");
     }
 
     // ---------------------------------------------------------------------
-    // Assertion helpers
+    // Pure helpers
     // ---------------------------------------------------------------------
+
+    function _getBlobHashes(uint256 _count) internal pure returns (bytes32[] memory hashes_) {
+        hashes_ = new bytes32[](_count);
+        for (uint256 i; i < _count; ++i) {
+            hashes_[i] = keccak256(abi.encode("blob", i));
+        }
+    }
+
+    function _defaultProposeInput() internal pure returns (IInbox.ProposeInput memory input_) {
+        input_.deadline = 0;
+        input_.blobReference = LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
+        input_.numForcedInclusions = 0;
+    }
+
+    function _transitionFor(
+        IInbox.ProposedEventPayload memory _payload,
+        address _designatedProver,
+        bytes32 _blockHash
+    )
+        internal
+        pure
+        returns (IInbox.Transition memory)
+    {
+        return IInbox.Transition({
+            proposer: _payload.proposal.proposer,
+            designatedProver: _designatedProver,
+            timestamp: _payload.proposal.timestamp,
+            blockHash: _blockHash
+        });
+    }
 
     function _assertStateEqual(
         IInbox.CoreState memory _actual,
