@@ -54,7 +54,8 @@ contract AnchorTest is Test {
             address(token),
             0, // minBond
             0, // withdrawalDelay
-            LIVENESS_BOND
+            LIVENESS_BOND,
+            address(0) // anchor (placeholder, will upgrade later)
         );
         bondManager = BondManager(
             address(
@@ -78,7 +79,8 @@ contract AnchorTest is Test {
             address(token),
             0, // minBond
             0, // withdrawalDelay
-            LIVENESS_BOND
+            LIVENESS_BOND,
+            address(anchor)
         );
         bondManager.upgradeTo(address(anchorBondManagerImpl));
 
@@ -119,9 +121,9 @@ contract AnchorTest is Test {
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
-        // Prover fee transfer removed - bond balances unchanged
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND);
+        // Prover fee transferred from proposer to designated prover
+        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 1 ether);
+        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
 
         ICheckpointStore.Checkpoint memory saved =
             signalService.getCheckpoint(blockParams.anchorBlockNumber);
@@ -138,13 +140,17 @@ contract AnchorTest is Test {
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
+        // Fee transferred on first block (new proposal)
         uint256 proposerBalanceAfterFirst = bondManager.getBondBalance(proposer);
         uint256 proverBalanceAfterFirst = bondManager.getBondBalance(proverCandidate);
+        assertEq(proposerBalanceAfterFirst, INITIAL_PROPOSER_BOND - 1 ether);
+        assertEq(proverBalanceAfterFirst, INITIAL_PROVER_BOND + 1 ether);
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
+        // No additional fee on subsequent blocks of same proposal
         Anchor.ProposalState memory proposalState = anchor.getProposalState();
         assertEq(proposalState.proposalId, proposalParams.proposalId);
         assertEq(bondManager.getBondBalance(proposer), proposerBalanceAfterFirst);
@@ -187,9 +193,9 @@ contract AnchorTest is Test {
         assertEq(proposalState.proposalId, 2);
         assertEq(proposalState.designatedProver, proverCandidate);
         assertEq(blockState.anchorBlockNumber, blockParams2.anchorBlockNumber);
-        // Prover fee transfer removed - bond balances unchanged
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND);
+        // Prover fees transferred: 1 ether for first proposal + 2 ether for second proposal
+        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 3 ether);
+        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 3 ether);
     }
 
     function test_anchorV4_fallsBackToProposerWhenAuthInvalid() external {

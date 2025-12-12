@@ -46,6 +46,17 @@ interface IBondManager {
     /// @notice Emitted when a withdrawal request is cancelled
     event WithdrawalCancelled(address indexed account);
 
+
+    
+    /// @notice Emitted when a bond instruction is processed.
+    /// @param msgHash The hash of the bridge message.
+    /// @param instruction The bond instruction that was processed.
+    /// @param debitedAmount The amount debited from the payer.
+    event BondInstructionProcessed(
+        bytes32 indexed msgHash, LibBonds.BondInstruction instruction, uint256 debitedAmount
+    );
+
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
@@ -73,6 +84,17 @@ interface IBondManager {
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
+
+    /// @notice Debit bond from an account. Only callable by the anchor contract.
+    /// @param _address The address to debit the bond from.
+    /// @param _amount The amount to debit.
+    /// @return The actual amount debited (may be less if balance is insufficient).
+    function debitBond(address _address, uint256 _amount) external returns (uint256);
+
+    /// @notice Credit bond to an account. Only callable by the anchor contract.
+    /// @param _address The address to credit the bond to.
+    /// @param _amount The amount to credit.
+    function creditBond(address _address, uint256 _amount) external;
 
     // ---------------------------------------------------------------
     // External View Functions

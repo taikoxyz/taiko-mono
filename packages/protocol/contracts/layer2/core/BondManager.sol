@@ -47,6 +47,9 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
     /// @notice Bond amount (Wei) for liveness bond.
     uint256 public immutable livenessBond;
 
+    /// @notice Anchor contract authorized to call debitBond/creditBond.
+    address public immutable anchor;
+
     /// @notice Per-account bond state
     mapping(address account => Bond bond) public bond;
 
@@ -64,6 +67,7 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
     /// @param _minBond The minimum bond required.
     /// @param _withdrawalDelay The delay period for withdrawals (e.g., 7 days).
     /// @param _livenessBond Liveness bond amount (Wei).
+    /// @param _anchor Anchor contract authorized to call debitBond/creditBond.
     constructor(
         uint64 _l1ChainId,
         address _l1Inbox,
@@ -71,7 +75,8 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         address _bondToken,
         uint256 _minBond,
         uint48 _withdrawalDelay,
-        uint256 _livenessBond
+        uint256 _livenessBond,
+        address _anchor
     ) {
         require(
             _bridge != address(0) && _l1Inbox != address(0) && _bondToken != address(0),
@@ -86,6 +91,7 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         minBond = _minBond;
         withdrawalDelay = _withdrawalDelay;
         livenessBond = _livenessBond;
+        anchor = _anchor;
     }
 
     /// @notice Initializes the BondManager contract
@@ -152,6 +158,18 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         }
 
         _withdraw(msg.sender, _to, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function debitBond(address _address, uint256 _amount) external returns (uint256) {
+        require(msg.sender == anchor, InvalidCaller());
+        return _debitBond(_address, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function creditBond(address _address, uint256 _amount) external {
+        require(msg.sender == anchor, InvalidCaller());
+        _creditBond(_address, _amount);
     }
 
     // ---------------------------------------------------------------
@@ -263,18 +281,7 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         return bond[_address].balance;
     }
 
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    /// @notice Emitted when a bond instruction is processed.
-    /// @param msgHash The hash of the bridge message.
-    /// @param instruction The bond instruction that was processed.
-    /// @param debitedAmount The amount debited from the payer.
-    event BondInstructionProcessed(
-        bytes32 indexed msgHash, LibBonds.BondInstruction instruction, uint256 debitedAmount
-    );
-
+  
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------

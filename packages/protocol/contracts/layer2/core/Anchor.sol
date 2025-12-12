@@ -338,7 +338,9 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(ProposalParams calldata _proposalParams) private {
-        (_proposalState.isLowBondProposal, _proposalState.designatedProver,) = getDesignatedProver(
+        uint256 provingFee;
+        (_proposalState.isLowBondProposal, _proposalState.designatedProver, provingFee) =
+        getDesignatedProver(
             _proposalParams.proposalId,
             _proposalParams.proposer,
             _proposalParams.proverAuth,
@@ -346,6 +348,12 @@ contract Anchor is EssentialContract {
         );
 
         _proposalState.proposalId = _proposalParams.proposalId;
+
+        // Transfer proving fee from proposer to designated prover if applicable
+        if (provingFee > 0) {
+            uint256 debited = bondManager.debitBond(_proposalParams.proposer, provingFee);
+            bondManager.creditBond(_proposalState.designatedProver, debited);
+        }
     }
 
     /// @dev Validates and processes block-level data.

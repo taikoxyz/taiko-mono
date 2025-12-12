@@ -134,7 +134,8 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("RegularERC20"),
                     1 ether,
                     7 days,
-                    livenessBond
+                    livenessBond,
+                    getPredeployedContractAddress("TaikoAnchor")
                 )
             )
         );

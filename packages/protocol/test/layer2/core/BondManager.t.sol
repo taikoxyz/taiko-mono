@@ -13,6 +13,7 @@ contract BondManagerTest is Test {
     uint256 private constant LIVENESS_BOND = 2 ether;
     uint64 private constant L1_CHAIN_ID = 11_337;
     address private constant L1_INBOX = address(0xBEEF);
+    address private constant ANCHOR = address(0xABC);
 
     address internal Alice = address(0xA11CE);
     address internal Bob = address(0xB0B);
@@ -35,7 +36,8 @@ contract BondManagerTest is Test {
             address(bondToken),
             MIN_BOND,
             WITHDRAWAL_DELAY,
-            LIVENESS_BOND
+            LIVENESS_BOND,
+            ANCHOR
         );
         bondManager = BondManager(
             address(new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (operator))))
@@ -80,6 +82,7 @@ contract BondManagerTest is Test {
         assertEq(bondManager.l1Inbox(), L1_INBOX);
         assertEq(bondManager.l1ChainId(), L1_CHAIN_ID);
         assertEq(bondManager.livenessBond(), LIVENESS_BOND);
+        assertEq(bondManager.anchor(), ANCHOR);
         assertEq(bondManager.owner(), operator);
     }
 
