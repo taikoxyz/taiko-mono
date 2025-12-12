@@ -201,7 +201,7 @@ contract BondManagerTest is Test {
 
     function test_debitBond_OnlyOperatorCanCall() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         vm.expectRevert(abi.encodeWithSelector(EssentialContract.ACCESS_DENIED.selector));
@@ -210,7 +210,7 @@ contract BondManagerTest is Test {
 
     function test_debitBond_BestEffortDebitAndEvent() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.expectEmit();
         emit IBondManager.BondDebited(Alice, 20 ether);
@@ -222,7 +222,7 @@ contract BondManagerTest is Test {
 
     function test_debitBond_ReturnsActualAmountWhenPartial() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         uint256 debited = bondManager.debitBond(Alice, 100 ether);
 
@@ -253,7 +253,7 @@ contract BondManagerTest is Test {
 
     function test_requestWithdrawal_SuccessfulRequest() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         uint256 expectedMaturity = block.timestamp + WITHDRAWAL_DELAY;
 
@@ -276,7 +276,7 @@ contract BondManagerTest is Test {
 
     function test_requestWithdrawal_RevertWhen_AlreadyRequested() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -292,7 +292,7 @@ contract BondManagerTest is Test {
 
     function test_cancelWithdrawal_SuccessfulCancellation() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -309,7 +309,7 @@ contract BondManagerTest is Test {
 
     function test_cancelWithdrawal_CanCancelAfterDelayPeriod() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -325,7 +325,7 @@ contract BondManagerTest is Test {
 
     function test_cancelWithdrawal_RevertWhen_NoRequestPending() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.expectRevert(BondManager.NoWithdrawalRequested.selector);
         vm.prank(Alice);
@@ -338,7 +338,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_ExcessAboveMinBondBeforeMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         uint256 withdrawAmount = 40 ether;
         uint256 aliceInitialTokenBalance = bondToken.balanceOf(Alice);
@@ -355,7 +355,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_ToAnotherRecipient() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         uint256 bobInitialBalance = bondToken.balanceOf(Bob);
 
@@ -368,7 +368,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_RevertWhen_ReducesBelowMinBondBeforeMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.expectRevert(BondManager.MustMaintainMinBond.selector);
         vm.prank(Alice);
@@ -377,7 +377,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_RevertWhen_ExactlyMinBondBeforeMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.expectRevert(BondManager.MustMaintainMinBond.selector);
         vm.prank(Alice);
@@ -390,7 +390,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_RevertWhen_DuringDelayPeriod() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -404,7 +404,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_CanWithdrawExcessDuringDelayPeriod() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -423,7 +423,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_FullBalanceAfterMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -444,7 +444,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_PartialAmountAfterMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -459,7 +459,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_AtExactMaturityTime() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -479,13 +479,13 @@ contract BondManagerTest is Test {
 
     function test_withdraw_RevertWhen_ExceedingBalanceAfterMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Bob);
-        bondManager.deposit(address(0),100 ether);
+        bondManager.deposit(address(0), 100 ether);
 
         vm.prank(Carol);
-        bondManager.deposit(address(0),75 ether);
+        bondManager.deposit(address(0), 75 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -509,7 +509,7 @@ contract BondManagerTest is Test {
 
     function test_withdraw_TransfersExactDebitedAmountOnly() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -526,10 +526,10 @@ contract BondManagerTest is Test {
 
     function test_withdraw_DrainAttemptWithMultipleUsers() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),30 ether);
+        bondManager.deposit(address(0), 30 ether);
 
         vm.prank(Bob);
-        bondManager.deposit(address(0),100 ether);
+        bondManager.deposit(address(0), 100 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -552,7 +552,7 @@ contract BondManagerTest is Test {
 
     function test_hasSufficientBond_ReturnsTrueWhenSufficient() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         assertTrue(bondManager.hasSufficientBond(Alice, 0));
         assertTrue(bondManager.hasSufficientBond(Alice, 40 ether));
@@ -560,21 +560,21 @@ contract BondManagerTest is Test {
 
     function test_hasSufficientBond_ReturnsFalseWhenInsufficient() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         assertFalse(bondManager.hasSufficientBond(Alice, 41 ether));
     }
 
     function test_hasSufficientBond_ReturnsFalseWhenBelowMinBond() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),5 ether);
+        bondManager.deposit(address(0), 5 ether);
 
         assertFalse(bondManager.hasSufficientBond(Alice, 0));
     }
 
     function test_hasSufficientBond_ReturnsFalseWhenWithdrawalRequested() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -584,7 +584,7 @@ contract BondManagerTest is Test {
 
     function test_hasSufficientBond_ReturnsTrueWhenExactlyMinBond() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),10 ether);
+        bondManager.deposit(address(0), 10 ether);
 
         assertTrue(bondManager.hasSufficientBond(Alice, 0));
     }
@@ -599,7 +599,7 @@ contract BondManagerTest is Test {
 
     function test_integration_DepositDebitCreditWithdraw() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),100 ether);
+        bondManager.deposit(address(0), 100 ether);
 
         assertEq(bondManager.getBondBalance(Alice), 100 ether);
 
@@ -623,13 +623,13 @@ contract BondManagerTest is Test {
 
     function test_integration_MultipleUsersInteracting() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Bob);
-        bondManager.deposit(address(0),75 ether);
+        bondManager.deposit(address(0), 75 ether);
 
         vm.prank(Carol);
-        bondManager.deposit(address(0),100 ether);
+        bondManager.deposit(address(0), 100 ether);
 
         assertTrue(bondManager.hasSufficientBond(Alice, 40 ether));
         assertTrue(bondManager.hasSufficientBond(Bob, 65 ether));
@@ -649,7 +649,7 @@ contract BondManagerTest is Test {
 
     function test_integration_WithdrawalRequestCancelReactivate() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         assertTrue(bondManager.hasSufficientBond(Alice, 40 ether));
 
@@ -670,7 +670,7 @@ contract BondManagerTest is Test {
         bondManager.deposit(Carol, 40 ether);
 
         vm.prank(Carol);
-        bondManager.deposit(address(0),30 ether);
+        bondManager.deposit(address(0), 30 ether);
 
         assertEq(bondManager.getBondBalance(Carol), 100 ether);
 
@@ -686,7 +686,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_WithdrawZeroAmount() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         uint256 aliceBalance = bondToken.balanceOf(Alice);
 
@@ -699,7 +699,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_DebitZeroAmount() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         uint256 debited = bondManager.debitBond(Alice, 0);
 
@@ -709,7 +709,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_CreditZeroAmount() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         bondManager.creditBond(Alice, 0);
 
@@ -718,7 +718,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_WithdrawExactBalanceBeforeMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),10 ether);
+        bondManager.deposit(address(0), 10 ether);
 
         vm.expectRevert(BondManager.MustMaintainMinBond.selector);
         vm.prank(Alice);
@@ -727,7 +727,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_MultipleWithdrawalsInSameBlock() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),100 ether);
+        bondManager.deposit(address(0), 100 ether);
 
         vm.startPrank(Alice);
         bondManager.withdraw(Alice, 30 ether);
@@ -740,7 +740,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_RequestWithdrawAfterDebit() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         bondManager.debitBond(Alice, 45 ether);
 
@@ -755,7 +755,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_CreditAfterWithdrawalRequest() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -770,7 +770,7 @@ contract BondManagerTest is Test {
 
     function test_edgeCase_DebitAfterWithdrawalRequest() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -789,20 +789,20 @@ contract BondManagerTest is Test {
         bondToken.approve(address(bondManager), largeAmount);
 
         vm.prank(Alice);
-        bondManager.deposit(address(0),largeAmount);
+        bondManager.deposit(address(0), largeAmount);
 
         assertEq(bondManager.getBondBalance(Alice), largeAmount);
     }
 
     function test_security_BondAccountingInvariant() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Bob);
-        bondManager.deposit(address(0),75 ether);
+        bondManager.deposit(address(0), 75 ether);
 
         vm.prank(Carol);
-        bondManager.deposit(address(0),100 ether);
+        bondManager.deposit(address(0), 100 ether);
 
         uint256 totalBonds = bondManager.getBondBalance(Alice) + bondManager.getBondBalance(Bob)
             + bondManager.getBondBalance(Carol);
@@ -824,14 +824,14 @@ contract BondManagerTest is Test {
 
     function test_security_CannotReenterDeposit() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         assertTrue(bondManager.getBondBalance(Alice) == 50 ether);
     }
 
     function test_security_CannotReenterWithdraw() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.withdraw(Alice, 40 ether);
@@ -843,7 +843,7 @@ contract BondManagerTest is Test {
         assertEq(bondManager.getBondBalance(Alice), 0);
 
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         assertEq(bondManager.getBondBalance(Alice), 50 ether);
     }
@@ -857,7 +857,7 @@ contract BondManagerTest is Test {
 
     function test_bondStruct_AfterDeposit() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         (uint256 balance, uint48 withdrawalRequestedAt) = bondManager.bond(Alice);
 
@@ -867,7 +867,7 @@ contract BondManagerTest is Test {
 
     function test_bondStruct_AfterWithdrawalRequest() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -884,7 +884,7 @@ contract BondManagerTest is Test {
 
     function test_withdrawalDelay_OneSecondBeforeMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -898,7 +898,7 @@ contract BondManagerTest is Test {
 
     function test_withdrawalDelay_VeryLongTimeAfterMaturity() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -913,7 +913,7 @@ contract BondManagerTest is Test {
 
     function test_withdrawalDelay_MultipleRequestCancelCycles() external {
         vm.prank(Alice);
-        bondManager.deposit(address(0),50 ether);
+        bondManager.deposit(address(0), 50 ether);
 
         vm.prank(Alice);
         bondManager.requestWithdrawal();
@@ -953,7 +953,7 @@ contract BondManagerTest is Test {
         signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
 
         vm.prank(Alice);
-        bondManager.deposit(address(0),LIVENESS_BOND * 2);
+        bondManager.deposit(address(0), LIVENESS_BOND * 2);
 
         bondManager.processBondInstruction(instruction, "");
 
@@ -976,9 +976,9 @@ contract BondManagerTest is Test {
         signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, LibBonds.hashBondInstruction(second));
 
         vm.prank(Alice);
-        bondManager.deposit(address(0),500 ether);
+        bondManager.deposit(address(0), 500 ether);
         vm.prank(Carol);
-        bondManager.deposit(address(0),500 ether);
+        bondManager.deposit(address(0), 500 ether);
 
         bondManager.processBondInstruction(second, "");
         bondManager.processBondInstruction(first, "");
@@ -997,7 +997,7 @@ contract BondManagerTest is Test {
         signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
 
         vm.prank(Alice);
-        bondManager.deposit(address(0),LIVENESS_BOND * 2);
+        bondManager.deposit(address(0), LIVENESS_BOND * 2);
 
         vm.prank(Emma);
         bondManager.processBondInstruction(instruction, "");
