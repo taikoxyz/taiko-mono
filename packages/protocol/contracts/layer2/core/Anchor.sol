@@ -106,6 +106,7 @@ contract Anchor is EssentialContract {
     /// @dev Slots used by the Pacaya anchor contract itself.
     /// slot1: publicInputHash
     /// slot2: parentGasExcess, lastSyncedBlock, parentTimestamp, parentGasTarget
+    /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
     /// @notice Latest proposal-level state, updated only on the first block of a proposal.
