@@ -254,10 +254,15 @@ async function generateContractConfigs(
         ["oldFork", "newFork"],
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
-        "authorized",
+        "bondOperator",
         "bondToken",
         "minBond",
         "withdrawalDelay",
+        "signalService",
+        "l1Inbox",
+        "l1ChainId",
+        "livenessBond",
+        "provabilityBond",
     ]);
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -688,7 +693,14 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: bondManagerReferencesMap.authorized.id,
+                        id: bondManagerReferencesMap.signalService.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SignalService,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bondManagerReferencesMap.bondOperator.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.TaikoAnchor,
                             32,
