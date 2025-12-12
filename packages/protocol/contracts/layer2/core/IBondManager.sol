@@ -32,15 +32,10 @@ interface IBondManager {
     event BondCredited(address indexed account, uint256 amount);
 
     /// @notice Emitted when a bond is deposited into the manager
-    /// @param account The account that deposited the bond
-    /// @param amount The amount deposited
-    event BondDeposited(address indexed account, uint256 amount);
-
-    /// @notice Emitted when a bond is deposited for another address
     /// @param depositor The account that made the deposit
     /// @param recipient The account that received the bond credit
     /// @param amount The amount deposited
-    event BondDepositedFor(address indexed depositor, address indexed recipient, uint256 amount);
+    event BondDeposited(address indexed depositor, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a bond is withdrawn from the manager
     /// @param account The account that withdrew the bond
@@ -80,16 +75,10 @@ interface IBondManager {
     /// @param _bond The amount of bond to credit
     function creditBond(address _address, uint256 _bond) external;
 
-    /// @notice Deposit ERC20 bond tokens into the manager.
-    /// @dev Does not cancel a pending withdrawal; callers must invoke `cancelWithdrawal` to
-    /// reactivate their bond status.
-    /// @param _amount The amount to deposit.
-    function deposit(uint256 _amount) external;
-
-    /// @notice Deposit ERC20 bond tokens for another address.
+    /// @notice Deposit ERC20 bond tokens for an address.
     /// @dev Does not cancel the recipient's pending withdrawal; the recipient must call
     /// `cancelWithdrawal` to reactivate their bond status.
-    /// @param _recipient The address to credit the bond to.
+    /// @param _recipient The address to credit the bond to. If zero, credits msg.sender.
     /// @param _amount The amount to deposit.
     function depositTo(address _recipient, uint256 _amount) external;
 

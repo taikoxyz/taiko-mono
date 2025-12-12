@@ -126,23 +126,14 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function deposit(uint256 _amount) external nonReentrant {
-        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
-
-        _creditBond(msg.sender, _amount);
-
-        emit BondDeposited(msg.sender, _amount);
-    }
-
-    /// @inheritdoc IBondManager
     function depositTo(address _recipient, uint256 _amount) external nonReentrant {
-        require(_recipient != address(0), InvalidRecipient());
+        address recipient = _recipient == address(0) ? msg.sender : _recipient;
 
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
 
-        _creditBond(_recipient, _amount);
+        _creditBond(recipient, _amount);
 
-        emit BondDepositedFor(msg.sender, _recipient, _amount);
+        emit BondDeposited(msg.sender, recipient, _amount);
     }
 
     /// @inheritdoc IBondManager
@@ -327,7 +318,6 @@ contract BondManager is EssentialContract, IBondManager {
     // Errors
     // ---------------------------------------------------------------
 
-    error InvalidRecipient();
     error MustMaintainMinBond();
     error NoBondToWithdraw();
     error NoWithdrawalRequested();
