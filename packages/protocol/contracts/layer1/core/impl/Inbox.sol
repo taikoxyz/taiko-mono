@@ -533,29 +533,29 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
     {
         unchecked {
-        if (_toProcess > 0) {
-            uint256 totalFees;
+            if (_toProcess > 0) {
+                uint256 totalFees;
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                     _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
+                }
+
+                if (totalFees > 0) {
+                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                }
+
+                oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+                head_ = _head + uint48(_toProcess);
+                lastProcessedAt_ = uint48(block.timestamp);
+
+                ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
+            } else {
+                oldestTimestamp_ = type(uint48).max;
+                head_ = _head;
+                lastProcessedAt_ = _lastProcessedAt;
             }
-
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-            }
-
-            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
-
-            head_ = _head + uint48(_toProcess);
-            lastProcessedAt_ = uint48(block.timestamp);
-
-            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
-        } else {
-            oldestTimestamp_ = type(uint48).max;
-            head_ = _head;
-            lastProcessedAt_ = _lastProcessedAt;
-        }
         }
     }
 
@@ -571,20 +571,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
     {
         unchecked {
-        LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
-            _commitment.firstProposalId + _offset,
-            _proposalAge,
-            _commitment.transitions[_offset].proposer,
-            _commitment.transitions[_offset].designatedProver,
-            _commitment.actualProver,
-            _provingWindow,
-            _extendedProvingWindow
-        );
+            LibBonds.BondInstruction memory bondInstruction =
+                LibBondInstruction.calculateBondInstruction(
+                    _commitment.firstProposalId + _offset,
+                    _proposalAge,
+                    _commitment.transitions[_offset].proposer,
+                    _commitment.transitions[_offset].designatedProver,
+                    _commitment.actualProver,
+                    _provingWindow,
+                    _extendedProvingWindow
+                );
 
-        if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
-        }
+            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            }
         }
     }
 
@@ -603,7 +604,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Private View/Pure Functions
     // ---------------------------------------------------------------
-
 
     /// @dev Calculates remaining capacity for new proposals
     /// Subtracts unfinalized proposals from total capacity
