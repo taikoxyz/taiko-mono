@@ -6874,6 +6874,7 @@ dependencies = [
 name = "p2p"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "anyhow",
  "futures",
  "libp2p",
@@ -6882,6 +6883,7 @@ dependencies = [
  "parking_lot",
  "preconfirmation-service",
  "preconfirmation-types",
+ "secp256k1 0.30.0",
  "serde",
  "thiserror 2.0.17",
  "tokio",
