@@ -569,14 +569,13 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
     {
+        unchecked {
         if (_toProcess > 0) {
             uint256 totalFees;
-            unchecked {
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                     _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
-                }
             }
 
             if (totalFees > 0) {
@@ -594,6 +593,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             head_ = _head;
             lastProcessedAt_ = _lastProcessedAt;
         }
+        }
     }
 
     /// @dev Calculates proposal age and emits bond instruction if applicable.
@@ -607,6 +607,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
+        unchecked {
         LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
             _commitment.firstProposalId + _offset,
             _proposalAge,
@@ -620,6 +621,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (bondInstruction.bondType != LibBonds.BondType.NONE) {
             _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
             emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+        }
         }
     }
 
