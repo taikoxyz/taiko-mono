@@ -196,9 +196,7 @@ abstract contract InboxTestBase is CommonTest {
         ProverChecker impl = new ProverChecker();
         return ProverChecker(
             address(
-                new ERC1967Proxy(
-                    address(impl), abi.encodeCall(ProverChecker.init, (address(this)))
-                )
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverChecker.init, (address(this))))
             )
         );
     }
