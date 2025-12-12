@@ -249,7 +249,6 @@ func (p *Prover) eventLoop() {
 		case <-p.ctx.Done():
 			return
 		case batchProof := <-p.batchProofGenerationCh:
-			// Submit proofs without blocking.
 			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
