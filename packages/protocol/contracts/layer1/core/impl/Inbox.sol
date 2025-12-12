@@ -244,7 +244,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-            bool whitelistEnabled = _checkProver(msg.sender);
+            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -272,9 +272,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            uint256 proposalAge;
-            if (!whitelistEnabled) {
-                proposalAge = _processBondInstruction(state, commitment, offset);
+
+            uint256 nextToFinalizeProposalAge =   block.timestamp
+            - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+
+            if (!isWhitelistEnabled) {
+                 _processBondInstruction(state, commitment, offset, nextToFinalizeProposalAge);
             }
 
             // -----------------------------------------------------------------------------
@@ -308,7 +311,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 6. Verify the proof
             // ---------------------------------------------------------
             _proofVerifier.verifyProof(
-                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
+                nextToFinalizeProposalAge, LibHashOptimized.hashCommitment(commitment), _proof
             );
         }
     }
@@ -594,21 +597,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _state The current core state.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    /// @return proposalAge_ The calculated proposal age (0 if whitelisted prover).
+    /// @param _nextToFinalizeProposalAge The age of the next to finalize proposal.
     function _processBondInstruction(
         CoreState memory _state,
         Commitment memory _commitment,
-        uint48 _offset
+        uint48 _offset,
+        uint256 _nextToFinalizeProposalAge
     )
         private
-        returns (uint256 proposalAge_)
     {
-        proposalAge_ = block.timestamp
-            - _commitment.transitions[_offset].timestamp.max(_state.lastFinalizedTimestamp);
 
         LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
             _commitment.firstProposalId + _offset,
-            proposalAge_,
+            _nextToFinalizeProposalAge,
             _commitment.transitions[_offset].proposer,
             _commitment.transitions[_offset].designatedProver,
             _commitment.actualProver,
