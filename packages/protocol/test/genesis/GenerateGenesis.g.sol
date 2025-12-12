@@ -29,7 +29,6 @@ contract TestGenerateGenesis is Test {
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
     uint256 private livenessBond = configJSON.readUint(".livenessBond");
-    uint256 private provabilityBond = configJSON.readUint(".provabilityBond");
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
