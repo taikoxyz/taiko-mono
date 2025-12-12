@@ -149,6 +149,7 @@ func (s *State) eventLoop(ctx context.Context) {
 				log.Error("No transition in Proved payload")
 				continue
 			}
+
 			lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 			log.Info(
 				"📈 Shasta batches proven and verified",
