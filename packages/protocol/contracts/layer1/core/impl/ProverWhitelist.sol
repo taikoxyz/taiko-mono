@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "../iface/IProverWhitelist.sol";
 import "src/shared/common/EssentialContract.sol";
 
+import "./ProverWhitelist_Layout.sol"; // DO NOT DELETE
+
 /// @title ProverWhitelist
 /// @notice Contract for managing whitelisted provers using a mapping
 /// @custom:security-contact security@taiko.xyz
