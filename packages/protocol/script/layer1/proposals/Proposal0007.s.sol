@@ -14,7 +14,7 @@ contract Proposal0007 is BuildProposal {
 
     // L2 TaikoAnchor (proxy) and new implementation without BASEFEE_MIN_VALUE hard floor
     address public constant TAIKO_L2 = 0x1670000000000000000000000000000000010001;
-    https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0x7b4dBB1bCF546e181958B8c053806a95332553dD&chainid=167000
+    //https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0x7b4dBB1bCF546e181958B8c053806a95332553dD&chainid=167000
     address public constant TAIKO_L2_NEW_IMPL = 0x7b4dBB1bCF546e181958B8c053806a95332553dD;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
