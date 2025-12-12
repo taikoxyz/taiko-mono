@@ -1,5 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
-use std::sync::Mutex;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Mutex,
+};
 
 use alloy_primitives::{B256, U256};
 use preconfirmation_types::{RawTxListGossip, SignedCommitment};

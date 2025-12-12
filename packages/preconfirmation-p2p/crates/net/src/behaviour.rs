@@ -7,7 +7,6 @@ use libp2p::{
 use libp2p_allow_block_list::{Behaviour as BlockListBehaviour, BlockedPeers};
 use libp2p_connection_limits::{Behaviour as ConnectionLimitsBehaviour, ConnectionLimits};
 use preconfirmation_types::MAX_GOSSIP_SIZE_BYTES;
-use std::num::NonZeroU8;
 
 /// Combined libp2p behaviour: ping, identify, gossipsub, request-response, and gating behaviours.
 ///
@@ -38,7 +37,7 @@ impl NetBehaviour {
     ///
     /// # Arguments
     ///
-    /// * `local_public_key` - The public key of the local peer, used for identification.
+    /// * `keypair` - The identity keypair of the local peer (used for identify + signed gossip).
     /// * `topics` - A tuple containing the `IdentTopic` for commitments and raw transaction lists,
     ///   used to subscribe to gossipsub topics.
     /// * `protocols` - The `Protocols` configuration, defining the request-response protocol IDs.
@@ -47,11 +46,12 @@ impl NetBehaviour {
     ///
     /// A new `NetBehaviour` instance.
     pub fn new(
-        local_public_key: libp2p::identity::PublicKey,
+        keypair: libp2p::identity::Keypair,
         topics: (IdentTopic, IdentTopic),
         protocols: crate::codec::Protocols,
         cfg: &crate::config::NetworkConfig,
     ) -> Result<Self> {
+        let local_public_key = keypair.public();
         let ping = ping::Behaviour::default();
         let identify = identify::Behaviour::new(identify::Config::new(
             "preconf-p2p/0.1".into(),
@@ -62,13 +62,13 @@ impl NetBehaviour {
             // Align max frame size with preconfirmation_types::MAX_GOSSIP_SIZE_BYTES (spec cap).
             .max_transmit_size(MAX_GOSSIP_SIZE_BYTES)
             .heartbeat_interval(cfg.gossipsub_heartbeat)
-            // Keep permissive to allow anonymous messages in tests; app-level validation still
-            // enforced.
-            .validation_mode(gossipsub::ValidationMode::Permissive)
+            // Hold messages until application validation completes to avoid propagating invalid
+            // gossip.
+            .validation_mode(gossipsub::ValidationMode::Strict)
             .build()
             .map_err(|e| anyhow::anyhow!("gossipsub config: {e}"))?;
         let mut gossipsub =
-            gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, gs_config)
+            gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Signed(keypair), gs_config)
                 .map_err(|e| anyhow::anyhow!("gossipsub behaviour: {e}"))?;
         gossipsub
             .subscribe(&topics.0)
@@ -135,7 +135,7 @@ impl NetBehaviour {
             reqresp_cfg,
         );
 
-        let (pend_in, pend_out, est_in, est_out, est_total, per_peer, dial_factor) =
+        let (pend_in, pend_out, est_in, est_out, est_total, per_peer, _dial_factor) =
             cfg.resolve_connection_caps();
 
         let mut limits = ConnectionLimits::default();
@@ -145,9 +145,6 @@ impl NetBehaviour {
         limits = limits.with_max_established_outgoing(est_out);
         limits = limits.with_max_established(est_total);
         limits = limits.with_max_established_per_peer(per_peer);
-
-        let _dial_factor =
-            NonZeroU8::new(dial_factor).unwrap_or_else(|| NonZeroU8::new(1).unwrap());
 
         let block_list = BlockListBehaviour::<BlockedPeers>::default();
         let conn_limits = ConnectionLimitsBehaviour::new(limits);

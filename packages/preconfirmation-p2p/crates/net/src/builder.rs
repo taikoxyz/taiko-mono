@@ -1,3 +1,4 @@
+use futures::future::Either;
 use libp2p::{
     Transport,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
@@ -21,7 +22,7 @@ pub struct BuiltParts {
     pub topics: (libp2p::gossipsub::IdentTopic, libp2p::gossipsub::IdentTopic),
 }
 
-/// Builds the TCP/noise/yamux transport and base behaviours for a network instance.
+/// Builds the transport (TCP and/or QUIC) and base behaviours for a network instance.
 ///
 /// This function sets up the libp2p transport and initializes the `NetBehaviour`
 /// with the specified network configuration.
@@ -34,32 +35,66 @@ pub struct BuiltParts {
 ///
 /// A `Result` which is `Ok(BuiltParts)` on successful construction, or an `anyhow::Error`
 /// if any part of the setup fails (e.g., noise key generation).
-pub fn build_transport_and_behaviour(_cfg: &NetworkConfig) -> anyhow::Result<BuiltParts> {
+pub fn build_transport_and_behaviour(cfg: &NetworkConfig) -> anyhow::Result<BuiltParts> {
     let keypair = identity::Keypair::generate_ed25519();
     let noise_config = noise::Config::new(&keypair)?;
 
-    let transport = tcp::tokio::Transport::new(tcp::Config::default())
-        .upgrade(upgrade::Version::V1Lazy)
-        .authenticate(noise_config)
-        .multiplex(yamux::Config::default())
-        .boxed();
+    // Build multiplexers/transports based on config.
+    let mut base: Option<Boxed<(libp2p::PeerId, StreamMuxerBox)>> = None;
+    if cfg.enable_tcp {
+        let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default())
+            .upgrade(upgrade::Version::V1Lazy)
+            .authenticate(noise_config.clone())
+            .multiplex(yamux::Config::default())
+            .boxed();
+        base = Some(match base {
+            None => tcp_transport,
+            Some(prev) => prev
+                .or_transport(tcp_transport)
+                .map(|either, _| match either {
+                    Either::Left(v) => v,
+                    Either::Right(v) => v,
+                })
+                .boxed(),
+        });
+    }
+    #[cfg(feature = "quic-transport")]
+    if cfg.enable_quic {
+        let quic_transport =
+            libp2p::quic::tokio::Transport::new(libp2p::quic::Config::new(&keypair))
+                .map(|(peer, conn), _| (peer, StreamMuxerBox::new(conn)))
+                .boxed();
+        base = Some(match base {
+            None => quic_transport,
+            Some(prev) => prev
+                .or_transport(quic_transport)
+                .map(|either, _| match either {
+                    Either::Left(v) => v,
+                    Either::Right(v) => v,
+                })
+                .boxed(),
+        });
+    }
+
+    let transport =
+        base.ok_or_else(|| anyhow::anyhow!("no transports enabled (tcp/quic both disabled)"))?;
 
     let topics = (
         libp2p::gossipsub::IdentTopic::new(
-            preconfirmation_types::topic_preconfirmation_commitments(_cfg.chain_id),
+            preconfirmation_types::topic_preconfirmation_commitments(cfg.chain_id),
         ),
-        libp2p::gossipsub::IdentTopic::new(preconfirmation_types::topic_raw_txlists(_cfg.chain_id)),
+        libp2p::gossipsub::IdentTopic::new(preconfirmation_types::topic_raw_txlists(cfg.chain_id)),
     );
     let protocols = crate::codec::Protocols {
         commitments: crate::codec::SszProtocol(
-            preconfirmation_types::protocol_get_commitments_by_number(_cfg.chain_id),
+            preconfirmation_types::protocol_get_commitments_by_number(cfg.chain_id),
         ),
         raw_txlists: crate::codec::SszProtocol(preconfirmation_types::protocol_get_raw_txlist(
-            _cfg.chain_id,
+            cfg.chain_id,
         )),
-        head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(_cfg.chain_id)),
+        head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(cfg.chain_id)),
     };
-    let behaviour = NetBehaviour::new(keypair.public(), topics.clone(), protocols, _cfg)?;
+    let behaviour = NetBehaviour::new(keypair.clone(), topics.clone(), protocols, cfg)?;
 
     Ok(BuiltParts { keypair, transport, behaviour, topics })
 }

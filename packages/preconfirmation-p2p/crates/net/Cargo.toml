@@ -13,6 +13,8 @@ default = ["reth-discovery"]
 reth-discovery = ["dep:reth-discv5"]
 # Optional: run the real TCP transport integration test.
 real-transport-test = []
+# Optional: enable QUIC transport support.
+quic-transport = ["libp2p/quic"]
 
 [dependencies]
 anyhow.workspace = true

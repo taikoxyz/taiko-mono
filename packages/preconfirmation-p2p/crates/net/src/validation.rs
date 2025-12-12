@@ -88,8 +88,10 @@ impl ValidationAdapter for LocalValidationAdapter {
         msg: &SignedCommitment,
     ) -> Result<(), String> {
         verify_signed_commitment(msg).map_err(|e| e.to_string()).and_then(|_| {
-            if let Some(expected) = &self.expected_slasher
-                && &msg.commitment.slasher_address != expected
+            if self
+                .expected_slasher
+                .as_ref()
+                .is_some_and(|expected| &msg.commitment.slasher_address != expected)
             {
                 return Err("slasher_address mismatch".to_string());
             }
@@ -136,13 +138,13 @@ impl ValidationAdapter for LocalValidationAdapter {
 
 /// Validation adapter that calls into an external lookahead resolver after basic checks.
 pub struct LookaheadValidationAdapter {
-    expected_slasher: Option<Bytes20>,
+    local: LocalValidationAdapter,
     resolver: Arc<dyn LookaheadResolver>,
 }
 
 impl LookaheadValidationAdapter {
     pub fn new(expected_slasher: Option<Bytes20>, resolver: Arc<dyn LookaheadResolver>) -> Self {
-        Self { expected_slasher, resolver }
+        Self { local: LocalValidationAdapter::new(expected_slasher), resolver }
     }
 }
 
@@ -152,8 +154,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        let local = LocalValidationAdapter::new(self.expected_slasher.clone());
-        local.validate_gossip_commitment(from, msg)?;
+        self.local.validate_gossip_commitment(from, msg)?;
 
         let recovered = verify_signed_commitment(msg).map_err(|e| e.to_string())?;
         let slot_end = &msg.commitment.preconf.submission_window_end;
@@ -174,8 +175,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         from: &PeerId,
         msg: &RawTxListGossip,
     ) -> Result<(), String> {
-        LocalValidationAdapter::new(self.expected_slasher.clone())
-            .validate_gossip_raw_txlist(from, msg)
+        self.local.validate_gossip_raw_txlist(from, msg)
     }
 
     fn validate_commitments_response(
@@ -183,8 +183,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         from: &PeerId,
         resp: &GetCommitmentsByNumberResponse,
     ) -> Result<(), String> {
-        LocalValidationAdapter::new(self.expected_slasher.clone())
-            .validate_commitments_response(from, resp)
+        self.local.validate_commitments_response(from, resp)
     }
 
     fn validate_raw_txlist_response(
@@ -192,8 +191,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         from: &PeerId,
         resp: &GetRawTxListResponse,
     ) -> Result<(), String> {
-        LocalValidationAdapter::new(self.expected_slasher.clone())
-            .validate_raw_txlist_response(from, resp)
+        self.local.validate_raw_txlist_response(from, resp)
     }
 
     fn validate_head_response(
@@ -201,8 +199,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         from: &PeerId,
         resp: &preconfirmation_types::PreconfHead,
     ) -> Result<(), String> {
-        LocalValidationAdapter::new(self.expected_slasher.clone())
-            .validate_head_response(from, resp)
+        self.local.validate_head_response(from, resp)
     }
 }
 

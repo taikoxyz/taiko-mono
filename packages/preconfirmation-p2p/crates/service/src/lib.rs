@@ -8,6 +8,7 @@
 
 use anyhow::Result;
 use futures::future::poll_fn;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::{
     sync::{broadcast, mpsc, oneshot},
     task::JoinHandle,
@@ -23,6 +24,8 @@ use preconfirmation_types::{
     validate_raw_txlist_gossip, verify_signed_commitment,
 };
 
+static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
+
 /// Application-facing callbacks for P2P events.
 ///
 /// Implementors can plug business logic into these methods, allowing the
@@ -33,11 +36,29 @@ pub trait P2pHandler: Send + Sync + 'static {
     /// Called when a raw transaction list gossip message is received.
     fn on_raw_txlist(&self, _from: PeerId, _msg: RawTxListGossip) {}
     /// Called when a response to a commitment request is received.
-    fn on_commitments_response(&self, _from: PeerId, _msg: GetCommitmentsByNumberResponse) {}
+    fn on_commitments_response(
+        &self,
+        _from: PeerId,
+        _msg: GetCommitmentsByNumberResponse,
+        _request_id: Option<u64>,
+    ) {
+    }
     /// Called when a response to a raw transaction list request is received.
-    fn on_raw_txlist_response(&self, _from: PeerId, _msg: GetRawTxListResponse) {}
+    fn on_raw_txlist_response(
+        &self,
+        _from: PeerId,
+        _msg: GetRawTxListResponse,
+        _request_id: Option<u64>,
+    ) {
+    }
     /// Called when a response to a head request is received.
-    fn on_head_response(&self, _from: PeerId, _head: preconfirmation_types::PreconfHead) {}
+    fn on_head_response(
+        &self,
+        _from: PeerId,
+        _head: preconfirmation_types::PreconfHead,
+        _request_id: Option<u64>,
+    ) {
+    }
     /// Called when an inbound request for commitments is received.
     fn on_inbound_commitments_request(&self, _from: PeerId) {}
     /// Called when an inbound request for a raw transaction list is received.
@@ -231,9 +252,15 @@ impl P2pService {
         max_count: u32,
         peer: Option<PeerId>,
     ) -> Result<GetCommitmentsByNumberResponse, NetworkError> {
+        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
         let mut rx = self.subscribe();
         self.command_tx
-            .send(NetworkCommand::RequestCommitments { start_block, max_count, peer })
+            .send(NetworkCommand::RequestCommitments {
+                request_id: Some(request_id),
+                start_block,
+                max_count,
+                peer,
+            })
             .await
             .map_err(|e| {
                 NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
@@ -241,8 +268,12 @@ impl P2pService {
 
         while let Some(ev) = Self::recv_broadcast(&mut rx).await {
             match ev {
-                NetworkEvent::ReqRespCommitments { msg, .. } => return Ok(msg),
-                NetworkEvent::Error(err) => return Err(err),
+                NetworkEvent::ReqRespCommitments { msg, request_id: rid, .. }
+                    if rid == Some(request_id) || rid.is_none() =>
+                {
+                    return Ok(msg);
+                }
+                NetworkEvent::Error(err) if err.request_id == Some(request_id) => return Err(err),
                 _ => continue,
             }
         }
@@ -258,9 +289,11 @@ impl P2pService {
         raw_tx_list_hash: preconfirmation_types::Bytes32,
         peer: Option<PeerId>,
     ) -> Result<GetRawTxListResponse, NetworkError> {
+        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
         let mut rx = self.subscribe();
         self.command_tx
             .send(NetworkCommand::RequestRawTxList {
+                request_id: Some(request_id),
                 raw_tx_list_hash: raw_tx_list_hash.clone(),
                 peer,
             })
@@ -271,8 +304,12 @@ impl P2pService {
 
         while let Some(ev) = Self::recv_broadcast(&mut rx).await {
             match ev {
-                NetworkEvent::ReqRespRawTxList { msg, .. } => return Ok(msg),
-                NetworkEvent::Error(err) => return Err(err),
+                NetworkEvent::ReqRespRawTxList { msg, request_id: rid, .. }
+                    if rid == Some(request_id) || rid.is_none() =>
+                {
+                    return Ok(msg);
+                }
+                NetworkEvent::Error(err) if err.request_id == Some(request_id) => return Err(err),
                 _ => continue,
             }
         }
@@ -287,15 +324,23 @@ impl P2pService {
         &self,
         peer: Option<PeerId>,
     ) -> Result<preconfirmation_types::PreconfHead, NetworkError> {
+        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
         let mut rx = self.subscribe();
-        self.command_tx.send(NetworkCommand::RequestHead { peer }).await.map_err(|e| {
-            NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
-        })?;
+        self.command_tx
+            .send(NetworkCommand::RequestHead { request_id: Some(request_id), peer })
+            .await
+            .map_err(|e| {
+                NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
+            })?;
 
         while let Some(ev) = Self::recv_broadcast(&mut rx).await {
             match ev {
-                NetworkEvent::ReqRespHead { head, .. } => return Ok(head),
-                NetworkEvent::Error(err) => return Err(err),
+                NetworkEvent::ReqRespHead { head, request_id: rid, .. }
+                    if rid == Some(request_id) || rid.is_none() =>
+                {
+                    return Ok(head);
+                }
+                NetworkEvent::Error(err) if err.request_id == Some(request_id) => return Err(err),
                 _ => continue,
             }
         }
@@ -326,7 +371,12 @@ impl P2pService {
         peer: Option<PeerId>,
     ) -> Result<()> {
         self.command_tx
-            .send(NetworkCommand::RequestCommitments { start_block, max_count, peer })
+            .send(NetworkCommand::RequestCommitments {
+                request_id: None,
+                start_block,
+                max_count,
+                peer,
+            })
             .await
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
@@ -350,7 +400,11 @@ impl P2pService {
         peer: Option<PeerId>,
     ) -> Result<()> {
         self.command_tx
-            .send(NetworkCommand::RequestRawTxList { raw_tx_list_hash: hash, peer })
+            .send(NetworkCommand::RequestRawTxList {
+                request_id: None,
+                raw_tx_list_hash: hash,
+                peer,
+            })
             .await
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
@@ -389,7 +443,7 @@ impl P2pService {
     /// A `Result` indicating success or failure of sending the command.
     pub async fn request_head(&self, peer: Option<PeerId>) -> Result<()> {
         self.command_tx
-            .send(NetworkCommand::RequestHead { peer })
+            .send(NetworkCommand::RequestHead { request_id: None, peer })
             .await
             .map_err(|e| anyhow::anyhow!("send command: {e}"))
     }
@@ -435,14 +489,14 @@ impl P2pService {
                     NetworkEvent::GossipRawTxList { from, msg } => {
                         handler.on_raw_txlist(from, *msg)
                     }
-                    NetworkEvent::ReqRespCommitments { from, msg } => {
-                        handler.on_commitments_response(from, msg)
+                    NetworkEvent::ReqRespCommitments { from, msg, request_id } => {
+                        handler.on_commitments_response(from, msg, request_id)
                     }
-                    NetworkEvent::ReqRespRawTxList { from, msg } => {
-                        handler.on_raw_txlist_response(from, msg)
+                    NetworkEvent::ReqRespRawTxList { from, msg, request_id } => {
+                        handler.on_raw_txlist_response(from, msg, request_id)
                     }
-                    NetworkEvent::ReqRespHead { from, head } => {
-                        handler.on_head_response(from, head)
+                    NetworkEvent::ReqRespHead { from, head, request_id } => {
+                        handler.on_head_response(from, head, request_id)
                     }
                     NetworkEvent::InboundCommitmentsRequest { from } => {
                         handler.on_inbound_commitments_request(from)
@@ -550,6 +604,7 @@ mod tests {
                 .send(NetworkEvent::ReqRespCommitments {
                     from: PeerId::random(),
                     msg: resp_for_task,
+                    request_id: None,
                 })
                 .unwrap();
         });
@@ -575,6 +630,7 @@ mod tests {
                 .send(NetworkEvent::ReqRespRawTxList {
                     from: PeerId::random(),
                     msg: raw_resp_for_task,
+                    request_id: None,
                 })
                 .unwrap();
         });
@@ -591,7 +647,11 @@ mod tests {
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(10)).await;
             head_sender
-                .send(NetworkEvent::ReqRespHead { from: PeerId::random(), head: head_for_task })
+                .send(NetworkEvent::ReqRespHead {
+                    from: PeerId::random(),
+                    head: head_for_task,
+                    request_id: None,
+                })
                 .unwrap();
         });
         let got_head = svc.request_head_blocking(None).await.expect("head resp");
@@ -650,7 +710,9 @@ mod tests {
         let peer = PeerId::random();
         ev_tx.send(NetworkEvent::PeerConnected(peer)).unwrap();
         let head = preconfirmation_types::PreconfHead::default();
-        ev_tx.send(NetworkEvent::ReqRespHead { from: peer, head: head.clone() }).unwrap();
+        ev_tx
+            .send(NetworkEvent::ReqRespHead { from: peer, head: head.clone(), request_id: None })
+            .unwrap();
 
         // Default subscription should also see the peer connected event.
         let next = svc.next_event().await.expect("default rx gets event");

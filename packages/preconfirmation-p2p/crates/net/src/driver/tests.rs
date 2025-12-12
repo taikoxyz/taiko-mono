@@ -68,7 +68,7 @@ fn build_memory_parts(chain_id: u64, cfg: &NetworkConfig) -> BuiltParts {
         head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(chain_id)),
     };
     let behaviour =
-        NetBehaviour::new(keypair.public(), topics.clone(), protocols, cfg).expect("behaviour");
+        NetBehaviour::new(keypair.clone(), topics.clone(), protocols, cfg).expect("behaviour");
 
     BuiltParts { keypair, transport, behaviour, topics }
 }
@@ -111,6 +111,9 @@ fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, 
             head: PreconfHead::default(),
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
+            commitments_req_ids: std::collections::HashMap::new(),
+            raw_txlists_req_ids: std::collections::HashMap::new(),
+            head_req_ids: std::collections::HashMap::new(),
         },
         NetworkHandle { events: events_rx, commands: cmd_tx },
     )
@@ -223,6 +226,7 @@ async fn gossipsub_and_reqresp_roundtrip() {
         handle1
             .commands
             .send(NetworkCommand::RequestCommitments {
+                request_id: None,
                 start_block: Uint256::from(0u64),
                 max_count: 1,
                 peer: None,
@@ -288,6 +292,7 @@ async fn memory_transport_gossip_reqresp_and_ban() {
     handle2
         .commands
         .send(NetworkCommand::RequestCommitments {
+            request_id: None,
             start_block: Uint256::from(0u64),
             max_count: 1,
             peer: None,

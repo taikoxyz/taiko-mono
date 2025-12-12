@@ -113,6 +113,7 @@ impl P2pHandler for LoggingHandler {
         &self,
         from: PeerId,
         _msg: preconfirmation_types::GetCommitmentsByNumberResponse,
+        _request_id: Option<u64>,
     ) {
         tracing::info!(target = "p2p-node", %from, "commitments response");
     }
@@ -121,6 +122,7 @@ impl P2pHandler for LoggingHandler {
         &self,
         from: PeerId,
         _msg: preconfirmation_types::GetRawTxListResponse,
+        _request_id: Option<u64>,
     ) {
         tracing::info!(target = "p2p-node", %from, "raw txlist response");
     }
