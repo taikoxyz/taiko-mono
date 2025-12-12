@@ -50,15 +50,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bool allowsPermissionless;
     }
 
-    /// @notice Result of preparing proof verification and finalization data
-    struct ProofBuildResult {
-        CoreState newState;
-        LibBonds.BondInstruction bondInstruction;
-        uint256 proposalAge;
-        uint256 firstProvenIndex;
-        bytes32 aggregatedProvingHash;
-    }
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -624,28 +615,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProposedEventPayload memory payload =
             ProposedEventPayload({ proposal: _proposal, derivation: _derivation });
         emit Proposed(LibProposedEventCodec.encode(payload));
-    }
-
-    /// @dev Sends a bond instruction signal to L2.
-    /// @param _bondInstruction The bond instruction to encode into the signal.
-    /// @return signal_ The signal hash emitted to the signal service.
-    function _sendBondSignal(LibBonds.BondInstruction memory _bondInstruction)
-        private
-        returns (bytes32 signal_)
-    {
-        signal_ = _bondSignalHash(_bondInstruction);
-        _signalService.sendSignal(signal_);
-    }
-
-    /// @dev Calculates the bond signal hash for a bond instruction.
-    /// @param _bondInstruction The bond instruction to hash.
-    /// @return The hash of the bond instruction.
-    function _bondSignalHash(LibBonds.BondInstruction memory _bondInstruction)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_bondInstruction));
     }
 
     /// @dev Calculates remaining capacity for new proposals
