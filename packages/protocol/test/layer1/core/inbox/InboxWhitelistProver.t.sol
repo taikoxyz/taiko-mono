@@ -9,7 +9,6 @@ import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract InboxWhitelistProverTest is InboxTestBase {
     address internal whitelistedProver = address(0x1234);
@@ -69,12 +68,12 @@ contract InboxWhitelistProverTest is InboxTestBase {
             proposer: p1.proposal.proposer,
             designatedProver: proposer, // Different from actual to trigger bond
             timestamp: p1.proposal.timestamp,
-            checkpointHash: keccak256("checkpoint1")
+            blockHash: keccak256("checkpoint1")
         });
 
         IInbox.ProveInput memory input = _buildInputWithProver(
             p1.proposal.id,
-            inbox.getCoreState().lastFinalizedCheckpointHash,
+            inbox.getCoreState().lastFinalizedBlockHash,
             transitions,
             whitelistedProver
         );
@@ -132,12 +131,12 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 firstProposalId = payload.proposal.id;
             }
 
-            bytes32 checkpointHash = keccak256(abi.encode("checkpoint", i + 1));
+            bytes32 blockHash = keccak256(abi.encode("checkpoint", i + 1));
             transitions[i] = IInbox.Transition({
                 proposer: payload.proposal.proposer,
                 designatedProver: _actualProver,
                 timestamp: payload.proposal.timestamp,
-                checkpointHash: checkpointHash
+                blockHash: blockHash
             });
         }
 
@@ -147,13 +146,12 @@ contract InboxWhitelistProverTest is InboxTestBase {
         input_ = IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: firstProposalId,
-                firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
                 lastProposalHash: lastProposalHash,
                 actualProver: _actualProver,
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 0, blockHash: 0, stateRoot: 0
-                })
+                endBlockNumber: uint48(block.number),
+                endStateRoot: keccak256(abi.encode("stateRoot", _count)),
+                transitions: transitions
             }),
             forceCheckpointSync: false
         });
@@ -161,7 +159,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
     function _buildInputWithProver(
         uint48 _firstProposalId,
-        bytes32 _parentCheckpointHash,
+        bytes32 _parentBlockHash,
         IInbox.Transition[] memory _transitions,
         address _actualProver
     )
@@ -173,13 +171,12 @@ contract InboxWhitelistProverTest is InboxTestBase {
         return IInbox.ProveInput({
             commitment: IInbox.Commitment({
                 firstProposalId: _firstProposalId,
-                firstProposalParentCheckpointHash: _parentCheckpointHash,
+                firstProposalParentBlockHash: _parentBlockHash,
                 lastProposalHash: inbox.getProposalHash(lastProposalId),
                 actualProver: _actualProver,
-                transitions: _transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 0, blockHash: 0, stateRoot: 0
-                })
+                endBlockNumber: uint48(block.number),
+                endStateRoot: keccak256(abi.encode("stateRoot")),
+                transitions: _transitions
             }),
             forceCheckpointSync: false
         });

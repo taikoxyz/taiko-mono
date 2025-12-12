@@ -244,7 +244,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-            bool whitelistEnabled = _checkProver();
+            bool whitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -274,7 +274,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             uint256 proposalAge;
             if (!whitelistEnabled) {
-                proposalAge = _processBondInstruction(state, c, offset);
+                proposalAge = _processBondInstruction(state, commitment, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -660,13 +660,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Checks if the caller is an authorized prover
+    /// @param _addr The address of the caller to check
     /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
-    function _checkProver() private view returns (bool whitelistEnabled_) {
+    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
         if (address(_proverWhitelist) == address(0)) return false;
 
-        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(msg.sender);
-        require(proverCount == 0 || isWhitelisted, OnlyWhitelistedProverCanCall());
-        return proverCount != 0;
+        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
+        if (proverCount == 0) return false;
+
+        require(isWhitelisted, OnlyWhitelistedProverCanCall());
+        return true;
     }
 
     // ---------------------------------------------------------------
@@ -684,7 +687,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error OnlyWhitelistedProverCanCall();
-    error ParentCheckpointHashMismatch();
     error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }
