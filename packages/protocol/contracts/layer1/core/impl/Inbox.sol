@@ -275,7 +275,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             uint256 proposalAge;
             if (!whitelistEnabled) {
-                proposalAge = _createBondInstruction(state, c, offset);
+                proposalAge = _processBondInstruction(state, c, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -588,7 +588,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
     /// @return proposalAge_ The calculated proposal age (0 if whitelisted prover).
-    function _createBondInstruction(
+    function _processBondInstruction(
         CoreState memory _state,
         Commitment memory _commitment,
         uint48 _offset
