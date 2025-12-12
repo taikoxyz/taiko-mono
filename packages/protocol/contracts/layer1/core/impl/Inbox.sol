@@ -279,17 +279,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                LibBonds.BondInstruction memory bondInstruction = _calculateBondInstruction(
-                    commitment.firstProposalId + offset,
-                    transitionAtOffset.timestamp,
-                    state.lastFinalizedTimestamp,
-                    transitionAtOffset.designatedProver,
-                    commitment.actualProver
-                );
-                if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                    _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                    emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
-                }
+                _processBondInstruction(commitment, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -652,6 +642,24 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Some proposals in _commitment.transitions[] may already be finalized.
             // The offset points to the first proposal that will be finalized.
             offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
+        }
+    }
+
+    /// @dev Calculates and emits bond instruction if applicable.
+    /// @param _commitment The commitment data.
+    /// @param _offset The offset to the first unfinalized proposal.
+    function _processBondInstruction(Commitment memory _commitment, uint48 _offset) private {
+        Transition memory transition = _commitment.transitions[_offset];
+        LibBonds.BondInstruction memory bondInstruction = _calculateBondInstruction(
+            _commitment.firstProposalId + _offset,
+            transition.timestamp,
+            _coreState.lastFinalizedTimestamp,
+            transition.designatedProver,
+            _commitment.actualProver
+        );
+        if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
         }
     }
 
