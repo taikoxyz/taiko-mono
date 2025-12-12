@@ -77,8 +77,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
-    /// @notice The extended proving window in seconds.
-    uint48 internal immutable _extendedProvingWindow;
+    /// @notice Maximum delay allowed between sequential proofs to remain on time.
+    uint48 internal immutable _maxProofSubmissionDelay;
 
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 internal immutable _ringBufferSize;
@@ -142,7 +142,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
-        _extendedProvingWindow = _config.extendedProvingWindow;
+        _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
         _minForcedInclusionCount = _config.minForcedInclusionCount;
@@ -274,12 +274,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Calculate proposal age and process bond instruction
             // ---------------------------------------------------------
+            Transition memory transitionAtOffset = commitment.transitions[offset];
+            uint256 proposalAge =
+                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
-            // `proposalAge` is the age of the next-to-finalize proposal.
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-
+            // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset, proposalAge);
+                LibBonds.BondInstruction memory bondInstruction =
+                    LibBondInstruction.calculateBondInstruction(
+                        commitment.firstProposalId + offset,
+                        transitionAtOffset.timestamp,
+                        state.lastFinalizedTimestamp,
+                        _maxProofSubmissionDelay,
+                        transitionAtOffset.designatedProver,
+                        commitment.actualProver,
+                        _provingWindow
+                    );
+                if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+                    _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+                    emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+                }
             }
 
             // -----------------------------------------------------------------------------
@@ -379,7 +393,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
+            maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
@@ -554,36 +568,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 oldestTimestamp_ = type(uint48).max;
                 head_ = _head;
                 lastProcessedAt_ = _lastProcessedAt;
-            }
-        }
-    }
-
-    /// @dev Calculates proposal age and emits bond instruction if applicable.
-    /// @param _commitment The commitment data.
-    /// @param _offset The offset to the first unfinalized proposal.
-    /// @param _proposalAge The age of the next to finalize proposal.
-    function _processBondInstruction(
-        Commitment memory _commitment,
-        uint48 _offset,
-        uint256 _proposalAge
-    )
-        private
-    {
-        unchecked {
-            LibBonds.BondInstruction memory bondInstruction =
-                LibBondInstruction.calculateBondInstruction(
-                    _commitment.firstProposalId + _offset,
-                    _proposalAge,
-                    _commitment.transitions[_offset].proposer,
-                    _commitment.transitions[_offset].designatedProver,
-                    _commitment.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
-                );
-
-            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
             }
         }
     }

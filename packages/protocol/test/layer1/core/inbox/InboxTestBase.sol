@@ -66,7 +66,7 @@ abstract contract InboxTestBase is CommonTest {
             proverWhitelist: address(proverWhitelistContract),
             signalService: address(signalService),
             provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
+            maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
             minForcedInclusionCount: 1,
