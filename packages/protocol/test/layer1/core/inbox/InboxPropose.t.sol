@@ -273,7 +273,7 @@ contract InboxProposeTest is InboxTestBase {
         state_.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
         state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
         state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
-        state_.lastFinalizedCheckpointHash = _stateBefore.lastFinalizedCheckpointHash;
+        state_.lastFinalizedBlockHash = _stateBefore.lastFinalizedBlockHash;
     }
 
     function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {

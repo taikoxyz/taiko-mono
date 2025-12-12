@@ -6,7 +6,6 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
 contract InboxCapacityTest is InboxTestBase {
@@ -79,13 +78,10 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
 
-        // Create checkpoint first, then compute its hash for the transition
-        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: uint48(block.number),
-            blockHash: keccak256("blockHash2"),
-            stateRoot: keccak256("stateRoot")
-        });
-        bytes32 checkpoint2Hash = codec.hashCheckpoint(lastCheckpoint);
+        // Create checkpoint data for the transition
+        uint48 endBlockNumber = uint48(block.number);
+        bytes32 endStateRoot = keccak256("stateRoot");
+        bytes32 checkpoint2Hash = keccak256("blockHash2");
 
         // Prove p1 and p2 using prove
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
@@ -93,11 +89,16 @@ contract InboxRingBufferTest is InboxTestBase {
         transitions[1] = _transitionFor(p2, prover, checkpoint2Hash);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
-            firstProposalId: p1.proposal.id,
-            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
-            actualProver: prover,
-            transitions: transitions,
-            lastCheckpoint: lastCheckpoint
+            commitment: IInbox.Commitment({
+                firstProposalId: p1.proposal.id,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
+                lastProposalHash: inbox.getProposalHash(p2.proposal.id),
+                actualProver: prover,
+                endBlockNumber: endBlockNumber,
+                endStateRoot: endStateRoot,
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
 
         _prove(proveInput);

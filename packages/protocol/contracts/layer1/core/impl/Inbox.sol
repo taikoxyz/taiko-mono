@@ -18,6 +18,7 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title Inbox
@@ -51,7 +52,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Events
     // ---------------------------------------------------------------
 
-    event InboxActivated(bytes32 lastPacayaCheckpointHash);
+    event InboxActivated(bytes32 lastPacayaBlockHash);
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -159,21 +160,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Activates the inbox so that it can start accepting proposals.
     /// @dev Can be called multiple times within the activation window to handle reorgs.
-    /// @param _lastPacayaCheckpointHash The checkpoint hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaCheckpointHash) external onlyOwner {
+    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
+    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
             Derivation memory derivation,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.activate(_lastPacayaCheckpointHash, activationTimestamp);
+        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal, derivation);
-        emit InboxActivated(_lastPacayaCheckpointHash);
+        emit InboxActivated(_lastPacayaBlockHash);
     }
 
     /// @inheritdoc IInbox
@@ -231,7 +232,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
     /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
     /// 3. lastProposalId >= lastFinalizedProposalId + 1 (must advance at least one proposal)
-    /// 4. The checkpoint hash must link to the lastFinalizedCheckpointHash
+    /// 4. The block hash must link to the lastFinalizedBlockHash
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
@@ -243,59 +244,62 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -------------------------------------------------------------------------------
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
+            Commitment memory commitment = input.commitment;
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateBatchBoundsAndCalculateOffset(state, input);
+                _validateCommitment(state, commitment);
 
             // ---------------------------------------------------------
-            // 2. Verify checkpoint hash continuity
+            // 2. Verify checkpoint hash continuity and last proposal hash
             // ---------------------------------------------------------
-            // The parent checkpoint hash must match the stored lastFinalizedCheckpointHash.
+            // The parent block hash must match the stored lastFinalizedBlockHash.
             bytes32 expectedParentHash = offset == 0
-                ? input.firstProposalParentCheckpointHash
-                : input.transitions[offset - 1].checkpointHash;
+                ? commitment.firstProposalParentBlockHash
+                : commitment.transitions[offset - 1].blockHash;
+            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+
             require(
-                state.lastFinalizedCheckpointHash == expectedParentHash,
-                ParentCheckpointHashMismatch()
+                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                LastProposalHashMismatch()
             );
 
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            Transition memory firstTransition = input.transitions[offset];
+            Transition memory transitionAtOffset = commitment.transitions[offset];
             uint256 proposalAge =
-                block.timestamp - firstTransition.timestamp.max(state.lastFinalizedTimestamp);
+                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
             // Bond transfers only apply to the first newly-finalized proposal.
             LibBonds.BondInstruction memory bondInstruction =
                 LibBondInstruction.calculateBondInstruction(
-                    input.firstProposalId + offset,
+                    commitment.firstProposalId + offset,
                     proposalAge,
-                    firstTransition.proposer,
-                    firstTransition.designatedProver,
-                    input.actualProver,
+                    transitionAtOffset.proposer,
+                    transitionAtOffset.designatedProver,
+                    commitment.actualProver,
                     _provingWindow,
                     _extendedProvingWindow
                 );
             if (bondInstruction.bondType != LibBonds.BondType.NONE) {
                 _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
             }
 
             // -----------------------------------------------------------------------------
-            // 4. Sync checkpoint if provided, otherwise enforce delay
+            // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            if (input.lastCheckpoint.blockHash != 0) {
-                require(
-                    input.transitions[numProposals - 1].checkpointHash
-                        == LibHashOptimized.hashCheckpoint(input.lastCheckpoint),
-                    CheckpointHashMismatch()
+            if (
+                input.forceCheckpointSync
+                    || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
+            ) {
+                _signalService.saveCheckpoint(
+                    ICheckpointStore.Checkpoint({
+                        blockNumber: commitment.endBlockNumber,
+                        stateRoot: commitment.endStateRoot,
+                        blockHash: commitment.transitions[numProposals - 1].blockHash
+                    })
                 );
-                _signalService.saveCheckpoint(input.lastCheckpoint);
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
-            } else {
-                require(
-                    block.timestamp < state.lastCheckpointTimestamp + _minCheckpointDelay,
-                    CheckpointDelayHasPassed()
-                );
             }
 
             // ---------------------------------------------------------
@@ -303,15 +307,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedCheckpointHash = input.transitions[numProposals - 1].checkpointHash;
+            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload({ input: input })));
+            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
 
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
-            _verifyProof(lastProposalId, input, proposalAge, _proof);
+            _proofVerifier.verifyProof(
+                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
+            );
         }
     }
 
@@ -441,20 +447,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
 
-            // Get the parent proposal hash from the ring buffer
-            bytes32 parentProposalHash = _proposalHashes[(_nextProposalId - 1) % _ringBufferSize];
-
             proposal_ = Proposal({
                 id: _nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: parentProposalHash,
+                parentProposalHash: getProposalHash(_nextProposalId - 1),
                 derivationHash: LibHashOptimized.hashDerivation(derivation_)
             });
         }
     }
 
+    /// @inheritdoc IInbox
     function getCoreState() external view returns (CoreState memory) {
         return _coreState;
     }
@@ -463,66 +467,51 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
     /// may have been overwritten by a new one. You should verify that the hash matches the
     /// expected proposal.
-    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
-        proposalHash_ = _proposalHashes[_proposalId % _ringBufferSize];
+    function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
+        return _proposalHashes[_proposalId % _ringBufferSize];
     }
 
     // ---------------------------------------------------------------
-    // Internal Functions
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
-    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
+    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Validates the batch bounds and calculates the offset to the first unfinalized proposal.
+    /// @dev Validates the batch bounds in the Commitment and calculates the offset
+    ///      to the first unfinalized proposal.
     /// @param _state The core state.
-    /// @param _input The prove input.
+    /// @param _commitment The commitment data.
     /// @return numProposals_ The number of proposals in the batch.
     /// @return lastProposalId_ The ID of the last proposal in the batch.
     /// @return offset_ The offset to the first unfinalized proposal.
-    function _validateBatchBoundsAndCalculateOffset(
+    function _validateCommitment(
         CoreState memory _state,
-        ProveInput memory _input
+        Commitment memory _commitment
     )
         private
         pure
         returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
     {
-        // Validate batch bounds
-        numProposals_ = _input.transitions.length;
-        require(numProposals_ > 0, EmptyBatch());
-        require(
-            _input.firstProposalId <= _state.lastFinalizedProposalId + 1, FirstProposalIdTooLarge()
-        );
+        unchecked {
+            uint256 firstUnfinalizedId = _state.lastFinalizedProposalId + 1;
 
-        lastProposalId_ = _input.firstProposalId + numProposals_ - 1;
-        require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
-        require(
-            lastProposalId_ >= _state.lastFinalizedProposalId + 1, LastProposalAlreadyFinalized()
-        );
+            numProposals_ = _commitment.transitions.length;
+            require(numProposals_ > 0, EmptyBatch());
+            require(_commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
 
-        // Calculate offset to first unfinalized proposal.
-        // Some proposals in _input.transitions[] may already be finalized.
-        // The offset points to the first proposal that will be finalized.
-        offset_ = _state.lastFinalizedProposalId + 1 - _input.firstProposalId;
-    }
+            lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
+            require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
+            require(lastProposalId_ >= firstUnfinalizedId, LastProposalAlreadyFinalized());
 
-    function _verifyProof(
-        uint256 _lastProposalId,
-        ProveInput memory _input,
-        uint256 _proposalAge,
-        bytes calldata _proof
-    )
-        private
-        view
-    {
-        bytes32 hashToProve = LibHashOptimized.hashProveInput(
-            _proposalHashes[_lastProposalId % _ringBufferSize], _input
-        );
-        _proofVerifier.verifyProof(_proposalAge, hashToProve, _proof);
+            // Calculate offset to first unfinalized proposal.
+            // Some proposals in _commitment.transitions[] may already be finalized.
+            // The offset points to the first proposal that will be finalized.
+            offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
+        }
     }
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
@@ -651,14 +640,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error CheckpointDelayHasPassed();
-    error CheckpointHashMismatch();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
-    error LastProposalIdTooLarge();
     error LastProposalAlreadyFinalized();
+    error LastProposalHashMismatch();
+    error LastProposalIdTooLarge();
     error NotEnoughCapacity();
-    error ParentCheckpointHashMismatch();
+    error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
 }

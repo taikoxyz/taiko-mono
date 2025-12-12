@@ -229,7 +229,7 @@ abstract contract InboxTestBase is CommonTest {
     function _transitionFor(
         IInbox.ProposedEventPayload memory _payload,
         address _designatedProver,
-        bytes32 _checkpointHash
+        bytes32 _blockHash
     )
         internal
         pure
@@ -239,7 +239,7 @@ abstract contract InboxTestBase is CommonTest {
             proposer: _payload.proposal.proposer,
             designatedProver: _designatedProver,
             timestamp: _payload.proposal.timestamp,
-            checkpointHash: _checkpointHash
+            blockHash: _blockHash
         });
     }
 
@@ -262,23 +262,25 @@ abstract contract InboxTestBase is CommonTest {
                 blockHash: keccak256(abi.encode("blockHash", i + 1)),
                 stateRoot: keccak256(abi.encode("stateRoot", i + 1))
             });
-            bytes32 checkpointHash = codec.hashCheckpoint(checkpoint);
-            transitions[i] = _transitionFor(payload, prover, checkpointHash);
+            bytes32 blockHash = keccak256(abi.encode(checkpoint));
+            transitions[i] = _transitionFor(payload, prover, blockHash);
         }
 
-        // Last checkpoint matches the last transition's checkpointHash
-        ICheckpointStore.Checkpoint memory lastCheckpoint = ICheckpointStore.Checkpoint({
-            blockNumber: uint48(block.number),
-            blockHash: keccak256(abi.encode("blockHash", _count)),
-            stateRoot: keccak256(abi.encode("stateRoot", _count))
-        });
+        // Get the last proposal hash from the ring buffer
+        uint256 lastProposalId = firstProposalId + _count - 1;
+        bytes32 lastProposalHash = inbox.getProposalHash(lastProposalId);
 
         input_ = IInbox.ProveInput({
-            firstProposalId: firstProposalId,
-            firstProposalParentCheckpointHash: inbox.getCoreState().lastFinalizedCheckpointHash,
-            actualProver: prover,
-            transitions: transitions,
-            lastCheckpoint: lastCheckpoint
+            commitment: IInbox.Commitment({
+                firstProposalId: firstProposalId,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
+                lastProposalHash: lastProposalHash,
+                actualProver: prover,
+                endBlockNumber: uint48(block.number),
+                endStateRoot: keccak256(abi.encode("stateRoot", _count)),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
     }
 
@@ -316,8 +318,8 @@ abstract contract InboxTestBase is CommonTest {
             "state checkpoint ts"
         );
         assertEq(
-            _actual.lastFinalizedCheckpointHash,
-            _expected.lastFinalizedCheckpointHash,
+            _actual.lastFinalizedBlockHash,
+            _expected.lastFinalizedBlockHash,
             "state transition hash"
         );
     }
