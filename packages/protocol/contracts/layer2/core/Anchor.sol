@@ -347,13 +347,11 @@ contract Anchor is EssentialContract {
             _proposalState.designatedProver
         );
 
-        _proposalState.proposalId = _proposalParams.proposalId;
-
-        // Transfer proving fee from proposer to designated prover if applicable
         if (provingFee > 0) {
             uint256 debited = bondManager.debitBond(_proposalParams.proposer, provingFee);
             bondManager.creditBond(_proposalState.designatedProver, debited);
         }
+        _proposalState.proposalId = _proposalParams.proposalId;
     }
 
     /// @dev Validates and processes block-level data.
