@@ -2,6 +2,7 @@
 members = [
     "bin/client",
     "crates/bindings",
+    "crates/p2p",
     "crates/driver",
     "crates/proposer",
     "crates/protocol",

@@ -1,0 +1,23 @@
+[package]
+name = "p2p"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[dependencies]
+preconfirmation-service = { path = "../../../preconfirmation-p2p/crates/service" }
+preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
+tokio = { workspace = true }
+futures = "0.3"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+metrics = { workspace = true }
+lru = "0.12"
+serde = { workspace = true, features = ["derive"] }
+parking_lot = "0.12"
+libp2p = { version = "0.56", default-features = false, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "macros", "tokio"] }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
