@@ -276,8 +276,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
 
             // `proposalAge` is the age of the next-to-finalize proposal.
-            uint256 proposalAge = block.timestamp
-                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
 
             if (!isWhitelistEnabled) {
                 _processBondInstruction(commitment, offset, proposalAge);
