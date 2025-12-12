@@ -244,37 +244,39 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -------------------------------------------------------------------------------
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
-            Commitment memory c = input.commitment;
+            Commitment memory commitment = input.commitment;
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateCommitment(state, c);
+                _validateCommitment(state, commitment);
 
             // ---------------------------------------------------------
             // 2. Verify checkpoint hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash =
-                offset == 0 ? c.firstProposalParentBlockHash : c.transitions[offset - 1].blockHash;
+            bytes32 expectedParentHash = offset == 0
+                ? commitment.firstProposalParentBlockHash
+                : commitment.transitions[offset - 1].blockHash;
             require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
             require(
-                c.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch()
+                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                LastProposalHashMismatch()
             );
 
             // ---------------------------------------------------------
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
-            Transition memory transitionAtOffset = c.transitions[offset];
+            Transition memory transitionAtOffset = commitment.transitions[offset];
             uint256 proposalAge =
                 block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
             // Bond transfers only apply to the first newly-finalized proposal.
             LibBonds.BondInstruction memory bondInstruction =
                 LibBondInstruction.calculateBondInstruction(
-                    c.firstProposalId + offset,
+                    commitment.firstProposalId + offset,
                     proposalAge,
                     transitionAtOffset.proposer,
                     transitionAtOffset.designatedProver,
-                    c.actualProver,
+                    commitment.actualProver,
                     _provingWindow,
                     _extendedProvingWindow
                 );
@@ -292,9 +294,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ) {
                 _signalService.saveCheckpoint(
                     ICheckpointStore.Checkpoint({
-                        blockNumber: c.endBlockNumber,
-                        stateRoot: c.endStateRoot,
-                        blockHash: c.transitions[numProposals - 1].blockHash
+                        blockNumber: commitment.endBlockNumber,
+                        stateRoot: commitment.endStateRoot,
+                        blockHash: commitment.transitions[numProposals - 1].blockHash
                     })
                 );
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
@@ -305,7 +307,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedBlockHash = c.transitions[numProposals - 1].blockHash;
+            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
             emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
@@ -313,7 +315,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
-            _proofVerifier.verifyProof(proposalAge, LibHashOptimized.hashCommitment(c), _proof);
+            _proofVerifier.verifyProof(
+                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
+            );
         }
     }
 
