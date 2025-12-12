@@ -268,7 +268,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 3. Calculate proposal age and bond instruction
             // ---------------------------------------------------------
             Transition memory transitionAtOffset = commitment.transitions[offset];
-            uint256 proposalAge = block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge =
+                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
             // Bond transfers only apply to the first newly-finalized proposal.
             LibBonds.BondInstruction memory bondInstruction =

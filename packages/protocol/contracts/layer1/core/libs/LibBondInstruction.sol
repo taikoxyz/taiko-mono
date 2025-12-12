@@ -37,10 +37,9 @@ library LibBondInstruction {
     {
         uint256 proofTimestamp = block.timestamp;
         uint256 proposalDeadline = uint256(_proposalTimestamp) + _provingWindow;
-        uint256 sequentialDeadline =
-            uint256(_priorFinalizedTimestamp) + _maxProofSubmissionDelay;
+        uint256 sequentialDeadline = uint256(_priorFinalizedTimestamp) + _maxProofSubmissionDelay;
         uint256 livenessWindowDeadline = proposalDeadline.max(sequentialDeadline);
-        
+
         // On-time proof - no bond transfer needed.
         if (proofTimestamp <= livenessWindowDeadline) {
             return bondInstruction_;

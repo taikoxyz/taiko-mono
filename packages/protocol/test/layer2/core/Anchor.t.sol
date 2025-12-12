@@ -48,14 +48,7 @@ contract AnchorTest is Test {
         );
 
         BondManager bondManagerImpl = new BondManager(
-            address(token),
-            0,
-            0,
-            address(this),
-            signalService,
-            L1_INBOX,
-            L1_CHAIN_ID,
-            LIVENESS_BOND
+            address(token), 0, 0, address(this), signalService, L1_INBOX, L1_CHAIN_ID, LIVENESS_BOND
         );
         bondManager = BondManager(
             address(
@@ -65,8 +58,7 @@ contract AnchorTest is Test {
             )
         );
 
-        Anchor anchorImpl =
-            new Anchor(signalService, bondManager, LIVENESS_BOND, L1_CHAIN_ID);
+        Anchor anchorImpl = new Anchor(signalService, bondManager, LIVENESS_BOND, L1_CHAIN_ID);
         anchor = Anchor(
             address(
                 new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
