@@ -406,7 +406,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Private Functions
+    // Private State-Changing Functions
     // ---------------------------------------------------------------
 
     /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
@@ -474,39 +474,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
-    }
-
-    /// @dev Validates the batch bounds in the Commitment and calculates the offset
-    ///      to the first unfinalized proposal.
-    /// @param _state The core state.
-    /// @param _commitment The commitment data.
-    /// @return numProposals_ The number of proposals in the batch.
-    /// @return lastProposalId_ The ID of the last proposal in the batch.
-    /// @return offset_ The offset to the first unfinalized proposal.
-    function _validateCommitment(
-        CoreState memory _state,
-        Commitment memory _commitment
-    )
-        private
-        pure
-        returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
-    {
-        unchecked {
-            uint256 firstUnfinalizedId = _state.lastFinalizedProposalId + 1;
-
-            numProposals_ = _commitment.transitions.length;
-            require(numProposals_ > 0, EmptyBatch());
-            require(_commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
-
-            lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
-            require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
-            require(lastProposalId_ >= firstUnfinalizedId, LastProposalAlreadyFinalized());
-
-            // Calculate offset to first unfinalized proposal.
-            // Some proposals in _commitment.transitions[] may already be finalized.
-            // The offset points to the first proposal that will be finalized.
-            offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
-        }
     }
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
@@ -633,6 +600,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         emit Proposed(LibProposedEventCodec.encode(payload));
     }
 
+    // ---------------------------------------------------------------
+    // Private View/Pure Functions
+    // ---------------------------------------------------------------
+
+
     /// @dev Calculates remaining capacity for new proposals
     /// Subtracts unfinalized proposals from total capacity
     /// @param _nextProposalId The next proposal ID
@@ -669,6 +641,39 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(isWhitelisted, ProverNotWhitelisted());
         return true;
+    }
+
+    /// @dev Validates the batch bounds in the Commitment and calculates the offset
+    ///      to the first unfinalized proposal.
+    /// @param _state The core state.
+    /// @param _commitment The commitment data.
+    /// @return numProposals_ The number of proposals in the batch.
+    /// @return lastProposalId_ The ID of the last proposal in the batch.
+    /// @return offset_ The offset to the first unfinalized proposal.
+    function _validateCommitment(
+        CoreState memory _state,
+        Commitment memory _commitment
+    )
+        private
+        pure
+        returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
+    {
+        unchecked {
+            uint256 firstUnfinalizedId = _state.lastFinalizedProposalId + 1;
+
+            numProposals_ = _commitment.transitions.length;
+            require(numProposals_ > 0, EmptyBatch());
+            require(_commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
+
+            lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
+            require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
+            require(lastProposalId_ >= firstUnfinalizedId, LastProposalAlreadyFinalized());
+
+            // Calculate offset to first unfinalized proposal.
+            // Some proposals in _commitment.transitions[] may already be finalized.
+            // The offset points to the first proposal that will be finalized.
+            offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
+        }
     }
 
     // ---------------------------------------------------------------
