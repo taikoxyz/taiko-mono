@@ -23,7 +23,8 @@ contract InboxWhitelistProverTest is InboxTestBase {
         proverWhitelist = ProverWhitelist(
             address(
                 new ERC1967Proxy(
-                    address(proverWhitelistImpl), abi.encodeCall(ProverWhitelist.init, (address(this)))
+                    address(proverWhitelistImpl),
+                    abi.encodeCall(ProverWhitelist.init, (address(this)))
                 )
             )
         );

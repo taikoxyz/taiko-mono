@@ -20,7 +20,9 @@ contract ProverWhitelistTest is CommonTest {
         ProverWhitelist impl = new ProverWhitelist();
         proverWhitelist = ProverWhitelist(
             address(
-                new ERC1967Proxy(address(impl), abi.encodeCall(ProverWhitelist.init, (address(this))))
+                new ERC1967Proxy(
+                    address(impl), abi.encodeCall(ProverWhitelist.init, (address(this)))
+                )
             )
         );
     }
