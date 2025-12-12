@@ -112,10 +112,10 @@ contract InboxWhitelistProverTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
-    // Helpers (internal - state-changing)
+    // Helpers (private - state-changing)
     // ---------------------------------------------------------------------
 
-    function _proveAs(address _proverAddr, IInbox.ProveInput memory _input) internal {
+    function _proveAs(address _proverAddr, IInbox.ProveInput memory _input) private {
         bytes memory encodedInput = codec.encodeProveInput(_input);
         vm.prank(_proverAddr);
         inbox.prove(encodedInput, bytes("proof"));
@@ -125,7 +125,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
         uint256 _count,
         address _actualProver
     )
-        internal
+        private
         returns (IInbox.ProveInput memory input_)
     {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_count);
@@ -167,7 +167,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
-    // Helpers (internal view)
+    // Helpers (private view)
     // ---------------------------------------------------------------------
 
     function _buildInputWithProver(
@@ -176,7 +176,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
         IInbox.Transition[] memory _transitions,
         address _actualProver
     )
-        internal
+        private
         view
         returns (IInbox.ProveInput memory)
     {

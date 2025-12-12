@@ -276,7 +276,7 @@ contract InboxProposeTest is InboxTestBase {
         state_.lastFinalizedBlockHash = _stateBefore.lastFinalizedBlockHash;
     }
 
-    function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {
+    function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) private {
         uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
         vm.prank(proposer);
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(_ref);
