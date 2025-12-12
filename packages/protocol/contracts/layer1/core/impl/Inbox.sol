@@ -276,11 +276,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
 
             // `proposalAge` is the age of the next-to-finalize proposal.
-            uint256 proposalAge =   block.timestamp
-            - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge = block.timestamp
+                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
 
             if (!isWhitelistEnabled) {
-                 _processBondInstruction(commitment, offset, proposalAge);
+                _processBondInstruction(commitment, offset, proposalAge);
             }
 
             // -----------------------------------------------------------------------------
@@ -607,7 +607,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-
         LibBonds.BondInstruction memory bondInstruction = LibBondInstruction.calculateBondInstruction(
             _commitment.firstProposalId + _offset,
             _proposalAge,
