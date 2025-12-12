@@ -13,7 +13,7 @@ contract ProverChecker is EssentialContract, IProverChecker {
     // ---------------------------------------------------------------
 
     /// @notice Mapping of prover addresses to their whitelist status
-    mapping(address prover => bool isWhitelisted) public provers;
+    mapping(address prover => bool isWhitelisted) private _provers;
 
     uint256[49] private __gap;
 
@@ -40,12 +40,12 @@ contract ProverChecker is EssentialContract, IProverChecker {
     /// @param _prover The address of the prover to update
     /// @param _enabled True to enable the prover, false to disable
     function setProver(address _prover, bool _enabled) external onlyOwner {
-        provers[_prover] = _enabled;
+        _provers[_prover] = _enabled;
         emit ProverUpdated(_prover, _enabled);
     }
 
     /// @inheritdoc IProverChecker
-    function isProver(address _prover) external view returns (bool isWhitelisted_) {
-        isWhitelisted_ = provers[_prover];
+    function isProver(address _prover) external view returns (bool) {
+        return _provers[_prover];
     }
 }

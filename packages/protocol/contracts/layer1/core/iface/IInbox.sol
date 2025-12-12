@@ -17,6 +17,8 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The prover checker contract (address(0) means no whitelist)
+        address proverChecker;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The proving window in seconds
@@ -42,8 +44,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice The prover checker contract (address(0) means no whitelist)
-        address proverChecker;
     }
 
     /// @notice Represents a source of derivation data within a Derivation

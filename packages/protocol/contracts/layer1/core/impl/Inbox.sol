@@ -67,6 +67,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
+    /// @notice The prover checker contract (address(0) means no whitelist)
+    IProverChecker internal immutable _proverChecker;
+
     /// @notice Signal service responsible for checkpoints and bond signals.
     ISignalService internal immutable _signalService;
 
@@ -102,9 +105,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// becomes permissionless
     uint8 internal immutable _permissionlessInclusionMultiplier;
 
-    /// @notice The prover checker contract (address(0) means no whitelist)
-    IProverChecker internal immutable _proverChecker;
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -138,6 +138,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
+        _proverChecker = IProverChecker(_config.proverChecker);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
@@ -149,7 +150,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
-        _proverChecker = IProverChecker(_config.proverChecker);
     }
 
     // ---------------------------------------------------------------
@@ -364,6 +364,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             codec: _codec,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
+            proverChecker: address(_proverChecker),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
@@ -374,8 +375,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
             minCheckpointDelay: _minCheckpointDelay,
-            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier,
-            proverChecker: address(_proverChecker)
+            permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
 

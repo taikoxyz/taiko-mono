@@ -33,6 +33,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
             codec: address(codec),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
+            proverChecker: address(proverChecker),
             signalService: address(signalService),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
@@ -43,8 +44,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
             minCheckpointDelay: 60_000,
-            permissionlessInclusionMultiplier: 5,
-            proverChecker: address(proverChecker)
+            permissionlessInclusionMultiplier: 5
         });
     }
 

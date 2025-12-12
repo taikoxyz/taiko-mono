@@ -57,6 +57,7 @@ abstract contract InboxTestBase is CommonTest {
             codec: address(codec),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
+            proverChecker: address(0),
             signalService: address(signalService),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
@@ -67,8 +68,7 @@ abstract contract InboxTestBase is CommonTest {
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
             minCheckpointDelay: 60_000, // large enough for skipping checkpoints in prove benches
-            permissionlessInclusionMultiplier: 5,
-            proverChecker: address(0)
+            permissionlessInclusionMultiplier: 5
         });
     }
 
