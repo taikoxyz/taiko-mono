@@ -38,14 +38,14 @@ contract ProverCheckerTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // setProver tests
+    // whitelistProver tests
     // ---------------------------------------------------------------
 
-    function test_setProver_enablesProver() public {
+    function test_whitelistProver_enablesProver() public {
         vm.expectEmit(true, false, false, true);
         emit ProverUpdated(prover1, true);
 
-        proverChecker.setProver(prover1, true);
+        proverChecker.whitelistProver(prover1, true);
 
         (bool isWhitelisted, uint256 count) = proverChecker.isProverWhitelisted(prover1);
         assertTrue(isWhitelisted);
@@ -53,13 +53,13 @@ contract ProverCheckerTest is CommonTest {
         assertEq(proverChecker.proverCount(), 1);
     }
 
-    function test_setProver_disablesProver() public {
-        proverChecker.setProver(prover1, true);
+    function test_whitelistProver_disablesProver() public {
+        proverChecker.whitelistProver(prover1, true);
 
         vm.expectEmit(true, false, false, true);
         emit ProverUpdated(prover1, false);
 
-        proverChecker.setProver(prover1, false);
+        proverChecker.whitelistProver(prover1, false);
 
         (bool isWhitelisted, uint256 count) = proverChecker.isProverWhitelisted(prover1);
         assertFalse(isWhitelisted);
@@ -67,10 +67,10 @@ contract ProverCheckerTest is CommonTest {
         assertEq(proverChecker.proverCount(), 0);
     }
 
-    function test_setProver_multipleProvers() public {
-        proverChecker.setProver(prover1, true);
-        proverChecker.setProver(prover2, true);
-        proverChecker.setProver(prover3, true);
+    function test_whitelistProver_multipleProvers() public {
+        proverChecker.whitelistProver(prover1, true);
+        proverChecker.whitelistProver(prover2, true);
+        proverChecker.whitelistProver(prover3, true);
 
         assertEq(proverChecker.proverCount(), 3);
 
@@ -83,29 +83,29 @@ contract ProverCheckerTest is CommonTest {
         assertTrue(isWhitelisted3);
 
         // Disable one
-        proverChecker.setProver(prover2, false);
+        proverChecker.whitelistProver(prover2, false);
         assertEq(proverChecker.proverCount(), 2);
 
         (isWhitelisted2,) = proverChecker.isProverWhitelisted(prover2);
         assertFalse(isWhitelisted2);
     }
 
-    function test_setProver_RevertWhen_CallerNotOwner() public {
+    function test_whitelistProver_RevertWhen_CallerNotOwner() public {
         vm.prank(prover1);
         vm.expectRevert();
-        proverChecker.setProver(prover1, true);
+        proverChecker.whitelistProver(prover1, true);
     }
 
-    function test_setProver_RevertWhen_AlreadyEnabled() public {
-        proverChecker.setProver(prover1, true);
+    function test_whitelistProver_RevertWhen_AlreadyEnabled() public {
+        proverChecker.whitelistProver(prover1, true);
 
-        vm.expectRevert(ProverChecker.ProverAlreadySet.selector);
-        proverChecker.setProver(prover1, true);
+        vm.expectRevert(ProverChecker.ProverWhitelistedAlready.selector);
+        proverChecker.whitelistProver(prover1, true);
     }
 
-    function test_setProver_RevertWhen_AlreadyDisabled() public {
-        vm.expectRevert(ProverChecker.ProverAlreadySet.selector);
-        proverChecker.setProver(prover1, false);
+    function test_whitelistProver_RevertWhen_AlreadyDisabled() public {
+        vm.expectRevert(ProverChecker.ProverWhitelistedAlready.selector);
+        proverChecker.whitelistProver(prover1, false);
     }
 
     // ---------------------------------------------------------------
@@ -113,7 +113,7 @@ contract ProverCheckerTest is CommonTest {
     // ---------------------------------------------------------------
 
     function test_isProverWhitelisted_returnsFalseWhenNotWhitelisted() public {
-        proverChecker.setProver(prover1, true);
+        proverChecker.whitelistProver(prover1, true);
 
         (bool isWhitelisted, uint256 count) = proverChecker.isProverWhitelisted(prover2);
         assertFalse(isWhitelisted);
@@ -127,8 +127,8 @@ contract ProverCheckerTest is CommonTest {
     }
 
     function test_isProverWhitelisted_returnsCorrectCount() public {
-        proverChecker.setProver(prover1, true);
-        proverChecker.setProver(prover2, true);
+        proverChecker.whitelistProver(prover1, true);
+        proverChecker.whitelistProver(prover2, true);
 
         (, uint256 count1) = proverChecker.isProverWhitelisted(prover1);
         (, uint256 count2) = proverChecker.isProverWhitelisted(prover2);

@@ -27,7 +27,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 )
             )
         );
-        proverChecker.setProver(whitelistedProver, true);
+        proverChecker.whitelistProver(whitelistedProver, true);
 
         return IInbox.Config({
             codec: address(codec),

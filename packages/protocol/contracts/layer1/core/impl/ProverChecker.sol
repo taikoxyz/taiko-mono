@@ -42,9 +42,9 @@ contract ProverChecker is EssentialContract, IProverChecker {
     /// @notice Enables or disables a prover
     /// @param _prover The address of the prover to update
     /// @param _enabled True to enable the prover, false to disable
-    function setProver(address _prover, bool _enabled) external onlyOwner {
+    function whitelistProver(address _prover, bool _enabled) external onlyOwner {
         bool currentStatus = _provers[_prover];
-        require(currentStatus != _enabled, ProverAlreadySet());
+        require(currentStatus != _enabled, ProverWhitelistedAlready());
 
         _provers[_prover] = _enabled;
         if (_enabled) {
@@ -71,5 +71,5 @@ contract ProverChecker is EssentialContract, IProverChecker {
     // Errors
     // ---------------------------------------------------------------
 
-    error ProverAlreadySet();
+    error ProverWhitelistedAlready();
 }
