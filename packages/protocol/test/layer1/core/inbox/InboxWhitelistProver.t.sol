@@ -7,33 +7,33 @@ import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverChecker } from "src/layer1/core/impl/ProverChecker.sol";
+import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract InboxWhitelistProverTest is InboxTestBase {
     address internal whitelistedProver = address(0x1234);
-    ProverChecker internal proverChecker;
+    ProverWhitelist internal proverWhitelist;
 
     function _buildConfig() internal override returns (IInbox.Config memory) {
         codec = ICodec(new Codec());
 
-        // Deploy and setup ProverChecker
-        ProverChecker proverCheckerImpl = new ProverChecker();
-        proverChecker = ProverChecker(
+        // Deploy and setup ProverWhitelist
+        ProverWhitelist proverWhitelistImpl = new ProverWhitelist();
+        proverWhitelist = ProverWhitelist(
             address(
                 new ERC1967Proxy(
-                    address(proverCheckerImpl), abi.encodeCall(ProverChecker.init, (address(this)))
+                    address(proverWhitelistImpl), abi.encodeCall(ProverWhitelist.init, (address(this)))
                 )
             )
         );
-        proverChecker.whitelistProver(whitelistedProver, true);
+        proverWhitelist.whitelistProver(whitelistedProver, true);
 
         return IInbox.Config({
             codec: address(codec),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
-            proverChecker: address(proverChecker),
+            proverWhitelist: address(proverWhitelist),
             signalService: address(signalService),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,

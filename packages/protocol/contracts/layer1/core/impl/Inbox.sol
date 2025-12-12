@@ -68,7 +68,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     IProposerChecker internal immutable _proposerChecker;
 
     /// @notice The prover whitelist contract (address(0) means no whitelist)
-    IProverWhitelist internal immutable _proverChecker;
+    IProverWhitelist internal immutable _proverWhitelist;
 
     /// @notice Signal service responsible for checkpoints and bond signals.
     ISignalService internal immutable _signalService;
@@ -138,7 +138,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverChecker = IProverWhitelist(_config.proverChecker);
+        _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
@@ -364,7 +364,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             codec: _codec,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
-            proverChecker: address(_proverChecker),
+            proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
@@ -655,9 +655,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Checks if the caller is an authorized prover
     /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
     function _checkProver() private view returns (bool whitelistEnabled_) {
-        if (address(_proverChecker) == address(0)) return false;
+        if (address(_proverWhitelist) == address(0)) return false;
 
-        (bool isWhitelisted, uint256 proverCount) = _proverChecker.isProverWhitelisted(msg.sender);
+        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(msg.sender);
         require(proverCount == 0 || isWhitelisted, OnlyWhitelistedProverCanCall());
         return proverCount != 0;
     }

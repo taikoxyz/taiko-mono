@@ -33,14 +33,14 @@ contract MainnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _proverChecker,
+        address _proverWhitelist,
         address _codec
     )
         Inbox(Config({
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                proverChecker: _proverChecker,
+                proverWhitelist: _proverWhitelist,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
                 provingWindow: 4 hours,
                 extendedProvingWindow: 8 hours,

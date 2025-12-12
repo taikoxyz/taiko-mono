@@ -10,7 +10,7 @@ import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
 import "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverChecker } from "src/layer1/core/impl/ProverChecker.sol";
+import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
 import "src/layer1/devnet/OpVerifier.sol";
@@ -184,13 +184,13 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
-        // Deploy prover checker
-        address proverChecker = deployProxy({
-            name: "prover_checker",
-            impl: address(new ProverChecker()),
-            data: abi.encodeCall(ProverChecker.init, (config.contractOwner))
+        // Deploy prover whitelist
+        address proverWhitelist = deployProxy({
+            name: "prover_whitelist",
+            impl: address(new ProverWhitelist()),
+            data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
         });
-        console2.log("ProverChecker deployed:", proverChecker);
+        console2.log("ProverWhitelist deployed:", proverWhitelist);
 
         // Get dependencies
         address signalService =
@@ -212,7 +212,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "shasta_inbox",
             impl: address(
                 new DevnetInbox(
-                    proofVerifier, whitelist, proverChecker, signalService, address(new Codec())
+                    proofVerifier, whitelist, proverWhitelist, signalService, address(new Codec())
                 )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))

@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "../iface/IProverWhitelist.sol";
 import "src/shared/common/EssentialContract.sol";
 
-/// @title ProverChecker
+/// @title ProverWhitelist
 /// @notice Contract for managing whitelisted provers using a mapping
 /// @custom:security-contact security@taiko.xyz
-contract ProverChecker is EssentialContract, IProverWhitelist {
+contract ProverWhitelist is EssentialContract, IProverWhitelist {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
