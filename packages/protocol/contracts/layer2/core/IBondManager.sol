@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { LibBonds } from "src/shared/libs/LibBonds.sol";
+
 /// @title IBondManager
 /// @notice Interface for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
@@ -51,8 +53,13 @@ interface IBondManager {
     /// @notice Emitted when a withdrawal request is cancelled
     event WithdrawalCancelled(address indexed account);
 
+    /// @notice Emitted when a bond signal is processed.
+    event BondSignalProcessed(
+        bytes32 indexed signal, LibBonds.BondInstruction instruction, uint256 debitedAmount
+    );
+
     // ---------------------------------------------------------------
-    // External Functions
+    // Transactional Functions
     // ---------------------------------------------------------------
 
     /// @notice Debits a bond from an address with best effort
@@ -73,11 +80,6 @@ interface IBondManager {
     /// @param _bond The amount of bond to credit
     function creditBond(address _address, uint256 _bond) external;
 
-    /// @notice Gets the bond balance of an address
-    /// @param _address The address to get the bond balance for
-    /// @return The bond balance of the address
-    function getBondBalance(address _address) external view returns (uint256);
-
     /// @notice Deposit ERC20 bond tokens into the manager.
     /// @dev Does not cancel a pending withdrawal; callers must invoke `cancelWithdrawal` to
     /// reactivate their bond status.
@@ -97,6 +99,34 @@ interface IBondManager {
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
 
+    /// @notice Request to start the withdrawal process
+    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal. Proposers
+    /// should self-eject before calling to avoid having subsequent proposals classified as
+    /// low-bond.
+    function requestWithdrawal() external;
+
+    /// @notice Cancel withdrawal request to reactivate the account
+    /// @dev Can be called during or after the withdrawal delay period
+    function cancelWithdrawal() external;
+
+    /// @notice Processes a proved bond signal from L1 with best-effort debits/credits.
+    /// @param _instruction Bond instruction tied to the signal.
+    /// @param _proof Merkle proof that the signal was sent on L1.
+    function processBondSignal(
+        LibBonds.BondInstruction calldata _instruction,
+        bytes calldata _proof
+    )
+        external;
+
+    // ---------------------------------------------------------------
+    // View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Gets the bond balance of an address
+    /// @param _address The address to get the bond balance for
+    /// @return The bond balance of the address
+    function getBondBalance(address _address) external view returns (uint256);
+
     /// @notice Checks if an account has sufficient bond and hasn't requested withdrawal
     /// @param _address The address to check
     /// @param _additionalBond The additional bond required the account has to have on top of the
@@ -109,14 +139,4 @@ interface IBondManager {
         external
         view
         returns (bool);
-
-    /// @notice Request to start the withdrawal process
-    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal. Proposers
-    /// should self-eject before calling to avoid having subsequent proposals classified as
-    /// low-bond.
-    function requestWithdrawal() external;
-
-    /// @notice Cancel withdrawal request to reactivate the account
-    /// @dev Can be called during or after the withdrawal delay period
-    function cancelWithdrawal() external;
 }
