@@ -296,17 +296,7 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         return bond[_address].balance;
     }
 
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
 
-    /// @notice Emitted when a bond instruction is processed.
-    /// @param msgHash The hash of the bridge message.
-    /// @param instruction The bond instruction that was processed.
-    /// @param debitedAmount The amount debited from the payer.
-    event BondInstructionProcessed(
-        bytes32 indexed msgHash, LibBonds.BondInstruction instruction, uint256 debitedAmount
-    );
 
     // ---------------------------------------------------------------
     // Errors
