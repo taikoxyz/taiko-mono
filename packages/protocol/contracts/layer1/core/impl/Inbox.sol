@@ -392,8 +392,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         });
     }
 
+    /// @inheritdoc IInbox
+    function getCoreState() external view returns (CoreState memory) {
+        return _coreState;
+    }
+
+    /// @inheritdoc IInbox
+    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
+    /// may have been overwritten by a new one. You should verify that the hash matches the
+    /// expected proposal.
+    function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
+        return _proposalHashes[_proposalId % _ringBufferSize];
+    }
+
     // ---------------------------------------------------------------
-    // Internal and Private Functions
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
@@ -456,23 +469,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             });
         }
     }
-
-    /// @inheritdoc IInbox
-    function getCoreState() external view returns (CoreState memory) {
-        return _coreState;
-    }
-
-    /// @inheritdoc IInbox
-    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
-    /// may have been overwritten by a new one. You should verify that the hash matches the
-    /// expected proposal.
-    function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
-        return _proposalHashes[_proposalId % _ringBufferSize];
-    }
-
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
