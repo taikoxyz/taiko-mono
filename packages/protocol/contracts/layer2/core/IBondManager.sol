@@ -18,6 +18,14 @@ interface IBondManager {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+  
+    /// @notice Emitted when a bond instruction is processed.
+    /// @param msgHash The hash of the bridge message.
+    /// @param instruction The bond instruction that was processed.
+    /// @param debitedAmount The amount debited from the payer.
+    event BondInstructionProcessed(
+        bytes32 indexed msgHash, LibBonds.BondInstruction instruction, uint256 debitedAmount
+    );
 
     /// @notice Emitted when a bond is debited from an address
     /// @param account The account from which the bond was debited
