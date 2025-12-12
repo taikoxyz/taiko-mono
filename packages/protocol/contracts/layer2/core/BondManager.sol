@@ -104,7 +104,6 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-       
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata _data) external payable whenNotPaused nonReentrant {
         if (msg.sender != bridge) revert InvalidCaller();
@@ -117,18 +116,32 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
         _processBondInstruction(ctx.msgHash, instruction);
     }
 
-  /// @inheritdoc IBondManager
-    function debitBond(address _address, uint256 _amount) external onlyFrom(anchor) nonReentrant returns (uint256) {
+    /// @inheritdoc IBondManager
+    function debitBond(
+        address _address,
+        uint256 _amount
+    )
+        external
+        onlyFrom(anchor)
+        nonReentrant
+        returns (uint256)
+    {
         require(msg.sender == anchor, InvalidCaller());
         return _debitBond(_address, _amount);
     }
 
     /// @inheritdoc IBondManager
-    function creditBond(address _address, uint256 _amount) external onlyFrom(anchor) nonReentrant  {
+    function creditBond(
+        address _address,
+        uint256 _amount
+    )
+        external
+        onlyFrom(anchor)
+        nonReentrant
+    {
         require(msg.sender == anchor, InvalidCaller());
         _creditBond(_address, _amount);
     }
- 
 
     /// @inheritdoc IBondManager
     function deposit(address _recipient, uint256 _amount) external nonReentrant {
@@ -173,8 +186,6 @@ contract BondManager is EssentialContract, IBondManager, IMessageInvocable {
 
         _withdraw(msg.sender, _to, _amount);
     }
-
-  
 
     // ---------------------------------------------------------------
     // External View Functions

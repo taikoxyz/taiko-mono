@@ -340,12 +340,12 @@ contract Anchor is EssentialContract {
     function _validateProposal(ProposalParams calldata _proposalParams) private {
         uint256 proverFee;
         (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-        getDesignatedProver(
-            _proposalParams.proposalId,
-            _proposalParams.proposer,
-            _proposalParams.proverAuth,
-            _proposalState.designatedProver
-        );
+            getDesignatedProver(
+                _proposalParams.proposalId,
+                _proposalParams.proposer,
+                _proposalParams.proverAuth,
+                _proposalState.designatedProver
+            );
 
         if (proverFee > 0) {
             uint256 debited = bondManager.debitBond(_proposalParams.proposer, proverFee);
