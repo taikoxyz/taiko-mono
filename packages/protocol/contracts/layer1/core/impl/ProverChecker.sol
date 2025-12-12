@@ -15,7 +15,10 @@ contract ProverChecker is EssentialContract, IProverChecker {
     /// @notice Mapping of prover addresses to their whitelist status
     mapping(address prover => bool isWhitelisted) private _provers;
 
-    uint256[49] private __gap;
+    /// @notice The total number of whitelisted provers
+    uint256 public proverCount;
+
+    uint256[48] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -40,12 +43,29 @@ contract ProverChecker is EssentialContract, IProverChecker {
     /// @param _prover The address of the prover to update
     /// @param _enabled True to enable the prover, false to disable
     function setProver(address _prover, bool _enabled) external onlyOwner {
+        bool currentStatus = _provers[_prover];
+        require(currentStatus != _enabled, ProverAlreadySet());
+
         _provers[_prover] = _enabled;
+        if (_enabled) {
+            ++proverCount;
+        } else {
+            --proverCount;
+        }
         emit ProverUpdated(_prover, _enabled);
     }
 
     /// @inheritdoc IProverChecker
-    function isProver(address _prover) external view returns (bool) {
-        return _provers[_prover];
+    function isProver(address _prover) external view returns (bool isWhitelisted_, uint256 proverCount_) {
+        proverCount_ = proverCount;
+        if (proverCount_ > 0) {
+            isWhitelisted_ = _provers[_prover];
+        }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error ProverAlreadySet();
 }

@@ -243,7 +243,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-            bool isWhitelistedProver = _isWhitelistedProver();
+            bool isWhitelistedProver = _checkProver();
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -583,11 +583,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    function _isWhitelistedProver() private view returns (bool) {
-        if (address(_proverChecker) == address(0)) return false;
-        bool isWhitelisted = _proverChecker.isProver(msg.sender);
-        require(isWhitelisted, OnlyWhitelistedProverCanCall());
-        return true;
+    function _checkProver() private view returns (bool) {
+        (bool isWhitelisted, uint256 proverCount) = _proverChecker.isProver(msg.sender);
+        require(proverCount == 0 || isWhitelisted, OnlyWhitelistedProverCanCall());
+        return isWhitelisted;
     }
 
     /// @dev Calculates proposal age and emits bond instruction if applicable.

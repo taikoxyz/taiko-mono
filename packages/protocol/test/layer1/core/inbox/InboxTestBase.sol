@@ -8,6 +8,7 @@ import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ProverChecker } from "src/layer1/core/impl/ProverChecker.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
@@ -24,6 +25,7 @@ abstract contract InboxTestBase is CommonTest {
     MockProofVerifier internal verifier;
     SignalService internal signalService;
     PreconfWhitelist internal proposerChecker;
+    ProverChecker internal proverCheckerContract;
 
     address internal proposer = Bob;
     address internal prover = Carol;
@@ -57,7 +59,7 @@ abstract contract InboxTestBase is CommonTest {
             codec: address(codec),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
-            proverChecker: address(0),
+            proverChecker: address(proverCheckerContract),
             signalService: address(signalService),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
@@ -160,6 +162,7 @@ abstract contract InboxTestBase is CommonTest {
     function _setupDependencies() internal virtual {
         signalService = _deploySignalService(address(this));
         proposerChecker = _deployProposerChecker();
+        proverCheckerContract = _deployProverChecker();
         _addProposer(proposer);
     }
 
@@ -184,6 +187,17 @@ abstract contract InboxTestBase is CommonTest {
             address(
                 new ERC1967Proxy(
                     address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))
+                )
+            )
+        );
+    }
+
+    function _deployProverChecker() internal returns (ProverChecker) {
+        ProverChecker impl = new ProverChecker();
+        return ProverChecker(
+            address(
+                new ERC1967Proxy(
+                    address(impl), abi.encodeCall(ProverChecker.init, (address(this)))
                 )
             )
         );

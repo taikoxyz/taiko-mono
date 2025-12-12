@@ -8,5 +8,9 @@ interface IProverChecker {
     /// @notice Checks if an address is a whitelisted prover
     /// @param _prover The address to check
     /// @return isWhitelisted_ True if the address is whitelisted, false otherwise
-    function isProver(address _prover) external view returns (bool isWhitelisted_);
+    /// @return proverCount_ The total number of whitelisted provers
+    function isProver(address _prover)
+        external
+        view
+        returns (bool isWhitelisted_, uint256 proverCount_);
 }
