@@ -31,7 +31,7 @@ contract Proposal0007 is BuildProposal {
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
     {
         l2ExecutionId = 7;
-        l2GasLimit = 500_000;
+        l2GasLimit = 1_000_000;
         actions = new Controller.Action[](1);
 
         // Upgrade TaikoAnchor to update BASEFEE_MIN_VALUE
