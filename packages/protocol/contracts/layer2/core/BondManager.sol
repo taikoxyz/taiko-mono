@@ -105,7 +105,7 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     // ---------------------------------------------------------------
-    // External Functions
+    // External Transactional Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc IBondManager
@@ -123,11 +123,6 @@ contract BondManager is EssentialContract, IBondManager {
     /// @inheritdoc IBondManager
     function creditBond(address _address, uint256 _bond) external onlyFrom(bondOperator) {
         _creditBond(_address, _bond);
-    }
-
-    /// @inheritdoc IBondManager
-    function getBondBalance(address _address) external view returns (uint256) {
-        return _getBondBalance(_address);
     }
 
     /// @inheritdoc IBondManager
@@ -151,16 +146,19 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function hasSufficientBond(
-        address _address,
-        uint256 _additionalBond
-    )
-        external
-        view
-        returns (bool)
-    {
-        Bond storage bond_ = bond[_address];
-        return bond_.balance >= minBond + _additionalBond && bond_.withdrawalRequestedAt == 0;
+    function withdraw(address _to, uint256 _amount) external nonReentrant {
+        Bond storage bond_ = bond[msg.sender];
+
+        if (
+            bond_.withdrawalRequestedAt == 0
+                || block.timestamp < bond_.withdrawalRequestedAt + withdrawalDelay
+        ) {
+            // Active account or withdrawal delay not passed yet, can only withdraw excess above
+            // minBond
+            require(bond_.balance - _amount >= minBond, MustMaintainMinBond());
+        }
+
+        _withdraw(msg.sender, _to, _amount);
     }
 
     /// @inheritdoc IBondManager
@@ -180,22 +178,6 @@ contract BondManager is EssentialContract, IBondManager {
 
         bond_.withdrawalRequestedAt = 0;
         emit WithdrawalCancelled(msg.sender);
-    }
-
-    /// @inheritdoc IBondManager
-    function withdraw(address _to, uint256 _amount) external nonReentrant {
-        Bond storage bond_ = bond[msg.sender];
-
-        if (
-            bond_.withdrawalRequestedAt == 0
-                || block.timestamp < bond_.withdrawalRequestedAt + withdrawalDelay
-        ) {
-            // Active account or withdrawal delay not passed yet, can only withdraw excess above
-            // minBond
-            require(bond_.balance - _amount >= minBond, MustMaintainMinBond());
-        }
-
-        _withdraw(msg.sender, _to, _amount);
     }
 
     /// @inheritdoc IBondManager
@@ -242,6 +224,28 @@ contract BondManager is EssentialContract, IBondManager {
         }
 
         emit BondInstructionProcessed(signal, _instruction, debited);
+    }
+
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc IBondManager
+    function getBondBalance(address _address) external view returns (uint256) {
+        return _getBondBalance(_address);
+    }
+
+    /// @inheritdoc IBondManager
+    function hasSufficientBond(
+        address _address,
+        uint256 _additionalBond
+    )
+        external
+        view
+        returns (bool)
+    {
+        Bond storage bond_ = bond[_address];
+        return bond_.balance >= minBond + _additionalBond && bond_.withdrawalRequestedAt == 0;
     }
 
     // ---------------------------------------------------------------
