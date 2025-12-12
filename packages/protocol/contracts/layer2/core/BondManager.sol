@@ -126,7 +126,7 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
+    function deposit(address _recipient, uint256 _amount) external nonReentrant {
         address recipient = _recipient == address(0) ? msg.sender : _recipient;
 
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);

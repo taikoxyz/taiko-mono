@@ -87,13 +87,13 @@ contract AnchorTest is Test {
         token.mint(proposer, INITIAL_PROPOSER_BOND);
         vm.startPrank(proposer);
         token.approve(address(bondManager), type(uint256).max);
-        bondManager.depositTo(address(0), INITIAL_PROPOSER_BOND);
+        bondManager.deposit(address(0), INITIAL_PROPOSER_BOND);
         vm.stopPrank();
 
         token.mint(proverCandidate, INITIAL_PROVER_BOND);
         vm.startPrank(proverCandidate);
         token.approve(address(bondManager), type(uint256).max);
-        bondManager.depositTo(address(0), INITIAL_PROVER_BOND);
+        bondManager.deposit(address(0), INITIAL_PROVER_BOND);
         vm.stopPrank();
     }
 

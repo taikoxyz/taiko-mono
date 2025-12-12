@@ -80,7 +80,7 @@ interface IBondManager {
     /// `cancelWithdrawal` to reactivate their bond status.
     /// @param _recipient The address to credit the bond to. If zero, credits msg.sender.
     /// @param _amount The amount to deposit.
-    function depositTo(address _recipient, uint256 _amount) external;
+    function deposit(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev Withdrawals are subject to a delay so that bond operations can be resolved properly.
