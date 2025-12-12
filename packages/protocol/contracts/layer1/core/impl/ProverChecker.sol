@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../iface/IProverChecker.sol";
+import "../iface/IProverWhitelist.sol";
 import "src/shared/common/EssentialContract.sol";
 
 /// @title ProverChecker
 /// @notice Contract for managing whitelisted provers using a mapping
 /// @custom:security-contact security@taiko.xyz
-contract ProverChecker is EssentialContract, IProverChecker {
+contract ProverChecker is EssentialContract, IProverWhitelist {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -55,7 +55,7 @@ contract ProverChecker is EssentialContract, IProverChecker {
         emit ProverWhitelisted(_prover, _enabled);
     }
 
-    /// @inheritdoc IProverChecker
+    /// @inheritdoc IProverWhitelist
     function isProverWhitelisted(address _prover)
         external
         view

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IProverChecker
+/// @title IProverWhitelist
 /// @notice Interface for checking if an address is authorized to prove blocks
 /// @custom:security-contact security@taiko.xyz
-interface IProverChecker {
+interface IProverWhitelist {
     /// @notice Checks if an address is a whitelisted prover
     /// @param _prover The address to check
     /// @return isWhitelisted_ True if the address is whitelisted, false otherwise

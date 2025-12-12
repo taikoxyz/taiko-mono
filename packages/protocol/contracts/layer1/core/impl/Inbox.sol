@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { IProverChecker } from "../iface/IProverChecker.sol";
+import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -67,8 +67,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
-    /// @notice The prover checker contract (address(0) means no whitelist)
-    IProverChecker internal immutable _proverChecker;
+    /// @notice The prover whitelist contract (address(0) means no whitelist)
+    IProverWhitelist internal immutable _proverChecker;
 
     /// @notice Signal service responsible for checkpoints and bond signals.
     ISignalService internal immutable _signalService;
@@ -138,7 +138,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverChecker = IProverChecker(_config.proverChecker);
+        _proverChecker = IProverWhitelist(_config.proverChecker);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
