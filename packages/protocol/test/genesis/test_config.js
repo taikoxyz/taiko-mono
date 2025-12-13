@@ -117,7 +117,6 @@ module.exports = {
   },
   predeployERC20: true,
   livenessBondGwei: 128_000_000_000,
-  provabilityBondGwei: 128_000_000_000,
   withdrawalDelay: 3600,
   minBond: 0,
   bondToken: "0x0000000000000000000000000000000000000000",

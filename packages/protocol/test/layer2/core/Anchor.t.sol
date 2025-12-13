@@ -11,7 +11,6 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 
 contract AnchorTest is Test {
     uint256 private constant LIVENESS_BOND = 5 ether;
-    uint256 private constant PROVABILITY_BOND = 7 ether;
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
     address private constant L1_INBOX = address(0xBEEF);
@@ -49,15 +48,7 @@ contract AnchorTest is Test {
         );
 
         BondManager bondManagerImpl = new BondManager(
-            address(token),
-            0,
-            0,
-            address(this),
-            signalService,
-            L1_INBOX,
-            L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            address(token), 0, 0, address(this), signalService, L1_INBOX, L1_CHAIN_ID, LIVENESS_BOND
         );
         bondManager = BondManager(
             address(
@@ -67,8 +58,7 @@ contract AnchorTest is Test {
             )
         );
 
-        Anchor anchorImpl =
-            new Anchor(signalService, bondManager, LIVENESS_BOND, PROVABILITY_BOND, L1_CHAIN_ID);
+        Anchor anchorImpl = new Anchor(signalService, bondManager, LIVENESS_BOND, L1_CHAIN_ID);
         anchor = Anchor(
             address(
                 new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
@@ -83,8 +73,7 @@ contract AnchorTest is Test {
             signalService,
             L1_INBOX,
             L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            LIVENESS_BOND
         );
         bondManager.upgradeTo(address(anchorBondManagerImpl));
 

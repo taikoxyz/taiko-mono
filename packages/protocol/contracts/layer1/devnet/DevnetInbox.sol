@@ -43,7 +43,7 @@ contract DevnetInbox is Inbox {
                 proverWhitelist: _proverWhitelist,
                 signalService: _signalService,
                 provingWindow: 2 hours,
-                extendedProvingWindow: 4 hours,
+                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,

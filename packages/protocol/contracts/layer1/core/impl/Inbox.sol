@@ -6,7 +6,6 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
@@ -77,8 +76,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
-    /// @notice The extended proving window in seconds.
-    uint48 internal immutable _extendedProvingWindow;
+    /// @notice Maximum delay allowed between sequential proofs to remain on time.
+    uint48 internal immutable _maxProofSubmissionDelay;
 
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 internal immutable _ringBufferSize;
@@ -142,7 +141,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
-        _extendedProvingWindow = _config.extendedProvingWindow;
+        _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
         _minForcedInclusionCount = _config.minForcedInclusionCount;
@@ -272,14 +271,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Calculate proposal age and process bond instruction
+            // 3. Process bond instruction
             // ---------------------------------------------------------
-
-            // `proposalAge` is the age of the next-to-finalize proposal.
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-
+            // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset, proposalAge);
+                _processBondInstruction(commitment, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -312,6 +308,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
+            // We count the proposalAge as the time since it became available for proving.
+            uint256 proposalAge = block.timestamp
+                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             _proofVerifier.verifyProof(
                 proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
             );
@@ -379,7 +378,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
+            maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
@@ -558,33 +557,38 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Calculates proposal age and emits bond instruction if applicable.
+    /// @dev Calculates and emits bond instruction if applicable.
+    /// @dev Bond instruction rules:
+    ///      - On-time (within provingWindow + sequential grace): No bond changes.
+    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
+    ///        same address (L2 processing handles slashing/reward splits).
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    /// @param _proposalAge The age of the next to finalize proposal.
     function _processBondInstruction(
         Commitment memory _commitment,
-        uint48 _offset,
-        uint256 _proposalAge
+        uint48 _offset
     )
         private
     {
         unchecked {
-            LibBonds.BondInstruction memory bondInstruction =
-                LibBondInstruction.calculateBondInstruction(
-                    _commitment.firstProposalId + _offset,
-                    _proposalAge,
-                    _commitment.transitions[_offset].proposer,
-                    _commitment.transitions[_offset].designatedProver,
-                    _commitment.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
-                );
+            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
+                    + _provingWindow)
+            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
-            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            // On-time proof - no bond transfer needed.
+            if (block.timestamp <= livenessWindowDeadline) {
+                return;
             }
+
+            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
+                proposalId: _commitment.firstProposalId + _offset,
+                bondType: LibBonds.BondType.LIVENESS,
+                payer: _commitment.transitions[_offset].designatedProver,
+                payee: _commitment.actualProver
+            });
+
+            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
         }
     }
 
