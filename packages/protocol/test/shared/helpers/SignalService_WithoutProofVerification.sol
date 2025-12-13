@@ -11,9 +11,10 @@ import "src/shared/signal/SignalService.sol";
 contract SignalService_WithoutProofVerification is SignalService {
     constructor(
         address authorizedSyncer,
-        address remoteSignalService
+        address remoteSignalService,
+        uint256 _legacySlotExpiry
     )
-        SignalService(authorizedSyncer, remoteSignalService)
+        SignalService(authorizedSyncer, remoteSignalService, _legacySlotExpiry)
     { }
 
     function proveSignalReceived(

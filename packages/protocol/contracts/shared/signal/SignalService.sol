@@ -26,9 +26,6 @@ contract SignalService is EssentialContract, ISignalService {
     bytes32 private constant _SIGNAL_NAMESPACE =
         0x5f95a88415cd5f00e8294a1869c7704fe444fc32297815093cecf5b3769dc600;
 
-    /// @dev Duration after deployment during which legacy slot fallback is active (1 year).
-    uint256 private constant _LEGACY_SLOT_SUPPORT_DURATION = 365 days;
-
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -53,7 +50,6 @@ contract SignalService is EssentialContract, ISignalService {
     address internal immutable _remoteSignalService;
 
     /// @dev Timestamp after which legacy slot fallback will no longer be performed.
-    /// Set to deployment time + 1 year.
     uint256 public immutable legacySlotExpiry;
 
     // ---------------------------------------------------------------
@@ -80,13 +76,13 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService) {
+    constructor(address authorizedSyncer, address remoteSignalService, uint256 _legacySlotExpiry) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
-        legacySlotExpiry = block.timestamp + _LEGACY_SLOT_SUPPORT_DURATION;
+        legacySlotExpiry = _legacySlotExpiry;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -163,8 +159,6 @@ contract SignalService is EssentialContract, ISignalService {
         pure
         returns (bytes32)
     {
-        // EfficientHashLib.hash produces the same result as keccak256(abi.encode(...))
-        // when values are properly padded to 32 bytes
         return EfficientHashLib.hash(
             _SIGNAL_NAMESPACE, bytes32(uint256(_chainId)), bytes32(uint256(uint160(_app))), _signal
         );
@@ -172,7 +166,6 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Returns the legacy slot for a signal (pre-EIP-7201).
     /// @dev This is the old slot calculation method, kept for backwards compatibility during migration.
-    /// This function will be removed after the migration period (approximately 1 year after upgrade).
     /// @param _chainId The chainId of the signal.
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) that was sent.
