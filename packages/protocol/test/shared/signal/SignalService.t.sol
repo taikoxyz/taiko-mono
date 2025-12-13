@@ -257,7 +257,8 @@ contract TestSignalService is CommonTest {
 
     function test_verifySignalReceived_FindsCachedLegacySignal_BeforeExpiry() public {
         // Cache signal in legacy slot by writing to _receivedSignals mapping
-        bytes32 legacySlot = signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 legacySlot =
+            signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
 
         // The _receivedSignals mapping is at storage slot 253 (see SignalService_Layout.sol)
         // mapping slot = keccak256(key . slot)
@@ -276,7 +277,8 @@ contract TestSignalService is CommonTest {
 
     function test_verifySignalReceived_IgnoresCachedLegacySignal_AfterExpiry() public {
         // Cache signal in legacy slot by writing to _receivedSignals mapping
-        bytes32 legacySlot = signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 legacySlot =
+            signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
 
         // The _receivedSignals mapping is at storage slot 253
         bytes32 mappingSlot = keccak256(abi.encode(legacySlot, uint256(253)));
@@ -314,7 +316,8 @@ contract TestSignalService is CommonTest {
     function test_verifySignalReceived_PrefersNewSlotCacheOverLegacy() public {
         // Cache signal in both slots
         bytes32 newSlot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
-        bytes32 legacySlot = signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 legacySlot =
+            signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
 
         // The _receivedSignals mapping is at storage slot 253
         bytes32 newMappingSlot = keccak256(abi.encode(newSlot, uint256(253)));
