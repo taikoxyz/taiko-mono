@@ -348,9 +348,8 @@ contract SignalService is EssentialContract, ISignalService {
             proof.accountProof,
             proof.storageProof
         ) {
-            return;
         } catch {
-            require (block.timestamp < legacySlotExpiry, SS_LEGACY_SLOT_EXPIRED());
+            if (block.timestamp >= legacySlotExpiry) revert SS_SIGNAL_NOT_RECEIVED();
             LibTrieProof.verifyMerkleProof(
                 checkpoint.stateRoot,
                 _remoteSignalService,
