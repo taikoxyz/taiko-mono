@@ -127,14 +127,14 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     }
 
     /// @inheritdoc IBondManager
-    function deposit(address _recipient, uint256 _amount) external nonReentrant {
-        address recipient = _recipient == address(0) ? msg.sender : _recipient;
+    function deposit(uint256 _amount) external nonReentrant {
+        _deposit(msg.sender, msg.sender, _amount);
+    }
 
-        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
-
-        _creditBond(recipient, _amount);
-
-        emit BondDeposited(msg.sender, recipient, _amount);
+    /// @inheritdoc IBondManager
+    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
+        require(_recipient != address(0), InvalidAddress());
+        _deposit(msg.sender, _recipient, _amount);
     }
 
     /// @inheritdoc IBondManager
@@ -243,6 +243,16 @@ contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Internal implementation for depositing bonds.
+    /// @param _depositor The address providing the tokens.
+    /// @param _recipient The address receiving the bond credit.
+    /// @param _amount The amount to deposit.
+    function _deposit(address _depositor, address _recipient, uint256 _amount) internal {
+        bondToken.safeTransferFrom(_depositor, address(this), _amount);
+        _creditBond(_recipient, _amount);
+        emit BondDeposited(_depositor, _recipient, _amount);
+    }
 
     /// @dev Internal implementation for debiting a bond
     /// @param _address The address to debit the bond from

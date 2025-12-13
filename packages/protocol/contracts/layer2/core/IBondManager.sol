@@ -68,12 +68,18 @@ interface IBondManager {
     /// @param _bond The amount of bond to credit
     function creditBond(address _address, uint256 _bond) external;
 
-    /// @notice Deposit ERC20 bond tokens for an address.
-    /// @dev Does not cancel the recipient's pending withdrawal; the recipient must call
+    /// @notice Deposit ERC20 bond tokens for the caller.
+    /// @dev Does not cancel the caller's pending withdrawal; the caller must call
     /// `cancelWithdrawal` to reactivate their bond status.
-    /// @param _recipient The address to credit the bond to. If zero, credits msg.sender.
     /// @param _amount The amount to deposit.
-    function deposit(address _recipient, uint256 _amount) external;
+    function deposit(uint256 _amount) external;
+
+    /// @notice Deposit ERC20 bond tokens for a recipient.
+    /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal; the
+    /// recipient must call `cancelWithdrawal` to reactivate their bond status.
+    /// @param _recipient The address to credit the bond to.
+    /// @param _amount The amount to deposit.
+    function depositTo(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev Withdrawals are subject to a delay so that bond operations can be resolved properly.
