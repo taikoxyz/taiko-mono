@@ -23,10 +23,6 @@ func (h *BatchProposedEventHandler) HandleShasta(
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	if !meta.IsShasta() {
-		log.Debug("Skip non-Shasta Proposed event", "batchID", meta.Pacaya().GetBatchID())
-		return nil
-	}
 	if meta.Shasta().GetProposal().Id.Cmp(common.Big0) == 0 {
 		return nil
 	}
