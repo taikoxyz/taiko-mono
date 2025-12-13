@@ -339,34 +339,14 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         // Try new EIP-7201 slot first, fall back to legacy slot during migration period.
-        _verifyMerkleProofWithFallback(
+        // Uses try-catch because SecureMerkleTrie.verifyInclusionProof reverts on path mismatch.
+        try this.verifyMerkleProof(
             checkpoint.stateRoot,
+            _remoteSignalService,
             slot,
             _signal,
-            _chainId,
-            _app,
             proof.accountProof,
             proof.storageProof
-        );
-    }
-
-    /// @dev Verifies merkle proof trying EIP-7201 slot first, then legacy slot if within migration period.
-    /// Uses try-catch because SecureMerkleTrie.verifyInclusionProof reverts on path mismatch.
-    function _verifyMerkleProofWithFallback(
-        bytes32 _stateRoot,
-        bytes32 _slot,
-        bytes32 _signal,
-        uint64 _chainId,
-        address _app,
-        bytes[] memory _accountProof,
-        bytes[] memory _storageProof
-    )
-        private
-        view
-    {
-        // Try new EIP-7201 slot first
-        try this.verifyMerkleProof(
-            _stateRoot, _remoteSignalService, _slot, _signal, _accountProof, _storageProof
         ) {
             return;
         } catch {
@@ -374,12 +354,12 @@ contract SignalService is EssentialContract, ISignalService {
             if (block.timestamp < legacySlotExpiry) {
                 bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
                 LibTrieProof.verifyMerkleProof(
-                    _stateRoot,
+                    checkpoint.stateRoot,
                     _remoteSignalService,
                     legacySlot,
                     _signal,
-                    _accountProof,
-                    _storageProof
+                    proof.accountProof,
+                    proof.storageProof
                 );
                 return;
             }
