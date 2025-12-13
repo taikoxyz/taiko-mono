@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -66,6 +67,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
+
+    /// @notice The prover whitelist contract (address(0) means no whitelist)
+    IProverWhitelist internal immutable _proverWhitelist;
 
     /// @notice Signal service responsible for checkpoints and bond signals.
     ISignalService internal immutable _signalService;
@@ -135,6 +139,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
+        _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _extendedProvingWindow = _config.extendedProvingWindow;
@@ -238,6 +243,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proof Validity proof for the batch of proposals
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
+
+            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibProveInputCodec.decode(_data);
 
@@ -245,6 +252,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
             Commitment memory commitment = input.commitment;
+
+            // `offset` is the index of the next-to-finalize proposal in the transitions array.
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
@@ -263,26 +272,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Calculate proposal age and bond instruction
+            // 3. Calculate proposal age and process bond instruction
             // ---------------------------------------------------------
-            Transition memory transitionAtOffset = commitment.transitions[offset];
-            uint256 proposalAge =
-                block.timestamp - transitionAtOffset.timestamp.max(state.lastFinalizedTimestamp);
 
-            // Bond transfers only apply to the first newly-finalized proposal.
-            LibBonds.BondInstruction memory bondInstruction =
-                LibBondInstruction.calculateBondInstruction(
-                    commitment.firstProposalId + offset,
-                    proposalAge,
-                    transitionAtOffset.proposer,
-                    transitionAtOffset.designatedProver,
-                    commitment.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
-                );
-            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            // `proposalAge` is the age of the next-to-finalize proposal.
+            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
+
+            if (!isWhitelistEnabled) {
+                _processBondInstruction(commitment, offset, proposalAge);
             }
 
             // -----------------------------------------------------------------------------
@@ -379,6 +376,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             codec: _codec,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
+            proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
             extendedProvingWindow: _extendedProvingWindow,
@@ -393,8 +391,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         });
     }
 
+    /// @inheritdoc IInbox
+    function getCoreState() external view returns (CoreState memory) {
+        return _coreState;
+    }
+
+    /// @inheritdoc IInbox
+    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
+    /// may have been overwritten by a new one. You should verify that the hash matches the
+    /// expected proposal.
+    function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
+        return _proposalHashes[_proposalId % _ringBufferSize];
+    }
+
     // ---------------------------------------------------------------
-    // Internal and Private Functions
+    // Private State-Changing Functions
     // ---------------------------------------------------------------
 
     /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
@@ -458,60 +469,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @inheritdoc IInbox
-    function getCoreState() external view returns (CoreState memory) {
-        return _coreState;
-    }
-
-    /// @inheritdoc IInbox
-    /// @dev Note that due to the ring buffer nature of the `_proposalHashes` mapping proposals
-    /// may have been overwritten by a new one. You should verify that the hash matches the
-    /// expected proposal.
-    function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
-        return _proposalHashes[_proposalId % _ringBufferSize];
-    }
-
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
-
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
-    }
-
-    /// @dev Validates the batch bounds in the Commitment and calculates the offset
-    ///      to the first unfinalized proposal.
-    /// @param _state The core state.
-    /// @param _commitment The commitment data.
-    /// @return numProposals_ The number of proposals in the batch.
-    /// @return lastProposalId_ The ID of the last proposal in the batch.
-    /// @return offset_ The offset to the first unfinalized proposal.
-    function _validateCommitment(
-        CoreState memory _state,
-        Commitment memory _commitment
-    )
-        private
-        pure
-        returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
-    {
-        unchecked {
-            uint256 firstUnfinalizedId = _state.lastFinalizedProposalId + 1;
-
-            numProposals_ = _commitment.transitions.length;
-            require(numProposals_ > 0, EmptyBatch());
-            require(_commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
-
-            lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
-            require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
-            require(lastProposalId_ >= firstUnfinalizedId, LastProposalAlreadyFinalized());
-
-            // Calculate offset to first unfinalized proposal.
-            // Some proposals in _commitment.transitions[] may already be finalized.
-            // The offset points to the first proposal that will be finalized.
-            offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
-        }
     }
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
@@ -570,30 +531,60 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
     {
-        if (_toProcess > 0) {
-            uint256 totalFees;
-            unchecked {
+        unchecked {
+            if (_toProcess > 0) {
+                uint256 totalFees;
                 for (uint256 i; i < _toProcess; ++i) {
                     IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                     _sources[i] = DerivationSource(true, inclusion.blobSlice);
                     totalFees += inclusion.feeInGwei;
                 }
+
+                if (totalFees > 0) {
+                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+                }
+
+                oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
+
+                head_ = _head + uint48(_toProcess);
+                lastProcessedAt_ = uint48(block.timestamp);
+
+                ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
+            } else {
+                oldestTimestamp_ = type(uint48).max;
+                head_ = _head;
+                lastProcessedAt_ = _lastProcessedAt;
             }
+        }
+    }
 
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+    /// @dev Calculates proposal age and emits bond instruction if applicable.
+    /// @param _commitment The commitment data.
+    /// @param _offset The offset to the first unfinalized proposal.
+    /// @param _proposalAge The age of the next to finalize proposal.
+    function _processBondInstruction(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint256 _proposalAge
+    )
+        private
+    {
+        unchecked {
+            LibBonds.BondInstruction memory bondInstruction =
+                LibBondInstruction.calculateBondInstruction(
+                    _commitment.firstProposalId + _offset,
+                    _proposalAge,
+                    _commitment.transitions[_offset].proposer,
+                    _commitment.transitions[_offset].designatedProver,
+                    _commitment.actualProver,
+                    _provingWindow,
+                    _extendedProvingWindow
+                );
+
+            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
+                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
             }
-
-            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
-
-            head_ = _head + uint48(_toProcess);
-            lastProcessedAt_ = uint48(block.timestamp);
-
-            ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
-        } else {
-            oldestTimestamp_ = type(uint48).max;
-            head_ = _head;
-            lastProcessedAt_ = _lastProcessedAt;
         }
     }
 
@@ -608,6 +599,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProposedEventPayload({ proposal: _proposal, derivation: _derivation });
         emit Proposed(LibProposedEventCodec.encode(payload));
     }
+
+    // ---------------------------------------------------------------
+    // Private View/Pure Functions
+    // ---------------------------------------------------------------
 
     /// @dev Calculates remaining capacity for new proposals
     /// Subtracts unfinalized proposals from total capacity
@@ -634,6 +629,52 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
+    /// @dev Checks if the caller is an authorized prover
+    /// @param _addr The address of the caller to check
+    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
+    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
+        if (address(_proverWhitelist) == address(0)) return false;
+
+        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
+        if (proverCount == 0) return false;
+
+        require(isWhitelisted, ProverNotWhitelisted());
+        return true;
+    }
+
+    /// @dev Validates the batch bounds in the Commitment and calculates the offset
+    ///      to the first unfinalized proposal.
+    /// @param _state The core state.
+    /// @param _commitment The commitment data.
+    /// @return numProposals_ The number of proposals in the batch.
+    /// @return lastProposalId_ The ID of the last proposal in the batch.
+    /// @return offset_ The offset to the first unfinalized proposal.
+    function _validateCommitment(
+        CoreState memory _state,
+        Commitment memory _commitment
+    )
+        private
+        pure
+        returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
+    {
+        unchecked {
+            uint256 firstUnfinalizedId = _state.lastFinalizedProposalId + 1;
+
+            numProposals_ = _commitment.transitions.length;
+            require(numProposals_ > 0, EmptyBatch());
+            require(_commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
+
+            lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
+            require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
+            require(lastProposalId_ >= firstUnfinalizedId, LastProposalAlreadyFinalized());
+
+            // Calculate offset to first unfinalized proposal.
+            // Some proposals in _commitment.transitions[] may already be finalized.
+            // The offset points to the first proposal that will be finalized.
+            offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
+        }
+    }
+
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
@@ -649,5 +690,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
+    error ProverNotWhitelisted();
     error UnprocessedForcedInclusionIsDue();
 }
