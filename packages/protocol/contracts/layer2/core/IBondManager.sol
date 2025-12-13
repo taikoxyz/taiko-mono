@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title IBondManager
-/// @notice Interface for managing bonds in the Based3 protocol
+/// @notice Interface for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
     // ---------------------------------------------------------------
@@ -79,17 +79,20 @@ interface IBondManager {
     function getBondBalance(address _address) external view returns (uint256);
 
     /// @notice Deposit ERC20 bond tokens into the manager.
+    /// @dev Does not cancel a pending withdrawal; callers must invoke `cancelWithdrawal` to
+    /// reactivate their bond status.
     /// @param _amount The amount to deposit.
     function deposit(uint256 _amount) external;
 
     /// @notice Deposit ERC20 bond tokens for another address.
+    /// @dev Does not cancel the recipient's pending withdrawal; the recipient must call
+    /// `cancelWithdrawal` to reactivate their bond status.
     /// @param _recipient The address to credit the bond to.
     /// @param _amount The amount to deposit.
     function depositTo(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
-    /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are
-    /// unrestricted.
+    /// @dev Withdrawals are subject to a delay so that bond operations can be resolved properly.
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
@@ -108,7 +111,9 @@ interface IBondManager {
         returns (bool);
 
     /// @notice Request to start the withdrawal process
-    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal
+    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal. Proposers
+    /// should self-eject before calling to avoid having subsequent proposals classified as
+    /// low-bond.
     function requestWithdrawal() external;
 
     /// @notice Cancel withdrawal request to reactivate the account
