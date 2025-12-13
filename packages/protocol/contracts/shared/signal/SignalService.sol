@@ -350,21 +350,15 @@ contract SignalService is EssentialContract, ISignalService {
         ) {
             return;
         } catch {
-            // If within legacy support period, try legacy slot
-            if (block.timestamp < legacySlotExpiry) {
-                bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
-                LibTrieProof.verifyMerkleProof(
-                    checkpoint.stateRoot,
-                    _remoteSignalService,
-                    legacySlot,
-                    _signal,
-                    proof.accountProof,
-                    proof.storageProof
-                );
-                return;
-            }
-            // Legacy support expired and new slot failed
-            revert SS_SIGNAL_NOT_RECEIVED();
+            require (block.timestamp < legacySlotExpiry, SS_LEGACY_SLOT_EXPIRED());
+            LibTrieProof.verifyMerkleProof(
+                checkpoint.stateRoot,
+                _remoteSignalService,
+                getLegacySignalSlot(_chainId, _app, _signal),
+                _signal,
+                proof.accountProof,
+                proof.storageProof
+            );
         }
     }
 
