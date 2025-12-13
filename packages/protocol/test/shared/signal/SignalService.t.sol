@@ -251,6 +251,107 @@ contract TestSignalService is CommonTest {
         );
     }
 
+    // ---------------------------------------------------------------
+    // Tests for verifySignalReceived with cached legacy signals
+    // ---------------------------------------------------------------
+
+    function test_verifySignalReceived_FindsCachedLegacySignal_BeforeExpiry() public {
+        // Cache signal in legacy slot by writing to _receivedSignals mapping
+        bytes32 legacySlot = signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+
+        // The _receivedSignals mapping is at storage slot 253 (see SignalService_Layout.sol)
+        // mapping slot = keccak256(key . slot)
+        bytes32 mappingSlot = keccak256(abi.encode(legacySlot, uint256(253)));
+        vm.store(address(signalService), mappingSlot, bytes32(uint256(1)));
+
+        // Before expiry: should find signal in legacy _receivedSignals cache
+        assertTrue(
+            block.timestamp < signalService.legacySlotExpiry(),
+            "Test precondition: should be before expiry"
+        );
+
+        // Should not revert - signal found in legacy cache
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_verifySignalReceived_IgnoresCachedLegacySignal_AfterExpiry() public {
+        // Cache signal in legacy slot by writing to _receivedSignals mapping
+        bytes32 legacySlot = signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+
+        // The _receivedSignals mapping is at storage slot 253
+        bytes32 mappingSlot = keccak256(abi.encode(legacySlot, uint256(253)));
+        vm.store(address(signalService), mappingSlot, bytes32(uint256(1)));
+
+        // Warp to after legacy slot expiry
+        vm.warp(signalService.legacySlotExpiry() + 1);
+
+        // After expiry: should NOT find signal in legacy cache
+        assertTrue(
+            block.timestamp >= signalService.legacySlotExpiry(),
+            "Test precondition: should be after expiry"
+        );
+
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_verifySignalReceived_FindsCachedNewSlotSignal() public {
+        // Cache signal in new EIP-7201 slot
+        bytes32 newSlot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+
+        // The _receivedSignals mapping is at storage slot 253
+        bytes32 mappingSlot = keccak256(abi.encode(newSlot, uint256(253)));
+        vm.store(address(signalService), mappingSlot, bytes32(uint256(1)));
+
+        // Should find signal in new slot cache (works both before and after expiry)
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+
+        // Still works after expiry
+        vm.warp(signalService.legacySlotExpiry() + 1);
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_verifySignalReceived_PrefersNewSlotCacheOverLegacy() public {
+        // Cache signal in both slots
+        bytes32 newSlot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 legacySlot = signalService.getLegacySignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+
+        // The _receivedSignals mapping is at storage slot 253
+        bytes32 newMappingSlot = keccak256(abi.encode(newSlot, uint256(253)));
+        bytes32 legacyMappingSlot = keccak256(abi.encode(legacySlot, uint256(253)));
+
+        vm.store(address(signalService), newMappingSlot, bytes32(uint256(1)));
+        vm.store(address(signalService), legacyMappingSlot, bytes32(uint256(1)));
+
+        // Should succeed (new slot found first)
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+
+        // Clear new slot cache, should still find in legacy (before expiry)
+        vm.store(address(signalService), newMappingSlot, bytes32(0));
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    // ---------------------------------------------------------------
+    // Tests for proveSignalReceived with merkle proof fallback
+    // Note: The VALID_SIGNAL_PROOF was captured using legacy slot calculation.
+    // Testing the try-catch fallback requires proofs for both slot types.
+    // ---------------------------------------------------------------
+
+    function test_proveSignalReceived_RevertsAfterExpiry_WhenOnlyLegacyProofValid() public {
+        // Setup checkpoint with the valid state root
+        _saveCheckpoint(VALID_PROOF_BLOCK_ID, VALID_PROOF_STATE_ROOT);
+
+        // Warp to after legacy slot expiry
+        vm.warp(signalService.legacySlotExpiry() + 1);
+
+        // The VALID_SIGNAL_PROOF is for legacy slot, new slot will fail first,
+        // then legacy check should be skipped due to expiry
+        vm.expectRevert();
+        signalService.proveSignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
+        );
+    }
+
     function _saveCheckpoint(uint64 blockNumber, bytes32 stateRoot) private {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
