@@ -8,7 +8,6 @@ import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 
 import "./Bridge_Layout.sol"; // DO NOT DELETE
 
@@ -18,10 +17,8 @@ import "./Bridge_Layout.sol"; // DO NOT DELETE
 /// on L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialResolverContract, IBridge {
-    using Address for address;
     using LibMath for uint256;
     using LibAddress for address;
-    using LibAddress for address payable;
 
     struct ProcessingStats {
         uint32 gasUsedInFeeCalc;
