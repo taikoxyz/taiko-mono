@@ -374,7 +374,8 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
 
 ```solidity
 library IInbox {
-    struct Config { address codec; address bondToken; address checkpointStore; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
+    struct Config { address codec; address proofVerifier; address proposerChecker; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+    struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
 }
 ```*/
 #[allow(
@@ -390,7 +391,7 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address bondToken; address checkpointStore; address proofVerifier; address proposerChecker; uint48 provingWindow; uint48 extendedProvingWindow; uint256 maxFinalizationCount; uint48 finalizationGracePeriod; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; uint16 compositeKeyVersion; }
+struct Config { address codec; address proofVerifier; address proposerChecker; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -398,21 +399,15 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
         #[allow(missing_docs)]
         pub codec: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
-        pub bondToken: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub checkpointStore: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
         pub proofVerifier: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub proposerChecker: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
+        pub signalService: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
         pub provingWindow: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub extendedProvingWindow: alloy::sol_types::private::primitives::aliases::U48,
-        #[allow(missing_docs)]
-        pub maxFinalizationCount: alloy::sol_types::private::primitives::aliases::U256,
-        #[allow(missing_docs)]
-        pub finalizationGracePeriod: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub ringBufferSize: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -429,8 +424,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
         pub minCheckpointDelay: u16,
         #[allow(missing_docs)]
         pub permissionlessInclusionMultiplier: u8,
-        #[allow(missing_docs)]
-        pub compositeKeyVersion: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -446,10 +439,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Address,
-            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<48>,
-            alloy::sol_types::sol_data::Uint<48>,
-            alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<8>,
@@ -459,7 +449,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<8>,
-            alloy::sol_types::sol_data::Uint<16>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
@@ -467,10 +456,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
-            alloy::sol_types::private::Address,
             alloy::sol_types::private::primitives::aliases::U48,
-            alloy::sol_types::private::primitives::aliases::U48,
-            alloy::sol_types::private::primitives::aliases::U256,
             alloy::sol_types::private::primitives::aliases::U48,
             alloy::sol_types::private::primitives::aliases::U256,
             u8,
@@ -480,7 +466,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             u64,
             u16,
             u8,
-            u16,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -499,14 +484,11 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             fn from(value: Config) -> Self {
                 (
                     value.codec,
-                    value.bondToken,
-                    value.checkpointStore,
                     value.proofVerifier,
                     value.proposerChecker,
+                    value.signalService,
                     value.provingWindow,
                     value.extendedProvingWindow,
-                    value.maxFinalizationCount,
-                    value.finalizationGracePeriod,
                     value.ringBufferSize,
                     value.basefeeSharingPctg,
                     value.minForcedInclusionCount,
@@ -515,7 +497,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     value.forcedInclusionFeeDoubleThreshold,
                     value.minCheckpointDelay,
                     value.permissionlessInclusionMultiplier,
-                    value.compositeKeyVersion,
                 )
             }
         }
@@ -525,23 +506,19 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     codec: tuple.0,
-                    bondToken: tuple.1,
-                    checkpointStore: tuple.2,
-                    proofVerifier: tuple.3,
-                    proposerChecker: tuple.4,
-                    provingWindow: tuple.5,
-                    extendedProvingWindow: tuple.6,
-                    maxFinalizationCount: tuple.7,
-                    finalizationGracePeriod: tuple.8,
-                    ringBufferSize: tuple.9,
-                    basefeeSharingPctg: tuple.10,
-                    minForcedInclusionCount: tuple.11,
-                    forcedInclusionDelay: tuple.12,
-                    forcedInclusionFeeInGwei: tuple.13,
-                    forcedInclusionFeeDoubleThreshold: tuple.14,
-                    minCheckpointDelay: tuple.15,
-                    permissionlessInclusionMultiplier: tuple.16,
-                    compositeKeyVersion: tuple.17,
+                    proofVerifier: tuple.1,
+                    proposerChecker: tuple.2,
+                    signalService: tuple.3,
+                    provingWindow: tuple.4,
+                    extendedProvingWindow: tuple.5,
+                    ringBufferSize: tuple.6,
+                    basefeeSharingPctg: tuple.7,
+                    minForcedInclusionCount: tuple.8,
+                    forcedInclusionDelay: tuple.9,
+                    forcedInclusionFeeInGwei: tuple.10,
+                    forcedInclusionFeeDoubleThreshold: tuple.11,
+                    minCheckpointDelay: tuple.12,
+                    permissionlessInclusionMultiplier: tuple.13,
                 }
             }
         }
@@ -558,16 +535,13 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         &self.codec,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.bondToken,
-                    ),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.checkpointStore,
-                    ),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.proofVerifier,
                     ),
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.proposerChecker,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.signalService,
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         48,
@@ -576,14 +550,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         48,
                     > as alloy_sol_types::SolType>::tokenize(
                         &self.extendedProvingWindow,
-                    ),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(&self.maxFinalizationCount),
-                    <alloy::sol_types::sol_data::Uint<
-                        48,
-                    > as alloy_sol_types::SolType>::tokenize(
-                        &self.finalizationGracePeriod,
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         256,
@@ -617,9 +583,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     > as alloy_sol_types::SolType>::tokenize(
                         &self.permissionlessInclusionMultiplier,
                     ),
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::tokenize(&self.compositeKeyVersion),
                 )
             }
             #[inline]
@@ -694,7 +657,7 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address bondToken,address checkpointStore,address proofVerifier,address proposerChecker,uint48 provingWindow,uint48 extendedProvingWindow,uint256 maxFinalizationCount,uint48 finalizationGracePeriod,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier,uint16 compositeKeyVersion)",
+                    "Config(address codec,address proofVerifier,address proposerChecker,address signalService,uint48 provingWindow,uint48 extendedProvingWindow,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
                 )
             }
             #[inline]
@@ -715,19 +678,15 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.bondToken,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.checkpointStore,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.proofVerifier,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.proposerChecker,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.signalService,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
@@ -738,18 +697,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         48,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.extendedProvingWindow,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.maxFinalizationCount,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        48,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.finalizationGracePeriod,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
@@ -800,12 +747,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                             &self.permissionlessInclusionMultiplier,
                         )
                         .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.compositeKeyVersion,
-                        )
-                        .0,
                 ]
                     .concat()
             }
@@ -819,16 +760,13 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         &rust.codec,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.bondToken,
-                    )
-                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.checkpointStore,
-                    )
-                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.proofVerifier,
                     )
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.proposerChecker,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.signalService,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         48,
@@ -839,16 +777,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                         48,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.extendedProvingWindow,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.maxFinalizationCount,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        48,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.finalizationGracePeriod,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
@@ -890,11 +818,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.permissionlessInclusionMultiplier,
                     )
-                    + <alloy::sol_types::sol_data::Uint<
-                        16,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.compositeKeyVersion,
-                    )
             }
             #[inline]
             fn encode_topic_preimage(
@@ -909,19 +832,15 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.bondToken,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.checkpointStore,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.proofVerifier,
                     out,
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.proposerChecker,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.signalService,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -934,18 +853,6 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     48,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.extendedProvingWindow,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.maxFinalizationCount,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    48,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.finalizationGracePeriod,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -996,10 +903,351 @@ struct Config { address codec; address bondToken; address checkpointStore; addre
                     &rust.permissionlessInclusionMultiplier,
                     out,
                 );
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                let mut out = alloy_sol_types::private::Vec::new();
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    rust,
+                    &mut out,
+                );
+                alloy_sol_types::abi::token::WordToken(
+                    alloy_sol_types::private::keccak256(out),
+                )
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**```solidity
+struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct CoreState {
+        #[allow(missing_docs)]
+        pub nextProposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub lastProposalBlockId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub lastFinalizedProposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub lastFinalizedTimestamp: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub lastCheckpointTimestamp: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub lastFinalizedBlockHash: alloy::sol_types::private::FixedBytes<32>,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Uint<48>,
+            alloy::sol_types::sol_data::Uint<48>,
+            alloy::sol_types::sol_data::Uint<48>,
+            alloy::sol_types::sol_data::Uint<48>,
+            alloy::sol_types::sol_data::Uint<48>,
+            alloy::sol_types::sol_data::FixedBytes<32>,
+        );
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::primitives::aliases::U48,
+            alloy::sol_types::private::primitives::aliases::U48,
+            alloy::sol_types::private::primitives::aliases::U48,
+            alloy::sol_types::private::primitives::aliases::U48,
+            alloy::sol_types::private::primitives::aliases::U48,
+            alloy::sol_types::private::FixedBytes<32>,
+        );
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<CoreState> for UnderlyingRustTuple<'_> {
+            fn from(value: CoreState) -> Self {
+                (
+                    value.nextProposalId,
+                    value.lastProposalBlockId,
+                    value.lastFinalizedProposalId,
+                    value.lastFinalizedTimestamp,
+                    value.lastCheckpointTimestamp,
+                    value.lastFinalizedBlockHash,
+                )
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for CoreState {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self {
+                    nextProposalId: tuple.0,
+                    lastProposalBlockId: tuple.1,
+                    lastFinalizedProposalId: tuple.2,
+                    lastFinalizedTimestamp: tuple.3,
+                    lastCheckpointTimestamp: tuple.4,
+                    lastFinalizedBlockHash: tuple.5,
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolValue for CoreState {
+            type SolType = Self;
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Self> for CoreState {
+            #[inline]
+            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(&self.nextProposalId),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(&self.lastProposalBlockId),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.lastFinalizedProposalId,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.lastFinalizedTimestamp,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.lastCheckpointTimestamp,
+                    ),
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(
+                        &self.lastFinalizedBlockHash,
+                    ),
+                )
+            }
+            #[inline]
+            fn stv_abi_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for CoreState {
+            type RustType = Self;
+            type Token<'a> = <UnderlyingSolTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
+            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                let tuple = <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::detokenize(token);
+                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolStruct for CoreState {
+            const NAME: &'static str = "CoreState";
+            #[inline]
+            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
+                alloy_sol_types::private::Cow::Borrowed(
+                    "CoreState(uint48 nextProposalId,uint48 lastProposalBlockId,uint48 lastFinalizedProposalId,uint48 lastFinalizedTimestamp,uint48 lastCheckpointTimestamp,bytes32 lastFinalizedBlockHash)",
+                )
+            }
+            #[inline]
+            fn eip712_components() -> alloy_sol_types::private::Vec<
+                alloy_sol_types::private::Cow<'static, str>,
+            > {
+                alloy_sol_types::private::Vec::new()
+            }
+            #[inline]
+            fn eip712_encode_type() -> alloy_sol_types::private::Cow<'static, str> {
+                <Self as alloy_sol_types::SolStruct>::eip712_root_type()
+            }
+            #[inline]
+            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
+                [
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.nextProposalId,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.lastProposalBlockId,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.lastFinalizedProposalId,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.lastFinalizedTimestamp,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.lastCheckpointTimestamp,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.lastFinalizedBlockHash,
+                        )
+                        .0,
+                ]
+                    .concat()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for CoreState {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                0usize
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.nextProposalId,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.lastProposalBlockId,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.lastFinalizedProposalId,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.lastFinalizedTimestamp,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.lastCheckpointTimestamp,
+                    )
+                    + <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.lastFinalizedBlockHash,
+                    )
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                out.reserve(
+                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
                 <alloy::sol_types::sol_data::Uint<
-                    16,
+                    48,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.compositeKeyVersion,
+                    &rust.nextProposalId,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.lastProposalBlockId,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.lastFinalizedProposalId,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.lastFinalizedTimestamp,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.lastCheckpointTimestamp,
+                    out,
+                );
+                <alloy::sol_types::sol_data::FixedBytes<
+                    32,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.lastFinalizedBlockHash,
                     out,
                 );
             }
@@ -1790,6 +2038,547 @@ See the [wrapper's documentation](`LibBlobsInstance`) for more details.*/
         }
     }
 }
+///Module containing a contract's types and functions.
+/**
+
+```solidity
+library LibBonds {
+    type BondType is uint8;
+    struct BondInstruction { uint48 proposalId; BondType bondType; address payer; address payee; }
+}
+```*/
+#[allow(
+    non_camel_case_types,
+    non_snake_case,
+    clippy::pub_underscore_fields,
+    clippy::style,
+    clippy::empty_structs_with_brackets
+)]
+pub mod LibBonds {
+    use super::*;
+    use alloy::sol_types as alloy_sol_types;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct BondType(u8);
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<BondType> for u8 {
+            #[inline]
+            fn stv_to_tokens(
+                &self,
+            ) -> <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'_> {
+                alloy_sol_types::private::SolTypeValue::<
+                    alloy::sol_types::sol_data::Uint<8>,
+                >::stv_to_tokens(self)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::tokenize(self)
+                    .0
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(self, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::abi_encoded_size(self)
+            }
+        }
+        #[automatically_derived]
+        impl BondType {
+            /// The Solidity type name.
+            pub const NAME: &'static str = stringify!(@ name);
+            /// Convert from the underlying value type.
+            #[inline]
+            pub const fn from_underlying(value: u8) -> Self {
+                Self(value)
+            }
+            /// Return the underlying value.
+            #[inline]
+            pub const fn into_underlying(self) -> u8 {
+                self.0
+            }
+            /// Return the single encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode(&self.0)
+            }
+            /// Return the packed encoding of this value, delegating to the
+            /// underlying type.
+            #[inline]
+            pub fn abi_encode_packed(&self) -> alloy_sol_types::private::Vec<u8> {
+                <Self as alloy_sol_types::SolType>::abi_encode_packed(&self.0)
+            }
+        }
+        #[automatically_derived]
+        impl From<u8> for BondType {
+            fn from(value: u8) -> Self {
+                Self::from_underlying(value)
+            }
+        }
+        #[automatically_derived]
+        impl From<BondType> for u8 {
+            fn from(value: BondType) -> Self {
+                value.into_underlying()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for BondType {
+            type RustType = u8;
+            type Token<'a> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = Self::NAME;
+            const ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <alloy::sol_types::sol_data::Uint<
+                8,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                Self::type_check(token).is_ok()
+            }
+            #[inline]
+            fn type_check(token: &Self::Token<'_>) -> alloy_sol_types::Result<()> {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::type_check(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::SolType>::detokenize(token)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for BondType {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::topic_preimage_length(rust)
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(rust, out)
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                <alloy::sol_types::sol_data::Uint<
+                    8,
+                > as alloy_sol_types::EventTopic>::encode_topic(rust)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**```solidity
+struct BondInstruction { uint48 proposalId; BondType bondType; address payer; address payee; }
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct BondInstruction {
+        #[allow(missing_docs)]
+        pub proposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub bondType: <BondType as alloy::sol_types::SolType>::RustType,
+        #[allow(missing_docs)]
+        pub payer: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub payee: alloy::sol_types::private::Address,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        type UnderlyingSolTuple<'a> = (
+            alloy::sol_types::sol_data::Uint<48>,
+            BondType,
+            alloy::sol_types::sol_data::Address,
+            alloy::sol_types::sol_data::Address,
+        );
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = (
+            alloy::sol_types::private::primitives::aliases::U48,
+            <BondType as alloy::sol_types::SolType>::RustType,
+            alloy::sol_types::private::Address,
+            alloy::sol_types::private::Address,
+        );
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<BondInstruction> for UnderlyingRustTuple<'_> {
+            fn from(value: BondInstruction) -> Self {
+                (value.proposalId, value.bondType, value.payer, value.payee)
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for BondInstruction {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self {
+                    proposalId: tuple.0,
+                    bondType: tuple.1,
+                    payer: tuple.2,
+                    payee: tuple.3,
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolValue for BondInstruction {
+            type SolType = Self;
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::SolTypeValue<Self> for BondInstruction {
+            #[inline]
+            fn stv_to_tokens(&self) -> <Self as alloy_sol_types::SolType>::Token<'_> {
+                (
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(&self.proposalId),
+                    <BondType as alloy_sol_types::SolType>::tokenize(&self.bondType),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.payer,
+                    ),
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
+                        &self.payee,
+                    ),
+                )
+            }
+            #[inline]
+            fn stv_abi_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encoded_size(&tuple)
+            }
+            #[inline]
+            fn stv_eip712_data_word(&self) -> alloy_sol_types::Word {
+                <Self as alloy_sol_types::SolStruct>::eip712_hash_struct(self)
+            }
+            #[inline]
+            fn stv_abi_encode_packed_to(
+                &self,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_encode_packed_to(&tuple, out)
+            }
+            #[inline]
+            fn stv_abi_packed_encoded_size(&self) -> usize {
+                if let Some(size) = <Self as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE {
+                    return size;
+                }
+                let tuple = <UnderlyingRustTuple<
+                    '_,
+                > as ::core::convert::From<Self>>::from(self.clone());
+                <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_packed_encoded_size(&tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolType for BondInstruction {
+            type RustType = Self;
+            type Token<'a> = <UnderlyingSolTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SOL_NAME: &'static str = <Self as alloy_sol_types::SolStruct>::NAME;
+            const ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::ENCODED_SIZE;
+            const PACKED_ENCODED_SIZE: Option<usize> = <UnderlyingSolTuple<
+                '_,
+            > as alloy_sol_types::SolType>::PACKED_ENCODED_SIZE;
+            #[inline]
+            fn valid_token(token: &Self::Token<'_>) -> bool {
+                <UnderlyingSolTuple<'_> as alloy_sol_types::SolType>::valid_token(token)
+            }
+            #[inline]
+            fn detokenize(token: Self::Token<'_>) -> Self::RustType {
+                let tuple = <UnderlyingSolTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::detokenize(token);
+                <Self as ::core::convert::From<UnderlyingRustTuple<'_>>>::from(tuple)
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolStruct for BondInstruction {
+            const NAME: &'static str = "BondInstruction";
+            #[inline]
+            fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
+                alloy_sol_types::private::Cow::Borrowed(
+                    "BondInstruction(uint48 proposalId,uint8 bondType,address payer,address payee)",
+                )
+            }
+            #[inline]
+            fn eip712_components() -> alloy_sol_types::private::Vec<
+                alloy_sol_types::private::Cow<'static, str>,
+            > {
+                alloy_sol_types::private::Vec::new()
+            }
+            #[inline]
+            fn eip712_encode_type() -> alloy_sol_types::private::Cow<'static, str> {
+                <Self as alloy_sol_types::SolStruct>::eip712_root_type()
+            }
+            #[inline]
+            fn eip712_encode_data(&self) -> alloy_sol_types::private::Vec<u8> {
+                [
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(&self.proposalId)
+                        .0,
+                    <BondType as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.bondType,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.payer,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.payee,
+                        )
+                        .0,
+                ]
+                    .concat()
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::EventTopic for BondInstruction {
+            #[inline]
+            fn topic_preimage_length(rust: &Self::RustType) -> usize {
+                0usize
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.proposalId,
+                    )
+                    + <BondType as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.bondType,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.payer,
+                    )
+                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.payee,
+                    )
+            }
+            #[inline]
+            fn encode_topic_preimage(
+                rust: &Self::RustType,
+                out: &mut alloy_sol_types::private::Vec<u8>,
+            ) {
+                out.reserve(
+                    <Self as alloy_sol_types::EventTopic>::topic_preimage_length(rust),
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.proposalId,
+                    out,
+                );
+                <BondType as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.bondType,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.payer,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.payee,
+                    out,
+                );
+            }
+            #[inline]
+            fn encode_topic(
+                rust: &Self::RustType,
+            ) -> alloy_sol_types::abi::token::WordToken {
+                let mut out = alloy_sol_types::private::Vec::new();
+                <Self as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    rust,
+                    &mut out,
+                );
+                alloy_sol_types::abi::token::WordToken(
+                    alloy_sol_types::private::keccak256(out),
+                )
+            }
+        }
+    };
+    use alloy::contract as alloy_contract;
+    /**Creates a new wrapper around an on-chain [`LibBonds`](self) contract instance.
+
+See the [wrapper's documentation](`LibBondsInstance`) for more details.*/
+    #[inline]
+    pub const fn new<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    >(
+        address: alloy_sol_types::private::Address,
+        provider: P,
+    ) -> LibBondsInstance<P, N> {
+        LibBondsInstance::<P, N>::new(address, provider)
+    }
+    /**A [`LibBonds`](self) instance.
+
+Contains type-safe methods for interacting with an on-chain instance of the
+[`LibBonds`](self) contract located at a given `address`, using a given
+provider `P`.
+
+If the contract bytecode is available (see the [`sol!`](alloy_sol_types::sol!)
+documentation on how to provide it), the `deploy` and `deploy_builder` methods can
+be used to deploy a new instance of the contract.
+
+See the [module-level documentation](self) for all the available methods.*/
+    #[derive(Clone)]
+    pub struct LibBondsInstance<P, N = alloy_contract::private::Ethereum> {
+        address: alloy_sol_types::private::Address,
+        provider: P,
+        _network: ::core::marker::PhantomData<N>,
+    }
+    #[automatically_derived]
+    impl<P, N> ::core::fmt::Debug for LibBondsInstance<P, N> {
+        #[inline]
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_tuple("LibBondsInstance").field(&self.address).finish()
+        }
+    }
+    /// Instantiation and getters/setters.
+    #[automatically_derived]
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > LibBondsInstance<P, N> {
+        /**Creates a new wrapper around an on-chain [`LibBonds`](self) contract instance.
+
+See the [wrapper's documentation](`LibBondsInstance`) for more details.*/
+        #[inline]
+        pub const fn new(
+            address: alloy_sol_types::private::Address,
+            provider: P,
+        ) -> Self {
+            Self {
+                address,
+                provider,
+                _network: ::core::marker::PhantomData,
+            }
+        }
+        /// Returns a reference to the address.
+        #[inline]
+        pub const fn address(&self) -> &alloy_sol_types::private::Address {
+            &self.address
+        }
+        /// Sets the address.
+        #[inline]
+        pub fn set_address(&mut self, address: alloy_sol_types::private::Address) {
+            self.address = address;
+        }
+        /// Sets the address and returns `self`.
+        pub fn at(mut self, address: alloy_sol_types::private::Address) -> Self {
+            self.set_address(address);
+            self
+        }
+        /// Returns a reference to the provider.
+        #[inline]
+        pub const fn provider(&self) -> &P {
+            &self.provider
+        }
+    }
+    impl<P: ::core::clone::Clone, N> LibBondsInstance<&P, N> {
+        /// Clones the provider and returns a new instance with the cloned provider.
+        #[inline]
+        pub fn with_cloned_provider(self) -> LibBondsInstance<P, N> {
+            LibBondsInstance {
+                address: self.address,
+                provider: ::core::clone::Clone::clone(&self.provider),
+                _network: ::core::marker::PhantomData,
+            }
+        }
+    }
+    /// Function calls.
+    #[automatically_derived]
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > LibBondsInstance<P, N> {
+        /// Creates a new call builder using this contract instance's provider and address.
+        ///
+        /// Note that the call can be any function call, not just those defined in this
+        /// contract. Prefer using the other methods for building type-safe contract calls.
+        pub fn call_builder<C: alloy_sol_types::SolCall>(
+            &self,
+            call: &C,
+        ) -> alloy_contract::SolCallBuilder<&P, C, N> {
+            alloy_contract::SolCallBuilder::new_sol(&self.provider, &self.address, call)
+        }
+    }
+    /// Event filters.
+    #[automatically_derived]
+    impl<
+        P: alloy_contract::private::Provider<N>,
+        N: alloy_contract::private::Network,
+    > LibBondsInstance<P, N> {
+        /// Creates a new event filter using this contract instance's provider and address.
+        ///
+        /// Note that the type can be any event, not just those defined in this contract.
+        /// Prefer using the other methods for building type-safe event filters.
+        pub fn event_filter<E: alloy_sol_types::SolEvent>(
+            &self,
+        ) -> alloy_contract::Event<&P, E, N> {
+            alloy_contract::Event::new_sol(&self.provider, &self.address)
+        }
+    }
+}
 /**
 
 Generated by the following Solidity interface...
@@ -1804,14 +2593,11 @@ library IForcedInclusionStore {
 library IInbox {
     struct Config {
         address codec;
-        address bondToken;
-        address checkpointStore;
         address proofVerifier;
         address proposerChecker;
+        address signalService;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
-        uint256 maxFinalizationCount;
-        uint48 finalizationGracePeriod;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
         uint256 minForcedInclusionCount;
@@ -1820,7 +2606,14 @@ library IInbox {
         uint64 forcedInclusionFeeDoubleThreshold;
         uint16 minCheckpointDelay;
         uint8 permissionlessInclusionMultiplier;
-        uint16 compositeKeyVersion;
+    }
+    struct CoreState {
+        uint48 nextProposalId;
+        uint48 lastProposalBlockId;
+        uint48 lastFinalizedProposalId;
+        uint48 lastFinalizedTimestamp;
+        uint48 lastCheckpointTimestamp;
+        bytes32 lastFinalizedBlockHash;
     }
 }
 
@@ -1837,42 +2630,44 @@ library LibBlobs {
     }
 }
 
+library LibBonds {
+    type BondType is uint8;
+    struct BondInstruction {
+        uint48 proposalId;
+        BondType bondType;
+        address payer;
+        address payee;
+    }
+}
+
 interface Inbox {
     error ACCESS_DENIED();
-    error ActivationPeriodExpired();
+    error ActivationRequired();
     error BlobNotFound();
     error CannotProposeInCurrentBlock();
-    error CheckpointMismatch();
-    error CheckpointNotProvided();
+    error CheckpointDelayHasPassed();
     error DeadlineExceeded();
     error ETH_TRANSFER_FAILED();
-    error EmptyProposals();
+    error EmptyBatch();
     error FUNC_NOT_IMPLEMENTED();
+    error FirstProposalIdTooLarge();
     error INVALID_PAUSE_STATUS();
-    error InconsistentLengths();
-    error InconsistentParams();
     error IncorrectProposalCount();
-    error InvalidLastPacayaBlockHash();
-    error InvalidLastProposalProof();
-    error InvalidSpan();
-    error InvalidState();
-    error NextProposalHashMismatch();
+    error LastProposalAlreadyFinalized();
+    error LastProposalHashMismatch();
+    error LastProposalIdTooLarge();
+    error LengthExceedsUint16();
     error NoBlobs();
-    error NoBondToWithdraw();
     error NotEnoughCapacity();
-    error ProposalHashMismatch();
-    error ProposalHashMismatchWithTransition();
+    error ParentBlockHashMismatch();
     error REENTRANT_CALL();
-    error RingBufferSizeZero();
-    error SpanOutOfBounds();
-    error TransitionRecordHashMismatchWithStorage();
-    error TransitionRecordNotProvided();
     error UnprocessedForcedInclusionIsDue();
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
     event AdminChanged(address previousAdmin, address newAdmin);
     event BeaconUpgraded(address indexed beacon);
+    event BondInstructionCreated(uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction);
     event ForcedInclusionSaved(IForcedInclusionStore.ForcedInclusion forcedInclusion);
     event InboxActivated(bytes32 lastPacayaBlockHash);
     event Initialized(uint8 version);
@@ -1881,8 +2676,6 @@ interface Inbox {
     event Paused(address account);
     event Proposed(bytes data);
     event Proved(bytes data);
-    event TransitionConflictDetected();
-    event TransitionDuplicateDetected();
     event Unpaused(address account);
     event Upgraded(address indexed implementation);
 
@@ -1891,13 +2684,12 @@ interface Inbox {
     function acceptOwnership() external;
     function activate(bytes32 _lastPacayaBlockHash) external;
     function activationTimestamp() external view returns (uint48);
-    function conflictingTransitionDetected() external view returns (bool);
     function getConfig() external view returns (IInbox.Config memory config_);
+    function getCoreState() external view returns (IInbox.CoreState memory);
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_);
     function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_);
     function getForcedInclusions(uint48 _start, uint48 _maxCount) external view returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_);
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
-    function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash) external view returns (uint48 finalizationDeadline_, bytes26 recordHash_);
+    function getProposalHash(uint256 _proposalId) external view returns (bytes32);
     function impl() external view returns (address);
     function inNonReentrant() external view returns (bool);
     function init(address _owner) external;
@@ -1935,16 +2727,6 @@ interface Inbox {
             "internalType": "address"
           },
           {
-            "name": "bondToken",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "checkpointStore",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "proofVerifier",
             "type": "address",
             "internalType": "address"
@@ -1955,22 +2737,17 @@ interface Inbox {
             "internalType": "address"
           },
           {
+            "name": "signalService",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "provingWindow",
             "type": "uint48",
             "internalType": "uint48"
           },
           {
             "name": "extendedProvingWindow",
-            "type": "uint48",
-            "internalType": "uint48"
-          },
-          {
-            "name": "maxFinalizationCount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "finalizationGracePeriod",
             "type": "uint48",
             "internalType": "uint48"
           },
@@ -2013,11 +2790,6 @@ interface Inbox {
             "name": "permissionlessInclusionMultiplier",
             "type": "uint8",
             "internalType": "uint8"
-          },
-          {
-            "name": "compositeKeyVersion",
-            "type": "uint16",
-            "internalType": "uint16"
           }
         ]
       }
@@ -2059,19 +2831,6 @@ interface Inbox {
   },
   {
     "type": "function",
-    "name": "conflictingTransitionDetected",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getConfig",
     "inputs": [],
     "outputs": [
@@ -2086,16 +2845,6 @@ interface Inbox {
             "internalType": "address"
           },
           {
-            "name": "bondToken",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "checkpointStore",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
             "name": "proofVerifier",
             "type": "address",
             "internalType": "address"
@@ -2106,22 +2855,17 @@ interface Inbox {
             "internalType": "address"
           },
           {
+            "name": "signalService",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
             "name": "provingWindow",
             "type": "uint48",
             "internalType": "uint48"
           },
           {
             "name": "extendedProvingWindow",
-            "type": "uint48",
-            "internalType": "uint48"
-          },
-          {
-            "name": "maxFinalizationCount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "finalizationGracePeriod",
             "type": "uint48",
             "internalType": "uint48"
           },
@@ -2164,11 +2908,51 @@ interface Inbox {
             "name": "permissionlessInclusionMultiplier",
             "type": "uint8",
             "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCoreState",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IInbox.CoreState",
+        "components": [
+          {
+            "name": "nextProposalId",
+            "type": "uint48",
+            "internalType": "uint48"
           },
           {
-            "name": "compositeKeyVersion",
-            "type": "uint16",
-            "internalType": "uint16"
+            "name": "lastProposalBlockId",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "lastFinalizedProposalId",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "lastFinalizedTimestamp",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "lastCheckpointTimestamp",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "lastFinalizedBlockHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
         ]
       }
@@ -2270,44 +3054,15 @@ interface Inbox {
     "inputs": [
       {
         "name": "_proposalId",
-        "type": "uint48",
-        "internalType": "uint48"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
       {
-        "name": "proposalHash_",
+        "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getTransitionRecordHash",
-    "inputs": [
-      {
-        "name": "_proposalId",
-        "type": "uint48",
-        "internalType": "uint48"
-      },
-      {
-        "name": "_parentTransitionHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "finalizationDeadline_",
-        "type": "uint48",
-        "internalType": "uint48"
-      },
-      {
-        "name": "recordHash_",
-        "type": "bytes26",
-        "internalType": "bytes26"
       }
     ],
     "stateMutability": "view"
@@ -2581,6 +3336,47 @@ interface Inbox {
   },
   {
     "type": "event",
+    "name": "BondInstructionCreated",
+    "inputs": [
+      {
+        "name": "proposalId",
+        "type": "uint48",
+        "indexed": true,
+        "internalType": "uint48"
+      },
+      {
+        "name": "bondInstruction",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct LibBonds.BondInstruction",
+        "components": [
+          {
+            "name": "proposalId",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "bondType",
+            "type": "uint8",
+            "internalType": "enum LibBonds.BondType"
+          },
+          {
+            "name": "payer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "payee",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ForcedInclusionSaved",
     "inputs": [
       {
@@ -2726,18 +3522,6 @@ interface Inbox {
   },
   {
     "type": "event",
-    "name": "TransitionConflictDetected",
-    "inputs": [],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "TransitionDuplicateDetected",
-    "inputs": [],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -2769,7 +3553,7 @@ interface Inbox {
   },
   {
     "type": "error",
-    "name": "ActivationPeriodExpired",
+    "name": "ActivationRequired",
     "inputs": []
   },
   {
@@ -2784,12 +3568,7 @@ interface Inbox {
   },
   {
     "type": "error",
-    "name": "CheckpointMismatch",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "CheckpointNotProvided",
+    "name": "CheckpointDelayHasPassed",
     "inputs": []
   },
   {
@@ -2804,7 +3583,7 @@ interface Inbox {
   },
   {
     "type": "error",
-    "name": "EmptyProposals",
+    "name": "EmptyBatch",
     "inputs": []
   },
   {
@@ -2814,17 +3593,12 @@ interface Inbox {
   },
   {
     "type": "error",
+    "name": "FirstProposalIdTooLarge",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InconsistentLengths",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InconsistentParams",
     "inputs": []
   },
   {
@@ -2834,27 +3608,22 @@ interface Inbox {
   },
   {
     "type": "error",
-    "name": "InvalidLastPacayaBlockHash",
+    "name": "LastProposalAlreadyFinalized",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "InvalidLastProposalProof",
+    "name": "LastProposalHashMismatch",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "InvalidSpan",
+    "name": "LastProposalIdTooLarge",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "InvalidState",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NextProposalHashMismatch",
+    "name": "LengthExceedsUint16",
     "inputs": []
   },
   {
@@ -2864,47 +3633,17 @@ interface Inbox {
   },
   {
     "type": "error",
-    "name": "NoBondToWithdraw",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "NotEnoughCapacity",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "ProposalHashMismatch",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ProposalHashMismatchWithTransition",
+    "name": "ParentBlockHashMismatch",
     "inputs": []
   },
   {
     "type": "error",
     "name": "REENTRANT_CALL",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "RingBufferSizeZero",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "SpanOutOfBounds",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "TransitionRecordHashMismatchWithStorage",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "TransitionRecordNotProvided",
     "inputs": []
   },
   {
@@ -3009,13 +3748,13 @@ error ACCESS_DENIED();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `ActivationPeriodExpired()` and selector `0x6f6dd95d`.
+    /**Custom error with signature `ActivationRequired()` and selector `0xba74d80f`.
 ```solidity
-error ActivationPeriodExpired();
+error ActivationRequired();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct ActivationPeriodExpired;
+    pub struct ActivationRequired;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -3041,26 +3780,26 @@ error ActivationPeriodExpired();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<ActivationPeriodExpired> for UnderlyingRustTuple<'_> {
-            fn from(value: ActivationPeriodExpired) -> Self {
+        impl ::core::convert::From<ActivationRequired> for UnderlyingRustTuple<'_> {
+            fn from(value: ActivationRequired) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for ActivationPeriodExpired {
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for ActivationRequired {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for ActivationPeriodExpired {
+        impl alloy_sol_types::SolError for ActivationRequired {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "ActivationPeriodExpired()";
-            const SELECTOR: [u8; 4] = [111u8, 109u8, 217u8, 93u8];
+            const SIGNATURE: &'static str = "ActivationRequired()";
+            const SELECTOR: [u8; 4] = [186u8, 116u8, 216u8, 15u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3230,13 +3969,13 @@ error CannotProposeInCurrentBlock();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `CheckpointMismatch()` and selector `0x5b6f4456`.
+    /**Custom error with signature `CheckpointDelayHasPassed()` and selector `0xc38e9637`.
 ```solidity
-error CheckpointMismatch();
+error CheckpointDelayHasPassed();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct CheckpointMismatch;
+    pub struct CheckpointDelayHasPassed;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -3262,99 +4001,28 @@ error CheckpointMismatch();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<CheckpointMismatch> for UnderlyingRustTuple<'_> {
-            fn from(value: CheckpointMismatch) -> Self {
+        impl ::core::convert::From<CheckpointDelayHasPassed>
+        for UnderlyingRustTuple<'_> {
+            fn from(value: CheckpointDelayHasPassed) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for CheckpointMismatch {
+        impl ::core::convert::From<UnderlyingRustTuple<'_>>
+        for CheckpointDelayHasPassed {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for CheckpointMismatch {
+        impl alloy_sol_types::SolError for CheckpointDelayHasPassed {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "CheckpointMismatch()";
-            const SELECTOR: [u8; 4] = [91u8, 111u8, 68u8, 86u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `CheckpointNotProvided()` and selector `0x2f8bb2a7`.
-```solidity
-error CheckpointNotProvided();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct CheckpointNotProvided;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<CheckpointNotProvided> for UnderlyingRustTuple<'_> {
-            fn from(value: CheckpointNotProvided) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for CheckpointNotProvided {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for CheckpointNotProvided {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "CheckpointNotProvided()";
-            const SELECTOR: [u8; 4] = [47u8, 139u8, 178u8, 167u8];
+            const SIGNATURE: &'static str = "CheckpointDelayHasPassed()";
+            const SELECTOR: [u8; 4] = [195u8, 142u8, 150u8, 55u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3522,13 +4190,13 @@ error ETH_TRANSFER_FAILED();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `EmptyProposals()` and selector `0x0a9d1de7`.
+    /**Custom error with signature `EmptyBatch()` and selector `0xc2e5347d`.
 ```solidity
-error EmptyProposals();
+error EmptyBatch();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct EmptyProposals;
+    pub struct EmptyBatch;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -3554,26 +4222,26 @@ error EmptyProposals();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<EmptyProposals> for UnderlyingRustTuple<'_> {
-            fn from(value: EmptyProposals) -> Self {
+        impl ::core::convert::From<EmptyBatch> for UnderlyingRustTuple<'_> {
+            fn from(value: EmptyBatch) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for EmptyProposals {
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for EmptyBatch {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for EmptyProposals {
+        impl alloy_sol_types::SolError for EmptyBatch {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "EmptyProposals()";
-            const SELECTOR: [u8; 4] = [10u8, 157u8, 29u8, 231u8];
+            const SIGNATURE: &'static str = "EmptyBatch()";
+            const SELECTOR: [u8; 4] = [194u8, 229u8, 52u8, 125u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3668,6 +4336,79 @@ error FUNC_NOT_IMPLEMENTED();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Custom error with signature `FirstProposalIdTooLarge()` and selector `0x63db3a41`.
+```solidity
+error FirstProposalIdTooLarge();
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct FirstProposalIdTooLarge;
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[doc(hidden)]
+        type UnderlyingSolTuple<'a> = ();
+        #[doc(hidden)]
+        type UnderlyingRustTuple<'a> = ();
+        #[cfg(test)]
+        #[allow(dead_code, unreachable_patterns)]
+        fn _type_assertion(
+            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+        ) {
+            match _t {
+                alloy_sol_types::private::AssertTypeEq::<
+                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                >(_) => {}
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<FirstProposalIdTooLarge> for UnderlyingRustTuple<'_> {
+            fn from(value: FirstProposalIdTooLarge) -> Self {
+                ()
+            }
+        }
+        #[automatically_derived]
+        #[doc(hidden)]
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for FirstProposalIdTooLarge {
+            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                Self
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolError for FirstProposalIdTooLarge {
+            type Parameters<'a> = UnderlyingSolTuple<'a>;
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "FirstProposalIdTooLarge()";
+            const SELECTOR: [u8; 4] = [99u8, 219u8, 58u8, 65u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
+                <Self::Parameters<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(Self::new)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `INVALID_PAUSE_STATUS()` and selector `0xbae6e2a9`.
 ```solidity
 error INVALID_PAUSE_STATUS();
@@ -3720,152 +4461,6 @@ error INVALID_PAUSE_STATUS();
             > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "INVALID_PAUSE_STATUS()";
             const SELECTOR: [u8; 4] = [186u8, 230u8, 226u8, 169u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `InconsistentLengths()` and selector `0xb1f40f77`.
-```solidity
-error InconsistentLengths();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct InconsistentLengths;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<InconsistentLengths> for UnderlyingRustTuple<'_> {
-            fn from(value: InconsistentLengths) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for InconsistentLengths {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for InconsistentLengths {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "InconsistentLengths()";
-            const SELECTOR: [u8; 4] = [177u8, 244u8, 15u8, 119u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `InconsistentParams()` and selector `0x59245e5f`.
-```solidity
-error InconsistentParams();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct InconsistentParams;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<InconsistentParams> for UnderlyingRustTuple<'_> {
-            fn from(value: InconsistentParams) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for InconsistentParams {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for InconsistentParams {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "InconsistentParams()";
-            const SELECTOR: [u8; 4] = [89u8, 36u8, 94u8, 95u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -3960,13 +4555,13 @@ error IncorrectProposalCount();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `InvalidLastPacayaBlockHash()` and selector `0x0b17ad8f`.
+    /**Custom error with signature `LastProposalAlreadyFinalized()` and selector `0x302865ce`.
 ```solidity
-error InvalidLastPacayaBlockHash();
+error LastProposalAlreadyFinalized();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct InvalidLastPacayaBlockHash;
+    pub struct LastProposalAlreadyFinalized;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -3992,28 +4587,28 @@ error InvalidLastPacayaBlockHash();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<InvalidLastPacayaBlockHash>
+        impl ::core::convert::From<LastProposalAlreadyFinalized>
         for UnderlyingRustTuple<'_> {
-            fn from(value: InvalidLastPacayaBlockHash) -> Self {
+            fn from(value: LastProposalAlreadyFinalized) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
         impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for InvalidLastPacayaBlockHash {
+        for LastProposalAlreadyFinalized {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for InvalidLastPacayaBlockHash {
+        impl alloy_sol_types::SolError for LastProposalAlreadyFinalized {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "InvalidLastPacayaBlockHash()";
-            const SELECTOR: [u8; 4] = [11u8, 23u8, 173u8, 143u8];
+            const SIGNATURE: &'static str = "LastProposalAlreadyFinalized()";
+            const SELECTOR: [u8; 4] = [48u8, 40u8, 101u8, 206u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4035,13 +4630,13 @@ error InvalidLastPacayaBlockHash();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `InvalidLastProposalProof()` and selector `0x10da6d30`.
+    /**Custom error with signature `LastProposalHashMismatch()` and selector `0xf904c2fd`.
 ```solidity
-error InvalidLastProposalProof();
+error LastProposalHashMismatch();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct InvalidLastProposalProof;
+    pub struct LastProposalHashMismatch;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -4067,28 +4662,28 @@ error InvalidLastProposalProof();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<InvalidLastProposalProof>
+        impl ::core::convert::From<LastProposalHashMismatch>
         for UnderlyingRustTuple<'_> {
-            fn from(value: InvalidLastProposalProof) -> Self {
+            fn from(value: LastProposalHashMismatch) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
         impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for InvalidLastProposalProof {
+        for LastProposalHashMismatch {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for InvalidLastProposalProof {
+        impl alloy_sol_types::SolError for LastProposalHashMismatch {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "InvalidLastProposalProof()";
-            const SELECTOR: [u8; 4] = [16u8, 218u8, 109u8, 48u8];
+            const SIGNATURE: &'static str = "LastProposalHashMismatch()";
+            const SELECTOR: [u8; 4] = [249u8, 4u8, 194u8, 253u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4110,13 +4705,13 @@ error InvalidLastProposalProof();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `InvalidSpan()` and selector `0xef98fad7`.
+    /**Custom error with signature `LastProposalIdTooLarge()` and selector `0x677c56f1`.
 ```solidity
-error InvalidSpan();
+error LastProposalIdTooLarge();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct InvalidSpan;
+    pub struct LastProposalIdTooLarge;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -4142,26 +4737,26 @@ error InvalidSpan();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<InvalidSpan> for UnderlyingRustTuple<'_> {
-            fn from(value: InvalidSpan) -> Self {
+        impl ::core::convert::From<LastProposalIdTooLarge> for UnderlyingRustTuple<'_> {
+            fn from(value: LastProposalIdTooLarge) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for InvalidSpan {
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for LastProposalIdTooLarge {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for InvalidSpan {
+        impl alloy_sol_types::SolError for LastProposalIdTooLarge {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "InvalidSpan()";
-            const SELECTOR: [u8; 4] = [239u8, 152u8, 250u8, 215u8];
+            const SIGNATURE: &'static str = "LastProposalIdTooLarge()";
+            const SELECTOR: [u8; 4] = [103u8, 124u8, 86u8, 241u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4183,13 +4778,13 @@ error InvalidSpan();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `InvalidState()` and selector `0xbaf3f0f7`.
+    /**Custom error with signature `LengthExceedsUint16()` and selector `0x2c3cf4d6`.
 ```solidity
-error InvalidState();
+error LengthExceedsUint16();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct InvalidState;
+    pub struct LengthExceedsUint16;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -4215,101 +4810,26 @@ error InvalidState();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<InvalidState> for UnderlyingRustTuple<'_> {
-            fn from(value: InvalidState) -> Self {
+        impl ::core::convert::From<LengthExceedsUint16> for UnderlyingRustTuple<'_> {
+            fn from(value: LengthExceedsUint16) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for InvalidState {
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for LengthExceedsUint16 {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for InvalidState {
+        impl alloy_sol_types::SolError for LengthExceedsUint16 {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "InvalidState()";
-            const SELECTOR: [u8; 4] = [186u8, 243u8, 240u8, 247u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `NextProposalHashMismatch()` and selector `0xafb1de5f`.
-```solidity
-error NextProposalHashMismatch();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct NextProposalHashMismatch;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<NextProposalHashMismatch>
-        for UnderlyingRustTuple<'_> {
-            fn from(value: NextProposalHashMismatch) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for NextProposalHashMismatch {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for NextProposalHashMismatch {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "NextProposalHashMismatch()";
-            const SELECTOR: [u8; 4] = [175u8, 177u8, 222u8, 95u8];
+            const SIGNATURE: &'static str = "LengthExceedsUint16()";
+            const SELECTOR: [u8; 4] = [44u8, 60u8, 244u8, 214u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4404,79 +4924,6 @@ error NoBlobs();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `NoBondToWithdraw()` and selector `0x4555262b`.
-```solidity
-error NoBondToWithdraw();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct NoBondToWithdraw;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<NoBondToWithdraw> for UnderlyingRustTuple<'_> {
-            fn from(value: NoBondToWithdraw) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for NoBondToWithdraw {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for NoBondToWithdraw {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "NoBondToWithdraw()";
-            const SELECTOR: [u8; 4] = [69u8, 85u8, 38u8, 43u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Custom error with signature `NotEnoughCapacity()` and selector `0xeaabac9b`.
 ```solidity
 error NotEnoughCapacity();
@@ -4550,13 +4997,13 @@ error NotEnoughCapacity();
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `ProposalHashMismatch()` and selector `0x255b08fb`.
+    /**Custom error with signature `ParentBlockHashMismatch()` and selector `0x198070b3`.
 ```solidity
-error ProposalHashMismatch();
+error ParentBlockHashMismatch();
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
-    pub struct ProposalHashMismatch;
+    pub struct ParentBlockHashMismatch;
     #[allow(
         non_camel_case_types,
         non_snake_case,
@@ -4582,101 +5029,26 @@ error ProposalHashMismatch();
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<ProposalHashMismatch> for UnderlyingRustTuple<'_> {
-            fn from(value: ProposalHashMismatch) -> Self {
+        impl ::core::convert::From<ParentBlockHashMismatch> for UnderlyingRustTuple<'_> {
+            fn from(value: ParentBlockHashMismatch) -> Self {
                 ()
             }
         }
         #[automatically_derived]
         #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for ProposalHashMismatch {
+        impl ::core::convert::From<UnderlyingRustTuple<'_>> for ParentBlockHashMismatch {
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self
             }
         }
         #[automatically_derived]
-        impl alloy_sol_types::SolError for ProposalHashMismatch {
+        impl alloy_sol_types::SolError for ParentBlockHashMismatch {
             type Parameters<'a> = UnderlyingSolTuple<'a>;
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "ProposalHashMismatch()";
-            const SELECTOR: [u8; 4] = [37u8, 91u8, 8u8, 251u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `ProposalHashMismatchWithTransition()` and selector `0x0ca6f729`.
-```solidity
-error ProposalHashMismatchWithTransition();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct ProposalHashMismatchWithTransition;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<ProposalHashMismatchWithTransition>
-        for UnderlyingRustTuple<'_> {
-            fn from(value: ProposalHashMismatchWithTransition) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for ProposalHashMismatchWithTransition {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for ProposalHashMismatchWithTransition {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "ProposalHashMismatchWithTransition()";
-            const SELECTOR: [u8; 4] = [12u8, 166u8, 247u8, 41u8];
+            const SIGNATURE: &'static str = "ParentBlockHashMismatch()";
+            const SELECTOR: [u8; 4] = [25u8, 128u8, 112u8, 179u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -4750,302 +5122,6 @@ error REENTRANT_CALL();
             > as alloy_sol_types::SolType>::Token<'a>;
             const SIGNATURE: &'static str = "REENTRANT_CALL()";
             const SELECTOR: [u8; 4] = [223u8, 198u8, 13u8, 133u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `RingBufferSizeZero()` and selector `0x61395dfb`.
-```solidity
-error RingBufferSizeZero();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct RingBufferSizeZero;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<RingBufferSizeZero> for UnderlyingRustTuple<'_> {
-            fn from(value: RingBufferSizeZero) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for RingBufferSizeZero {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for RingBufferSizeZero {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "RingBufferSizeZero()";
-            const SELECTOR: [u8; 4] = [97u8, 57u8, 93u8, 251u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `SpanOutOfBounds()` and selector `0x320f10ed`.
-```solidity
-error SpanOutOfBounds();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct SpanOutOfBounds;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<SpanOutOfBounds> for UnderlyingRustTuple<'_> {
-            fn from(value: SpanOutOfBounds) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>> for SpanOutOfBounds {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for SpanOutOfBounds {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "SpanOutOfBounds()";
-            const SELECTOR: [u8; 4] = [50u8, 15u8, 16u8, 237u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `TransitionRecordHashMismatchWithStorage()` and selector `0xc7e4985d`.
-```solidity
-error TransitionRecordHashMismatchWithStorage();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct TransitionRecordHashMismatchWithStorage;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<TransitionRecordHashMismatchWithStorage>
-        for UnderlyingRustTuple<'_> {
-            fn from(value: TransitionRecordHashMismatchWithStorage) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for TransitionRecordHashMismatchWithStorage {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for TransitionRecordHashMismatchWithStorage {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "TransitionRecordHashMismatchWithStorage()";
-            const SELECTOR: [u8; 4] = [199u8, 228u8, 152u8, 93u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn abi_decode_raw_validate(data: &[u8]) -> alloy_sol_types::Result<Self> {
-                <Self::Parameters<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Self::new)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Custom error with signature `TransitionRecordNotProvided()` and selector `0x63debea1`.
-```solidity
-error TransitionRecordNotProvided();
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct TransitionRecordNotProvided;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[doc(hidden)]
-        type UnderlyingSolTuple<'a> = ();
-        #[doc(hidden)]
-        type UnderlyingRustTuple<'a> = ();
-        #[cfg(test)]
-        #[allow(dead_code, unreachable_patterns)]
-        fn _type_assertion(
-            _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-        ) {
-            match _t {
-                alloy_sol_types::private::AssertTypeEq::<
-                    <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                >(_) => {}
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<TransitionRecordNotProvided>
-        for UnderlyingRustTuple<'_> {
-            fn from(value: TransitionRecordNotProvided) -> Self {
-                ()
-            }
-        }
-        #[automatically_derived]
-        #[doc(hidden)]
-        impl ::core::convert::From<UnderlyingRustTuple<'_>>
-        for TransitionRecordNotProvided {
-            fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                Self
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolError for TransitionRecordNotProvided {
-            type Parameters<'a> = UnderlyingSolTuple<'a>;
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "TransitionRecordNotProvided()";
-            const SELECTOR: [u8; 4] = [99u8, 222u8, 190u8, 161u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -5505,6 +5581,122 @@ event BeaconUpgraded(address indexed beacon);
         impl From<&BeaconUpgraded> for alloy_sol_types::private::LogData {
             #[inline]
             fn from(this: &BeaconUpgraded) -> alloy_sol_types::private::LogData {
+                alloy_sol_types::SolEvent::encode_log_data(this)
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive()]
+    /**Event with signature `BondInstructionCreated(uint48,(uint48,uint8,address,address))` and selector `0x8796b99bbf275a983988181e85b42502d9347327f4dde674320bec3879bcc5e1`.
+```solidity
+event BondInstructionCreated(uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction);
+```*/
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    #[derive(Clone)]
+    pub struct BondInstructionCreated {
+        #[allow(missing_docs)]
+        pub proposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub bondInstruction: <LibBonds::BondInstruction as alloy::sol_types::SolType>::RustType,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        #[automatically_derived]
+        impl alloy_sol_types::SolEvent for BondInstructionCreated {
+            type DataTuple<'a> = (LibBonds::BondInstruction,);
+            type DataToken<'a> = <Self::DataTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Uint<48>,
+            );
+            const SIGNATURE: &'static str = "BondInstructionCreated(uint48,(uint48,uint8,address,address))";
+            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
+                135u8, 150u8, 185u8, 155u8, 191u8, 39u8, 90u8, 152u8, 57u8, 136u8, 24u8,
+                30u8, 133u8, 180u8, 37u8, 2u8, 217u8, 52u8, 115u8, 39u8, 244u8, 221u8,
+                230u8, 116u8, 50u8, 11u8, 236u8, 56u8, 121u8, 188u8, 197u8, 225u8,
+            ]);
+            const ANONYMOUS: bool = false;
+            #[allow(unused_variables)]
+            #[inline]
+            fn new(
+                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
+                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                Self {
+                    proposalId: topics.1,
+                    bondInstruction: data.0,
+                }
+            }
+            #[inline]
+            fn check_signature(
+                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
+            ) -> alloy_sol_types::Result<()> {
+                if topics.0 != Self::SIGNATURE_HASH {
+                    return Err(
+                        alloy_sol_types::Error::invalid_event_signature_hash(
+                            Self::SIGNATURE,
+                            topics.0,
+                            Self::SIGNATURE_HASH,
+                        ),
+                    );
+                }
+                Ok(())
+            }
+            #[inline]
+            fn tokenize_body(&self) -> Self::DataToken<'_> {
+                (
+                    <LibBonds::BondInstruction as alloy_sol_types::SolType>::tokenize(
+                        &self.bondInstruction,
+                    ),
+                )
+            }
+            #[inline]
+            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
+                (Self::SIGNATURE_HASH.into(), self.proposalId.clone())
+            }
+            #[inline]
+            fn encode_topics_raw(
+                &self,
+                out: &mut [alloy_sol_types::abi::token::WordToken],
+            ) -> alloy_sol_types::Result<()> {
+                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
+                    return Err(alloy_sol_types::Error::Overrun);
+                }
+                out[0usize] = alloy_sol_types::abi::token::WordToken(
+                    Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic(&self.proposalId);
+                Ok(())
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::private::IntoLogData for BondInstructionCreated {
+            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
+                From::from(self)
+            }
+            fn into_log_data(self) -> alloy_sol_types::private::LogData {
+                From::from(&self)
+            }
+        }
+        #[automatically_derived]
+        impl From<&BondInstructionCreated> for alloy_sol_types::private::LogData {
+            #[inline]
+            fn from(this: &BondInstructionCreated) -> alloy_sol_types::private::LogData {
                 alloy_sol_types::SolEvent::encode_log_data(this)
             }
         }
@@ -6385,206 +6577,6 @@ event Proved(bytes data);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `TransitionConflictDetected()` and selector `0xedbbc170a31039722f1b233fdedcee87c58f692be26627dc755b33f28537c627`.
-```solidity
-event TransitionConflictDetected();
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct TransitionConflictDetected;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for TransitionConflictDetected {
-            type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
-            const SIGNATURE: &'static str = "TransitionConflictDetected()";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                237u8, 187u8, 193u8, 112u8, 163u8, 16u8, 57u8, 114u8, 47u8, 27u8, 35u8,
-                63u8, 222u8, 220u8, 238u8, 135u8, 197u8, 143u8, 105u8, 43u8, 226u8,
-                102u8, 39u8, 220u8, 117u8, 91u8, 51u8, 242u8, 133u8, 55u8, 198u8, 39u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {}
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                ()
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(),)
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for TransitionConflictDetected {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&TransitionConflictDetected> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &TransitionConflictDetected,
-            ) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `TransitionDuplicateDetected()` and selector `0xf1846d1634477b5b2542d27b601bfcaa46ebc2bff80f941c2b07f862778e491b`.
-```solidity
-event TransitionDuplicateDetected();
-```*/
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    #[derive(Clone)]
-    pub struct TransitionDuplicateDetected;
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        #[automatically_derived]
-        impl alloy_sol_types::SolEvent for TransitionDuplicateDetected {
-            type DataTuple<'a> = ();
-            type DataToken<'a> = <Self::DataTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
-            const SIGNATURE: &'static str = "TransitionDuplicateDetected()";
-            const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                241u8, 132u8, 109u8, 22u8, 52u8, 71u8, 123u8, 91u8, 37u8, 66u8, 210u8,
-                123u8, 96u8, 27u8, 252u8, 170u8, 70u8, 235u8, 194u8, 191u8, 248u8, 15u8,
-                148u8, 28u8, 43u8, 7u8, 248u8, 98u8, 119u8, 142u8, 73u8, 27u8,
-            ]);
-            const ANONYMOUS: bool = false;
-            #[allow(unused_variables)]
-            #[inline]
-            fn new(
-                topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
-                data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                Self {}
-            }
-            #[inline]
-            fn check_signature(
-                topics: &<Self::TopicList as alloy_sol_types::SolType>::RustType,
-            ) -> alloy_sol_types::Result<()> {
-                if topics.0 != Self::SIGNATURE_HASH {
-                    return Err(
-                        alloy_sol_types::Error::invalid_event_signature_hash(
-                            Self::SIGNATURE,
-                            topics.0,
-                            Self::SIGNATURE_HASH,
-                        ),
-                    );
-                }
-                Ok(())
-            }
-            #[inline]
-            fn tokenize_body(&self) -> Self::DataToken<'_> {
-                ()
-            }
-            #[inline]
-            fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(),)
-            }
-            #[inline]
-            fn encode_topics_raw(
-                &self,
-                out: &mut [alloy_sol_types::abi::token::WordToken],
-            ) -> alloy_sol_types::Result<()> {
-                if out.len() < <Self::TopicList as alloy_sol_types::TopicList>::COUNT {
-                    return Err(alloy_sol_types::Error::Overrun);
-                }
-                out[0usize] = alloy_sol_types::abi::token::WordToken(
-                    Self::SIGNATURE_HASH,
-                );
-                Ok(())
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::private::IntoLogData for TransitionDuplicateDetected {
-            fn to_log_data(&self) -> alloy_sol_types::private::LogData {
-                From::from(self)
-            }
-            fn into_log_data(self) -> alloy_sol_types::private::LogData {
-                From::from(&self)
-            }
-        }
-        #[automatically_derived]
-        impl From<&TransitionDuplicateDetected> for alloy_sol_types::private::LogData {
-            #[inline]
-            fn from(
-                this: &TransitionDuplicateDetected,
-            ) -> alloy_sol_types::private::LogData {
-                alloy_sol_types::SolEvent::encode_log_data(this)
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Event with signature `Unpaused(address)` and selector `0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa`.
 ```solidity
 event Unpaused(address account);
@@ -7290,153 +7282,6 @@ function activationTimestamp() external view returns (uint48);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `conflictingTransitionDetected()` and selector `0x1ad4dd62`.
-```solidity
-function conflictingTransitionDetected() external view returns (bool);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct conflictingTransitionDetectedCall;
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`conflictingTransitionDetected()`](conflictingTransitionDetectedCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct conflictingTransitionDetectedReturn {
-        #[allow(missing_docs)]
-        pub _0: bool,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = ();
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = ();
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<conflictingTransitionDetectedCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: conflictingTransitionDetectedCall) -> Self {
-                    ()
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for conflictingTransitionDetectedCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Bool,);
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (bool,);
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<conflictingTransitionDetectedReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: conflictingTransitionDetectedReturn) -> Self {
-                    (value._0,)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for conflictingTransitionDetectedReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { _0: tuple.0 }
-                }
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for conflictingTransitionDetectedCall {
-            type Parameters<'a> = ();
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = bool;
-            type ReturnTuple<'a> = (alloy::sol_types::sol_data::Bool,);
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "conflictingTransitionDetected()";
-            const SELECTOR: [u8; 4] = [26u8, 212u8, 221u8, 98u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                ()
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                (
-                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
-                        ret,
-                    ),
-                )
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(|r| {
-                        let r: conflictingTransitionDetectedReturn = r.into();
-                        r._0
-                    })
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(|r| {
-                        let r: conflictingTransitionDetectedReturn = r.into();
-                        r._0
-                    })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getConfig()` and selector `0xc3f909d4`.
 ```solidity
 function getConfig() external view returns (IInbox.Config memory config_);
@@ -7572,6 +7417,147 @@ function getConfig() external view returns (IInbox.Config memory config_);
                     .map(|r| {
                         let r: getConfigReturn = r.into();
                         r.config_
+                    })
+            }
+        }
+    };
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    /**Function with signature `getCoreState()` and selector `0x6aa6a01a`.
+```solidity
+function getCoreState() external view returns (IInbox.CoreState memory);
+```*/
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getCoreStateCall;
+    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(Default, Debug, PartialEq, Eq, Hash)]
+    ///Container type for the return parameters of the [`getCoreState()`](getCoreStateCall) function.
+    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
+    #[derive(Clone)]
+    pub struct getCoreStateReturn {
+        #[allow(missing_docs)]
+        pub _0: <IInbox::CoreState as alloy::sol_types::SolType>::RustType,
+    }
+    #[allow(
+        non_camel_case_types,
+        non_snake_case,
+        clippy::pub_underscore_fields,
+        clippy::style
+    )]
+    const _: () = {
+        use alloy::sol_types as alloy_sol_types;
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = ();
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = ();
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getCoreStateCall> for UnderlyingRustTuple<'_> {
+                fn from(value: getCoreStateCall) -> Self {
+                    ()
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getCoreStateCall {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self
+                }
+            }
+        }
+        {
+            #[doc(hidden)]
+            type UnderlyingSolTuple<'a> = (IInbox::CoreState,);
+            #[doc(hidden)]
+            type UnderlyingRustTuple<'a> = (
+                <IInbox::CoreState as alloy::sol_types::SolType>::RustType,
+            );
+            #[cfg(test)]
+            #[allow(dead_code, unreachable_patterns)]
+            fn _type_assertion(
+                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
+            ) {
+                match _t {
+                    alloy_sol_types::private::AssertTypeEq::<
+                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
+                    >(_) => {}
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<getCoreStateReturn> for UnderlyingRustTuple<'_> {
+                fn from(value: getCoreStateReturn) -> Self {
+                    (value._0,)
+                }
+            }
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::core::convert::From<UnderlyingRustTuple<'_>> for getCoreStateReturn {
+                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
+                    Self { _0: tuple.0 }
+                }
+            }
+        }
+        #[automatically_derived]
+        impl alloy_sol_types::SolCall for getCoreStateCall {
+            type Parameters<'a> = ();
+            type Token<'a> = <Self::Parameters<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            type Return = <IInbox::CoreState as alloy::sol_types::SolType>::RustType;
+            type ReturnTuple<'a> = (IInbox::CoreState,);
+            type ReturnToken<'a> = <Self::ReturnTuple<
+                'a,
+            > as alloy_sol_types::SolType>::Token<'a>;
+            const SIGNATURE: &'static str = "getCoreState()";
+            const SELECTOR: [u8; 4] = [106u8, 166u8, 160u8, 26u8];
+            #[inline]
+            fn new<'a>(
+                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
+            ) -> Self {
+                tuple.into()
+            }
+            #[inline]
+            fn tokenize(&self) -> Self::Token<'_> {
+                ()
+            }
+            #[inline]
+            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
+                (<IInbox::CoreState as alloy_sol_types::SolType>::tokenize(ret),)
+            }
+            #[inline]
+            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
+                    .map(|r| {
+                        let r: getCoreStateReturn = r.into();
+                        r._0
+                    })
+            }
+            #[inline]
+            fn abi_decode_returns_validate(
+                data: &[u8],
+            ) -> alloy_sol_types::Result<Self::Return> {
+                <Self::ReturnTuple<
+                    '_,
+                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
+                    .map(|r| {
+                        let r: getCoreStateReturn = r.into();
+                        r._0
                     })
             }
         }
@@ -8088,24 +8074,24 @@ function getForcedInclusions(uint48 _start, uint48 _maxCount) external view retu
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `getProposalHash(uint48)` and selector `0x0bb54ffd`.
+    /**Function with signature `getProposalHash(uint256)` and selector `0xa834725a`.
 ```solidity
-function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+function getProposalHash(uint256 _proposalId) external view returns (bytes32);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getProposalHashCall {
         #[allow(missing_docs)]
-        pub _proposalId: alloy::sol_types::private::primitives::aliases::U48,
+        pub _proposalId: alloy::sol_types::private::primitives::aliases::U256,
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`getProposalHash(uint48)`](getProposalHashCall) function.
+    ///Container type for the return parameters of the [`getProposalHash(uint256)`](getProposalHashCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct getProposalHashReturn {
         #[allow(missing_docs)]
-        pub proposalHash_: alloy::sol_types::private::FixedBytes<32>,
+        pub _0: alloy::sol_types::private::FixedBytes<32>,
     }
     #[allow(
         non_camel_case_types,
@@ -8117,10 +8103,10 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
         use alloy::sol_types as alloy_sol_types;
         {
             #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<48>,);
+            type UnderlyingSolTuple<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U48,
+                alloy::sol_types::private::primitives::aliases::U256,
             );
             #[cfg(test)]
             #[allow(dead_code, unreachable_patterns)]
@@ -8169,7 +8155,7 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
             impl ::core::convert::From<getProposalHashReturn>
             for UnderlyingRustTuple<'_> {
                 fn from(value: getProposalHashReturn) -> Self {
-                    (value.proposalHash_,)
+                    (value._0,)
                 }
             }
             #[automatically_derived]
@@ -8177,13 +8163,13 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
             impl ::core::convert::From<UnderlyingRustTuple<'_>>
             for getProposalHashReturn {
                 fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self { proposalHash_: tuple.0 }
+                    Self { _0: tuple.0 }
                 }
             }
         }
         #[automatically_derived]
         impl alloy_sol_types::SolCall for getProposalHashCall {
-            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<48>,);
+            type Parameters<'a> = (alloy::sol_types::sol_data::Uint<256>,);
             type Token<'a> = <Self::Parameters<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
@@ -8192,8 +8178,8 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "getProposalHash(uint48)";
-            const SELECTOR: [u8; 4] = [11u8, 181u8, 79u8, 253u8];
+            const SIGNATURE: &'static str = "getProposalHash(uint256)";
+            const SELECTOR: [u8; 4] = [168u8, 52u8, 114u8, 90u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -8204,7 +8190,7 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
             fn tokenize(&self) -> Self::Token<'_> {
                 (
                     <alloy::sol_types::sol_data::Uint<
-                        48,
+                        256,
                     > as alloy_sol_types::SolType>::tokenize(&self._proposalId),
                 )
             }
@@ -8223,7 +8209,7 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
                 > as alloy_sol_types::SolType>::abi_decode_sequence(data)
                     .map(|r| {
                         let r: getProposalHashReturn = r.into();
-                        r.proposalHash_
+                        r._0
                     })
             }
             #[inline]
@@ -8235,201 +8221,8 @@ function getProposalHash(uint48 _proposalId) external view returns (bytes32 prop
                 > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
                     .map(|r| {
                         let r: getProposalHashReturn = r.into();
-                        r.proposalHash_
+                        r._0
                     })
-            }
-        }
-    };
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `getTransitionRecordHash(uint48,bytes32)` and selector `0xba2850bf`.
-```solidity
-function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash) external view returns (uint48 finalizationDeadline_, bytes26 recordHash_);
-```*/
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct getTransitionRecordHashCall {
-        #[allow(missing_docs)]
-        pub _proposalId: alloy::sol_types::private::primitives::aliases::U48,
-        #[allow(missing_docs)]
-        pub _parentTransitionHash: alloy::sol_types::private::FixedBytes<32>,
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`getTransitionRecordHash(uint48,bytes32)`](getTransitionRecordHashCall) function.
-    #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
-    #[derive(Clone)]
-    pub struct getTransitionRecordHashReturn {
-        #[allow(missing_docs)]
-        pub finalizationDeadline_: alloy::sol_types::private::primitives::aliases::U48,
-        #[allow(missing_docs)]
-        pub recordHash_: alloy::sol_types::private::FixedBytes<26>,
-    }
-    #[allow(
-        non_camel_case_types,
-        non_snake_case,
-        clippy::pub_underscore_fields,
-        clippy::style
-    )]
-    const _: () = {
-        use alloy::sol_types as alloy_sol_types;
-        {
-            #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<48>,
-                alloy::sol_types::sol_data::FixedBytes<32>,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U48,
-                alloy::sol_types::private::FixedBytes<32>,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<getTransitionRecordHashCall>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: getTransitionRecordHashCall) -> Self {
-                    (value._proposalId, value._parentTransitionHash)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for getTransitionRecordHashCall {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        _proposalId: tuple.0,
-                        _parentTransitionHash: tuple.1,
-                    }
-                }
-            }
-        }
-        {
-            #[doc(hidden)]
-            type UnderlyingSolTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<48>,
-                alloy::sol_types::sol_data::FixedBytes<26>,
-            );
-            #[doc(hidden)]
-            type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U48,
-                alloy::sol_types::private::FixedBytes<26>,
-            );
-            #[cfg(test)]
-            #[allow(dead_code, unreachable_patterns)]
-            fn _type_assertion(
-                _t: alloy_sol_types::private::AssertTypeEq<UnderlyingRustTuple>,
-            ) {
-                match _t {
-                    alloy_sol_types::private::AssertTypeEq::<
-                        <UnderlyingSolTuple as alloy_sol_types::SolType>::RustType,
-                    >(_) => {}
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<getTransitionRecordHashReturn>
-            for UnderlyingRustTuple<'_> {
-                fn from(value: getTransitionRecordHashReturn) -> Self {
-                    (value.finalizationDeadline_, value.recordHash_)
-                }
-            }
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::core::convert::From<UnderlyingRustTuple<'_>>
-            for getTransitionRecordHashReturn {
-                fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
-                    Self {
-                        finalizationDeadline_: tuple.0,
-                        recordHash_: tuple.1,
-                    }
-                }
-            }
-        }
-        impl getTransitionRecordHashReturn {
-            fn _tokenize(
-                &self,
-            ) -> <getTransitionRecordHashCall as alloy_sol_types::SolCall>::ReturnToken<
-                '_,
-            > {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        48,
-                    > as alloy_sol_types::SolType>::tokenize(
-                        &self.finalizationDeadline_,
-                    ),
-                    <alloy::sol_types::sol_data::FixedBytes<
-                        26,
-                    > as alloy_sol_types::SolType>::tokenize(&self.recordHash_),
-                )
-            }
-        }
-        #[automatically_derived]
-        impl alloy_sol_types::SolCall for getTransitionRecordHashCall {
-            type Parameters<'a> = (
-                alloy::sol_types::sol_data::Uint<48>,
-                alloy::sol_types::sol_data::FixedBytes<32>,
-            );
-            type Token<'a> = <Self::Parameters<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            type Return = getTransitionRecordHashReturn;
-            type ReturnTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<48>,
-                alloy::sol_types::sol_data::FixedBytes<26>,
-            );
-            type ReturnToken<'a> = <Self::ReturnTuple<
-                'a,
-            > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "getTransitionRecordHash(uint48,bytes32)";
-            const SELECTOR: [u8; 4] = [186u8, 40u8, 80u8, 191u8];
-            #[inline]
-            fn new<'a>(
-                tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
-            ) -> Self {
-                tuple.into()
-            }
-            #[inline]
-            fn tokenize(&self) -> Self::Token<'_> {
-                (
-                    <alloy::sol_types::sol_data::Uint<
-                        48,
-                    > as alloy_sol_types::SolType>::tokenize(&self._proposalId),
-                    <alloy::sol_types::sol_data::FixedBytes<
-                        32,
-                    > as alloy_sol_types::SolType>::tokenize(&self._parentTransitionHash),
-                )
-            }
-            #[inline]
-            fn tokenize_returns(ret: &Self::Return) -> Self::ReturnToken<'_> {
-                getTransitionRecordHashReturn::_tokenize(ret)
-            }
-            #[inline]
-            fn abi_decode_returns(data: &[u8]) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence(data)
-                    .map(Into::into)
-            }
-            #[inline]
-            fn abi_decode_returns_validate(
-                data: &[u8],
-            ) -> alloy_sol_types::Result<Self::Return> {
-                <Self::ReturnTuple<
-                    '_,
-                > as alloy_sol_types::SolType>::abi_decode_sequence_validate(data)
-                    .map(Into::into)
             }
         }
     };
@@ -10915,9 +10708,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         activationTimestamp(activationTimestampCall),
         #[allow(missing_docs)]
-        conflictingTransitionDetected(conflictingTransitionDetectedCall),
-        #[allow(missing_docs)]
         getConfig(getConfigCall),
+        #[allow(missing_docs)]
+        getCoreState(getCoreStateCall),
         #[allow(missing_docs)]
         getCurrentForcedInclusionFee(getCurrentForcedInclusionFeeCall),
         #[allow(missing_docs)]
@@ -10926,8 +10719,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         getForcedInclusions(getForcedInclusionsCall),
         #[allow(missing_docs)]
         getProposalHash(getProposalHashCall),
-        #[allow(missing_docs)]
-        getTransitionRecordHash(getTransitionRecordHashCall),
         #[allow(missing_docs)]
         r#impl(implCall),
         #[allow(missing_docs)]
@@ -10974,9 +10765,7 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
             [4u8, 35u8, 199u8, 222u8],
             [4u8, 243u8, 188u8, 236u8],
-            [11u8, 181u8, 79u8, 253u8],
             [25u8, 171u8, 69u8, 60u8],
-            [26u8, 212u8, 221u8, 98u8],
             [48u8, 117u8, 219u8, 86u8],
             [54u8, 89u8, 207u8, 230u8],
             [63u8, 75u8, 168u8, 58u8],
@@ -10986,13 +10775,14 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
             [89u8, 219u8, 110u8, 133u8],
             [92u8, 151u8, 90u8, 187u8],
             [92u8, 204u8, 23u8, 24u8],
+            [106u8, 166u8, 160u8, 26u8],
             [113u8, 80u8, 24u8, 166u8],
             [121u8, 186u8, 80u8, 151u8],
             [132u8, 86u8, 203u8, 89u8],
             [138u8, 191u8, 96u8, 119u8],
             [141u8, 165u8, 203u8, 91u8],
             [151u8, 145u8, 230u8, 68u8],
-            [186u8, 40u8, 80u8, 191u8],
+            [168u8, 52u8, 114u8, 90u8],
             [195u8, 249u8, 9u8, 212u8],
             [223u8, 89u8, 109u8, 158u8],
             [227u8, 5u8, 51u8, 53u8],
@@ -11005,7 +10795,7 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
     impl alloy_sol_types::SolInterface for InboxCalls {
         const NAME: &'static str = "InboxCalls";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 27usize;
+        const COUNT: usize = 26usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
@@ -11016,11 +10806,11 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::activationTimestamp(_) => {
                     <activationTimestampCall as alloy_sol_types::SolCall>::SELECTOR
                 }
-                Self::conflictingTransitionDetected(_) => {
-                    <conflictingTransitionDetectedCall as alloy_sol_types::SolCall>::SELECTOR
-                }
                 Self::getConfig(_) => {
                     <getConfigCall as alloy_sol_types::SolCall>::SELECTOR
+                }
+                Self::getCoreState(_) => {
+                    <getCoreStateCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::getCurrentForcedInclusionFee(_) => {
                     <getCurrentForcedInclusionFeeCall as alloy_sol_types::SolCall>::SELECTOR
@@ -11033,9 +10823,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 }
                 Self::getProposalHash(_) => {
                     <getProposalHashCall as alloy_sol_types::SolCall>::SELECTOR
-                }
-                Self::getTransitionRecordHash(_) => {
-                    <getTransitionRecordHashCall as alloy_sol_types::SolCall>::SELECTOR
                 }
                 Self::r#impl(_) => <implCall as alloy_sol_types::SolCall>::SELECTOR,
                 Self::inNonReentrant(_) => {
@@ -11106,33 +10893,11 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     resolver
                 },
                 {
-                    fn getProposalHash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <getProposalHashCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxCalls::getProposalHash)
-                    }
-                    getProposalHash
-                },
-                {
                     fn init(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <initCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(InboxCalls::init)
                     }
                     init
-                },
-                {
-                    fn conflictingTransitionDetected(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <conflictingTransitionDetectedCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxCalls::conflictingTransitionDetected)
-                    }
-                    conflictingTransitionDetected
                 },
                 {
                     fn inNonReentrant(
@@ -11218,6 +10983,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     getForcedInclusionState
                 },
                 {
+                    fn getCoreState(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
+                        <getCoreStateCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(InboxCalls::getCoreState)
+                    }
+                    getCoreState
+                },
+                {
                     fn renounceOwnership(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxCalls> {
@@ -11268,15 +11042,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     propose
                 },
                 {
-                    fn getTransitionRecordHash(
+                    fn getProposalHash(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxCalls> {
-                        <getTransitionRecordHashCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                        <getProposalHashCall as alloy_sol_types::SolCall>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxCalls::getTransitionRecordHash)
+                            .map(InboxCalls::getProposalHash)
                     }
-                    getTransitionRecordHash
+                    getProposalHash
                 },
                 {
                     fn getConfig(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
@@ -11375,17 +11149,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     resolver
                 },
                 {
-                    fn getProposalHash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <getProposalHashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxCalls::getProposalHash)
-                    }
-                    getProposalHash
-                },
-                {
                     fn init(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <initCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
@@ -11393,17 +11156,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                             .map(InboxCalls::init)
                     }
                     init
-                },
-                {
-                    fn conflictingTransitionDetected(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <conflictingTransitionDetectedCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxCalls::conflictingTransitionDetected)
-                    }
-                    conflictingTransitionDetected
                 },
                 {
                     fn inNonReentrant(
@@ -11497,6 +11249,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     getForcedInclusionState
                 },
                 {
+                    fn getCoreState(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
+                        <getCoreStateCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(InboxCalls::getCoreState)
+                    }
+                    getCoreState
+                },
+                {
                     fn renounceOwnership(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxCalls> {
@@ -11555,15 +11316,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     propose
                 },
                 {
-                    fn getTransitionRecordHash(
+                    fn getProposalHash(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxCalls> {
-                        <getTransitionRecordHashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                        <getProposalHashCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxCalls::getTransitionRecordHash)
+                            .map(InboxCalls::getProposalHash)
                     }
-                    getTransitionRecordHash
+                    getProposalHash
                 },
                 {
                     fn getConfig(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
@@ -11652,13 +11413,13 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         inner,
                     )
                 }
-                Self::conflictingTransitionDetected(inner) => {
-                    <conflictingTransitionDetectedCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::getConfig(inner) => {
                     <getConfigCall as alloy_sol_types::SolCall>::abi_encoded_size(inner)
+                }
+                Self::getCoreState(inner) => {
+                    <getCoreStateCall as alloy_sol_types::SolCall>::abi_encoded_size(
+                        inner,
+                    )
                 }
                 Self::getCurrentForcedInclusionFee(inner) => {
                     <getCurrentForcedInclusionFeeCall as alloy_sol_types::SolCall>::abi_encoded_size(
@@ -11677,11 +11438,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 }
                 Self::getProposalHash(inner) => {
                     <getProposalHashCall as alloy_sol_types::SolCall>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::getTransitionRecordHash(inner) => {
-                    <getTransitionRecordHashCall as alloy_sol_types::SolCall>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -11773,14 +11529,14 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         out,
                     )
                 }
-                Self::conflictingTransitionDetected(inner) => {
-                    <conflictingTransitionDetectedCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                Self::getConfig(inner) => {
+                    <getConfigCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::getConfig(inner) => {
-                    <getConfigCall as alloy_sol_types::SolCall>::abi_encode_raw(
+                Self::getCoreState(inner) => {
+                    <getCoreStateCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -11805,12 +11561,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 }
                 Self::getProposalHash(inner) => {
                     <getProposalHashCall as alloy_sol_types::SolCall>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::getTransitionRecordHash(inner) => {
-                    <getTransitionRecordHashCall as alloy_sol_types::SolCall>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -11903,61 +11653,43 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         ACCESS_DENIED(ACCESS_DENIED),
         #[allow(missing_docs)]
-        ActivationPeriodExpired(ActivationPeriodExpired),
+        ActivationRequired(ActivationRequired),
         #[allow(missing_docs)]
         BlobNotFound(BlobNotFound),
         #[allow(missing_docs)]
         CannotProposeInCurrentBlock(CannotProposeInCurrentBlock),
         #[allow(missing_docs)]
-        CheckpointMismatch(CheckpointMismatch),
-        #[allow(missing_docs)]
-        CheckpointNotProvided(CheckpointNotProvided),
+        CheckpointDelayHasPassed(CheckpointDelayHasPassed),
         #[allow(missing_docs)]
         DeadlineExceeded(DeadlineExceeded),
         #[allow(missing_docs)]
         ETH_TRANSFER_FAILED(ETH_TRANSFER_FAILED),
         #[allow(missing_docs)]
-        EmptyProposals(EmptyProposals),
+        EmptyBatch(EmptyBatch),
         #[allow(missing_docs)]
         FUNC_NOT_IMPLEMENTED(FUNC_NOT_IMPLEMENTED),
         #[allow(missing_docs)]
+        FirstProposalIdTooLarge(FirstProposalIdTooLarge),
+        #[allow(missing_docs)]
         INVALID_PAUSE_STATUS(INVALID_PAUSE_STATUS),
-        #[allow(missing_docs)]
-        InconsistentLengths(InconsistentLengths),
-        #[allow(missing_docs)]
-        InconsistentParams(InconsistentParams),
         #[allow(missing_docs)]
         IncorrectProposalCount(IncorrectProposalCount),
         #[allow(missing_docs)]
-        InvalidLastPacayaBlockHash(InvalidLastPacayaBlockHash),
+        LastProposalAlreadyFinalized(LastProposalAlreadyFinalized),
         #[allow(missing_docs)]
-        InvalidLastProposalProof(InvalidLastProposalProof),
+        LastProposalHashMismatch(LastProposalHashMismatch),
         #[allow(missing_docs)]
-        InvalidSpan(InvalidSpan),
+        LastProposalIdTooLarge(LastProposalIdTooLarge),
         #[allow(missing_docs)]
-        InvalidState(InvalidState),
-        #[allow(missing_docs)]
-        NextProposalHashMismatch(NextProposalHashMismatch),
+        LengthExceedsUint16(LengthExceedsUint16),
         #[allow(missing_docs)]
         NoBlobs(NoBlobs),
         #[allow(missing_docs)]
-        NoBondToWithdraw(NoBondToWithdraw),
-        #[allow(missing_docs)]
         NotEnoughCapacity(NotEnoughCapacity),
         #[allow(missing_docs)]
-        ProposalHashMismatch(ProposalHashMismatch),
-        #[allow(missing_docs)]
-        ProposalHashMismatchWithTransition(ProposalHashMismatchWithTransition),
+        ParentBlockHashMismatch(ParentBlockHashMismatch),
         #[allow(missing_docs)]
         REENTRANT_CALL(REENTRANT_CALL),
-        #[allow(missing_docs)]
-        RingBufferSizeZero(RingBufferSizeZero),
-        #[allow(missing_docs)]
-        SpanOutOfBounds(SpanOutOfBounds),
-        #[allow(missing_docs)]
-        TransitionRecordHashMismatchWithStorage(TransitionRecordHashMismatchWithStorage),
-        #[allow(missing_docs)]
-        TransitionRecordNotProvided(TransitionRecordNotProvided),
         #[allow(missing_docs)]
         UnprocessedForcedInclusionIsDue(UnprocessedForcedInclusionIsDue),
         #[allow(missing_docs)]
@@ -11975,36 +11707,27 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         /// Prefer using `SolInterface` methods instead.
         pub const SELECTORS: &'static [[u8; 4usize]] = &[
             [2u8, 150u8, 127u8, 182u8],
-            [10u8, 157u8, 29u8, 231u8],
-            [11u8, 23u8, 173u8, 143u8],
-            [12u8, 166u8, 247u8, 41u8],
-            [16u8, 218u8, 109u8, 48u8],
             [24u8, 87u8, 31u8, 30u8],
-            [37u8, 91u8, 8u8, 251u8],
-            [47u8, 139u8, 178u8, 167u8],
-            [50u8, 15u8, 16u8, 237u8],
-            [69u8, 85u8, 38u8, 43u8],
+            [25u8, 128u8, 112u8, 179u8],
+            [44u8, 60u8, 244u8, 214u8],
+            [48u8, 40u8, 101u8, 206u8],
             [83u8, 139u8, 164u8, 249u8],
             [85u8, 152u8, 149u8, 163u8],
-            [89u8, 36u8, 94u8, 95u8],
-            [91u8, 111u8, 68u8, 86u8],
-            [97u8, 57u8, 93u8, 251u8],
-            [99u8, 222u8, 190u8, 161u8],
-            [111u8, 109u8, 217u8, 93u8],
+            [99u8, 219u8, 58u8, 65u8],
+            [103u8, 124u8, 86u8, 241u8],
             [146u8, 162u8, 244u8, 58u8],
             [149u8, 56u8, 62u8, 161u8],
             [152u8, 206u8, 38u8, 154u8],
-            [175u8, 177u8, 222u8, 95u8],
-            [177u8, 244u8, 15u8, 119u8],
+            [186u8, 116u8, 216u8, 15u8],
             [186u8, 230u8, 226u8, 169u8],
-            [186u8, 243u8, 240u8, 247u8],
-            [199u8, 228u8, 152u8, 93u8],
+            [194u8, 229u8, 52u8, 125u8],
+            [195u8, 142u8, 150u8, 55u8],
             [223u8, 198u8, 13u8, 133u8],
             [234u8, 171u8, 172u8, 155u8],
             [236u8, 115u8, 41u8, 89u8],
-            [239u8, 152u8, 250u8, 215u8],
             [243u8, 122u8, 139u8, 19u8],
             [247u8, 101u8, 244u8, 94u8],
+            [249u8, 4u8, 194u8, 253u8],
             [253u8, 172u8, 34u8, 159u8],
         ];
     }
@@ -12012,15 +11735,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
     impl alloy_sol_types::SolInterface for InboxErrors {
         const NAME: &'static str = "InboxErrors";
         const MIN_DATA_LENGTH: usize = 0usize;
-        const COUNT: usize = 32usize;
+        const COUNT: usize = 23usize;
         #[inline]
         fn selector(&self) -> [u8; 4] {
             match self {
                 Self::ACCESS_DENIED(_) => {
                     <ACCESS_DENIED as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::ActivationPeriodExpired(_) => {
-                    <ActivationPeriodExpired as alloy_sol_types::SolError>::SELECTOR
+                Self::ActivationRequired(_) => {
+                    <ActivationRequired as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::BlobNotFound(_) => {
                     <BlobNotFound as alloy_sol_types::SolError>::SELECTOR
@@ -12028,11 +11751,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::CannotProposeInCurrentBlock(_) => {
                     <CannotProposeInCurrentBlock as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::CheckpointMismatch(_) => {
-                    <CheckpointMismatch as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::CheckpointNotProvided(_) => {
-                    <CheckpointNotProvided as alloy_sol_types::SolError>::SELECTOR
+                Self::CheckpointDelayHasPassed(_) => {
+                    <CheckpointDelayHasPassed as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::DeadlineExceeded(_) => {
                     <DeadlineExceeded as alloy_sol_types::SolError>::SELECTOR
@@ -12040,66 +11760,42 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::ETH_TRANSFER_FAILED(_) => {
                     <ETH_TRANSFER_FAILED as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::EmptyProposals(_) => {
-                    <EmptyProposals as alloy_sol_types::SolError>::SELECTOR
+                Self::EmptyBatch(_) => {
+                    <EmptyBatch as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::FUNC_NOT_IMPLEMENTED(_) => {
                     <FUNC_NOT_IMPLEMENTED as alloy_sol_types::SolError>::SELECTOR
                 }
+                Self::FirstProposalIdTooLarge(_) => {
+                    <FirstProposalIdTooLarge as alloy_sol_types::SolError>::SELECTOR
+                }
                 Self::INVALID_PAUSE_STATUS(_) => {
                     <INVALID_PAUSE_STATUS as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::InconsistentLengths(_) => {
-                    <InconsistentLengths as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::InconsistentParams(_) => {
-                    <InconsistentParams as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::IncorrectProposalCount(_) => {
                     <IncorrectProposalCount as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::InvalidLastPacayaBlockHash(_) => {
-                    <InvalidLastPacayaBlockHash as alloy_sol_types::SolError>::SELECTOR
+                Self::LastProposalAlreadyFinalized(_) => {
+                    <LastProposalAlreadyFinalized as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::InvalidLastProposalProof(_) => {
-                    <InvalidLastProposalProof as alloy_sol_types::SolError>::SELECTOR
+                Self::LastProposalHashMismatch(_) => {
+                    <LastProposalHashMismatch as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::InvalidSpan(_) => {
-                    <InvalidSpan as alloy_sol_types::SolError>::SELECTOR
+                Self::LastProposalIdTooLarge(_) => {
+                    <LastProposalIdTooLarge as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::InvalidState(_) => {
-                    <InvalidState as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::NextProposalHashMismatch(_) => {
-                    <NextProposalHashMismatch as alloy_sol_types::SolError>::SELECTOR
+                Self::LengthExceedsUint16(_) => {
+                    <LengthExceedsUint16 as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::NoBlobs(_) => <NoBlobs as alloy_sol_types::SolError>::SELECTOR,
-                Self::NoBondToWithdraw(_) => {
-                    <NoBondToWithdraw as alloy_sol_types::SolError>::SELECTOR
-                }
                 Self::NotEnoughCapacity(_) => {
                     <NotEnoughCapacity as alloy_sol_types::SolError>::SELECTOR
                 }
-                Self::ProposalHashMismatch(_) => {
-                    <ProposalHashMismatch as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::ProposalHashMismatchWithTransition(_) => {
-                    <ProposalHashMismatchWithTransition as alloy_sol_types::SolError>::SELECTOR
+                Self::ParentBlockHashMismatch(_) => {
+                    <ParentBlockHashMismatch as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::REENTRANT_CALL(_) => {
                     <REENTRANT_CALL as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::RingBufferSizeZero(_) => {
-                    <RingBufferSizeZero as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::SpanOutOfBounds(_) => {
-                    <SpanOutOfBounds as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::TransitionRecordHashMismatchWithStorage(_) => {
-                    <TransitionRecordHashMismatchWithStorage as alloy_sol_types::SolError>::SELECTOR
-                }
-                Self::TransitionRecordNotProvided(_) => {
-                    <TransitionRecordNotProvided as alloy_sol_types::SolError>::SELECTOR
                 }
                 Self::UnprocessedForcedInclusionIsDue(_) => {
                     <UnprocessedForcedInclusionIsDue as alloy_sol_types::SolError>::SELECTOR
@@ -12139,50 +11835,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     UnprocessedForcedInclusionIsDue
                 },
                 {
-                    fn EmptyProposals(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <EmptyProposals as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::EmptyProposals)
-                    }
-                    EmptyProposals
-                },
-                {
-                    fn InvalidLastPacayaBlockHash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidLastPacayaBlockHash as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::InvalidLastPacayaBlockHash)
-                    }
-                    InvalidLastPacayaBlockHash
-                },
-                {
-                    fn ProposalHashMismatchWithTransition(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <ProposalHashMismatchWithTransition as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::ProposalHashMismatchWithTransition)
-                    }
-                    ProposalHashMismatchWithTransition
-                },
-                {
-                    fn InvalidLastProposalProof(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidLastProposalProof as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::InvalidLastProposalProof)
-                    }
-                    InvalidLastProposalProof
-                },
-                {
                     fn FUNC_NOT_IMPLEMENTED(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
@@ -12194,48 +11846,37 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     FUNC_NOT_IMPLEMENTED
                 },
                 {
-                    fn ProposalHashMismatch(
+                    fn ParentBlockHashMismatch(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <ProposalHashMismatch as alloy_sol_types::SolError>::abi_decode_raw(
+                        <ParentBlockHashMismatch as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::ProposalHashMismatch)
+                            .map(InboxErrors::ParentBlockHashMismatch)
                     }
-                    ProposalHashMismatch
+                    ParentBlockHashMismatch
                 },
                 {
-                    fn CheckpointNotProvided(
+                    fn LengthExceedsUint16(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <CheckpointNotProvided as alloy_sol_types::SolError>::abi_decode_raw(
+                        <LengthExceedsUint16 as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::CheckpointNotProvided)
+                            .map(InboxErrors::LengthExceedsUint16)
                     }
-                    CheckpointNotProvided
+                    LengthExceedsUint16
                 },
                 {
-                    fn SpanOutOfBounds(
+                    fn LastProposalAlreadyFinalized(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <SpanOutOfBounds as alloy_sol_types::SolError>::abi_decode_raw(
+                        <LastProposalAlreadyFinalized as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::SpanOutOfBounds)
+                            .map(InboxErrors::LastProposalAlreadyFinalized)
                     }
-                    SpanOutOfBounds
-                },
-                {
-                    fn NoBondToWithdraw(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <NoBondToWithdraw as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::NoBondToWithdraw)
-                    }
-                    NoBondToWithdraw
+                    LastProposalAlreadyFinalized
                 },
                 {
                     fn ZERO_ADDRESS(
@@ -12258,59 +11899,26 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     DeadlineExceeded
                 },
                 {
-                    fn InconsistentParams(
+                    fn FirstProposalIdTooLarge(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InconsistentParams as alloy_sol_types::SolError>::abi_decode_raw(
+                        <FirstProposalIdTooLarge as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::InconsistentParams)
+                            .map(InboxErrors::FirstProposalIdTooLarge)
                     }
-                    InconsistentParams
+                    FirstProposalIdTooLarge
                 },
                 {
-                    fn CheckpointMismatch(
+                    fn LastProposalIdTooLarge(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <CheckpointMismatch as alloy_sol_types::SolError>::abi_decode_raw(
+                        <LastProposalIdTooLarge as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::CheckpointMismatch)
+                            .map(InboxErrors::LastProposalIdTooLarge)
                     }
-                    CheckpointMismatch
-                },
-                {
-                    fn RingBufferSizeZero(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <RingBufferSizeZero as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::RingBufferSizeZero)
-                    }
-                    RingBufferSizeZero
-                },
-                {
-                    fn TransitionRecordNotProvided(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <TransitionRecordNotProvided as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::TransitionRecordNotProvided)
-                    }
-                    TransitionRecordNotProvided
-                },
-                {
-                    fn ActivationPeriodExpired(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <ActivationPeriodExpired as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::ActivationPeriodExpired)
-                    }
-                    ActivationPeriodExpired
+                    LastProposalIdTooLarge
                 },
                 {
                     fn CannotProposeInCurrentBlock(
@@ -12346,26 +11954,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     ETH_TRANSFER_FAILED
                 },
                 {
-                    fn NextProposalHashMismatch(
+                    fn ActivationRequired(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <NextProposalHashMismatch as alloy_sol_types::SolError>::abi_decode_raw(
+                        <ActivationRequired as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::NextProposalHashMismatch)
+                            .map(InboxErrors::ActivationRequired)
                     }
-                    NextProposalHashMismatch
-                },
-                {
-                    fn InconsistentLengths(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InconsistentLengths as alloy_sol_types::SolError>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxErrors::InconsistentLengths)
-                    }
-                    InconsistentLengths
+                    ActivationRequired
                 },
                 {
                     fn INVALID_PAUSE_STATUS(
@@ -12379,24 +11976,22 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     INVALID_PAUSE_STATUS
                 },
                 {
-                    fn InvalidState(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidState as alloy_sol_types::SolError>::abi_decode_raw(data)
-                            .map(InboxErrors::InvalidState)
+                    fn EmptyBatch(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
+                        <EmptyBatch as alloy_sol_types::SolError>::abi_decode_raw(data)
+                            .map(InboxErrors::EmptyBatch)
                     }
-                    InvalidState
+                    EmptyBatch
                 },
                 {
-                    fn TransitionRecordHashMismatchWithStorage(
+                    fn CheckpointDelayHasPassed(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <TransitionRecordHashMismatchWithStorage as alloy_sol_types::SolError>::abi_decode_raw(
+                        <CheckpointDelayHasPassed as alloy_sol_types::SolError>::abi_decode_raw(
                                 data,
                             )
-                            .map(InboxErrors::TransitionRecordHashMismatchWithStorage)
+                            .map(InboxErrors::CheckpointDelayHasPassed)
                     }
-                    TransitionRecordHashMismatchWithStorage
+                    CheckpointDelayHasPassed
                 },
                 {
                     fn REENTRANT_CALL(
@@ -12428,13 +12023,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     ZERO_VALUE
                 },
                 {
-                    fn InvalidSpan(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidSpan as alloy_sol_types::SolError>::abi_decode_raw(data)
-                            .map(InboxErrors::InvalidSpan)
-                    }
-                    InvalidSpan
-                },
-                {
                     fn IncorrectProposalCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
@@ -12453,6 +12041,17 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                             .map(InboxErrors::BlobNotFound)
                     }
                     BlobNotFound
+                },
+                {
+                    fn LastProposalHashMismatch(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxErrors> {
+                        <LastProposalHashMismatch as alloy_sol_types::SolError>::abi_decode_raw(
+                                data,
+                            )
+                            .map(InboxErrors::LastProposalHashMismatch)
+                    }
+                    LastProposalHashMismatch
                 },
                 {
                     fn NoBlobs(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
@@ -12493,50 +12092,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     UnprocessedForcedInclusionIsDue
                 },
                 {
-                    fn EmptyProposals(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <EmptyProposals as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::EmptyProposals)
-                    }
-                    EmptyProposals
-                },
-                {
-                    fn InvalidLastPacayaBlockHash(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidLastPacayaBlockHash as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::InvalidLastPacayaBlockHash)
-                    }
-                    InvalidLastPacayaBlockHash
-                },
-                {
-                    fn ProposalHashMismatchWithTransition(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <ProposalHashMismatchWithTransition as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::ProposalHashMismatchWithTransition)
-                    }
-                    ProposalHashMismatchWithTransition
-                },
-                {
-                    fn InvalidLastProposalProof(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidLastProposalProof as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::InvalidLastProposalProof)
-                    }
-                    InvalidLastProposalProof
-                },
-                {
                     fn FUNC_NOT_IMPLEMENTED(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
@@ -12548,48 +12103,37 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     FUNC_NOT_IMPLEMENTED
                 },
                 {
-                    fn ProposalHashMismatch(
+                    fn ParentBlockHashMismatch(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <ProposalHashMismatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <ParentBlockHashMismatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::ProposalHashMismatch)
+                            .map(InboxErrors::ParentBlockHashMismatch)
                     }
-                    ProposalHashMismatch
+                    ParentBlockHashMismatch
                 },
                 {
-                    fn CheckpointNotProvided(
+                    fn LengthExceedsUint16(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <CheckpointNotProvided as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <LengthExceedsUint16 as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::CheckpointNotProvided)
+                            .map(InboxErrors::LengthExceedsUint16)
                     }
-                    CheckpointNotProvided
+                    LengthExceedsUint16
                 },
                 {
-                    fn SpanOutOfBounds(
+                    fn LastProposalAlreadyFinalized(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <SpanOutOfBounds as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <LastProposalAlreadyFinalized as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::SpanOutOfBounds)
+                            .map(InboxErrors::LastProposalAlreadyFinalized)
                     }
-                    SpanOutOfBounds
-                },
-                {
-                    fn NoBondToWithdraw(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <NoBondToWithdraw as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::NoBondToWithdraw)
-                    }
-                    NoBondToWithdraw
+                    LastProposalAlreadyFinalized
                 },
                 {
                     fn ZERO_ADDRESS(
@@ -12614,59 +12158,26 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     DeadlineExceeded
                 },
                 {
-                    fn InconsistentParams(
+                    fn FirstProposalIdTooLarge(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InconsistentParams as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <FirstProposalIdTooLarge as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::InconsistentParams)
+                            .map(InboxErrors::FirstProposalIdTooLarge)
                     }
-                    InconsistentParams
+                    FirstProposalIdTooLarge
                 },
                 {
-                    fn CheckpointMismatch(
+                    fn LastProposalIdTooLarge(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <CheckpointMismatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <LastProposalIdTooLarge as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::CheckpointMismatch)
+                            .map(InboxErrors::LastProposalIdTooLarge)
                     }
-                    CheckpointMismatch
-                },
-                {
-                    fn RingBufferSizeZero(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <RingBufferSizeZero as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::RingBufferSizeZero)
-                    }
-                    RingBufferSizeZero
-                },
-                {
-                    fn TransitionRecordNotProvided(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <TransitionRecordNotProvided as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::TransitionRecordNotProvided)
-                    }
-                    TransitionRecordNotProvided
-                },
-                {
-                    fn ActivationPeriodExpired(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <ActivationPeriodExpired as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::ActivationPeriodExpired)
-                    }
-                    ActivationPeriodExpired
+                    LastProposalIdTooLarge
                 },
                 {
                     fn CannotProposeInCurrentBlock(
@@ -12702,26 +12213,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     ETH_TRANSFER_FAILED
                 },
                 {
-                    fn NextProposalHashMismatch(
+                    fn ActivationRequired(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <NextProposalHashMismatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <ActivationRequired as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::NextProposalHashMismatch)
+                            .map(InboxErrors::ActivationRequired)
                     }
-                    NextProposalHashMismatch
-                },
-                {
-                    fn InconsistentLengths(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InconsistentLengths as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::InconsistentLengths)
-                    }
-                    InconsistentLengths
+                    ActivationRequired
                 },
                 {
                     fn INVALID_PAUSE_STATUS(
@@ -12735,26 +12235,24 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     INVALID_PAUSE_STATUS
                 },
                 {
-                    fn InvalidState(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidState as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                    fn EmptyBatch(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
+                        <EmptyBatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::InvalidState)
+                            .map(InboxErrors::EmptyBatch)
                     }
-                    InvalidState
+                    EmptyBatch
                 },
                 {
-                    fn TransitionRecordHashMismatchWithStorage(
+                    fn CheckpointDelayHasPassed(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
-                        <TransitionRecordHashMismatchWithStorage as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                        <CheckpointDelayHasPassed as alloy_sol_types::SolError>::abi_decode_raw_validate(
                                 data,
                             )
-                            .map(InboxErrors::TransitionRecordHashMismatchWithStorage)
+                            .map(InboxErrors::CheckpointDelayHasPassed)
                     }
-                    TransitionRecordHashMismatchWithStorage
+                    CheckpointDelayHasPassed
                 },
                 {
                     fn REENTRANT_CALL(
@@ -12788,15 +12286,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     ZERO_VALUE
                 },
                 {
-                    fn InvalidSpan(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
-                        <InvalidSpan as alloy_sol_types::SolError>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxErrors::InvalidSpan)
-                    }
-                    InvalidSpan
-                },
-                {
                     fn IncorrectProposalCount(
                         data: &[u8],
                     ) -> alloy_sol_types::Result<InboxErrors> {
@@ -12817,6 +12306,17 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                             .map(InboxErrors::BlobNotFound)
                     }
                     BlobNotFound
+                },
+                {
+                    fn LastProposalHashMismatch(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxErrors> {
+                        <LastProposalHashMismatch as alloy_sol_types::SolError>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(InboxErrors::LastProposalHashMismatch)
+                    }
+                    LastProposalHashMismatch
                 },
                 {
                     fn NoBlobs(data: &[u8]) -> alloy_sol_types::Result<InboxErrors> {
@@ -12844,8 +12344,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::ACCESS_DENIED(inner) => {
                     <ACCESS_DENIED as alloy_sol_types::SolError>::abi_encoded_size(inner)
                 }
-                Self::ActivationPeriodExpired(inner) => {
-                    <ActivationPeriodExpired as alloy_sol_types::SolError>::abi_encoded_size(
+                Self::ActivationRequired(inner) => {
+                    <ActivationRequired as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -12857,13 +12357,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         inner,
                     )
                 }
-                Self::CheckpointMismatch(inner) => {
-                    <CheckpointMismatch as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::CheckpointNotProvided(inner) => {
-                    <CheckpointNotProvided as alloy_sol_types::SolError>::abi_encoded_size(
+                Self::CheckpointDelayHasPassed(inner) => {
+                    <CheckpointDelayHasPassed as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -12877,13 +12372,16 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         inner,
                     )
                 }
-                Self::EmptyProposals(inner) => {
-                    <EmptyProposals as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
+                Self::EmptyBatch(inner) => {
+                    <EmptyBatch as alloy_sol_types::SolError>::abi_encoded_size(inner)
                 }
                 Self::FUNC_NOT_IMPLEMENTED(inner) => {
                     <FUNC_NOT_IMPLEMENTED as alloy_sol_types::SolError>::abi_encoded_size(
+                        inner,
+                    )
+                }
+                Self::FirstProposalIdTooLarge(inner) => {
+                    <FirstProposalIdTooLarge as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -12892,87 +12390,46 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         inner,
                     )
                 }
-                Self::InconsistentLengths(inner) => {
-                    <InconsistentLengths as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::InconsistentParams(inner) => {
-                    <InconsistentParams as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::IncorrectProposalCount(inner) => {
                     <IncorrectProposalCount as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
-                Self::InvalidLastPacayaBlockHash(inner) => {
-                    <InvalidLastPacayaBlockHash as alloy_sol_types::SolError>::abi_encoded_size(
+                Self::LastProposalAlreadyFinalized(inner) => {
+                    <LastProposalAlreadyFinalized as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
-                Self::InvalidLastProposalProof(inner) => {
-                    <InvalidLastProposalProof as alloy_sol_types::SolError>::abi_encoded_size(
+                Self::LastProposalHashMismatch(inner) => {
+                    <LastProposalHashMismatch as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
-                Self::InvalidSpan(inner) => {
-                    <InvalidSpan as alloy_sol_types::SolError>::abi_encoded_size(inner)
+                Self::LastProposalIdTooLarge(inner) => {
+                    <LastProposalIdTooLarge as alloy_sol_types::SolError>::abi_encoded_size(
+                        inner,
+                    )
                 }
-                Self::InvalidState(inner) => {
-                    <InvalidState as alloy_sol_types::SolError>::abi_encoded_size(inner)
-                }
-                Self::NextProposalHashMismatch(inner) => {
-                    <NextProposalHashMismatch as alloy_sol_types::SolError>::abi_encoded_size(
+                Self::LengthExceedsUint16(inner) => {
+                    <LengthExceedsUint16 as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
                 Self::NoBlobs(inner) => {
                     <NoBlobs as alloy_sol_types::SolError>::abi_encoded_size(inner)
                 }
-                Self::NoBondToWithdraw(inner) => {
-                    <NoBondToWithdraw as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
                 Self::NotEnoughCapacity(inner) => {
                     <NotEnoughCapacity as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
-                Self::ProposalHashMismatch(inner) => {
-                    <ProposalHashMismatch as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::ProposalHashMismatchWithTransition(inner) => {
-                    <ProposalHashMismatchWithTransition as alloy_sol_types::SolError>::abi_encoded_size(
+                Self::ParentBlockHashMismatch(inner) => {
+                    <ParentBlockHashMismatch as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
                 Self::REENTRANT_CALL(inner) => {
                     <REENTRANT_CALL as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::RingBufferSizeZero(inner) => {
-                    <RingBufferSizeZero as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::SpanOutOfBounds(inner) => {
-                    <SpanOutOfBounds as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::TransitionRecordHashMismatchWithStorage(inner) => {
-                    <TransitionRecordHashMismatchWithStorage as alloy_sol_types::SolError>::abi_encoded_size(
-                        inner,
-                    )
-                }
-                Self::TransitionRecordNotProvided(inner) => {
-                    <TransitionRecordNotProvided as alloy_sol_types::SolError>::abi_encoded_size(
                         inner,
                     )
                 }
@@ -12998,8 +12455,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         out,
                     )
                 }
-                Self::ActivationPeriodExpired(inner) => {
-                    <ActivationPeriodExpired as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::ActivationRequired(inner) => {
+                    <ActivationRequired as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -13016,14 +12473,8 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         out,
                     )
                 }
-                Self::CheckpointMismatch(inner) => {
-                    <CheckpointMismatch as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::CheckpointNotProvided(inner) => {
-                    <CheckpointNotProvided as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::CheckpointDelayHasPassed(inner) => {
+                    <CheckpointDelayHasPassed as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -13040,14 +12491,17 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         out,
                     )
                 }
-                Self::EmptyProposals(inner) => {
-                    <EmptyProposals as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::EmptyBatch(inner) => {
+                    <EmptyBatch as alloy_sol_types::SolError>::abi_encode_raw(inner, out)
+                }
+                Self::FUNC_NOT_IMPLEMENTED(inner) => {
+                    <FUNC_NOT_IMPLEMENTED as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::FUNC_NOT_IMPLEMENTED(inner) => {
-                    <FUNC_NOT_IMPLEMENTED as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::FirstProposalIdTooLarge(inner) => {
+                    <FirstProposalIdTooLarge as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -13058,50 +12512,32 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                         out,
                     )
                 }
-                Self::InconsistentLengths(inner) => {
-                    <InconsistentLengths as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::InconsistentParams(inner) => {
-                    <InconsistentParams as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::IncorrectProposalCount(inner) => {
                     <IncorrectProposalCount as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::InvalidLastPacayaBlockHash(inner) => {
-                    <InvalidLastPacayaBlockHash as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::LastProposalAlreadyFinalized(inner) => {
+                    <LastProposalAlreadyFinalized as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::InvalidLastProposalProof(inner) => {
-                    <InvalidLastProposalProof as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::LastProposalHashMismatch(inner) => {
+                    <LastProposalHashMismatch as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::InvalidSpan(inner) => {
-                    <InvalidSpan as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::LastProposalIdTooLarge(inner) => {
+                    <LastProposalIdTooLarge as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::InvalidState(inner) => {
-                    <InvalidState as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::NextProposalHashMismatch(inner) => {
-                    <NextProposalHashMismatch as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::LengthExceedsUint16(inner) => {
+                    <LengthExceedsUint16 as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -13109,56 +12545,20 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::NoBlobs(inner) => {
                     <NoBlobs as alloy_sol_types::SolError>::abi_encode_raw(inner, out)
                 }
-                Self::NoBondToWithdraw(inner) => {
-                    <NoBondToWithdraw as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
                 Self::NotEnoughCapacity(inner) => {
                     <NotEnoughCapacity as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
-                Self::ProposalHashMismatch(inner) => {
-                    <ProposalHashMismatch as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::ProposalHashMismatchWithTransition(inner) => {
-                    <ProposalHashMismatchWithTransition as alloy_sol_types::SolError>::abi_encode_raw(
+                Self::ParentBlockHashMismatch(inner) => {
+                    <ParentBlockHashMismatch as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
                 }
                 Self::REENTRANT_CALL(inner) => {
                     <REENTRANT_CALL as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::RingBufferSizeZero(inner) => {
-                    <RingBufferSizeZero as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::SpanOutOfBounds(inner) => {
-                    <SpanOutOfBounds as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::TransitionRecordHashMismatchWithStorage(inner) => {
-                    <TransitionRecordHashMismatchWithStorage as alloy_sol_types::SolError>::abi_encode_raw(
-                        inner,
-                        out,
-                    )
-                }
-                Self::TransitionRecordNotProvided(inner) => {
-                    <TransitionRecordNotProvided as alloy_sol_types::SolError>::abi_encode_raw(
                         inner,
                         out,
                     )
@@ -13183,12 +12583,14 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
     }
     ///Container for all the [`Inbox`](self) events.
     #[derive(serde::Serialize, serde::Deserialize)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive()]
     pub enum InboxEvents {
         #[allow(missing_docs)]
         AdminChanged(AdminChanged),
         #[allow(missing_docs)]
         BeaconUpgraded(BeaconUpgraded),
+        #[allow(missing_docs)]
+        BondInstructionCreated(BondInstructionCreated),
         #[allow(missing_docs)]
         ForcedInclusionSaved(ForcedInclusionSaved),
         #[allow(missing_docs)]
@@ -13205,10 +12607,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         Proposed(Proposed),
         #[allow(missing_docs)]
         Proved(Proved),
-        #[allow(missing_docs)]
-        TransitionConflictDetected(TransitionConflictDetected),
-        #[allow(missing_docs)]
-        TransitionDuplicateDetected(TransitionDuplicateDetected),
         #[allow(missing_docs)]
         Unpaused(Unpaused),
         #[allow(missing_docs)]
@@ -13264,6 +12662,11 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 146u8, 20u8, 96u8, 206u8, 251u8, 56u8, 71u8, 64u8, 36u8, 152u8,
             ],
             [
+                135u8, 150u8, 185u8, 155u8, 191u8, 39u8, 90u8, 152u8, 57u8, 136u8, 24u8,
+                30u8, 133u8, 180u8, 37u8, 2u8, 217u8, 52u8, 115u8, 39u8, 244u8, 221u8,
+                230u8, 116u8, 50u8, 11u8, 236u8, 56u8, 121u8, 188u8, 197u8, 225u8,
+            ],
+            [
                 139u8, 224u8, 7u8, 156u8, 83u8, 22u8, 89u8, 20u8, 19u8, 68u8, 205u8,
                 31u8, 208u8, 164u8, 242u8, 132u8, 25u8, 73u8, 127u8, 151u8, 34u8, 163u8,
                 218u8, 175u8, 227u8, 180u8, 24u8, 111u8, 107u8, 100u8, 87u8, 224u8,
@@ -13283,22 +12686,12 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 133u8, 159u8, 177u8, 165u8, 228u8, 249u8, 31u8, 122u8, 29u8, 122u8, 55u8,
                 82u8, 199u8, 213u8, 167u8, 45u8, 92u8, 198u8, 236u8, 178u8, 210u8,
             ],
-            [
-                237u8, 187u8, 193u8, 112u8, 163u8, 16u8, 57u8, 114u8, 47u8, 27u8, 35u8,
-                63u8, 222u8, 220u8, 238u8, 135u8, 197u8, 143u8, 105u8, 43u8, 226u8,
-                102u8, 39u8, 220u8, 117u8, 91u8, 51u8, 242u8, 133u8, 55u8, 198u8, 39u8,
-            ],
-            [
-                241u8, 132u8, 109u8, 22u8, 52u8, 71u8, 123u8, 91u8, 37u8, 66u8, 210u8,
-                123u8, 96u8, 27u8, 252u8, 170u8, 70u8, 235u8, 194u8, 191u8, 248u8, 15u8,
-                148u8, 28u8, 43u8, 7u8, 248u8, 98u8, 119u8, 142u8, 73u8, 27u8,
-            ],
         ];
     }
     #[automatically_derived]
     impl alloy_sol_types::SolEventInterface for InboxEvents {
         const NAME: &'static str = "InboxEvents";
-        const COUNT: usize = 14usize;
+        const COUNT: usize = 13usize;
         fn decode_raw_log(
             topics: &[alloy_sol_types::Word],
             data: &[u8],
@@ -13317,6 +12710,15 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                             data,
                         )
                         .map(Self::BeaconUpgraded)
+                }
+                Some(
+                    <BondInstructionCreated as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
+                ) => {
+                    <BondInstructionCreated as alloy_sol_types::SolEvent>::decode_raw_log(
+                            topics,
+                            data,
+                        )
+                        .map(Self::BondInstructionCreated)
                 }
                 Some(
                     <ForcedInclusionSaved as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
@@ -13371,24 +12773,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     <Proved as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Proved)
                 }
-                Some(
-                    <TransitionConflictDetected as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <TransitionConflictDetected as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::TransitionConflictDetected)
-                }
-                Some(
-                    <TransitionDuplicateDetected as alloy_sol_types::SolEvent>::SIGNATURE_HASH,
-                ) => {
-                    <TransitionDuplicateDetected as alloy_sol_types::SolEvent>::decode_raw_log(
-                            topics,
-                            data,
-                        )
-                        .map(Self::TransitionDuplicateDetected)
-                }
                 Some(<Unpaused as alloy_sol_types::SolEvent>::SIGNATURE_HASH) => {
                     <Unpaused as alloy_sol_types::SolEvent>::decode_raw_log(topics, data)
                         .map(Self::Unpaused)
@@ -13421,6 +12805,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::BeaconUpgraded(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
+                Self::BondInstructionCreated(inner) => {
+                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
+                }
                 Self::ForcedInclusionSaved(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
@@ -13443,12 +12830,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
                 Self::Proved(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
-                Self::TransitionConflictDetected(inner) => {
-                    alloy_sol_types::private::IntoLogData::to_log_data(inner)
-                }
-                Self::TransitionDuplicateDetected(inner) => {
                     alloy_sol_types::private::IntoLogData::to_log_data(inner)
                 }
                 Self::Unpaused(inner) => {
@@ -13467,6 +12848,9 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 Self::BeaconUpgraded(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
+                Self::BondInstructionCreated(inner) => {
+                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
+                }
                 Self::ForcedInclusionSaved(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
@@ -13489,12 +12873,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::Proved(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::TransitionConflictDetected(inner) => {
-                    alloy_sol_types::private::IntoLogData::into_log_data(inner)
-                }
-                Self::TransitionDuplicateDetected(inner) => {
                     alloy_sol_types::private::IntoLogData::into_log_data(inner)
                 }
                 Self::Unpaused(inner) => {
@@ -13632,15 +13010,15 @@ See the [wrapper's documentation](`InboxInstance`) for more details.*/
         ) -> alloy_contract::SolCallBuilder<&P, activationTimestampCall, N> {
             self.call_builder(&activationTimestampCall)
         }
-        ///Creates a new call builder for the [`conflictingTransitionDetected`] function.
-        pub fn conflictingTransitionDetected(
-            &self,
-        ) -> alloy_contract::SolCallBuilder<&P, conflictingTransitionDetectedCall, N> {
-            self.call_builder(&conflictingTransitionDetectedCall)
-        }
         ///Creates a new call builder for the [`getConfig`] function.
         pub fn getConfig(&self) -> alloy_contract::SolCallBuilder<&P, getConfigCall, N> {
             self.call_builder(&getConfigCall)
+        }
+        ///Creates a new call builder for the [`getCoreState`] function.
+        pub fn getCoreState(
+            &self,
+        ) -> alloy_contract::SolCallBuilder<&P, getCoreStateCall, N> {
+            self.call_builder(&getCoreStateCall)
         }
         ///Creates a new call builder for the [`getCurrentForcedInclusionFee`] function.
         pub fn getCurrentForcedInclusionFee(
@@ -13670,22 +13048,9 @@ See the [wrapper's documentation](`InboxInstance`) for more details.*/
         ///Creates a new call builder for the [`getProposalHash`] function.
         pub fn getProposalHash(
             &self,
-            _proposalId: alloy::sol_types::private::primitives::aliases::U48,
+            _proposalId: alloy::sol_types::private::primitives::aliases::U256,
         ) -> alloy_contract::SolCallBuilder<&P, getProposalHashCall, N> {
             self.call_builder(&getProposalHashCall { _proposalId })
-        }
-        ///Creates a new call builder for the [`getTransitionRecordHash`] function.
-        pub fn getTransitionRecordHash(
-            &self,
-            _proposalId: alloy::sol_types::private::primitives::aliases::U48,
-            _parentTransitionHash: alloy::sol_types::private::FixedBytes<32>,
-        ) -> alloy_contract::SolCallBuilder<&P, getTransitionRecordHashCall, N> {
-            self.call_builder(
-                &getTransitionRecordHashCall {
-                    _proposalId,
-                    _parentTransitionHash,
-                },
-            )
         }
         ///Creates a new call builder for the [`r#impl`] function.
         pub fn r#impl(&self) -> alloy_contract::SolCallBuilder<&P, implCall, N> {
@@ -13822,6 +13187,12 @@ See the [wrapper's documentation](`InboxInstance`) for more details.*/
         ) -> alloy_contract::Event<&P, BeaconUpgraded, N> {
             self.event_filter::<BeaconUpgraded>()
         }
+        ///Creates a new event filter for the [`BondInstructionCreated`] event.
+        pub fn BondInstructionCreated_filter(
+            &self,
+        ) -> alloy_contract::Event<&P, BondInstructionCreated, N> {
+            self.event_filter::<BondInstructionCreated>()
+        }
         ///Creates a new event filter for the [`ForcedInclusionSaved`] event.
         pub fn ForcedInclusionSaved_filter(
             &self,
@@ -13861,18 +13232,6 @@ See the [wrapper's documentation](`InboxInstance`) for more details.*/
         ///Creates a new event filter for the [`Proved`] event.
         pub fn Proved_filter(&self) -> alloy_contract::Event<&P, Proved, N> {
             self.event_filter::<Proved>()
-        }
-        ///Creates a new event filter for the [`TransitionConflictDetected`] event.
-        pub fn TransitionConflictDetected_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, TransitionConflictDetected, N> {
-            self.event_filter::<TransitionConflictDetected>()
-        }
-        ///Creates a new event filter for the [`TransitionDuplicateDetected`] event.
-        pub fn TransitionDuplicateDetected_filter(
-            &self,
-        ) -> alloy_contract::Event<&P, TransitionDuplicateDetected, N> {
-            self.event_filter::<TransitionDuplicateDetected>()
         }
         ///Creates a new event filter for the [`Unpaused`] event.
         pub fn Unpaused_filter(&self) -> alloy_contract::Event<&P, Unpaused, N> {

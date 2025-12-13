@@ -63,6 +63,8 @@ jobs:
     name: Tests
     runs-on: [ubuntu-latest]
     timeout-minutes: 10
+    env:
+      PROTOCOL_FORK_DIR: protocol-taiko-mono
 
     steps:
       - name: Cancel Previous Runs
@@ -98,6 +100,19 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
+      - name: Checkout protocol for testing
+        uses: actions/checkout@v6
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.PROTOCOL_FORK_DIR }}
+          ref: taiko-alethia-protocol-v3.0.0
+
+      - name: Install pnpm dependencies for protocol taiko-mono for testing
+        working-directory: ${{ env.PROTOCOL_FORK_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
       - name: Run tests
         working-directory: packages/taiko-client-rs
+        env:
+          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
         run: just test

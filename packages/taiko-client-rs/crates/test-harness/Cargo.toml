@@ -14,12 +14,10 @@ alloy-rpc-types = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 bindings = { path = "../bindings" }
-event-indexer = { path = "../event-indexer" }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 once_cell = { workspace = true }
-proposer = { path = "../proposer" }
 rpc = { path = "../rpc" }
 serde = { workspace = true }
 serde_json = { workspace = true }

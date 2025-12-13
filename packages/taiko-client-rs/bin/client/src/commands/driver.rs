@@ -5,7 +5,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
-use event_indexer::metrics::IndexerMetrics;
 use rpc::SubscriptionSource;
 
 use crate::{
@@ -75,7 +74,6 @@ impl Subcommand for DriverSubCommand {
     // Register driver and indexer metrics.
     fn register_metrics(&self) -> Result<()> {
         DriverMetrics::init();
-        IndexerMetrics::init();
         Ok(())
     }
 

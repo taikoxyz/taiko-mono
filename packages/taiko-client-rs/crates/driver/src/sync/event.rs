@@ -18,7 +18,6 @@ use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
-use protocol::shasta::constants::BOND_PROCESSING_DELAY;
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, mpsc, oneshot},
@@ -312,19 +311,16 @@ where
         let latest_proposal_id = decode_anchor_proposal_id(&latest_block, anchor_address)?;
 
         // Determine the target block to extract the anchor block number from.
-        // First back off two epochs worth of proposals to survive L1 reorgs, then apply the bond
-        // processing delay so cached bond instructions are always available.
-        let delayed_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
-        let target_proposal_id = delayed_proposal_id.saturating_sub(BOND_PROCESSING_DELAY);
+        // Back off two epochs worth of proposals to survive L1 reorgs.
+        let target_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
         info!(
             latest_proposal_id = latest_proposal_id,
-            delayed_proposal_id = delayed_proposal_id,
             target_proposal_id = target_proposal_id,
             latest_hash = ?latest_block.hash(),
             latest_number = latest_block.number(),
             "derived proposal id from latest anchorV4 transaction",
         );
-        if delayed_proposal_id == 0 {
+        if target_proposal_id == 0 {
             return Ok((0, U256::ZERO));
         }
 
@@ -355,10 +351,10 @@ where
             anchor_block_number,
             latest_hash = ?target_block.hash(),
             latest_number = target_block.number(),
-            delayed_proposal_id = delayed_proposal_id,
+            target_proposal_id = target_proposal_id,
             "derived anchor block number from anchorV4 transaction",
         );
-        Ok((anchor_block_number, U256::from(delayed_proposal_id)))
+        Ok((anchor_block_number, U256::from(target_proposal_id)))
     }
 }
 
