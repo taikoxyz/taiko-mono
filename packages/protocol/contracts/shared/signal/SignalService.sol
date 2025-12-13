@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibTrieProof.sol";
-import "./ICheckpointStore.sol";
-import "./ISignalService.sol";
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import {EssentialContract} from "../common/EssentialContract.sol";
+import {LibTrieProof} from "../libs/LibTrieProof.sol";
+import {ICheckpointStore} from "./ICheckpointStore.sol";
+import {ISignalService} from "./ISignalService.sol";
+import {EfficientHashLib} from "solady/src/utils/EfficientHashLib.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -239,7 +239,7 @@ contract SignalService is EssentialContract, ISignalService {
             _rootHash, _addr, _slot, _value, _accountProof, _storageProof
         );
     }
-    
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
