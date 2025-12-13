@@ -21,7 +21,7 @@ The current minimum base fee was set conservately when preconfs were launched. T
    - Other pacaya config fields remain unchanged.
 
 2. **Upgrade L2 TaikoAnchor (proxy: `0x1670000000000000000000000000000000010001`)**
-   - New implementation: **`0x7b4dBB1bCF546e181958B8c053806a95332553dD`**
+   - New implementation: **`0xeaB88687835b87f9a9DF22fA42E16153fE7b25BB`**
    - Change: update `BASEFEE_MIN_VALUE` hard floor;
 
 ### Expected Post-Upgrade Behavior
@@ -33,8 +33,7 @@ The current minimum base fee was set conservately when preconfs were launched. T
 
 Before submission:
 
-- Confirm new implementation addresses (`0x7b4dBB1bCF546e181958B8c053806a95332553dD`, `0x7b4dBB1bCF546e181958B8c053806a95332553dD`) are deployed and verified on both L1 and L2.
-  _Note that the addresses are the same on both chains even if the bytecode is completely different because the same deployer and nonce were used_.
+- Confirm new implementation addresses (`0x7b4dBB1bCF546e181958B8c053806a95332553dD`(L1), `0xeaB88687835b87f9a9DF22fA42E16153fE7b25BB`(L2)) are deployed and verified on both L1 and L2.
 
 After execution:
 
