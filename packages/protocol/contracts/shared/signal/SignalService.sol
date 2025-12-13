@@ -76,7 +76,11 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService, uint256 _legacySlotExpiry) {
+    constructor(
+        address authorizedSyncer,
+        address remoteSignalService,
+        uint256 _legacySlotExpiry
+    ) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
@@ -347,9 +351,11 @@ contract SignalService is EssentialContract, ISignalService {
             _signal,
             proof.accountProof,
             proof.storageProof
-        ) {
-        } catch {
-            if (block.timestamp >= legacySlotExpiry) revert SS_SIGNAL_NOT_RECEIVED();
+        ) { }
+        catch {
+            if (block.timestamp >= legacySlotExpiry) {
+                revert SS_SIGNAL_NOT_RECEIVED();
+            }
             LibTrieProof.verifyMerkleProof(
                 checkpoint.stateRoot,
                 _remoteSignalService,

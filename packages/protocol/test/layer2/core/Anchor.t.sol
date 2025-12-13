@@ -39,7 +39,8 @@ contract AnchorTest is Test {
     function setUp() external {
         token = new TestERC20("Mock", "MOCK");
 
-        SignalService signalServiceImpl = new SignalService(address(this), address(0x1234), block.timestamp + 365 days);
+        SignalService signalServiceImpl =
+            new SignalService(address(this), address(0x1234), block.timestamp + 365 days);
         signalService = SignalService(
             address(
                 new ERC1967Proxy(
@@ -88,7 +89,8 @@ contract AnchorTest is Test {
         );
         bondManager.upgradeTo(address(anchorBondManagerImpl));
 
-        SignalService anchorSignalServiceImpl = new SignalService(address(anchor), address(0x1234), block.timestamp + 365 days);
+        SignalService anchorSignalServiceImpl =
+            new SignalService(address(anchor), address(0x1234), block.timestamp + 365 days);
         signalService.upgradeTo(address(anchorSignalServiceImpl));
 
         proposer = address(0xA11CE);
