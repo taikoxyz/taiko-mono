@@ -190,6 +190,8 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
+
+
     /// @inheritdoc ICheckpointStore
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
@@ -213,6 +215,31 @@ contract SignalService is EssentialContract, ISignalService {
         return _getCheckpoint(_blockNumber);
     }
 
+    /// @notice External wrapper for LibTrieProof.verifyMerkleProof to enable try-catch pattern.
+    /// @dev This function is intentionally external so that the contract can call it via `this.`
+    /// and catch reverts when the proof doesn't match the slot.
+    /// @param _rootHash The merkle root of state tree.
+    /// @param _addr The address of contract.
+    /// @param _slot The slot in the contract.
+    /// @param _value The value to be verified.
+    /// @param _accountProof The account proof
+    /// @param _storageProof The storage proof
+    function verifyMerkleProof(
+        bytes32 _rootHash,
+        address _addr,
+        bytes32 _slot,
+        bytes32 _value,
+        bytes[] calldata _accountProof,
+        bytes[] calldata _storageProof
+    )
+        external
+        pure
+    {
+        LibTrieProof.verifyMerkleProof(
+            _rootHash, _addr, _slot, _value, _accountProof, _storageProof
+        );
+    }
+    
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -321,18 +348,42 @@ contract SignalService is EssentialContract, ISignalService {
         }
 
         // Try new EIP-7201 slot first, fall back to legacy slot during migration period.
-        // After migration: only try the new EIP-7201 slot (fallback disabled with bytes32(0)).
-        LibTrieProof.verifyMerkleProof(
-            checkpoint.stateRoot,
-            _remoteSignalService,
-            slot,
-            block.timestamp < legacySlotExpiry
-                ? getLegacySignalSlot(_chainId, _app, _signal)
-                : bytes32(0),
-            _signal,
-            proof.accountProof,
-            proof.storageProof
+        _verifyMerkleProofWithFallback(
+            checkpoint.stateRoot, slot, _signal, _chainId, _app, proof.accountProof, proof.storageProof
         );
+    }
+
+    /// @dev Verifies merkle proof trying EIP-7201 slot first, then legacy slot if within migration period.
+    /// Uses try-catch because SecureMerkleTrie.verifyInclusionProof reverts on path mismatch.
+    function _verifyMerkleProofWithFallback(
+        bytes32 _stateRoot,
+        bytes32 _slot,
+        bytes32 _signal,
+        uint64 _chainId,
+        address _app,
+        bytes[] memory _accountProof,
+        bytes[] memory _storageProof
+    )
+        private
+        view
+    {
+        // Try new EIP-7201 slot first
+        try this.verifyMerkleProof(
+            _stateRoot, _remoteSignalService, _slot, _signal, _accountProof, _storageProof
+        ) {
+            return;
+        } catch {
+            // If within legacy support period, try legacy slot
+            if (block.timestamp < legacySlotExpiry) {
+                bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
+                LibTrieProof.verifyMerkleProof(
+                    _stateRoot, _remoteSignalService, legacySlot, _signal, _accountProof, _storageProof
+                );
+                return;
+            }
+            // Legacy support expired and new slot failed
+            revert SS_SIGNAL_NOT_RECEIVED();
+        }
     }
 
     // ---------------------------------------------------------------
