@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "./IBondManager.sol";
+import { IBondProcessor } from "./IBondProcessor.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -16,7 +17,7 @@ import "./BondManager_Layout.sol"; // DO NOT DELETE
 ///      - Standard deposit/withdraw logic with optional minimum bond and withdrawal delay.
 ///      - Processes proved L1 bond signals (provability/liveness) with best-effort debits/credits.
 /// @custom:security-contact security@taiko.xyz
-contract BondManager is EssentialContract, IBondManager {
+contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -171,7 +172,7 @@ contract BondManager is EssentialContract, IBondManager {
         emit WithdrawalCancelled(msg.sender);
     }
 
-    /// @inheritdoc IBondManager
+    /// @inheritdoc IBondProcessor
     /// @dev Slashes 50% of the debited bond.
     /// - When payer != payee, the remaining 50% goes to the payee.
     /// - When payer == payee, 40% is refunded and 10% is awarded to the caller of this function.
