@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {EssentialContract} from "../common/EssentialContract.sol";
-import {LibTrieProof} from "../libs/LibTrieProof.sol";
-import {ICheckpointStore} from "./ICheckpointStore.sol";
-import {ISignalService} from "./ISignalService.sol";
-import {EfficientHashLib} from "solady/src/utils/EfficientHashLib.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { LibTrieProof } from "../libs/LibTrieProof.sol";
+import { ICheckpointStore } from "./ICheckpointStore.sol";
+import { ISignalService } from "./ISignalService.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -190,8 +190,6 @@ contract SignalService is EssentialContract, ISignalService {
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
-
-
     /// @inheritdoc ICheckpointStore
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
@@ -349,7 +347,13 @@ contract SignalService is EssentialContract, ISignalService {
 
         // Try new EIP-7201 slot first, fall back to legacy slot during migration period.
         _verifyMerkleProofWithFallback(
-            checkpoint.stateRoot, slot, _signal, _chainId, _app, proof.accountProof, proof.storageProof
+            checkpoint.stateRoot,
+            slot,
+            _signal,
+            _chainId,
+            _app,
+            proof.accountProof,
+            proof.storageProof
         );
     }
 
@@ -377,7 +381,12 @@ contract SignalService is EssentialContract, ISignalService {
             if (block.timestamp < legacySlotExpiry) {
                 bytes32 legacySlot = getLegacySignalSlot(_chainId, _app, _signal);
                 LibTrieProof.verifyMerkleProof(
-                    _stateRoot, _remoteSignalService, legacySlot, _signal, _accountProof, _storageProof
+                    _stateRoot,
+                    _remoteSignalService,
+                    legacySlot,
+                    _signal,
+                    _accountProof,
+                    _storageProof
                 );
                 return;
             }
