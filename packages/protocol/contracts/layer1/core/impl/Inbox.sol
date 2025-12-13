@@ -309,8 +309,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // 6. Verify the proof
             // ---------------------------------------------------------
             // We count the proposalAge as the time since it became available for proving.
-            uint256 proposalAge = block.timestamp - 
-                commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge = block.timestamp
+                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             _proofVerifier.verifyProof(
                 proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
             );
