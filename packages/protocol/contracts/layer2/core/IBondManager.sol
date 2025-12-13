@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
-
 /// @title IBondManager
 /// @notice Interface for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
@@ -48,11 +46,6 @@ interface IBondManager {
     /// @notice Emitted when a withdrawal request is cancelled
     event WithdrawalCancelled(address indexed account);
 
-    /// @notice Emitted when a bond instruction is processed.
-    event BondInstructionProcessed(
-        bytes32 indexed signal, LibBonds.BondInstruction instruction, uint256 debitedAmount
-    );
-
     // ---------------------------------------------------------------
     // Transactional Functions
     // ---------------------------------------------------------------
@@ -75,12 +68,18 @@ interface IBondManager {
     /// @param _bond The amount of bond to credit
     function creditBond(address _address, uint256 _bond) external;
 
-    /// @notice Deposit ERC20 bond tokens for an address.
-    /// @dev Does not cancel the recipient's pending withdrawal; the recipient must call
+    /// @notice Deposit ERC20 bond tokens for the caller.
+    /// @dev Does not cancel the caller's pending withdrawal; the caller must call
     /// `cancelWithdrawal` to reactivate their bond status.
-    /// @param _recipient The address to credit the bond to. If zero, credits msg.sender.
     /// @param _amount The amount to deposit.
-    function deposit(address _recipient, uint256 _amount) external;
+    function deposit(uint256 _amount) external;
+
+    /// @notice Deposit ERC20 bond tokens for a recipient.
+    /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal; the
+    /// recipient must call `cancelWithdrawal` to reactivate their bond status.
+    /// @param _recipient The address to credit the bond to.
+    /// @param _amount The amount to deposit.
+    function depositTo(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev Withdrawals are subject to a delay so that bond operations can be resolved properly.
@@ -97,15 +96,6 @@ interface IBondManager {
     /// @notice Cancel withdrawal request to reactivate the account
     /// @dev Can be called during or after the withdrawal delay period
     function cancelWithdrawal() external;
-
-    /// @notice Processes a proved bond instruction from L1 with best-effort debits/credits.
-    /// @param _instruction Bond instruction tied to the signal.
-    /// @param _proof Merkle proof that the signal was sent on L1.
-    function processBondInstruction(
-        LibBonds.BondInstruction calldata _instruction,
-        bytes calldata _proof
-    )
-        external;
 
     // ---------------------------------------------------------------
     // View Functions
