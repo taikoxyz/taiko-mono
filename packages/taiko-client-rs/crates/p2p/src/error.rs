@@ -1,16 +1,16 @@
-//! Error types for the P2P SDK.
+//! Error types for the P2P client.
 
 use std::time::Duration;
 
 use preconfirmation_service::NetworkError;
 use thiserror::Error;
 
-/// Convenient result alias for SDK operations.
-pub type Result<T> = std::result::Result<T, P2pSdkError>;
+/// Convenient result alias for client operations.
+pub type Result<T> = std::result::Result<T, P2pClientError>;
 
-/// Unified error surface exposed by the SDK.
+/// Unified error surface exposed by the client.
 #[derive(Debug, Error)]
-pub enum P2pSdkError {
+pub enum P2pClientError {
     /// Underlying network-layer failure surfaced from `preconfirmation_service`.
     #[error("network: {0}")]
     Network(#[from] NetworkError),
@@ -26,7 +26,7 @@ pub enum P2pSdkError {
     /// Local backpressure guard rejected an enqueue.
     #[error("backpressure: channel full")]
     Backpressure,
-    /// SDK is shutting down or the caller raced a shutdown path.
+    /// Client is shutting down or the caller raced a shutdown path.
     #[error("shutdown")]
     Shutdown,
     /// Catch-all for unexpected conditions.
@@ -34,14 +34,14 @@ pub enum P2pSdkError {
     Other(String),
 }
 
-impl From<&str> for P2pSdkError {
+impl From<&str> for P2pClientError {
     /// Convert a string slice into a generic `Other` error.
     fn from(value: &str) -> Self {
         Self::Other(value.to_owned())
     }
 }
 
-impl From<anyhow::Error> for P2pSdkError {
+impl From<anyhow::Error> for P2pClientError {
     /// Convert an `anyhow::Error` into a generic `Other` error.
     fn from(err: anyhow::Error) -> Self {
         Self::Other(err.to_string())

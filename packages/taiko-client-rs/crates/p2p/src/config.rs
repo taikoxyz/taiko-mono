@@ -1,27 +1,27 @@
-//! Configuration for the sidecar-facing P2P SDK.
+//! Configuration for the sidecar-facing P2P client.
 //!
 //! This module wraps the lower-level `preconfirmation_service::NetworkConfig` with
-//! SDK-specific knobs controlling buffer sizes, cache limits, and request bounds
+//! Client-specific knobs controlling buffer sizes, cache limits, and request bounds
 //! required by the permissionless preconfirmation workflow.
 
 use std::time::Duration;
 
 use preconfirmation_service::NetworkConfig;
 
-/// High-level SDK configuration.
+/// High-level client configuration.
 ///
 /// All fields are documented to make operational tuning explicit. Default values
 /// mirror the conservative Kona/reth presets provided by `NetworkConfig::default`
-/// while adding SDK-specific limits for caching and pagination.
+/// while adding client-specific limits for caching and pagination.
 #[derive(Debug, Clone)]
-pub struct P2pSdkConfig {
+pub struct P2pClientConfig {
     /// Underlying libp2p/discv5/reputation configuration.
     pub network: NetworkConfig,
     /// Chain ID used to derive gossip topics and protocol IDs.
     pub chain_id: u64,
     /// Maximum buffered commands awaiting delivery to the network driver.
     pub command_buffer: usize,
-    /// Maximum buffered SDK events fanned out to subscribers.
+    /// Maximum buffered client events fanned out to subscribers.
     pub event_buffer: usize,
     /// Maximum number of commitments retained in the in-memory cache.
     pub commitment_cache: usize,
@@ -35,7 +35,7 @@ pub struct P2pSdkConfig {
     pub message_id_cache: usize,
     /// Time-to-live for message ids used in deduplication.
     pub message_id_ttl: Duration,
-    /// Whether SDK metrics should be recorded (if the `metrics` recorder is configured).
+    /// Whether client metrics should be recorded (if the `metrics` recorder is configured).
     pub enable_metrics: bool,
     /// Whether gossipsub validation failures should be treated as soft rejects rather than peer
     /// penalties.
@@ -57,7 +57,7 @@ pub struct P2pSdkConfig {
     pub reqresp_rate_window: Duration,
 }
 
-impl Default for P2pSdkConfig {
+impl Default for P2pClientConfig {
     /// Provide conservative defaults suitable for local development.
     fn default() -> Self {
         Self {
@@ -84,7 +84,7 @@ impl Default for P2pSdkConfig {
     }
 }
 
-impl P2pSdkConfig {
+impl P2pClientConfig {
     /// Override the chain ID used for topics and protocol IDs.
     pub fn with_chain_id(mut self, chain_id: u64) -> Self {
         self.chain_id = chain_id;

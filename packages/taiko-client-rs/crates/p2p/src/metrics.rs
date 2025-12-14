@@ -1,4 +1,4 @@
-//! Metrics helpers for the P2P SDK.
+//! Metrics helpers for the P2P client.
 //!
 //! This module centralizes metric names and small helper functions so callers
 //! can instrument events consistently without duplicating label sets.
@@ -7,7 +7,7 @@ use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gau
 
 use crate::validation::ValidationOutcome;
 
-/// Metric name constants used across the SDK.
+/// Metric name constants used across the client.
 #[derive(Debug, Clone, Copy)]
 pub struct P2pMetrics;
 

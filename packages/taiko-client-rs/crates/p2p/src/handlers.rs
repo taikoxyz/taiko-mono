@@ -1,10 +1,10 @@
-//! Adapter helpers that translate network events into SDK-facing events.
+//! Adapter helpers that translate network events into client-facing events.
 
 use preconfirmation_service::NetworkEvent;
 
 use crate::types::SdkEvent;
 
-/// Convert low-level network events into higher-level SDK events.
+/// Convert low-level network events into higher-level client events.
 pub fn map_network_event(ev: NetworkEvent) -> SdkEvent {
-    crate::sdk::P2pSdk::map_event(ev)
+    crate::client::P2pClient::map_event(ev)
 }

@@ -163,10 +163,10 @@ pub async fn validate_signed_commitment(
     }
 
     // Slasher address check when provided.
-    if let Some(expected) = &ctx.expected_slasher {
-        if &msg.commitment.slasher_address != expected {
-            return ValidationOutcome::RejectPeer { reason: "slasher_mismatch", detail: None };
-        }
+    if let Some(expected) = &ctx.expected_slasher &&
+        &msg.commitment.slasher_address != expected
+    {
+        return ValidationOutcome::RejectPeer { reason: "slasher_mismatch", detail: None };
     }
 
     // Parent linkage: enforce when parent is known; otherwise soft reject to allow buffering.

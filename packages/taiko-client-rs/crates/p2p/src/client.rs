@@ -1,4 +1,4 @@
-//! Sidecar-facing SDK façade over the preconfirmation P2P service.
+//! Sidecar-facing client façade over the preconfirmation P2P service.
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -11,8 +11,8 @@ use tokio::sync::{broadcast, mpsc};
 
 use crate::{
     catchup::{Catchup, CatchupAction, CatchupEvent},
-    config::P2pSdkConfig,
-    error::{P2pSdkError, Result},
+    config::P2pClientConfig,
+    error::{P2pClientError, Result},
     metrics::{record_gossip, record_reqresp_latency, record_reqresp_outcome},
     storage::{InMemoryStorage, SdkStorage},
     types::{
@@ -27,21 +27,21 @@ use libp2p::PeerId;
 use preconfirmation_service::{NetworkCommand, NetworkEvent, P2pService, PreconfStorage};
 use preconfirmation_types::preconfirmation_hash;
 
-/// High-level SDK entry point wrapping `P2pService`.
+/// High-level client entry point wrapping `P2pService`.
 ///
 /// This façade will gain catch-up orchestration and storage integration; today it
-/// maps network events into SDK events and exposes convenience publish/request
+/// maps network events into client events and exposes convenience publish/request
 /// helpers suitable for the sidecar.
-pub struct P2pSdk {
+pub struct P2pClient {
     /// Owned network service handle.
     service: P2pService,
     /// Receiver for raw network events (internally mapped to `SdkEvent`).
     events: broadcast::Receiver<NetworkEvent>,
-    /// Sender for bounded SDK event queue exposed to consumers.
+    /// Sender for bounded client event queue exposed to consumers.
     event_tx: mpsc::Sender<SdkEvent>,
-    /// Receiver side of the bounded SDK event queue.
+    /// Receiver side of the bounded client event queue.
     event_rx: Mutex<mpsc::Receiver<SdkEvent>>,
-    /// Bounded command channel enforcing SDK-level backpressure before reaching the driver.
+    /// Bounded command channel enforcing client-level backpressure before reaching the driver.
     cmd_tx: mpsc::Sender<NetworkCommand>,
     /// Application-visible storage backend (in-memory by default).
     storage: Arc<dyn SdkStorage>,
@@ -61,9 +61,9 @@ pub struct P2pSdk {
     rate_limiter: RateLimiter,
 }
 
-impl P2pSdk {
-    /// Start the SDK with the provided configuration and return a handle.
-    pub async fn start(config: P2pSdkConfig) -> Result<Self> {
+impl P2pClient {
+    /// Start the client with the provided configuration and return a handle.
+    pub async fn start(config: P2pClientConfig) -> Result<Self> {
         let storage = Arc::new(InMemoryStorage::with_caps_and_ids(
             config.commitment_cache,
             config.raw_txlist_cache_bytes,
@@ -75,7 +75,7 @@ impl P2pSdk {
             None,
             Some(storage.clone() as Arc<dyn PreconfStorage>),
         )
-        .map_err(|e| P2pSdkError::Other(e.to_string()))?;
+        .map_err(|e| P2pClientError::Other(e.to_string()))?;
         let events = service.events();
         let (event_tx, event_rx) = mpsc::channel(config.event_buffer.max(1));
         let (cmd_tx, mut cmd_rx) = mpsc::channel(config.command_buffer);
@@ -123,18 +123,18 @@ impl P2pSdk {
     /// Publish a signed commitment to the preconfirmation gossip topic.
     pub async fn publish_commitment(&self, msg: SignedCommitment) -> Result<()> {
         record_gossip("outbound", "commitment", "sent", 0);
-        self.service.publish_commitment(msg).await.map_err(P2pSdkError::from)
+        self.service.publish_commitment(msg).await.map_err(P2pClientError::from)
     }
 
     /// Publish a raw txlist blob to the preconfirmation raw-txlist gossip topic.
     pub async fn publish_raw_txlist(&self, msg: RawTxListGossip) -> Result<()> {
         record_gossip("outbound", "raw_txlist", "sent", msg.txlist.len());
-        self.service.publish_raw_txlist(msg).await.map_err(P2pSdkError::from)
+        self.service.publish_raw_txlist(msg).await.map_err(P2pClientError::from)
     }
 
     /// Send a low-level network command directly to the driver.
     pub async fn send_command(&self, cmd: NetworkCommand) -> Result<()> {
-        self.cmd_tx.try_send(cmd).map_err(|_| P2pSdkError::Backpressure)
+        self.cmd_tx.try_send(cmd).map_err(|_| P2pClientError::Backpressure)
     }
 
     /// Validate and publish a signed commitment, persisting it locally on success.
@@ -143,19 +143,18 @@ impl P2pSdk {
         match validate_signed_commitment(&peer, &msg, &self.validation_ctx).await {
             ValidationOutcome::Accept => {
                 let hash = preconfirmation_hash(&msg.commitment.preconf)
-                    .map_err(|e| P2pSdkError::Validation(e.to_string()))?;
+                    .map_err(|e| P2pClientError::Validation(e.to_string()))?;
                 let arr = b256_to_arr(&hash);
-                let _ = self
-                    .storage
+                self.storage
                     .store_commitment(
                         Bytes32::try_from(hash.as_slice().to_vec()).unwrap(),
                         msg.clone(),
                     )
-                    .map_err(|e| P2pSdkError::Storage(e.to_string()))?;
+                    .map_err(|e| P2pClientError::Storage(e.to_string()))?;
                 let _ = self.record_message(MessageId::commitment(arr));
                 self.publish_commitment(msg).await
             }
-            other => Err(P2pSdkError::Validation(format!("{:?}", other))),
+            other => Err(P2pClientError::Validation(format!("{:?}", other))),
         }
     }
 
@@ -164,15 +163,14 @@ impl P2pSdk {
         let peer = PeerId::random();
         match validate_raw_txlist(&peer, &msg, &self.validation_ctx).await {
             ValidationOutcome::Accept => {
-                let _ = self
-                    .storage
+                self.storage
                     .store_raw_txlist(msg.raw_tx_list_hash.clone(), msg.clone())
-                    .map_err(|e| P2pSdkError::Storage(e.to_string()))?;
+                    .map_err(|e| P2pClientError::Storage(e.to_string()))?;
                 let _ = self
                     .record_message(MessageId::raw_txlist(bytes32_to_arr(&msg.raw_tx_list_hash)));
                 self.publish_raw_txlist(msg).await
             }
-            other => Err(P2pSdkError::Validation(format!("{:?}", other))),
+            other => Err(P2pClientError::Validation(format!("{:?}", other))),
         }
     }
 
@@ -188,7 +186,7 @@ impl P2pSdk {
 
         // Ensure commitment references the same txlist hash.
         if commitment.commitment.preconf.raw_tx_list_hash != tx.raw_tx_list_hash {
-            return Err(P2pSdkError::Validation("commitment tx hash mismatch".into()));
+            return Err(P2pClientError::Validation("commitment tx hash mismatch".into()));
         }
 
         // Publish commitment only after txlist success.
@@ -227,7 +225,7 @@ impl P2pSdk {
         self.catchup.status()
     }
 
-    /// Receive the next SDK event, skipping over lagged slots automatically.
+    /// Receive the next client event, skipping over lagged slots automatically.
     pub async fn next_event(&mut self) -> Option<SdkEvent> {
         loop {
             // Drain any queued events first.
@@ -260,7 +258,7 @@ impl P2pSdk {
         self.service.shutdown().await;
     }
 
-    /// Map low-level network events into higher-level SDK events.
+    /// Map low-level network events into higher-level client events.
     pub(crate) fn map_event(ev: NetworkEvent) -> SdkEvent {
         match ev {
             NetworkEvent::ReqRespCommitments { from, msg } => {
@@ -423,7 +421,7 @@ impl P2pSdk {
                             );
                         }
                         record_reqresp_outcome("raw_txlist", "success");
-                        status_event.or_else(|| Some(SdkEvent::ReqRespRawTxList { from, msg }))
+                        status_event.or(Some(SdkEvent::ReqRespRawTxList { from, msg }))
                     }
                     other => Some(SdkEvent::Error(format!("raw_txlist_validation: {:?}", other))),
                 }
@@ -480,7 +478,7 @@ impl P2pSdk {
     }
 
     /// Translate `CatchupAction`s into concrete side effects (network commands and
-    /// optional SDK events) without changing the public SDK API. Unsafe or
+    /// optional client events) without changing the public client API. Unsafe or
     /// unimplemented actions are intentionally ignored.
     pub(crate) fn plan_catchup_actions(
         actions: Vec<CatchupAction>,
@@ -600,7 +598,7 @@ mod tests {
         let head = PreconfHead::default();
 
         let ev = NetworkEvent::ReqRespHead { from: peer, head: head.clone() };
-        match P2pSdk::map_event(ev) {
+        match P2pClient::map_event(ev) {
             SdkEvent::ReqRespHead { from, head: h } => {
                 assert_eq!(from, peer);
                 assert_eq!(h, head);
@@ -612,14 +610,14 @@ mod tests {
             from: peer,
             msg: GetCommitmentsByNumberResponse::default(),
         };
-        if let SdkEvent::ReqRespCommitments { .. } = P2pSdk::map_event(ev) {
+        if let SdkEvent::ReqRespCommitments { .. } = P2pClient::map_event(ev) {
         } else {
             panic!("expected commitments event");
         }
 
         let ev =
             NetworkEvent::ReqRespRawTxList { from: peer, msg: GetRawTxListResponse::default() };
-        if let SdkEvent::ReqRespRawTxList { .. } = P2pSdk::map_event(ev) {
+        if let SdkEvent::ReqRespRawTxList { .. } = P2pClient::map_event(ev) {
         } else {
             panic!("expected raw txlist event");
         }
@@ -633,7 +631,7 @@ mod tests {
             CatchupAction::EmitStatus(HeadSyncStatus::Live { head: u256(9) }),
         ];
 
-        let (commands, event) = P2pSdk::plan_catchup_actions(actions);
+        let (commands, event) = P2pClient::plan_catchup_actions(actions);
 
         assert_eq!(commands.len(), 1);
         match &commands[0] {
@@ -654,7 +652,7 @@ mod tests {
     fn plan_catchup_actions_maps_commitments_request() {
         let actions = vec![CatchupAction::RequestCommitments { from_height: u256(5), max: 42 }];
 
-        let (commands, event) = P2pSdk::plan_catchup_actions(actions);
+        let (commands, event) = P2pClient::plan_catchup_actions(actions);
 
         assert!(event.is_none());
         assert_eq!(commands.len(), 1);
@@ -674,7 +672,7 @@ mod tests {
         let hash = [9u8; 32];
         let actions = vec![CatchupAction::RequestRawTxList { peer: None, raw_tx_list_hash: hash }];
 
-        let (commands, event) = P2pSdk::plan_catchup_actions(actions);
+        let (commands, event) = P2pClient::plan_catchup_actions(actions);
 
         assert!(event.is_none());
         assert_eq!(commands.len(), 1);
@@ -691,7 +689,7 @@ mod tests {
     /// Pending latency trackers clear when corresponding responses arrive.
     fn pending_latency_entries_clear_on_responses() {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let mut sdk = rt.block_on(P2pSdk::start(P2pSdkConfig::default())).unwrap();
+        let mut sdk = rt.block_on(P2pClient::start(P2pClientConfig::default())).unwrap();
 
         // Seed pending timers manually.
         *sdk.pending_head.lock() = Some(Instant::now());
@@ -744,7 +742,7 @@ mod tests {
     /// Commitments response should advance catch-up and emit a live status when remote == local.
     #[tokio::test]
     async fn process_commitments_advances_catchup() {
-        let mut sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         // Move catchup into syncing state by simulating a head response.
         let head = PreconfHead { block_number: u256(3), submission_window_end: u256(0) };
         let _ = sdk.process_event(NetworkEvent::ReqRespHead { from: PeerId::random(), head }).await;
@@ -768,7 +766,7 @@ mod tests {
     #[tokio::test]
     /// Valid raw txlist is validated, stored, and propagated as event.
     async fn reqresp_raw_txlist_is_validated_and_stored() {
-        let mut sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
 
         let mut txlist = preconfirmation_types::TxListBytes::default();
         let _ = txlist.push(1u8);
@@ -823,7 +821,7 @@ mod tests {
     #[tokio::test]
     /// Raw txlist helper validates, stores, and publishes successfully.
     async fn validate_and_publish_raw_txlist_stores_and_succeeds() {
-        let sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, _) = build_txlist_and_commitment();
 
         sdk.validate_and_publish_raw_txlist(tx.clone()).await.unwrap();
@@ -835,7 +833,7 @@ mod tests {
     #[tokio::test]
     /// Commitment helper validates, stores, and publishes successfully.
     async fn validate_and_publish_commitment_stores_and_succeeds() {
-        let sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, signed) = build_txlist_and_commitment();
 
         // Seed txlist so commitment parent/tx hash reference is satisfied downstream.
@@ -851,7 +849,7 @@ mod tests {
     #[tokio::test]
     /// Combined publish should store and publish txlist then commitment atomically.
     async fn publish_txlist_and_commitment_runs_atomically() {
-        let sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, signed) = build_txlist_and_commitment();
 
         sdk.publish_txlist_and_commitment(tx.clone(), signed.clone()).await.unwrap();
@@ -866,7 +864,7 @@ mod tests {
     #[tokio::test]
     /// Duplicate gossip commitments are dropped via message-id dedupe.
     async fn duplicate_commitment_is_deduped() {
-        let mut sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (_, signed) = build_txlist_and_commitment();
         let peer = PeerId::random();
         let first = sdk
@@ -889,7 +887,7 @@ mod tests {
     #[tokio::test]
     /// Duplicate raw txlist gossip is dropped via message-id dedupe.
     async fn duplicate_raw_txlist_is_deduped() {
-        let mut sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, _) = build_txlist_and_commitment();
         let peer = PeerId::random();
 

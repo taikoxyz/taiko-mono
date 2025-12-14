@@ -1,6 +1,6 @@
-//! Storage abstractions for the P2P SDK.
+//! Storage abstractions for the P2P client.
 //!
-//! The SDK persists validated gossip so the sidecar can serve req/resp queries,
+//! The client persists validated gossip so the sidecar can serve req/resp queries,
 //! deduplicate inbound data, and answer head requests. A simple in-memory
 //! backend is provided for now.
 
@@ -18,7 +18,7 @@ use preconfirmation_types::{Bytes32, PreconfHead, RawTxListGossip, SignedCommitm
 
 use crate::{error::Result, metrics::record_cache, types::MessageId};
 
-/// Abstraction over commitment and raw-txlist storage used by the SDK.
+/// Abstraction over commitment and raw-txlist storage used by the client.
 /// Storage abstraction for commitments and raw tx lists.
 pub trait SdkStorage: Send + Sync {
     /// Persist a commitment keyed by its SSZ hash.

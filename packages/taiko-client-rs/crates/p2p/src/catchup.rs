@@ -158,7 +158,7 @@ impl Catchup {
         self.step(CatchupEvent::Cancel, Instant::now())
     }
 
-    /// Process an inbound head response and surface an SDK event.
+    /// Process an inbound head response and surface a client event.
     pub fn on_head_response(&mut self, head: PreconfHead) -> SdkEvent {
         let mut actions = self.step(CatchupEvent::HeadObserved(head), Instant::now());
         // Best-effort: surface the latest status; if none was emitted, fall back to current.
@@ -404,14 +404,14 @@ impl Catchup {
 
     /// Issue the next raw txlist request if none in flight.
     fn next_raw_request(&mut self) -> Vec<CatchupAction> {
-        if self.inflight_raw.is_none() {
-            if let Some(next) = self.pending_raw.pop_front() {
-                self.inflight_raw = Some(next);
-                self.raw_last_request_at = Some(Instant::now());
-                self.raw_retries = 0;
-                self.raw_backoff = self.backoff_min;
-                return vec![CatchupAction::RequestRawTxList { peer: None, raw_tx_list_hash: next }];
-            }
+        if self.inflight_raw.is_none() &&
+            let Some(next) = self.pending_raw.pop_front()
+        {
+            self.inflight_raw = Some(next);
+            self.raw_last_request_at = Some(Instant::now());
+            self.raw_retries = 0;
+            self.raw_backoff = self.backoff_min;
+            return vec![CatchupAction::RequestRawTxList { peer: None, raw_tx_list_hash: next }];
         }
         Vec::new()
     }

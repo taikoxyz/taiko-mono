@@ -1,4 +1,4 @@
-//! SDK-level types and events.
+//! Client-level types and events.
 
 use libp2p::PeerId;
 pub use preconfirmation_types::{
@@ -27,8 +27,9 @@ pub enum HeadSyncStatus {
     },
 }
 
-/// High-level events surfaced by the SDK to sidecar consumers.
+/// High-level events surfaced by the client to sidecar consumers.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum SdkEvent {
     /// Received a gossip `SignedCommitment` from a peer.
     GossipCommitment {
@@ -84,7 +85,7 @@ pub enum SdkEvent {
     PeerConnected(PeerId),
     /// Peer disconnection lifecycle events.
     PeerDisconnected(PeerId),
-    /// Catch-up status updates emitted by the SDK.
+    /// Catch-up status updates emitted by the client.
     HeadSync(HeadSyncStatus),
     /// Recoverable or reportable error surfaced to the consumer.
     Error(String),
@@ -94,7 +95,7 @@ pub enum SdkEvent {
     Stopped,
 }
 
-/// Gossip topics supported by the SDK.
+/// Gossip topics supported by the client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MessageTopic {
     /// Signed commitment gossipsub topic.
@@ -131,8 +132,9 @@ impl Hash for MessageId {
     }
 }
 
-/// Intentions issued by callers to the SDK.
+/// Intentions issued by callers to the client.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum SdkCommand {
     /// Publish a signed commitment to gossipsub.
     PublishCommitment(SignedCommitment),

@@ -1,8 +1,8 @@
-//! Minimal integration-style smoke test for the P2P SDK using in-memory storage and
+//! Minimal integration-style smoke test for the P2P client using in-memory storage and
 //! the real async runtime. Network IO is minimized by driving synthetic events
-//! through the SDK mapping layer.
+//! through the client mapping layer.
 
-use p2p::{P2pSdk, P2pSdkConfig};
+use p2p::{P2pClient, P2pClientConfig};
 use preconfirmation_service::NetworkEvent;
 use preconfirmation_types::{
     Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
@@ -35,7 +35,7 @@ fn build_tx_and_commitment() -> (RawTxListGossip, SignedCommitment) {
 #[tokio::test]
 /// Smoke-test publishing and processing a txlist+commitment through the SDK.
 async fn smoke_publish_and_process() {
-    let mut sdk = P2pSdk::start(P2pSdkConfig::default()).await.unwrap();
+    let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
     let (tx, signed) = build_tx_and_commitment();
 
     // Publish helpers validate and store.

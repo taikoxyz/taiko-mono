@@ -1,4 +1,4 @@
-//! P2P SDK wrapper for the permissionless preconfirmation networking stack.
+//! P2P client wrapper for the permissionless preconfirmation networking stack.
 //!
 //! This crate provides a sidecar-friendly façade over the `preconfirmation-service`
 //! networking layer. It will grow orchestration for bootstrap catch-up, validation,
@@ -7,17 +7,17 @@
 //!
 //! # Quick start
 //! ```no_run
-//! use p2p::{P2pSdk, P2pSdkConfig};
+//! use p2p::{P2pClient, P2pClientConfig};
 //! use preconfirmation_types::{RawTxListGossip, SignedCommitment, keccak256_bytes, PreconfCommitment, Preconfirmation};
 //! use tokio::task;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let mut sdk = P2pSdk::start(P2pSdkConfig::default()).await?;
+//!     let mut client = P2pClient::start(P2pClientConfig::default()).await?;
 //!
 //!     // Subscribe to events from the same task for simplicity.
-//!     if let Some(ev) = sdk.next_event().await {
-//!         println!("sdk event: {:?}", ev);
+//!     if let Some(ev) = client.next_event().await {
+//!         println!("client event: {:?}", ev);
 //!     }
 //!
 //!     // Publish a txlist + commitment pair.
@@ -28,7 +28,7 @@
 //!     let mut commitment = PreconfCommitment::default();
 //!     commitment.preconf = Preconfirmation { raw_tx_list_hash: tx.raw_tx_list_hash.clone(), ..Default::default() };
 //!     let signed = SignedCommitment { commitment, signature: preconfirmation_types::Bytes65::default() }; // replace with real signature
-//!     sdk.publish_txlist_and_commitment(tx, signed).await?;
+//!     client.publish_txlist_and_commitment(tx, signed).await?;
 //!     Ok(())
 //! }
 //! ```
@@ -36,20 +36,20 @@
 #![deny(missing_docs)]
 
 pub mod catchup;
+pub mod client;
 pub mod config;
 pub mod error;
 pub mod handlers;
 pub mod metrics;
 pub mod resolver;
-pub mod sdk;
 pub mod storage;
 pub mod types;
 pub mod validation;
 
 pub use crate::{
-    config::P2pSdkConfig,
-    error::{P2pSdkError, Result},
-    sdk::P2pSdk,
+    client::P2pClient,
+    config::P2pClientConfig,
+    error::{P2pClientError, Result},
     types::{HeadSyncStatus, SdkCommand, SdkEvent},
 };
 
