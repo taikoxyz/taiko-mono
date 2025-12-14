@@ -81,6 +81,7 @@ func (s *ComposeProofProducer) RequestProof(
 		"proposalID", proposalID,
 		"proofType", s.ProofType,
 		"time", time.Since(requestAt),
+		"dummy", s.Dummy,
 	)
 
 	var (
