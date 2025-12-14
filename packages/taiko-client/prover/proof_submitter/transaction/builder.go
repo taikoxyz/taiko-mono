@@ -125,7 +125,10 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
 			proposals = make([]shastaBindings.IInboxProposal, len(batchProof.ProofResponses))
-			input     = &shastaBindings.IInboxProveInput{ActualProver: txOpts.From}
+			input     = &shastaBindings.IInboxProveInput{
+				Commitment:          shastaBindings.IInboxCommitment{ActualProver: txOpts.From},
+				ForceCheckpointSync: false,
+			}
 		)
 
 		if len(batchProof.ProofResponses) == 0 {
@@ -149,30 +152,15 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 
 			// Set first proposal information.
 			if i == 0 {
-				input.FirstProposalId = proposals[i].Id
-				parent, err := a.rpc.L2.HeaderByHash(txOpts.Context, proofResponse.Opts.ShastaOptions().Headers[0].ParentHash)
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch parent proposal header: %w", err)
-				}
-				if input.FirstProposalParentCheckpointHash, err = a.rpc.HashCheckpointShasta(
-					&bind.CallOpts{Context: txOpts.Context},
-					&shastaBindings.ICheckpointStoreCheckpoint{
-						BlockNumber: parent.Number,
-						BlockHash:   parent.Hash(),
-						StateRoot:   parent.Root,
-					},
-				); err != nil {
-					return nil, fmt.Errorf("failed to hash parent proposal checkpoint: %w", err)
-				}
+				input.Commitment.FirstProposalId = proposals[i].Id
+				input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
 			}
 
 			// Set last proposal information.
 			if i == len(batchProof.ProofResponses)-1 {
-				input.LastCheckpoint = shastaBindings.ICheckpointStoreCheckpoint{
-					BlockNumber: lastHeader.Number,
-					BlockHash:   lastHeader.Hash(),
-					StateRoot:   lastHeader.Root,
-				}
+				input.Commitment.LastProposalHash = proposalHash
+				input.Commitment.EndBlockNumber = lastHeader.Number
+				input.Commitment.EndStateRoot = lastHeader.Root
 			}
 
 			// Fetch anchor proposal state, which contains the designated prover for the proposal.
@@ -183,23 +171,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				return nil, fmt.Errorf("failed to fetch anchor proposal state: %w", err)
 			}
 
-			checkpointHash, err := a.rpc.HashCheckpointShasta(
-				&bind.CallOpts{Context: txOpts.Context},
-				&shastaBindings.ICheckpointStoreCheckpoint{
-					BlockNumber: lastHeader.Number,
-					BlockHash:   lastHeader.Hash(),
-					StateRoot:   lastHeader.Root,
-				},
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to hash checkpoint: %w", err)
-			}
-
-			input.Transitions = append(input.Transitions, shastaBindings.IInboxTransition{
+			input.Commitment.Transitions = append(input.Commitment.Transitions, shastaBindings.IInboxTransition{
 				Proposer:         proposals[i].Proposer,
 				DesignatedProver: anchorProposalState.DesignatedProver,
 				Timestamp:        proposals[i].Timestamp,
-				CheckpointHash:   checkpointHash,
+				BlockHash:        lastHeader.Hash(),
 			})
 
 			log.Info(
