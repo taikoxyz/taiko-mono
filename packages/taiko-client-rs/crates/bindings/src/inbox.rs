@@ -374,7 +374,7 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
 
 ```solidity
 library IInbox {
-    struct Config { address codec; address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+    struct Config { address codec; address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; uint48 provingWindow; uint48 maxProofSubmissionDelay; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
     struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
 }
 ```*/
@@ -391,7 +391,7 @@ pub mod IInbox {
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address codec; address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; uint48 provingWindow; uint48 extendedProvingWindow; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+struct Config { address codec; address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; uint48 provingWindow; uint48 maxProofSubmissionDelay; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -409,7 +409,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
         #[allow(missing_docs)]
         pub provingWindow: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
-        pub extendedProvingWindow: alloy::sol_types::private::primitives::aliases::U48,
+        pub maxProofSubmissionDelay: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub ringBufferSize: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
@@ -493,7 +493,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     value.proverWhitelist,
                     value.signalService,
                     value.provingWindow,
-                    value.extendedProvingWindow,
+                    value.maxProofSubmissionDelay,
                     value.ringBufferSize,
                     value.basefeeSharingPctg,
                     value.minForcedInclusionCount,
@@ -516,7 +516,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     proverWhitelist: tuple.3,
                     signalService: tuple.4,
                     provingWindow: tuple.5,
-                    extendedProvingWindow: tuple.6,
+                    maxProofSubmissionDelay: tuple.6,
                     ringBufferSize: tuple.7,
                     basefeeSharingPctg: tuple.8,
                     minForcedInclusionCount: tuple.9,
@@ -558,7 +558,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::SolType>::tokenize(
-                        &self.extendedProvingWindow,
+                        &self.maxProofSubmissionDelay,
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         256,
@@ -666,7 +666,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address codec,address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,uint48 provingWindow,uint48 extendedProvingWindow,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
+                    "Config(address codec,address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,uint48 provingWindow,uint48 maxProofSubmissionDelay,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
                 )
             }
             #[inline]
@@ -709,7 +709,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.extendedProvingWindow,
+                            &self.maxProofSubmissionDelay,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
@@ -792,7 +792,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                     + <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.extendedProvingWindow,
+                        &rust.maxProofSubmissionDelay,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         256,
@@ -872,7 +872,7 @@ struct Config { address codec; address proofVerifier; address proposerChecker; a
                 <alloy::sol_types::sol_data::Uint<
                     48,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.extendedProvingWindow,
+                    &rust.maxProofSubmissionDelay,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -2618,7 +2618,7 @@ library IInbox {
         address proverWhitelist;
         address signalService;
         uint48 provingWindow;
-        uint48 extendedProvingWindow;
+        uint48 maxProofSubmissionDelay;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
         uint256 minForcedInclusionCount;
@@ -2774,7 +2774,7 @@ interface Inbox {
             "internalType": "uint48"
           },
           {
-            "name": "extendedProvingWindow",
+            "name": "maxProofSubmissionDelay",
             "type": "uint48",
             "internalType": "uint48"
           },
@@ -2897,7 +2897,7 @@ interface Inbox {
             "internalType": "uint48"
           },
           {
-            "name": "extendedProvingWindow",
+            "name": "maxProofSubmissionDelay",
             "type": "uint48",
             "internalType": "uint48"
           },
