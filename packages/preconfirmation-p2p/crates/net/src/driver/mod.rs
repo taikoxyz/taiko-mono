@@ -11,7 +11,12 @@ mod reqresp;
 #[cfg(test)]
 mod tests;
 
-use std::{collections::VecDeque, num::NonZeroU8, str::FromStr, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    num::NonZeroU8,
+    str::FromStr,
+    sync::Arc,
+};
 
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
 use tokio::{
@@ -80,6 +85,12 @@ pub struct NetworkDriver {
     kona_gater: kona_gossip::ConnectionGater,
     /// Storage backend for commitments/txlists (in-memory by default).
     storage: std::sync::Arc<dyn PreconfStorage>,
+    /// Correlation IDs for outbound commitments requests.
+    commitments_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
+    /// Correlation IDs for outbound raw-txlist requests.
+    raw_txlists_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
+    /// Correlation IDs for outbound head requests.
+    head_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
 }
 
 /// Constructs the reputation backend adapter. At runtime this delegates to the reth-backed
@@ -140,13 +151,26 @@ impl NetworkDriver {
             libp2p::swarm::Config::with_tokio_executor().with_dial_concurrency_factor(dial_factor);
         let mut swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
 
-        let listen_addr_str = if cfg.listen_addr.is_ipv4() {
-            format!("/ip4/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
-        } else {
-            format!("/ip6/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
-        };
-        let listen_addr: Multiaddr = listen_addr_str.parse()?;
-        swarm.listen_on(listen_addr)?;
+        // Listen on TCP and/or QUIC based on config.
+        if cfg.enable_tcp {
+            let listen_addr_str = if cfg.listen_addr.is_ipv4() {
+                format!("/ip4/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
+            } else {
+                format!("/ip6/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
+            };
+            let listen_addr: Multiaddr = listen_addr_str.parse()?;
+            swarm.listen_on(listen_addr)?;
+        }
+        #[cfg(feature = "quic-transport")]
+        if cfg.enable_quic {
+            let quic_addr_str = if cfg.listen_addr.is_ipv4() {
+                format!("/ip4/{}/udp/{}/quic-v1", cfg.listen_addr.ip(), cfg.listen_addr.port())
+            } else {
+                format!("/ip6/{}/udp/{}/quic-v1", cfg.listen_addr.ip(), cfg.listen_addr.port())
+            };
+            let quic_addr: Multiaddr = quic_addr_str.parse()?;
+            swarm.listen_on(quic_addr)?;
+        }
 
         let (events_tx, events_rx) = mpsc::channel(256);
         let (cmd_tx, cmd_rx) = mpsc::channel(256);
@@ -205,6 +229,9 @@ impl NetworkDriver {
                 head: PreconfHead::default(),
                 kona_gater: build_kona_gater(&cfg),
                 storage: storage.unwrap_or_else(default_storage),
+                commitments_req_ids: HashMap::new(),
+                raw_txlists_req_ids: HashMap::new(),
+                head_req_ids: HashMap::new(),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
         ))
@@ -213,7 +240,17 @@ impl NetworkDriver {
     /// Best-effort error emission; drops silently if the event channel is full/closed while still
     /// recording drop metrics.
     fn emit_error(&mut self, kind: NetworkErrorKind, detail: impl Into<String>) {
-        let err = NetworkError::new(kind, detail);
+        self.emit_error_with_request(kind, detail, None);
+    }
+
+    /// Emits an error optionally correlated to a request id.
+    fn emit_error_with_request(
+        &mut self,
+        kind: NetworkErrorKind,
+        detail: impl Into<String>,
+        request_id: Option<u64>,
+    ) {
+        let err = NetworkError::new(kind, detail).with_request_id(request_id);
         match self.events_tx.try_send(NetworkEvent::Error(err.clone())) {
             Ok(()) => {}
             Err(TrySendError::Full(_)) => {

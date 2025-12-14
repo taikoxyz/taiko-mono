@@ -80,20 +80,25 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 	if err != nil {
 		return fmt.Errorf("failed to decode proved payload: %w", err)
 	}
-	if len(payload.Input.Transitions) == 0 {
-		log.Warn("Received Shasta proved event with zero transitions", "firstProposalID", payload.Input.FirstProposalId)
+
+	if len(payload.Input.Commitment.Transitions) == 0 {
+		log.Warn(
+			"Received Shasta proved event with zero transitions",
+			"firstProposalID", payload.Input.Commitment.FirstProposalId,
+		)
 		return nil
 	}
 
 	// Update the latest verified proposal ID metric.
-	lastProposalID := payload.Input.FirstProposalId.Uint64() + uint64(len(payload.Input.Transitions)) - 1
+	transactionsLen := len(payload.Input.Commitment.Transitions)
+	lastProposalID := payload.Input.Commitment.FirstProposalId.Uint64() + uint64(transactionsLen) - 1
 	metrics.ProverLatestVerifiedIDGauge.Set(float64(lastProposalID))
 
 	log.Info(
 		"New valid proven Shasta batch received",
 		"proposalID", lastProposalID,
-		"checkpointBlockID", payload.Input.LastCheckpoint.BlockNumber,
-		"checkpointBlockHash", common.Hash(payload.Input.LastCheckpoint.BlockHash),
+		"checkpointBlockID", payload.Input.Commitment.EndBlockNumber,
+		"checkpointBlockHash", common.Hash(payload.Input.Commitment.Transitions[transactionsLen-1].BlockHash),
 	)
 
 	return nil

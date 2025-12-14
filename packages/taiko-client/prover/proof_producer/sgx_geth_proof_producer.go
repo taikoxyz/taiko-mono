@@ -37,6 +37,7 @@ func (s *SgxGethProofProducer) RequestProof(
 		"type", ProofTypeSgxGeth,
 		"batchID", batchID,
 		"time", time.Since(requestAt),
+		"dummy", s.Dummy,
 	)
 
 	if s.Dummy {

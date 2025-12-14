@@ -8,6 +8,11 @@ impl NetworkDriver {
     pub(super) fn handle_gossipsub_event(&mut self, ev: gossipsub::Event) {
         if let gossipsub::Event::Message { propagation_source, message_id, message, .. } = ev {
             if self.reputation.is_banned(&propagation_source) {
+                let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
+                    &message_id,
+                    &propagation_source,
+                    MessageAcceptance::Reject,
+                );
                 metrics::counter!("p2p_gossip_dropped_banned").increment(1);
                 return;
             }
@@ -176,6 +181,12 @@ impl NetworkDriver {
                         );
                     }
                 }
+            } else {
+                let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
+                    &message_id,
+                    &propagation_source,
+                    MessageAcceptance::Reject,
+                );
             }
         }
     }

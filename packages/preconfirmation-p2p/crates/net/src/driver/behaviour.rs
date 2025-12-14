@@ -123,7 +123,7 @@ impl NetworkDriver {
                     );
                 }
             }
-            NetworkCommand::RequestCommitments { start_block, max_count, peer } => {
+            NetworkCommand::RequestCommitments { request_id, start_block, max_count, peer } => {
                 if let Some(target) = self.choose_peer(peer) {
                     let req = GetCommitmentsByNumberRequest {
                         start_block_number: start_block,
@@ -132,31 +132,43 @@ impl NetworkDriver {
                     if validate_commitments_request(&req, MAX_COMMITMENTS_PER_RESPONSE as u32)
                         .is_ok()
                     {
-                        let _ =
+                        let req_handle =
                             self.swarm.behaviour_mut().commitments_rr.send_request(&target, req);
+                        if let Some(id) = request_id {
+                            self.commitments_req_ids.insert(req_handle, id);
+                        }
                         self.push_outbound_start(ReqRespKind::Commitments);
                     } else {
                         metrics::counter!("p2p_reqresp_error", "kind" => "commitments", "reason" => "validation").increment(1);
-                        let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
+                        let err = NetworkError::new(
                             NetworkErrorKind::ReqRespValidation,
                             format!(
                                 "invalid commitments request: max_count {max_count} exceeds cap"
                             ),
-                        )));
+                        )
+                        .with_request_id(request_id);
+                        let _ = self.events_tx.try_send(NetworkEvent::Error(err));
                     }
                 }
             }
-            NetworkCommand::RequestRawTxList { raw_tx_list_hash, peer } => {
+            NetworkCommand::RequestRawTxList { request_id, raw_tx_list_hash, peer } => {
                 if let Some(target) = self.choose_peer(peer) {
                     let req = GetRawTxListRequest { raw_tx_list_hash };
-                    let _ = self.swarm.behaviour_mut().raw_txlists_rr.send_request(&target, req);
+                    let req_handle =
+                        self.swarm.behaviour_mut().raw_txlists_rr.send_request(&target, req);
+                    if let Some(id) = request_id {
+                        self.raw_txlists_req_ids.insert(req_handle, id);
+                    }
                     self.push_outbound_start(ReqRespKind::RawTxList);
                 }
             }
-            NetworkCommand::RequestHead { peer } => {
+            NetworkCommand::RequestHead { request_id, peer } => {
                 if let Some(target) = self.choose_peer(peer) {
                     let req = GetHeadRequest::default();
-                    let _ = self.swarm.behaviour_mut().head_rr.send_request(&target, req);
+                    let req_handle = self.swarm.behaviour_mut().head_rr.send_request(&target, req);
+                    if let Some(id) = request_id {
+                        self.head_req_ids.insert(req_handle, id);
+                    }
                     self.push_outbound_start(ReqRespKind::Head);
                 }
             }

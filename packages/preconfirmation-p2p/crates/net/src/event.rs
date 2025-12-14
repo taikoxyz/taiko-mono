@@ -52,23 +52,29 @@ impl NetworkErrorKind {
 pub struct NetworkError {
     pub kind: NetworkErrorKind,
     pub detail: String,
+    pub request_id: Option<u64>,
 }
 
 impl NetworkError {
     pub fn new(kind: NetworkErrorKind, detail: impl Into<String>) -> Self {
-        Self { kind, detail: detail.into() }
+        Self { kind, detail: detail.into(), request_id: None }
+    }
+
+    pub fn with_request_id(mut self, request_id: Option<u64>) -> Self {
+        self.request_id = request_id;
+        self
     }
 }
 
 impl From<String> for NetworkError {
     fn from(detail: String) -> Self {
-        Self { kind: NetworkErrorKind::Other, detail }
+        Self { kind: NetworkErrorKind::Other, detail, request_id: None }
     }
 }
 
 impl From<&str> for NetworkError {
     fn from(detail: &str) -> Self {
-        Self { kind: NetworkErrorKind::Other, detail: detail.to_owned() }
+        Self { kind: NetworkErrorKind::Other, detail: detail.to_owned(), request_id: None }
     }
 }
 
@@ -85,14 +91,38 @@ impl std::error::Error for NetworkError {}
 pub enum NetworkEvent {
     PeerConnected(libp2p::PeerId),
     PeerDisconnected(libp2p::PeerId),
-    GossipSignedCommitment { from: libp2p::PeerId, msg: Box<SignedCommitment> },
-    GossipRawTxList { from: libp2p::PeerId, msg: Box<RawTxListGossip> },
-    ReqRespCommitments { from: libp2p::PeerId, msg: GetCommitmentsByNumberResponse },
-    ReqRespRawTxList { from: libp2p::PeerId, msg: GetRawTxListResponse },
-    ReqRespHead { from: libp2p::PeerId, head: preconfirmation_types::PreconfHead },
-    InboundCommitmentsRequest { from: libp2p::PeerId },
-    InboundRawTxListRequest { from: libp2p::PeerId },
-    InboundHeadRequest { from: libp2p::PeerId },
+    GossipSignedCommitment {
+        from: libp2p::PeerId,
+        msg: Box<SignedCommitment>,
+    },
+    GossipRawTxList {
+        from: libp2p::PeerId,
+        msg: Box<RawTxListGossip>,
+    },
+    ReqRespCommitments {
+        from: libp2p::PeerId,
+        msg: GetCommitmentsByNumberResponse,
+        request_id: Option<u64>,
+    },
+    ReqRespRawTxList {
+        from: libp2p::PeerId,
+        msg: GetRawTxListResponse,
+        request_id: Option<u64>,
+    },
+    ReqRespHead {
+        from: libp2p::PeerId,
+        head: preconfirmation_types::PreconfHead,
+        request_id: Option<u64>,
+    },
+    InboundCommitmentsRequest {
+        from: libp2p::PeerId,
+    },
+    InboundRawTxListRequest {
+        from: libp2p::PeerId,
+    },
+    InboundHeadRequest {
+        from: libp2p::PeerId,
+    },
     Started,
     Stopped,
     Error(NetworkError),

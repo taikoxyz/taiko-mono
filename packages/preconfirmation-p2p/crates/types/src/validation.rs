@@ -94,6 +94,10 @@ pub fn validate_raw_txlist_gossip(msg: &RawTxListGossip) -> Result<(), Validatio
 ///
 /// This mirrors the gossip validation by enforcing the txlist size cap.
 pub fn validate_raw_txlist_response(msg: &GetRawTxListResponse) -> Result<(), ValidationError> {
+    // Empty body is treated as a "not found" response; skip hash validation in that case.
+    if msg.txlist.is_empty() {
+        return Ok(());
+    }
     validate_raw_txlist_parts(&msg.raw_tx_list_hash, &msg.txlist)
 }
 
@@ -210,6 +214,16 @@ mod tests {
             raw_tx_list_hash: crate::Bytes32::try_from(hash.as_slice().to_vec()).unwrap(),
             anchor_block_number: crate::Uint256::from(0u64),
             txlist,
+        };
+        assert!(validate_raw_txlist_response(&resp).is_ok());
+    }
+
+    #[test]
+    fn raw_txlist_empty_allows_not_found() {
+        let resp = GetRawTxListResponse {
+            raw_tx_list_hash: crate::Bytes32::try_from(vec![0u8; 32]).unwrap(),
+            anchor_block_number: crate::Uint256::from(0u64),
+            txlist: TxListBytes::default(),
         };
         assert!(validate_raw_txlist_response(&resp).is_ok());
     }

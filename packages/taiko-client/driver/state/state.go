@@ -142,14 +142,20 @@ func (s *State) eventLoop(ctx context.Context) {
 		case e := <-provedShastaCh:
 			payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
 			if err != nil {
-				log.Error("Failed to decode proved payload", "err", err)
+				log.Error("Failed to decode Proved payload", "err", err)
 				continue
 			}
+			if len(payload.Input.Commitment.Transitions) == 0 {
+				log.Error("No transition in Proved payload")
+				continue
+			}
+
+			lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 			log.Info(
 				"📈 Shasta batches proven and verified",
-				"firstBatchID", payload.Input.FirstProposalId,
-				"checkpointNumber", payload.Input.LastCheckpoint.BlockNumber,
-				"checkpointHash", common.Hash(payload.Input.LastCheckpoint.BlockHash),
+				"firstBatchID", payload.Input.Commitment.FirstProposalId,
+				"checkpointNumber", payload.Input.Commitment.EndBlockNumber,
+				"checkpointHash", common.Hash(lastTransition.BlockHash),
 			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
