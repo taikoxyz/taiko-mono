@@ -141,7 +141,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, err := isKnownCanonicalBatchShasta(
+			lastBlockHeader, isKnown, err := isKnownCanonicalBatchShasta(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -150,13 +150,9 @@ func (i *Shasta) InsertBlocksWithManifest(
 				parent,
 			)
 			if err != nil {
-				log.Info(
-					"Unknown Shasta batch for the current canonical chain",
-					"batchID", meta.GetProposal().Id,
-					"proposer", meta.GetProposal().Proposer,
-					"reason", err,
-				)
-			} else if lastBlockHeader != nil {
+				return nil, fmt.Errorf("failed to check if Shasta batch is known in canonical chain: %w", err)
+			}
+			if isKnown && lastBlockHeader != nil {
 				log.Info(
 					"🧬 Known Shasta batch in canonical chain",
 					"batchID", meta.GetProposal().Id,

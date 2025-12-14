@@ -1517,17 +1517,17 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	state, err := c.ShastaClients.Inbox.GetState(opts)
+	state, err := c.ShastaClients.Inbox.GetCoreState(opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the Shasta Inbox state: %w", err)
+		return nil, fmt.Errorf("failed to get the Shasta Inbox core state: %w", err)
 	}
 
 	return &state, nil
 }
 
-// GetLastVerifiedTransitionShasta gets the last verified transition from Shasta Inbox contract.
-func (c *Client) GetLastVerifiedTransitionShasta(ctx context.Context, coreState *shastaBindings.IInboxCoreState) (
-	*shastaBindings.IInboxTransition,
+// GetLastVerifiedPayloadShasta gets the last verified Proved event payload from Shasta Inbox contract.
+func (c *Client) GetLastVerifiedPayloadShasta(ctx context.Context, coreState *shastaBindings.IInboxCoreState) (
+	*shastaBindings.IInboxProvedEventPayload,
 	error,
 ) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
@@ -1566,8 +1566,8 @@ func (c *Client) GetLastVerifiedTransitionShasta(ctx context.Context, coreState 
 	}
 
 	var (
-		start      = blockID.Uint64()
-		transition *shastaBindings.IInboxTransition
+		start        = blockID.Uint64()
+		eventPayload *shastaBindings.IInboxProvedEventPayload
 	)
 	iter, err := c.ShastaClients.Inbox.FilterProved(&bind.FilterOpts{
 		Start:   start,
@@ -1582,20 +1582,23 @@ func (c *Client) GetLastVerifiedTransitionShasta(ctx context.Context, coreState 
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode proved event payload from Shasta Inbox: %w", err)
 		}
-		if payload.ProposalId.Cmp(coreState.LastFinalizedProposalId) != 0 {
+
+		lastProposalID := payload.Input.Commitment.FirstProposalId.Uint64() +
+			uint64(len(payload.Input.Commitment.Transitions)) - 1
+		if lastProposalID != coreState.LastFinalizedProposalId.Uint64() {
 			continue
 		}
 
-		transition = &payload.Transition
+		eventPayload = payload
 	}
-	if transition == nil {
+	if eventPayload == nil {
 		return nil, fmt.Errorf(
-			"transition not found for last finalized proposal ID %d",
+			"payload not found for last finalized proposal ID %d",
 			coreState.LastFinalizedProposalId,
 		)
 	}
 
-	return transition, nil
+	return eventPayload, nil
 }
 
 // GetProposalByIDShasta gets the proposal by ID from Shasta Inbox contract.
@@ -1651,18 +1654,6 @@ func (c *Client) GetProposalByIDShasta(
 	}
 
 	return payload, log, nil
-}
-
-// HashTransitionShasta hashes the transition by Shasta Inbox Codec contract.
-func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.IInboxTransition) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.InboxCodec.HashTransition(opts, *ts)
 }
 
 // EncodeProveInput encodes the prove method input by Shasta Inbox Codec contract.

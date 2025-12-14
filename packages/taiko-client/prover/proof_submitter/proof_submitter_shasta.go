@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -132,25 +131,15 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		return err
 	}
 	proposalID := meta.Shasta().GetProposal().Id
-	parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, s.rpc, proposalID)
-	if err != nil {
-		log.Warn(
-			"Failed to build parent Shasta transition hash",
-			"proposalID", proposalID,
-			"error", err,
-		)
-		return err
-	}
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
-			ProposalID:           proposalID,
-			ProverAddress:        s.proverAddress,
-			EventL1Hash:          meta.GetRawBlockHash(),
-			Headers:              []*types.Header{header},
-			L2BlockNums:          l2BlockNums,
-			DesignatedProver:     proposalState.DesignatedProver,
-			ParentTransitionHash: parentTransitionHash,
-			Checkpoint: &shastaBindings.ICheckpointStoreCheckpoint{
+			ProposalID:       proposalID,
+			ProverAddress:    s.proverAddress,
+			EventL1Hash:      meta.GetRawBlockHash(),
+			Headers:          []*types.Header{header},
+			L2BlockNums:      l2BlockNums,
+			DesignatedProver: proposalState.DesignatedProver,
+			Checkpoint: &proofProducer.Checkpoint{
 				BlockNumber: header.Number,
 				BlockHash:   header.Hash(),
 				StateRoot:   header.Root,
