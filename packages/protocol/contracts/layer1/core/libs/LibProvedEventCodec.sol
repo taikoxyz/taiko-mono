@@ -8,9 +8,9 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @notice Compact encoder/decoder for ProvedEventPayload using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
 library LibProvedEventCodec {
-    /// @dev Encoded size: firstProposalId (6) + lastProposalId (6) + actualProver (20) +
-    /// checkpointSynced (1) = 33 bytes
-    uint256 private constant ENCODED_SIZE = 33;
+    /// @dev Encoded size: firstProposalId (6) + firstNewProposalId (6) + lastProposalId (6) +
+    /// actualProver (20) + checkpointSynced (1) = 39 bytes
+    uint256 private constant ENCODED_SIZE = 39;
 
     /// @notice Encodes a ProvedEventPayload into bytes using compact encoding.
     function encode(IInbox.ProvedEventPayload memory _payload)
@@ -22,6 +22,7 @@ library LibProvedEventCodec {
         uint256 ptr = P.dataPtr(encoded_);
 
         ptr = P.packUint48(ptr, _payload.firstProposalId);
+        ptr = P.packUint48(ptr, _payload.firstNewProposalId);
         ptr = P.packUint48(ptr, _payload.lastProposalId);
         ptr = P.packAddress(ptr, _payload.actualProver);
         P.packUint8(ptr, _payload.checkpointSynced ? 1 : 0);
@@ -36,6 +37,7 @@ library LibProvedEventCodec {
         uint256 ptr = P.dataPtr(_data);
 
         (payload_.firstProposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.firstNewProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.lastProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.actualProver, ptr) = P.unpackAddress(ptr);
 

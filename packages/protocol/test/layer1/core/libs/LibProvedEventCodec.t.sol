@@ -9,6 +9,7 @@ contract LibProvedEventCodecTest is Test {
     function test_encode_decode_basic() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             firstProposalId: 5,
+            firstNewProposalId: 7,
             lastProposalId: 10,
             actualProver: address(0xAAAA),
             checkpointSynced: false
@@ -18,6 +19,7 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.firstProposalId, payload.firstProposalId, "firstProposalId");
+        assertEq(decoded.firstNewProposalId, payload.firstNewProposalId, "firstNewProposalId");
         assertEq(decoded.lastProposalId, payload.lastProposalId, "lastProposalId");
         assertEq(decoded.actualProver, payload.actualProver, "actualProver");
         assertEq(decoded.checkpointSynced, payload.checkpointSynced, "checkpointSynced");
@@ -26,6 +28,7 @@ contract LibProvedEventCodecTest is Test {
     function test_encode_decode_withCheckpointSynced() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             firstProposalId: 100,
+            firstNewProposalId: 150,
             lastProposalId: 200,
             actualProver: address(0xBBBB),
             checkpointSynced: true
@@ -35,14 +38,32 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.firstProposalId, payload.firstProposalId, "firstProposalId");
+        assertEq(decoded.firstNewProposalId, payload.firstNewProposalId, "firstNewProposalId");
         assertEq(decoded.lastProposalId, payload.lastProposalId, "lastProposalId");
         assertEq(decoded.actualProver, payload.actualProver, "actualProver");
         assertTrue(decoded.checkpointSynced, "checkpointSynced should be true");
     }
 
+    function test_encode_decode_sameFirstAndFirstNew() public pure {
+        // When there's no finalized prefix, firstProposalId == firstNewProposalId
+        IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
+            firstProposalId: 42,
+            firstNewProposalId: 42,
+            lastProposalId: 50,
+            actualProver: address(0xCCCC),
+            checkpointSynced: false
+        });
+
+        bytes memory encoded = LibProvedEventCodec.encode(payload);
+        IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
+
+        assertEq(decoded.firstProposalId, decoded.firstNewProposalId, "should be equal when no prefix");
+    }
+
     function test_encode_deterministic() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             firstProposalId: 42,
+            firstNewProposalId: 45,
             lastProposalId: 50,
             actualProver: address(0xDDDD),
             checkpointSynced: false
@@ -56,10 +77,12 @@ contract LibProvedEventCodecTest is Test {
     }
 
     function test_encoded_size() public pure {
-        // Test that encoded size matches expected: 33 bytes
-        // firstProposalId (6) + lastProposalId (6) + actualProver (20) + checkpointSynced (1) = 33
+        // Test that encoded size matches expected: 39 bytes
+        // firstProposalId (6) + firstNewProposalId (6) + lastProposalId (6) +
+        // actualProver (20) + checkpointSynced (1) = 39
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             firstProposalId: 1,
+            firstNewProposalId: 1,
             lastProposalId: 2,
             actualProver: address(0xAAAA),
             checkpointSynced: false
@@ -67,12 +90,13 @@ contract LibProvedEventCodecTest is Test {
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
 
-        assertEq(encoded.length, 33, "encoded size should be 33 bytes");
+        assertEq(encoded.length, 39, "encoded size should be 39 bytes");
     }
 
     function test_encode_decode_maxValues() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             firstProposalId: type(uint48).max,
+            firstNewProposalId: type(uint48).max,
             lastProposalId: type(uint48).max,
             actualProver: address(type(uint160).max),
             checkpointSynced: true
@@ -82,6 +106,7 @@ contract LibProvedEventCodecTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.firstProposalId, type(uint48).max, "firstProposalId max");
+        assertEq(decoded.firstNewProposalId, type(uint48).max, "firstNewProposalId max");
         assertEq(decoded.lastProposalId, type(uint48).max, "lastProposalId max");
         assertEq(decoded.actualProver, address(type(uint160).max), "actualProver max");
         assertTrue(decoded.checkpointSynced, "checkpointSynced");
@@ -89,13 +114,18 @@ contract LibProvedEventCodecTest is Test {
 
     function test_encode_decode_zeroValues() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            firstProposalId: 0, lastProposalId: 0, actualProver: address(0), checkpointSynced: false
+            firstProposalId: 0,
+            firstNewProposalId: 0,
+            lastProposalId: 0,
+            actualProver: address(0),
+            checkpointSynced: false
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
         assertEq(decoded.firstProposalId, 0, "firstProposalId zero");
+        assertEq(decoded.firstNewProposalId, 0, "firstNewProposalId zero");
         assertEq(decoded.lastProposalId, 0, "lastProposalId zero");
         assertEq(decoded.actualProver, address(0), "actualProver zero");
         assertFalse(decoded.checkpointSynced, "checkpointSynced false");

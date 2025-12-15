@@ -306,6 +306,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             emit Proved(LibProvedEventCodec.encode(
                     ProvedEventPayload({
                         firstProposalId: commitment.firstProposalId,
+                        firstNewProposalId: commitment.firstProposalId + offset,
                         lastProposalId: uint48(lastProposalId),
                         actualProver: commitment.actualProver,
                         checkpointSynced: checkpointSynced
