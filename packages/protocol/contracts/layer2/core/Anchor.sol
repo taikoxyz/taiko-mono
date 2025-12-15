@@ -74,16 +74,10 @@ contract Anchor is EssentialContract {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    /// @dev Minimum calldata length for decoding a `ProverAuth` payload safely.
-    /// This equals the ABI-encoded size of:
-    ///   - uint48 proposalId: 32 bytes (padded)
-    ///   - address proposer: 32 bytes (padded)
-    ///   - uint256 provingFee: 32 bytes (padded)
-    ///   - bytes offset: 32 bytes
-    ///   - bytes length: 32 bytes
-    ///   - minimum signature data: 65 bytes (r, s, v for ECDSA)
-    /// Total: 32 + 32 + 32 + 32 + 32 + 65 = 225 bytes
-    uint256 private constant MIN_PROVER_AUTH_LENGTH = 225;
+    /// @dev Upper bound on encoded prover auth payloads to avoid excessive memory expansion when
+    ///      ABI-encoding them for the external decode call; standard ECDSA payloads are ~288 bytes,
+    ///      so 4 KB leaves ample headroom.
+    uint256 internal constant MAX_PROVER_AUTH_LENGTH = 4096;
 
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
@@ -109,9 +103,6 @@ contract Anchor is EssentialContract {
 
     /// @notice Bond amount in Wei for liveness guarantees.
     uint256 public immutable livenessBond;
-
-    /// @notice Bond amount in Wei for provability guarantees.
-    uint256 public immutable provabilityBond;
 
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
@@ -170,13 +161,11 @@ contract Anchor is EssentialContract {
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _bondManager The address of the bond manager.
     /// @param _livenessBond The liveness bond amount in Wei.
-    /// @param _provabilityBond The provability bond amount in Wei.
     /// @param _l1ChainId The L1 chain ID.
     constructor(
         ICheckpointStore _checkpointStore,
         IBondManager _bondManager,
         uint256 _livenessBond,
-        uint256 _provabilityBond,
         uint64 _l1ChainId
     ) {
         // Validate addresses
@@ -191,7 +180,6 @@ contract Anchor is EssentialContract {
         checkpointStore = _checkpointStore;
         bondManager = _bondManager;
         livenessBond = _livenessBond;
-        provabilityBond = _provabilityBond;
         l1ChainId = _l1ChainId;
     }
 
@@ -325,6 +313,12 @@ contract Anchor is EssentialContract {
         return _proverAuthDomainSeparator();
     }
 
+    /// @dev Decodes `ProverAuth` calldata; kept public so `validateProverAuth` can try/catch via
+    /// `this.decodeProverAuth` to avoid reverting on malformed encodings.
+    function decodeProverAuth(bytes calldata _proverAuth) public pure returns (ProverAuth memory) {
+        return abi.decode(_proverAuth, (ProverAuth));
+    }
+
     /// @dev Validates prover authentication and extracts signer.
     /// @param _proposalId The proposal ID to validate against.
     /// @param _proposer The proposer address to validate against.
@@ -340,11 +334,19 @@ contract Anchor is EssentialContract {
         view
         returns (address signer_, uint256 provingFee_)
     {
-        if (_proverAuth.length < MIN_PROVER_AUTH_LENGTH) {
+        // Prevent unbounded calldata from consuming excessive gas during ABI encoding
+        // and causing a revert.
+        if (_proverAuth.length > MAX_PROVER_AUTH_LENGTH) {
             return (_proposer, 0);
         }
 
-        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
+        ProverAuth memory proverAuth;
+        // We use try/catch to avoid the anchor from reverting
+        try this.decodeProverAuth(_proverAuth) returns (ProverAuth memory decoded) {
+            proverAuth = decoded;
+        } catch {
+            return (_proposer, 0);
+        }
 
         if (!_isMatchingProverAuthContext(proverAuth, _proposalId, _proposer)) {
             return (_proposer, 0);

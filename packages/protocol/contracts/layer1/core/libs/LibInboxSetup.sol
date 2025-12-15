@@ -96,7 +96,6 @@ library LibInboxSetup {
     error ActivationPeriodExpired();
     error BasefeeSharingPctgTooLarge();
     error CodecZero();
-    error ExtendedWindowTooSmall();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaBlockHash();
