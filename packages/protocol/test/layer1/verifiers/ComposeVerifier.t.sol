@@ -13,11 +13,6 @@ contract StubVerifier is IProofVerifier {
 }
 
 contract ComposeVerifierTest is Test {
-    uint8 private constant NONE = 0;
-    uint8 private constant SGX_RETH = 4;
-    uint8 private constant RISC0_RETH = 5;
-    uint8 private constant SP1_RETH = 6;
-
     StubVerifier internal sgx;
     StubVerifier internal risc0;
     StubVerifier internal sp1;
@@ -43,7 +38,9 @@ contract ComposeVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_anyVerifier_AllowsSingleSgxProof() external {
-        bytes memory data = _encodeProof(_toArray(SGX_RETH), _toBytesArray(bytes("sgx")));
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.SGX_RETH), _toBytesArray(bytes("sgx"))
+        );
 
         vm.expectCall(
             address(sgx),
@@ -54,15 +51,21 @@ contract ComposeVerifierTest is Test {
     }
 
     function test_anyVerifier_RevertWhen_InvalidVerifierId() external {
-        bytes memory data = _encodeProof(_toArray(NONE), _toBytesArray(bytes("bad")));
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.NONE), _toBytesArray(bytes("bad"))
+        );
 
         vm.expectRevert(ComposeVerifier.CV_INVALID_SUB_VERIFIER.selector);
         anyVerifier.verifyProof(0, TRANSITIONS_HASH, data);
     }
 
     function test_anyVerifier_RevertWhen_TooManyVerifiers() external {
-        bytes memory data =
-            _encodeProof(_toArray(SGX_RETH, RISC0_RETH), _toBytesArray(bytes("sgx"), bytes("r0")));
+        bytes memory data = _encodeProof(
+            _toArray(
+                ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.RISC0_RETH
+            ),
+            _toBytesArray(bytes("sgx"), bytes("r0"))
+        );
 
         vm.expectCall(
             address(sgx),
@@ -78,8 +81,10 @@ contract ComposeVerifierTest is Test {
     }
 
     function test_anyVerifier_RevertWhen_OrderNotIncreasing() external {
-        bytes memory data =
-            _encodeProof(_toArray(SGX_RETH, SGX_RETH), _toBytesArray(bytes("a"), bytes("b")));
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.SGX_RETH),
+            _toBytesArray(bytes("a"), bytes("b"))
+        );
 
         vm.expectCall(
             address(sgx),
@@ -95,8 +100,12 @@ contract ComposeVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_anyTwoVerifier_AllowsSgxAndRisc0() external {
-        bytes memory data =
-            _encodeProof(_toArray(SGX_RETH, RISC0_RETH), _toBytesArray(bytes("sgx"), bytes("r0")));
+        bytes memory data = _encodeProof(
+            _toArray(
+                ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.RISC0_RETH
+            ),
+            _toBytesArray(bytes("sgx"), bytes("r0"))
+        );
 
         vm.expectCall(
             address(sgx),
@@ -111,8 +120,10 @@ contract ComposeVerifierTest is Test {
     }
 
     function test_anyTwoVerifier_RevertWhen_OrderNotIncreasing() external {
-        bytes memory data =
-            _encodeProof(_toArray(SGX_RETH, SGX_RETH), _toBytesArray(bytes("sgx"), bytes("sgx2")));
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.SGX_RETH),
+            _toBytesArray(bytes("sgx"), bytes("sgx2"))
+        );
 
         vm.expectCall(
             address(sgx),
@@ -128,8 +139,10 @@ contract ComposeVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_sgxAndZkVerifier_AllowsSgxAndSp1() external {
-        bytes memory data =
-            _encodeProof(_toArray(SGX_RETH, SP1_RETH), _toBytesArray(bytes("sgx"), bytes("sp1")));
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.SP1_RETH),
+            _toBytesArray(bytes("sgx"), bytes("sp1"))
+        );
 
         vm.expectCall(
             address(sgx),
@@ -144,8 +157,12 @@ contract ComposeVerifierTest is Test {
     }
 
     function test_sgxAndZkVerifier_RevertWhen_SgxNotFirst() external {
-        bytes memory data =
-            _encodeProof(_toArray(RISC0_RETH, SP1_RETH), _toBytesArray(bytes("r0"), bytes("sp1")));
+        bytes memory data = _encodeProof(
+            _toArray(
+                ComposeVerifier.VerifierType.RISC0_RETH, ComposeVerifier.VerifierType.SP1_RETH
+            ),
+            _toBytesArray(bytes("r0"), bytes("sp1"))
+        );
 
         vm.expectCall(
             address(risc0),
@@ -165,7 +182,7 @@ contract ComposeVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function _encodeProof(
-        uint8[] memory ids,
+        ComposeVerifier.VerifierType[] memory ids,
         bytes[] memory payloads
     )
         private
@@ -179,13 +196,24 @@ contract ComposeVerifierTest is Test {
         return abi.encode(proofs);
     }
 
-    function _toArray(uint8 a) private pure returns (uint8[] memory arr) {
-        arr = new uint8[](1);
+    function _toArray(ComposeVerifier.VerifierType a)
+        private
+        pure
+        returns (ComposeVerifier.VerifierType[] memory arr)
+    {
+        arr = new ComposeVerifier.VerifierType[](1);
         arr[0] = a;
     }
 
-    function _toArray(uint8 a, uint8 b) private pure returns (uint8[] memory arr) {
-        arr = new uint8[](2);
+    function _toArray(
+        ComposeVerifier.VerifierType a,
+        ComposeVerifier.VerifierType b
+    )
+        private
+        pure
+        returns (ComposeVerifier.VerifierType[] memory arr)
+    {
+        arr = new ComposeVerifier.VerifierType[](2);
         arr[0] = a;
         arr[1] = b;
     }
