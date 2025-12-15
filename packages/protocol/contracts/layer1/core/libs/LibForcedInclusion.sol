@@ -32,8 +32,6 @@ library LibForcedInclusion {
         /// @notice The index of the next free slot in the queue. This is where items will be
         /// enqueued.
         uint48 tail;
-        /// @notice The last time a forced inclusion was processed.
-        uint48 lastProcessedAt;
     }
 
     // ---------------------------------------------------------------
@@ -99,7 +97,8 @@ library LibForcedInclusion {
     /// @dev Returns an empty array if `_start` is outside the valid range [head, tail) or if
     ///      `_maxCount` is zero. Otherwise returns actual stored entries from the queue.
     /// @param _start The queue index to start reading from (must be in range [head, tail)).
-    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty array.
+    /// @param _maxCount Maximum number of inclusions to return. Passing zero returns an empty
+    ///        array.
     /// @return inclusions_ Forced inclusions from the queue starting at `_start`. The actual length
     ///         will be `min(_maxCount, tail - _start)`, or zero if `_start` is out of range.
     function getForcedInclusions(
@@ -132,13 +131,12 @@ library LibForcedInclusion {
     /// @param $ Storage instance tracking the forced inclusion queue.
     /// @return head_ Index of the next forced inclusion to dequeue.
     /// @return tail_ Index where the next forced inclusion will be enqueued.
-    /// @return lastProcessedAt_ Timestamp of the most recent forced inclusion processing.
     function getForcedInclusionState(Storage storage $)
         internal
         view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+        returns (uint48 head_, uint48 tail_)
     {
-        (head_, tail_, lastProcessedAt_) = ($.head, $.tail, $.lastProcessedAt);
+        (head_, tail_) = ($.head, $.tail);
     }
 
     // ---------------------------------------------------------------
@@ -149,14 +147,12 @@ library LibForcedInclusion {
     /// @param $ Storage reference
     /// @param _head Current queue head position
     /// @param _tail Current queue tail position
-    /// @param _lastProcessedAt Timestamp of last processing
     /// @param _forcedInclusionDelay Delay in seconds before inclusion is due
     /// @return True if the oldest remaining inclusion is due for processing
     function isOldestForcedInclusionDue(
         Storage storage $,
         uint48 _head,
         uint48 _tail,
-        uint48 _lastProcessedAt,
         uint16 _forcedInclusionDelay
     )
         internal
@@ -169,7 +165,7 @@ library LibForcedInclusion {
             uint256 timestamp = $.queue[_head].blobSlice.timestamp;
             if (timestamp == 0) return false;
 
-            return block.timestamp >= timestamp.max(_lastProcessedAt) + _forcedInclusionDelay;
+            return block.timestamp >= timestamp + _forcedInclusionDelay;
         }
     }
 

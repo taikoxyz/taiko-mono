@@ -29,7 +29,6 @@ contract TestGenerateGenesis is Test {
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
     uint256 private livenessBond = configJSON.readUint(".livenessBond");
-    uint256 private provabilityBond = configJSON.readUint(".provabilityBond");
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
@@ -120,10 +119,6 @@ contract TestGenerateGenesis is Test {
         EssentialContract bondManagerProxy = EssentialContract(bondManagerAddress);
 
         assertEq(contractOwner, bondManagerProxy.owner());
-        assertEq(
-            getPredeployedContractAddress("TaikoAnchor"),
-            BondManager(bondManagerAddress).authorized()
-        );
         assertEq(bondToken, address(BondManager(bondManagerAddress).bondToken()));
         assertEq(minBond, BondManager(bondManagerAddress).minBond());
         assertEq(withdrawalDelay, BondManager(bondManagerAddress).withdrawalDelay());
@@ -133,10 +128,14 @@ contract TestGenerateGenesis is Test {
         bondManagerProxy.upgradeTo(
             address(
                 new BondManager(
-                    getPredeployedContractAddress("TaikoAnchor"),
                     getPredeployedContractAddress("RegularERC20"),
                     1 ether,
-                    7 days
+                    7 days,
+                    getPredeployedContractAddress("TaikoAnchor"),
+                    SignalService(getPredeployedContractAddress("SignalService")),
+                    contractOwner,
+                    uint64(l1ChainId),
+                    livenessBond
                 )
             )
         );
@@ -157,7 +156,6 @@ contract TestGenerateGenesis is Test {
             getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
         );
         assertEq(livenessBond, taikoAnchorProxy.livenessBond());
-        assertEq(provabilityBond, taikoAnchorProxy.provabilityBond());
 
         vm.startPrank(taikoAnchorProxy.owner());
 

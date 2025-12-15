@@ -71,11 +71,14 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
             _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
+        bytes32 sp1AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(blockProvingProgram, publicInput);
+
         // _proof[64:] is the succinct's proof position
         (bool success,) = sp1RemoteVerifier.staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (aggregationProgram, abi.encodePacked(publicInput), _proof[64:])
+                (aggregationProgram, abi.encodePacked(sp1AggregationPublicInput), _proof[64:])
             )
         );
 

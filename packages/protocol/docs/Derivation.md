@@ -21,18 +21,18 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component**   | **Description**                                               |
-| ------------------------ | ------------------------------------------------------------- |
-| **id**                   | A unique, sequential identifier for the proposal              |
-| **proposer**             | The address that proposed the proposal                        |
-| **isLowBondProposal**    | Indicates if the proposer has insufficient bond or is exiting |
-| **designatedProver**     | The prover responsible for proving the block                  |
-| **timestamp**            | The timestamp when the proposal was accepted on L1            |
-| **originBlockNumber**    | The L1 block number in which the proposal was accepted        |
-| **proverAuthBytes**      | An ABI-encoded ProverAuth object                              |
-| **basefeeSharingPctg**   | The percentage of base fee paid to coinbase                   |
-| **bondInstructionsHash** | Expected cumulative hash after processing bond instructions   |
-| **bondInstructions**     | Array of bond credit/debit instructions to be performed on L2 |
+| **Metadata Component** | **Description**                                               |
+| ---------------------- | ------------------------------------------------------------- |
+| **id**                 | A unique, sequential identifier for the proposal              |
+| **proposer**           | The address that proposed the proposal                        |
+| **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting |
+| **designatedProver**   | The prover responsible for proving the block                  |
+| **timestamp**          | The timestamp when the proposal was accepted on L1            |
+| **originBlockNumber**  | The L1 block number in which the proposal was accepted        |
+| **proverAuthBytes**    | An ABI-encoded ProverAuth object                              |
+| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                   |
+| **bondInstruction**    | Optional bond debit/credit instruction for late proofs        |
+| **bondSignal**         | Signal hash emitted via the SignalService when a bond exists  |
 
 ### Derivation Source-level Metadata
 
@@ -288,7 +288,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 **Invalidation conditions** (replace the derivation source with the default source manifest):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - MIN_ANCHOR_OFFSET`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber > proposal.originBlockNumber`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
 **Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == false`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
@@ -319,26 +319,14 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
-#### `bondInstructionsHash` and `bondInstructions` Validation
+#### Bond instruction signaling
 
-The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Subsequent blocks carry the same bond instruction payload (`bondInstructionsHash` and `bondInstructions`) in their `anchorV4` parameters, but that data is ignored because bond settlement occurs only once per proposal. Bond instructions are defined as follows:
+Sequential proving emits at most one bond instruction for the first proven proposal. When the instruction exists, the L1 inbox:
 
-```solidity
-/// @notice Represents a bond instruction for processing in the anchor transaction
-struct BondInstruction {
-  uint48 proposalId;
-  BondType bondType;
-  address payer;
-  address payee;
-}
+1. Emits the instruction and its signal hash in the `Proved` event.
+2. Calls `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
 
-/// @notice Types of bonds
-enum BondType {
-  NONE,
-  PROVABILITY,
-  LIVENESS
-}
-```
+Bond settlement happens on L2 by a dedicated bond signal processor that verifies the signal with a proof and applies best-effort debits/credits through the `BondManager`. The anchor call no longer carries bond-related calldata.
 
 Bond instructions are emitted in the `Proposed` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
 
@@ -370,7 +358,6 @@ struct ProverAuth {
 The `_validateProverAuth` function processes prover authentication data with the following steps:
 
 - **Signature Verification**:
-
   - Validates the `ProverAuth` struct from the provided bytes
   - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
@@ -507,18 +494,16 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
 
-| Parameter            | Type              | Description                                              |
-| -------------------- | ----------------- | -------------------------------------------------------- |
-| proposalId           | uint48            | Unique identifier of the proposal being anchored         |
-| proposer             | address           | Address of the entity that proposed this batch of blocks |
-| proverAuth           | bytes             | Encoded ProverAuth for prover designation                |
-| bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions   |
-| bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block |
-| anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)          |
-| anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                       |
-| anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                       |
+| Parameter         | Type    | Description                                              |
+| ----------------- | ------- | -------------------------------------------------------- |
+| proposalId        | uint48  | Unique identifier of the proposal being anchored         |
+| proposer          | address | Address of the entity that proposed this batch of blocks |
+| proverAuth        | bytes   | Encoded ProverAuth for prover designation                |
+| anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring)          |
+| anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber                       |
+| anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber                       |
 
 The function returns:
 
@@ -530,22 +515,18 @@ The function returns:
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
-
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
-
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state
    - Emits `ProverDesignated` event
 
-3. **L1 state anchoring and bond processing** (when anchorBlockNumber > previous anchorBlockNumber)
+3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointManager.saveCheckpoint`
-   - Processes bond instructions (NONE, LIVENESS, and PROVABILITY types) where NONE results in no transfer
-   - Maintains cumulative hash integrity by chaining: `keccak256(previousHash, instruction)` (skips if proposalId=0 or bondType=NONE)
-   - Updates anchor state atomically (bondInstructionsHash and anchorBlockNumber)
+   - Updates anchor state atomically with the latest anchor block metadata
 
 **Execution constraints**:
 
@@ -562,18 +543,16 @@ The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first 
 
 The following constants govern the block derivation process:
 
-| Constant                       | Value                         | Description                                                                                                                                                                       |
-| ------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                                   |
-| **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                                     |
-| **MIN_ANCHOR_OFFSET**          | `2`                           | The minimum anchor block number offset from the proposal origin block number.                                                                                                     |
-| **TIMESTAMP_MAX_OFFSET**       | `1536` (12 \* 128)            | The maximum number timestamp offset from the proposal origin timestamp. This is set to longer than an epoch to allow the next proposer to recover without causing a reorg.        |
-| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                             |
-| **MIN_BLOCK_GAS_LIMIT**        | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                                 |
-| **MAX_BLOCK_GAS_LIMIT**        | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                                  |
-| **BOND_PROCESSING_DELAY**      | `6`                           | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
-| **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                                      |
-| **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                               |
-| **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                               |
-| **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                            |
-| **SHASTA_FORK_TIME**           | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                         |
+| Constant                       | Value                         | Description                                                                                                                                                                |
+| ------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                            |
+| **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                              |
+| **TIMESTAMP_MAX_OFFSET**       | `1536` (12 \* 128)            | The maximum number timestamp offset from the proposal origin timestamp. This is set to longer than an epoch to allow the next proposer to recover without causing a reorg. |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                      |
+| **MIN_BLOCK_GAS_LIMIT**        | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                          |
+| **MAX_BLOCK_GAS_LIMIT**        | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                           |
+| **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                               |
+| **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                        |
+| **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                        |
+| **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                     |
+| **SHASTA_FORK_TIME**           | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                  |

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title IBondManager
-/// @notice Interface for managing bonds in the Based3 protocol
+/// @notice Interface for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
     // ---------------------------------------------------------------
@@ -30,15 +30,10 @@ interface IBondManager {
     event BondCredited(address indexed account, uint256 amount);
 
     /// @notice Emitted when a bond is deposited into the manager
-    /// @param account The account that deposited the bond
-    /// @param amount The amount deposited
-    event BondDeposited(address indexed account, uint256 amount);
-
-    /// @notice Emitted when a bond is deposited for another address
     /// @param depositor The account that made the deposit
     /// @param recipient The account that received the bond credit
     /// @param amount The amount deposited
-    event BondDepositedFor(address indexed depositor, address indexed recipient, uint256 amount);
+    event BondDeposited(address indexed depositor, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a bond is withdrawn from the manager
     /// @param account The account that withdrew the bond
@@ -52,7 +47,7 @@ interface IBondManager {
     event WithdrawalCancelled(address indexed account);
 
     // ---------------------------------------------------------------
-    // External Functions
+    // Transactional Functions
     // ---------------------------------------------------------------
 
     /// @notice Debits a bond from an address with best effort
@@ -73,26 +68,43 @@ interface IBondManager {
     /// @param _bond The amount of bond to credit
     function creditBond(address _address, uint256 _bond) external;
 
-    /// @notice Gets the bond balance of an address
-    /// @param _address The address to get the bond balance for
-    /// @return The bond balance of the address
-    function getBondBalance(address _address) external view returns (uint256);
-
-    /// @notice Deposit ERC20 bond tokens into the manager.
+    /// @notice Deposit ERC20 bond tokens for the caller.
+    /// @dev Does not cancel the caller's pending withdrawal; the caller must call
+    /// `cancelWithdrawal` to reactivate their bond status.
     /// @param _amount The amount to deposit.
     function deposit(uint256 _amount) external;
 
-    /// @notice Deposit ERC20 bond tokens for another address.
+    /// @notice Deposit ERC20 bond tokens for a recipient.
+    /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal; the
+    /// recipient must call `cancelWithdrawal` to reactivate their bond status.
     /// @param _recipient The address to credit the bond to.
     /// @param _amount The amount to deposit.
     function depositTo(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
-    /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are
-    /// unrestricted.
+    /// @dev Withdrawals are subject to a delay so that bond operations can be resolved properly.
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
+
+    /// @notice Request to start the withdrawal process
+    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal. Proposers
+    /// should self-eject before calling to avoid having subsequent proposals classified as
+    /// low-bond.
+    function requestWithdrawal() external;
+
+    /// @notice Cancel withdrawal request to reactivate the account
+    /// @dev Can be called during or after the withdrawal delay period
+    function cancelWithdrawal() external;
+
+    // ---------------------------------------------------------------
+    // View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Gets the bond balance of an address
+    /// @param _address The address to get the bond balance for
+    /// @return The bond balance of the address
+    function getBondBalance(address _address) external view returns (uint256);
 
     /// @notice Checks if an account has sufficient bond and hasn't requested withdrawal
     /// @param _address The address to check
@@ -106,12 +118,4 @@ interface IBondManager {
         external
         view
         returns (bool);
-
-    /// @notice Request to start the withdrawal process
-    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal
-    function requestWithdrawal() external;
-
-    /// @notice Cancel withdrawal request to reactivate the account
-    /// @dev Can be called during or after the withdrawal delay period
-    function cancelWithdrawal() external;
 }
