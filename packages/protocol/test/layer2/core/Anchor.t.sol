@@ -162,16 +162,14 @@ contract AnchorTest is Test {
 
     function test_anchorV4_switchesProposal() external {
         Anchor.ProposalParams memory firstProposal = _proposalParams(1, 1 ether);
-        ICheckpointStore.Checkpoint memory blockParams1 =
-            _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory blockParams1 = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(firstProposal, blockParams1);
 
         Anchor.ProposalParams memory secondProposal = _proposalParams(2, 2 ether);
-        ICheckpointStore.Checkpoint memory blockParams2 =
-            _blockParams(1010, 0xABCD, 0xEF01);
+        ICheckpointStore.Checkpoint memory blockParams2 = _blockParams(1010, 0xABCD, 0xEF01);
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);

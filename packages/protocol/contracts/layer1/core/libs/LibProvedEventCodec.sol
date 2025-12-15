@@ -59,7 +59,8 @@ library LibProvedEventCodec {
         (transitionsLength, ptr) = P.unpackUint16(ptr);
         payload_.input.commitment.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
-            (payload_.input.commitment.transitions[i], ptr) = LibTransitionCodec.decodeTransition(ptr);
+            (payload_.input.commitment.transitions[i], ptr) =
+                LibTransitionCodec.decodeTransition(ptr);
         }
 
         // Decode forceCheckpointSync
