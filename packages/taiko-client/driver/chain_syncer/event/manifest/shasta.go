@@ -399,9 +399,9 @@ func validateAnchorBlockNumber(
 			return false
 		}
 
-		if anchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
+		if anchorBlockNumber > originBlockNumber {
 			log.Info(
-				"Invalid anchor block number: future reference",
+				"Invalid anchor block number: cannot be newer than origin block",
 				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,

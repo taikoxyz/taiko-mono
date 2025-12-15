@@ -11,9 +11,6 @@ pub const PROPOSAL_MAX_BLOCKS: usize = 384;
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;
 
-/// The minimum anchor block number offset from the proposal origin block number.
-pub const MIN_ANCHOR_OFFSET: u64 = 2;
-
 /// The maximum timestamp offset from the proposal origin timestamp.
 pub const TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
 
