@@ -282,7 +282,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     function _getRandomNumber(uint32 _epochTimestamp) internal view returns (uint256) {
         // Get the beacon root at the epoch start - this stays constant throughout the epoch
-        bytes32 beaconRoot = LibPreconfUtils.getBeaconBlockRootAt(_epochTimestamp);
+        bytes32 beaconRoot = LibPreconfUtils.getBeaconBlockRootAtOrAfter(_epochTimestamp);
 
         return uint256(beaconRoot);
     }

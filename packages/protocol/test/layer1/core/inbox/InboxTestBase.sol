@@ -11,8 +11,10 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxTestBase
@@ -40,6 +42,7 @@ abstract contract InboxTestBase is CommonTest {
         vm.deal(proposer, 100 ether);
         vm.deal(prover, 100 ether);
 
+        _mockBeaconBlockRoot();
         _setupMocks();
         _setupDependencies();
 
@@ -200,6 +203,12 @@ abstract contract InboxTestBase is CommonTest {
         bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
         require(eventData.length > 0, "Proposed event not found");
         return codec.decodeProposedEvent(eventData);
+    }
+
+    function _mockBeaconBlockRoot() internal {
+        vm.etch(
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new MockBeaconBlockRoot()).code
+        );
     }
 
     // ---------------------------------------------------------------------
