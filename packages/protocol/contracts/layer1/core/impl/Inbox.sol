@@ -12,7 +12,6 @@ import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
-import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -303,15 +302,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(
-                    ProvedEventPayload({
-                        firstProposalId: commitment.firstProposalId,
-                        firstNewProposalId: commitment.firstProposalId + offset,
-                        lastProposalId: uint48(lastProposalId),
-                        actualProver: commitment.actualProver,
-                        checkpointSynced: checkpointSynced
-                    })
-                ));
+
+            emit Proved(
+                commitment.firstProposalId,
+                commitment.firstProposalId + offset,
+                uint48(lastProposalId),
+                commitment.actualProver,
+                checkpointSynced
+            );
 
             // ---------------------------------------------------------
             // 6. Verify the proof

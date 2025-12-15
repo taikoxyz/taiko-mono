@@ -193,8 +193,18 @@ interface IInbox {
     event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted
-    /// @param data The encoded ProvedEventPayload
-    event Proved(bytes data);
+    /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)
+    /// @param firstNewProposalId The first proposal ID that was newly proven by this proof
+    /// @param lastProposalId The last proposal ID covered by the proof
+    /// @param actualProver The prover that submitted the proof
+    /// @param checkpointSynced Whether a checkpoint was synced as part of this proof
+    event Proved(
+        uint48 firstProposalId,
+        uint48 firstNewProposalId,
+        uint48 lastProposalId,
+        address indexed actualProver,
+        bool checkpointSynced
+    );
 
     /// @notice Emitted when a bond instruction is signaled to L2
     /// @param proposalId The proposal ID that triggered the bond instruction
