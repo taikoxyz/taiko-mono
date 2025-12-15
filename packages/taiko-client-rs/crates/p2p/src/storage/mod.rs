@@ -5,14 +5,13 @@
 //! backend is provided for now.
 
 use std::{
-    collections::{HashMap, VecDeque},
-    num::NonZeroUsize,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
 use alloy_primitives::{B256, U256};
-use lru::LruCache;
-use parking_lot::RwLock;
+use arc_swap::ArcSwapOption;
+use moka::sync::Cache;
 use preconfirmation_service::PreconfStorage;
 use preconfirmation_types::{Bytes32, PreconfHead, RawTxListGossip, SignedCommitment};
 
@@ -47,23 +46,18 @@ fn to_key(hash: &Bytes32) -> [u8; 32] {
 }
 
 /// Simple in-memory storage suitable for development, tests, and defaults.
-/// TODO: use lock-free data storage, like `dashmap`, for better concurrency.
+/// Uses concurrent caches (`moka`) plus lock-free head storage to avoid explicit locking in hot
+/// paths.
 pub struct InMemoryStorage {
-    /// Stored commitments keyed by their hash.
-    commitments: RwLock<LruCache<[u8; 32], SignedCommitment>>,
-    /// Stored raw txlists keyed by their hash.
-    txlists: RwLock<HashMap<[u8; 32], RawTxListGossip>>,
-    /// Insertion order of txlists for FIFO eviction.
-    txlist_order: RwLock<VecDeque<[u8; 32]>>,
-    /// Approximate bytes currently held in txlist cache.
-    txlist_bytes: RwLock<usize>,
-    /// Byte cap for raw txlist cache.
-    txlist_byte_cap: usize,
-    /// Optional served head value.
-    head: RwLock<Option<PreconfHead>>,
-    /// Recently seen message ids for deduplication.
-    message_ids: RwLock<LruCache<MessageId, Instant>>,
-    /// Time-to-live for message id entries.
+    /// Stored commitments keyed by their hash (count-bounded cache).
+    commitments: Cache<[u8; 32], SignedCommitment>,
+    /// Stored raw txlists keyed by their hash (byte-bounded cache via custom weigher).
+    txlists: Cache<[u8; 32], RawTxListGossip>,
+    /// Optional served head value (lock-free read via arc-swap).
+    head: ArcSwapOption<PreconfHead>,
+    /// Recently seen message ids for deduplication (bounded + TTL).
+    message_ids: Cache<MessageId, Instant>,
+    /// Message id TTL fallback (for tests allowing override).
     message_ttl: Duration,
 }
 
@@ -85,18 +79,24 @@ impl InMemoryStorage {
         message_id_cap: usize,
         message_ttl: Duration,
     ) -> Self {
+        let commitments = Cache::builder().max_capacity(commitment_cap.max(1) as u64).build();
+
+        // weight = txlist bytes; enforce byte cap via max_weight
+        let txlists = Cache::builder()
+            .max_capacity(txlist_byte_cap.max(1) as u64)
+            .weigher(|_k: &[u8; 32], v: &RawTxListGossip| v.txlist.len() as u32)
+            .build();
+
+        let message_ids = Cache::builder()
+            .time_to_live(message_ttl.max(Duration::from_secs(1)))
+            .max_capacity(message_id_cap.max(1) as u64)
+            .build();
+
         Self {
-            commitments: RwLock::new(LruCache::new(
-                NonZeroUsize::new(commitment_cap.max(1)).unwrap(),
-            )),
-            txlists: RwLock::new(HashMap::new()),
-            txlist_order: RwLock::new(VecDeque::new()),
-            txlist_bytes: RwLock::new(0),
-            txlist_byte_cap: txlist_byte_cap.max(1),
-            head: RwLock::new(None),
-            message_ids: RwLock::new(LruCache::new(
-                NonZeroUsize::new(message_id_cap.max(1)).unwrap(),
-            )),
+            commitments,
+            txlists,
+            head: ArcSwapOption::from(None),
+            message_ids,
             message_ttl: message_ttl.max(Duration::from_secs(1)),
         }
     }
@@ -112,86 +112,56 @@ impl Default for InMemoryStorage {
 impl Storage for InMemoryStorage {
     /// Persist a commitment keyed by its SSZ hash.
     fn store_commitment(&self, hash: Bytes32, commitment: SignedCommitment) -> Result<()> {
-        self.commitments.write().put(to_key(&hash), commitment);
+        self.commitments.insert(to_key(&hash), commitment);
         Ok(())
     }
 
     /// Retrieve a commitment if present in the cache.
     fn get_commitment(&self, hash: &Bytes32) -> Option<SignedCommitment> {
-        let hit = self.commitments.read().peek(&to_key(hash)).cloned();
+        let hit = self.commitments.get(&to_key(hash));
         record_cache("commitment", hit.is_some());
         hit
     }
 
     /// Persist a raw txlist keyed by its hash, evicting FIFO when over byte cap.
     fn store_raw_txlist(&self, hash: Bytes32, tx: RawTxListGossip) -> Result<()> {
-        let key = to_key(&hash);
-        let bytes = tx.txlist.len();
-
-        let mut map = self.txlists.write();
-        let mut order = self.txlist_order.write();
-        let mut size = self.txlist_bytes.write();
-
-        if let Some(old) = map.get(&key) {
-            *size = size.saturating_sub(old.txlist.len());
-        }
-
-        map.insert(key, tx);
-        order.push_back(key);
-        *size += bytes;
-
-        while *size > self.txlist_byte_cap {
-            if let Some(evict) = order.pop_front() {
-                if let Some(old) = map.remove(&evict) {
-                    *size = size.saturating_sub(old.txlist.len());
-                }
-            } else {
-                break;
-            }
-        }
+        self.txlists.insert(to_key(&hash), tx);
         Ok(())
     }
 
     /// Retrieve a raw txlist by hash if present.
     fn get_raw_txlist(&self, hash: &Bytes32) -> Option<RawTxListGossip> {
-        let hit = self.txlists.read().get(&to_key(hash)).cloned();
+        let hit = self.txlists.get(&to_key(hash));
         record_cache("raw_txlist", hit.is_some());
         hit
     }
 
     /// Update the stored head served to inbound `get_head` requests.
     fn set_head(&self, head: PreconfHead) -> Result<()> {
-        *self.head.write() = Some(head);
+        self.head.store(Some(Arc::new(head)));
         Ok(())
     }
 
     /// Return the last stored head if available.
     fn head(&self) -> Option<PreconfHead> {
-        self.head.read().clone()
+        self.head.load_full().as_deref().cloned()
     }
 
     /// Record a message id and return true if it was not seen recently.
     fn record_message_id(&self, id: MessageId, now: Instant, ttl: Duration) -> bool {
         let ttl = if ttl.is_zero() { self.message_ttl } else { ttl };
-        let mut cache = self.message_ids.write();
 
-        // prune expired entries
-        let expired: Vec<MessageId> = cache
-            .iter()
-            .filter_map(|(k, t)| if now.duration_since(*t) > ttl { Some(*k) } else { None })
-            .collect();
-        for key in expired {
-            cache.pop(&key);
-        }
-
-        if cache.contains(&id) {
+        if let Some(seen_at) = self.message_ids.get(&id) &&
+            now.saturating_duration_since(seen_at) <= ttl
+        {
             record_cache("message_id", true);
-            false
-        } else {
-            record_cache("message_id", false);
-            cache.put(id, now);
-            true
+            return false;
         }
+
+        // cache TTL will also evict over time; manual check above guards quick repeats.
+        self.message_ids.insert(id, now);
+        record_cache("message_id", false);
+        true
     }
 
     /// Downcast hook for tests to reach concrete storage internals.
@@ -203,15 +173,14 @@ impl Storage for InMemoryStorage {
 impl PreconfStorage for InMemoryStorage {
     /// Insert a commitment keyed by block number for req/resp serving.
     fn insert_commitment(&self, block: U256, commitment: SignedCommitment) {
-        let key = to_block_key(&block);
-        self.commitments.write().put(key, commitment);
+        self.commitments.insert(to_block_key(&block), commitment);
     }
 
     /// Insert a raw txlist keyed by its hash.
     fn insert_txlist(&self, hash: B256, tx: RawTxListGossip) {
         let mut key = [0u8; 32];
         key.copy_from_slice(hash.as_slice());
-        self.txlists.write().insert(key, tx);
+        self.txlists.insert(key, tx);
     }
 
     /// Return commitments from the requested start block up to `max` entries.
@@ -219,15 +188,11 @@ impl PreconfStorage for InMemoryStorage {
         let start_key = to_block_key(&start);
         let mut values: Vec<(UintKey, SignedCommitment)> = self
             .commitments
-            .read()
             .iter()
-            .filter_map(|(_, commit)| {
-                let height = to_block_key_from_commit(commit);
-                if height >= start_key {
-                    Some((height, commit.clone()))
-                } else {
-                    None
-                }
+            .filter_map(|entry| {
+                let (_key, commit) = entry;
+                let height = to_block_key_from_commit(&commit);
+                if height >= start_key { Some((height, commit)) } else { None }
             })
             .collect();
         values.sort_by(|a, b| a.0.cmp(&b.0));
@@ -238,7 +203,7 @@ impl PreconfStorage for InMemoryStorage {
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
         let mut key = [0u8; 32];
         key.copy_from_slice(hash.as_slice());
-        self.txlists.read().get(&key).cloned()
+        self.txlists.get(&key)
     }
 }
 
@@ -312,17 +277,20 @@ mod tests {
             store.store_commitment(hash, c).unwrap();
         }
 
-        assert_eq!(store.commitments.read().len(), 2);
+        store.commitments.run_pending_tasks();
+        let count = store.commitments.entry_count();
+        assert!(count <= 2 && count > 0);
     }
 
     #[test]
     /// Raw txlist cache should evict FIFO to respect byte cap.
     fn raw_txlist_cache_eviction_by_bytes() {
-        let store = InMemoryStorage::with_caps_and_ids(16, 10, 8, Duration::from_secs(10)); // tiny cap
+        let store = InMemoryStorage::with_caps_and_ids(16, 2, 8, Duration::from_secs(10)); // tiny byte cap
 
         for i in 0u8..3 {
             let mut txlist = preconfirmation_types::TxListBytes::default();
             let _ = txlist.push(1);
+            let _ = txlist.push(2);
             let hash = Bytes32::try_from(vec![i; 32]).unwrap();
             store
                 .store_raw_txlist(
@@ -335,7 +303,7 @@ mod tests {
                 .unwrap();
         }
 
-        assert!(*store.txlist_bytes.read() <= 10);
+        assert!(store.txlists.weighted_size() as usize <= 2);
     }
 
     /// Convert Uint256 to u64 for test assertions, saturating on overflow.
@@ -344,11 +312,7 @@ mod tests {
         let mut buf = [0u8; 8];
         let len = bytes.len().min(8);
         buf[..len].copy_from_slice(&bytes[..len]);
-        if bytes.iter().skip(8).any(|&b| b != 0) {
-            u64::MAX
-        } else {
-            u64::from_le_bytes(buf)
-        }
+        if bytes.iter().skip(8).any(|&b| b != 0) { u64::MAX } else { u64::from_le_bytes(buf) }
     }
 
     #[test]

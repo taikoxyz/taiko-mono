@@ -8,10 +8,11 @@ publish = false
 [dependencies]
 alloy-primitives = { workspace = true }
 anyhow = { workspace = true }
+arc-swap = "1.7"
 futures = "0.3"
 libp2p = { version = "0.56", default-features = false, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "macros", "tokio"] }
-lru = "0.12"
 metrics = { workspace = true }
+moka = { version = "0.12", features = ["sync"] }
 parking_lot = "0.12"
 preconfirmation-service = { path = "../../../preconfirmation-p2p/crates/service" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }

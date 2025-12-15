@@ -780,7 +780,11 @@ mod tests {
         // Move catchup into syncing state by simulating a head response.
         let head = PreconfHead { block_number: u256(3), submission_window_end: u256(0) };
         let _ = client
-            .process_event(NetworkEvent::ReqRespHead { from: PeerId::random(), head, request_id: None })
+            .process_event(NetworkEvent::ReqRespHead {
+                from: PeerId::random(),
+                head,
+                request_id: None,
+            })
             .await;
 
         let mut resp = GetCommitmentsByNumberResponse::default();
