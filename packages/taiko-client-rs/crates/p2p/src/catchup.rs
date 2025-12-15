@@ -16,7 +16,7 @@ use preconfirmation_types::Bytes32;
 
 use crate::{
     metrics::set_head_sync,
-    types::{HeadSyncStatus, PreconfHead, SdkEvent, Uint256},
+    types::{ClientEvent, HeadSyncStatus, PreconfHead, Uint256},
 };
 
 /// Actions the pure state machine asks its caller to perform.
@@ -159,7 +159,7 @@ impl Catchup {
     }
 
     /// Process an inbound head response and surface a client event.
-    pub fn on_head_response(&mut self, head: PreconfHead) -> SdkEvent {
+    pub fn on_head_response(&mut self, head: PreconfHead) -> ClientEvent {
         let mut actions = self.step(CatchupEvent::HeadObserved(head), Instant::now());
         // Best-effort: surface the latest status; if none was emitted, fall back to current.
         let status = actions
@@ -172,7 +172,7 @@ impl Catchup {
             .unwrap_or_else(|| self.status());
         // Ignore other actions for now; integration layer will drive them later.
         actions.clear();
-        SdkEvent::HeadSync(status)
+        ClientEvent::HeadSync(status)
     }
 
     /// Update local head height and return any resulting actions.

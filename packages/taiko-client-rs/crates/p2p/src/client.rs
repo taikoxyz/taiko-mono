@@ -14,9 +14,9 @@ use crate::{
     config::P2pClientConfig,
     error::{P2pClientError, Result},
     metrics::{record_gossip, record_reqresp_latency, record_reqresp_outcome},
-    storage::{InMemoryStorage, SdkStorage},
+    storage::{InMemoryStorage, Storage},
     types::{
-        Bytes32, HeadSyncStatus, MessageId, RawTxListGossip, SdkEvent, SignedCommitment, Uint256,
+        Bytes32, ClientEvent, HeadSyncStatus, MessageId, RawTxListGossip, SignedCommitment, Uint256,
     },
     validation::{
         ValidationContext, ValidationOutcome, validate_raw_txlist, validate_signed_commitment,
@@ -35,16 +35,16 @@ use preconfirmation_types::preconfirmation_hash;
 pub struct P2pClient {
     /// Owned network service handle.
     service: P2pService,
-    /// Receiver for raw network events (internally mapped to `SdkEvent`).
+    /// Receiver for raw network events (internally mapped to `ClientEvent`).
     events: broadcast::Receiver<NetworkEvent>,
     /// Sender for bounded client event queue exposed to consumers.
-    event_tx: mpsc::Sender<SdkEvent>,
+    event_tx: mpsc::Sender<ClientEvent>,
     /// Receiver side of the bounded client event queue.
-    event_rx: Mutex<mpsc::Receiver<SdkEvent>>,
+    event_rx: Mutex<mpsc::Receiver<ClientEvent>>,
     /// Bounded command channel enforcing client-level backpressure before reaching the driver.
     cmd_tx: mpsc::Sender<NetworkCommand>,
     /// Application-visible storage backend (in-memory by default).
-    storage: Arc<dyn SdkStorage>,
+    storage: Arc<dyn Storage>,
     /// Validation context applied to inbound gossip.
     validation_ctx: ValidationContext,
     /// Catch-up orchestrator for head sync.
@@ -87,7 +87,7 @@ impl P2pClient {
                 }
             }
         });
-        let storage_trait: Arc<dyn SdkStorage> = storage.clone();
+        let storage_trait: Arc<dyn Storage> = storage.clone();
         let validation_ctx = ValidationContext {
             max_txlist_bytes: config.raw_txlist_cache_bytes,
             max_gossip_bytes: config.raw_txlist_cache_bytes,
@@ -196,7 +196,7 @@ impl P2pClient {
     /// Request the current preconfirmation head from a peer (or any peer if `None`).
     pub async fn request_head(&self, peer: Option<PeerId>) -> Result<()> {
         *self.pending_head.lock() = Some(Instant::now());
-        self.send_command(NetworkCommand::RequestHead { peer }).await
+        self.send_command(NetworkCommand::RequestHead { request_id: None, peer }).await
     }
 
     /// Request a page of commitments starting at `start_block` (inclusive).
@@ -207,7 +207,13 @@ impl P2pClient {
         peer: Option<PeerId>,
     ) -> Result<()> {
         *self.pending_commitments.lock() = Some(Instant::now());
-        self.send_command(NetworkCommand::RequestCommitments { start_block, max_count, peer }).await
+        self.send_command(NetworkCommand::RequestCommitments {
+            request_id: None,
+            start_block,
+            max_count,
+            peer,
+        })
+        .await
     }
 
     /// Request a raw txlist by its hash from a peer (or any peer if `None`).
@@ -217,7 +223,12 @@ impl P2pClient {
         peer: Option<PeerId>,
     ) -> Result<()> {
         self.pending_raw.lock().insert(bytes32_to_arr(&raw_tx_list_hash), Instant::now());
-        self.send_command(NetworkCommand::RequestRawTxList { raw_tx_list_hash, peer }).await
+        self.send_command(NetworkCommand::RequestRawTxList {
+            request_id: None,
+            raw_tx_list_hash,
+            peer,
+        })
+        .await
     }
 
     /// Expose the current head-sync status as tracked by the catch-up controller.
@@ -226,7 +237,7 @@ impl P2pClient {
     }
 
     /// Receive the next client event, skipping over lagged slots automatically.
-    pub async fn next_event(&mut self) -> Option<SdkEvent> {
+    pub async fn next_event(&mut self) -> Option<ClientEvent> {
         loop {
             // Drain any queued events first.
             if let Ok(ev) = self.event_rx.lock().try_recv() {
@@ -237,7 +248,9 @@ impl P2pClient {
                 Ok(ev) => {
                     if let Some(out) = self.process_event(ev).await {
                         if self.event_tx.try_send(out.clone()).is_err() {
-                            return Some(SdkEvent::Error("backpressure: event queue full".into()));
+                            return Some(ClientEvent::Error(
+                                "backpressure: event queue full".into(),
+                            ));
                         }
                         return Some(out);
                     }
@@ -259,46 +272,46 @@ impl P2pClient {
     }
 
     /// Map low-level network events into higher-level client events.
-    pub(crate) fn map_event(ev: NetworkEvent) -> SdkEvent {
+    pub(crate) fn map_event(ev: NetworkEvent) -> ClientEvent {
         match ev {
-            NetworkEvent::ReqRespCommitments { from, msg } => {
-                SdkEvent::ReqRespCommitments { from, msg }
+            NetworkEvent::ReqRespCommitments { from, msg, .. } => {
+                ClientEvent::ReqRespCommitments { from, msg }
             }
-            NetworkEvent::ReqRespRawTxList { from, msg } => {
-                SdkEvent::ReqRespRawTxList { from, msg }
+            NetworkEvent::ReqRespRawTxList { from, msg, .. } => {
+                ClientEvent::ReqRespRawTxList { from, msg }
             }
-            NetworkEvent::ReqRespHead { from, head } => SdkEvent::ReqRespHead { from, head },
+            NetworkEvent::ReqRespHead { from, head, .. } => ClientEvent::ReqRespHead { from, head },
             NetworkEvent::InboundCommitmentsRequest { from } => {
-                SdkEvent::InboundCommitmentsRequest { from }
+                ClientEvent::InboundCommitmentsRequest { from }
             }
             NetworkEvent::InboundRawTxListRequest { from } => {
-                SdkEvent::InboundRawTxListRequest { from }
+                ClientEvent::InboundRawTxListRequest { from }
             }
-            NetworkEvent::InboundHeadRequest { from } => SdkEvent::InboundHeadRequest { from },
-            NetworkEvent::PeerConnected(peer) => SdkEvent::PeerConnected(peer),
-            NetworkEvent::PeerDisconnected(peer) => SdkEvent::PeerDisconnected(peer),
-            NetworkEvent::Error(err) => SdkEvent::Error(err.to_string()),
-            NetworkEvent::Started => SdkEvent::Started,
-            NetworkEvent::Stopped => SdkEvent::Stopped,
+            NetworkEvent::InboundHeadRequest { from } => ClientEvent::InboundHeadRequest { from },
+            NetworkEvent::PeerConnected(peer) => ClientEvent::PeerConnected(peer),
+            NetworkEvent::PeerDisconnected(peer) => ClientEvent::PeerDisconnected(peer),
+            NetworkEvent::Error(err) => ClientEvent::Error(err.to_string()),
+            NetworkEvent::Started => ClientEvent::Started,
+            NetworkEvent::Stopped => ClientEvent::Stopped,
             // Gossip is handled in process_event to include validation/storage/dedupe.
             NetworkEvent::GossipSignedCommitment { from, msg } => {
-                SdkEvent::GossipCommitment { from, msg: *msg }
+                ClientEvent::GossipCommitment { from, msg: *msg }
             }
             NetworkEvent::GossipRawTxList { from, msg } => {
-                SdkEvent::GossipRawTxList { from, msg: *msg }
+                ClientEvent::GossipRawTxList { from, msg: *msg }
             }
         }
     }
 
     /// Internal processor: validates, deduplicates, persists, and maps events.
-    pub(crate) async fn process_event(&mut self, ev: NetworkEvent) -> Option<SdkEvent> {
+    pub(crate) async fn process_event(&mut self, ev: NetworkEvent) -> Option<ClientEvent> {
         match ev {
             NetworkEvent::GossipSignedCommitment { from, msg } => {
                 let signed = (*msg).clone();
                 let hash = match preconfirmation_hash(&signed.commitment.preconf) {
                     Ok(h) => h,
                     Err(err) => {
-                        return Some(SdkEvent::Error(format!("preconf_hash: {err}")));
+                        return Some(ClientEvent::Error(format!("preconf_hash: {err}")));
                     }
                 };
                 let key = b256_to_arr(&hash);
@@ -316,12 +329,15 @@ impl P2pClient {
                                 signed.clone(),
                             )
                             .ok();
-                        Some(SdkEvent::GossipCommitment { from, msg: signed })
+                        Some(ClientEvent::GossipCommitment { from, msg: signed })
                     }
                     ValidationOutcome::SoftReject { .. } | ValidationOutcome::IgnoreSelf => None,
                     ValidationOutcome::RejectPeer { reason, detail } => {
                         record_gossip("inbound", "commitment", "rejected", 0);
-                        Some(SdkEvent::Error(format!("{reason}: {}", detail.unwrap_or_default())))
+                        Some(ClientEvent::Error(format!(
+                            "{reason}: {}",
+                            detail.unwrap_or_default()
+                        )))
                     }
                 }
             }
@@ -339,16 +355,19 @@ impl P2pClient {
                             .storage
                             .store_raw_txlist(raw.raw_tx_list_hash.clone(), raw.clone())
                             .ok();
-                        Some(SdkEvent::GossipRawTxList { from, msg: raw })
+                        Some(ClientEvent::GossipRawTxList { from, msg: raw })
                     }
                     ValidationOutcome::SoftReject { .. } | ValidationOutcome::IgnoreSelf => None,
                     ValidationOutcome::RejectPeer { reason, detail } => {
                         record_gossip("inbound", "raw_txlist", "rejected", raw.txlist.len());
-                        Some(SdkEvent::Error(format!("{reason}: {}", detail.unwrap_or_default())))
+                        Some(ClientEvent::Error(format!(
+                            "{reason}: {}",
+                            detail.unwrap_or_default()
+                        )))
                     }
                 }
             }
-            NetworkEvent::ReqRespHead { from: _, head } => {
+            NetworkEvent::ReqRespHead { from: _, head, .. } => {
                 let actions = self.catchup.step(CatchupEvent::HeadObserved(head), Instant::now());
                 let (commands, status_event) = Self::plan_catchup_actions(actions);
                 for cmd in commands {
@@ -359,10 +378,10 @@ impl P2pClient {
                 }
                 record_reqresp_outcome("head", "success");
                 let status =
-                    status_event.unwrap_or_else(|| SdkEvent::HeadSync(self.catchup.status()));
+                    status_event.unwrap_or_else(|| ClientEvent::HeadSync(self.catchup.status()));
                 Some(status)
             }
-            NetworkEvent::ReqRespCommitments { from: _, msg } => {
+            NetworkEvent::ReqRespCommitments { from: _, msg, .. } => {
                 let last_block = msg
                     .commitments
                     .iter()
@@ -388,7 +407,7 @@ impl P2pClient {
                 record_reqresp_outcome("commitments", "success");
                 status_event
             }
-            NetworkEvent::ReqRespRawTxList { from, msg } => {
+            NetworkEvent::ReqRespRawTxList { from, msg, .. } => {
                 let gossip_view = RawTxListGossip {
                     raw_tx_list_hash: msg.raw_tx_list_hash.clone(),
                     txlist: msg.txlist.clone(),
@@ -421,34 +440,36 @@ impl P2pClient {
                             );
                         }
                         record_reqresp_outcome("raw_txlist", "success");
-                        status_event.or(Some(SdkEvent::ReqRespRawTxList { from, msg }))
+                        status_event.or(Some(ClientEvent::ReqRespRawTxList { from, msg }))
                     }
-                    other => Some(SdkEvent::Error(format!("raw_txlist_validation: {:?}", other))),
+                    other => {
+                        Some(ClientEvent::Error(format!("raw_txlist_validation: {:?}", other)))
+                    }
                 }
             }
             NetworkEvent::InboundCommitmentsRequest { from } => {
                 if !self.rate_limiter.allow(&from, Instant::now()) {
                     record_reqresp_outcome("commitments", "rate_limited");
-                    return Some(SdkEvent::Error("rate limited inbound commitments".into()));
+                    return Some(ClientEvent::Error("rate limited inbound commitments".into()));
                 }
                 record_reqresp_outcome("commitments", "inbound_request");
-                Some(SdkEvent::InboundCommitmentsRequest { from })
+                Some(ClientEvent::InboundCommitmentsRequest { from })
             }
             NetworkEvent::InboundRawTxListRequest { from } => {
                 if !self.rate_limiter.allow(&from, Instant::now()) {
                     record_reqresp_outcome("raw_txlist", "rate_limited");
-                    return Some(SdkEvent::Error("rate limited inbound raw txlist".into()));
+                    return Some(ClientEvent::Error("rate limited inbound raw txlist".into()));
                 }
                 record_reqresp_outcome("raw_txlist", "inbound_request");
-                Some(SdkEvent::InboundRawTxListRequest { from })
+                Some(ClientEvent::InboundRawTxListRequest { from })
             }
             NetworkEvent::InboundHeadRequest { from } => {
                 if !self.rate_limiter.allow(&from, Instant::now()) {
                     record_reqresp_outcome("head", "rate_limited");
-                    return Some(SdkEvent::Error("rate limited inbound head".into()));
+                    return Some(ClientEvent::Error("rate limited inbound head".into()));
                 }
                 record_reqresp_outcome("head", "inbound_request");
-                Some(SdkEvent::InboundHeadRequest { from })
+                Some(ClientEvent::InboundHeadRequest { from })
             }
             NetworkEvent::PeerDisconnected(peer) => {
                 // Restart catch-up when disconnected during sync to avoid stalls.
@@ -465,7 +486,7 @@ impl P2pClient {
                         return Some(ev);
                     }
                 }
-                Some(SdkEvent::PeerDisconnected(peer))
+                Some(ClientEvent::PeerDisconnected(peer))
             }
             other => Some(Self::map_event(other)),
         }
@@ -473,7 +494,7 @@ impl P2pClient {
 
     /// Test-only wrapper to drive the internal event processor from integration tests.
     #[doc(hidden)]
-    pub async fn process_event_test(&mut self, ev: NetworkEvent) -> Option<SdkEvent> {
+    pub async fn process_event_test(&mut self, ev: NetworkEvent) -> Option<ClientEvent> {
         self.process_event(ev).await
     }
 
@@ -482,27 +503,29 @@ impl P2pClient {
     /// unimplemented actions are intentionally ignored.
     pub(crate) fn plan_catchup_actions(
         actions: Vec<CatchupAction>,
-    ) -> (Vec<NetworkCommand>, Option<SdkEvent>) {
+    ) -> (Vec<NetworkCommand>, Option<ClientEvent>) {
         let mut commands = Vec::new();
         let mut status = None;
 
         for action in actions {
             match action {
                 CatchupAction::RequestHead => {
-                    commands.push(NetworkCommand::RequestHead { peer: None });
+                    commands.push(NetworkCommand::RequestHead { request_id: None, peer: None });
                 }
                 CatchupAction::RequestCommitments { from_height, max } => {
                     commands.push(NetworkCommand::RequestCommitments {
+                        request_id: None,
                         start_block: from_height,
                         max_count: max,
                         peer: None,
                     });
                 }
                 CatchupAction::EmitStatus(s) => {
-                    status = Some(SdkEvent::HeadSync(s));
+                    status = Some(ClientEvent::HeadSync(s));
                 }
                 CatchupAction::RequestRawTxList { raw_tx_list_hash, .. } => {
                     commands.push(NetworkCommand::RequestRawTxList {
+                        request_id: None,
                         raw_tx_list_hash: arr32_to_bytes32(raw_tx_list_hash),
                         peer: None,
                     });
@@ -597,9 +620,9 @@ mod tests {
         let peer = PeerId::random();
         let head = PreconfHead::default();
 
-        let ev = NetworkEvent::ReqRespHead { from: peer, head: head.clone() };
+        let ev = NetworkEvent::ReqRespHead { from: peer, head: head.clone(), request_id: None };
         match P2pClient::map_event(ev) {
-            SdkEvent::ReqRespHead { from, head: h } => {
+            ClientEvent::ReqRespHead { from, head: h } => {
                 assert_eq!(from, peer);
                 assert_eq!(h, head);
             }
@@ -609,15 +632,19 @@ mod tests {
         let ev = NetworkEvent::ReqRespCommitments {
             from: peer,
             msg: GetCommitmentsByNumberResponse::default(),
+            request_id: None,
         };
-        if let SdkEvent::ReqRespCommitments { .. } = P2pClient::map_event(ev) {
+        if let ClientEvent::ReqRespCommitments { .. } = P2pClient::map_event(ev) {
         } else {
             panic!("expected commitments event");
         }
 
-        let ev =
-            NetworkEvent::ReqRespRawTxList { from: peer, msg: GetRawTxListResponse::default() };
-        if let SdkEvent::ReqRespRawTxList { .. } = P2pClient::map_event(ev) {
+        let ev = NetworkEvent::ReqRespRawTxList {
+            from: peer,
+            msg: GetRawTxListResponse::default(),
+            request_id: None,
+        };
+        if let ClientEvent::ReqRespRawTxList { .. } = P2pClient::map_event(ev) {
         } else {
             panic!("expected raw txlist event");
         }
@@ -635,12 +662,15 @@ mod tests {
 
         assert_eq!(commands.len(), 1);
         match &commands[0] {
-            NetworkCommand::RequestHead { peer } => assert!(peer.is_none()),
+            NetworkCommand::RequestHead { peer, request_id } => {
+                assert!(peer.is_none());
+                assert!(request_id.is_none());
+            }
             other => panic!("unexpected command: {:?}", other),
         }
 
         match event {
-            Some(SdkEvent::HeadSync(HeadSyncStatus::Live { head })) => {
+            Some(ClientEvent::HeadSync(HeadSyncStatus::Live { head })) => {
                 assert_eq!(head, u256(9));
             }
             other => panic!("unexpected event: {:?}", other),
@@ -657,10 +687,11 @@ mod tests {
         assert!(event.is_none());
         assert_eq!(commands.len(), 1);
         match &commands[0] {
-            NetworkCommand::RequestCommitments { start_block, max_count, peer } => {
+            NetworkCommand::RequestCommitments { start_block, max_count, peer, request_id } => {
                 assert_eq!(*start_block, u256(5));
                 assert_eq!(*max_count, 42);
                 assert!(peer.is_none());
+                assert!(request_id.is_none());
             }
             other => panic!("unexpected command: {:?}", other),
         }
@@ -677,9 +708,10 @@ mod tests {
         assert!(event.is_none());
         assert_eq!(commands.len(), 1);
         match &commands[0] {
-            NetworkCommand::RequestRawTxList { raw_tx_list_hash, peer } => {
+            NetworkCommand::RequestRawTxList { raw_tx_list_hash, peer, request_id } => {
                 assert_eq!(raw_tx_list_hash.as_ref(), &hash);
                 assert!(peer.is_none());
+                assert!(request_id.is_none());
             }
             other => panic!("unexpected command: {:?}", other),
         }
@@ -689,23 +721,25 @@ mod tests {
     /// Pending latency trackers clear when corresponding responses arrive.
     fn pending_latency_entries_clear_on_responses() {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let mut sdk = rt.block_on(P2pClient::start(P2pClientConfig::default())).unwrap();
+        let mut client = rt.block_on(P2pClient::start(P2pClientConfig::default())).unwrap();
 
         // Seed pending timers manually.
-        *sdk.pending_head.lock() = Some(Instant::now());
-        *sdk.pending_commitments.lock() = Some(Instant::now());
+        *client.pending_head.lock() = Some(Instant::now());
+        *client.pending_commitments.lock() = Some(Instant::now());
 
-        let _ = rt.block_on(sdk.process_event(NetworkEvent::ReqRespHead {
+        let _ = rt.block_on(client.process_event(NetworkEvent::ReqRespHead {
             from: PeerId::random(),
             head: PreconfHead::default(),
+            request_id: None,
         }));
-        assert!(sdk.pending_head.lock().is_none());
+        assert!(client.pending_head.lock().is_none());
 
-        let _ = rt.block_on(sdk.process_event(NetworkEvent::ReqRespCommitments {
+        let _ = rt.block_on(client.process_event(NetworkEvent::ReqRespCommitments {
             from: PeerId::random(),
             msg: GetCommitmentsByNumberResponse::default(),
+            request_id: None,
         }));
-        assert!(sdk.pending_commitments.lock().is_none());
+        assert!(client.pending_commitments.lock().is_none());
 
         let mut txlist = preconfirmation_types::TxListBytes::default();
         let _ = txlist.push(1u8);
@@ -715,13 +749,13 @@ mod tests {
             anchor_block_number: Uint256::default(),
             txlist,
         };
-        sdk.pending_raw.lock().insert(bytes32_to_arr(&resp.raw_tx_list_hash), Instant::now());
-        let _ =
-            rt.block_on(sdk.process_event(NetworkEvent::ReqRespRawTxList {
-                from: PeerId::random(),
-                msg: resp,
-            }));
-        assert!(sdk.pending_raw.lock().is_empty());
+        client.pending_raw.lock().insert(bytes32_to_arr(&resp.raw_tx_list_hash), Instant::now());
+        let _ = rt.block_on(client.process_event(NetworkEvent::ReqRespRawTxList {
+            from: PeerId::random(),
+            msg: resp,
+            request_id: None,
+        }));
+        assert!(client.pending_raw.lock().is_empty());
     }
 
     #[test]
@@ -742,23 +776,29 @@ mod tests {
     /// Commitments response should advance catch-up and emit a live status when remote == local.
     #[tokio::test]
     async fn process_commitments_advances_catchup() {
-        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let mut client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         // Move catchup into syncing state by simulating a head response.
         let head = PreconfHead { block_number: u256(3), submission_window_end: u256(0) };
-        let _ = sdk.process_event(NetworkEvent::ReqRespHead { from: PeerId::random(), head }).await;
+        let _ = client
+            .process_event(NetworkEvent::ReqRespHead { from: PeerId::random(), head, request_id: None })
+            .await;
 
         let mut resp = GetCommitmentsByNumberResponse::default();
         let mut commit = SignedCommitment::default();
         commit.commitment.preconf.block_number = u256(3);
         let _ = resp.commitments.push(commit);
 
-        let ev = sdk
-            .process_event(NetworkEvent::ReqRespCommitments { from: PeerId::random(), msg: resp })
+        let ev = client
+            .process_event(NetworkEvent::ReqRespCommitments {
+                from: PeerId::random(),
+                msg: resp,
+                request_id: None,
+            })
             .await;
 
         // Status should now be live at block 3 and surfaced as HeadSync.
         match ev {
-            Some(SdkEvent::HeadSync(HeadSyncStatus::Live { head })) => assert_eq!(head, u256(3)),
+            Some(ClientEvent::HeadSync(HeadSyncStatus::Live { head })) => assert_eq!(head, u256(3)),
             other => panic!("unexpected event: {:?}", other),
         }
     }
@@ -766,7 +806,7 @@ mod tests {
     #[tokio::test]
     /// Valid raw txlist is validated, stored, and propagated as event.
     async fn reqresp_raw_txlist_is_validated_and_stored() {
-        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let mut client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
 
         let mut txlist = preconfirmation_types::TxListBytes::default();
         let _ = txlist.push(1u8);
@@ -777,16 +817,17 @@ mod tests {
             txlist,
         };
 
-        let ev = sdk
+        let ev = client
             .process_event(NetworkEvent::ReqRespRawTxList {
                 from: PeerId::random(),
                 msg: raw.clone(),
+                request_id: None,
             })
             .await;
 
-        assert!(matches!(ev, Some(SdkEvent::ReqRespRawTxList { .. })));
+        assert!(matches!(ev, Some(ClientEvent::ReqRespRawTxList { .. })));
 
-        let store = sdk.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
+        let store = client.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
         assert_eq!(store.get_raw_txlist(&raw.raw_tx_list_hash).unwrap().txlist, raw.txlist);
     }
 
@@ -821,26 +862,26 @@ mod tests {
     #[tokio::test]
     /// Raw txlist helper validates, stores, and publishes successfully.
     async fn validate_and_publish_raw_txlist_stores_and_succeeds() {
-        let sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, _) = build_txlist_and_commitment();
 
-        sdk.validate_and_publish_raw_txlist(tx.clone()).await.unwrap();
+        client.validate_and_publish_raw_txlist(tx.clone()).await.unwrap();
 
-        let store = sdk.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
+        let store = client.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
         assert_eq!(store.get_raw_txlist(&tx.raw_tx_list_hash).unwrap(), tx);
     }
 
     #[tokio::test]
     /// Commitment helper validates, stores, and publishes successfully.
     async fn validate_and_publish_commitment_stores_and_succeeds() {
-        let sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, signed) = build_txlist_and_commitment();
 
         // Seed txlist so commitment parent/tx hash reference is satisfied downstream.
-        sdk.validate_and_publish_raw_txlist(tx).await.unwrap();
-        sdk.validate_and_publish_commitment(signed.clone()).await.unwrap();
+        client.validate_and_publish_raw_txlist(tx).await.unwrap();
+        client.validate_and_publish_commitment(signed.clone()).await.unwrap();
 
-        let store = sdk.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
+        let store = client.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
         let hash = preconfirmation_types::preconfirmation_hash(&signed.commitment.preconf).unwrap();
         let key = Bytes32::try_from(hash.as_slice().to_vec()).unwrap();
         assert_eq!(store.get_commitment(&key).unwrap(), signed);
@@ -849,12 +890,12 @@ mod tests {
     #[tokio::test]
     /// Combined publish should store and publish txlist then commitment atomically.
     async fn publish_txlist_and_commitment_runs_atomically() {
-        let sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, signed) = build_txlist_and_commitment();
 
-        sdk.publish_txlist_and_commitment(tx.clone(), signed.clone()).await.unwrap();
+        client.publish_txlist_and_commitment(tx.clone(), signed.clone()).await.unwrap();
 
-        let store = sdk.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
+        let store = client.storage.as_any().downcast_ref::<InMemoryStorage>().unwrap();
         let hash = preconfirmation_types::preconfirmation_hash(&signed.commitment.preconf).unwrap();
         let key = Bytes32::try_from(hash.as_slice().to_vec()).unwrap();
         assert!(store.get_raw_txlist(&tx.raw_tx_list_hash).is_some());
@@ -864,18 +905,18 @@ mod tests {
     #[tokio::test]
     /// Duplicate gossip commitments are dropped via message-id dedupe.
     async fn duplicate_commitment_is_deduped() {
-        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let mut client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (_, signed) = build_txlist_and_commitment();
         let peer = PeerId::random();
-        let first = sdk
+        let first = client
             .process_event(NetworkEvent::GossipSignedCommitment {
                 from: peer,
                 msg: Box::new(signed.clone()),
             })
             .await;
-        assert!(matches!(first, Some(SdkEvent::GossipCommitment { .. })));
+        assert!(matches!(first, Some(ClientEvent::GossipCommitment { .. })));
 
-        let second = sdk
+        let second = client
             .process_event(NetworkEvent::GossipSignedCommitment {
                 from: peer,
                 msg: Box::new(signed),
@@ -887,16 +928,16 @@ mod tests {
     #[tokio::test]
     /// Duplicate raw txlist gossip is dropped via message-id dedupe.
     async fn duplicate_raw_txlist_is_deduped() {
-        let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+        let mut client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
         let (tx, _) = build_txlist_and_commitment();
         let peer = PeerId::random();
 
-        let first = sdk
+        let first = client
             .process_event(NetworkEvent::GossipRawTxList { from: peer, msg: Box::new(tx.clone()) })
             .await;
-        assert!(matches!(first, Some(SdkEvent::GossipRawTxList { .. })));
+        assert!(matches!(first, Some(ClientEvent::GossipRawTxList { .. })));
 
-        let second = sdk
+        let second = client
             .process_event(NetworkEvent::GossipRawTxList { from: peer, msg: Box::new(tx) })
             .await;
         assert!(second.is_none());

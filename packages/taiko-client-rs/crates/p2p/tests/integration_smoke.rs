@@ -35,14 +35,14 @@ fn build_tx_and_commitment() -> (RawTxListGossip, SignedCommitment) {
 #[tokio::test]
 /// Smoke-test publishing and processing a txlist+commitment through the SDK.
 async fn smoke_publish_and_process() {
-    let mut sdk = P2pClient::start(P2pClientConfig::default()).await.unwrap();
+    let mut client = P2pClient::start(P2pClientConfig::default()).await.unwrap();
     let (tx, signed) = build_tx_and_commitment();
 
     // Publish helpers validate and store.
-    sdk.publish_txlist_and_commitment(tx.clone(), signed.clone()).await.unwrap();
+    client.publish_txlist_and_commitment(tx.clone(), signed.clone()).await.unwrap();
 
     // Feed a synthetic gossip commitment back through the pipeline.
-    let mapped = sdk
+    let mapped = client
         .process_event_test(NetworkEvent::GossipSignedCommitment {
             from: libp2p::PeerId::random(),
             msg: Box::new(signed.clone()),

@@ -50,7 +50,7 @@ pub use crate::{
     client::P2pClient,
     config::P2pClientConfig,
     error::{P2pClientError, Result},
-    types::{HeadSyncStatus, SdkCommand, SdkEvent},
+    types::{ClientCommand, ClientEvent, HeadSyncStatus},
 };
 
 // Re-export key network types so consumers can depend on this crate alone.

@@ -30,7 +30,7 @@ pub enum HeadSyncStatus {
 /// High-level events surfaced by the client to sidecar consumers.
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
-pub enum SdkEvent {
+pub enum ClientEvent {
     /// Received a gossip `SignedCommitment` from a peer.
     GossipCommitment {
         /// Sender peer ID.
@@ -126,6 +126,7 @@ impl MessageId {
 }
 
 impl Hash for MessageId {
+    /// Custom hash implementation combining topic and hash bytes.
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.topic.hash(state);
         state.write(&self.hash);
@@ -135,7 +136,7 @@ impl Hash for MessageId {
 /// Intentions issued by callers to the client.
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
-pub enum SdkCommand {
+pub enum ClientCommand {
     /// Publish a signed commitment to gossipsub.
     PublishCommitment(SignedCommitment),
     /// Publish a raw txlist blob to gossipsub.

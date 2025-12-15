@@ -20,7 +20,7 @@ use crate::{error::Result, metrics::record_cache, types::MessageId};
 
 /// Abstraction over commitment and raw-txlist storage used by the client.
 /// Storage abstraction for commitments and raw tx lists.
-pub trait SdkStorage: Send + Sync {
+pub trait Storage: Send + Sync {
     /// Persist a commitment keyed by its SSZ hash.
     fn store_commitment(&self, hash: Bytes32, commitment: SignedCommitment) -> Result<()>;
     /// Retrieve a commitment by hash if present.
@@ -47,6 +47,7 @@ fn to_key(hash: &Bytes32) -> [u8; 32] {
 }
 
 /// Simple in-memory storage suitable for development, tests, and defaults.
+/// TODO: use lock-free data storage, like `dashmap`, for better concurrency.
 pub struct InMemoryStorage {
     /// Stored commitments keyed by their hash.
     commitments: RwLock<LruCache<[u8; 32], SignedCommitment>>,
@@ -108,7 +109,7 @@ impl Default for InMemoryStorage {
     }
 }
 
-impl SdkStorage for InMemoryStorage {
+impl Storage for InMemoryStorage {
     /// Persist a commitment keyed by its SSZ hash.
     fn store_commitment(&self, hash: Bytes32, commitment: SignedCommitment) -> Result<()> {
         self.commitments.write().put(to_key(&hash), commitment);
@@ -222,7 +223,11 @@ impl PreconfStorage for InMemoryStorage {
             .iter()
             .filter_map(|(_, commit)| {
                 let height = to_block_key_from_commit(commit);
-                if height >= start_key { Some((height, commit.clone())) } else { None }
+                if height >= start_key {
+                    Some((height, commit.clone()))
+                } else {
+                    None
+                }
             })
             .collect();
         values.sort_by(|a, b| a.0.cmp(&b.0));
@@ -339,7 +344,11 @@ mod tests {
         let mut buf = [0u8; 8];
         let len = bytes.len().min(8);
         buf[..len].copy_from_slice(&bytes[..len]);
-        if bytes.iter().skip(8).any(|&b| b != 0) { u64::MAX } else { u64::from_le_bytes(buf) }
+        if bytes.iter().skip(8).any(|&b| b != 0) {
+            u64::MAX
+        } else {
+            u64::from_le_bytes(buf)
+        }
     }
 
     #[test]

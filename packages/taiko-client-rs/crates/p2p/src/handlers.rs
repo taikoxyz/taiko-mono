@@ -2,9 +2,9 @@
 
 use preconfirmation_service::NetworkEvent;
 
-use crate::types::SdkEvent;
+use crate::types::ClientEvent;
 
 /// Convert low-level network events into higher-level client events.
-pub fn map_network_event(ev: NetworkEvent) -> SdkEvent {
+pub fn map_network_event(ev: NetworkEvent) -> ClientEvent {
     crate::client::P2pClient::map_event(ev)
 }
