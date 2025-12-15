@@ -143,17 +143,13 @@ contract LibProposedEventCodecTest is Test {
         );
 
         assertEq(
-            _actual.proposal.originBlockNumber,
-            _expected.proposal.originBlockNumber,
-            "origin block"
+            _actual.proposal.originBlockNumber, _expected.proposal.originBlockNumber, "origin block"
         );
         assertEq(
             _actual.proposal.originBlockHash, _expected.proposal.originBlockHash, "origin hash"
         );
         assertEq(
-            _actual.proposal.basefeeSharingPctg,
-            _expected.proposal.basefeeSharingPctg,
-            "basefee"
+            _actual.proposal.basefeeSharingPctg, _expected.proposal.basefeeSharingPctg, "basefee"
         );
         assertEq(
             _actual.proposal.sources.length, _expected.proposal.sources.length, "sources length"
