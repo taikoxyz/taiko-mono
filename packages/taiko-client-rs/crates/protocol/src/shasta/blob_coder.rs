@@ -29,6 +29,113 @@ fn ensure_field_element(field_elements: &mut Vec<[u8; 32]>, index: usize) -> &mu
     &mut field_elements[index]
 }
 
+/// Process a single chunk of data and encode it into field elements, then ingest them into the
+/// builder.
+fn process_chunk(chunk: &[u8], builder: &mut PartialSidecar, required_fe_count: usize) {
+    let mut read_offset = 0usize;
+    let mut field_elements = Vec::with_capacity(required_fe_count);
+    let mut write_offset = 0usize;
+
+    let write1 = |value: u8, write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| {
+        if value & 0b1100_0000 != 0 {
+            panic!("BlobCoder: invalid 6-bit value");
+        }
+        assert_eq!(*write_offset % 32, 0);
+        let fe_index = *write_offset / 32;
+        let fe = ensure_field_element(field_elements, fe_index);
+        fe[0] = value;
+        *write_offset += 1;
+    };
+
+    let write31 = |buf: &[u8; 31], write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| {
+        assert_eq!(*write_offset % 32, 1);
+        let fe_index = *write_offset / 32;
+        let fe = ensure_field_element(field_elements, fe_index);
+        fe[1..].copy_from_slice(buf);
+        *write_offset += 31;
+    };
+
+    let read1 = |chunk: &[u8], read_offset: &mut usize| -> u8 {
+        if *read_offset >= chunk.len() {
+            0
+        } else {
+            let value = chunk[*read_offset];
+            *read_offset += 1;
+            value
+        }
+    };
+
+    let read31 = |buf: &mut [u8; 31], chunk: &[u8], read_offset: &mut usize| {
+        if *read_offset >= chunk.len() {
+            buf.fill(0);
+        } else {
+            let remaining = chunk.len() - *read_offset;
+            let to_copy = remaining.min(31);
+            buf[..to_copy].copy_from_slice(&chunk[*read_offset..*read_offset + to_copy]);
+            buf[to_copy..].fill(0);
+            *read_offset += to_copy;
+        }
+    };
+
+    let mut buf31 = [0u8; 31];
+
+    for round in 0..BLOB_ENCODING_ROUNDS {
+        if read_offset >= chunk.len() {
+            break;
+        }
+
+        if round == 0 {
+            // Round zero carries version + length metadata in the first field element, so we
+            // only have 27 payload bytes available before falling back to the standard flow.
+            buf31.fill(0);
+            buf31[0] = BLOB_ENCODING_VERSION;
+            let length = chunk.len() as u32;
+            buf31[1] = ((length >> 16) & 0xff) as u8;
+            buf31[2] = ((length >> 8) & 0xff) as u8;
+            buf31[3] = (length & 0xff) as u8;
+            let available = chunk.len() - read_offset;
+            let to_copy = available.min(27);
+            buf31[4..4 + to_copy].copy_from_slice(&chunk[read_offset..read_offset + to_copy]);
+            buf31[4 + to_copy..].fill(0);
+            read_offset += to_copy;
+        } else {
+            read31(&mut buf31, chunk, &mut read_offset);
+        }
+
+        let x = read1(chunk, &mut read_offset);
+        let a = x & 0b0011_1111;
+        write1(a, &mut write_offset, &mut field_elements);
+        write31(&buf31, &mut write_offset, &mut field_elements);
+
+        read31(&mut buf31, chunk, &mut read_offset);
+        let y = read1(chunk, &mut read_offset);
+        let b = (y & 0b0000_1111) | ((x & 0b1100_0000) >> 2);
+        write1(b, &mut write_offset, &mut field_elements);
+        write31(&buf31, &mut write_offset, &mut field_elements);
+
+        read31(&mut buf31, chunk, &mut read_offset);
+        let z = read1(chunk, &mut read_offset);
+        let c = z & 0b0011_1111;
+        write1(c, &mut write_offset, &mut field_elements);
+        write31(&buf31, &mut write_offset, &mut field_elements);
+
+        read31(&mut buf31, chunk, &mut read_offset);
+        let d = ((z & 0b1100_0000) >> 2) | ((y & 0b1111_0000) >> 4);
+        write1(d, &mut write_offset, &mut field_elements);
+        write31(&buf31, &mut write_offset, &mut field_elements);
+    }
+
+    if read_offset < chunk.len() {
+        panic!("BlobCoder: payload did not fit into a single blob");
+    }
+
+    for fe in field_elements.iter() {
+        let whole = WholeFe::new(&fe[..])
+            .expect("encoded field element must have the top two bits cleared");
+        builder.ingest_valid_fe(whole);
+    }
+}
+
 impl BlobCoder {
     /// Decode all blobs using the Kona-compatible scheme, returning the raw payload bytes per
     /// blob if the encoding is valid.
@@ -66,112 +173,8 @@ impl SidecarCoder for BlobCoder {
             return;
         }
 
-        if data.len() > BLOB_MAX_DATA_SIZE {
-            panic!("BlobCoder: payload exceeds maximum blob size");
-        }
-
-        let mut read_offset = 0usize;
-        let mut field_elements = Vec::with_capacity(self.required_fe(data));
-        let mut write_offset = 0usize;
-
-        let write1 = |value: u8, write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| {
-            if value & 0b1100_0000 != 0 {
-                panic!("BlobCoder: invalid 6-bit value");
-            }
-            assert_eq!(*write_offset % 32, 0);
-            let fe_index = *write_offset / 32;
-            let fe = ensure_field_element(field_elements, fe_index);
-            fe[0] = value;
-            *write_offset += 1;
-        };
-
-        let write31 =
-            |buf: &[u8; 31], write_offset: &mut usize, field_elements: &mut Vec<[u8; 32]>| {
-                assert_eq!(*write_offset % 32, 1);
-                let fe_index = *write_offset / 32;
-                let fe = ensure_field_element(field_elements, fe_index);
-                fe[1..].copy_from_slice(buf);
-                *write_offset += 31;
-            };
-
-        let read1 = |data: &[u8], read_offset: &mut usize| -> u8 {
-            if *read_offset >= data.len() {
-                0
-            } else {
-                let value = data[*read_offset];
-                *read_offset += 1;
-                value
-            }
-        };
-
-        let read31 = |buf: &mut [u8; 31], data: &[u8], read_offset: &mut usize| {
-            if *read_offset >= data.len() {
-                buf.fill(0);
-            } else {
-                let remaining = data.len() - *read_offset;
-                let to_copy = remaining.min(31);
-                buf[..to_copy].copy_from_slice(&data[*read_offset..*read_offset + to_copy]);
-                buf[to_copy..].fill(0);
-                *read_offset += to_copy;
-            }
-        };
-
-        let mut buf31 = [0u8; 31];
-
-        for round in 0..BLOB_ENCODING_ROUNDS {
-            if read_offset >= data.len() {
-                break;
-            }
-
-            if round == 0 {
-                // Round zero carries version + length metadata in the first field element, so we
-                // only have 27 payload bytes available before falling back to the standard flow.
-                buf31.fill(0);
-                buf31[0] = BLOB_ENCODING_VERSION;
-                let length = data.len() as u32;
-                buf31[1] = ((length >> 16) & 0xff) as u8;
-                buf31[2] = ((length >> 8) & 0xff) as u8;
-                buf31[3] = (length & 0xff) as u8;
-                let available = data.len() - read_offset;
-                let to_copy = available.min(27);
-                buf31[4..4 + to_copy].copy_from_slice(&data[read_offset..read_offset + to_copy]);
-                buf31[4 + to_copy..].fill(0);
-                read_offset += to_copy;
-            } else {
-                read31(&mut buf31, data, &mut read_offset);
-            }
-
-            let x = read1(data, &mut read_offset);
-            let a = x & 0b0011_1111;
-            write1(a, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
-
-            read31(&mut buf31, data, &mut read_offset);
-            let y = read1(data, &mut read_offset);
-            let b = (y & 0b0000_1111) | ((x & 0b1100_0000) >> 2);
-            write1(b, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
-
-            read31(&mut buf31, data, &mut read_offset);
-            let z = read1(data, &mut read_offset);
-            let c = z & 0b0011_1111;
-            write1(c, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
-
-            read31(&mut buf31, data, &mut read_offset);
-            let d = ((z & 0b1100_0000) >> 2) | ((y & 0b1111_0000) >> 4);
-            write1(d, &mut write_offset, &mut field_elements);
-            write31(&buf31, &mut write_offset, &mut field_elements);
-        }
-
-        if read_offset < data.len() {
-            panic!("BlobCoder: payload did not fit into a single blob");
-        }
-
-        for fe in field_elements.iter() {
-            let whole = WholeFe::new(&fe[..])
-                .expect("encoded field element must have the top two bits cleared");
-            builder.ingest_valid_fe(whole);
+        for chunk in data.chunks(BLOB_MAX_DATA_SIZE) {
+            process_chunk(chunk, builder, self.required_fe(chunk));
         }
     }
 
@@ -350,5 +353,37 @@ mod tests {
         assert_eq!(decoded.len(), payload.len());
         let direct_decoded = decode_blob(&blobs[0]).unwrap();
         assert_eq!(direct_decoded.len(), payload.len());
+    }
+
+    #[test]
+    fn creates_sidecar_with_two_blobs() {
+        // Create payload that exceeds single blob capacity
+        // Use BLOB_MAX_DATA_SIZE + 1 to ensure it requires 2 blobs
+        let payload_size = BLOB_MAX_DATA_SIZE + 1000;
+        let payload: Vec<u8> = (0..payload_size).map(|i| (i % 256) as u8).collect();
+
+        let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
+        let blobs = builder.take();
+
+        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {}", payload_size);
+
+        let mut coder = BlobCoder;
+        let decoded = coder.decode_all(&blobs).unwrap().concat();
+
+        // Verify the decoded data matches the original payload
+        assert_eq!(decoded.len(), payload.len(), "Decoded length should match original");
+        assert_eq!(decoded, payload, "Decoded data should match original payload");
+
+        // Verify each blob can be decoded individually
+        let blob1_decoded = decode_blob(&blobs[0]).unwrap();
+        let blob2_decoded = decode_blob(&blobs[1]).unwrap();
+
+        assert_eq!(blob1_decoded.len(), BLOB_MAX_DATA_SIZE);
+        assert_eq!(blob2_decoded.len(), payload_size - BLOB_MAX_DATA_SIZE);
+
+        // Verify the concatenated individual decodings match the original
+        let mut individual_decoded = blob1_decoded;
+        individual_decoded.extend_from_slice(&blob2_decoded);
+        assert_eq!(individual_decoded, payload);
     }
 }

@@ -113,18 +113,23 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	}
 
 	pb.buffer = newBuffer
-	pb.isAggregating = false
 	if len(pb.buffer) == 0 {
 		pb.firstItemAt = time.Time{}
 	}
+	pb.isAggregating = false
 	return clearedCount
 }
 
-// MarkAggregating marks the proofs in this buffer are aggregating.
-func (pb *ProofBuffer) MarkAggregating() {
+// MarkAggregatingIfNot marks the proofs in this buffer are aggregating if not.
+func (pb *ProofBuffer) MarkAggregatingIfNot() bool {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
+
+	if pb.isAggregating {
+		return false
+	}
 	pb.isAggregating = true
+	return true
 }
 
 // IsAggregating returns if the proofs in this buffer are aggregating.

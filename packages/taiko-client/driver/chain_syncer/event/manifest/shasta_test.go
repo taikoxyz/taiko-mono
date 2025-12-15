@@ -145,8 +145,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	result := validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result)
 
-	// Test 2: Future reference - should be adjusted and return false (no progression)
-	futureAnchor := originBlockNumber - manifest.AnchorMinOffset + 1 // 999, violates future reference
+	// Test 2: Future reference - anchor newer than origin block
+	futureAnchor := originBlockNumber + 1 // 1001, cannot be newer than origin
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -226,7 +226,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
-	parentTime := uint64(1_000)
+	parentTime := uint64(1_000 + manifest.TimestampMaxOffset)
 	parentHeader := &types.Header{
 		Number:   big.NewInt(1),
 		GasLimit: 30_000_000,
