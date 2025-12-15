@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibProvedEventCodec } from "src/layer1/core/libs/LibProvedEventCodec.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract LibProvedEventCodecTest is Test {
     function test_encode_decode_single_proposal() public pure {
@@ -13,69 +12,78 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
-                firstProposalId: 5,
-                firstProposalParentCheckpointHash: bytes32(uint256(99)),
-                actualProver: address(0xAAAA),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 1000,
-                    blockHash: transitions[0].checkpointHash,
-                    stateRoot: bytes32(uint256(88))
-                })
+                commitment: IInbox.Commitment({
+                    firstProposalId: 5,
+                    firstProposalParentBlockHash: bytes32(uint256(99)),
+                    lastProposalHash: bytes32(uint256(100)),
+                    actualProver: address(0xAAAA),
+                    endBlockNumber: 1000,
+                    endStateRoot: bytes32(uint256(88)),
+                    transitions: transitions
+                }),
+                forceCheckpointSync: false
             })
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
-        assertEq(decoded.input.firstProposalId, payload.input.firstProposalId, "firstProposalId");
         assertEq(
-            decoded.input.firstProposalParentCheckpointHash,
-            payload.input.firstProposalParentCheckpointHash,
-            "firstProposalParentCheckpointHash"
+            decoded.input.commitment.firstProposalId,
+            payload.input.commitment.firstProposalId,
+            "firstProposalId"
         );
-        assertEq(decoded.input.transitions.length, 1, "transitions length");
         assertEq(
-            decoded.input.transitions[0].proposer,
+            decoded.input.commitment.firstProposalParentBlockHash,
+            payload.input.commitment.firstProposalParentBlockHash,
+            "firstProposalParentBlockHash"
+        );
+        assertEq(
+            decoded.input.commitment.lastProposalHash,
+            payload.input.commitment.lastProposalHash,
+            "lastProposalHash"
+        );
+        assertEq(decoded.input.commitment.transitions.length, 1, "transitions length");
+        assertEq(
+            decoded.input.commitment.transitions[0].proposer,
             transitions[0].proposer,
             "transitions[0] proposer"
         );
         assertEq(
-            decoded.input.transitions[0].designatedProver,
+            decoded.input.commitment.transitions[0].designatedProver,
             transitions[0].designatedProver,
             "transitions[0] designatedProver"
         );
         assertEq(
-            decoded.input.transitions[0].timestamp,
+            decoded.input.commitment.transitions[0].timestamp,
             transitions[0].timestamp,
             "transitions[0] timestamp"
         );
         assertEq(
-            decoded.input.transitions[0].checkpointHash,
-            transitions[0].checkpointHash,
-            "transitions[0] checkpointHash"
+            decoded.input.commitment.transitions[0].blockHash,
+            transitions[0].blockHash,
+            "transitions[0] blockHash"
         );
         assertEq(
-            decoded.input.lastCheckpoint.blockNumber,
-            payload.input.lastCheckpoint.blockNumber,
-            "lastCheckpoint blockNumber"
+            decoded.input.commitment.endBlockNumber,
+            payload.input.commitment.endBlockNumber,
+            "endBlockNumber"
         );
         assertEq(
-            decoded.input.lastCheckpoint.blockHash,
-            payload.input.lastCheckpoint.blockHash,
-            "lastCheckpoint blockHash"
+            decoded.input.commitment.endStateRoot,
+            payload.input.commitment.endStateRoot,
+            "endStateRoot"
         );
         assertEq(
-            decoded.input.lastCheckpoint.stateRoot,
-            payload.input.lastCheckpoint.stateRoot,
-            "lastCheckpoint stateRoot"
+            decoded.input.commitment.actualProver,
+            payload.input.commitment.actualProver,
+            "actualProver"
         );
-        assertEq(decoded.input.actualProver, payload.input.actualProver, "actualProver");
     }
 
     function test_encode_decode_multiple_proposals() public pure {
@@ -84,61 +92,62 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            checkpointHash: bytes32(uint256(2))
+            blockHash: bytes32(uint256(2))
         });
         transitions[2] = IInbox.Transition({
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 300,
-            checkpointHash: bytes32(uint256(3))
+            blockHash: bytes32(uint256(3))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
-                firstProposalId: 10,
-                firstProposalParentCheckpointHash: bytes32(uint256(999)),
-                actualProver: address(0xBBBB),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 5000,
-                    blockHash: transitions[2].checkpointHash,
-                    stateRoot: bytes32(uint256(888))
-                })
+                commitment: IInbox.Commitment({
+                    firstProposalId: 10,
+                    firstProposalParentBlockHash: bytes32(uint256(999)),
+                    lastProposalHash: bytes32(uint256(1000)),
+                    actualProver: address(0xBBBB),
+                    endBlockNumber: 5000,
+                    endStateRoot: bytes32(uint256(888)),
+                    transitions: transitions
+                }),
+                forceCheckpointSync: true
             })
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
-        assertEq(decoded.input.firstProposalId, 10, "firstProposalId");
-        assertEq(decoded.input.transitions.length, 3, "transitions length");
+        assertEq(decoded.input.commitment.firstProposalId, 10, "firstProposalId");
+        assertEq(decoded.input.commitment.transitions.length, 3, "transitions length");
 
         for (uint256 i; i < 3; ++i) {
             assertEq(
-                decoded.input.transitions[i].proposer,
+                decoded.input.commitment.transitions[i].proposer,
                 transitions[i].proposer,
                 string.concat("transitions[", vm.toString(i), "] proposer")
             );
             assertEq(
-                decoded.input.transitions[i].designatedProver,
+                decoded.input.commitment.transitions[i].designatedProver,
                 transitions[i].designatedProver,
                 string.concat("transitions[", vm.toString(i), "] designatedProver")
             );
             assertEq(
-                decoded.input.transitions[i].timestamp,
+                decoded.input.commitment.transitions[i].timestamp,
                 transitions[i].timestamp,
                 string.concat("transitions[", vm.toString(i), "] timestamp")
             );
             assertEq(
-                decoded.input.transitions[i].checkpointHash,
-                transitions[i].checkpointHash,
-                string.concat("transitions[", vm.toString(i), "] checkpointHash")
+                decoded.input.commitment.transitions[i].blockHash,
+                transitions[i].blockHash,
+                string.concat("transitions[", vm.toString(i), "] blockHash")
             );
         }
     }
@@ -149,20 +158,21 @@ contract LibProvedEventCodecTest is Test {
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
-            checkpointHash: bytes32(uint256(9999))
+            blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
-                firstProposalId: 42,
-                firstProposalParentCheckpointHash: bytes32(uint256(1111)),
-                actualProver: address(0xDDDD),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 888,
-                    blockHash: transitions[0].checkpointHash,
-                    stateRoot: bytes32(uint256(7777))
-                })
+                commitment: IInbox.Commitment({
+                    firstProposalId: 42,
+                    firstProposalParentBlockHash: bytes32(uint256(1111)),
+                    lastProposalHash: bytes32(uint256(2222)),
+                    actualProver: address(0xDDDD),
+                    endBlockNumber: 888,
+                    endStateRoot: bytes32(uint256(7777)),
+                    transitions: transitions
+                }),
+                forceCheckpointSync: false
             })
         });
 
@@ -174,38 +184,39 @@ contract LibProvedEventCodecTest is Test {
     }
 
     function test_encoded_size() public pure {
-        // Test that encoded size matches expected formula: 130 + (numTransitions * 78)
+        // Test that encoded size matches expected formula: 131 + (numTransitions * 78)
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
-            checkpointHash: bytes32(uint256(1))
+            blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
-            checkpointHash: bytes32(uint256(2))
+            blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
             input: IInbox.ProveInput({
-                firstProposalId: 1,
-                firstProposalParentCheckpointHash: bytes32(0),
-                actualProver: address(0xAAAA),
-                transitions: transitions,
-                lastCheckpoint: ICheckpointStore.Checkpoint({
-                    blockNumber: 10,
-                    blockHash: transitions[1].checkpointHash,
-                    stateRoot: bytes32(uint256(2))
-                })
+                commitment: IInbox.Commitment({
+                    firstProposalId: 1,
+                    firstProposalParentBlockHash: bytes32(0),
+                    lastProposalHash: bytes32(uint256(3)),
+                    actualProver: address(0xAAAA),
+                    endBlockNumber: 10,
+                    endStateRoot: bytes32(uint256(2)),
+                    transitions: transitions
+                }),
+                forceCheckpointSync: false
             })
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
 
-        // Expected size: 130 + (2 * 78) = 130 + 156 = 286
-        assertEq(encoded.length, 286, "encoded size for 2 transitions");
+        // Expected size: 131 + (2 * 78) = 131 + 156 = 287
+        assertEq(encoded.length, 287, "encoded size for 2 transitions");
     }
 }

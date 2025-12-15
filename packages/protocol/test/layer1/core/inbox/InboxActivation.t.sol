@@ -8,7 +8,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Tests for Inbox activation and pre-activation behavior
 contract InboxActivationTest is InboxTestBase {
@@ -20,7 +19,7 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox = _deployNonActivatedInbox();
     }
 
-    function _deployNonActivatedInbox() internal returns (Inbox) {
+    function _deployNonActivatedInbox() private returns (Inbox) {
         address impl = address(new Inbox(config));
         return Inbox(address(new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this))))));
     }
@@ -41,19 +40,20 @@ contract InboxActivationTest is InboxTestBase {
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            checkpointHash: keccak256("checkpoint")
+            blockHash: keccak256("checkpoint")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 1,
-            firstProposalParentCheckpointHash: bytes32(0),
-            actualProver: prover,
-            transitions: transitions,
-            lastCheckpoint: ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: transitions[0].checkpointHash,
-                stateRoot: bytes32(uint256(1))
-            })
+            commitment: IInbox.Commitment({
+                firstProposalId: 1,
+                firstProposalParentBlockHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(123)),
+                actualProver: prover,
+                endBlockNumber: uint48(block.number),
+                endStateRoot: bytes32(uint256(1)),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
@@ -62,8 +62,8 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_activate_RevertWhen_InvalidLastPacayaCheckpointHash() public {
-        vm.expectRevert(LibInboxSetup.InvalidLastPacayaCheckpointHash.selector);
+    function test_activate_RevertWhen_InvalidLastPacayaBlockHash() public {
+        vm.expectRevert(LibInboxSetup.InvalidLastPacayaBlockHash.selector);
         nonActivatedInbox.activate(bytes32(0));
     }
 
@@ -101,11 +101,6 @@ contract InboxActivationTest is InboxTestBase {
 
         // Verify key config values match what was set during construction
         assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
-        assertEq(
-            cfg.extendedProvingWindow,
-            config.extendedProvingWindow,
-            "extendedProvingWindow mismatch"
-        );
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
         assertEq(
@@ -164,14 +159,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.provingWindow = 0;
 
         vm.expectRevert(LibInboxSetup.ProvingWindowZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_ExtendedWindowTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.extendedProvingWindow = cfg.provingWindow; // Must be > provingWindow
-
-        vm.expectRevert(LibInboxSetup.ExtendedWindowTooSmall.selector);
         new Inbox(cfg);
     }
 

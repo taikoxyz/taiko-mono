@@ -62,12 +62,14 @@ contract SP1VerifierTest is Test {
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
             bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
         );
+        bytes32 sp1AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(PROGRAM_VKEY, publicInput);
 
         vm.mockCallRevert(
             REMOTE,
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (AGGREGATION_VKEY, abi.encodePacked(publicInput), succinctProof)
+                (AGGREGATION_VKEY, abi.encodePacked(sp1AggregationPublicInput), succinctProof)
             ),
             "fail"
         );
@@ -85,10 +87,12 @@ contract SP1VerifierTest is Test {
         bytes32 publicInput = LibPublicInput.hashPublicInputs(
             bytes32(uint256(1)), address(verifier), address(0), CHAIN_ID
         );
+        bytes32 sp1AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(PROGRAM_VKEY, publicInput);
 
         bytes memory expectedCall = abi.encodeCall(
             ISP1Verifier.verifyProof,
-            (AGGREGATION_VKEY, abi.encodePacked(publicInput), succinctProof)
+            (AGGREGATION_VKEY, abi.encodePacked(sp1AggregationPublicInput), succinctProof)
         );
 
         vm.expectCall(REMOTE, expectedCall);
