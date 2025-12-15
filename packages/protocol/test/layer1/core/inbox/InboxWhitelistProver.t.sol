@@ -40,7 +40,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
             proverWhitelist: address(proverWhitelist),
             signalService: address(signalService),
             provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
+            maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
             minForcedInclusionCount: 1,
@@ -68,8 +68,8 @@ contract InboxWhitelistProverTest is InboxTestBase {
     function test_prove_skipsBondInstruction_whenCallerIsWhitelistedProver() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
 
-        // Warp past extended proving window to ensure bond would normally be emitted
-        vm.warp(block.timestamp + config.extendedProvingWindow + 1);
+        // Warp past proving window to ensure bond would normally be emitted
+        vm.warp(block.timestamp + config.provingWindow + 1);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
@@ -91,13 +91,13 @@ contract InboxWhitelistProverTest is InboxTestBase {
         // Verify no bond signal was sent (whitelisted prover skips bond calculation)
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: p1.proposal.id,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: p1.proposal.proposer,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: proposer, // designated prover
             payee: whitelistedProver
         });
-        bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
+        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
         assertFalse(
-            signalService.isSignalSent(address(inbox), provabilitySignal),
+            signalService.isSignalSent(address(inbox), livenessSignal),
             "no bond signal for whitelisted prover"
         );
     }
