@@ -157,7 +157,7 @@ contract InboxProposeTest is InboxTestBase {
         );
         assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
 
-        (uint48 head, uint48 tail,) = inbox.getForcedInclusionState();
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
         assertEq(head, 1, "queue head");
         assertEq(tail, 1, "queue tail");
     }
@@ -273,10 +273,10 @@ contract InboxProposeTest is InboxTestBase {
         state_.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
         state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
         state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
-        state_.lastFinalizedCheckpointHash = _stateBefore.lastFinalizedCheckpointHash;
+        state_.lastFinalizedBlockHash = _stateBefore.lastFinalizedBlockHash;
     }
 
-    function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) internal {
+    function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) private {
         uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
         vm.prank(proposer);
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(_ref);

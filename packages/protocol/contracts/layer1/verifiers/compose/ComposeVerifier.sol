@@ -58,7 +58,7 @@ abstract contract ComposeVerifier is IProofVerifier {
     /// @inheritdoc IProofVerifier
     function verifyProof(
         uint256 _proposalAge,
-        bytes32 _proveInputHash,
+        bytes32 _commitmentHash,
         bytes calldata _proof
     )
         external
@@ -79,7 +79,7 @@ abstract contract ComposeVerifier is IProofVerifier {
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
-            IProofVerifier(verifier).verifyProof(_proposalAge, _proveInputHash, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(_proposalAge, _commitmentHash, subProofs[i].proof);
 
             verifiers[i] = verifier;
             lastVerifierId = verifierId;
