@@ -26,7 +26,6 @@ library LibInboxSetup {
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
-        require(_config.extendedProvingWindow > _config.provingWindow, ExtendedWindowTooSmall());
         require(_config.ringBufferSize > 1, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
@@ -41,7 +40,7 @@ library LibInboxSetup {
     }
 
     /// @dev Validates activation and computes the initial state for inbox activation.
-    /// @param _lastPacayaCheckpointHash The checkpoint hash of the last Pacaya block.
+    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block.
     /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
@@ -49,7 +48,7 @@ library LibInboxSetup {
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
     function activate(
-        bytes32 _lastPacayaCheckpointHash,
+        bytes32 _lastPacayaBlockHash,
         uint48 _activationTimestamp
     )
         public
@@ -63,7 +62,7 @@ library LibInboxSetup {
         )
     {
         // Validate activation parameters
-        require(_lastPacayaCheckpointHash != 0, InvalidLastPacayaCheckpointHash());
+        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
         if (_activationTimestamp == 0) {
             activationTimestamp_ = uint48(block.timestamp);
         } else {
@@ -81,7 +80,7 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedCheckpointHash = _lastPacayaCheckpointHash;
+        state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
 
         proposal_.derivationHash = LibHashOptimized.hashDerivation(derivation_);
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
@@ -94,10 +93,9 @@ library LibInboxSetup {
     error ActivationPeriodExpired();
     error BasefeeSharingPctgTooLarge();
     error CodecZero();
-    error ExtendedWindowTooSmall();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
-    error InvalidLastPacayaCheckpointHash();
+    error InvalidLastPacayaBlockHash();
     error MinForcedInclusionCountZero();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();

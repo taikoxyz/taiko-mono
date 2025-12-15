@@ -71,8 +71,11 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
             _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
+        bytes32 r0AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(blockImageId, publicInput);
+
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(abi.encodePacked(publicInput));
+        bytes32 journalDigest = sha256(abi.encodePacked(r0AggregationPublicInput));
 
         // call risc0 verifier contract
         (bool success,) = riscoGroth16Verifier.staticcall(
