@@ -37,6 +37,7 @@ type BlobTransactionBuilder struct {
 	gasLimit                uint64
 	chainConfig             *config.ChainConfig
 	revertProtectionEnabled bool
+	anchorOffset            uint64
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -51,6 +52,7 @@ func NewBlobTransactionBuilder(
 	gasLimit uint64,
 	chainConfig *config.ChainConfig,
 	revertProtectionEnabled bool,
+	anchorOffset uint64,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
@@ -63,6 +65,7 @@ func NewBlobTransactionBuilder(
 		gasLimit,
 		chainConfig,
 		revertProtectionEnabled,
+		anchorOffset,
 	}
 }
 
@@ -191,13 +194,13 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	// The L1 head must be greater than AnchorMinOffset to propose a new proposal.
-	if l1Head.Number.Uint64() <= manifest.AnchorMinOffset {
-		return nil, fmt.Errorf(
-			"L1 head number %d is lower than required min offset %d",
-			l1Head.Number.Uint64(),
-			manifest.AnchorMinOffset,
-		)
+
+	// Calculate anchor block number with configured offset
+	anchorBlockNumber := l1Head.Number.Uint64()
+	if anchorBlockNumber > b.anchorOffset {
+		anchorBlockNumber -= b.anchorOffset
+	} else {
+		anchorBlockNumber = 0
 	}
 
 	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
@@ -216,14 +219,14 @@ func (b *BlobTransactionBuilder) BuildShasta(
 			"index", i,
 			"numTxs", len(txs),
 			"timestamp", l1Head.Time+uint64(i),
-			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"anchorBlockNumber", anchorBlockNumber,
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit,
 		)
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			AnchorBlockNumber: anchorBlockNumber,
 			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})

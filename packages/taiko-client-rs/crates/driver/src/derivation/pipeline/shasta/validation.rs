@@ -3,7 +3,7 @@ use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
         BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT,
-        MIN_ANCHOR_OFFSET, MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
+        MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
     },
     manifest::DerivationSourceManifest,
 };
@@ -146,8 +146,7 @@ fn validate_anchor_numbers(
             return false;
         }
 
-        let future_reference_limit = origin_block_number.saturating_sub(MIN_ANCHOR_OFFSET);
-        if anchor >= future_reference_limit {
+        if anchor > origin_block_number {
             return false;
         }
 
