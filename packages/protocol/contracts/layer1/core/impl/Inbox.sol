@@ -361,11 +361,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function getForcedInclusionState()
-        external
-        view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
-    {
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_) {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
@@ -491,7 +487,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
 
             // Load storage once
-            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+            (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
             uint256 toProcess = _numForcedInclusionsRequested > available
@@ -501,13 +497,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head, lastProcessedAt) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
+            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
+                $, _feeRecipient, result_.sources, head, toProcess
             );
 
+            // We check the following conditions are met:
+            // 1. Proposer is willing to include at least the minimum required
+            // (_minForcedInclusionCount) OR
+            // 2. Proposer included all available inclusions that are due
             if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
                 bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
-                    $, head, tail, lastProcessedAt, _forcedInclusionDelay
+                    $, head, tail, _forcedInclusionDelay
                 );
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
@@ -518,42 +518,51 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Dequeues and processes forced inclusions from the queue
+    /// @dev Dequeues and processes forced inclusions from the queue without checking if they exist
+    /// @param $ Storage reference
+    /// @param _feeRecipient Address to receive fees
+    /// @param _sources Array to populate with derivation sources
+    /// @param _head Current queue head position
+    /// @param _toProcess Number of inclusions to process
+    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions.
+    /// `type(uint48).max` if no inclusions were processed
+    /// @return head_ Updated head position
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
         address _feeRecipient,
         DerivationSource[] memory _sources,
         uint48 _head,
-        uint48 _lastProcessedAt,
         uint256 _toProcess
     )
         private
-        returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
+        returns (uint48 oldestTimestamp_, uint48 head_)
     {
         unchecked {
-            if (_toProcess > 0) {
-                uint256 totalFees;
-                for (uint256 i; i < _toProcess; ++i) {
-                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
-                    _sources[i] = DerivationSource(true, inclusion.blobSlice);
-                    totalFees += inclusion.feeInGwei;
-                }
-
-                if (totalFees > 0) {
-                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-                }
-
-                oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
-
-                head_ = _head + uint48(_toProcess);
-                lastProcessedAt_ = uint48(block.timestamp);
-
-                ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
-            } else {
-                oldestTimestamp_ = type(uint48).max;
-                head_ = _head;
-                lastProcessedAt_ = _lastProcessedAt;
+            if (_toProcess == 0) {
+                return (type(uint48).max, _head);
             }
+
+            // Process inclusions and accumulate fees
+            uint256 totalFees;
+            for (uint256 i; i < _toProcess; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
+                _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                totalFees += inclusion.feeInGwei;
+            }
+
+            // Transfer accumulated fees
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
+
+            // Oldest timestamp is the timestamp of the first inclusion
+            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
+
+            // Update queue position
+            head_ = _head + uint48(_toProcess);
+
+            // Write to storage once
+            $.head = head_;
         }
     }
 
