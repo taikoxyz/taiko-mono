@@ -111,50 +111,58 @@ library LibHashOptimized {
         return result;
     }
 
-    /// @notice Optimized hashing for ProveInput structs
-    /// @dev Manually constructs the ABI-encoded layout to use EfficientHashLib
-    /// @param _input The prove input to hash
-    /// @return The hash of the prove input
-    function hashProveInput(IInbox.ProveInput memory _input) internal pure returns (bytes32) {
+    /// @notice Optimized hashing for commitment data.
+    /// @param _commitment The commitment data to hash.
+    /// @return The hash of the commitment.
+    function hashCommitment(IInbox.Commitment memory _commitment) internal pure returns (bytes32) {
         unchecked {
-            IInbox.ProposalState[] memory proposalStates = _input.proposalStates;
-            uint256 statesLength = proposalStates.length;
+            IInbox.Transition[] memory transitions = _commitment.transitions;
+            uint256 transitionsLength = transitions.length;
 
-            // Base words:
-            // [0] offset to tuple head (0x20)
+            // Commitment layout (abi.encode):
+            // [0] offset to commitment (0x20)
+            //
+            // Commitment static section (starts at word 1):
             // [1] firstProposalId
             // [2] firstProposalParentBlockHash
             // [3] lastProposalHash
-            // [4] lastBlockNumber
-            // [5] lastStateRoot
-            // [6] actualProver
-            // [7] offset to proposalStates (0xe0 = 7 * 32)
-            // [8] proposalStates length
-            uint256 totalWords = 9 + statesLength * 4;
+            // [4] actualProver
+            // [5] endBlockNumber
+            // [6] endStateRoot
+            // [7] offset to transitions (0xe0)
+            //
+            // Transitions array (starts at word 8):
+            // [8] length
+            // [9...] transition elements (4 words each)
+            uint256 totalWords = 9 + transitionsLength * 4;
 
             bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
+            // Top-level head
             EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
-            EfficientHashLib.set(buffer, 1, bytes32(uint256(_input.firstProposalId)));
-            EfficientHashLib.set(buffer, 2, _input.firstProposalParentBlockHash);
-            EfficientHashLib.set(buffer, 3, _input.lastProposalHash);
-            EfficientHashLib.set(buffer, 4, bytes32(uint256(_input.lastBlockNumber)));
-            EfficientHashLib.set(buffer, 5, _input.lastStateRoot);
-            EfficientHashLib.set(buffer, 6, bytes32(uint256(uint160(_input.actualProver))));
-            EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
-            EfficientHashLib.set(buffer, 8, bytes32(statesLength));
 
-            // Each ProposalState is a static struct with 4 fields (32 bytes each when encoded)
-            // proposer (address), designatedProver (address), timestamp (uint48), blockHash (bytes32)
-            for (uint256 i; i < statesLength; ++i) {
-                IInbox.ProposalState memory state = proposalStates[i];
-                uint256 base = 9 + i * 4;
-                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(state.proposer))));
+            // Commitment static fields
+            EfficientHashLib.set(buffer, 1, bytes32(uint256(_commitment.firstProposalId)));
+            EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentBlockHash);
+            EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
+            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_commitment.actualProver))));
+            EfficientHashLib.set(buffer, 5, bytes32(uint256(_commitment.endBlockNumber)));
+            EfficientHashLib.set(buffer, 6, _commitment.endStateRoot);
+            EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
+
+            // Transitions array
+            EfficientHashLib.set(buffer, 8, bytes32(transitionsLength));
+
+            uint256 base = 9;
+            for (uint256 i; i < transitionsLength; ++i) {
+                IInbox.Transition memory transition = transitions[i];
+                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(transition.proposer))));
                 EfficientHashLib.set(
-                    buffer, base + 1, bytes32(uint256(uint160(state.designatedProver)))
+                    buffer, base + 1, bytes32(uint256(uint160(transition.designatedProver)))
                 );
-                EfficientHashLib.set(buffer, base + 2, bytes32(uint256(state.timestamp)));
-                EfficientHashLib.set(buffer, base + 3, state.blockHash);
+                EfficientHashLib.set(buffer, base + 2, bytes32(uint256(transition.timestamp)));
+                EfficientHashLib.set(buffer, base + 3, transition.blockHash);
+                base += 4;
             }
 
             bytes32 result = EfficientHashLib.hash(buffer);

@@ -19,7 +19,7 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox = _deployNonActivatedInbox();
     }
 
-    function _deployNonActivatedInbox() internal returns (Inbox) {
+    function _deployNonActivatedInbox() private returns (Inbox) {
         address impl = address(new Inbox(config));
         return Inbox(address(new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this))))));
     }
@@ -35,26 +35,29 @@ contract InboxActivationTest is InboxTestBase {
     }
 
     function test_prove_RevertWhen_NotActivated() public {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
-            blockHash: keccak256("blockHash")
+            blockHash: keccak256("checkpoint")
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 1,
-            firstProposalParentBlockHash: bytes32(0),
-            lastProposalHash: bytes32(0),
-            lastBlockNumber: uint48(block.number),
-            lastStateRoot: bytes32(0),
-            actualProver: prover,
-            proposalStates: proposalStates
+            commitment: IInbox.Commitment({
+                firstProposalId: 1,
+                firstProposalParentBlockHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(123)),
+                actualProver: prover,
+                endBlockNumber: uint48(block.number),
+                endStateRoot: bytes32(uint256(1)),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
 
-        bytes memory encodedInput = abi.encode(input);
-        vm.expectRevert(Inbox.ActivationRequired.selector);
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
         vm.prank(prover);
         nonActivatedInbox.prove(encodedInput, bytes("proof"));
     }
@@ -98,11 +101,6 @@ contract InboxActivationTest is InboxTestBase {
 
         // Verify key config values match what was set during construction
         assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
-        assertEq(
-            cfg.extendedProvingWindow,
-            config.extendedProvingWindow,
-            "extendedProvingWindow mismatch"
-        );
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
         assertEq(
@@ -114,11 +112,6 @@ contract InboxActivationTest is InboxTestBase {
             cfg.forcedInclusionFeeInGwei,
             config.forcedInclusionFeeInGwei,
             "forcedInclusionFeeInGwei mismatch"
-        );
-        assertEq(
-            cfg.minProposalsToFinalize,
-            config.minProposalsToFinalize,
-            "minProposalsToFinalize mismatch"
         );
         assertEq(cfg.codec, config.codec, "codec mismatch");
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
@@ -169,14 +162,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
-    function test_validateConfig_RevertWhen_ExtendedWindowTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.extendedProvingWindow = cfg.provingWindow; // Must be > provingWindow
-
-        vm.expectRevert(LibInboxSetup.ExtendedWindowTooSmall.selector);
-        new Inbox(cfg);
-    }
-
     function test_validateConfig_RevertWhen_RingBufferSizeTooSmall() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.ringBufferSize = 1; // Must be > 1
@@ -222,23 +207,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.permissionlessInclusionMultiplier = 1; // Must be > 1
 
         vm.expectRevert(LibInboxSetup.PermissionlessInclusionMultiplierTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinProposalsToFinalizeTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.minProposalsToFinalize = 0;
-
-        vm.expectRevert(LibInboxSetup.MinProposalsToFinalizeTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinProposalsToFinalizeTooBig() public {
-        IInbox.Config memory cfg = _buildConfig();
-        // minProposalsToFinalize must be < ringBufferSize - 1
-        cfg.minProposalsToFinalize = uint8(cfg.ringBufferSize - 1);
-
-        vm.expectRevert(LibInboxSetup.MinProposalsToFinalizeTooBig.selector);
         new Inbox(cfg);
     }
 }

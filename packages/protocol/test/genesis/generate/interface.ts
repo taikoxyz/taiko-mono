@@ -9,7 +9,6 @@ export interface Config {
     contractAddresses: Object;
     param1559: Object;
     livenessBond: string | number;
-    provabilityBond: string | number;
     withdrawalDelay: number;
     minBond: number;
     bondToken: string;

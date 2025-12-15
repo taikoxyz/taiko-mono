@@ -16,12 +16,15 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The prover whitelist contract (address(0) means no whitelist)
+        address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The proving window in seconds
         uint48 provingWindow;
-        /// @notice The extended proving window in seconds
-        uint48 extendedProvingWindow;
+        /// @notice Maximum delay allowed between consecutive proofs to still be on time.
+        /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
+        uint48 maxProofSubmissionDelay;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
@@ -41,8 +44,6 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice The minimum number of proposals that must be finalized in a single prove call
-        uint8 minProposalsToFinalize;
     }
 
     /// @notice Represents a source of derivation data within a Derivation
@@ -96,6 +97,8 @@ interface IInbox {
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
+        /// @notice The block hash of the last finalized proposal.
+        bytes32 lastFinalizedBlockHash;
     }
 
     /// @notice Input data for the propose function
@@ -110,35 +113,53 @@ interface IInbox {
         uint8 numForcedInclusions;
     }
 
-    /// @notice Metadata for a proposal used in prove
-    struct ProposalState {
+    /// @notice Transition data for a proposal used in prove
+    struct Transition {
         /// @notice Address of the proposer.
         address proposer;
         /// @notice Address of the designated prover.
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice Last block hash for the proposal.
+        /// @notice end block hash for the proposal.
         bytes32 blockHash;
     }
 
-    /// @notice Input data for the prove function
-    struct ProveInput {
+    /// @notice Commitment data that the prover commits to when submitting a proof.
+    struct Commitment {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The block hash of the parent of the first proposal, this is used
-        /// to verify block hash continuity in the proof.
+        /// @notice The checkpoint hash of the parent of the first proposal, this is used
+        /// to verify checkpoint continuity in the proof.
         bytes32 firstProposalParentBlockHash;
-        /// @notice The hash of the last proposal
+        /// @notice The hash of the last proposal being proven.
         bytes32 lastProposalHash;
-        /// @notice The last block number in the last proposal
-        uint48 lastBlockNumber;
-        /// @notice The state root of the last block
-        bytes32 lastStateRoot;
-        /// @notice The actual prover who submitted the proof.
+        /// @notice The actual prover who generated the proof.
         address actualProver;
-        /// @notice Array of proposal state for each proposal in the proof range.
-        ProposalState[] proposalStates;
+        /// @notice The block number for the end L2 block in this proposal.
+        uint48 endBlockNumber;
+        /// @notice The state root for the end L2 block in this proposal.
+        bytes32 endStateRoot;
+        /// @notice Array of transitions for each proposal in the proof range.
+        Transition[] transitions;
+    }
+
+    /// @notice Input data for the prove function.
+    /// @dev This struct contains two categories of data:
+    ///      1. Commitment data - What the prover is actually proving. This must be fully
+    ///         determined before proof generation and is the only input to the prover's
+    ///         guest program.
+    ///      2. Usage options - Parameters that can be decided after proof generation
+    ///         (e.g., whether to proactively write a checkpoint). The prover system can
+    ///         choose or adjust these options using additional data during or after
+    ///         proof generation.
+    struct ProveInput {
+        /// @notice The commitment data that the proof verifies.
+        Commitment commitment;
+        /// @notice Whether to force syncing the last checkpoint even if the minimum
+        /// delay has not passed.
+        /// @dev This allows checkpoint synchronization ahead of schedule.
+        bool forceCheckpointSync;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -183,31 +204,8 @@ interface IInbox {
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
-    /// @dev The proof covers a contiguous range of proposals. The input contains an array of
-    /// ProposalState structs, each with the proposal's metadata and block hash. The proof range
-    /// can start at or before the last finalized proposal to handle race conditions where
-    /// proposals get finalized between proof generation and submission.
-    ///
-    /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
-    ///
-    ///       lastFinalizedProposalId                nextProposalId
-    ///                             ┆                             ┆
-    ///                             ▼                             ▼
-    ///     0     1     2     3     4     5     6     7     8     9
-    ///     ■─────■─────■─────■─────■─────□─────□─────□─────□─────
-    ///                       ▲           ▲                 ▲
-    ///                       ┆<-offset-> ┆                 ┆
-    ///                       ┆                             ┆
-    ///                       ┆<-  input.proposalStates[] ->┆
-    ///         firstProposalId                             lastProposalId
-    ///
-    /// Key validation rules:
-    /// 1. firstProposalId <= lastFinalizedProposalId + 1 (can overlap with finalized range)
-    /// 2. lastProposalId < nextProposalId (cannot prove unproposed blocks)
-    /// 3. lastProposalId >= lastFinalizedProposalId + minProposalsToFinalize (must advance enough)
-    /// 4. The block hash chain must link to the stored lastFinalizedBlockHash
-    /// @param _data Encoded ProveInput struct.
-    /// @param _proof Validity proof for the batch of proposals.
+    /// @param _data The encoded ProveInput struct.
+    /// @param _proof The validity proof for the batch of proposals.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 
     // ---------------------------------------------------------------
@@ -225,5 +223,5 @@ interface IInbox {
     /// @notice Returns the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+    function getProposalHash(uint256 _proposalId) external view returns (bytes32 proposalHash_);
 }

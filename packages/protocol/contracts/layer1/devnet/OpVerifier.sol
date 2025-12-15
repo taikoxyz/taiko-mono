@@ -15,7 +15,7 @@ contract OpVerifier is IProofVerifier {
     /// @dev This is a dummy implementation that always succeeds
     function verifyProof(
         uint256, /* _proposalAge */
-        bytes32 _proveInputHash,
+        bytes32 _commitmentHash,
         bytes calldata _proof
     )
         external
@@ -23,7 +23,7 @@ contract OpVerifier is IProofVerifier {
     {
         // Dummy verifier - no actual verification
         // Just check that we received some data to avoid misuse
-        require(_proveInputHash != bytes32(0), OP_INVALID_TRANSITIONS_HASH());
+        require(_commitmentHash != bytes32(0), OP_INVALID_TRANSITIONS_HASH());
         require(_proof.length > 0, OP_INVALID_PROOF());
     }
 }
