@@ -28,7 +28,6 @@ library LibInboxSetup {
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
-        require(_config.extendedProvingWindow > _config.provingWindow, ExtendedWindowTooSmall());
         require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
