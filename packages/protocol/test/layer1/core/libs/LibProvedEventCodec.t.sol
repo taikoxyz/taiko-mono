@@ -57,7 +57,9 @@ contract LibProvedEventCodecTest is Test {
         bytes memory encoded = LibProvedEventCodec.encode(payload);
         IInbox.ProvedEventPayload memory decoded = LibProvedEventCodec.decode(encoded);
 
-        assertEq(decoded.firstProposalId, decoded.firstNewProposalId, "should be equal when no prefix");
+        assertEq(
+            decoded.firstProposalId, decoded.firstNewProposalId, "should be equal when no prefix"
+        );
     }
 
     function test_encode_deterministic() public pure {
