@@ -179,9 +179,7 @@ contract TestPreconfWhitelist is CommonTest {
         uint256 randomnessTs = epochTs - delaySeconds;
 
         mock.set(randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT, bytes32(0));
-        mock.set(
-            randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT * 2, bytes32(uint256(0xbeef))
-        );
+        mock.set(randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT * 2, bytes32(uint256(0xbeef)));
 
         address operator = whitelist.getOperatorForCurrentEpoch();
         assertEq(operator, Carol, "uses next available beacon root when slot is missed");

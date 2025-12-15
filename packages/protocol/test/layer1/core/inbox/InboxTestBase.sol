@@ -204,7 +204,7 @@ abstract contract InboxTestBase is CommonTest {
         require(eventData.length > 0, "Proposed event not found");
         return codec.decodeProposedEvent(eventData);
     }
-    
+
     function _mockBeaconBlockRoot() internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new MockBeaconBlockRoot()).code
