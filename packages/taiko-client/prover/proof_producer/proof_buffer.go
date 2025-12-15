@@ -91,13 +91,6 @@ func (pb *ProofBuffer) FirstItemAt() time.Time {
 	return pb.firstItemAt
 }
 
-// ResetAggregating resets the aggregating status the buffer.
-func (pb *ProofBuffer) ResetAggregating() {
-	pb.mutex.Lock()
-	defer pb.mutex.Unlock()
-	pb.isAggregating = false
-}
-
 // ClearItems clears items that has given block ids in the buffer.
 func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	pb.mutex.Lock()
@@ -123,6 +116,7 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	if len(pb.buffer) == 0 {
 		pb.firstItemAt = time.Time{}
 	}
+	pb.isAggregating = false
 	return clearedCount
 }
 

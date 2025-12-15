@@ -34,7 +34,6 @@ func TestProofBuffer(t *testing.T) {
 	}
 	require.Equal(t, bufferSize, b.ClearItems(blockIDs...))
 	require.Zero(t, b.Len())
-	b.ResetAggregating()
 	require.False(t, b.IsAggregating())
 }
 

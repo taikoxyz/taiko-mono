@@ -320,7 +320,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		// If there are invalid batches in the aggregation, we ignore these batches.
 		log.Warn("Invalid batches in an aggregation, ignore these batches", "batchIDs", invalidBatchIDs)
 		proofBuffer.ClearItems(invalidBatchIDs...)
-		proofBuffer.ResetAggregating()
 		return ErrInvalidProof
 	}
 
@@ -339,7 +338,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64BatchIDs...)
-		proofBuffer.ResetAggregating()
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -356,7 +354,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	// Clear the items in the buffer.
 	proofBuffer.ClearItems(uint64BatchIDs...)
-	proofBuffer.ResetAggregating()
 
 	return nil
 }
@@ -412,6 +409,14 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Aggregate proof error", "error", err)
+		batchIDs := make([]uint64, 0, len(buffer))
+		for _, proof := range buffer {
+			if proof.BatchID == nil {
+				continue
+			}
+			batchIDs = append(batchIDs, proof.BatchID.Uint64())
+		}
+		proofBuffer.ClearItems(batchIDs...)
 		return err
 	}
 	return nil

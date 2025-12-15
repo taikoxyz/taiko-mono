@@ -279,7 +279,6 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		// If there are invalid proposals in the aggregation, we ignore these proposals.
 		log.Warn("Invalid proposals in an aggregation, ignore these proposals", "proposalIDs", invalidProposalIDs)
 		proofBuffer.ClearItems(invalidProposalIDs...)
-		proofBuffer.ResetAggregating()
 		return ErrInvalidProof
 	}
 	var (
@@ -313,7 +312,6 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64ProposalIDs...)
-		proofBuffer.ResetAggregating()
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -326,7 +324,6 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	}
 
 	proofBuffer.ClearItems(uint64ProposalIDs...)
-	proofBuffer.ResetAggregating()
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 
@@ -400,6 +397,14 @@ func (s *ProofSubmitterShasta) AggregateProofsByType(ctx context.Context, proofT
 		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Aggregate proof error", "error", err)
+		batchIDs := make([]uint64, 0, len(buffer))
+		for _, proof := range buffer {
+			if proof.BatchID == nil {
+				continue
+			}
+			batchIDs = append(batchIDs, proof.BatchID.Uint64())
+		}
+		proofBuffer.ClearItems(batchIDs...)
 		return err
 	}
 	return nil
