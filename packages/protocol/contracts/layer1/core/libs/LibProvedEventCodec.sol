@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
+import { LibTransitionCodec } from "./LibTransitionCodec.sol";
 
 /// @title LibProvedEventCodec
 /// @notice Compact encoder/decoder for ProvedEventPayload using LibPackUnpack.
@@ -31,7 +32,7 @@ library LibProvedEventCodec {
         P.checkArrayLength(c.transitions.length);
         ptr = P.packUint16(ptr, uint16(c.transitions.length));
         for (uint256 i; i < c.transitions.length; ++i) {
-            ptr = _encodeTransition(ptr, c.transitions[i]);
+            ptr = LibTransitionCodec.encodeTransition(ptr, c.transitions[i]);
         }
 
         // Encode forceCheckpointSync
@@ -58,7 +59,7 @@ library LibProvedEventCodec {
         (transitionsLength, ptr) = P.unpackUint16(ptr);
         payload_.input.commitment.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
-            (payload_.input.commitment.transitions[i], ptr) = _decodeTransition(ptr);
+            (payload_.input.commitment.transitions[i], ptr) = LibTransitionCodec.decodeTransition(ptr);
         }
 
         // Decode forceCheckpointSync
@@ -91,32 +92,7 @@ library LibProvedEventCodec {
             // Total per transition: 78 bytes
             //
             // Total = 131 + (numTransitions * 78)
-            size_ = 131 + (_numTransitions * 78);
+            size_ = 131 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
         }
-    }
-
-    function _encodeTransition(
-        uint256 _ptr,
-        IInbox.Transition memory _transition
-    )
-        private
-        pure
-        returns (uint256 newPtr_)
-    {
-        newPtr_ = P.packAddress(_ptr, _transition.proposer);
-        newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
-        newPtr_ = P.packUint48(newPtr_, _transition.timestamp);
-        newPtr_ = P.packBytes32(newPtr_, _transition.blockHash);
-    }
-
-    function _decodeTransition(uint256 _ptr)
-        private
-        pure
-        returns (IInbox.Transition memory transition_, uint256 newPtr_)
-    {
-        (transition_.proposer, newPtr_) = P.unpackAddress(_ptr);
-        (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
-        (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 }

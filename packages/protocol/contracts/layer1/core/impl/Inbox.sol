@@ -551,9 +551,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // Transfer accumulated fees
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-            }
+            _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
 
             // Oldest timestamp is the timestamp of the first inclusion
             oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);

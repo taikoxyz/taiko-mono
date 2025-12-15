@@ -99,7 +99,7 @@ contract AnchorTest is Test {
 
     function test_anchorV4_processesFirstBlock() external {
         Anchor.ProposalParams memory proposalParams = _proposalParams(1, 1 ether);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
@@ -111,22 +111,22 @@ contract AnchorTest is Test {
         assertEq(proposalState.designatedProver, proverCandidate);
         assertFalse(proposalState.isLowBondProposal);
         assertEq(proposalState.proposalId, proposalParams.proposalId);
-        assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
+        assertEq(blockState.anchorBlockNumber, blockParams.blockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
         assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 1 ether);
         assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
 
         ICheckpointStore.Checkpoint memory saved =
-            signalService.getCheckpoint(blockParams.anchorBlockNumber);
-        assertEq(saved.blockNumber, blockParams.anchorBlockNumber);
-        assertEq(saved.blockHash, blockParams.anchorBlockHash);
-        assertEq(saved.stateRoot, blockParams.anchorStateRoot);
+            signalService.getCheckpoint(blockParams.blockNumber);
+        assertEq(saved.blockNumber, blockParams.blockNumber);
+        assertEq(saved.blockHash, blockParams.blockHash);
+        assertEq(saved.stateRoot, blockParams.stateRoot);
     }
 
     function test_anchorV4_allowsMultipleBlocksWithoutExtraFees() external {
         Anchor.ProposalParams memory proposalParams = _proposalParams(1, 1 ether);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
@@ -147,7 +147,7 @@ contract AnchorTest is Test {
 
     function test_anchorV4_rejectsBackwardProposalId() external {
         Anchor.ProposalParams memory proposalParams = _proposalParams(1, 1 ether);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
@@ -162,14 +162,16 @@ contract AnchorTest is Test {
 
     function test_anchorV4_switchesProposal() external {
         Anchor.ProposalParams memory firstProposal = _proposalParams(1, 1 ether);
-        Anchor.BlockParams memory blockParams1 = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory blockParams1 =
+            _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(firstProposal, blockParams1);
 
         Anchor.ProposalParams memory secondProposal = _proposalParams(2, 2 ether);
-        Anchor.BlockParams memory blockParams2 = _blockParams(1010, 0xABCD, 0xEF01);
+        ICheckpointStore.Checkpoint memory blockParams2 =
+            _blockParams(1010, 0xABCD, 0xEF01);
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
@@ -180,7 +182,7 @@ contract AnchorTest is Test {
 
         assertEq(proposalState.proposalId, 2);
         assertEq(proposalState.designatedProver, proverCandidate);
-        assertEq(blockState.anchorBlockNumber, blockParams2.anchorBlockNumber);
+        assertEq(blockState.anchorBlockNumber, blockParams2.blockNumber);
         assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 3 ether);
         assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 3 ether);
     }
@@ -195,7 +197,7 @@ contract AnchorTest is Test {
         Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({
             proposalId: 1, proposer: proposer, proverAuth: abi.encode(invalidAuth)
         });
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
@@ -315,12 +317,12 @@ contract AnchorTest is Test {
     )
         internal
         pure
-        returns (Anchor.BlockParams memory)
+        returns (ICheckpointStore.Checkpoint memory)
     {
-        return Anchor.BlockParams({
-            anchorBlockNumber: _blockNumber,
-            anchorBlockHash: bytes32(_blockHash),
-            anchorStateRoot: bytes32(_stateRoot)
+        return ICheckpointStore.Checkpoint({
+            blockNumber: _blockNumber,
+            blockHash: bytes32(_blockHash),
+            stateRoot: bytes32(_stateRoot)
         });
     }
 
