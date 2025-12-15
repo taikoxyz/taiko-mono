@@ -79,23 +79,10 @@ contract Anchor is EssentialContract {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    /// @dev Minimum calldata length for decoding a `ProverAuth` payload safely.
-    /// @dev Minimum length (in bytes) of a valid `ProverAuth` ABI encoding when
-    ///      `ProverAuth` is encoded off-chain via `abi.encode(auth)` and uses a
-    ///      65-byte ECDSA signature (`bytes signature`).
-    ///
-    ///      The ABI type here is a *single dynamic tuple*:
-    ///      `tuple(uint48 proposalId, address proposer, uint256 provingFee, bytes signature)`
-    ///      so `abi.encode(auth)` produces:
-    ///        - 32 bytes: top-level offset to the tuple head
-    ///        - 128 bytes: tuple head (proposalId, proposer, provingFee, signature offset)
-    ///        - 32 bytes: `signature.length` word (65)
-    ///        - 96 bytes: padded 65-byte signature (3 * 32 bytes)
-    ///      Total = 32 + 128 + 32 + 96 = 288 bytes.
-    ///
-    ///      If the signature scheme/length changes, this constant must be updated
-    ///      to reflect the new expected `abi.encode(ProverAuth)` size.
-    uint256 internal constant MIN_PROVER_AUTH_LENGTH = 288;
+    /// @dev Upper bound on encoded prover auth payloads to avoid excessive memory expansion when
+    ///      ABI-encoding them for the external decode call; standard ECDSA payloads are ~288 bytes,
+    ///      so 4 KB leaves ample headroom.
+    uint256 internal constant MAX_PROVER_AUTH_LENGTH = 4_096;
 
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
@@ -362,7 +349,9 @@ contract Anchor is EssentialContract {
         view
         returns (address signer_, uint256 provingFee_)
     {
-        if (_proverAuth.length < MIN_PROVER_AUTH_LENGTH) {
+        // Prevent unbounded calldata from consuming excessive gas during ABI encoding
+        // and causing a revert.
+        if (_proverAuth.length > MAX_PROVER_AUTH_LENGTH) {
             return (_proposer, 0);
         }
 
