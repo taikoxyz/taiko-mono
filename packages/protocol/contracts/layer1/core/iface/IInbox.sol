@@ -22,8 +22,9 @@ interface IInbox {
         address signalService;
         /// @notice The proving window in seconds
         uint48 provingWindow;
-        /// @notice The extended proving window in seconds
-        uint48 extendedProvingWindow;
+        /// @notice Maximum delay allowed between consecutive proofs to still be on time.
+        /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
+        uint48 maxProofSubmissionDelay;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase

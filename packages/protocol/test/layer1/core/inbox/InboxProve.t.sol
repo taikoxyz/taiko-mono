@@ -226,37 +226,7 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     // Bond signalling
     // ---------------------------------------------------------------------
-    function test_prove_emitsBondSignal_afterExtendedWindow() public {
-        IInbox.ProposedEventPayload memory p1 = _proposeOne();
-        _advanceBlock();
-        IInbox.ProposedEventPayload memory p2 = _proposeOne();
-
-        vm.warp(block.timestamp + config.extendedProvingWindow + 1);
-
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] = _transitionFor(p1, prover, keccak256("checkpoint1"));
-        transitions[1] = _transitionFor(p2, prover, keccak256("checkpoint2"));
-
-        IInbox.ProveInput memory input = _buildInput(
-            p1.proposal.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            keccak256("stateRoot")
-        );
-
-        _prove(input);
-
-        LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
-            proposalId: p1.proposal.id,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: p1.proposal.proposer,
-            payee: prover
-        });
-        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
-        assertTrue(signalService.isSignalSent(address(inbox), expectedSignal), "bond signal sent");
-    }
-
-    function test_prove_emitsLivenessBond_withinExtendedWindow() public {
+    function test_prove_emitsBondSignal_whenLate() public {
         IInbox.ProposedEventPayload memory p1 = _proposeOne();
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeOne();
@@ -289,7 +259,8 @@ contract InboxProveTest is InboxTestBase {
         });
         bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
         assertTrue(
-            signalService.isSignalSent(address(inbox), expectedSignal), "liveness bond signal"
+            signalService.isSignalSent(address(inbox), expectedSignal),
+            "liveness bond signal when late"
         );
     }
 
@@ -306,18 +277,12 @@ contract InboxProveTest is InboxTestBase {
         });
         bytes32 livenessSignal = codec.hashBondInstruction(instruction);
 
-        instruction.bondType = LibBonds.BondType.PROVABILITY;
-        bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
-
         assertFalse(
             signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal"
         );
-        assertFalse(
-            signalService.isSignalSent(address(inbox), provabilitySignal), "no provability signal"
-        );
     }
 
-    function test_prove_noBondSignal_whenPayerEqualsPayee() public {
+    function test_prove_emitsBondSignal_whenPayerEqualsPayee() public {
         IInbox.ProposedEventPayload memory proposed = _proposeOne();
         vm.warp(proposed.proposal.timestamp + config.provingWindow + 1);
 
@@ -344,9 +309,9 @@ contract InboxProveTest is InboxTestBase {
         });
         bytes32 livenessSignal = codec.hashBondInstruction(instruction);
 
-        assertFalse(
+        assertTrue(
             signalService.isSignalSent(address(inbox), livenessSignal),
-            "no liveness signal when payer==payee"
+            "liveness signal when payer==payee"
         );
     }
 
@@ -465,68 +430,6 @@ contract InboxProveTest is InboxTestBase {
         assertTrue(
             signalService.isSignalSent(address(inbox), livenessSignal),
             "liveness bond 1 sec past window"
-        );
-    }
-
-    function test_prove_livenessBond_atExactExtendedWindowBoundary() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-
-        vm.warp(proposed.proposal.timestamp + config.extendedProvingWindow);
-
-        IInbox.Transition[] memory transitions =
-            _transitionArrayFor(proposed, keccak256("checkpoint"));
-        transitions[0].designatedProver = proposer;
-
-        IInbox.ProveInput memory input = _buildInput(
-            proposed.proposal.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            keccak256("stateRoot")
-        );
-
-        _prove(input);
-
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposed.proposal.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertTrue(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "liveness at exact extended window"
-        );
-    }
-
-    function test_prove_provabilityBond_oneSecondPastExtendedWindow() public {
-        IInbox.ProposedEventPayload memory proposed = _proposeOne();
-
-        vm.warp(proposed.proposal.timestamp + config.extendedProvingWindow + 1);
-
-        IInbox.Transition[] memory transitions =
-            _transitionArrayFor(proposed, keccak256("checkpoint"));
-        transitions[0].designatedProver = proposer;
-
-        IInbox.ProveInput memory input = _buildInput(
-            proposed.proposal.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            keccak256("stateRoot")
-        );
-
-        _prove(input);
-
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: proposed.proposal.id,
-            bondType: LibBonds.BondType.PROVABILITY,
-            payer: proposed.proposal.proposer,
-            payee: prover
-        });
-        bytes32 provabilitySignal = codec.hashBondInstruction(instruction);
-        assertTrue(
-            signalService.isSignalSent(address(inbox), provabilitySignal),
-            "provability 1 sec past extended"
         );
     }
 

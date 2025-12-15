@@ -11,7 +11,6 @@ library LibBonds {
 
     enum BondType {
         NONE,
-        PROVABILITY,
         LIVENESS
     }
 

@@ -157,7 +157,7 @@ contract InboxProposeTest is InboxTestBase {
         );
         assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
 
-        (uint48 head, uint48 tail,) = inbox.getForcedInclusionState();
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
         assertEq(head, 1, "queue head");
         assertEq(tail, 1, "queue tail");
     }
