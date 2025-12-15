@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.2...ejector-v0.2.0) (2025-12-15)
+
+
+### Features
+
+* **ejector:** add last_reorged_to metric ([#20953](https://github.com/taikoxyz/taiko-mono/issues/20953)) ([7fa649a](https://github.com/taikoxyz/taiko-mono/commit/7fa649ace7a617a2d4981663060f7128c5706f10))
+
 ## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.1...ejector-v0.1.2) (2025-11-26)
 
 

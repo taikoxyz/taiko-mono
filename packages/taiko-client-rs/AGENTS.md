@@ -29,6 +29,8 @@
 ## Event Scanner Integration
 - Build `EventScanner` instances via `SubscriptionSource::to_provider()` and `EventScannerBuilder::connect` to avoid transport-specific helpers that no longer exist upstream.
 - When syncing from a block/tag or from latest events, call `EventScannerBuilder::sync().from_block(...)` or `.from_latest(...)` and immediately `.connect(provider)` returned from the subscription source.
+- Lookahead preconfirmation is split into `client`, `resolver`, `scanner`; use `LookaheadResolver::new` for the common path or `new_with_genesis` for custom/unknown chains. A default resolver type alias is exposed for the common provider stack.
+- Solidity contracts for the bindings live in `../protocol` (relative to `crates/bindings`); consult them to mirror on-chain logic.
 
 ## Commit & Pull Request Guidelines
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `chore:`). Keep subject lines ≤72 characters with optional, meaningful scopes.

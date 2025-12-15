@@ -35,6 +35,7 @@ type Config struct {
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
 	FallbackTimeout         time.Duration
+	AnchorOffset            uint64
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -83,7 +84,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 			ShastaForkTime:              c.Uint64(flags.ShastaForkTime.Name),
-			UseLocalShastaDecoder:       c.Bool(flags.ShastaUseLocalDecoder.Name),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),
@@ -107,5 +107,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
+		AnchorOffset:    c.Uint64(flags.AnchorOffset.Name),
 	}, nil
 }
