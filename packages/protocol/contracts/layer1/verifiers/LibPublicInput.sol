@@ -36,7 +36,7 @@ library LibPublicInput {
     }
 
     /// @dev Hashes the public input for the ZK aggregation proof verification,
-    ///         which contains the sub image id to be aggreated for security.
+    ///         which contains the sub image id to be aggregated for security.
     /// @param _blockProvingProgram The proving program identifier.
     /// @param _aggregatedProvingHash The aggregated proving hash from the inbox.
     /// @return The ZK aggregation public input hash.
