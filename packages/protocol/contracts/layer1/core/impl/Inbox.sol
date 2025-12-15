@@ -281,10 +281,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            if (
-                input.forceCheckpointSync
-                    || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
-            ) {
+            bool checkpointSynced = input.forceCheckpointSync
+                || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay;
+
+            if (checkpointSynced) {
                 _signalService.saveCheckpoint(
                     ICheckpointStore.Checkpoint({
                         blockNumber: commitment.endBlockNumber,
@@ -303,7 +303,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
+            emit Proved(
+                LibProvedEventCodec.encode(
+                    ProvedEventPayload({
+                        firstProposalId: commitment.firstProposalId,
+                        lastProposalId: uint48(lastProposalId),
+                        actualProver: commitment.actualProver,
+                        checkpointSynced: checkpointSynced
+                    })
+                )
+            );
 
             // ---------------------------------------------------------
             // 6. Verify the proof

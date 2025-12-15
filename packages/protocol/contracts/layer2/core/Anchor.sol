@@ -134,9 +134,10 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
 
     event Anchored(
+        uint48 indexed proposalId,
+        bool indexed isNewProposal,
+        bool indexed isLowBondProposal,
         address designatedProver,
-        bool isLowBondProposal,
-        bool isNewProposal,
         uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
         bytes32 ancestorsHash
@@ -226,9 +227,10 @@ contract Anchor is EssentialContract {
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            _proposalState.designatedProver,
-            _proposalState.isLowBondProposal,
+            _proposalState.proposalId,
             isNewProposal,
+            _proposalState.isLowBondProposal,
+            _proposalState.designatedProver,
             prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
