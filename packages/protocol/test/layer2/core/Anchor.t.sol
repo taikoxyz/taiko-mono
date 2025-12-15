@@ -266,7 +266,7 @@ contract AnchorTest is Test {
 
     function test_validateProverAuth_RejectsOversizedPayload() external view {
         // Oversized payload should be short-circuited before ABI encoding to avoid gas blowups.
-        bytes memory oversized = new bytes(4_096 + 1);
+        bytes memory oversized = new bytes(4096 + 1);
 
         (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, oversized);
 

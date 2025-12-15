@@ -77,7 +77,7 @@ contract Anchor is EssentialContract {
     /// @dev Upper bound on encoded prover auth payloads to avoid excessive memory expansion when
     ///      ABI-encoding them for the external decode call; standard ECDSA payloads are ~288 bytes,
     ///      so 4 KB leaves ample headroom.
-    uint256 internal constant MAX_PROVER_AUTH_LENGTH = 4_096;
+    uint256 internal constant MAX_PROVER_AUTH_LENGTH = 4096;
 
     /// @dev Length of a standard ECDSA signature (r: 32 bytes, s: 32 bytes, v: 1 byte).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
