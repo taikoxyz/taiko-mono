@@ -321,15 +321,10 @@ impl P2pClient {
                     return None;
                 }
                 match validate_signed_commitment(&from, &signed, &self.validation_ctx).await {
-                    ValidationOutcome::Accept => {
-                        let _ = self
-                            .storage
-                            .store_commitment(
-                                Bytes32::try_from(key.to_vec()).unwrap(),
-                                signed.clone(),
-                            )
-                            .ok();
-                        Some(ClientEvent::GossipCommitment { from, msg: signed })
+                    ValidationOutcome::Accept => self.handle_commitment_accept(from, signed).await,
+                    ValidationOutcome::PendingParent { parent_hash } => {
+                        let _ = self.storage.enqueue_pending_commitment(parent_hash, signed).ok();
+                        None
                     }
                     ValidationOutcome::SoftReject { .. } | ValidationOutcome::IgnoreSelf => None,
                     ValidationOutcome::RejectPeer { reason, detail } => {
@@ -357,6 +352,7 @@ impl P2pClient {
                             .ok();
                         Some(ClientEvent::GossipRawTxList { from, msg: raw })
                     }
+                    ValidationOutcome::PendingParent { .. } => None,
                     ValidationOutcome::SoftReject { .. } | ValidationOutcome::IgnoreSelf => None,
                     ValidationOutcome::RejectPeer { reason, detail } => {
                         record_gossip("inbound", "raw_txlist", "rejected", raw.txlist.len());
@@ -489,6 +485,52 @@ impl P2pClient {
                 Some(ClientEvent::PeerDisconnected(peer))
             }
             other => Some(Self::map_event(other)),
+        }
+    }
+
+    async fn handle_commitment_accept(
+        &mut self,
+        from: PeerId,
+        signed: SignedCommitment,
+    ) -> Option<ClientEvent> {
+        let hash = preconfirmation_hash(&signed.commitment.preconf).ok()?;
+        let key = Bytes32::try_from(hash.as_slice().to_vec()).ok()?;
+        let _ = self.storage.store_commitment(key.clone(), signed.clone()).ok();
+        self.process_pending_children(&signed).await;
+        Some(ClientEvent::GossipCommitment { from, msg: signed })
+    }
+
+    async fn process_pending_children(&mut self, parent: &SignedCommitment) {
+        let parent_hash = match preconfirmation_hash(&parent.commitment.preconf) {
+            Ok(h) => h,
+            Err(_) => return,
+        };
+        let parent_hash_vec = match Bytes32::try_from(parent_hash.as_slice().to_vec()) {
+            Ok(b) => b,
+            Err(_) => return,
+        };
+        let mut stack = self.storage.drain_pending_children(&parent_hash_vec);
+
+        while let Some(child) = stack.pop() {
+            let mut ctx = self.validation_ctx.clone();
+            ctx.parent_preconfirmation = Some(parent.commitment.preconf.clone());
+            match validate_signed_commitment(&PeerId::random(), &child, &ctx).await {
+                ValidationOutcome::Accept => {
+                    if let Ok(ch_hash) = preconfirmation_hash(&child.commitment.preconf) &&
+                        let Ok(ch_vec) = Bytes32::try_from(ch_hash.as_slice().to_vec())
+                    {
+                        let _ = self.storage.store_commitment(ch_vec.clone(), child.clone()).ok();
+                        let grandchildren = self.storage.drain_pending_children(&ch_vec);
+                        stack.extend(grandchildren);
+                    }
+                }
+                ValidationOutcome::PendingParent { parent_hash } => {
+                    let _ = self.storage.enqueue_pending_commitment(parent_hash, child).ok();
+                }
+                _ => {
+                    // Drop invalid or duplicate children silently.
+                }
+            }
         }
     }
 

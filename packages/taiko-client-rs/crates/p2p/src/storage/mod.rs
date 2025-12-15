@@ -13,7 +13,9 @@ use alloy_primitives::{B256, U256};
 use arc_swap::ArcSwapOption;
 use moka::sync::Cache;
 use preconfirmation_service::PreconfStorage;
-use preconfirmation_types::{Bytes32, PreconfHead, RawTxListGossip, SignedCommitment};
+use preconfirmation_types::{
+    Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, preconfirmation_hash,
+};
 
 use crate::{error::Result, metrics::record_cache, types::MessageId};
 
@@ -34,6 +36,14 @@ pub trait Storage: Send + Sync {
     fn head(&self) -> Option<PreconfHead>;
     /// Record a message id and return true if it was not seen recently.
     fn record_message_id(&self, id: MessageId, now: Instant, ttl: Duration) -> bool;
+    /// Enqueue a commitment whose parent is not yet available. Returns Err on storage failure.
+    fn enqueue_pending_commitment(
+        &self,
+        parent_hash: Bytes32,
+        commitment: SignedCommitment,
+    ) -> Result<()>;
+    /// Drain and return any pending children for the given parent hash.
+    fn drain_pending_children(&self, parent_hash: &Bytes32) -> Vec<SignedCommitment>;
     /// Downcast hook enabling tests to access concrete implementations.
     fn as_any(&self) -> &dyn std::any::Any;
 }
@@ -44,6 +54,9 @@ fn to_key(hash: &Bytes32) -> [u8; 32] {
     out.copy_from_slice(hash.as_ref());
     out
 }
+
+const DEFAULT_PENDING_PARENT_CAP: usize = 512;
+const DEFAULT_PENDING_PARENT_TTL: Duration = Duration::from_secs(300);
 
 /// Simple in-memory storage suitable for development, tests, and defaults.
 /// Uses concurrent caches (`moka`) plus lock-free head storage to avoid explicit locking in hot
@@ -57,6 +70,10 @@ pub struct InMemoryStorage {
     head: ArcSwapOption<PreconfHead>,
     /// Recently seen message ids for deduplication (bounded + TTL).
     message_ids: Cache<MessageId, Instant>,
+    /// Pending children keyed by expected parent hash.
+    pending_children: Cache<[u8; 32], Vec<SignedCommitment>>,
+    /// Dedup index for pending children keyed by child preconfirmation hash.
+    pending_index: Cache<[u8; 32], ()>,
     /// Message id TTL fallback (for tests allowing override).
     message_ttl: Duration,
 }
@@ -92,11 +109,23 @@ impl InMemoryStorage {
             .max_capacity(message_id_cap.max(1) as u64)
             .build();
 
+        let pending_children = Cache::builder()
+            .time_to_live(DEFAULT_PENDING_PARENT_TTL)
+            .max_capacity(DEFAULT_PENDING_PARENT_CAP as u64)
+            .build();
+
+        let pending_index = Cache::builder()
+            .time_to_live(DEFAULT_PENDING_PARENT_TTL)
+            .max_capacity((DEFAULT_PENDING_PARENT_CAP * 4) as u64)
+            .build();
+
         Self {
             commitments,
             txlists,
             head: ArcSwapOption::from(None),
             message_ids,
+            pending_children,
+            pending_index,
             message_ttl: message_ttl.max(Duration::from_secs(1)),
         }
     }
@@ -162,6 +191,44 @@ impl Storage for InMemoryStorage {
         self.message_ids.insert(id, now);
         record_cache("message_id", false);
         true
+    }
+
+    /// Enqueue a commitment whose parent is not yet available locally.
+    fn enqueue_pending_commitment(
+        &self,
+        parent_hash: Bytes32,
+        commitment: SignedCommitment,
+    ) -> Result<()> {
+        let parent_key = to_key(&parent_hash);
+        let child_hash = preconfirmation_hash(&commitment.commitment.preconf)
+            .map_err(|e| crate::error::P2pClientError::Storage(e.to_string()))?;
+        let child_hash = Bytes32::try_from(child_hash.as_slice().to_vec())
+            .map_err(|e| crate::error::P2pClientError::Storage(format!("{:?}", e)))?;
+        let child_key = to_key(&child_hash);
+
+        if self.pending_index.get(&child_key).is_some() {
+            return Ok(());
+        }
+
+        let mut children = self.pending_children.get(&parent_key).unwrap_or_default();
+        children.push(commitment);
+        self.pending_children.insert(parent_key, children);
+        self.pending_index.insert(child_key, ());
+        Ok(())
+    }
+
+    /// Drain any children waiting on `parent_hash`, removing their dedupe index entries.
+    fn drain_pending_children(&self, parent_hash: &Bytes32) -> Vec<SignedCommitment> {
+        let parent_key = to_key(parent_hash);
+        let children = self.pending_children.remove(&parent_key).unwrap_or_default();
+        for child in &children {
+            if let Ok(h) = preconfirmation_hash(&child.commitment.preconf) &&
+                let Ok(h_vec) = Bytes32::try_from(h.as_slice().to_vec())
+            {
+                let _ = self.pending_index.remove(&to_key(&h_vec));
+            }
+        }
+        children
     }
 
     /// Downcast hook for tests to reach concrete storage internals.
@@ -231,7 +298,7 @@ pub mod memory;
 mod tests {
     use super::*;
     use crate::types::{MessageId, Uint256};
-    use preconfirmation_types::RawTxListGossip;
+    use preconfirmation_types::{RawTxListGossip, preconfirmation_hash};
     use std::thread;
 
     #[test]
@@ -351,5 +418,31 @@ mod tests {
         assert!(store.record_message_id(id, start, Duration::from_millis(50)));
         thread::sleep(Duration::from_millis(60));
         assert!(store.record_message_id(id, Instant::now(), Duration::from_millis(50)));
+    }
+
+    #[test]
+    /// Pending children are queued until parent arrives, then drained.
+    fn pending_children_enqueue_and_drain() {
+        let store = InMemoryStorage::new();
+        let mut parent = SignedCommitment::default();
+        parent.commitment.preconf.block_number = Uint256::from(1u64);
+        let parent_hash = Bytes32::try_from(
+            preconfirmation_hash(&parent.commitment.preconf).unwrap().as_slice().to_vec(),
+        )
+        .unwrap();
+
+        let mut child = SignedCommitment::default();
+        child.commitment.preconf.block_number = Uint256::from(2u64);
+        child.commitment.preconf.parent_preconfirmation_hash = parent_hash.clone();
+
+        store.enqueue_pending_commitment(parent_hash.clone(), child.clone()).unwrap();
+        assert!(store.drain_pending_children(&Bytes32::default()).is_empty());
+
+        let drained = store.drain_pending_children(&parent_hash);
+        assert_eq!(drained.len(), 1);
+        assert_eq!(
+            drained[0].commitment.preconf.block_number,
+            child.commitment.preconf.block_number
+        );
     }
 }

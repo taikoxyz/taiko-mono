@@ -27,6 +27,10 @@ pub struct P2pClientConfig {
     pub commitment_cache: usize,
     /// Soft byte cap for raw txlist cache (compressed bytes), used by storage.
     pub raw_txlist_cache_bytes: usize,
+    /// Maximum parent entries retained for pending-child commitments.
+    pub pending_parent_cache: usize,
+    /// TTL for pending-child commitments awaiting their parent.
+    pub pending_parent_ttl: Duration,
     /// Timeout applied to request/response interactions (head/commitments/txlist).
     pub request_timeout: Duration,
     /// Maximum commitments requested per page during catch-up.
@@ -67,6 +71,8 @@ impl Default for P2pClientConfig {
             event_buffer: 256,
             commitment_cache: 1024,
             raw_txlist_cache_bytes: 16 * 1024 * 1024, // 16 MiB
+            pending_parent_cache: 512,
+            pending_parent_ttl: Duration::from_secs(300),
             request_timeout: Duration::from_secs(10),
             max_commitments_per_page: 256,
             message_id_cache: 4096,

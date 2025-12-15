@@ -82,6 +82,7 @@ pub fn record_gossip(direction: &str, topic: &str, outcome: &str, bytes: usize) 
 pub fn record_validation(outcome: &ValidationOutcome) {
     let (reason, penalize) = match outcome {
         ValidationOutcome::Accept => ("accept", false),
+        ValidationOutcome::PendingParent { .. } => ("pending_parent", false),
         ValidationOutcome::IgnoreSelf => ("ignore_self", false),
         ValidationOutcome::SoftReject { reason, .. } => (*reason, false),
         ValidationOutcome::RejectPeer { reason, .. } => (*reason, true),

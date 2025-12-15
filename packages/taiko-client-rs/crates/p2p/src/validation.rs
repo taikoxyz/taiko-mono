@@ -14,8 +14,8 @@ use std::{
 use libp2p::PeerId;
 use preconfirmation_service::LookaheadResolver;
 use preconfirmation_types::{
-    Bytes20, MAX_TXLIST_BYTES, Preconfirmation, RawTxListGossip, SignedCommitment, Uint256,
-    keccak256_bytes, preconfirmation_hash, validate_preconfirmation_basic,
+    Bytes20, Bytes32, MAX_TXLIST_BYTES, Preconfirmation, RawTxListGossip, SignedCommitment,
+    Uint256, keccak256_bytes, preconfirmation_hash, validate_preconfirmation_basic,
 };
 
 use crate::metrics::{record_gossip, record_validation};
@@ -25,6 +25,11 @@ use crate::metrics::{record_gossip, record_validation};
 pub enum ValidationOutcome {
     /// Message is valid and should be propagated/processed.
     Accept,
+    /// Parent is unknown locally; caller may cache and retry when parent arrives.
+    PendingParent {
+        /// Expected parent preconfirmation hash.
+        parent_hash: Bytes32,
+    },
     /// Message is dropped without penalizing the peer (e.g., missing context).
     SoftReject {
         /// Machine-readable reason label.
@@ -169,7 +174,7 @@ pub async fn validate_signed_commitment(
         return ValidationOutcome::RejectPeer { reason: "slasher_mismatch", detail: None };
     }
 
-    // Parent linkage: enforce when parent is known; otherwise soft reject to allow buffering.
+    // Parent linkage: enforce when parent is known; otherwise mark pending to allow buffering.
     if let Some(parent) = &ctx.parent_preconfirmation {
         match preconfirmation_hash(parent) {
             Ok(expected_hash) => {
@@ -190,7 +195,9 @@ pub async fn validate_signed_commitment(
             }
         }
     } else if !msg.commitment.preconf.parent_preconfirmation_hash.as_ref().iter().all(|b| *b == 0) {
-        return ValidationOutcome::SoftReject { reason: "missing_parent", detail: None };
+        return ValidationOutcome::PendingParent {
+            parent_hash: msg.commitment.preconf.parent_preconfirmation_hash.clone(),
+        };
     }
 
     // Lookahead: enforce slot signer and expected window end if provided.
@@ -280,6 +287,7 @@ pub async fn validate_raw_txlist(
 pub fn summarize_outcome(outcome: &ValidationOutcome) -> (&'static str, bool) {
     match outcome {
         ValidationOutcome::Accept => ("accept", false),
+        ValidationOutcome::PendingParent { .. } => ("pending_parent", false),
         ValidationOutcome::SoftReject { reason, .. } => (reason, false),
         ValidationOutcome::RejectPeer { reason, .. } => (reason, true),
         ValidationOutcome::IgnoreSelf => ("ignore_self", false),
