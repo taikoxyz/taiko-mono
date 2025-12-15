@@ -35,9 +35,9 @@ cat ../protocol/out/layer1/MainnetInbox.sol/MainnetInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox.go
 
-cat ../protocol/out/layer1/CodecOptimized.sol/CodecOptimized.json |
+cat ../protocol/out/layer1/Codec.sol/Codec.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type CodecOptimizedClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox_codec.go
+	${ABIGEN_BIN} --abi - --type CodecClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox_codec.go
 
 cat ../protocol/out/layer2/Anchor.sol/Anchor.json |
 	jq .abi |

@@ -48,7 +48,6 @@ func (s *ProposerTestSuite) SetupTest() {
 	syncer, err := event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
@@ -82,7 +81,6 @@ func (s *ProposerTestSuite) SetupTest() {
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-			UseLocalShastaDecoder:       true,
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -126,14 +124,12 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.p.shastaStateIndexer.Start())
 	s.cancel = cancel
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	s.p.txBuilder = builder.NewBuilderWithFallback(
 		s.p.rpc,
-		s.ShastaStateIndexer,
 		s.p.L1ProposerPrivKey,
 		s.TestAddr,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
@@ -146,6 +142,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 		true,
 		true,
 		true,
+		0,
 	)
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 

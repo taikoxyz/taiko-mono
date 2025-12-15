@@ -22,8 +22,6 @@ pub struct ProposerConfigs {
     pub jwt_secret: PathBuf,
     /// Address of the Shasta inbox contract on L1 where proposals are submitted.
     pub inbox_address: Address,
-    /// Whether to decode inbox events locally via the Shasta codec implementation.
-    pub use_local_shasta_codec: bool,
     /// Address to receive L2 block transaction fees in proposed blocks.
     pub l2_suggested_fee_recipient: Address,
     /// Time interval between consecutive proposal attempts.
@@ -32,4 +30,6 @@ pub struct ProposerConfigs {
     pub l1_proposer_private_key: B256,
     /// Optional gas limit for proposal transactions. If not set, uses provider's estimation.
     pub gas_limit: Option<u64>,
+    /// Anchor block offset from current L1 head.
+    pub anchor_offset: u64,
 }

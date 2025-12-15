@@ -24,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -36,7 +35,6 @@ type ClientTestSuite struct {
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
 	BlobServer          *MemoryBlobServer
-	ShastaStateIndexer  *shastaIndexer.Indexer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -74,24 +72,16 @@ func (s *ClientTestSuite) SetupTest() {
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 		JwtSecret:                   string(jwtSecret),
-		UseLocalShastaDecoder:       true,
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
-	s.ShastaStateIndexer, err = shastaIndexer.New(
-		context.Background(),
-		rpcCli,
-		rpcCli.ShastaClients.ForkTime,
-	)
-	s.Nil(err)
-	s.Nil(s.ShastaStateIndexer.Start())
 
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Less(l1Head.Time, s.RPCClient.ShastaClients.ForkTime)
 	s.SetBlockTimestampInterval(12 * time.Second)
 
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))

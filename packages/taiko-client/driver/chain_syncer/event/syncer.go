@@ -26,7 +26,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
@@ -34,7 +33,6 @@ import (
 type Syncer struct {
 	ctx                context.Context
 	rpc                *rpc.Client
-	indexer            *shastaIndexer.Indexer
 	state              *state.State
 	progressTracker    *beaconsync.SyncProgressTracker        // Sync progress tracker
 	txListDecompressor *txListDecompressor.TxListDecompressor // Transactions list decompressor
@@ -54,7 +52,6 @@ type Syncer struct {
 func NewSyncer(
 	ctx context.Context,
 	client *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	state *state.State,
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobServerEndpoint *url.URL,
@@ -73,7 +70,6 @@ func NewSyncer(
 	return &Syncer{
 		ctx:                ctx,
 		rpc:                client,
-		indexer:            indexer,
 		state:              state,
 		progressTracker:    progressTracker,
 		txListDecompressor: txListDecompressor,
@@ -89,7 +85,6 @@ func NewSyncer(
 		),
 		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
 			client,
-			indexer,
 			progressTracker,
 			constructor,
 			latestSeenProposalCh,
@@ -204,7 +199,7 @@ func (s *Syncer) processShastaProposal(
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetProposal().Id, s.indexer)
+		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetProposal().Id)
 		if err != nil {
 			return err
 		}
@@ -442,16 +437,6 @@ func (s *Syncer) processShastaProposal(
 			)
 		}
 
-		// Assemble bond instructions for the derivation payload.
-		if err := shastaManifest.AssembleBondInstructions(
-			ctx,
-			meta.GetProposal().Id,
-			s.indexer,
-			sourcePayload,
-		); err != nil {
-			return fmt.Errorf("failed to assemble bond instructions: %w", err)
-		}
-
 		// Insert new blocks to L2 EE's chain.
 		lastInsertedBlockID, err := s.blocksInserterShasta.InsertBlocksWithManifest(
 			ctx,
@@ -647,30 +632,37 @@ func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc
 
 // checkLastVerifiedBlockMismatchShasta checks if there is a mismatch between protocol's last verified block hash and
 // the corresponding L2 EE block hash.
-func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
-	ctx context.Context,
-	indexer *shastaIndexer.Indexer,
-) (*rpc.ReorgCheckResult, error) {
+func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc.ReorgCheckResult, error) {
 	var (
-		reorgCheckResult    = new(rpc.ReorgCheckResult)
-		lastVerifiedBatchID = indexer.GetLastProposal().CoreState.LastFinalizedProposalId
+		reorgCheckResult = new(rpc.ReorgCheckResult)
 	)
 
-	if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
+	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Shasta core state: %w", err)
+	}
+
+	// If there is no finalized proposal yet, we skip the check.
+	if coreState.LastFinalizedProposalId.Cmp(common.Big0) == 0 {
 		return reorgCheckResult, nil
 	}
 
-	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, lastVerifiedBatchID)
+	payload, err := s.rpc.GetLastVerifiedPayloadShasta(ctx, coreState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last verified Proved event payload: %w", err)
+	}
+
+	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
-	record := indexer.GetTransitionRecordByProposalID(lastVerifiedBatchID.Uint64())
-	if record == nil {
-		return nil, fmt.Errorf("no transition record found for proposal ID %d", lastVerifiedBatchID.Uint64())
-	}
 
+	if len(payload.Input.Commitment.Transitions) == 0 {
+		return nil, fmt.Errorf("no transitions found in the last verified payload")
+	}
+	lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
-	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == record.Transition.Checkpoint.BlockHash {
+	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == lastTransition.BlockHash {
 		return reorgCheckResult, nil
 	}
 
@@ -678,7 +670,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 		"Verified block mismatch",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
-		"transitionBlockHash", common.Hash(record.Transition.Checkpoint.BlockHash),
+		"transitionBlockHash", common.Hash(lastTransition.BlockHash),
 	)
 
 	// For Shasta, we simply reset to genesis if there is a mismatch.
@@ -717,10 +709,9 @@ func (s *Syncer) checkReorgPacaya(ctx context.Context, batchID *big.Int) (*rpc.R
 func (s *Syncer) checkReorgShasta(
 	ctx context.Context,
 	batchID *big.Int,
-	indexer *shastaIndexer.Indexer,
 ) (*rpc.ReorgCheckResult, error) {
 	// 1. Check if the verified blocks in L2 EE have been reorged.
-	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx, indexer)
+	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
 	}

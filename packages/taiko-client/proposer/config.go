@@ -15,7 +15,6 @@ import (
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -36,15 +35,12 @@ type Config struct {
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
 	FallbackTimeout         time.Duration
+	AnchorOffset            uint64
 }
 
 // NewConfigFromCliContext initializes a Config instance from
 // command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
-	shastaIndexer.ConfigureHistoricalFetch(
-		c.Uint64(flags.ShastaMaxRangeSize.Name),
-		c.Int(flags.ShastaMaxRangesPerBatch.Name),
-	)
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT secret file: %w", err)
@@ -88,7 +84,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 			ShastaForkTime:              c.Uint64(flags.ShastaForkTime.Name),
-			UseLocalShastaDecoder:       c.Bool(flags.ShastaUseLocalDecoder.Name),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),
@@ -112,5 +107,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
+		AnchorOffset:    c.Uint64(flags.AnchorOffset.Name),
 	}, nil
 }

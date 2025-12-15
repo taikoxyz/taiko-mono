@@ -14,9 +14,7 @@ const (
 	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal.
 	ProposalMaxBlocks = 384
 	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp.
-	TimestampMaxOffset = 12 * 32
-	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number.
-	AnchorMinOffset = 2
+	TimestampMaxOffset = 12 * 128
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number.
 	AnchorMaxOffset = 128
 	// MaxBlockGasLimitChangePermyriad The maximum block gas limit change per block,
@@ -28,10 +26,6 @@ const (
 	MinBlockGasLimit = 10_000_000
 	// MaxBlockGasLimit The maximum block gas limit.
 	MaxBlockGasLimit = 45_000_000
-	// The delay in processing bond instructions relative to the current proposal. A value
-	// of 1 signifies that the bond instructions of the immediate parent proposal will be
-	// processed.
-	BondProcessingDelay = 6
 )
 
 // BlockManifest represents the blocks inside a derivation source.

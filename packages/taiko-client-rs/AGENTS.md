@@ -22,13 +22,15 @@
 - Respect the shared `rustfmt.toml`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
 
 ## Testing Guidelines
-- Run `just test` before submitting changes; it launches the Dockerized L1/L2 stack and executes `cargo nextest` across the workspace.
-- For focused suites, use `cargo nextest run -p <crate> --all-features` after exporting required RPC endpoints.
+- Always run tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
+- To scope to a single Rust crate, set `TEST_CRATE=<crate-name>` when invoking `just test`; leaving it unset runs the full workspace (default).
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`) and capture container logs for any failing integration case.
 
 ## Event Scanner Integration
 - Build `EventScanner` instances via `SubscriptionSource::to_provider()` and `EventScannerBuilder::connect` to avoid transport-specific helpers that no longer exist upstream.
 - When syncing from a block/tag or from latest events, call `EventScannerBuilder::sync().from_block(...)` or `.from_latest(...)` and immediately `.connect(provider)` returned from the subscription source.
+- Lookahead preconfirmation is split into `client`, `resolver`, `scanner`; use `LookaheadResolver::new` for the common path or `new_with_genesis` for custom/unknown chains. A default resolver type alias is exposed for the common provider stack.
+- Solidity contracts for the bindings live in `../protocol` (relative to `crates/bindings`); consult them to mirror on-chain logic.
 
 ## Commit & Pull Request Guidelines
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `chore:`). Keep subject lines ≤72 characters with optional, meaningful scopes.

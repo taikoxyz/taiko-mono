@@ -23,7 +23,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -105,7 +104,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Nil(err)
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), nil))
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	return metadataList
 }
@@ -195,7 +194,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 	s.Nil(backoff.Retry(func() error { return chainSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
 
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	_, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -279,9 +278,7 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	}
 
 	s.SetNextBlockTimestamp(s.RPCClient.ShastaClients.ForkTime)
-	for i := 0; i <= manifest.AnchorMinOffset; i++ {
-		s.L1Mine()
-	}
+	s.L1Mine()
 
 	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))

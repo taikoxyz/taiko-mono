@@ -43,7 +43,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	syncer, err := New(
 		context.Background(),
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		state,
 		false,
 		1*time.Hour,
@@ -73,7 +72,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-			UseLocalShastaDecoder:       true,
 		},
 		BlobAllowed:             true,
 		L1ProposerPrivKey:       l1ProposerPrivKey,
@@ -112,12 +110,10 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		},
 	}, nil, nil))
 	s.p = prop
-	s.Nil(prop.ShastaIndexer().Start())
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 
 	s.shastaProposalBuilder = builder.NewBlobTransactionBuilder(
 		s.RPCClient,
-		prop.ShastaIndexer(),
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
@@ -127,6 +123,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		1_000_000,
 		nil,
 		true,
+		0,
 	)
 }
 
@@ -242,8 +239,11 @@ func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot)
 
-	proposalId := new(big.Int).Add(s.ShastaStateIndexer.GetLastProposal().Proposal.Id, common.Big1)
-	proposer := s.ShastaStateIndexer.GetLastProposal().Proposal.Proposer
+	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	s.Nil(err)
+
+	proposalId := coreState.NextProposalId
+	proposer := crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey)
 	provingFeeGwei := new(big.Int).SetUint64(281474976710655)
 
 	uint48Type, _ := abi.NewType("uint48", "", nil)

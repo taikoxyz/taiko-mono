@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::U256;
 use alloy_provider::Provider;
+use alloy_rpc_types::Log;
 use anyhow::{Context, Result, ensure};
 use driver::{
     Driver, DriverConfig,
@@ -21,8 +22,6 @@ use test_harness::{ShastaEnv, verify_anchor_block};
 #[serial]
 #[tokio::test]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
-    let indexer = env.event_indexer.clone();
-
     let proposer_client = Client::new_with_wallet(
         ClientConfig {
             l1_provider_source: env.l1_source.clone(),
@@ -37,8 +36,8 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
 
     let builder = ShastaProposalTransactionBuilder::new(
         proposer_client.clone(),
-        indexer.clone(),
         env.l2_suggested_fee_recipient,
+        0,
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
@@ -53,6 +52,12 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let receipt =
         pending_tx.get_receipt().await.context("fetching proposal transaction receipt")?;
     ensure!(receipt.status(), "proposal transaction failed");
+    let proposal_log: Log = receipt
+        .logs()
+        .iter()
+        .find(|log| log.address() == env.inbox_address)
+        .cloned()
+        .context("missing Proposed log in receipt")?;
 
     let driver_config = DriverConfig::new(
         ClientConfig {
@@ -79,10 +84,8 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
     let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
-    let proposal_payload = indexer.get_last_proposal().unwrap();
-
     let outcomes = pipeline
-        .process_proposal(&proposal_payload.log, applier)
+        .process_proposal(&proposal_log, applier)
         .await
         .context("processing proposal through derivation pipeline")?;
     ensure!(!outcomes.is_empty(), "derivation pipeline returned no block outcomes");

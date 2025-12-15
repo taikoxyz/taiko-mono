@@ -26,7 +26,7 @@ jobs:
     runs-on: [ubuntu-latest]
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -46,6 +46,7 @@ jobs:
     env:
       OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
       PACAYA_FORK_TAIKO_MONO_DIR: pacaya-fork-taiko-mono
+      SHASTA_FORK_TAIKO_MONO_DIR: shasta-fork-taiko-mono
 
     strategy:
       matrix:
@@ -57,7 +58,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -71,21 +72,31 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
           ref: taiko-alethia-protocol-v2.3.0-devnet-shasta-test
 
+      - uses: actions/checkout@v6
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}
+          ref: taiko-alethia-protocol-v3.0.0
+
       - name: Install pnpm dependencies for pacaya fork taiko-mono
         working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
+      - name: Install pnpm dependencies for shasta fork taiko-mono
+        working-directory: ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}
         run: cd ./packages/protocol && pnpm install
 
       - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
-        run: PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
+        run: SHASTA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${SHASTA_FORK_TAIKO_MONO_DIR} PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v5

@@ -84,7 +84,7 @@ func (pb *ProofBuffer) Len() int {
 	return len(pb.buffer)
 }
 
-// FirstItemAt returns the first item updated time of the buffer.
+// FirstItemAt returns the first item updated time of the buffer, only makes sense when Len() is greater than 0.
 func (pb *ProofBuffer) FirstItemAt() time.Time {
 	pb.mutex.RLock()
 	defer pb.mutex.RUnlock()
@@ -113,15 +113,23 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	}
 
 	pb.buffer = newBuffer
+	if len(pb.buffer) == 0 {
+		pb.firstItemAt = time.Time{}
+	}
 	pb.isAggregating = false
 	return clearedCount
 }
 
-// MarkAggregating marks the proofs in this buffer are aggregating.
-func (pb *ProofBuffer) MarkAggregating() {
+// MarkAggregatingIfNot marks the proofs in this buffer are aggregating if not.
+func (pb *ProofBuffer) MarkAggregatingIfNot() bool {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
+
+	if pb.isAggregating {
+		return false
+	}
 	pb.isAggregating = true
+	return true
 }
 
 // IsAggregating returns if the proofs in this buffer are aggregating.

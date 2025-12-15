@@ -67,14 +67,13 @@ func (s *DriverTestSuite) SetupTest() {
 
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:            os.Getenv("L1_WS"),
-			L2Endpoint:            os.Getenv("L2_WS"),
-			L2EngineEndpoint:      os.Getenv("L2_AUTH"),
-			PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-			TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:             string(jwtSecret),
-			UseLocalShastaDecoder: true,
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:          string(jwtSecret),
 		},
 		BlobServerEndpoint:     s.BlobServer.URL(),
 		P2PConfigs:             p2pConfig,
@@ -83,7 +82,6 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
-	s.Nil(s.d.shastaIndexer.Start())
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -1294,7 +1292,6 @@ func (s *DriverTestSuite) InitProposer() {
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-			UseLocalShastaDecoder:       true,
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -1334,7 +1331,6 @@ func (s *DriverTestSuite) InitProposer() {
 	}, nil, nil))
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.p.ShastaIndexer().Start())
 }
 
 func TestDriverTestSuite(t *testing.T) {
