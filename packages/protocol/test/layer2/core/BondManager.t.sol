@@ -14,7 +14,6 @@ contract BondManagerTest is Test {
     uint256 private constant MIN_BOND = 10 ether;
     uint48 private constant WITHDRAWAL_DELAY = 7 days;
     uint256 private constant LIVENESS_BOND = 2 ether;
-    uint256 private constant PROVABILITY_BOND = 3 ether;
     uint64 private constant L1_CHAIN_ID = 11_337;
     address private constant L1_INBOX = address(0xBEEF);
 
@@ -42,8 +41,7 @@ contract BondManagerTest is Test {
             signalService,
             L1_INBOX,
             L1_CHAIN_ID,
-            LIVENESS_BOND,
-            PROVABILITY_BOND
+            LIVENESS_BOND
         );
         bondManager = BondManager(
             address(new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (operator))))
@@ -89,7 +87,6 @@ contract BondManagerTest is Test {
         assertEq(bondManager.l1Inbox(), L1_INBOX);
         assertEq(bondManager.l1ChainId(), L1_CHAIN_ID);
         assertEq(bondManager.livenessBond(), LIVENESS_BOND);
-        assertEq(bondManager.provabilityBond(), PROVABILITY_BOND);
         assertEq(bondManager.owner(), operator);
     }
 
@@ -97,14 +94,14 @@ contract BondManagerTest is Test {
     // Deposit Tests
     // ---------------------------------------------------------------
 
-    function test_deposit_SuccessfulDeposit() external {
+    function test_deposit_SuccessfulDepositToSelf() external {
         uint256 depositAmount = 50 ether;
         uint256 aliceInitialBalance = bondToken.balanceOf(Alice);
 
         vm.expectEmit();
         emit IBondManager.BondCredited(Alice, depositAmount);
         vm.expectEmit();
-        emit IBondManager.BondDeposited(Alice, depositAmount);
+        emit IBondManager.BondDeposited(Alice, Alice, depositAmount);
 
         vm.prank(Alice);
         bondManager.deposit(depositAmount);
@@ -147,18 +144,14 @@ contract BondManagerTest is Test {
         bondManager.deposit(10 ether);
     }
 
-    // ---------------------------------------------------------------
-    // DepositTo Tests
-    // ---------------------------------------------------------------
-
-    function test_depositTo_SuccessfulDepositForRecipient() external {
+    function test_deposit_SuccessfulDepositForRecipient() external {
         uint256 depositAmount = 50 ether;
         uint256 aliceInitialBalance = bondToken.balanceOf(Alice);
 
         vm.expectEmit();
         emit IBondManager.BondCredited(Bob, depositAmount);
         vm.expectEmit();
-        emit IBondManager.BondDepositedFor(Alice, Bob, depositAmount);
+        emit IBondManager.BondDeposited(Alice, Bob, depositAmount);
 
         vm.prank(Alice);
         bondManager.depositTo(Bob, depositAmount);
@@ -168,13 +161,15 @@ contract BondManagerTest is Test {
         assertEq(bondToken.balanceOf(address(bondManager)), depositAmount);
     }
 
-    function test_depositTo_RevertWhen_RecipientIsZeroAddress() external {
-        vm.expectRevert(BondManager.InvalidRecipient.selector);
+    function test_depositTo_RevertWhen_ZeroRecipient() external {
+        uint256 depositAmount = 50 ether;
+
+        vm.expectRevert(BondManager.InvalidAddress.selector);
         vm.prank(Alice);
-        bondManager.depositTo(address(0), 50 ether);
+        bondManager.depositTo(address(0), depositAmount);
     }
 
-    function test_depositTo_MultipleUsersCanDepositForSameRecipient() external {
+    function test_deposit_MultipleUsersCanDepositForSameRecipient() external {
         vm.prank(Alice);
         bondManager.depositTo(Carol, 30 ether);
 
@@ -184,7 +179,7 @@ contract BondManagerTest is Test {
         assertEq(bondManager.getBondBalance(Carol), 50 ether);
     }
 
-    function test_depositTo_DoesNotCancelWithdrawalRequest() external {
+    function test_deposit_ForOtherDoesNotCancelWithdrawalRequest() external {
         vm.prank(Bob);
         bondManager.depositTo(Carol, MIN_BOND);
 
@@ -947,7 +942,7 @@ contract BondManagerTest is Test {
     // Signal Processing Tests
     // ---------------------------------------------------------------
 
-    function test_processBondSignal_transfersBonds() external {
+    function test_processBondInstruction_transfersBonds() external {
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
             proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
@@ -959,16 +954,16 @@ contract BondManagerTest is Test {
         vm.prank(Alice);
         bondManager.deposit(LIVENESS_BOND * 2);
 
-        bondManager.processBondSignal(instruction, "");
+        bondManager.processBondInstruction(instruction, "");
 
         assertTrue(bondManager.processedSignals(signal));
         assertEq(bondManager.getBondBalance(Alice), LIVENESS_BOND);
-        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Bob), LIVENESS_BOND / 2);
     }
 
-    function test_processBondSignal_allowsOutOfOrderConsumption() external {
+    function test_processBondInstruction_allowsOutOfOrderConsumption() external {
         LibBonds.BondInstruction memory first = LibBonds.BondInstruction({
-            proposalId: 1, bondType: LibBonds.BondType.PROVABILITY, payer: Alice, payee: Bob
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Bob
         });
         LibBonds.BondInstruction memory second = LibBonds.BondInstruction({
             proposalId: 2, bondType: LibBonds.BondType.LIVENESS, payer: Carol, payee: David
@@ -984,10 +979,30 @@ contract BondManagerTest is Test {
         vm.prank(Carol);
         bondManager.deposit(500 ether);
 
-        bondManager.processBondSignal(second, "");
-        bondManager.processBondSignal(first, "");
+        bondManager.processBondInstruction(second, "");
+        bondManager.processBondInstruction(first, "");
 
-        assertEq(bondManager.getBondBalance(first.payee), PROVABILITY_BOND);
-        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(first.payee), LIVENESS_BOND / 2);
+        assertEq(bondManager.getBondBalance(second.payee), LIVENESS_BOND / 2);
+    }
+
+    function test_processBondInstruction_selfSlash_distributesAndRewardsCaller() external {
+        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
+            proposalId: 1, bondType: LibBonds.BondType.LIVENESS, payer: Alice, payee: Alice
+        });
+        bytes32 signal = keccak256(abi.encode(instruction));
+
+        vm.prank(L1_INBOX);
+        signalService.sendSignalFrom(L1_CHAIN_ID, L1_INBOX, signal);
+
+        vm.prank(Alice);
+        bondManager.deposit(LIVENESS_BOND * 2);
+
+        vm.prank(Emma);
+        bondManager.processBondInstruction(instruction, "");
+
+        // 50% burned, 40% returned to payer, 10% to caller
+        assertEq(bondManager.getBondBalance(Alice), (LIVENESS_BOND * 4) / 10 + LIVENESS_BOND);
+        assertEq(bondManager.getBondBalance(Emma), LIVENESS_BOND / 10);
     }
 }

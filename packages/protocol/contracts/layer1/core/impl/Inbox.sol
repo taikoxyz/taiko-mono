@@ -6,7 +6,6 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "../libs/LibBondInstruction.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
@@ -77,8 +76,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
-    /// @notice The extended proving window in seconds.
-    uint48 internal immutable _extendedProvingWindow;
+    /// @notice Maximum delay allowed between sequential proofs to remain on time.
+    uint48 internal immutable _maxProofSubmissionDelay;
 
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 internal immutable _ringBufferSize;
@@ -142,7 +141,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
-        _extendedProvingWindow = _config.extendedProvingWindow;
+        _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
         _minForcedInclusionCount = _config.minForcedInclusionCount;
@@ -272,14 +271,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Calculate proposal age and process bond instruction
+            // 3. Process bond instruction
             // ---------------------------------------------------------
-
-            // `proposalAge` is the age of the next-to-finalize proposal.
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-
+            // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset, proposalAge);
+                _processBondInstruction(commitment, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -312,6 +308,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
+            // We count the proposalAge as the time since it became available for proving.
+            uint256 proposalAge = block.timestamp
+                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             _proofVerifier.verifyProof(
                 proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
             );
@@ -362,11 +361,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function getForcedInclusionState()
-        external
-        view
-        returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
-    {
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_) {
         return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
     }
 
@@ -379,7 +374,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
+            maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
@@ -492,7 +487,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
 
             // Load storage once
-            (uint48 head, uint48 tail, uint48 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
+            (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
             uint256 toProcess = _numForcedInclusionsRequested > available
@@ -502,13 +497,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head, lastProcessedAt) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, lastProcessedAt, toProcess
+            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
+                $, _feeRecipient, result_.sources, head, toProcess
             );
 
+            // We check the following conditions are met:
+            // 1. Proposer is willing to include at least the minimum required
+            // (_minForcedInclusionCount) OR
+            // 2. Proposer included all available inclusions that are due
             if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
                 bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
-                    $, head, tail, lastProcessedAt, _forcedInclusionDelay
+                    $, head, tail, _forcedInclusionDelay
                 );
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
@@ -519,72 +518,86 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Dequeues and processes forced inclusions from the queue
+    /// @dev Dequeues and processes forced inclusions from the queue without checking if they exist
+    /// @param $ Storage reference
+    /// @param _feeRecipient Address to receive fees
+    /// @param _sources Array to populate with derivation sources
+    /// @param _head Current queue head position
+    /// @param _toProcess Number of inclusions to process
+    /// @return oldestTimestamp_ Oldest timestamp from processed inclusions.
+    /// `type(uint48).max` if no inclusions were processed
+    /// @return head_ Updated head position
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
         address _feeRecipient,
         DerivationSource[] memory _sources,
         uint48 _head,
-        uint48 _lastProcessedAt,
         uint256 _toProcess
     )
         private
-        returns (uint48 oldestTimestamp_, uint48 head_, uint48 lastProcessedAt_)
+        returns (uint48 oldestTimestamp_, uint48 head_)
     {
         unchecked {
-            if (_toProcess > 0) {
-                uint256 totalFees;
-                for (uint256 i; i < _toProcess; ++i) {
-                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
-                    _sources[i] = DerivationSource(true, inclusion.blobSlice);
-                    totalFees += inclusion.feeInGwei;
-                }
-
-                if (totalFees > 0) {
-                    _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-                }
-
-                oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp.max(_lastProcessedAt));
-
-                head_ = _head + uint48(_toProcess);
-                lastProcessedAt_ = uint48(block.timestamp);
-
-                ($.head, $.lastProcessedAt) = (head_, lastProcessedAt_);
-            } else {
-                oldestTimestamp_ = type(uint48).max;
-                head_ = _head;
-                lastProcessedAt_ = _lastProcessedAt;
+            if (_toProcess == 0) {
+                return (type(uint48).max, _head);
             }
+
+            // Process inclusions and accumulate fees
+            uint256 totalFees;
+            for (uint256 i; i < _toProcess; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
+                _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
+                totalFees += inclusion.feeInGwei;
+            }
+
+            // Transfer accumulated fees
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
+
+            // Oldest timestamp is the timestamp of the first inclusion
+            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
+
+            // Update queue position
+            head_ = _head + uint48(_toProcess);
+
+            // Write to storage once
+            $.head = head_;
         }
     }
 
-    /// @dev Calculates proposal age and emits bond instruction if applicable.
+    /// @dev Calculates and emits bond instruction if applicable.
+    /// @dev Bond instruction rules:
+    ///      - On-time (within provingWindow + sequential grace): No bond changes.
+    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
+    ///        same address (L2 processing handles slashing/reward splits).
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    /// @param _proposalAge The age of the next to finalize proposal.
     function _processBondInstruction(
         Commitment memory _commitment,
-        uint48 _offset,
-        uint256 _proposalAge
+        uint48 _offset
     )
         private
     {
         unchecked {
-            LibBonds.BondInstruction memory bondInstruction =
-                LibBondInstruction.calculateBondInstruction(
-                    _commitment.firstProposalId + _offset,
-                    _proposalAge,
-                    _commitment.transitions[_offset].proposer,
-                    _commitment.transitions[_offset].designatedProver,
-                    _commitment.actualProver,
-                    _provingWindow,
-                    _extendedProvingWindow
-                );
+            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
+                    + _provingWindow)
+            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
-            if (bondInstruction.bondType != LibBonds.BondType.NONE) {
-                _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-                emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            // On-time proof - no bond transfer needed.
+            if (block.timestamp <= livenessWindowDeadline) {
+                return;
             }
+
+            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
+                proposalId: _commitment.firstProposalId + _offset,
+                bondType: LibBonds.BondType.LIVENESS,
+                payer: _commitment.transitions[_offset].designatedProver,
+                payee: _commitment.actualProver
+            });
+
+            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
+            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
         }
     }
 
