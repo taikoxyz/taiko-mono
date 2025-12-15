@@ -7,14 +7,14 @@ import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol"
 
 contract LibProveInputCodecTest is Test {
     function test_encode_decode_roundtrip() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](2);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
             blockHash: bytes32(uint256(1))
         });
-        proposalStates[1] = IInbox.ProposalState({
+        transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
@@ -22,63 +22,76 @@ contract LibProveInputCodecTest is Test {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 5,
-            firstProposalParentBlockHash: bytes32(uint256(99)),
-            lastProposalHash: bytes32(uint256(77)),
-            lastBlockNumber: 1000,
-            lastStateRoot: bytes32(uint256(88)),
-            actualProver: address(0xAAAA),
-            proposalStates: proposalStates
+            commitment: IInbox.Commitment({
+                firstProposalId: 5,
+                firstProposalParentBlockHash: bytes32(uint256(99)),
+                lastProposalHash: bytes32(uint256(100)),
+                actualProver: address(0xAAAA),
+                endBlockNumber: 1000,
+                endStateRoot: bytes32(uint256(88)),
+                transitions: transitions
+            }),
+            forceCheckpointSync: true
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.firstProposalId, input.firstProposalId, "firstProposalId");
         assertEq(
-            decoded.firstProposalParentBlockHash,
-            input.firstProposalParentBlockHash,
+            decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
+        );
+        assertEq(
+            decoded.commitment.firstProposalParentBlockHash,
+            input.commitment.firstProposalParentBlockHash,
             "firstProposalParentBlockHash"
         );
-        assertEq(decoded.proposalStates.length, 2, "proposalStates length");
         assertEq(
-            decoded.proposalStates[0].proposer,
-            proposalStates[0].proposer,
-            "proposalStates[0] proposer"
+            decoded.commitment.lastProposalHash,
+            input.commitment.lastProposalHash,
+            "lastProposalHash"
+        );
+        assertEq(decoded.commitment.transitions.length, 2, "transitions length");
+        assertEq(
+            decoded.commitment.transitions[0].proposer,
+            transitions[0].proposer,
+            "transitions[0] proposer"
         );
         assertEq(
-            decoded.proposalStates[0].designatedProver,
-            proposalStates[0].designatedProver,
-            "proposalStates[0] designatedProver"
+            decoded.commitment.transitions[0].designatedProver,
+            transitions[0].designatedProver,
+            "transitions[0] designatedProver"
         );
         assertEq(
-            decoded.proposalStates[0].timestamp,
-            proposalStates[0].timestamp,
-            "proposalStates[0] timestamp"
+            decoded.commitment.transitions[0].timestamp,
+            transitions[0].timestamp,
+            "transitions[0] timestamp"
         );
         assertEq(
-            decoded.proposalStates[0].blockHash,
-            proposalStates[0].blockHash,
-            "proposalStates[0] blockHash"
+            decoded.commitment.transitions[0].blockHash,
+            transitions[0].blockHash,
+            "transitions[0] blockHash"
         );
         assertEq(
-            decoded.proposalStates[1].proposer,
-            proposalStates[1].proposer,
-            "proposalStates[1] proposer"
+            decoded.commitment.transitions[1].proposer,
+            transitions[1].proposer,
+            "transitions[1] proposer"
         );
         assertEq(
-            decoded.proposalStates[1].blockHash,
-            proposalStates[1].blockHash,
-            "proposalStates[1] blockHash"
+            decoded.commitment.transitions[1].blockHash,
+            transitions[1].blockHash,
+            "transitions[1] blockHash"
         );
-        assertEq(decoded.lastBlockNumber, input.lastBlockNumber, "lastBlockNumber");
-        assertEq(decoded.lastStateRoot, input.lastStateRoot, "lastStateRoot");
-        assertEq(decoded.actualProver, input.actualProver, "actualProver");
+        assertEq(
+            decoded.commitment.endBlockNumber, input.commitment.endBlockNumber, "endBlockNumber"
+        );
+        assertEq(decoded.commitment.endStateRoot, input.commitment.endStateRoot, "endStateRoot");
+        assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
+        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
     function test_encode_decode_singleProposal() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 500,
@@ -86,46 +99,53 @@ contract LibProveInputCodecTest is Test {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 1,
-            firstProposalParentBlockHash: bytes32(0),
-            lastProposalHash: bytes32(uint256(11)),
-            lastBlockNumber: 50,
-            lastStateRoot: bytes32(uint256(66)),
-            actualProver: address(0xBBBB),
-            proposalStates: proposalStates
+            commitment: IInbox.Commitment({
+                firstProposalId: 1,
+                firstProposalParentBlockHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(101)),
+                actualProver: address(0xBBBB),
+                endBlockNumber: 50,
+                endStateRoot: bytes32(uint256(66)),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.firstProposalId, 1, "firstProposalId");
-        assertEq(decoded.proposalStates.length, 1, "proposalStates length");
-        assertEq(decoded.proposalStates[0].proposer, address(0x5555), "proposer");
-        assertEq(decoded.actualProver, address(0xBBBB), "actualProver");
+        assertEq(decoded.commitment.firstProposalId, 1, "firstProposalId");
+        assertEq(decoded.commitment.transitions.length, 1, "transitions length");
+        assertEq(decoded.commitment.transitions[0].proposer, address(0x5555), "proposer");
+        assertEq(decoded.commitment.actualProver, address(0xBBBB), "actualProver");
+        assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
 
     function test_encode_decode_emptyProposals() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](0);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 0,
-            firstProposalParentBlockHash: bytes32(0),
-            lastProposalHash: bytes32(0),
-            lastBlockNumber: 0,
-            lastStateRoot: bytes32(0),
-            actualProver: address(0),
-            proposalStates: proposalStates
+            commitment: IInbox.Commitment({
+                firstProposalId: 0,
+                firstProposalParentBlockHash: bytes32(0),
+                lastProposalHash: bytes32(0),
+                actualProver: address(0),
+                endBlockNumber: 0,
+                endStateRoot: bytes32(0),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
 
         bytes memory encoded = LibProveInputCodec.encode(input);
         IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
 
-        assertEq(decoded.proposalStates.length, 0, "empty proposalStates");
+        assertEq(decoded.commitment.transitions.length, 0, "empty transitions");
     }
 
     function test_encode_deterministic() public pure {
-        IInbox.ProposalState[] memory proposalStates = new IInbox.ProposalState[](1);
-        proposalStates[0] = IInbox.ProposalState({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
@@ -133,13 +153,16 @@ contract LibProveInputCodecTest is Test {
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
-            firstProposalId: 42,
-            firstProposalParentBlockHash: bytes32(uint256(1111)),
-            lastProposalHash: bytes32(uint256(2222)),
-            lastBlockNumber: 888,
-            lastStateRoot: bytes32(uint256(7777)),
-            actualProver: address(0xCCCC),
-            proposalStates: proposalStates
+            commitment: IInbox.Commitment({
+                firstProposalId: 42,
+                firstProposalParentBlockHash: bytes32(uint256(1111)),
+                lastProposalHash: bytes32(uint256(2222)),
+                actualProver: address(0xCCCC),
+                endBlockNumber: 888,
+                endStateRoot: bytes32(uint256(7777)),
+                transitions: transitions
+            }),
+            forceCheckpointSync: true
         });
 
         bytes memory encoded1 = LibProveInputCodec.encode(input);

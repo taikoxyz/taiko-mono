@@ -32,6 +32,7 @@ contract DevnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
+        address _proverWhitelist,
         address _signalService,
         address _codec
     )
@@ -39,9 +40,10 @@ contract DevnetInbox is Inbox {
                 codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                proverWhitelist: _proverWhitelist,
                 signalService: _signalService,
                 provingWindow: 2 hours,
-                extendedProvingWindow: 4 hours,
+                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
@@ -49,8 +51,7 @@ contract DevnetInbox is Inbox {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5,
-                minProposalsToFinalize: 1
+                permissionlessInclusionMultiplier: 5
             }))
     { }
 

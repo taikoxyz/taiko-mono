@@ -10,92 +10,102 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 library LibProveInputCodec {
     /// @notice Encodes ProveInput data using compact packing.
     function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
-        uint256 bufferSize = _calculateSize(_input.proposalStates.length);
+        IInbox.Commitment memory c = _input.commitment;
+        uint256 bufferSize = _calculateSize(c.transitions.length);
         encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
 
-        ptr = P.packUint48(ptr, _input.firstProposalId);
-        ptr = P.packBytes32(ptr, _input.firstProposalParentBlockHash);
-        ptr = P.packBytes32(ptr, _input.lastProposalHash);
-        ptr = P.packUint48(ptr, _input.lastBlockNumber);
-        ptr = P.packBytes32(ptr, _input.lastStateRoot);
-        ptr = P.packAddress(ptr, _input.actualProver);
+        ptr = P.packUint48(ptr, c.firstProposalId);
+        ptr = P.packBytes32(ptr, c.firstProposalParentBlockHash);
+        ptr = P.packBytes32(ptr, c.lastProposalHash);
+        ptr = P.packAddress(ptr, c.actualProver);
+        ptr = P.packUint48(ptr, c.endBlockNumber);
+        ptr = P.packBytes32(ptr, c.endStateRoot);
 
-        P.checkArrayLength(_input.proposalStates.length);
-        ptr = P.packUint16(ptr, uint16(_input.proposalStates.length));
-        for (uint256 i; i < _input.proposalStates.length; ++i) {
-            _encodeProposalState(ptr, _input.proposalStates[i]);
-            ptr += 78; // ProposalState size: 20 + 20 + 6 + 32 = 78 bytes
+        P.checkArrayLength(c.transitions.length);
+        ptr = P.packUint16(ptr, uint16(c.transitions.length));
+        for (uint256 i; i < c.transitions.length; ++i) {
+            _encodeTransition(ptr, c.transitions[i]);
+            ptr += 78; // Transition size: 20 + 20 + 6 + 32 = 78 bytes
         }
+
+        // Encode forceCheckpointSync
+        P.packUint8(ptr, _input.forceCheckpointSync ? 1 : 0);
     }
 
     /// @notice Decodes ProveInput data using compact packing.
     function decode(bytes memory _data) internal pure returns (IInbox.ProveInput memory input_) {
         uint256 ptr = P.dataPtr(_data);
 
-        (input_.firstProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
-        (input_.lastProposalHash, ptr) = P.unpackBytes32(ptr);
-        (input_.lastBlockNumber, ptr) = P.unpackUint48(ptr);
-        (input_.lastStateRoot, ptr) = P.unpackBytes32(ptr);
-        (input_.actualProver, ptr) = P.unpackAddress(ptr);
+        (input_.commitment.firstProposalId, ptr) = P.unpackUint48(ptr);
+        (input_.commitment.firstProposalParentBlockHash, ptr) = P.unpackBytes32(ptr);
+        (input_.commitment.lastProposalHash, ptr) = P.unpackBytes32(ptr);
+        (input_.commitment.actualProver, ptr) = P.unpackAddress(ptr);
+        (input_.commitment.endBlockNumber, ptr) = P.unpackUint48(ptr);
+        (input_.commitment.endStateRoot, ptr) = P.unpackBytes32(ptr);
 
-        uint16 proposalStatesLength;
-        (proposalStatesLength, ptr) = P.unpackUint16(ptr);
-        input_.proposalStates = new IInbox.ProposalState[](proposalStatesLength);
-        for (uint256 i; i < proposalStatesLength; ++i) {
-            (input_.proposalStates[i], ptr) = _decodeProposalState(ptr);
+        uint16 transitionsLength;
+        (transitionsLength, ptr) = P.unpackUint16(ptr);
+        input_.commitment.transitions = new IInbox.Transition[](transitionsLength);
+        for (uint256 i; i < transitionsLength; ++i) {
+            (input_.commitment.transitions[i], ptr) = _decodeTransition(ptr);
         }
+
+        // Decode forceCheckpointSync
+        uint8 forceCheckpointSyncByte;
+        (forceCheckpointSyncByte,) = P.unpackUint8(ptr);
+        input_.forceCheckpointSync = forceCheckpointSyncByte != 0;
     }
 
     /// @dev Calculate the size needed for encoding.
-    /// @param _numProposalStates Number of proposal states in the array.
+    /// @param _numTransitions Number of transitions in the array.
     /// @return size_ Total byte size needed.
-    function _calculateSize(uint256 _numProposalStates) private pure returns (uint256 size_) {
+    function _calculateSize(uint256 _numTransitions) private pure returns (uint256 size_) {
         unchecked {
             // Fixed fields:
             //   firstProposalId: 6 bytes
             //   firstProposalParentBlockHash: 32 bytes
             //   lastProposalHash: 32 bytes
-            //   lastBlockNumber: 6 bytes
-            //   lastStateRoot: 32 bytes
             //   actualProver: 20 bytes
-            //   proposalStates array length: 2 bytes
-            // Total fixed: 130 bytes
+            //   endBlockNumber: 6 bytes
+            //   endStateRoot: 32 bytes
+            //   transitions array length: 2 bytes
+            //   forceCheckpointSync: 1 byte
+            // Total fixed: 131 bytes
             //
-            // Per ProposalState:
+            // Per Transition:
             //   proposer: 20 bytes
             //   designatedProver: 20 bytes
             //   timestamp: 6 bytes
             //   blockHash: 32 bytes
-            // Total per proposal state: 78 bytes
-            size_ = 130 + (_numProposalStates * 78);
+            // Total per transition: 78 bytes
+            size_ = 131 + (_numTransitions * 78);
         }
     }
 
-    function _encodeProposalState(
+    function _encodeTransition(
         uint256 _ptr,
-        IInbox.ProposalState memory _state
+        IInbox.Transition memory _transition
     )
         private
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packAddress(_ptr, _state.proposer);
-        newPtr_ = P.packAddress(newPtr_, _state.designatedProver);
-        newPtr_ = P.packUint48(newPtr_, _state.timestamp);
-        newPtr_ = P.packBytes32(newPtr_, _state.blockHash);
+        newPtr_ = P.packAddress(_ptr, _transition.proposer);
+        newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
+        newPtr_ = P.packUint48(newPtr_, _transition.timestamp);
+        newPtr_ = P.packBytes32(newPtr_, _transition.blockHash);
     }
 
-    function _decodeProposalState(uint256 _ptr)
+    function _decodeTransition(uint256 _ptr)
         private
         pure
-        returns (IInbox.ProposalState memory state_, uint256 newPtr_)
+        returns (IInbox.Transition memory transition_, uint256 newPtr_)
     {
-        (state_.proposer, newPtr_) = P.unpackAddress(_ptr);
-        (state_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
-        (state_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (state_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.proposer, newPtr_) = P.unpackAddress(_ptr);
+        (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 }
