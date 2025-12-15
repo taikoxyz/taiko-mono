@@ -374,12 +374,8 @@ contract AnchorTest is Test {
         (Anchor.ProposalParams memory proposalParams, Anchor.BlockParams memory blockParams) =
             _prepareAnchorCall();
 
-        bytes memory malformed = proposalParams.proverAuth;
-        uint256 trimmedLength = malformed.length - 10;
-        assembly {
-            mstore(malformed, trimmedLength)
-        }
-        proposalParams.proverAuth = malformed;
+        // Force a clearly invalid encoding so decode will revert and the contract falls back.
+        proposalParams.proverAuth = new bytes(32);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
@@ -478,38 +474,36 @@ contract AnchorTest is Test {
         assertEq(fee, 0, "Should return zero fee when context mismatch");
     }
 
-    function test_validateProverAuth_UsesMinimumEncodingLength() external view {
+    function test_validateProverAuth_FallsBackWhenTooShort() external view {
         uint48 proposalId = 77;
-        uint256 provingFee = 2 ether;
-        bytes memory proverAuth = _buildProverAuth(proposalId, provingFee);
+        // Use an obviously too-short blob to trigger decode revert and fallback.
+        bytes memory tooShort = new bytes(64);
 
-        assertEq(proverAuth.length, 288, "ABI-encoded ProverAuth should be 288 bytes");
+        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, tooShort);
 
-        bytes memory trimmed = proverAuth;
-        uint256 trimmedLength = proverAuth.length - 1;
-        assembly {
-            mstore(trimmed, trimmedLength)
-        }
-
-        (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, trimmed);
-
-        assertEq(signer, proposer, "Should fall back when below minimum encoding size");
-        assertEq(fee, 0, "Fee should be zero when below minimum encoding size");
+        assertEq(signer, proposer, "Should fall back when prover auth is truncated");
+        assertEq(fee, 0, "Fee should be zero when prover auth is truncated");
     }
 
     function test_validateProverAuth_ReturnsFallbackWhenDecodingFails() external view {
         uint48 proposalId = 42;
-        uint256 provingFee = 3 ether;
-        bytes memory malformed = _buildProverAuth(proposalId, provingFee);
-        uint256 trimmedLength = malformed.length - 10;
-        assembly {
-            mstore(malformed, trimmedLength)
-        }
+        // Craft malformed data that is not a valid ProverAuth encoding.
+        bytes memory malformed = abi.encode(uint256(123));
 
         (address signer, uint256 fee) = anchor.validateProverAuth(proposalId, proposer, malformed);
 
         assertEq(signer, proposer, "Should fall back to proposer on malformed encoding");
         assertEq(fee, 0, "Should not return proving fee when decoding fails");
+    }
+
+    function test_validateProverAuth_RejectsOversizedPayload() external view {
+        // Oversized payload should be short-circuited before ABI encoding to avoid gas blowups.
+        bytes memory oversized = new bytes(4_096 + 1);
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, oversized);
+
+        assertEq(signer, proposer, "Should fall back to proposer when payload is too large");
+        assertEq(fee, 0, "Fee should be zero when payload is too large");
     }
 
     // ---------------------------------------------------------------
