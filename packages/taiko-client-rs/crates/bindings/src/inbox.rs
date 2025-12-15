@@ -2709,7 +2709,7 @@ interface Inbox {
     function getConfig() external view returns (IInbox.Config memory config_);
     function getCoreState() external view returns (IInbox.CoreState memory);
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_);
-    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_);
+    function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_);
     function getForcedInclusions(uint48 _start, uint48 _maxCount) external view returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_);
     function getProposalHash(uint256 _proposalId) external view returns (bytes32);
     function impl() external view returns (address);
@@ -3016,11 +3016,6 @@ interface Inbox {
       },
       {
         "name": "tail_",
-        "type": "uint48",
-        "internalType": "uint48"
-      },
-      {
-        "name": "lastProcessedAt_",
         "type": "uint48",
         "internalType": "uint48"
       }
@@ -7823,7 +7818,7 @@ function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**Function with signature `getForcedInclusionState()` and selector `0x5ccc1718`.
 ```solidity
-function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_, uint48 lastProcessedAt_);
+function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_);
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -7838,8 +7833,6 @@ function getForcedInclusionState() external view returns (uint48 head_, uint48 t
         pub head_: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub tail_: alloy::sol_types::private::primitives::aliases::U48,
-        #[allow(missing_docs)]
-        pub lastProcessedAt_: alloy::sol_types::private::primitives::aliases::U48,
     }
     #[allow(
         non_camel_case_types,
@@ -7887,11 +7880,9 @@ function getForcedInclusionState() external view returns (uint48 head_, uint48 t
             type UnderlyingSolTuple<'a> = (
                 alloy::sol_types::sol_data::Uint<48>,
                 alloy::sol_types::sol_data::Uint<48>,
-                alloy::sol_types::sol_data::Uint<48>,
             );
             #[doc(hidden)]
             type UnderlyingRustTuple<'a> = (
-                alloy::sol_types::private::primitives::aliases::U48,
                 alloy::sol_types::private::primitives::aliases::U48,
                 alloy::sol_types::private::primitives::aliases::U48,
             );
@@ -7911,7 +7902,7 @@ function getForcedInclusionState() external view returns (uint48 head_, uint48 t
             impl ::core::convert::From<getForcedInclusionStateReturn>
             for UnderlyingRustTuple<'_> {
                 fn from(value: getForcedInclusionStateReturn) -> Self {
-                    (value.head_, value.tail_, value.lastProcessedAt_)
+                    (value.head_, value.tail_)
                 }
             }
             #[automatically_derived]
@@ -7922,7 +7913,6 @@ function getForcedInclusionState() external view returns (uint48 head_, uint48 t
                     Self {
                         head_: tuple.0,
                         tail_: tuple.1,
-                        lastProcessedAt_: tuple.2,
                     }
                 }
             }
@@ -7940,9 +7930,6 @@ function getForcedInclusionState() external view returns (uint48 head_, uint48 t
                     <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::SolType>::tokenize(&self.tail_),
-                    <alloy::sol_types::sol_data::Uint<
-                        48,
-                    > as alloy_sol_types::SolType>::tokenize(&self.lastProcessedAt_),
                 )
             }
         }
@@ -7954,7 +7941,6 @@ function getForcedInclusionState() external view returns (uint48 head_, uint48 t
             > as alloy_sol_types::SolType>::Token<'a>;
             type Return = getForcedInclusionStateReturn;
             type ReturnTuple<'a> = (
-                alloy::sol_types::sol_data::Uint<48>,
                 alloy::sol_types::sol_data::Uint<48>,
                 alloy::sol_types::sol_data::Uint<48>,
             );

@@ -123,6 +123,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		1_000_000,
 		nil,
 		true,
+		0,
 	)
 }
 
