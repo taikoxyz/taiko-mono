@@ -537,33 +537,33 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         private
         returns (uint48 oldestTimestamp_, uint48 head_)
     {
-        if (_toProcess == 0) {
-            return (type(uint48).max, _head);
-        }
-
-        // Process inclusions and accumulate fees
-        uint256 totalFees;
         unchecked {
+            if (_toProcess == 0) {
+                return (type(uint48).max, _head);
+            }
+
+            // Process inclusions and accumulate fees
+            uint256 totalFees;
             for (uint256 i; i < _toProcess; ++i) {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                 _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
                 totalFees += inclusion.feeInGwei;
             }
+
+            // Transfer accumulated fees
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
+
+            // Oldest timestamp is the timestamp of the first inclusion
+            oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
+
+            // Update queue position
+            head_ = _head + uint48(_toProcess);
+
+            // Write to storage once
+            $.head = head_;
         }
-
-        // Transfer accumulated fees
-        if (totalFees > 0) {
-            _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-        }
-
-        // Oldest timestamp is the timestamp of the first inclusion
-        oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
-
-        // Update queue position
-        head_ = _head + uint48(_toProcess);
-
-        // Write to storage once
-        $.head = head_;
     }
 
     /// @dev Calculates and emits bond instruction if applicable.
