@@ -151,6 +151,7 @@ func (p *Proposer) InitFromConfig(
 		cfg.RevertProtectionEnabled,
 		cfg.BlobAllowed,
 		cfg.FallbackToCalldata,
+		cfg.AnchorOffset,
 	)
 
 	return nil
