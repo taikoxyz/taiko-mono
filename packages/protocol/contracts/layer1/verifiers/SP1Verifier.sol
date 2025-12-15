@@ -28,8 +28,12 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
     error SP1_INVALID_AGGREGATION_VKEY();
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
+    error INVALID_CHAIN_ID();
+    error INVALID_SP1_REMOTE_VERIFIER();
 
     constructor(uint64 _taikoChainId, address _sp1RemoteVerifier, address _owner) {
+        require(_taikoChainId > 1, INVALID_CHAIN_ID());
+        require(_sp1RemoteVerifier != address(0), INVALID_SP1_REMOTE_VERIFIER());
         taikoChainId = _taikoChainId;
         sp1RemoteVerifier = _sp1RemoteVerifier;
 
