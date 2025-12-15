@@ -303,16 +303,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
-            emit Proved(
-                LibProvedEventCodec.encode(
+            emit Proved(LibProvedEventCodec.encode(
                     ProvedEventPayload({
                         firstProposalId: commitment.firstProposalId,
                         lastProposalId: uint48(lastProposalId),
                         actualProver: commitment.actualProver,
                         checkpointSynced: checkpointSynced
                     })
-                )
-            );
+                ));
 
             // ---------------------------------------------------------
             // 6. Verify the proof

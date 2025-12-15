@@ -89,10 +89,7 @@ contract LibProvedEventCodecTest is Test {
 
     function test_encode_decode_zeroValues() public pure {
         IInbox.ProvedEventPayload memory payload = IInbox.ProvedEventPayload({
-            firstProposalId: 0,
-            lastProposalId: 0,
-            actualProver: address(0),
-            checkpointSynced: false
+            firstProposalId: 0, lastProposalId: 0, actualProver: address(0), checkpointSynced: false
         });
 
         bytes memory encoded = LibProvedEventCodec.encode(payload);
