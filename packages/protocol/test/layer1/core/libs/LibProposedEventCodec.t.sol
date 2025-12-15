@@ -33,9 +33,6 @@ contract LibProposedEventCodecTest is Test {
                 endOfSubmissionWindowTimestamp: 0,
                 proposer: address(0x1234),
                 parentProposalHash: bytes32(uint256(9)),
-                derivationHash: bytes32(uint256(10))
-            }),
-            derivation: IInbox.Derivation({
                 originBlockNumber: 99,
                 originBlockHash: bytes32(uint256(7)),
                 basefeeSharingPctg: 3,
@@ -76,9 +73,6 @@ contract LibProposedEventCodecTest is Test {
                 endOfSubmissionWindowTimestamp: 300,
                 proposer: address(0xBEEF),
                 parentProposalHash: bytes32(uint256(13)),
-                derivationHash: bytes32(uint256(14))
-            }),
-            derivation: IInbox.Derivation({
                 originBlockNumber: 150,
                 originBlockHash: bytes32(uint256(151)),
                 basefeeSharingPctg: 9,
@@ -89,11 +83,11 @@ contract LibProposedEventCodecTest is Test {
         IInbox.ProposedEventPayload memory decoded =
             LibProposedEventCodec.decode(LibProposedEventCodec.encode(payload));
 
-        assertEq(decoded.derivation.sources.length, 2, "sources length");
-        assertTrue(decoded.derivation.sources[0].isForcedInclusion, "forced flag");
-        assertEq(decoded.derivation.sources[1].blobSlice.blobHashes.length, 3, "blob hashes length");
-        assertEq(decoded.derivation.sources[1].blobSlice.offset, 88, "offset");
-        assertEq(decoded.derivation.sources[1].blobSlice.timestamp, 66, "timestamp");
+        assertEq(decoded.proposal.sources.length, 2, "sources length");
+        assertTrue(decoded.proposal.sources[0].isForcedInclusion, "forced flag");
+        assertEq(decoded.proposal.sources[1].blobSlice.blobHashes.length, 3, "blob hashes length");
+        assertEq(decoded.proposal.sources[1].blobSlice.offset, 88, "offset");
+        assertEq(decoded.proposal.sources[1].blobSlice.timestamp, 66, "timestamp");
         _assertEqual(payload, decoded);
     }
 
@@ -143,45 +137,47 @@ contract LibProposedEventCodecTest is Test {
         );
         assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
         assertEq(
-            _actual.proposal.derivationHash, _expected.proposal.derivationHash, "derivation hash"
+            _actual.proposal.parentProposalHash,
+            _expected.proposal.parentProposalHash,
+            "parent hash"
         );
 
         assertEq(
-            _actual.derivation.originBlockNumber,
-            _expected.derivation.originBlockNumber,
+            _actual.proposal.originBlockNumber,
+            _expected.proposal.originBlockNumber,
             "origin block"
         );
         assertEq(
-            _actual.derivation.originBlockHash, _expected.derivation.originBlockHash, "origin hash"
+            _actual.proposal.originBlockHash, _expected.proposal.originBlockHash, "origin hash"
         );
         assertEq(
-            _actual.derivation.basefeeSharingPctg,
-            _expected.derivation.basefeeSharingPctg,
+            _actual.proposal.basefeeSharingPctg,
+            _expected.proposal.basefeeSharingPctg,
             "basefee"
         );
         assertEq(
-            _actual.derivation.sources.length, _expected.derivation.sources.length, "sources length"
+            _actual.proposal.sources.length, _expected.proposal.sources.length, "sources length"
         );
 
-        for (uint256 i; i < _actual.derivation.sources.length; ++i) {
+        for (uint256 i; i < _actual.proposal.sources.length; ++i) {
             assertEq(
-                _actual.derivation.sources[i].isForcedInclusion,
-                _expected.derivation.sources[i].isForcedInclusion,
+                _actual.proposal.sources[i].isForcedInclusion,
+                _expected.proposal.sources[i].isForcedInclusion,
                 "forced flag"
             );
             assertEq(
-                _actual.derivation.sources[i].blobSlice.blobHashes,
-                _expected.derivation.sources[i].blobSlice.blobHashes,
+                _actual.proposal.sources[i].blobSlice.blobHashes,
+                _expected.proposal.sources[i].blobSlice.blobHashes,
                 "blob hashes"
             );
             assertEq(
-                _actual.derivation.sources[i].blobSlice.offset,
-                _expected.derivation.sources[i].blobSlice.offset,
+                _actual.proposal.sources[i].blobSlice.offset,
+                _expected.proposal.sources[i].blobSlice.offset,
                 "offset"
             );
             assertEq(
-                _actual.derivation.sources[i].blobSlice.timestamp,
-                _expected.derivation.sources[i].blobSlice.timestamp,
+                _actual.proposal.sources[i].blobSlice.timestamp,
+                _expected.proposal.sources[i].blobSlice.timestamp,
                 "timestamp"
             );
         }

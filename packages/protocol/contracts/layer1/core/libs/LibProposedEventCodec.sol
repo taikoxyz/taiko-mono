@@ -14,7 +14,7 @@ library LibProposedEventCodec {
         pure
         returns (bytes memory encoded_)
     {
-        uint256 bufferSize = calculateProposedEventSize(_payload.derivation.sources);
+        uint256 bufferSize = calculateProposedEventSize(_payload.proposal.sources);
         encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
@@ -25,15 +25,15 @@ library LibProposedEventCodec {
         ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
         ptr = P.packBytes32(ptr, _payload.proposal.parentProposalHash);
 
-        ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
-        ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
-        ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
+        ptr = P.packUint48(ptr, _payload.proposal.originBlockNumber);
+        ptr = P.packBytes32(ptr, _payload.proposal.originBlockHash);
+        ptr = P.packUint8(ptr, _payload.proposal.basefeeSharingPctg);
 
-        uint256 sourcesLength = _payload.derivation.sources.length;
+        uint256 sourcesLength = _payload.proposal.sources.length;
         P.checkArrayLength(sourcesLength);
         ptr = P.packUint16(ptr, uint16(sourcesLength));
         for (uint256 i; i < sourcesLength; ++i) {
-            IInbox.DerivationSource memory source = _payload.derivation.sources[i];
+            IInbox.DerivationSource memory source = _payload.proposal.sources[i];
             ptr = P.packUint8(ptr, source.isForcedInclusion ? 1 : 0);
 
             uint256 blobHashesLength = source.blobSlice.blobHashes.length;
@@ -46,8 +46,6 @@ library LibProposedEventCodec {
             ptr = P.packUint24(ptr, source.blobSlice.offset);
             ptr = P.packUint48(ptr, source.blobSlice.timestamp);
         }
-
-        ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding.
@@ -64,31 +62,30 @@ library LibProposedEventCodec {
         (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
         (payload_.proposal.parentProposalHash, ptr) = P.unpackBytes32(ptr);
 
-        (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
-        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+        (payload_.proposal.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.originBlockHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
         uint16 sourcesLength;
         (sourcesLength, ptr) = P.unpackUint16(ptr);
-        payload_.derivation.sources = new IInbox.DerivationSource[](sourcesLength);
+        payload_.proposal.sources = new IInbox.DerivationSource[](sourcesLength);
         for (uint256 i; i < sourcesLength; ++i) {
             uint8 isForcedInclusion;
             (isForcedInclusion, ptr) = P.unpackUint8(ptr);
-            payload_.derivation.sources[i].isForcedInclusion = isForcedInclusion != 0;
+            payload_.proposal.sources[i].isForcedInclusion = isForcedInclusion != 0;
 
             uint16 blobHashesLength;
             (blobHashesLength, ptr) = P.unpackUint16(ptr);
 
-            payload_.derivation.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
+            payload_.proposal.sources[i].blobSlice.blobHashes = new bytes32[](blobHashesLength);
             for (uint256 j; j < blobHashesLength; ++j) {
-                (payload_.derivation.sources[i].blobSlice.blobHashes[j], ptr) = P.unpackBytes32(ptr);
+                (payload_.proposal.sources[i].blobSlice.blobHashes[j], ptr) =
+                    P.unpackBytes32(ptr);
             }
 
-            (payload_.derivation.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);
-            (payload_.derivation.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
+            (payload_.proposal.sources[i].blobSlice.offset, ptr) = P.unpackUint24(ptr);
+            (payload_.proposal.sources[i].blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
         }
-
-        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEventPayload.
@@ -98,13 +95,11 @@ library LibProposedEventCodec {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size without sources: 143 bytes
+            // Fixed size without sources: 111 bytes
             // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) +
-            // parentProposalHash(32)
-            // Derivation base: originBlockNumber(6) + originBlockHash(32) + basefeeSharingPctg(1)
-            // Sources length: 2
-            // Proposal hash: derivationHash(32)
-            size_ = 143;
+            // parentProposalHash(32) + originBlockNumber(6) + originBlockHash(32) +
+            // basefeeSharingPctg(1) + sources length(2)
+            size_ = 111;
 
             for (uint256 i; i < _sources.length; ++i) {
                 size_ += 12 + (_sources[i].blobSlice.blobHashes.length * 32);
