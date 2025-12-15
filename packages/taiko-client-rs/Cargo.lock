@@ -3433,14 +3433,15 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "0.8.0-alpha"
+version = "0.9.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "441f08ec3eac96c21282e29acdf51dbb7d7e4011d9084cbb9bc65145780c691d"
+checksum = "1f55759250f35ff46c155168da8020eeda48886eb754d4aaabe4b280214e5630"
 dependencies = [
  "alloy",
  "alloy-node-bindings",
  "anyhow",
  "backon",
+ "futures",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
