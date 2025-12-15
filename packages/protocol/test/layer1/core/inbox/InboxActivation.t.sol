@@ -101,11 +101,6 @@ contract InboxActivationTest is InboxTestBase {
 
         // Verify key config values match what was set during construction
         assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
-        assertEq(
-            cfg.extendedProvingWindow,
-            config.extendedProvingWindow,
-            "extendedProvingWindow mismatch"
-        );
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
         assertEq(
@@ -164,14 +159,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.provingWindow = 0;
 
         vm.expectRevert(LibInboxSetup.ProvingWindowZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_ExtendedWindowTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.extendedProvingWindow = cfg.provingWindow; // Must be > provingWindow
-
-        vm.expectRevert(LibInboxSetup.ExtendedWindowTooSmall.selector);
         new Inbox(cfg);
     }
 
