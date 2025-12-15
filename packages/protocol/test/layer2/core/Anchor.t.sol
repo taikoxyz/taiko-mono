@@ -244,6 +244,36 @@ contract AnchorTest is Test {
         assertEq(fee, provingFee);
     }
 
+    function test_validateProverAuth_FallsBackWhenTooShort() external view {
+        // Too-short payload should cause decode to revert and fall back to proposer.
+        bytes memory tooShort = new bytes(64);
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, tooShort);
+
+        assertEq(signer, proposer);
+        assertEq(fee, 0);
+    }
+
+    function test_validateProverAuth_ReturnsFallbackWhenDecodingFails() external view {
+        // Non-ProverAuth encoding should also fall back.
+        bytes memory malformed = abi.encode(uint256(123));
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, malformed);
+
+        assertEq(signer, proposer);
+        assertEq(fee, 0);
+    }
+
+    function test_validateProverAuth_RejectsOversizedPayload() external view {
+        // Oversized payload should be short-circuited before ABI encoding to avoid gas blowups.
+        bytes memory oversized = new bytes(4096 + 1);
+
+        (address signer, uint256 fee) = anchor.validateProverAuth(1, proposer, oversized);
+
+        assertEq(signer, proposer);
+        assertEq(fee, 0);
+    }
+
     function test_DOMAIN_SEPARATOR_returnsCorrectValue() external view {
         bytes32 domainSeparator = anchor.DOMAIN_SEPARATOR();
         bytes32 expectedDomainSeparator = keccak256(
