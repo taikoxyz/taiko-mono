@@ -1,17 +1,10 @@
-use std::{
-    env, fmt,
-    path::PathBuf,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{env, fmt, path::PathBuf, str::FromStr, time::Instant};
 
 use crate::init_tracing;
 use alloy::{eips::eip4844::BlobTransactionSidecar, transports::http::reqwest::Url as RpcUrl};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{ProviderBuilder, RootProvider};
 use anyhow::{Context, Result};
-use proposer::{config::ProposerConfigs, proposer::Proposer};
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig},
@@ -40,7 +33,6 @@ pub struct ShastaEnv {
     pub taiko_anchor_address: Address,
     pub client_config: ClientConfig,
     pub client: RpcClient,
-    pub proposer: Arc<Proposer>,
     cleanup_provider: RootProvider,
     snapshot_id: String,
     blob_server: Option<BlobServer>,
@@ -119,20 +111,6 @@ impl ShastaEnv {
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
-        // Build the proposer wired to the shared indexer.
-        let proposer_config = ProposerConfigs {
-            l1_provider_source: l1_source.clone(),
-            l2_provider_url: l2_http_url.clone(),
-            l2_auth_provider_url: l2_auth_url.clone(),
-            jwt_secret: jwt_secret_path.clone(),
-            inbox_address,
-            l2_suggested_fee_recipient,
-            propose_interval: Duration::from_secs(0),
-            l1_proposer_private_key,
-            gas_limit: None,
-        };
-        let proposer = Arc::new(Proposer::new(proposer_config).await?);
-
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
         Ok(Self {
             l1_source,
@@ -145,7 +123,6 @@ impl ShastaEnv {
             taiko_anchor_address,
             client_config,
             client,
-            proposer,
             cleanup_provider,
             snapshot_id,
             blob_server: None,

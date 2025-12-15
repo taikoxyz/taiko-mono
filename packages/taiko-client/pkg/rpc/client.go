@@ -38,7 +38,7 @@ type PacayaClients struct {
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
 	Inbox           *shastaBindings.ShastaInboxClient
-	InboxCodec      *shastaBindings.CodecOptimizedClient
+	InboxCodec      *shastaBindings.CodecClient
 	Anchor          *shastaBindings.ShastaAnchor
 	ComposeVerifier *shastaBindings.ComposeVerifier
 	InboxAddress    common.Address
@@ -287,7 +287,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to get shasta inbox config: %w", err)
 	}
-	inboxCodec, err := shastaBindings.NewCodecOptimizedClient(config.Codec, c.L1)
+	inboxCodec, err := shastaBindings.NewCodecClient(config.Codec, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
 	}

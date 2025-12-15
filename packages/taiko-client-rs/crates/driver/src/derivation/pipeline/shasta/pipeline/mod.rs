@@ -12,7 +12,7 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::{
-    codec_optimized::IInbox::{DerivationSource, ProposedEventPayload},
+    codec::IInbox::{DerivationSource, ProposedEventPayload},
     inbox::Inbox::Proposed,
 };
 use metrics::{counter, gauge};
@@ -184,7 +184,7 @@ where
             .rpc
             .shasta
             .inbox
-            .getState()
+            .getCoreState()
             .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
             .call()
             .await?;

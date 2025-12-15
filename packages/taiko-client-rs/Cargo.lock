@@ -1269,6 +1269,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arc-swap"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
+
+[[package]]
 name = "ark-bls12-381"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3427,14 +3433,15 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "0.7.0-alpha"
+version = "0.9.0-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efaf4670dbb0005e178cbf019d732f9819c76bfb9144aadbd52f814bf3647b87"
+checksum = "1f55759250f35ff46c155168da8020eeda48886eb754d4aaabe4b280214e5630"
 dependencies = [
  "alloy",
  "alloy-node-bindings",
  "anyhow",
  "backon",
+ "futures",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
@@ -6316,19 +6323,26 @@ version = "2.0.0"
 dependencies = [
  "alloy",
  "alloy-consensus",
+ "alloy-contract",
  "alloy-eips",
  "alloy-hardforks 0.4.4",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
+ "alloy-rpc-types",
  "anyhow",
+ "arc-swap",
+ "async-trait",
  "bindings",
+ "dashmap 6.1.0",
  "event-scanner",
  "flate2",
  "rand 0.8.5",
  "serde",
  "thiserror 2.0.17",
  "tokio",
+ "tokio-retry",
+ "tokio-stream",
  "tracing",
 ]
 
@@ -10725,7 +10739,6 @@ dependencies = [
  "hyper",
  "hyper-util",
  "once_cell",
- "proposer",
  "rpc",
  "serde",
  "serde_json",
