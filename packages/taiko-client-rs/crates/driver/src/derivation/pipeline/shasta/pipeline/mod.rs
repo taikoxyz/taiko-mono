@@ -169,7 +169,7 @@ where
         debug!(
             proposal_id = payload.proposal.id.to::<u64>(),
             timestamp = payload.proposal.timestamp.to::<u64>(),
-            source_count = payload.derivation.sources.len(),
+            source_count = payload.proposal.sources.len(),
             "decoded proposed event payload"
         );
         Ok(payload)
@@ -217,7 +217,7 @@ where
         payload: &ProposedEventPayload,
         last_finalized_proposal_id: u64,
     ) -> Result<ShastaProposalBundle, DerivationError> {
-        let sources = &payload.derivation.sources;
+        let sources = &payload.proposal.sources;
         let proposal_id = payload.proposal.id.to::<u64>();
         info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
 
@@ -275,10 +275,10 @@ where
                 proposal_id,
                 last_finalized_proposal_id,
                 proposal_timestamp: payload.proposal.timestamp.to::<u64>(),
-                origin_block_number: payload.derivation.originBlockNumber.to::<u64>(),
-                origin_block_hash: B256::from(payload.derivation.originBlockHash),
+                origin_block_number: payload.proposal.originBlockNumber.to::<u64>(),
+                origin_block_hash: B256::from(payload.proposal.originBlockHash),
                 proposer: payload.proposal.proposer,
-                basefee_sharing_pctg: payload.derivation.basefeeSharingPctg,
+                basefee_sharing_pctg: payload.proposal.basefeeSharingPctg,
                 prover_auth_bytes,
             },
             sources: manifest_segments,
