@@ -152,7 +152,7 @@ impl Monitor {
     {
         match provider.syncing().await {
             Ok(syncing) => match serde_json::to_value(&syncing) {
-                Ok(serde_json::Value::Bool(false)) => false,
+                Ok(serde_json::Value::Bool(false)) | Ok(serde_json::Value::Null) => false,
                 Ok(serde_json::Value::Object(_)) => {
                     warn!(node = node_label, "Node is syncing; skipping eject this tick");
                     true
@@ -266,7 +266,6 @@ impl Monitor {
 
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
-        let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
@@ -297,6 +296,7 @@ impl Monitor {
             let mut ticker = interval(tick);
             loop {
                 ticker.tick().await;
+                let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
 
                 // log out epoch and slots
                 let curr_epoch = beacon_client.current_epoch();
@@ -381,13 +381,27 @@ impl Monitor {
                                 let mut guard = last_l2_head_for_watch.lock().await;
                                 match *guard {
                                     Some(prev) if l2_head > prev => {
-                                        warn!(
-                                            prev_l2_head = prev,
-                                            current_l2_head = l2_head,
-                                            "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
-                                        );
-                                        *guard = Some(l2_head);
-                                        skip_due_to_l2 = true;
+                                        let ws_staleness =
+                                            last_block_for_watch.lock().await.elapsed();
+                                        let ws_fresh_enough = ws_staleness <= tick * 4;
+                                        if ws_fresh_enough {
+                                            warn!(
+                                                prev_l2_head = prev,
+                                                current_l2_head = l2_head,
+                                                ws_staleness_secs = ws_staleness.as_secs(),
+                                                "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
+                                            );
+                                            *guard = Some(l2_head);
+                                            skip_due_to_l2 = true;
+                                        } else {
+                                            warn!(
+                                                prev_l2_head = prev,
+                                                current_l2_head = l2_head,
+                                                ws_staleness_secs = ws_staleness.as_secs(),
+                                                "L2 head advanced but WS stream stale; reconnecting without skipping eject"
+                                            );
+                                            *guard = Some(l2_head);
+                                        }
                                     }
                                     Some(prev) if l2_head < prev => {
                                         warn!(
@@ -399,12 +413,7 @@ impl Monitor {
                                         skip_due_to_l2 = true;
                                     }
                                     None => {
-                                        warn!(
-                                            current_l2_head = l2_head,
-                                            "No baseline L2 head number recorded yet; skipping eject and forcing resubscribe"
-                                        );
                                         *guard = Some(l2_head);
-                                        skip_due_to_l2 = true;
                                     }
                                     _ => {}
                                 }
@@ -421,6 +430,7 @@ impl Monitor {
                     if skip_due_to_l2 {
                         reconnect_notify_for_watch.notify_one();
                         *last_seen_for_watch.lock().await = Instant::now();
+                        *last_block_for_watch.lock().await = Instant::now();
                         metrics::set_last_seen_drift_seconds(0);
                         continue;
                     }
