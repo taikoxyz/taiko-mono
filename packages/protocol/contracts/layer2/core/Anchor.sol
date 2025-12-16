@@ -43,13 +43,6 @@ contract Anchor is EssentialContract {
         bytes proverAuth; // Encoded ProverAuth for prover designation
     }
 
-    /// @notice Block-level data specific to a single block within a proposal.
-    struct BlockParams {
-        uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
-        bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
-        bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
-    }
-
     /// @notice Stored proposal-level state for the ongoing batch.
     struct ProposalState {
         address designatedProver;
@@ -199,10 +192,10 @@ contract Anchor is EssentialContract {
     ///      1. Designates prover when a new proposal starts (i.e. the first block of a proposal)
     ///      2. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
-    /// @param _blockParams Block-level parameters specific to this block in the proposal.
+    /// @param _checkpoint Checkpoint data for the L1 block being anchored.
     function anchorV4(
         ProposalParams calldata _proposalParams,
-        BlockParams calldata _blockParams
+        ICheckpointStore.Checkpoint calldata _checkpoint
     )
         external
         onlyValidSender
@@ -221,7 +214,7 @@ contract Anchor is EssentialContract {
             _validateProposal(_proposalParams);
         }
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
-        _validateBlock(_blockParams);
+        _validateBlock(_checkpoint);
 
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
@@ -397,8 +390,8 @@ contract Anchor is EssentialContract {
     }
 
     /// @dev Validates and processes block-level data.
-    /// @param _blockParams Block-level parameters containing anchor data.
-    function _validateBlock(BlockParams calldata _blockParams) private {
+    /// @param _checkpoint Anchor checkpoint data from L1.
+    function _validateBlock(ICheckpointStore.Checkpoint calldata _checkpoint) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         if (_blockState.ancestorsHash != bytes32(0)) {
@@ -407,15 +400,9 @@ contract Anchor is EssentialContract {
         _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
-        if (_blockParams.anchorBlockNumber > _blockState.anchorBlockNumber) {
-            checkpointStore.saveCheckpoint(
-                ICheckpointStore.Checkpoint({
-                    blockNumber: _blockParams.anchorBlockNumber,
-                    blockHash: _blockParams.anchorBlockHash,
-                    stateRoot: _blockParams.anchorStateRoot
-                })
-            );
-            _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
+        if (_checkpoint.blockNumber > _blockState.anchorBlockNumber) {
+            checkpointStore.saveCheckpoint(_checkpoint);
+            _blockState.anchorBlockNumber = _checkpoint.blockNumber;
         }
     }
 

@@ -201,6 +201,7 @@ The `BlobSlice` struct represents binary data distributed across multiple blobs.
 For each `DerivationSource[i]`, the validator performs:
 
 1. **Blob Validation**: Verify `blobSlice.blobHashes.length > 0`
+   - Let `BLOB_BYTES = 4096 * 32 = 131072` (bytes per blob as defined by EIP-4844)
 2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64`
 3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
 4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
