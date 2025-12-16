@@ -95,7 +95,7 @@ contract AlethiaHoodiInbox is TaikoInbox {
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_344_899_430, // 0.01 gwei
+                minGasExcess: 1_289_447_652, // 0.0025 gwei
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             provingWindow: 2 hours,
