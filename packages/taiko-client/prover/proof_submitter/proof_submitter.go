@@ -25,7 +25,10 @@ var (
 	MaxNumSupportedProofTypes = 4
 )
 
-const maxProofRequestTimeout = 1 * time.Hour
+const (
+	maxProofRequestTimeout = 1 * time.Hour
+	monitorInterval        = 5 * time.Minute
+)
 
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
@@ -279,10 +282,7 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 }
 
 func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
-	if s.forceBatchProvingInterval <= 0 {
-		return
-	}
-	log.Info("Starting proof buffers monitors for Pacaya", "forceBatchProvingInterval", s.forceBatchProvingInterval)
+	log.Info("Starting proof buffers monitors for Pacaya", "monitorInterval", monitorInterval)
 	for proofType, buffer := range s.proofBuffers {
 		go s.monitorProofBuffer(ctx, proofType, buffer)
 	}
@@ -293,7 +293,7 @@ func (s *ProofSubmitterPacaya) monitorProofBuffer(
 	proofType proofProducer.ProofType,
 	buffer *proofProducer.ProofBuffer,
 ) {
-	ticker := time.NewTicker(s.forceBatchProvingInterval)
+	ticker := time.NewTicker(monitorInterval)
 	defer ticker.Stop()
 
 	for {
