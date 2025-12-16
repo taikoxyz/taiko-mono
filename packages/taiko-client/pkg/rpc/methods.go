@@ -951,7 +951,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	var method *abi.Method
 	if method, err = encoding.ShastaAnchorABI.MethodById(tx.Data()); err != nil {
 		if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
-			return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoAnchor.AnchorV3 method by ID: %w", err)
+			return common.Hash{}, 0, 0, fmt.Errorf("failed to get anchor method by ID: %w", err)
 		}
 	}
 
@@ -992,23 +992,23 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 			return common.Hash{}, 0, 0, err
 		}
 
-		blockParams, exists := args["_blockParams"]
+		checkpointParams, exists := args["_checkpoint"]
 		if !exists {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("anchor transaction calldata missing block params")
+				errors.New("anchor transaction calldata missing checkpoint params")
 		}
 
-		blockValue := reflect.ValueOf(blockParams)
+		blockValue := reflect.ValueOf(checkpointParams)
 		if blockValue.Kind() != reflect.Struct {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("unexpected block params type in anchor transaction calldata")
+				errors.New("unexpected checkpoint params type in anchor transaction calldata")
 		}
 
-		blockNumberField := blockValue.FieldByName("AnchorBlockNumber")
+		blockNumberField := blockValue.FieldByName("BlockNumber")
 		if !blockNumberField.IsValid() {
 			return common.Hash{},
 				0,
@@ -1025,7 +1025,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 		}
 		l1Height = blockNumber.Uint64()
 
-		stateRootField := blockValue.FieldByName("AnchorStateRoot")
+		stateRootField := blockValue.FieldByName("StateRoot")
 		if !stateRootField.IsValid() {
 			return common.Hash{},
 				0,
