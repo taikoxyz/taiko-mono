@@ -284,7 +284,7 @@ func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, p
 func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
 	log.Info("Starting proof buffers monitors for Pacaya", "monitorInterval", monitorInterval)
 	for proofType, buffer := range s.proofBuffers {
-		go s.monitorProofBuffer(ctx, proofType, buffer)
+		go s.monitorProofBuffer(ctx, proofType, buffer, monitorInterval)
 	}
 }
 
@@ -292,6 +292,7 @@ func (s *ProofSubmitterPacaya) monitorProofBuffer(
 	ctx context.Context,
 	proofType proofProducer.ProofType,
 	buffer *proofProducer.ProofBuffer,
+	monitorInterval time.Duration,
 ) {
 	ticker := time.NewTicker(monitorInterval)
 	defer ticker.Stop()
