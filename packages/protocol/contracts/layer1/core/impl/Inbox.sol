@@ -10,7 +10,6 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
-import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -604,12 +603,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _emitProposedEvent(Proposal memory _proposal)
         private
     {
-        ProposedEventPayload memory payload = ProposedEventPayload({
-            id: _proposal.id,
-            proposer: _proposal.proposer,
-            sources: _proposal.sources
-        });
-        emit Proposed(LibProposedEventCodec.encode(payload));
+        emit Proposed(_proposal.id, _proposal.proposer, _proposal.sources);
     }
 
     // ---------------------------------------------------------------

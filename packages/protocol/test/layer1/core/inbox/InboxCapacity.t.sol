@@ -44,7 +44,7 @@ contract InboxCapacityTest is InboxTestBase {
 
         // Third proposal should succeed at capacity = 1 (exact boundary)
         _advanceBlock();
-        IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory payload = _proposeAndDecode(_defaultProposeInput());
         assertEq(payload.id, 3, "should succeed at capacity boundary");
 
         // After this: numUnfinalized = 3, capacity = 4 - 1 - 3 = 0, next should fail
@@ -68,17 +68,17 @@ contract InboxRingBufferTest is InboxTestBase {
 
     function test_ringBuffer_reuse_after_finalization_recordsGas() public {
         _setBlobHashes(6);
-        IInbox.ProposedEventPayload memory p1 = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory p1 = _proposeAndDecode(_defaultProposeInput());
         uint48 p1Timestamp = uint48(block.timestamp);
         _advanceBlock();
-        IInbox.ProposedEventPayload memory p2 = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory p2 = _proposeAndDecode(_defaultProposeInput());
         uint48 p2Timestamp = uint48(block.timestamp);
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
         _advanceBlock();
-        IInbox.ProposedEventPayload memory p5 = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory p5 = _proposeAndDecode(_defaultProposeInput());
 
         // Create checkpoint data for the transition
         uint48 endBlockNumber = uint48(block.number);
@@ -106,7 +106,7 @@ contract InboxRingBufferTest is InboxTestBase {
         _prove(proveInput);
 
         _advanceBlock();
-        IInbox.ProposedEventPayload memory p6 =
+        ProposedEvent memory p6 =
             _proposeAndDecodeWithGas(_defaultProposeInput(), "propose_after_ring_buffer_wrap");
         uint48 p6Timestamp = uint48(block.timestamp);
         uint48 p6OriginBlockNumber = uint48(block.number - 1);

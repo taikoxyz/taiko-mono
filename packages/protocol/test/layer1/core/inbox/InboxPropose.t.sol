@@ -15,15 +15,14 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         IInbox.CoreState memory stateBefore = inbox.getCoreState();
 
-        IInbox.ProposedEventPayload memory actual =
-            _proposeAndDecodeWithGas(input, "propose_single");
+        ProposedEvent memory payload = _proposeAndDecodeWithGas(input, "propose_single");
         uint48 proposalTimestamp = uint48(block.timestamp);
         uint48 originBlockNumber = uint48(block.number - 1);
         bytes32 originBlockHash = blockhash(block.number - 1);
 
         IInbox.Proposal memory expectedProposal =
-            _proposalFromPayload(actual, proposalTimestamp, originBlockNumber, originBlockHash);
-        _assertPayloadEqual(actual, expectedProposal);
+            _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
+        _assertPayloadEqual(payload, expectedProposal);
 
         IInbox.CoreState memory stateAfter = inbox.getCoreState();
         assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
@@ -102,7 +101,7 @@ contract InboxProposeTest is InboxTestBase {
 
     function test_propose_allowsPermissionlessWhen_ForcedInclusionTooOld() public {
         _setBlobHashes(3);
-        IInbox.ProposedEventPayload memory first = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory first = _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
@@ -118,7 +117,7 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
 
-        IInbox.ProposedEventPayload memory payload = _proposeWithCaller(David, input);
+        ProposedEvent memory payload = _proposeWithCaller(David, input);
 
         uint48 proposalTimestamp = uint48(block.timestamp);
         uint48 originBlockNumber = uint48(block.number - 1);
@@ -140,7 +139,7 @@ contract InboxProposeTest is InboxTestBase {
         bytes32[] memory blobHashes = _getBlobHashes(3);
         _setBlobHashes(3);
 
-        IInbox.ProposedEventPayload memory first = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory first = _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
@@ -157,7 +156,7 @@ contract InboxProposeTest is InboxTestBase {
         input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
         input.numForcedInclusions = 1;
 
-        IInbox.ProposedEventPayload memory payload =
+        ProposedEvent memory payload =
             _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
         uint48 proposalTimestamp = uint48(block.timestamp);
         uint48 originBlockNumber = uint48(block.number - 1);
@@ -167,12 +166,8 @@ contract InboxProposeTest is InboxTestBase {
 
         assertEq(payload.sources.length, 2, "sources length");
         assertTrue(payload.sources[0].isForcedInclusion, "forced slot");
-        assertEq(
-            payload.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash"
-        );
-        assertEq(
-            payload.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash"
-        );
+        assertEq(payload.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash");
+        assertEq(payload.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash");
         assertEq(payload.id, first.id + 1, "proposal id");
         assertEq(
             inbox.getProposalHash(expectedProposal.id),
@@ -189,10 +184,7 @@ contract InboxProposeTest is InboxTestBase {
     // Helpers
     // ---------------------------------------------------------------------
 
-    function _assertPayloadEqual(
-        IInbox.ProposedEventPayload memory _actual,
-        IInbox.Proposal memory _expected
-    )
+    function _assertPayloadEqual(ProposedEvent memory _actual, IInbox.Proposal memory _expected)
         internal
         pure
     {
@@ -247,7 +239,7 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory _input
     )
         internal
-        returns (IInbox.ProposedEventPayload memory payload_)
+        returns (ProposedEvent memory payload_)
     {
         bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
@@ -274,7 +266,7 @@ contract InboxProposeTest is InboxTestBase {
         assertEq(block.number, lastProposalBlockId + 1, "should be exactly next block");
 
         // Second proposal should succeed at exact boundary
-        IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
+        ProposedEvent memory payload = _proposeAndDecode(_defaultProposeInput());
         assertEq(payload.id, 2, "should be second proposal");
     }
 
@@ -286,7 +278,7 @@ contract InboxProposeTest is InboxTestBase {
         input.deadline = uint48(block.timestamp); // Exact boundary: timestamp == deadline
 
         // Should succeed because block.timestamp <= deadline
-        IInbox.ProposedEventPayload memory payload = _proposeAndDecode(input);
+        ProposedEvent memory payload = _proposeAndDecode(input);
         assertEq(payload.id, 1, "should succeed at exact deadline");
     }
 

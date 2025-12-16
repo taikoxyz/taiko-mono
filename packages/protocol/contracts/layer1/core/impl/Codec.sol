@@ -5,7 +5,6 @@ import { ICodec } from "../iface/ICodec.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
-import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
@@ -13,28 +12,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 /// @notice Codec contract wrapping LibHashOptimized for optimized hashing
 /// @custom:security-contact security@taiko.xyz
 contract Codec is ICodec {
-    // ---------------------------------------------------------------
-    // ProposedEventCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @inheritdoc ICodec
-    function encodeProposedEvent(IInbox.ProposedEventPayload calldata _payload)
-        external
-        pure
-        returns (bytes memory encoded_)
-    {
-        return LibProposedEventCodec.encode(_payload);
-    }
-
-    /// @inheritdoc ICodec
-    function decodeProposedEvent(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        return LibProposedEventCodec.decode(_data);
-    }
-
     // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------

@@ -95,8 +95,6 @@ LibInboxSetupConfigValidationTest:test_validateConfig_RevertWhen_RingBufferSizeT
 LibInboxSetupConfigValidationTest:test_validateConfig_RevertWhen_SignalServiceZero() (gas: 1723343)
 LibProposeInputCodecTest:test_encode_decode_boundaryValues() (gas: 7228)
 LibProposeInputCodecTest:test_encode_decode_roundtrip() (gas: 7859)
-LibProposedEventCodecTest:test_encode_decode_mixedSources() (gas: 29200)
-LibProposedEventCodecTest:test_encode_decode_singleSource() (gas: 26808)
 LibProveInputCodecTest:test_encode_decode_emptyProposals() (gas: 5130)
 LibProveInputCodecTest:test_encode_decode_roundtrip() (gas: 17294)
 LibProveInputCodecTest:test_encode_decode_singleProposal() (gas: 9152)

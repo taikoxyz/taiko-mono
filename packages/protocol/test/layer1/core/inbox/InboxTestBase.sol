@@ -20,6 +20,12 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @title InboxTestBase
 /// @notice Shared setup and helpers for Inbox tests.
 abstract contract InboxTestBase is CommonTest {
+    struct ProposedEvent {
+        uint48 id;
+        address proposer;
+        IInbox.DerivationSource[] sources;
+    }
+
     Inbox internal inbox;
     IInbox.Config internal config;
     ICodec internal codec;
@@ -163,14 +169,14 @@ abstract contract InboxTestBase is CommonTest {
     // Propose helpers (internal - state-changing)
     // ---------------------------------------------------------------------
 
-    function _proposeOne() internal returns (IInbox.ProposedEventPayload memory payload_) {
+    function _proposeOne() internal returns (ProposedEvent memory payload_) {
         _setBlobHashes(3);
         payload_ = _proposeAndDecode(_defaultProposeInput());
     }
 
     function _proposeAndDecode(IInbox.ProposeInput memory _input)
         internal
-        returns (IInbox.ProposedEventPayload memory payload_)
+        returns (ProposedEvent memory payload_)
     {
         assertEq(proposerChecker.operatorCount(), 1, "proposer count (propose)");
         assertEq(
@@ -185,7 +191,7 @@ abstract contract InboxTestBase is CommonTest {
         string memory _benchName
     )
         internal
-        returns (IInbox.ProposedEventPayload memory payload_)
+        returns (ProposedEvent memory payload_)
     {
         bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
@@ -199,10 +205,17 @@ abstract contract InboxTestBase is CommonTest {
         payload_ = _readProposedEvent();
     }
 
-    function _readProposedEvent() internal returns (IInbox.ProposedEventPayload memory payload_) {
-        bytes memory eventData = _findEventData(keccak256("Proposed(bytes)"));
-        require(eventData.length > 0, "Proposed event not found");
-        return codec.decodeProposedEvent(eventData);
+    function _readProposedEvent()
+        internal
+        returns (ProposedEvent memory payload_)
+    {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        require(logs.length > 0, "Proposed event not found");
+        Vm.Log memory log = logs[logs.length - 1];
+
+        payload_.id = uint48(uint256(log.topics[1]));
+        payload_.proposer = address(uint160(uint256(log.topics[2])));
+        payload_.sources = abi.decode(log.data, (IInbox.DerivationSource[]));
     }
 
     function _mockBeaconBlockRoot() internal {
@@ -244,7 +257,7 @@ abstract contract InboxTestBase is CommonTest {
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
-            IInbox.ProposedEventPayload memory payload = _proposeOne();
+            ProposedEvent memory payload = _proposeOne();
 
             if (i == 0) {
                 firstProposalId = payload.id;
@@ -280,20 +293,6 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     // ---------------------------------------------------------------------
-    // Private helpers (state-changing)
-    // ---------------------------------------------------------------------
-
-    function _findEventData(bytes32 _topic) private returns (bytes memory) {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length != 0 && logs[i].topics[0] == _topic) {
-                return abi.decode(logs[i].data, (bytes));
-            }
-        }
-        return bytes("");
-    }
-
-    // ---------------------------------------------------------------------
     // Pure helpers
     // ---------------------------------------------------------------------
 
@@ -311,7 +310,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _proposalFromPayload(
-        IInbox.ProposedEventPayload memory _payload,
+        ProposedEvent memory _payload,
         uint48 _timestamp,
         uint48 _originBlockNumber,
         bytes32 _originBlockHash
@@ -337,7 +336,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _transitionFor(
-        IInbox.ProposedEventPayload memory _payload,
+        ProposedEvent memory _payload,
         uint48 _proposalTimestamp,
         address _designatedProver,
         bytes32 _blockHash

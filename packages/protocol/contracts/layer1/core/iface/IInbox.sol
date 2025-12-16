@@ -155,16 +155,6 @@ interface IInbox {
         bool forceCheckpointSync;
     }
 
-    /// @notice Payload data emitted in the Proposed event
-    struct ProposedEventPayload {
-        /// @notice Unique identifier for the proposal.
-        uint48 id;
-        /// @notice Address of the proposer.
-        address proposer;
-        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
-        DerivationSource[] sources;
-    }
-
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
         /// @notice The ID of the first proposal being proven.
@@ -184,8 +174,12 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param data The encoded ProposedEventPayload
-    event Proposed(bytes data);
+    /// @param id Unique identifier for the proposal.
+    /// @param proposer Address of the proposer.
+    /// @param sources Array of derivation sources for this proposal.
+    event Proposed(
+        uint48 indexed id, address indexed proposer, DerivationSource[] sources
+    );
 
     /// @notice Emitted when a proof is submitted
     /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)

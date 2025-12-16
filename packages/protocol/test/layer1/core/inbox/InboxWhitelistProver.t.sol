@@ -66,7 +66,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
     }
 
     function test_prove_skipsBondInstruction_whenCallerIsWhitelistedProver() public {
-        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        ProposedEvent memory p1 = _proposeOne();
         uint48 p1Timestamp = uint48(block.timestamp);
 
         // Warp past proving window to ensure bond would normally be emitted
@@ -135,7 +135,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
-            IInbox.ProposedEventPayload memory payload = _proposeOne();
+            ProposedEvent memory payload = _proposeOne();
             uint48 proposalTimestamp = uint48(block.timestamp);
 
             if (i == 0) {

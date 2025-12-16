@@ -58,14 +58,14 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ## Metadata Preparation
 
-The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which emits a `ProposedEventPayload` object carrying only the fields the prover cannot reconstruct elsewhere:
+The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which now emits flat fields (no custom encoding) carrying only the fields that are necessary for the driver and the prover:
 
 ```solidity
-struct ProposedEventPayload {
-  uint48 id;                // Proposal id
-  address proposer;         // Proposer address
-  DerivationSource[] sources; // Forced-inclusion + proposer sources
-}
+event Proposed(
+  uint48 indexed id,
+  address indexed proposer,
+  DerivationSource[] sources
+);
 ```
 
 Everything else is derived by the prover:
