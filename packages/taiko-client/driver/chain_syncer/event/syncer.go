@@ -223,7 +223,7 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	// Ignore those already inserted blatches.
+	// Ignore those already inserted batches.
 	if s.lastInsertedBatchID != nil && meta.GetProposal().Id.Cmp(s.lastInsertedBatchID) <= 0 {
 		log.Debug(
 			"Skip already inserted batch",
