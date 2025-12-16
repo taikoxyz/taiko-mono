@@ -240,14 +240,16 @@ abstract contract InboxTestBase is CommonTest {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_count);
 
         uint48 firstProposalId;
+        uint48 proposalTimestamp;
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
             IInbox.ProposedEventPayload memory payload = _proposeOne();
 
             if (i == 0) {
-                firstProposalId = payload.proposal.id;
+                firstProposalId = payload.id;
             }
+            proposalTimestamp = uint48(block.timestamp);
 
             // Generate a unique checkpoint for this proposal and hash it
             ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
@@ -256,7 +258,7 @@ abstract contract InboxTestBase is CommonTest {
                 stateRoot: keccak256(abi.encode("stateRoot", i + 1))
             });
             bytes32 blockHash = keccak256(abi.encode(checkpoint));
-            transitions[i] = _transitionFor(payload, prover, blockHash);
+            transitions[i] = _transitionFor(payload, proposalTimestamp, prover, blockHash);
         }
 
         // Get the last proposal hash from the ring buffer
@@ -308,8 +310,35 @@ abstract contract InboxTestBase is CommonTest {
         input_.numForcedInclusions = 0;
     }
 
+    function _proposalFromPayload(
+        IInbox.ProposedEventPayload memory _payload,
+        uint48 _timestamp,
+        uint48 _originBlockNumber,
+        bytes32 _originBlockHash
+    )
+        internal
+        view
+        returns (IInbox.Proposal memory proposal_)
+    {
+        bytes32 parentProposalHash =
+            _payload.id == 0 ? bytes32(0) : inbox.getProposalHash(_payload.id - 1);
+
+        proposal_ = IInbox.Proposal({
+            id: _payload.id,
+            timestamp: _timestamp,
+            endOfSubmissionWindowTimestamp: 0,
+            proposer: _payload.proposer,
+            parentProposalHash: parentProposalHash,
+            originBlockNumber: _originBlockNumber,
+            originBlockHash: _originBlockHash,
+            basefeeSharingPctg: config.basefeeSharingPctg,
+            sources: _payload.sources
+        });
+    }
+
     function _transitionFor(
         IInbox.ProposedEventPayload memory _payload,
+        uint48 _proposalTimestamp,
         address _designatedProver,
         bytes32 _blockHash
     )
@@ -318,9 +347,9 @@ abstract contract InboxTestBase is CommonTest {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposer: _payload.proposal.proposer,
+            proposer: _payload.proposer,
             designatedProver: _designatedProver,
-            timestamp: _payload.proposal.timestamp,
+            timestamp: _proposalTimestamp,
             blockHash: _blockHash
         });
     }

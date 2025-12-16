@@ -15,19 +15,22 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         IInbox.CoreState memory stateBefore = inbox.getCoreState();
 
-        IInbox.ProposedEventPayload memory expected =
-            _buildExpectedProposedPayload(stateBefore, input);
-
         IInbox.ProposedEventPayload memory actual =
             _proposeAndDecodeWithGas(input, "propose_single");
-        _assertPayloadEqual(actual, expected);
+        uint48 proposalTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number - 1);
+        bytes32 originBlockHash = blockhash(block.number - 1);
+
+        IInbox.Proposal memory expectedProposal =
+            _proposalFromPayload(actual, proposalTimestamp, originBlockNumber, originBlockHash);
+        _assertPayloadEqual(actual, expectedProposal);
 
         IInbox.CoreState memory stateAfter = inbox.getCoreState();
         assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
         _assertStateEqual(stateAfter, _expectedStateAfterProposal(stateBefore));
         assertEq(
-            inbox.getProposalHash(expected.proposal.id),
-            codec.hashProposal(expected.proposal),
+            inbox.getProposalHash(expectedProposal.id),
+            codec.hashProposal(expectedProposal),
             "proposal hash"
         );
     }
@@ -117,10 +120,20 @@ contract InboxProposeTest is InboxTestBase {
 
         IInbox.ProposedEventPayload memory payload = _proposeWithCaller(David, input);
 
-        assertEq(payload.proposal.proposer, David, "proposer");
-        assertEq(payload.proposal.endOfSubmissionWindowTimestamp, 0, "end of submission window");
-        assertTrue(payload.proposal.sources[0].isForcedInclusion, "forced inclusion");
-        assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
+        uint48 proposalTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number - 1);
+        bytes32 originBlockHash = blockhash(block.number - 1);
+        IInbox.Proposal memory expectedProposal =
+            _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
+
+        assertEq(payload.proposer, David, "proposer");
+        assertTrue(payload.sources[0].isForcedInclusion, "forced inclusion");
+        assertEq(payload.id, first.id + 1, "proposal id");
+        assertEq(
+            inbox.getProposalHash(expectedProposal.id),
+            codec.hashProposal(expectedProposal),
+            "proposal hash"
+        );
     }
 
     function test_propose_processesForcedInclusion_andRecordsGas() public {
@@ -146,16 +159,26 @@ contract InboxProposeTest is InboxTestBase {
 
         IInbox.ProposedEventPayload memory payload =
             _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
+        uint48 proposalTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number - 1);
+        bytes32 originBlockHash = blockhash(block.number - 1);
+        IInbox.Proposal memory expectedProposal =
+            _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
 
-        assertEq(payload.proposal.sources.length, 2, "sources length");
-        assertTrue(payload.proposal.sources[0].isForcedInclusion, "forced slot");
+        assertEq(payload.sources.length, 2, "sources length");
+        assertTrue(payload.sources[0].isForcedInclusion, "forced slot");
         assertEq(
-            payload.proposal.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash"
+            payload.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash"
         );
         assertEq(
-            payload.proposal.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash"
+            payload.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash"
         );
-        assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
+        assertEq(payload.id, first.id + 1, "proposal id");
+        assertEq(
+            inbox.getProposalHash(expectedProposal.id),
+            codec.hashProposal(expectedProposal),
+            "proposal hash"
+        );
 
         (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
         assertEq(head, 1, "queue head");
@@ -166,91 +189,35 @@ contract InboxProposeTest is InboxTestBase {
     // Helpers
     // ---------------------------------------------------------------------
 
-    function _buildExpectedProposedPayload(
-        IInbox.CoreState memory _stateBefore,
-        IInbox.ProposeInput memory _input
-    )
-        internal
-        view
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
-
-        // Get the parent proposal hash from the ring buffer
-        bytes32 parentProposalHash = inbox.getProposalHash(_stateBefore.nextProposalId - 1);
-
-        payload_.proposal = IInbox.Proposal({
-            id: _stateBefore.nextProposalId,
-            timestamp: uint48(block.timestamp),
-            endOfSubmissionWindowTimestamp: 0,
-            proposer: proposer,
-            parentProposalHash: parentProposalHash,
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
-            basefeeSharingPctg: config.basefeeSharingPctg,
-            sources: new IInbox.DerivationSource[](1)
-        });
-        payload_.proposal.sources[0] =
-            IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
-    }
-
     function _assertPayloadEqual(
         IInbox.ProposedEventPayload memory _actual,
-        IInbox.ProposedEventPayload memory _expected
+        IInbox.Proposal memory _expected
     )
         internal
         pure
     {
-        assertEq(_actual.proposal.id, _expected.proposal.id, "proposal id");
-        assertEq(_actual.proposal.timestamp, _expected.proposal.timestamp, "proposal timestamp");
-        assertEq(
-            _actual.proposal.endOfSubmissionWindowTimestamp,
-            _expected.proposal.endOfSubmissionWindowTimestamp,
-            "proposal deadline"
-        );
-        assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
-        assertEq(
-            _actual.proposal.parentProposalHash,
-            _expected.proposal.parentProposalHash,
-            "parent proposal hash"
-        );
-        assertEq(
-            _actual.proposal.originBlockNumber,
-            _expected.proposal.originBlockNumber,
-            "origin block number"
-        );
-        assertEq(
-            _actual.proposal.originBlockHash,
-            _expected.proposal.originBlockHash,
-            "origin block hash"
-        );
-        assertEq(
-            _actual.proposal.basefeeSharingPctg,
-            _expected.proposal.basefeeSharingPctg,
-            "basefee sharing"
-        );
-        assertEq(
-            _actual.proposal.sources.length, _expected.proposal.sources.length, "sources length"
-        );
-        if (_actual.proposal.sources.length != 0) {
+        assertEq(_actual.id, _expected.id, "proposal id");
+        assertEq(_actual.proposer, _expected.proposer, "proposal proposer");
+        assertEq(_actual.sources.length, _expected.sources.length, "sources length");
+        if (_actual.sources.length != 0) {
             assertEq(
-                _actual.proposal.sources[0].isForcedInclusion,
-                _expected.proposal.sources[0].isForcedInclusion,
+                _actual.sources[0].isForcedInclusion,
+                _expected.sources[0].isForcedInclusion,
                 "source forced"
             );
             assertEq(
-                _actual.proposal.sources[0].blobSlice.blobHashes,
-                _expected.proposal.sources[0].blobSlice.blobHashes,
+                _actual.sources[0].blobSlice.blobHashes,
+                _expected.sources[0].blobSlice.blobHashes,
                 "blob hashes"
             );
             assertEq(
-                _actual.proposal.sources[0].blobSlice.offset,
-                _expected.proposal.sources[0].blobSlice.offset,
+                _actual.sources[0].blobSlice.offset,
+                _expected.sources[0].blobSlice.offset,
                 "blob offset"
             );
             assertEq(
-                _actual.proposal.sources[0].blobSlice.timestamp,
-                _expected.proposal.sources[0].blobSlice.timestamp,
+                _actual.sources[0].blobSlice.timestamp,
+                _expected.sources[0].blobSlice.timestamp,
                 "blob timestamp"
             );
         }
@@ -308,7 +275,7 @@ contract InboxProposeTest is InboxTestBase {
 
         // Second proposal should succeed at exact boundary
         IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
-        assertEq(payload.proposal.id, 2, "should be second proposal");
+        assertEq(payload.id, 2, "should be second proposal");
     }
 
     /// @notice Test propose succeeds at exact deadline boundary (block.timestamp == deadline)
@@ -320,7 +287,7 @@ contract InboxProposeTest is InboxTestBase {
 
         // Should succeed because block.timestamp <= deadline
         IInbox.ProposedEventPayload memory payload = _proposeAndDecode(input);
-        assertEq(payload.proposal.id, 1, "should succeed at exact deadline");
+        assertEq(payload.id, 1, "should succeed at exact deadline");
     }
 
     /// @notice Test propose fails 1 second after deadline (block.timestamp == deadline + 1)

@@ -604,7 +604,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _emitProposedEvent(Proposal memory _proposal)
         private
     {
-        ProposedEventPayload memory payload = ProposedEventPayload({ proposal: _proposal });
+        ProposedEventPayload memory payload = ProposedEventPayload({
+            id: _proposal.id,
+            proposer: _proposal.proposer,
+            sources: _proposal.sources
+        });
         emit Proposed(LibProposedEventCodec.encode(payload));
     }
 

@@ -26,19 +26,8 @@ contract LibProposedEventCodecTest is Test {
             })
         });
 
-        IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
-            proposal: IInbox.Proposal({
-                id: 5,
-                timestamp: 111,
-                endOfSubmissionWindowTimestamp: 0,
-                proposer: address(0x1234),
-                parentProposalHash: bytes32(uint256(9)),
-                originBlockNumber: 99,
-                originBlockHash: bytes32(uint256(7)),
-                basefeeSharingPctg: 3,
-                sources: sources
-            })
-        });
+        IInbox.ProposedEventPayload memory payload =
+            IInbox.ProposedEventPayload({ id: 5, proposer: address(0x1234), sources: sources });
 
         bytes memory encoded = LibProposedEventCodec.encode(payload);
         assertEq(encoded.length, harness.size(sources), "size mismatch");
@@ -66,28 +55,17 @@ contract LibProposedEventCodecTest is Test {
             })
         });
 
-        IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
-            proposal: IInbox.Proposal({
-                id: 77,
-                timestamp: 200,
-                endOfSubmissionWindowTimestamp: 300,
-                proposer: address(0xBEEF),
-                parentProposalHash: bytes32(uint256(13)),
-                originBlockNumber: 150,
-                originBlockHash: bytes32(uint256(151)),
-                basefeeSharingPctg: 9,
-                sources: sources
-            })
-        });
+        IInbox.ProposedEventPayload memory payload =
+            IInbox.ProposedEventPayload({ id: 77, proposer: address(0xBEEF), sources: sources });
 
         IInbox.ProposedEventPayload memory decoded =
             LibProposedEventCodec.decode(LibProposedEventCodec.encode(payload));
 
-        assertEq(decoded.proposal.sources.length, 2, "sources length");
-        assertTrue(decoded.proposal.sources[0].isForcedInclusion, "forced flag");
-        assertEq(decoded.proposal.sources[1].blobSlice.blobHashes.length, 3, "blob hashes length");
-        assertEq(decoded.proposal.sources[1].blobSlice.offset, 88, "offset");
-        assertEq(decoded.proposal.sources[1].blobSlice.timestamp, 66, "timestamp");
+        assertEq(decoded.sources.length, 2, "sources length");
+        assertTrue(decoded.sources[0].isForcedInclusion, "forced flag");
+        assertEq(decoded.sources[1].blobSlice.blobHashes.length, 3, "blob hashes length");
+        assertEq(decoded.sources[1].blobSlice.offset, 88, "offset");
+        assertEq(decoded.sources[1].blobSlice.timestamp, 66, "timestamp");
         _assertEqual(payload, decoded);
     }
 
@@ -128,56 +106,29 @@ contract LibProposedEventCodecTest is Test {
         private
         pure
     {
-        assertEq(_actual.proposal.id, _expected.proposal.id, "proposal id");
-        assertEq(_actual.proposal.timestamp, _expected.proposal.timestamp, "proposal timestamp");
-        assertEq(
-            _actual.proposal.endOfSubmissionWindowTimestamp,
-            _expected.proposal.endOfSubmissionWindowTimestamp,
-            "proposal submission window"
-        );
-        assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
-        assertEq(
-            _actual.proposal.parentProposalHash,
-            _expected.proposal.parentProposalHash,
-            "parent hash"
-        );
+        assertEq(_actual.id, _expected.id, "proposal id");
+        assertEq(_actual.proposer, _expected.proposer, "proposal proposer");
+        assertEq(_actual.sources.length, _expected.sources.length, "sources length");
 
-        assertEq(
-            _actual.proposal.originBlockNumber,
-            _expected.proposal.originBlockNumber,
-            "origin block"
-        );
-        assertEq(
-            _actual.proposal.originBlockHash, _expected.proposal.originBlockHash, "origin hash"
-        );
-        assertEq(
-            _actual.proposal.basefeeSharingPctg,
-            _expected.proposal.basefeeSharingPctg,
-            "basefee"
-        );
-        assertEq(
-            _actual.proposal.sources.length, _expected.proposal.sources.length, "sources length"
-        );
-
-        for (uint256 i; i < _actual.proposal.sources.length; ++i) {
+        for (uint256 i; i < _actual.sources.length; ++i) {
             assertEq(
-                _actual.proposal.sources[i].isForcedInclusion,
-                _expected.proposal.sources[i].isForcedInclusion,
+                _actual.sources[i].isForcedInclusion,
+                _expected.sources[i].isForcedInclusion,
                 "forced flag"
             );
             assertEq(
-                _actual.proposal.sources[i].blobSlice.blobHashes,
-                _expected.proposal.sources[i].blobSlice.blobHashes,
+                _actual.sources[i].blobSlice.blobHashes,
+                _expected.sources[i].blobSlice.blobHashes,
                 "blob hashes"
             );
             assertEq(
-                _actual.proposal.sources[i].blobSlice.offset,
-                _expected.proposal.sources[i].blobSlice.offset,
+                _actual.sources[i].blobSlice.offset,
+                _expected.sources[i].blobSlice.offset,
                 "offset"
             );
             assertEq(
-                _actual.proposal.sources[i].blobSlice.timestamp,
-                _expected.proposal.sources[i].blobSlice.timestamp,
+                _actual.sources[i].blobSlice.timestamp,
+                _expected.sources[i].blobSlice.timestamp,
                 "timestamp"
             );
         }

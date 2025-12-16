@@ -45,7 +45,7 @@ contract InboxCapacityTest is InboxTestBase {
         // Third proposal should succeed at capacity = 1 (exact boundary)
         _advanceBlock();
         IInbox.ProposedEventPayload memory payload = _proposeAndDecode(_defaultProposeInput());
-        assertEq(payload.proposal.id, 3, "should succeed at capacity boundary");
+        assertEq(payload.id, 3, "should succeed at capacity boundary");
 
         // After this: numUnfinalized = 3, capacity = 4 - 1 - 3 = 0, next should fail
     }
@@ -69,8 +69,10 @@ contract InboxRingBufferTest is InboxTestBase {
     function test_ringBuffer_reuse_after_finalization_recordsGas() public {
         _setBlobHashes(6);
         IInbox.ProposedEventPayload memory p1 = _proposeAndDecode(_defaultProposeInput());
+        uint48 p1Timestamp = uint48(block.timestamp);
         _advanceBlock();
         IInbox.ProposedEventPayload memory p2 = _proposeAndDecode(_defaultProposeInput());
+        uint48 p2Timestamp = uint48(block.timestamp);
         _advanceBlock();
         _proposeAndDecode(_defaultProposeInput());
         _advanceBlock();
@@ -85,14 +87,14 @@ contract InboxRingBufferTest is InboxTestBase {
 
         // Prove p1 and p2 using prove
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] = _transitionFor(p1, prover, keccak256("checkpoint1"));
-        transitions[1] = _transitionFor(p2, prover, checkpoint2Hash);
+        transitions[0] = _transitionFor(p1, p1Timestamp, prover, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(p2, p2Timestamp, prover, checkpoint2Hash);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             commitment: IInbox.Commitment({
-                firstProposalId: p1.proposal.id,
+                firstProposalId: p1.id,
                 firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
-                lastProposalHash: inbox.getProposalHash(p2.proposal.id),
+                lastProposalHash: inbox.getProposalHash(p2.id),
                 actualProver: prover,
                 endBlockNumber: endBlockNumber,
                 endStateRoot: endStateRoot,
@@ -106,10 +108,17 @@ contract InboxRingBufferTest is InboxTestBase {
         _advanceBlock();
         IInbox.ProposedEventPayload memory p6 =
             _proposeAndDecodeWithGas(_defaultProposeInput(), "propose_after_ring_buffer_wrap");
+        uint48 p6Timestamp = uint48(block.timestamp);
+        uint48 p6OriginBlockNumber = uint48(block.number - 1);
+        bytes32 p6OriginBlockHash = blockhash(block.number - 1);
+        IInbox.Proposal memory expectedP6 =
+            _proposalFromPayload(p6, p6Timestamp, p6OriginBlockNumber, p6OriginBlockHash);
 
-        assertEq(p6.proposal.id, p5.proposal.id + 1, "proposal id");
+        assertEq(p6.id, p5.id + 1, "proposal id");
         assertEq(
-            inbox.getProposalHash(p6.proposal.id), codec.hashProposal(p6.proposal), "proposal hash"
+            inbox.getProposalHash(expectedP6.id),
+            codec.hashProposal(expectedP6),
+            "proposal hash"
         );
     }
 }

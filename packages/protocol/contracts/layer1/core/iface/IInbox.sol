@@ -157,8 +157,12 @@ interface IInbox {
 
     /// @notice Payload data emitted in the Proposed event
     struct ProposedEventPayload {
-        /// @notice The proposal that was created.
-        Proposal proposal;
+        /// @notice Unique identifier for the proposal.
+        uint48 id;
+        /// @notice Address of the proposer.
+        address proposer;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
     /// @notice Payload data emitted in the Proved event
