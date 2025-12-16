@@ -1525,82 +1525,6 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 	return &state, nil
 }
 
-// GetLastVerifiedPayloadShasta gets the last verified Proved event payload from Shasta Inbox contract.
-func (c *Client) GetLastVerifiedPayloadShasta(ctx context.Context, coreState *shastaBindings.IInboxCoreState) (
-	*shastaBindings.IInboxProvedEventPayload,
-	error,
-) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	var blockID *big.Int
-	if c.L1Beacon != nil {
-		slot, err := c.L1Beacon.timeToSlot(coreState.LastFinalizedTimestamp.Uint64())
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert timestamp to slot: %w", err)
-		}
-
-		if blockID, err = c.L1Beacon.executionBlockNumberBySlot(ctxWithTimeout, slot); err != nil {
-			return nil, fmt.Errorf("failed to get execution block number by slot: %w", err)
-		}
-	} else {
-		// If L1Beacon is not set, we are using Anvil in tests, we can directly search by timestamp.
-		header, err := c.L1.HeaderByNumber(ctxWithTimeout, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get latest L1 header: %w", err)
-		}
-
-		for header.Time != coreState.LastFinalizedTimestamp.Uint64() {
-			if header.Number.Cmp(common.Big0) == 0 {
-				return nil, fmt.Errorf(
-					"failed to find L1 header by timestamp %d",
-					coreState.LastFinalizedTimestamp.Uint64(),
-				)
-			}
-			if header, err = c.L1.HeaderByHash(ctxWithTimeout, header.ParentHash); err != nil {
-				return nil, fmt.Errorf("failed to get L1 header by hash %s: %w", header.ParentHash, err)
-			}
-		}
-
-		blockID = header.Number
-	}
-
-	var (
-		start        = blockID.Uint64()
-		eventPayload *shastaBindings.IInboxProvedEventPayload
-	)
-	iter, err := c.ShastaClients.Inbox.FilterProved(&bind.FilterOpts{
-		Start:   start,
-		End:     &start,
-		Context: ctxWithTimeout,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to filter proposed events from Shasta Inbox: %w", err)
-	}
-	for iter.Next() {
-		payload, err := c.DecodeProvedEventPayload(&bind.CallOpts{Context: ctxWithTimeout}, iter.Event.Data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode proved event payload from Shasta Inbox: %w", err)
-		}
-
-		lastProposalID := payload.Input.Commitment.FirstProposalId.Uint64() +
-			uint64(len(payload.Input.Commitment.Transitions)) - 1
-		if lastProposalID != coreState.LastFinalizedProposalId.Uint64() {
-			continue
-		}
-
-		eventPayload = payload
-	}
-	if eventPayload == nil {
-		return nil, fmt.Errorf(
-			"payload not found for last finalized proposal ID %d",
-			coreState.LastFinalizedProposalId,
-		)
-	}
-
-	return eventPayload, nil
-}
-
 // GetProposalByIDShasta gets the proposal by ID from Shasta Inbox contract.
 func (c *Client) GetProposalByIDShasta(
 	ctx context.Context,
@@ -1712,26 +1636,6 @@ func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBind
 	}
 
 	return &input, nil
-}
-
-// DecodeProvedEventPayload decodes the Proved event payload by Shasta Inbox Codec contract.
-func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
-	*shastaBindings.IInboxProvedEventPayload,
-	error,
-) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	payload, err := c.ShastaClients.InboxCodec.DecodeProvedEvent(opts, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &payload, nil
 }
 
 // DecodeProposedEventPayload decodes the Proposed event payload by Shasta Inbox Codec contract.

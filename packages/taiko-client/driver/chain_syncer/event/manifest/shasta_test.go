@@ -39,7 +39,7 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 	s.NotEmpty(b)
 
 	meta := &metadata.TaikoProposalMetadataShasta{
-		IInboxDerivation: shastaBindings.IInboxDerivation{
+		IInboxProposal: shastaBindings.IInboxProposal{
 			OriginBlockNumber: big.NewInt(0),
 			Sources: []shastaBindings.IInboxDerivationSource{
 				{

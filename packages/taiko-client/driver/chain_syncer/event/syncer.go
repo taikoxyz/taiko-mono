@@ -237,7 +237,7 @@ func (s *Syncer) processShastaProposal(
 		"New Shasta Proposed event",
 		"proposalID", meta.GetProposal().Id,
 		"proposer", meta.GetProposal().Proposer,
-		"derivationSources", len(meta.GetDerivation().Sources),
+		"derivationSources", len(meta.GetProposal().Sources),
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 	)
@@ -297,23 +297,23 @@ func (s *Syncer) processShastaProposal(
 
 	// Prefetch all derivation source payloads, and set the proposer auth bytes.
 	var (
-		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetDerivation().Sources))
+		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetProposal().Sources))
 		proposerAuth   []byte
 	)
-	if len(meta.GetDerivation().Sources) > 0 {
+	if len(meta.GetProposal().Sources) > 0 {
 		// Fetch the last derivation source payload first, and set the proposer auth bytes.
-		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetDerivation().Sources)-1)
+		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetProposal().Sources)-1)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to fetch Shasta derivation payload for index %d: %w",
-				len(meta.GetDerivation().Sources)-1,
+				len(meta.GetProposal().Sources)-1,
 				err,
 			)
 		}
-		sourcePayloads[len(meta.GetDerivation().Sources)-1] = payload
+		sourcePayloads[len(meta.GetProposal().Sources)-1] = payload
 		proposerAuth = payload.ProverAuthBytes
 		// Fetch other derivation source payloads.
-		for i := 0; i < len(meta.GetDerivation().Sources)-1; i++ {
+		for i := 0; i < len(meta.GetProposal().Sources)-1; i++ {
 			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
 			if err != nil {
 				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
@@ -324,7 +324,7 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	for derivationIdx := range meta.GetDerivation().Sources {
+	for derivationIdx := range meta.GetProposal().Sources {
 		log.Info(
 			"Processing Shasta derivation source",
 			"proposalID", meta.GetProposal().Id,
@@ -339,7 +339,7 @@ func (s *Syncer) processShastaProposal(
 			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
-		isForcedInclusion := meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion
+		isForcedInclusion := meta.GetProposal().Sources[derivationIdx].IsForcedInclusion
 
 		log.Info(
 			"Parent block info for Shasta derivation payload",
@@ -415,7 +415,7 @@ func (s *Syncer) processShastaProposal(
 			s.rpc,
 			sourcePayload,
 			meta.GetProposal(),
-			meta.GetDerivation().OriginBlockNumber.Uint64(),
+			meta.GetProposal().OriginBlockNumber.Uint64(),
 			lastAnchorBlockNumber,
 			isForcedInclusion,
 		) {
@@ -647,22 +647,12 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		return reorgCheckResult, nil
 	}
 
-	payload, err := s.rpc.GetLastVerifiedPayloadShasta(ctx, coreState)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last verified Proved event payload: %w", err)
-	}
-
 	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
-
-	if len(payload.Input.Commitment.Transitions) == 0 {
-		return nil, fmt.Errorf("no transitions found in the last verified payload")
-	}
-	lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
-	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == lastTransition.BlockHash {
+	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == coreState.LastFinalizedBlockHash {
 		return reorgCheckResult, nil
 	}
 
@@ -670,7 +660,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		"Verified block mismatch",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
-		"transitionBlockHash", common.Hash(lastTransition.BlockHash),
+		"transitionBlockHash", common.Hash(coreState.LastFinalizedBlockHash),
 	)
 
 	// For Shasta, we simply reset to genesis if there is a mismatch.
