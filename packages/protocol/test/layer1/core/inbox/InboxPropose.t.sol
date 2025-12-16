@@ -119,7 +119,7 @@ contract InboxProposeTest is InboxTestBase {
 
         assertEq(payload.proposal.proposer, David, "proposer");
         assertEq(payload.proposal.endOfSubmissionWindowTimestamp, 0, "end of submission window");
-        assertTrue(payload.derivation.sources[0].isForcedInclusion, "forced inclusion");
+        assertTrue(payload.proposal.sources[0].isForcedInclusion, "forced inclusion");
         assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
     }
 
@@ -147,13 +147,13 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposedEventPayload memory payload =
             _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
 
-        assertEq(payload.derivation.sources.length, 2, "sources length");
-        assertTrue(payload.derivation.sources[0].isForcedInclusion, "forced slot");
+        assertEq(payload.proposal.sources.length, 2, "sources length");
+        assertTrue(payload.proposal.sources[0].isForcedInclusion, "forced slot");
         assertEq(
-            payload.derivation.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash"
+            payload.proposal.sources[0].blobSlice.blobHashes[0], blobHashes[1], "forced blob hash"
         );
         assertEq(
-            payload.derivation.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash"
+            payload.proposal.sources[1].blobSlice.blobHashes[0], blobHashes[2], "normal blob hash"
         );
         assertEq(payload.proposal.id, first.proposal.id + 1, "proposal id");
 
@@ -176,15 +176,6 @@ contract InboxProposeTest is InboxTestBase {
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_input.blobReference);
 
-        payload_.derivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
-            basefeeSharingPctg: config.basefeeSharingPctg,
-            sources: new IInbox.DerivationSource[](1)
-        });
-        payload_.derivation.sources[0] =
-            IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
-
         // Get the parent proposal hash from the ring buffer
         bytes32 parentProposalHash = inbox.getProposalHash(_stateBefore.nextProposalId - 1);
 
@@ -194,10 +185,13 @@ contract InboxProposeTest is InboxTestBase {
             endOfSubmissionWindowTimestamp: 0,
             proposer: proposer,
             parentProposalHash: parentProposalHash,
-            derivationHash: bytes32(0)
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            basefeeSharingPctg: config.basefeeSharingPctg,
+            sources: new IInbox.DerivationSource[](1)
         });
-
-        payload_.proposal.derivationHash = codec.hashDerivation(payload_.derivation);
+        payload_.proposal.sources[0] =
+            IInbox.DerivationSource({ isForcedInclusion: false, blobSlice: blobSlice });
     }
 
     function _assertPayloadEqual(
@@ -216,48 +210,47 @@ contract InboxProposeTest is InboxTestBase {
         );
         assertEq(_actual.proposal.proposer, _expected.proposal.proposer, "proposal proposer");
         assertEq(
-            _actual.proposal.derivationHash,
-            _expected.proposal.derivationHash,
-            "proposal derivation hash"
+            _actual.proposal.parentProposalHash,
+            _expected.proposal.parentProposalHash,
+            "parent proposal hash"
         );
-
         assertEq(
-            _actual.derivation.originBlockNumber,
-            _expected.derivation.originBlockNumber,
+            _actual.proposal.originBlockNumber,
+            _expected.proposal.originBlockNumber,
             "origin block number"
         );
         assertEq(
-            _actual.derivation.originBlockHash,
-            _expected.derivation.originBlockHash,
+            _actual.proposal.originBlockHash,
+            _expected.proposal.originBlockHash,
             "origin block hash"
         );
         assertEq(
-            _actual.derivation.basefeeSharingPctg,
-            _expected.derivation.basefeeSharingPctg,
+            _actual.proposal.basefeeSharingPctg,
+            _expected.proposal.basefeeSharingPctg,
             "basefee sharing"
         );
         assertEq(
-            _actual.derivation.sources.length, _expected.derivation.sources.length, "sources length"
+            _actual.proposal.sources.length, _expected.proposal.sources.length, "sources length"
         );
-        if (_actual.derivation.sources.length != 0) {
+        if (_actual.proposal.sources.length != 0) {
             assertEq(
-                _actual.derivation.sources[0].isForcedInclusion,
-                _expected.derivation.sources[0].isForcedInclusion,
+                _actual.proposal.sources[0].isForcedInclusion,
+                _expected.proposal.sources[0].isForcedInclusion,
                 "source forced"
             );
             assertEq(
-                _actual.derivation.sources[0].blobSlice.blobHashes,
-                _expected.derivation.sources[0].blobSlice.blobHashes,
+                _actual.proposal.sources[0].blobSlice.blobHashes,
+                _expected.proposal.sources[0].blobSlice.blobHashes,
                 "blob hashes"
             );
             assertEq(
-                _actual.derivation.sources[0].blobSlice.offset,
-                _expected.derivation.sources[0].blobSlice.offset,
+                _actual.proposal.sources[0].blobSlice.offset,
+                _expected.proposal.sources[0].blobSlice.offset,
                 "blob offset"
             );
             assertEq(
-                _actual.derivation.sources[0].blobSlice.timestamp,
-                _expected.derivation.sources[0].blobSlice.timestamp,
+                _actual.proposal.sources[0].blobSlice.timestamp,
+                _expected.proposal.sources[0].blobSlice.timestamp,
                 "blob timestamp"
             );
         }

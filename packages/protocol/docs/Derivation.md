@@ -58,7 +58,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ## Metadata Preparation
 
-The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which emits a `ProposedEventPayload` object containing the `proposal`, `derivation`, and `coreState`. The proposal structure is defined in the protocol's L1 smart contract as follows:
+The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which emits a `ProposedEventPayload` object containing the `proposal` and `coreState`. The proposal structure is defined in the protocol's L1 smart contract as follows:
 
 ```solidity
 /// @notice Represents a proposal for L2 blocks.
@@ -71,19 +71,6 @@ struct Proposal {
   uint48 endOfSubmissionWindowTimestamp;
   /// @notice Address of the proposer.
   address proposer;
-  /// @notice The current hash of coreState
-  bytes32 coreStateHash;
-  /// @notice Hash of the Derivation struct containing additional proposal data.
-  bytes32 derivationHash;
-}
-```
-
-The `Derivation` struct contains additional proposal data not needed during proving:
-
-```solidity
-/// @notice Contains derivation data for a proposal that is not needed during proving.
-/// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-struct Derivation {
   /// @notice The L1 block number when the proposal was accepted.
   uint48 originBlockNumber;
   /// @notice The hash of the origin block.
@@ -94,7 +81,7 @@ struct Derivation {
   DerivationSource[] sources;
 }
 
-/// @notice Represents a source of derivation data within a Derivation
+/// @notice Represents a source of derivation data within a Proposal
 struct DerivationSource {
   /// @notice Whether this source is from a forced inclusion.
   bool isForcedInclusion;
@@ -103,25 +90,25 @@ struct DerivationSource {
 }
 ```
 
-The following metadata fields are extracted from the `proposal`, `derivation`, and `derivation.sources[i]` objects:
+The following metadata fields are extracted from the `proposal` and `proposal.sources[i]` objects:
 
 **Proposal-level assignments:**
 
-| Metadata Field                | Value Assignment                |
-| ----------------------------- | ------------------------------- |
-| `metadata.id`                 | `proposal.id`                   |
-| `metadata.proposer`           | `proposal.proposer`             |
-| `metadata.timestamp`          | `proposal.timestamp`            |
-| `metadata.originBlockNumber`  | `derivation.originBlockNumber`  |
-| `metadata.basefeeSharingPctg` | `derivation.basefeeSharingPctg` |
+| Metadata Field                | Value Assignment              |
+| ----------------------------- | ----------------------------- |
+| `metadata.id`                 | `proposal.id`                 |
+| `metadata.proposer`           | `proposal.proposer`           |
+| `metadata.timestamp`          | `proposal.timestamp`          |
+| `metadata.originBlockNumber`  | `proposal.originBlockNumber`  |
+| `metadata.basefeeSharingPctg` | `proposal.basefeeSharingPctg` |
 
 **Derivation source-level assignments (for source `i`):**
 
-| Metadata Field               | Value Assignment                          |
-| ---------------------------- | ----------------------------------------- |
-| `metadata.isForcedInclusion` | `derivation.sources[i].isForcedInclusion` |
+| Metadata Field               | Value Assignment                        |
+| ---------------------------- | --------------------------------------- |
+| `metadata.isForcedInclusion` | `proposal.sources[i].isForcedInclusion` |
 
-The `derivation.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
+The `proposal.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
 - **Forced inclusion submitters** publish their `DerivationSourceManifest` blob on L1 directly as blobs.
 - **The proposer** gathers every required derivation source—both their own blocks and any outstanding forced inclusions—and publishes a single `ProposalManifest` within their own `DerivationSource` (**appended last**). The inbox contract guarantees that forced inclusions are proposed as they were posted(without metadata being maniupalted).
