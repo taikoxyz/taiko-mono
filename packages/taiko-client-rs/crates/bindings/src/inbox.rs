@@ -2697,7 +2697,7 @@ interface Inbox {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Paused(address account);
     event Proposed(bytes data);
-    event Proved(bytes data);
+    event Proved(uint48 firstProposalId, uint48 firstNewProposalId, uint48 lastProposalId, address indexed actualProver, bool checkpointSynced);
     event Unpaused(address account);
     event Upgraded(address indexed implementation);
 
@@ -3539,10 +3539,34 @@ interface Inbox {
     "name": "Proved",
     "inputs": [
       {
-        "name": "data",
-        "type": "bytes",
+        "name": "firstProposalId",
+        "type": "uint48",
         "indexed": false,
-        "internalType": "bytes"
+        "internalType": "uint48"
+      },
+      {
+        "name": "firstNewProposalId",
+        "type": "uint48",
+        "indexed": false,
+        "internalType": "uint48"
+      },
+      {
+        "name": "lastProposalId",
+        "type": "uint48",
+        "indexed": false,
+        "internalType": "uint48"
+      },
+      {
+        "name": "actualProver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "checkpointSynced",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -6577,9 +6601,9 @@ event Proposed(bytes data);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Proved(bytes)` and selector `0xb2d5049ba96efb9e1fee66a51e4e6cbdfa2949627891ee29c6e4281abb8da03c`.
+    /**Event with signature `Proved(uint48,uint48,uint48,address,bool)` and selector `0x7ca0f1e30099488c4ee24e86a6b2c6802e9add6d530919af7aa17db3bcc1cff1`.
 ```solidity
-event Proved(bytes data);
+event Proved(uint48 firstProposalId, uint48 firstNewProposalId, uint48 lastProposalId, address indexed actualProver, bool checkpointSynced);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -6590,7 +6614,15 @@ event Proved(bytes data);
     #[derive(Clone)]
     pub struct Proved {
         #[allow(missing_docs)]
-        pub data: alloy::sol_types::private::Bytes,
+        pub firstProposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub firstNewProposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub lastProposalId: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
+        pub actualProver: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub checkpointSynced: bool,
     }
     #[allow(
         non_camel_case_types,
@@ -6602,16 +6634,24 @@ event Proved(bytes data);
         use alloy::sol_types as alloy_sol_types;
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Proved {
-            type DataTuple<'a> = (alloy::sol_types::sol_data::Bytes,);
+            type DataTuple<'a> = (
+                alloy::sol_types::sol_data::Uint<48>,
+                alloy::sol_types::sol_data::Uint<48>,
+                alloy::sol_types::sol_data::Uint<48>,
+                alloy::sol_types::sol_data::Bool,
+            );
             type DataToken<'a> = <Self::DataTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            type TopicList = (alloy_sol_types::sol_data::FixedBytes<32>,);
-            const SIGNATURE: &'static str = "Proved(bytes)";
+            type TopicList = (
+                alloy_sol_types::sol_data::FixedBytes<32>,
+                alloy::sol_types::sol_data::Address,
+            );
+            const SIGNATURE: &'static str = "Proved(uint48,uint48,uint48,address,bool)";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                178u8, 213u8, 4u8, 155u8, 169u8, 110u8, 251u8, 158u8, 31u8, 238u8, 102u8,
-                165u8, 30u8, 78u8, 108u8, 189u8, 250u8, 41u8, 73u8, 98u8, 120u8, 145u8,
-                238u8, 41u8, 198u8, 228u8, 40u8, 26u8, 187u8, 141u8, 160u8, 60u8,
+                124u8, 160u8, 241u8, 227u8, 0u8, 153u8, 72u8, 140u8, 78u8, 226u8, 78u8,
+                134u8, 166u8, 178u8, 198u8, 128u8, 46u8, 154u8, 221u8, 109u8, 83u8, 9u8,
+                25u8, 175u8, 122u8, 161u8, 125u8, 179u8, 188u8, 193u8, 207u8, 241u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -6620,7 +6660,13 @@ event Proved(bytes data);
                 topics: <Self::TopicList as alloy_sol_types::SolType>::RustType,
                 data: <Self::DataTuple<'_> as alloy_sol_types::SolType>::RustType,
             ) -> Self {
-                Self { data: data.0 }
+                Self {
+                    firstProposalId: data.0,
+                    firstNewProposalId: data.1,
+                    lastProposalId: data.2,
+                    actualProver: topics.1,
+                    checkpointSynced: data.3,
+                }
             }
             #[inline]
             fn check_signature(
@@ -6640,14 +6686,23 @@ event Proved(bytes data);
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
-                    <alloy::sol_types::sol_data::Bytes as alloy_sol_types::SolType>::tokenize(
-                        &self.data,
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(&self.firstProposalId),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(&self.firstNewProposalId),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(&self.lastProposalId),
+                    <alloy::sol_types::sol_data::Bool as alloy_sol_types::SolType>::tokenize(
+                        &self.checkpointSynced,
                     ),
                 )
             }
             #[inline]
             fn topics(&self) -> <Self::TopicList as alloy_sol_types::SolType>::RustType {
-                (Self::SIGNATURE_HASH.into(),)
+                (Self::SIGNATURE_HASH.into(), self.actualProver.clone())
             }
             #[inline]
             fn encode_topics_raw(
@@ -6659,6 +6714,9 @@ event Proved(bytes data);
                 }
                 out[0usize] = alloy_sol_types::abi::token::WordToken(
                     Self::SIGNATURE_HASH,
+                );
+                out[1usize] = <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic(
+                    &self.actualProver,
                 );
                 Ok(())
             }
@@ -12787,6 +12845,11 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 71u8, 84u8, 235u8, 219u8, 252u8, 84u8, 75u8, 5u8, 162u8, 88u8,
             ],
             [
+                124u8, 160u8, 241u8, 227u8, 0u8, 153u8, 72u8, 140u8, 78u8, 226u8, 78u8,
+                134u8, 166u8, 178u8, 198u8, 128u8, 46u8, 154u8, 221u8, 109u8, 83u8, 9u8,
+                25u8, 175u8, 122u8, 161u8, 125u8, 179u8, 188u8, 193u8, 207u8, 241u8,
+            ],
+            [
                 126u8, 100u8, 77u8, 121u8, 66u8, 47u8, 23u8, 192u8, 30u8, 72u8, 148u8,
                 181u8, 244u8, 245u8, 136u8, 211u8, 49u8, 235u8, 250u8, 40u8, 101u8, 61u8,
                 66u8, 174u8, 131u8, 45u8, 197u8, 158u8, 56u8, 201u8, 121u8, 143u8,
@@ -12805,11 +12868,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 139u8, 224u8, 7u8, 156u8, 83u8, 22u8, 89u8, 20u8, 19u8, 68u8, 205u8,
                 31u8, 208u8, 164u8, 242u8, 132u8, 25u8, 73u8, 127u8, 151u8, 34u8, 163u8,
                 218u8, 175u8, 227u8, 180u8, 24u8, 111u8, 107u8, 100u8, 87u8, 224u8,
-            ],
-            [
-                178u8, 213u8, 4u8, 155u8, 169u8, 110u8, 251u8, 158u8, 31u8, 238u8, 102u8,
-                165u8, 30u8, 78u8, 108u8, 189u8, 250u8, 41u8, 73u8, 98u8, 120u8, 145u8,
-                238u8, 41u8, 198u8, 228u8, 40u8, 26u8, 187u8, 141u8, 160u8, 60u8,
             ],
             [
                 188u8, 124u8, 215u8, 90u8, 32u8, 238u8, 39u8, 253u8, 154u8, 222u8, 186u8,

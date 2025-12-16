@@ -672,7 +672,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
-	extraData, err := encodeShastaExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
+	extraData, err := encodeShastaExtraData(meta.GetProposal().BasefeeSharingPctg, isLowBondProposal)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}

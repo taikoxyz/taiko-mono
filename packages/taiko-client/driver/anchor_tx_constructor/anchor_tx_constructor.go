@@ -118,10 +118,10 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 			Proposer:   proposer,
 			ProverAuth: proverAuth,
 		},
-		shastaBindings.AnchorBlockParams{
-			AnchorBlockNumber: anchorBlockNumber,
-			AnchorBlockHash:   anchorBlockHash,
-			AnchorStateRoot:   anchorStateRoot,
+		shastaBindings.ICheckpointStoreCheckpoint{
+			BlockNumber: anchorBlockNumber,
+			BlockHash:   anchorBlockHash,
+			StateRoot:   anchorStateRoot,
 		},
 	)
 }

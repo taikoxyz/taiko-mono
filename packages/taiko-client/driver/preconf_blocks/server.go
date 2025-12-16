@@ -1167,8 +1167,7 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 
 				s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(&shastaBindings.IInboxProposedEventPayload{
-						Proposal:   recordedProposal.Proposal,
-						Derivation: recordedProposal.Derivation,
+						Proposal: recordedProposal.Proposal,
 					}, *eventLog),
 					PreconfChainReorged: true,
 					LastBlockID:         blockID.Uint64(),

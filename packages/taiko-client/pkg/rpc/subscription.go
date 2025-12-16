@@ -107,7 +107,7 @@ func SubscribeProvedShasta(
 	ch chan *shastaBindings.ShastaInboxClientProved,
 ) event.Subscription {
 	return SubscribeEvent("Proved", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoInbox.WatchProved(nil, ch)
+		sub, err := taikoInbox.WatchProved(nil, ch, nil)
 		if err != nil {
 			log.Error("Create Shasta Inbox.Proved subscription error", "error", err)
 			return nil, err

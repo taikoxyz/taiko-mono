@@ -59,7 +59,7 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offset is invalid,
 	// return the default payload.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
-		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
+		meta.GetProposal().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
 			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
 		return &ShastaDerivationSourcePayload{Default: true}, nil
 	}
@@ -84,7 +84,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 ) (*ShastaDerivationSourcePayload, error) {
 	var (
 		proverAuth               []byte
-		offset                   = int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64())
+		offset                   = int(meta.GetProposal().Sources[derivationIdx].BlobSlice.Offset.Uint64())
 		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
 		derivationSourceManifest = new(manifest.DerivationSourceManifest)
 	)
@@ -131,12 +131,12 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
+	if derivationIdx != len(meta.GetProposal().Sources)-1 {
 		// For forced-inclusion source, ensure it contains exactly one block.
 		if len(derivationSourceManifest.Blocks) != 1 {
 			log.Warn(
 				"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
-				"blobs", len(meta.GetDerivation().Sources[derivationIdx].BlobSlice.BlobHashes),
+				"blobs", len(meta.GetProposal().Sources[derivationIdx].BlobSlice.BlobHashes),
 				"blocks", len(derivationSourceManifest.Blocks),
 			)
 			return defaultPayload, nil

@@ -139,7 +139,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			if len(proofResponse.Opts.ShastaOptions().Headers) == 0 {
 				return nil, fmt.Errorf(
 					"no headers in proof response options for proposal ID %d",
-					proofResponse.Meta.Shasta().GetProposal(),
+					proofResponse.Meta.Shasta().GetProposal().Id,
 				)
 			}
 			proposals[i] = proofResponse.Meta.Shasta().GetProposal()

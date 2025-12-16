@@ -136,7 +136,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				"batchID", meta.GetProposal().Id,
 				"assignedProver", meta.GetProposal().Proposer,
 				"timestamp", meta.GetProposal().Timestamp,
-				"derivationSources", len(meta.GetDerivation().Sources),
+				"derivationSources", len(meta.GetProposal().Sources),
 				"parentNumber", parent.Number,
 				"parentHash", parent.Hash(),
 			)
@@ -158,7 +158,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 					"batchID", meta.GetProposal().Id,
 					"assignedProver", meta.GetProposal().Proposer,
 					"timestamp", meta.GetProposal().Timestamp,
-					"derivationSources", len(meta.GetDerivation().Sources),
+					"derivationSources", len(meta.GetProposal().Sources),
 					"parentNumber", parent.Number,
 					"parentHash", parent.Hash(),
 				)
