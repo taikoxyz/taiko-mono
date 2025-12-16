@@ -64,6 +64,7 @@ The metadata preparation process initiates with a subscription to the inbox's `P
 event Proposed(
   uint48 indexed id,
   address indexed proposer,
+  uint48 endOfSubmissionWindowTimestamp,
   uint8 basefeeSharingPctg,
   DerivationSource[] sources
 );
@@ -78,11 +79,12 @@ The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                | Value Assignment             |
-| ----------------------------- | ---------------------------- |
-| `metadata.id`                 | `payload.id`                 |
-| `metadata.proposer`           | `payload.proposer`           |
-| `metadata.basefeeSharingPctg` | `payload.basefeeSharingPctg` |
+| Metadata Field                            | Value Assignment                         |
+| ----------------------------------------- | ---------------------------------------- |
+| `metadata.id`                             | `payload.id`                             |
+| `metadata.proposer`                       | `payload.proposer`                       |
+| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp` |
+| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
 
 **Derivation source-level assignments (for source `i`):**
 
