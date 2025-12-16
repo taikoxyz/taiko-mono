@@ -58,7 +58,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ## Metadata Preparation
 
-The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which now emits flat fields (no custom encoding) carrying only the fields that are necessary for the driver and the prover:
+The metadata preparation process initiates with a subscription to the inbox's `Proposed` event.
 
 ```solidity
 event Proposed(
@@ -69,10 +69,9 @@ event Proposed(
 );
 ```
 
-Everything else is derived by the prover:
+The other fields can be derived by querying the contract:
 
 - `timestamp` and `originBlockHash/Number` come from the L1 block that emitted the log.
-- `endOfSubmissionWindowTimestamp` is implied by proposer checker rules (0 in Shasta tests).
 - `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
 
 The following metadata fields are extracted directly from the event payload:
@@ -117,21 +116,6 @@ struct SignedTransaction {
   bytes32 s;
 }
 
-/// @notice Represents a block manifest
-struct BlockManifest {
-  /// @notice The timestamp of the block.
-  uint48 timestamp;
-  /// @notice The coinbase of the block.
-  address coinbase;
-  /// @notice The anchor block number. This field can be zero, if so, this block will use the
-  /// most recent anchor in a previous block.
-  uint48 anchorBlockNumber;
-  /// @notice The block's gas limit.
-  uint48 gasLimit;
-  /// @notice The transactions for this block.
-  SignedTransaction[] transactions;
-}
-
 /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 struct ProposalManifest {
@@ -148,6 +132,21 @@ struct DerivationSourceManifest {
   bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
+}
+
+/// @notice Represents a block manifest
+struct BlockManifest {
+  /// @notice The timestamp of the block.
+  uint48 timestamp;
+  /// @notice The coinbase of the block.
+  address coinbase;
+  /// @notice The anchor block number. This field can be zero, if so, this block will use the
+  /// most recent anchor in a previous block.
+  uint48 anchorBlockNumber;
+  /// @notice The block's gas limit.
+  uint48 gasLimit;
+  /// @notice The transactions for this block.
+  SignedTransaction[] transactions;
 }
 ```
 
