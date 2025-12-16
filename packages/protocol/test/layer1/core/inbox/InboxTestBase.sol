@@ -206,10 +206,7 @@ abstract contract InboxTestBase is CommonTest {
         payload_ = _readProposedEvent();
     }
 
-    function _readProposedEvent()
-        internal
-        returns (ProposedEvent memory payload_)
-    {
+    function _readProposedEvent() internal returns (ProposedEvent memory payload_) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         require(logs.length > 0, "Proposed event not found");
         Vm.Log memory log = logs[logs.length - 1];

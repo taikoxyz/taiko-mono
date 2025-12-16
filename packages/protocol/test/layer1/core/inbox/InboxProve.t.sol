@@ -154,10 +154,8 @@ contract InboxProveTest is InboxTestBase {
         uint48 p2Timestamp = uint48(block.timestamp);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] =
-            _transitionFor(p1, p1Timestamp, prover, keccak256("checkpoint1"));
-        transitions[1] =
-            _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        transitions[0] = _transitionFor(p1, p1Timestamp, prover, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input =
             _buildInput(1, bytes32(uint256(999)), transitions, keccak256("stateRoot"));
@@ -179,14 +177,10 @@ contract InboxProveTest is InboxTestBase {
         uint48 p3Timestamp = uint48(block.timestamp);
 
         bytes32 p1Checkpoint = keccak256("checkpoint1");
-        IInbox.Transition[] memory firstBatch =
-            _transitionArrayFor(p1, p1Timestamp, p1Checkpoint);
+        IInbox.Transition[] memory firstBatch = _transitionArrayFor(p1, p1Timestamp, p1Checkpoint);
 
         IInbox.ProveInput memory firstInput = _buildInput(
-            p1.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            firstBatch,
-            keccak256("stateRoot1")
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, firstBatch, keccak256("stateRoot1")
         );
         _prove(firstInput);
 
@@ -214,22 +208,16 @@ contract InboxProveTest is InboxTestBase {
         uint48 p2Timestamp = uint48(block.timestamp);
 
         bytes32 p1Checkpoint = keccak256("checkpoint1");
-        IInbox.Transition[] memory firstBatch =
-            _transitionArrayFor(p1, p1Timestamp, p1Checkpoint);
+        IInbox.Transition[] memory firstBatch = _transitionArrayFor(p1, p1Timestamp, p1Checkpoint);
 
         IInbox.ProveInput memory firstInput = _buildInput(
-            p1.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            firstBatch,
-            keccak256("stateRoot1")
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, firstBatch, keccak256("stateRoot1")
         );
         _prove(firstInput);
 
         IInbox.Transition[] memory fullBatch = new IInbox.Transition[](2);
-        fullBatch[0] =
-            _transitionFor(p1, p1Timestamp, prover, keccak256("wrongCheckpoint"));
-        fullBatch[1] =
-            _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        fullBatch[0] = _transitionFor(p1, p1Timestamp, prover, keccak256("wrongCheckpoint"));
+        fullBatch[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory fullInput =
             _buildInput(p1.id, bytes32(0), fullBatch, keccak256("stateRoot2"));
@@ -259,23 +247,16 @@ contract InboxProveTest is InboxTestBase {
             timestamp: p1Timestamp,
             blockHash: keccak256("checkpoint1")
         });
-        transitions[1] =
-            _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        transitions[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input = _buildInput(
-            p1.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            keccak256("stateRoot")
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, keccak256("stateRoot")
         );
 
         _prove(input);
 
         LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
-            proposalId: p1.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
+            proposalId: p1.id, bondType: LibBonds.BondType.LIVENESS, payer: proposer, payee: prover
         });
         bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
         assertTrue(
@@ -474,7 +455,9 @@ contract InboxProveTest is InboxTestBase {
                 actualProver: prover,
                 endBlockNumber: 0,
                 endStateRoot: bytes32(0),
-                transitions: _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"))
+                transitions: _transitionArrayFor(
+                    payload, proposalTimestamp, keccak256("checkpoint")
+                )
             }),
             forceCheckpointSync: false
         });

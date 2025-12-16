@@ -81,10 +81,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
         });
 
         IInbox.ProveInput memory input = _buildInputWithProver(
-            p1.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            whitelistedProver
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, whitelistedProver
         );
 
         _proveAs(whitelistedProver, input);

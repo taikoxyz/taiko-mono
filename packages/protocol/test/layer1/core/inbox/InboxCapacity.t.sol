@@ -116,9 +116,7 @@ contract InboxRingBufferTest is InboxTestBase {
 
         assertEq(p6.id, p5.id + 1, "proposal id");
         assertEq(
-            inbox.getProposalHash(expectedP6.id),
-            codec.hashProposal(expectedP6),
-            "proposal hash"
+            inbox.getProposalHash(expectedP6.id), codec.hashProposal(expectedP6), "proposal hash"
         );
     }
 }

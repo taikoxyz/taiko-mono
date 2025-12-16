@@ -598,9 +598,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Emits the Proposed event
-    function _emitProposedEvent(Proposal memory _proposal)
-        private
-    {
+    function _emitProposedEvent(Proposal memory _proposal) private {
         emit Proposed(
             _proposal.id, _proposal.proposer, _proposal.basefeeSharingPctg, _proposal.sources
         );

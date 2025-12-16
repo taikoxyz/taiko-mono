@@ -156,8 +156,7 @@ contract InboxProposeTest is InboxTestBase {
         input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
         input.numForcedInclusions = 1;
 
-        ProposedEvent memory payload =
-            _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
+        ProposedEvent memory payload = _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
         uint48 proposalTimestamp = uint48(block.timestamp);
         uint48 originBlockNumber = uint48(block.number - 1);
         bytes32 originBlockHash = blockhash(block.number - 1);
@@ -184,7 +183,10 @@ contract InboxProposeTest is InboxTestBase {
     // Helpers
     // ---------------------------------------------------------------------
 
-    function _assertPayloadEqual(ProposedEvent memory _actual, IInbox.Proposal memory _expected)
+    function _assertPayloadEqual(
+        ProposedEvent memory _actual,
+        IInbox.Proposal memory _expected
+    )
         internal
         pure
     {
