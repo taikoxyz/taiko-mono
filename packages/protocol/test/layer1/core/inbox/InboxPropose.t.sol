@@ -190,6 +190,7 @@ contract InboxProposeTest is InboxTestBase {
     {
         assertEq(_actual.id, _expected.id, "proposal id");
         assertEq(_actual.proposer, _expected.proposer, "proposal proposer");
+        assertEq(_actual.basefeeSharingPctg, _expected.basefeeSharingPctg, "basefee sharing");
         assertEq(_actual.sources.length, _expected.sources.length, "sources length");
         if (_actual.sources.length != 0) {
             assertEq(

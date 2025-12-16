@@ -64,6 +64,7 @@ The metadata preparation process initiates with a subscription to the inbox's `P
 event Proposed(
   uint48 indexed id,
   address indexed proposer,
+  uint8 basefeeSharingPctg,
   DerivationSource[] sources
 );
 ```
@@ -71,7 +72,6 @@ event Proposed(
 Everything else is derived by the prover:
 
 - `timestamp` and `originBlockHash/Number` come from the L1 block that emitted the log.
-- `basefeeSharingPctg` is read from `Inbox.getConfig()`.
 - `endOfSubmissionWindowTimestamp` is implied by proposer checker rules (0 in Shasta tests).
 - `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
 
@@ -79,10 +79,11 @@ The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field      | Value Assignment   |
-| ------------------- | ------------------ |
-| `metadata.id`       | `payload.id`       |
-| `metadata.proposer` | `payload.proposer` |
+| Metadata Field                | Value Assignment             |
+| ----------------------------- | ---------------------------- |
+| `metadata.id`                 | `payload.id`                 |
+| `metadata.proposer`           | `payload.proposer`           |
+| `metadata.basefeeSharingPctg` | `payload.basefeeSharingPctg` |
 
 **Derivation source-level assignments (for source `i`):**
 

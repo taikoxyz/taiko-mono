@@ -176,9 +176,13 @@ interface IInbox {
     /// @notice Emitted when a new proposal is proposed.
     /// @param id Unique identifier for the proposal.
     /// @param proposer Address of the proposer.
+    /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
     /// @param sources Array of derivation sources for this proposal.
     event Proposed(
-        uint48 indexed id, address indexed proposer, DerivationSource[] sources
+        uint48 indexed id,
+        address indexed proposer,
+        uint8 basefeeSharingPctg,
+        DerivationSource[] sources
     );
 
     /// @notice Emitted when a proof is submitted

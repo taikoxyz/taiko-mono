@@ -23,6 +23,7 @@ abstract contract InboxTestBase is CommonTest {
     struct ProposedEvent {
         uint48 id;
         address proposer;
+        uint8 basefeeSharingPctg;
         IInbox.DerivationSource[] sources;
     }
 
@@ -215,7 +216,8 @@ abstract contract InboxTestBase is CommonTest {
 
         payload_.id = uint48(uint256(log.topics[1]));
         payload_.proposer = address(uint160(uint256(log.topics[2])));
-        payload_.sources = abi.decode(log.data, (IInbox.DerivationSource[]));
+        (payload_.basefeeSharingPctg, payload_.sources) =
+            abi.decode(log.data, (uint8, IInbox.DerivationSource[]));
     }
 
     function _mockBeaconBlockRoot() internal {
@@ -330,7 +332,7 @@ abstract contract InboxTestBase is CommonTest {
             parentProposalHash: parentProposalHash,
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,
-            basefeeSharingPctg: config.basefeeSharingPctg,
+            basefeeSharingPctg: _payload.basefeeSharingPctg,
             sources: _payload.sources
         });
     }
