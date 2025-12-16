@@ -172,7 +172,16 @@ interface IInbox {
 
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
-        ProveInput input;
+        /// @notice The ID of the first proposal being proven.
+        uint48 firstProposalId;
+        /// @notice The ID of the first proposal that had not been proven before.
+        uint48 firstNewProposalId;
+        /// @notice The ID of the last proposal being proven.
+        uint48 lastProposalId;
+        /// @notice The actual prover who generated the proof.
+        address actualProver;
+        /// @notice Whether the checkpoint was synced.
+        bool checkpointSynced;
     }
 
     // ---------------------------------------------------------------
