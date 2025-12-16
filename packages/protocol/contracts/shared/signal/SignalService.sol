@@ -115,6 +115,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         virtual
+        whenNotPaused
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
@@ -133,6 +134,7 @@ contract SignalService is EssentialContract, ISignalService {
         external
         view
         virtual
+        whenNotPaused
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }

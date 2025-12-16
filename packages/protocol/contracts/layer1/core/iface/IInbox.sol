@@ -46,25 +46,12 @@ interface IInbox {
         uint8 permissionlessInclusionMultiplier;
     }
 
-    /// @notice Represents a source of derivation data within a Derivation
+    /// @notice Represents a source of derivation data within a Proposal
     struct DerivationSource {
         /// @notice Whether this source is from a forced inclusion.
         bool isForcedInclusion;
         /// @notice Blobs that contain the source's manifest data.
         LibBlobs.BlobSlice blobSlice;
-    }
-
-    /// @notice Contains derivation data for a proposal that is not needed during proving.
-    /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-    struct Derivation {
-        /// @notice The L1 block number when the proposal was accepted.
-        uint48 originBlockNumber;
-        /// @notice The hash of the origin block.
-        bytes32 originBlockHash;
-        /// @notice The percentage of base fee paid to coinbase.
-        uint8 basefeeSharingPctg;
-        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
-        DerivationSource[] sources;
     }
 
     /// @notice Represents a proposal for L2 blocks.
@@ -79,8 +66,14 @@ interface IInbox {
         address proposer;
         /// @notice Hash of the parent proposal (zero for genesis).
         bytes32 parentProposalHash;
-        /// @notice Hash of the Derivation struct containing additional proposal data.
-        bytes32 derivationHash;
+        /// @notice The L1 block number when the proposal was accepted.
+        uint48 originBlockNumber;
+        /// @notice The hash of the origin block.
+        bytes32 originBlockHash;
+        /// @notice The percentage of base fee paid to coinbase.
+        uint8 basefeeSharingPctg;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -166,13 +159,20 @@ interface IInbox {
     struct ProposedEventPayload {
         /// @notice The proposal that was created.
         Proposal proposal;
-        /// @notice The derivation data for the proposal.
-        Derivation derivation;
     }
 
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
-        ProveInput input;
+        /// @notice The ID of the first proposal being proven.
+        uint48 firstProposalId;
+        /// @notice The ID of the first proposal that had not been proven before.
+        uint48 firstNewProposalId;
+        /// @notice The ID of the last proposal being proven.
+        uint48 lastProposalId;
+        /// @notice The actual prover who generated the proof.
+        address actualProver;
+        /// @notice Whether the checkpoint was synced.
+        bool checkpointSynced;
     }
 
     // ---------------------------------------------------------------
@@ -184,8 +184,18 @@ interface IInbox {
     event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted
-    /// @param data The encoded ProvedEventPayload
-    event Proved(bytes data);
+    /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)
+    /// @param firstNewProposalId The first proposal ID that was newly proven by this proof
+    /// @param lastProposalId The last proposal ID covered by the proof
+    /// @param actualProver The prover that submitted the proof
+    /// @param checkpointSynced Whether a checkpoint was synced as part of this proof
+    event Proved(
+        uint48 firstProposalId,
+        uint48 firstNewProposalId,
+        uint48 lastProposalId,
+        address indexed actualProver,
+        bool checkpointSynced
+    );
 
     /// @notice Emitted when a bond instruction is signaled to L2
     /// @param proposalId The proposal ID that triggered the bond instruction

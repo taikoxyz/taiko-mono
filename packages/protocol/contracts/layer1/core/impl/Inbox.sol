@@ -12,7 +12,6 @@ import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
 import { LibProposedEventCodec } from "../libs/LibProposedEventCodec.sol";
 import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
-import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -169,7 +168,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
-            Derivation memory derivation,
             Proposal memory proposal,
             bytes32 genesisProposalHash
         ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
@@ -177,7 +175,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
-        _emitProposedEvent(proposal, derivation);
+        _emitProposedEvent(proposal);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -200,7 +198,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
-            (Proposal memory proposal, Derivation memory derivation) = _buildProposal(
+            Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
 
@@ -208,7 +206,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
-            _emitProposedEvent(proposal, derivation);
+            _emitProposedEvent(proposal);
         }
     }
 
@@ -281,10 +279,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            if (
-                input.forceCheckpointSync
-                    || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay
-            ) {
+            bool checkpointSynced = input.forceCheckpointSync
+                || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay;
+
+            if (checkpointSynced) {
                 _signalService.saveCheckpoint(
                     ICheckpointStore.Checkpoint({
                         blockNumber: commitment.endBlockNumber,
@@ -303,7 +301,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
-            emit Proved(LibProvedEventCodec.encode(ProvedEventPayload(input)));
+
+            emit Proved(
+                commitment.firstProposalId,
+                commitment.firstProposalId + offset,
+                uint48(lastProposalId),
+                commitment.actualProver,
+                checkpointSynced
+            );
 
             // ---------------------------------------------------------
             // 6. Verify the proof
@@ -409,9 +414,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _nextProposalId The proposal ID to assign.
     /// @param _lastProposalBlockId The last block number where a proposal was made.
     /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
-    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp and derivation
-    /// hash set.
-    /// @return derivation_ The derivation data for the proposal.
+    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
     function _buildProposal(
         ProposeInput memory _input,
         bytes calldata _lookahead,
@@ -420,7 +423,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 _lastFinalizedProposalId
     )
         private
-        returns (Proposal memory proposal_, Derivation memory derivation_)
+        returns (Proposal memory proposal_)
     {
         unchecked {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
@@ -446,20 +449,16 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
-            derivation_ = Derivation({
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
-            });
-
             proposal_ = Proposal({
                 id: _nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
-                derivationHash: LibHashOptimized.hashDerivation(derivation_)
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: result.sources
             });
         }
     }
@@ -551,9 +550,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // Transfer accumulated fees
-            if (totalFees > 0) {
-                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
-            }
+            _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
 
             // Oldest timestamp is the timestamp of the first inclusion
             oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
@@ -602,14 +599,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Emits the Proposed event
-    function _emitProposedEvent(
-        Proposal memory _proposal,
-        Derivation memory _derivation
-    )
-        private
-    {
-        ProposedEventPayload memory payload =
-            ProposedEventPayload({ proposal: _proposal, derivation: _derivation });
+    function _emitProposedEvent(Proposal memory _proposal) private {
+        ProposedEventPayload memory payload = ProposedEventPayload({ proposal: _proposal });
         emit Proposed(LibProposedEventCodec.encode(payload));
     }
 
