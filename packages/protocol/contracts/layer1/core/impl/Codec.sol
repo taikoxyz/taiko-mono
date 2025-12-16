@@ -84,15 +84,6 @@ contract Codec is ICodec {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ICodec
-    function hashDerivation(IInbox.Derivation calldata _derivation)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashOptimized.hashDerivation(_derivation);
-    }
-
-    /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
     }
