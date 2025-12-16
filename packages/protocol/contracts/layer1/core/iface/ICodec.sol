@@ -40,27 +40,6 @@ interface ICodec {
         returns (IInbox.ProposedEventPayload memory payload_);
 
     // ---------------------------------------------------------------
-    // ProvedEventCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes a ProvedEventPayload into bytes
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return encoded_ The encoded bytes
-    function encodeProvedEvent(IInbox.ProvedEventPayload calldata _payload)
-        external
-        pure
-        returns (bytes memory encoded_);
-
-    /// @notice Decodes bytes into a ProvedEventPayload
-    /// @param _data The bytes to decode
-    /// @return payload_ The decoded ProvedEventPayload
-    /// @dev Reverts on malformed or truncated input data
-    function decodeProvedEvent(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProvedEventPayload memory payload_);
-
-    // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
 
@@ -105,11 +84,6 @@ interface ICodec {
     // ---------------------------------------------------------------
     // Hashing Functions
     // ---------------------------------------------------------------
-
-    /// @notice Hashing for Derivation structs
-    /// @param _derivation The derivation to hash
-    /// @return The hash of the derivation
-    function hashDerivation(IInbox.Derivation calldata _derivation) external pure returns (bytes32);
 
     /// @notice Hashing for Proposal structs
     /// @param _proposal The proposal to hash

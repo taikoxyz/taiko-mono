@@ -46,7 +46,6 @@ library LibInboxSetup {
     /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
-    /// @return derivation_ The genesis derivation.
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
     function activate(
@@ -58,7 +57,6 @@ library LibInboxSetup {
         returns (
             uint48 activationTimestamp_,
             IInbox.CoreState memory state_,
-            IInbox.Derivation memory derivation_,
             IInbox.Proposal memory proposal_,
             bytes32 genesisProposalHash_
         )
@@ -84,7 +82,6 @@ library LibInboxSetup {
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
         state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
 
-        proposal_.derivationHash = LibHashOptimized.hashDerivation(derivation_);
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
     }
 
