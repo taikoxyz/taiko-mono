@@ -129,8 +129,6 @@ The `derivation.sources` array contains `DerivationSource` objects, each with a 
 The manifest data structures are defined as follows:
 
 ```solidity
-/// @notice Represents a signed Ethereum transaction
-/// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
 struct SignedTransaction {
   uint8 txType;
   uint64 chainId;
@@ -147,39 +145,27 @@ struct SignedTransaction {
   bytes32 s;
 }
 
-/// @notice Represents a block manifest
 struct BlockManifest {
-  /// @notice The timestamp of the block.
   uint48 timestamp;
-  /// @notice The coinbase of the block.
   address coinbase;
-  /// @notice The anchor block number. This field can be zero, if so, this block will use the
-  /// most recent anchor in a previous block.
   uint48 anchorBlockNumber;
-  /// @notice The block's gas limit.
   uint48 gasLimit;
-  /// @notice The transactions for this block.
   SignedTransaction[] transactions;
 }
 
-/// @notice Represents a proposal manifest containing proposal-level metadata and all sources
-/// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
+/// Matches LibManifest.ProposalManifest on L1.
 struct ProposalManifest {
-  /// @notice Prover authentication data (proposal-level).
   bytes proverAuthBytes;
-  /// @notice Array of derivation source manifests (one per derivation source).
   DerivationSourceManifest[] sources;
 }
 
-/// @notice Represents a derivation source manifest containing blocks for one source
-/// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
+/// Matches LibManifest.DerivationSourceManifest on L1.
 struct DerivationSourceManifest {
-  /// @notice Proposal-level prover authentication data; ignored when the derivation source is a forced inclusion.
-  bytes proverAuthBytes;
-  /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
 ```
+
+Off-chain clients use an extended `DerivationSourceManifest` RLP structure that also includes a `proverAuthBytes` field. On L1, `LibManifest.DerivationSourceManifest` contains only the `blocks` field; prover authentication is stored at the proposal level.
 
 ### Proposer and `isLowBondProposal` Validation
 
@@ -189,76 +175,6 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Ensuring the proposer is not waiting for exiting.
 
 Should any of these validation checks fail (as determined by the `anchorV4` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
-
-### Manifest Extraction
-
-The `BlobSlice` struct is defined as:
-
-```solidity
-/// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
-/// encoded as a bytes32 at the offset location.
-struct BlobSlice {
-  /// @notice The blobs containing the proposal's content.
-  bytes32[] blobHashes;
-  /// @notice The byte offset of the proposal's content in the containing blobs.
-  uint24 offset;
-  /// @notice The timestamp when the frame was created.
-  uint48 timestamp;
-}
-```
-
-The `BlobSlice` struct represents binary data distributed across multiple blobs. `DerivationSource` entries are processed sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final manifest and cross-check data integrity.
-
-#### Per-Source Manifest Extraction
-
-For each `DerivationSource[i]`, the validator performs:
-
-1. **Blob Validation**: Verify `blobSlice.blobHashes.length > 0`
-2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64`
-3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
-4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
-5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
-6. **Decoding**: RLP decode the decompressed data
-7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
-
-If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
-
-#### Default Source Manifest
-
-A default source manifest is used when validation fails for a specific source:
-
-```solidity
-DerivationSourceManifest memory defaultSource;
-defaultSource.blocks = new BlockManifest[](1);  // // Single block
-```
-
-#### ProposalManifest Construction
-
-After processing all sources, the `ProposalManifest` is constructed:
-
-```solidity
-ProposalManifest memory manifest;
-manifest.proverAuthBytes = proverAuthBytesFromProposerSource;
-manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults for failed sources
-```
-
-**Censorship Resistance**: This per-source validation design prevents a malicious proposer from invalidating valid forced inclusions by including invalid data in other sources. Each source is isolated: failures only affect that specific source, not the entire proposal.
-
-#### Forced Inclusion Submission Requirements
-
-Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
-
-| Field               | Required Value | Reason                                                  |
-| ------------------- | -------------- | ------------------------------------------------------- |
-| `timestamp`         | `0`            | Protocol assigns based on proposal timing               |
-| `coinbase`          | `address(0)`   | Protocol uses `proposal.proposer` for forced inclusions |
-| `anchorBlockNumber` | `0`            | Protocol inherits from parent block                     |
-| `gasLimit`          | `0`            | Protocol inherits from parent block                     |
-| `transactions`      | User-provided  | The actual transactions to be forcibly included         |
-
-This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
-
-If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
 
 ### Metadata Validation and Computation
 
@@ -298,21 +214,31 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 10, this allows ±10 millionths (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit validation is based on the effective parent gas limit, which accounts for the reserved gas of the anchor transaction. Adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block, and the block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT` or above `MAX_BLOCK_GAS_LIMIT`.
 
-**Calculation process**:
+1. **Compute effective parent gas limit**:
+   - If `parentBlockNumber == 0`:
+     - `effectiveParentGasLimit = parent.metadata.gasLimit`
+   - Otherwise:
+     - `effectiveParentGasLimit = parent.metadata.gasLimit - ANCHOR_V3_V4_GAS_LIMIT`
 
-1. **Define bounds**:
-   - `lowerBound = max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
+2. **Define bounds**:
+   - `lowerBound = max(effectiveParentGasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = min(effectiveParentGasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
 
-2. **Apply constraints**:
-   - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
-   - If below `lowerBound`: Clamp to `lowerBound`
-   - If above `upperBound`: Clamp to `upperBound`
-   - Otherwise: Use manifest value unchanged
+3. **Apply constraints**:
+   - For every block, `manifest.blocks[i].gasLimit` must satisfy `lowerBound <= manifest.blocks[i].gasLimit <= upperBound`.
 
-After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
+For forced inclusion and default manifests, gas limits are filled in by inherited metadata before this validation step. No additional constant is added to the block gas limit after validation.
+
+#### Manifest Failure Handling
+
+Timestamp, anchor block, and gas limit validation is applied per derivation source. If any of these checks fails for a `DerivationSourceManifest`, the source is replaced by the default manifest:
+
+- Original blocks are discarded.
+- The source is replaced with a single block that only carries an anchor transaction populated from inherited metadata.
+
+Validation is not applied per-field; it is all-or-nothing at the source level.
 
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
@@ -558,10 +484,10 @@ The following constants govern the block derivation process:
 | ------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                                   |
 | **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                                     |
-| **TIMESTAMP_MAX_OFFSET**       | `384` (12 \* 32)              | The maximum number timestamp offset from the proposal origin timestamp.                                                                                                           |
+| **TIMESTAMP_MAX_OFFSET**       | `1,536` (12 \* 128)           | The maximum timestamp offset from the proposal origin timestamp.                                                                                                                  |
 | **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                             |
 | **MIN_BLOCK_GAS_LIMIT**        | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                                 |
-| **MAX_BLOCK_GAS_LIMIT**        | `100,000,000`                 | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                                  |
+| **MAX_BLOCK_GAS_LIMIT**        | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                                  |
 | **BOND_PROCESSING_DELAY**      | `6`                           | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
 | **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                                      |
 | **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                               |
