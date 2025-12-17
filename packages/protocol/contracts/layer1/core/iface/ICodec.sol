@@ -19,27 +19,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ICodec {
     // ---------------------------------------------------------------
-    // ProposedEventCodec Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes a ProposedEventPayload into bytes
-    /// @param _payload The payload to encode
-    /// @return encoded_ The encoded bytes
-    function encodeProposedEvent(IInbox.ProposedEventPayload calldata _payload)
-        external
-        pure
-        returns (bytes memory encoded_);
-
-    /// @notice Decodes bytes into a ProposedEventPayload
-    /// @param _data The encoded data
-    /// @return payload_ The decoded payload
-    /// @dev Reverts on malformed or truncated input data
-    function decodeProposedEvent(bytes calldata _data)
-        external
-        pure
-        returns (IInbox.ProposedEventPayload memory payload_);
-
-    // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
 

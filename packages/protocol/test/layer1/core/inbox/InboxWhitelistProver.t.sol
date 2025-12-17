@@ -66,31 +66,29 @@ contract InboxWhitelistProverTest is InboxTestBase {
     }
 
     function test_prove_skipsBondInstruction_whenCallerIsWhitelistedProver() public {
-        IInbox.ProposedEventPayload memory p1 = _proposeOne();
+        ProposedEvent memory p1 = _proposeOne();
+        uint48 p1Timestamp = uint48(block.timestamp);
 
         // Warp past proving window to ensure bond would normally be emitted
         vm.warp(block.timestamp + config.provingWindow + 1);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: p1.proposal.proposer,
+            proposer: p1.proposer,
             designatedProver: proposer, // Different from actual to trigger bond
-            timestamp: p1.proposal.timestamp,
+            timestamp: p1Timestamp,
             blockHash: keccak256("checkpoint1")
         });
 
         IInbox.ProveInput memory input = _buildInputWithProver(
-            p1.proposal.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            whitelistedProver
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, whitelistedProver
         );
 
         _proveAs(whitelistedProver, input);
 
         // Verify no bond signal was sent (whitelisted prover skips bond calculation)
         LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: p1.proposal.id,
+            proposalId: p1.id,
             bondType: LibBonds.BondType.LIVENESS,
             payer: proposer, // designated prover
             payee: whitelistedProver
@@ -134,17 +132,18 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
-            IInbox.ProposedEventPayload memory payload = _proposeOne();
+            ProposedEvent memory payload = _proposeOne();
+            uint48 proposalTimestamp = uint48(block.timestamp);
 
             if (i == 0) {
-                firstProposalId = payload.proposal.id;
+                firstProposalId = payload.id;
             }
 
             bytes32 blockHash = keccak256(abi.encode("checkpoint", i + 1));
             transitions[i] = IInbox.Transition({
-                proposer: payload.proposal.proposer,
+                proposer: payload.proposer,
                 designatedProver: _actualProver,
-                timestamp: payload.proposal.timestamp,
+                timestamp: proposalTimestamp,
                 blockHash: blockHash
             });
         }

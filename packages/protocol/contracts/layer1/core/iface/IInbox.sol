@@ -155,12 +155,6 @@ interface IInbox {
         bool forceCheckpointSync;
     }
 
-    /// @notice Payload data emitted in the Proposed event
-    struct ProposedEventPayload {
-        /// @notice The proposal that was created.
-        Proposal proposal;
-    }
-
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
         /// @notice The ID of the first proposal being proven.
@@ -180,8 +174,18 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param data The encoded ProposedEventPayload
-    event Proposed(bytes data);
+    /// @param id Unique identifier for the proposal.
+    /// @param proposer Address of the proposer.
+    /// @param endOfSubmissionWindowTimestamp Last slot timestamp where the preconfer can propose.
+    /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
+    /// @param sources Array of derivation sources for this proposal.
+    event Proposed(
+        uint48 indexed id,
+        address indexed proposer,
+        uint48 endOfSubmissionWindowTimestamp,
+        uint8 basefeeSharingPctg,
+        DerivationSource[] sources
+    );
 
     /// @notice Emitted when a proof is submitted
     /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)
