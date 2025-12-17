@@ -35,10 +35,10 @@ use super::super::{DerivationError, DerivationPipeline};
 struct ProposedEventContext {
     /// Raw decoded `Proposed` event payload.
     event: Proposed,
-    /// L1 block number that emitted the event (used as origin height).
+    /// L1 block number that emitted the event.
     l1_block_number: u64,
-    /// Hash of the origin block (parent of the block that emitted the event).
-    origin_block_hash: B256,
+    /// Hash of the L1 block that emitted the event.
+    l1_block_hash: B256,
     /// Timestamp of the emitting L1 block (used as proposal timestamp).
     l1_timestamp: u64,
 }
@@ -200,17 +200,16 @@ where
             .ok_or(DerivationError::BlockUnavailable(l1_block_number))?;
 
         let l1_timestamp = l1_block.header.timestamp;
-        let origin_block_hash = l1_block.header.parent_hash;
 
         debug!(
             proposal_id = event.id.to::<u64>(),
             l1_block_number = l1_block_number,
-            origin_block_hash = ?origin_block_hash,
+            l1_block_hash = ?l1_block_hash,
             source_count = event.sources.len(),
             "decoded proposed event"
         );
 
-        Ok(ProposedEventContext { event, l1_block_number, origin_block_hash, l1_timestamp })
+        Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
     /// Read the inbox core state at the proposal log's block to extract the last finalized id.
@@ -304,8 +303,9 @@ where
                 proposal_id,
                 last_finalized_proposal_id,
                 proposal_timestamp: event.l1_timestamp,
+                l1_block_number: event.l1_block_number,
+                l1_block_hash: event.l1_block_hash,
                 origin_block_number: event.l1_block_number.saturating_sub(1),
-                origin_block_hash: event.origin_block_hash,
                 proposer: event.event.proposer,
                 basefee_sharing_pctg: event.event.basefeeSharingPctg,
                 prover_auth_bytes,
