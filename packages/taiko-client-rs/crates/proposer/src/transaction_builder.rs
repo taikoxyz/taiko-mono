@@ -12,7 +12,6 @@ use alloy::{
     rpc::types::TransactionRequest,
 };
 use alloy_network::TransactionBuilder4844;
-use anyhow::anyhow;
 use bindings::codec::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
@@ -89,26 +88,15 @@ impl ShastaProposalTransactionBuilder {
             .build()
             .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
-        let num_blobs: u16 = sidecar
-            .blobs
-            .len()
-            .try_into()
-            .map_err(|_| ProposerError::Other(anyhow!("too many blobs for u16 numBlobs")))?;
-
-        let num_forced_inclusions: u8 = {
-            let raw: u128 = config.minForcedInclusionCount.to();
-            raw.min(u128::from(u8::MAX)) as u8
-        };
-
         // Build the propose input.
         let input = ProposeInput {
             deadline: U48::ZERO,
             blobReference: BlobReference {
                 blobStartIndex: 0,
-                numBlobs: num_blobs,
+                numBlobs: sidecar.blobs.len() as u16,
                 offset: U24::ZERO,
             },
-            numForcedInclusions: num_forced_inclusions,
+            numForcedInclusions: config.minForcedInclusionCount.to(),
         };
 
         // Build the transaction request with blob sidecar.
