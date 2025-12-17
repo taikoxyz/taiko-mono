@@ -181,7 +181,7 @@ where
         &self,
         log: &Log,
     ) -> Result<ProposedEventContext, DerivationError> {
-        let event = Proposed::decode_raw_log(log.topics(), log.data().as_ref())?;
+        let event = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())?;
 
         let l1_block_hash = log
             .block_hash
@@ -210,13 +210,7 @@ where
             "decoded proposed event"
         );
 
-        Ok(ProposedEventContext {
-            event,
-            l1_block_number,
-            l1_block_hash,
-            l1_timestamp,
-            tx_hash,
-        })
+        Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp, tx_hash })
     }
 
     /// Read the inbox core state at the proposal log's block to extract the last finalized id.
@@ -474,13 +468,16 @@ where
 mod tests {
     use super::*;
     use alloy::primitives::{
-        B256,
+        B256, FixedBytes,
         aliases::{U24, U48},
     };
     use bindings::inbox::LibBlobs::BlobSlice;
     use protocol::shasta::manifest::{BlockManifest, DerivationSourceManifest};
 
-    fn sample_derivation_source(blob_hashes: Vec<[u8; 32]>, is_forced: bool) -> DerivationSource {
+    fn sample_derivation_source(
+        blob_hashes: Vec<FixedBytes<32>>,
+        is_forced: bool,
+    ) -> DerivationSource {
         DerivationSource {
             isForcedInclusion: is_forced,
             blobSlice: BlobSlice {
@@ -493,7 +490,10 @@ mod tests {
 
     #[test]
     fn derivation_source_to_blob_hashes_preserves_order() {
-        let source = sample_derivation_source(vec![[1u8; 32], [2u8; 32]], false);
+        let source = sample_derivation_source(
+            vec![FixedBytes::from([1u8; 32]), FixedBytes::from([2u8; 32])],
+            false,
+        );
         let hashes = derivation_source_to_blob_hashes(&source);
         assert_eq!(hashes.len(), 2);
         assert_eq!(hashes[0], B256::from([1u8; 32]));
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn forced_inclusion_manifest_defaults_when_block_count_invalid() {
-        let source = sample_derivation_source(vec![[0u8; 32]], true);
+        let source = sample_derivation_source(vec![FixedBytes::from([0u8; 32])], true);
         let manifest = DerivationSourceManifest {
             prover_auth_bytes: Default::default(),
             blocks: vec![BlockManifest::default(), BlockManifest::default()],
