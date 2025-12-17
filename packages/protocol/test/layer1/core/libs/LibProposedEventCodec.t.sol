@@ -124,12 +124,18 @@ contract LibProposedEventCodecTest is Test {
             proposal: IInbox.Proposal({
                 id: uint48(uint256(keccak256(abi.encode(seed, "proposalId")))),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "proposalTimestamp")))),
-                endOfSubmissionWindowTimestamp: uint48(uint256(keccak256(abi.encode(seed, "eoswts")))),
+                endOfSubmissionWindowTimestamp: uint48(
+                    uint256(keccak256(abi.encode(seed, "eoswts")))
+                ),
                 proposer: _addr(seed, "proposalProposer", 0),
                 parentProposalHash: keccak256(abi.encode(seed, "parentProposalHash")),
-                originBlockNumber: uint48(uint256(keccak256(abi.encode(seed, "originBlockNumber")))),
+                originBlockNumber: uint48(
+                    uint256(keccak256(abi.encode(seed, "originBlockNumber")))
+                ),
                 originBlockHash: keccak256(abi.encode(seed, "originBlockHash")),
-                basefeeSharingPctg: uint8(uint256(keccak256(abi.encode(seed, "basefeeSharingPctg")))),
+                basefeeSharingPctg: uint8(
+                    uint256(keccak256(abi.encode(seed, "basefeeSharingPctg")))
+                ),
                 sources: sources
             })
         });
@@ -229,7 +235,15 @@ contract LibProposedEventCodecTest is Test {
         }
     }
 
-    function _addr(bytes32 seed, string memory label, uint256 index) private pure returns (address) {
+    function _addr(
+        bytes32 seed,
+        string memory label,
+        uint256 index
+    )
+        private
+        pure
+        returns (address)
+    {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }

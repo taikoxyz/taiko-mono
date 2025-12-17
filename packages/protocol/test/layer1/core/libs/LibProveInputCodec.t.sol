@@ -255,7 +255,15 @@ contract LibProveInputCodecTest is Test {
         assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
-    function _addr(bytes32 seed, string memory label, uint256 index) private pure returns (address) {
+    function _addr(
+        bytes32 seed,
+        string memory label,
+        uint256 index
+    )
+        private
+        pure
+        returns (address)
+    {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }

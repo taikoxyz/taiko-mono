@@ -65,9 +65,7 @@ contract LibProposeInputCodecTest is Test {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: deadline,
             blobReference: LibBlobs.BlobReference({
-                blobStartIndex: blobStartIndex,
-                numBlobs: numBlobs,
-                offset: offset
+                blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
             }),
             numForcedInclusions: numForcedInclusions
         });

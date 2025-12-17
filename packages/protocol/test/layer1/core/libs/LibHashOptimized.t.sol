@@ -6,7 +6,10 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
 
 contract LibHashOptimizedTest is Test {
-    function testFuzz_hashCommitment_EqualsKeccakAbiEncode(bytes32 seed, uint8 transitionsLen)
+    function testFuzz_hashCommitment_EqualsKeccakAbiEncode(
+        bytes32 seed,
+        uint8 transitionsLen
+    )
         public
         pure
     {
@@ -37,7 +40,15 @@ contract LibHashOptimizedTest is Test {
         assertEq(actual, expected, "hashCommitment mismatch");
     }
 
-    function _addr(bytes32 seed, string memory label, uint256 index) private pure returns (address) {
+    function _addr(
+        bytes32 seed,
+        string memory label,
+        uint256 index
+    )
+        private
+        pure
+        returns (address)
+    {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }
