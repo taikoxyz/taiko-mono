@@ -132,7 +132,6 @@ pub struct Monitor {
     l2_http_url: Url,
     l1_ws_url: Url,
     l1_http_url: Url,
-    target_block_time: Duration,
     eject_after: Duration,
     taiko_wrapper_address: Address,
     whitelist_address: Address,
@@ -190,8 +189,7 @@ impl Monitor {
         l2_http_url: Url,
         l1_ws_url: Url,
         l1_http_url: Url,
-        target_block_time_secs: u64,
-        eject_after_n_slots_missed: u64,
+        eject_after_seconds: u64,
         taiko_wrapper_address: Address,
         whitelist_address: Address,
         handover_slots: u64,
@@ -200,9 +198,7 @@ impl Monitor {
         min_reorg_depth_for_eject: usize,
         reorg_ejection_enabled: bool,
     ) -> Self {
-        let target_block_time = Duration::from_secs(target_block_time_secs);
-        let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
-        let eject_after = Duration::from_secs(eject_after_secs);
+        let eject_after = Duration::from_secs(eject_after_seconds);
 
         Self {
             beacon_client,
@@ -211,7 +207,6 @@ impl Monitor {
             l2_http_url,
             l1_ws_url,
             l1_http_url,
-            target_block_time,
             eject_after,
             taiko_wrapper_address,
             whitelist_address,
@@ -235,7 +230,8 @@ impl Monitor {
         let reconnect_notify = Arc::new(Notify::new());
         metrics::set_last_seen_drift_seconds(0);
         metrics::set_last_block_age_seconds(0);
-        let tick = self.target_block_time;
+        // Align watchdog tick with beacon slots to avoid spamming identical responsibility logs.
+        let tick = Duration::from_secs(self.beacon_client.seconds_per_slot);
         let max = self.eject_after;
         let last_seen_for_watch = last_seen.clone();
         let last_block_for_watch = last_block_seen.clone();
@@ -266,6 +262,7 @@ impl Monitor {
 
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+        let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
@@ -292,11 +289,11 @@ impl Monitor {
         // watchdog task
         let watchdog_l1_http_url = l1_http_url.clone();
         let watchdog_signer = signer.clone();
+        let mut shared_l2_http_provider = l2_http_provider;
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
             loop {
                 ticker.tick().await;
-                let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
 
                 // log out epoch and slots
                 let curr_epoch = beacon_client.current_epoch();
@@ -373,10 +370,10 @@ impl Monitor {
                     // L2 sanity check: if the L2 node is syncing or its head is advancing, avoid
                     // ejecting based solely on a stalled WS subscription.
                     let mut skip_due_to_l2 =
-                        Self::should_skip_due_to_sync_status(&l2_http_provider, "L2").await;
+                        Self::should_skip_due_to_sync_status(&shared_l2_http_provider, "L2").await;
 
                     if !skip_due_to_l2 {
-                        match l2_http_provider.get_block_number().await {
+                        match shared_l2_http_provider.get_block_number().await {
                             Ok(l2_head) => {
                                 let mut guard = last_l2_head_for_watch.lock().await;
                                 match *guard {
@@ -419,6 +416,9 @@ impl Monitor {
                                 }
                             }
                             Err(e) => {
+                                // Recreate the provider on failure to avoid sticking with a bad client.
+                                shared_l2_http_provider =
+                                    ProviderBuilder::new().connect_http(l2_http_url.clone());
                                 warn!(
                                     "Failed to query L2 block number: {e:?}; skipping eject this tick"
                                 );
