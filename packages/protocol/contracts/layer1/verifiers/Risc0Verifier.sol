@@ -9,10 +9,6 @@ import { IRiscZeroVerifier } from "@risc0/contracts/IRiscZeroVerifier.sol";
 /// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
 contract Risc0Verifier is IProofVerifier, Ownable2Step {
-    bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
-
-    // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
-    bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
     uint64 public immutable taikoChainId;
     address public immutable riscoGroth16Verifier;
 

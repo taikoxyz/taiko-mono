@@ -277,7 +277,11 @@ contract Anchor is EssentialContract {
         bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFee);
 
         if (!proposerHasBond) {
-            return (true, _currentDesignatedProver, 0);
+            // Low-bond proposals inherit the last designated prover; if unset (i.e., first ever
+            // proposal), fall back to the proposer to avoid returning address(0).
+            address designatedProver =
+                _currentDesignatedProver == address(0) ? _proposer : _currentDesignatedProver;
+            return (true, designatedProver, 0);
         }
 
         if (candidate == _proposer) {
