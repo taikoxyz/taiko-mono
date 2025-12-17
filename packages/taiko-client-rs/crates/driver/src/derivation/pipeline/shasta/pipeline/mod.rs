@@ -189,12 +189,8 @@ where
     ) -> Result<ProposedEventContext, DerivationError> {
         let event = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())?;
 
-        let l1_block_hash = log
-            .block_hash
-            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block hash")))?;
-        let l1_block_number = log
-            .block_number
-            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block number")))?;
+        let l1_block_hash = log.block_hash.ok_or(DerivationError::MissingL1BlockHash)?;
+        let l1_block_number = log.block_number.ok_or(DerivationError::MissingL1BlockNumber)?;
 
         let l1_block = self
             .rpc
