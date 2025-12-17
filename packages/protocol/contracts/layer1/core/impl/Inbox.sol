@@ -346,7 +346,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-
     /// @inheritdoc ICodec
     function encodeProposeInput(IInbox.ProposeInput calldata _input)
         external
