@@ -14,16 +14,22 @@ var _ TaikoProposalMetaData = (*TaikoProposalMetadataShasta)(nil)
 
 // TaikoProposalMetadataShasta is the metadata of a Shasta Taiko blocks batch.
 type TaikoProposalMetadataShasta struct {
-	shastaBindings.IInboxProposal
+	*shastaBindings.ShastaInboxClientProposed
 	types.Log
+	timestamp uint64
 }
 
 // NewTaikoProposalMetadataShasta creates a new instance of TaikoProposalMetadataShasta
 // from the ShastaTaikoInbox.Proposed event.
-func NewTaikoProposalMetadataShasta(e *shastaBindings.IInboxProposedEventPayload, log types.Log) *TaikoProposalMetadataShasta {
+func NewTaikoProposalMetadataShasta(
+	e *shastaBindings.ShastaInboxClientProposed,
+	log types.Log,
+	timestamp uint64,
+) *TaikoProposalMetadataShasta {
 	return &TaikoProposalMetadataShasta{
-		IInboxProposal: e.Proposal,
-		Log:            log,
+		ShastaInboxClientProposed: e,
+		Log:                       log,
+		timestamp:                 timestamp,
 	}
 }
 
@@ -84,10 +90,10 @@ func (m *TaikoProposalMetadataShasta) GetLog() *types.Log {
 // GetBlobHashes returns blob hashes in this proposal.
 func (m *TaikoProposalMetadataShasta) GetBlobHashes(idx int) []common.Hash {
 	var blobHashes []common.Hash
-	if len(m.GetProposal().Sources) <= idx {
+	if len(m.Sources) <= idx {
 		return blobHashes
 	}
-	for _, hash := range m.GetProposal().Sources[idx].BlobSlice.BlobHashes {
+	for _, hash := range m.Sources[idx].BlobSlice.BlobHashes {
 		blobHashes = append(blobHashes, hash)
 	}
 	return blobHashes
@@ -95,18 +101,23 @@ func (m *TaikoProposalMetadataShasta) GetBlobHashes(idx int) []common.Hash {
 
 // GetBlobTimestamp returns the timestamp of the blob slice in this proposal.
 func (m *TaikoProposalMetadataShasta) GetBlobTimestamp(idx int) uint64 {
-	if len(m.GetProposal().Sources) <= idx {
+	if len(m.Sources) <= idx {
 		return 0
 	}
-	return m.GetProposal().Sources[idx].BlobSlice.Timestamp.Uint64()
-}
-
-// GetProposal returns the transaction hash.
-func (m *TaikoProposalMetadataShasta) GetProposal() shastaBindings.IInboxProposal {
-	return m.IInboxProposal
+	return m.Sources[idx].BlobSlice.Timestamp.Uint64()
 }
 
 // GetProposalID returns proposal ID.
 func (m *TaikoProposalMetadataShasta) GetProposalID() *big.Int {
-	return m.IInboxProposal.Id
+	return m.Id
+}
+
+// GetEventData returns the underlying event data.
+func (m *TaikoProposalMetadataShasta) GetEventData() *shastaBindings.ShastaInboxClientProposed {
+	return m.ShastaInboxClientProposed
+}
+
+// GetTimestamp returns the timestamp of the proposal.
+func (m *TaikoProposalMetadataShasta) GetTimestamp() uint64 {
+	return m.timestamp
 }

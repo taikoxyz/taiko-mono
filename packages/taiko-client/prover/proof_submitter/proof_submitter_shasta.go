@@ -93,18 +93,18 @@ func (s *ProofSubmitterShasta) startProofBufferMonitors(ctx context.Context) {
 // RequestProof requests proof for the given Taiko batch.
 func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	// Wait for the last block to be inserted at first.
-	header, err := s.rpc.WaitShastaHeader(ctx, meta.Shasta().GetProposal().Id)
+	header, err := s.rpc.WaitShastaHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to wait for Shasta L2 Header, blockID: %d, error: %w",
-			meta.Shasta().GetProposal().Id,
+			meta.Shasta().GetEventData().Id,
 			err,
 		)
 	}
 
 	lastOriginInLastProposal, err := s.rpc.LastL1OriginInBatchShasta(
 		ctx,
-		new(big.Int).Sub(meta.Shasta().GetProposal().Id, common.Big1),
+		new(big.Int).Sub(meta.Shasta().GetEventData().Id, common.Big1),
 	)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return err
 	}
-	proposalID := meta.Shasta().GetProposal().Id
+	proposalID := meta.Shasta().GetEventData().Id
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
 			ProposalID:       proposalID,
@@ -161,10 +161,10 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		if err != nil {
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
-		if coreState.LastFinalizedProposalId.Cmp(meta.Shasta().GetProposal().Id) >= 0 {
+		if coreState.LastFinalizedProposalId.Cmp(meta.Shasta().GetEventData().Id) >= 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
-				"batchID", meta.Shasta().GetProposal().Id,
+				"batchID", meta.Shasta().GetEventData().Id,
 				"lastFinalizedProposalID", coreState.LastFinalizedProposalId,
 			)
 			return nil
@@ -175,7 +175,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			if proofResponse, err = s.zkvmProofProducer.RequestProof(
 				ctx,
 				opts,
-				meta.Shasta().GetProposal().Id,
+				meta.Shasta().GetEventData().Id,
 				meta,
 				startAt,
 			); err != nil {
@@ -202,7 +202,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			if proofResponse, err = s.baseLevelProofProducer.RequestProof(
 				ctx,
 				opts,
-				meta.Shasta().GetProposal().Id,
+				meta.Shasta().GetEventData().Id,
 				meta,
 				startAt,
 			); err != nil {
@@ -221,7 +221,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		if err != nil {
 			return fmt.Errorf(
 				"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-				meta.Shasta().GetProposal().Id,
+				meta.Shasta().GetEventData().Id,
 				bufferSize,
 				err,
 			)
@@ -229,7 +229,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 
 		log.Info(
 			"Proof generated successfully for Shasta batch",
-			"proposalID", meta.Shasta().GetProposal().Id,
+			"proposalID", meta.Shasta().GetEventData().Id,
 			"bufferSize", bufferSize,
 			"maxBufferSize", proofBuffer.MaxLength,
 			"proofType", proofResponse.ProofType,
@@ -245,9 +245,9 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
 			!errors.Is(err, proofProducer.ErrRetry) {
-			log.Error("Failed to request a Shasta proof", "batchID", meta.Shasta().GetProposal().Id, "error", err)
+			log.Error("Failed to request a Shasta proof", "batchID", meta.Shasta().GetEventData().Id, "error", err)
 		} else {
-			log.Debug("Expected Shasta proof generation error", "error", err, "batchID", meta.Shasta().GetProposal().Id)
+			log.Debug("Expected Shasta proof generation error", "error", err, "batchID", meta.Shasta().GetEventData().Id)
 		}
 		return err
 	}

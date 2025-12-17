@@ -1496,18 +1496,6 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 	return &cfg, nil
 }
 
-// HashProposalShasta hashes the proposal by Shasta Inbox Codec contract.
-func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBindings.IInboxProposal) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.ShastaClients.InboxCodec.HashProposal(opts, *proposal)
-}
-
 // GetCoreStateShasta gets the core state from Shasta Inbox contract.
 func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 	var cancel context.CancelFunc
@@ -1529,7 +1517,7 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 func (c *Client) GetProposalByIDShasta(
 	ctx context.Context,
 	proposalID *big.Int,
-) (*shastaBindings.IInboxProposedEventPayload, *types.Log, error) {
+) (*shastaBindings.ShastaInboxClientProposed, *types.Log, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
@@ -1553,31 +1541,27 @@ func (c *Client) GetProposalByIDShasta(
 		Start:   anchorNumber,
 		End:     &end,
 		Context: ctxWithTimeout,
-	})
+	}, []*big.Int{proposalID}, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to filter proposed events from Shasta Inbox: %w", err)
 	}
 
 	var (
-		payload *shastaBindings.IInboxProposedEventPayload
-		log     *types.Log
+		event *shastaBindings.ShastaInboxClientProposed
+		log   *types.Log
 	)
 	for iter.Next() {
-		eventPayload, err := c.DecodeProposedEventPayload(&bind.CallOpts{Context: ctxWithTimeout}, iter.Event.Data)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to decode proposed event payload from Shasta Inbox: %w", err)
-		}
-		if eventPayload.Proposal.Id.Cmp(proposalID) != 0 {
+		if iter.Event.Id.Cmp(proposalID) != 0 {
 			continue
 		}
-		payload = eventPayload
+		event = iter.Event
 		log = &iter.Event.Raw
 	}
-	if payload == nil || log == nil {
-		return nil, nil, fmt.Errorf("proposal payload not found for ID %d", proposalID)
+	if event == nil || log == nil {
+		return nil, nil, fmt.Errorf("proposal event not found for ID %d", proposalID)
 	}
 
-	return payload, log, nil
+	return event, log, nil
 }
 
 // EncodeProveInput encodes the prove method input by Shasta Inbox Codec contract.
@@ -1636,24 +1620,4 @@ func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBind
 	}
 
 	return &input, nil
-}
-
-// DecodeProposedEventPayload decodes the Proposed event payload by Shasta Inbox Codec contract.
-func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
-	*shastaBindings.IInboxProposedEventPayload,
-	error,
-) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	payload, err := c.ShastaClients.InboxCodec.DecodeProposedEvent(opts, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &payload, nil
 }

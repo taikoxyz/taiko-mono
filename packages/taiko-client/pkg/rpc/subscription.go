@@ -89,7 +89,7 @@ func SubscribeProposedShasta(
 	ch chan *shastaBindings.ShastaInboxClientProposed,
 ) event.Subscription {
 	return SubscribeEvent("Proposed", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoInbox.WatchProposed(nil, ch)
+		sub, err := taikoInbox.WatchProposed(nil, ch, nil, nil)
 		if err != nil {
 			log.Error("Create Shasta Inbox.Proposed subscription error", "error", err)
 			return nil, err

@@ -657,13 +657,13 @@ func assembleCreateExecutionPayloadMetaShasta(
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
-		meta.GetProposal().Id,
-		meta.GetProposal().Proposer,
+		meta.GetEventData().Id,
+		meta.GetEventData().Proposer,
 		sourcePayload.ProverAuthBytes,
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,
-		meta.GetProposal().EndOfSubmissionWindowTimestamp,
+		meta.GetEventData().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,
 	)
@@ -672,7 +672,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
-	extraData, err := encodeShastaExtraData(meta.GetProposal().BasefeeSharingPctg, isLowBondProposal)
+	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, isLowBondProposal)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -680,7 +680,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	// Set batchID only for the last block in the proposal
 	var batchID *big.Int
 	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
-		batchID = meta.GetProposal().Id
+		batchID = meta.GetEventData().Id
 	}
 
 	return &createExecutionPayloadsMetaData{
@@ -819,7 +819,7 @@ func updateL1OriginForBatchShasta(
 		func(i int) *big.Int {
 			return new(big.Int).SetUint64(lastBlockID - uint64(len(sourcePayload.BlockPayloads)-1-i))
 		},
-		func() *big.Int { return meta.GetProposal().Id },
+		func() *big.Int { return meta.GetEventData().Id },
 		meta.GetRawBlockHeight(),
 		meta.GetRawBlockHash(),
 	)
