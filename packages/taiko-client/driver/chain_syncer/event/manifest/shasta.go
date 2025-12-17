@@ -280,7 +280,7 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 func ValidateMetadata(
 	rpc *rpc.Client,
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal *shastaBindings.ShastaInboxClientProposed,
+	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
@@ -290,7 +290,7 @@ func ValidateMetadata(
 		return false
 	}
 
-	if !validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, rpc.ShastaClients.ForkTime) {
+	if !validateMetadataTimestamp(sourcePayload, event, proposalTimestamp, rpc.ShastaClients.ForkTime) {
 		return false
 	}
 
@@ -298,7 +298,7 @@ func ValidateMetadata(
 		sourcePayload,
 		originBlockNumber,
 		parentAnchorBlockNumber,
-		proposal,
+		event,
 		isForcedInclusion,
 	) {
 		return false
@@ -318,7 +318,7 @@ func ValidateMetadata(
 // validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
 func validateMetadataTimestamp(
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal *shastaBindings.ShastaInboxClientProposed,
+	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
 	forkTime uint64,
 ) bool {
@@ -379,7 +379,7 @@ func validateAnchorBlockNumber(
 	sourcePayload *ShastaDerivationSourcePayload,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
-	proposal *shastaBindings.ShastaInboxClientProposed,
+	event *shastaBindings.ShastaInboxClientProposed,
 	isForcedInclusion bool,
 ) bool {
 	var (
@@ -392,7 +392,7 @@ func validateAnchorBlockNumber(
 		if anchorBlockNumber < parentAnchorBlockNumber {
 			log.Info(
 				"Invalid anchor block number: non-monotonic progression",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
@@ -403,7 +403,7 @@ func validateAnchorBlockNumber(
 		if anchorBlockNumber > originBlockNumber {
 			log.Info(
 				"Invalid anchor block number: cannot be newer than origin block",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
@@ -415,7 +415,7 @@ func validateAnchorBlockNumber(
 			anchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Info(
 				"Invalid anchor block number: excessive lag",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
@@ -436,7 +436,7 @@ func validateAnchorBlockNumber(
 	if !isForcedInclusion && highestAnchorNumber <= originalParentAnchorNumber {
 		log.Info(
 			"Invalid anchor block numbers: no valid anchor numbers greater than parent's",
-			"proposal", proposal.Id,
+			"proposal", event.Id,
 			"highestAnchorBlockNumber", highestAnchorNumber,
 			"parentAnchorBlockNumber", originalParentAnchorNumber,
 			"isForcedInclusion", isForcedInclusion,
