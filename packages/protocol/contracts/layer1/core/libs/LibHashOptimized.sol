@@ -22,6 +22,7 @@ library LibHashOptimized {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
+        /// forge-lint: disable-start(asm-keccak256)
         return keccak256(abi.encode(_proposal));
     }
 
