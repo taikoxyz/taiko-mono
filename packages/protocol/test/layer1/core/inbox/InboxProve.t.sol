@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -87,6 +88,46 @@ contract InboxProveTest is InboxTestBase {
             input.commitment.transitions[9].blockHash,
             "checkpoint hash"
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // Proof verifier args
+    // ---------------------------------------------------------------------
+    function test_prove_passesProposalAge_forSingleProposalProofs() public {
+        IInbox.ProveInput memory input = _buildBatchInput(1);
+
+        IInbox.CoreState memory stateBefore = inbox.getCoreState();
+        uint48 proposalTimestamp = input.commitment.transitions[0].timestamp;
+
+        vm.warp(uint256(proposalTimestamp) + 123);
+
+        uint48 availableSince = proposalTimestamp > stateBefore.lastFinalizedTimestamp
+            ? proposalTimestamp
+            : stateBefore.lastFinalizedTimestamp;
+        uint256 expectedAge = block.timestamp - uint256(availableSince);
+        assertGt(expectedAge, 0, "sanity: expected age should be > 0");
+
+        bytes32 expectedCommitmentHash = codec.hashCommitment(input.commitment);
+
+        vm.expectCall(
+            address(verifier),
+            abi.encodeCall(
+                IProofVerifier.verifyProof, (expectedAge, expectedCommitmentHash, bytes("proof"))
+            )
+        );
+        _prove(input);
+    }
+
+    function test_prove_passesZeroProposalAge_forMultiProposalBatches() public {
+        IInbox.ProveInput memory input = _buildBatchInput(2);
+
+        bytes32 expectedCommitmentHash = codec.hashCommitment(input.commitment);
+
+        vm.expectCall(
+            address(verifier),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, expectedCommitmentHash, bytes("proof")))
+        );
+        _prove(input);
     }
 
     // ---------------------------------------------------------------------

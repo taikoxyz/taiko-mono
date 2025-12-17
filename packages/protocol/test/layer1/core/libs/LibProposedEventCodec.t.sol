@@ -91,6 +91,56 @@ contract LibProposedEventCodecTest is Test {
         _assertEqual(payload, decoded);
     }
 
+    function testFuzz_encodeDecodeRoundtrip_RoundtripsPayload(
+        bytes32 seed,
+        uint8 sourcesLen,
+        uint8 blobHashesLen
+    )
+        public
+        view
+    {
+        sourcesLen = uint8(bound(uint256(sourcesLen), 0, 8));
+        blobHashesLen = uint8(bound(uint256(blobHashesLen), 0, 8));
+
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](sourcesLen);
+        for (uint256 i; i < sourcesLen; ++i) {
+            bytes32[] memory blobHashes = new bytes32[](blobHashesLen);
+            for (uint256 j; j < blobHashesLen; ++j) {
+                blobHashes[j] = keccak256(abi.encode(seed, "blobHash", i, j));
+            }
+
+            sources[i] = IInbox.DerivationSource({
+                isForcedInclusion: uint8(uint256(keccak256(abi.encode(seed, "forced", i)))) % 2
+                    == 1,
+                blobSlice: LibBlobs.BlobSlice({
+                    blobHashes: blobHashes,
+                    offset: uint24(uint256(keccak256(abi.encode(seed, "offset", i)))),
+                    timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i))))
+                })
+            });
+        }
+
+        IInbox.ProposedEventPayload memory payload = IInbox.ProposedEventPayload({
+            proposal: IInbox.Proposal({
+                id: uint48(uint256(keccak256(abi.encode(seed, "proposalId")))),
+                timestamp: uint48(uint256(keccak256(abi.encode(seed, "proposalTimestamp")))),
+                endOfSubmissionWindowTimestamp: uint48(uint256(keccak256(abi.encode(seed, "eoswts")))),
+                proposer: _addr(seed, "proposalProposer", 0),
+                parentProposalHash: keccak256(abi.encode(seed, "parentProposalHash")),
+                originBlockNumber: uint48(uint256(keccak256(abi.encode(seed, "originBlockNumber")))),
+                originBlockHash: keccak256(abi.encode(seed, "originBlockHash")),
+                basefeeSharingPctg: uint8(uint256(keccak256(abi.encode(seed, "basefeeSharingPctg")))),
+                sources: sources
+            })
+        });
+
+        bytes memory encoded = LibProposedEventCodec.encode(payload);
+        assertEq(encoded.length, harness.size(sources), "size mismatch");
+
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventCodec.decode(encoded);
+        _assertEqual(payload, decoded);
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
@@ -177,5 +227,9 @@ contract LibProposedEventCodecTest is Test {
                 "timestamp"
             );
         }
+    }
+
+    function _addr(bytes32 seed, string memory label, uint256 index) private pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }
