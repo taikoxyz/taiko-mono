@@ -30,11 +30,16 @@ use crate::{
 
 use super::super::{DerivationError, DerivationPipeline};
 
+/// Decoded Shasta `Proposed` event enriched with the containing L1 block metadata.
 #[derive(Debug, Clone)]
 struct ProposedEventContext {
+    /// Raw decoded `Proposed` event payload.
     event: Proposed,
+    /// L1 block number that emitted the event (used as origin height).
     l1_block_number: u64,
+    /// L1 block hash that emitted the event (used as origin hash).
     l1_block_hash: B256,
+    /// Timestamp of the emitting L1 block (used as proposal timestamp).
     l1_timestamp: u64,
 }
 
@@ -48,10 +53,12 @@ use state::ParentState;
 
 pub use bundle::ShastaProposalBundle;
 
+/// Convert a derivation source's blob slice into ordered blob hashes for manifest fetch.
 fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
     source.blobSlice.blobHashes.iter().map(|hash| B256::from_slice(hash.as_ref())).collect()
 }
 
+/// Ensure forced-inclusion manifests adhere to protocol rules (single block) or default them.
 fn validate_forced_inclusion_manifest(
     proposal_id: u64,
     source: &DerivationSource,
