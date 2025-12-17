@@ -172,7 +172,7 @@ contract LibProveInputCodecTest is Test {
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
     }
 
-    function testFuzz_encodeDecodeRoundtrip_RoundtripsAllFields(
+    function testFuzz_encodeDecodeProveInput_PreservesFields(
         bytes32 seed,
         uint8 transitionsLen,
         bool forceCheckpointSync

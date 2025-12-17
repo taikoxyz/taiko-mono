@@ -6,7 +6,7 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
 
 contract LibHashOptimizedTest is Test {
-    function testFuzz_hashCommitment_MatchesAbiEncode(bytes32 seed, uint8 transitionsLen)
+    function testFuzz_hashCommitment_EqualsKeccakAbiEncode(bytes32 seed, uint8 transitionsLen)
         public
         pure
     {

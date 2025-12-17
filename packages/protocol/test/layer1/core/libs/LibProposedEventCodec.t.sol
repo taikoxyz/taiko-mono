@@ -91,7 +91,7 @@ contract LibProposedEventCodecTest is Test {
         _assertEqual(payload, decoded);
     }
 
-    function testFuzz_encodeDecodeRoundtrip_RoundtripsPayload(
+    function testFuzz_encodeDecodeProposedEvent_PreservesPayload(
         bytes32 seed,
         uint8 sourcesLen,
         uint8 blobHashesLen

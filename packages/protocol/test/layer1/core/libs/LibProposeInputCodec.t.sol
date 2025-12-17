@@ -52,7 +52,7 @@ contract LibProposeInputCodecTest is Test {
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
     }
 
-    function testFuzz_encodeDecodeRoundtrip_RoundtripsAllFields(
+    function testFuzz_encodeDecodeProposeInput_PreservesFields(
         uint48 deadline,
         uint16 blobStartIndex,
         uint16 numBlobs,
