@@ -36,7 +36,6 @@ struct ProposedEventContext {
     l1_block_number: u64,
     l1_block_hash: B256,
     l1_timestamp: u64,
-    tx_hash: B256,
 }
 
 mod bundle;
@@ -198,9 +197,6 @@ where
             .ok_or(DerivationError::BlockUnavailable(l1_block_number))?;
 
         let l1_timestamp = l1_block.header.timestamp;
-        let tx_hash = log
-            .transaction_hash
-            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing tx hash")))?;
 
         debug!(
             proposal_id = event.id.to::<u64>(),
@@ -210,7 +206,7 @@ where
             "decoded proposed event"
         );
 
-        Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp, tx_hash })
+        Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
     /// Read the inbox core state at the proposal log's block to extract the last finalized id.
