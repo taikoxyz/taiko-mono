@@ -189,17 +189,17 @@ func (s *Syncer) processShastaProposal(
 	)
 
 	// We simply ignore the genesis Shasta block's `Proposed` event.
-	if meta.GetProposal().Id.Cmp(common.Big0) == 0 {
+	if meta.GetEventData().Id.Cmp(common.Big0) == 0 {
 		// Reset the lastInsertedBatchID when processing the genesis Shasta proposal.
 		s.lastInsertedBatchID = common.Big0
-		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetProposal().Id)
+		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetEventData().Id)
 		return nil
 	}
 
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetProposal().Id)
+		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetEventData().Id)
 		if err != nil {
 			return err
 		}
@@ -224,10 +224,10 @@ func (s *Syncer) processShastaProposal(
 	}
 
 	// Ignore those already inserted batches.
-	if s.lastInsertedBatchID != nil && meta.GetProposal().Id.Cmp(s.lastInsertedBatchID) <= 0 {
+	if s.lastInsertedBatchID != nil && meta.GetEventData().Id.Cmp(s.lastInsertedBatchID) <= 0 {
 		log.Debug(
 			"Skip already inserted batch",
-			"batchID", meta.GetProposal().Id,
+			"batchID", meta.GetEventData().Id,
 			"lastInsertedBatchID", s.lastInsertedBatchID,
 		)
 		return nil
@@ -235,25 +235,25 @@ func (s *Syncer) processShastaProposal(
 
 	log.Info(
 		"New Shasta Proposed event",
-		"proposalID", meta.GetProposal().Id,
-		"proposer", meta.GetProposal().Proposer,
-		"derivationSources", len(meta.GetProposal().Sources),
+		"proposalID", meta.GetEventData().Id,
+		"proposer", meta.GetEventData().Proposer,
+		"derivationSources", len(meta.GetEventData().Sources),
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 	)
 
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
 	// only happen when testing.
-	if meta.GetProposal().Timestamp.Uint64() > uint64(time.Now().Unix()) {
+	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
 		log.Warn(
 			"Future L2 block, waiting",
-			"L2BlockTimestamp", meta.GetProposal().Timestamp.Uint64(),
+			"L2BlockTimestamp", meta.GetTimestamp(),
 			"now", time.Now().Unix(),
 		)
-		time.Sleep(time.Until(time.Unix(int64(meta.GetProposal().Timestamp.Uint64()), 0)))
+		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
 	}
 
-	if meta.GetProposal().Id.Cmp(common.Big1) == 0 {
+	if meta.GetEventData().Id.Cmp(common.Big1) == 0 {
 		// For the first Shasta proposal, its parent block is the last Pacaya block.
 		lastPacayaBlockID := common.Big0
 		if s.rpc.ShastaClients.ForkTime > 0 {
@@ -263,8 +263,8 @@ func (s *Syncer) processShastaProposal(
 		}
 		log.Info(
 			"First Shasta proposal, fetch last Pacaya block as parent",
-			"proposalID", meta.GetProposal().Id,
-			"proposer", meta.GetProposal().Proposer,
+			"proposalID", meta.GetEventData().Id,
+			"proposer", meta.GetEventData().Proposer,
 			"lastPacayaBlockID", lastPacayaBlockID,
 		)
 		if parent, err = s.rpc.L2.BlockByNumber(ctx, lastPacayaBlockID); err != nil {
@@ -274,7 +274,7 @@ func (s *Syncer) processShastaProposal(
 		// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
 		// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
 		// P2P sync, then we just use the latest block as parent block in this case.
-		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetProposal().Id, common.Big1))
+		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
 		}
@@ -288,8 +288,8 @@ func (s *Syncer) processShastaProposal(
 			}
 			log.Info(
 				"No L1 origin found for the previous proposal, using the latest block as parent",
-				"proposalID", meta.GetProposal().Id,
-				"proposer", meta.GetProposal().Proposer,
+				"proposalID", meta.GetEventData().Id,
+				"proposer", meta.GetEventData().Proposer,
 				"parentBlockID", parent.Number(),
 			)
 		}
@@ -297,23 +297,23 @@ func (s *Syncer) processShastaProposal(
 
 	// Prefetch all derivation source payloads, and set the proposer auth bytes.
 	var (
-		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetProposal().Sources))
+		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetEventData().Sources))
 		proposerAuth   []byte
 	)
-	if len(meta.GetProposal().Sources) > 0 {
+	if len(meta.GetEventData().Sources) > 0 {
 		// Fetch the last derivation source payload first, and set the proposer auth bytes.
-		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetProposal().Sources)-1)
+		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetEventData().Sources)-1)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to fetch Shasta derivation payload for index %d: %w",
-				len(meta.GetProposal().Sources)-1,
+				len(meta.GetEventData().Sources)-1,
 				err,
 			)
 		}
-		sourcePayloads[len(meta.GetProposal().Sources)-1] = payload
+		sourcePayloads[len(meta.GetEventData().Sources)-1] = payload
 		proposerAuth = payload.ProverAuthBytes
 		// Fetch other derivation source payloads.
-		for i := 0; i < len(meta.GetProposal().Sources)-1; i++ {
+		for i := 0; i < len(meta.GetEventData().Sources)-1; i++ {
 			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
 			if err != nil {
 				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
@@ -324,11 +324,11 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	for derivationIdx := range meta.GetProposal().Sources {
+	for derivationIdx := range meta.GetEventData().Sources {
 		log.Info(
 			"Processing Shasta derivation source",
-			"proposalID", meta.GetProposal().Id,
-			"proposer", meta.GetProposal().Proposer,
+			"proposalID", meta.GetEventData().Id,
+			"proposer", meta.GetEventData().Proposer,
 			"index", derivationIdx,
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
@@ -339,11 +339,11 @@ func (s *Syncer) processShastaProposal(
 			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
-		isForcedInclusion := meta.GetProposal().Sources[derivationIdx].IsForcedInclusion
+		isForcedInclusion := meta.GetEventData().Sources[derivationIdx].IsForcedInclusion
 
 		log.Info(
 			"Parent block info for Shasta derivation payload",
-			"proposalID", meta.GetProposal().Id,
+			"proposalID", meta.GetEventData().Id,
 			"blocks", len(sourcePayload.BlockPayloads),
 			"parentBlockID", sourcePayload.ParentBlock.Number(),
 			"parentHash", sourcePayload.ParentBlock.Hash(),
@@ -358,7 +358,7 @@ func (s *Syncer) processShastaProposal(
 			return err
 		}
 		lastAnchorBlockNumber := latestBlockState.AnchorBlockNumber.Uint64()
-		if meta.GetProposal().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],
 			); err != nil {
@@ -373,8 +373,8 @@ func (s *Syncer) processShastaProposal(
 
 		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
 			opts,
-			meta.GetProposal().Id,
-			meta.GetProposal().Proposer,
+			meta.GetEventData().Id,
+			meta.GetEventData().Proposer,
 			sourcePayload.ProverAuthBytes,
 			proposalState.DesignatedProver,
 		)
@@ -384,9 +384,9 @@ func (s *Syncer) processShastaProposal(
 
 		log.Info(
 			"Designated prover info",
-			"proposalID", meta.GetProposal().Id,
+			"proposalID", meta.GetEventData().Id,
 			"blocks", len(sourcePayload.BlockPayloads),
-			"proposer", meta.GetProposal().Proposer,
+			"proposer", meta.GetEventData().Proposer,
 			"prover", designatedProverInfo.DesignatedProver,
 			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
 			"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
@@ -397,7 +397,8 @@ func (s *Syncer) processShastaProposal(
 		if isForcedInclusion {
 			shastaManifest.ApplyInheritedMetadata(
 				sourcePayload,
-				meta.GetProposal(),
+				meta.GetEventData(),
+				meta.GetTimestamp(),
 				lastAnchorBlockNumber,
 				s.rpc.ShastaClients.ForkTime,
 			)
@@ -414,8 +415,9 @@ func (s *Syncer) processShastaProposal(
 		if !shastaManifest.ValidateMetadata(
 			s.rpc,
 			sourcePayload,
-			meta.GetProposal(),
-			meta.GetProposal().OriginBlockNumber.Uint64(),
+			meta.GetEventData(),
+			meta.GetTimestamp(),
+			meta.GetRawBlockHeight().Uint64()-1,
 			lastAnchorBlockNumber,
 			isForcedInclusion,
 		) {
@@ -425,14 +427,15 @@ func (s *Syncer) processShastaProposal(
 			}
 			shastaManifest.ApplyInheritedMetadata(
 				sourcePayload,
-				meta.GetProposal(),
+				meta.GetEventData(),
+				meta.GetTimestamp(),
 				lastAnchorBlockNumber,
 				s.rpc.ShastaClients.ForkTime,
 			)
 			log.Info(
 				"Use default Shasta derivation payload",
-				"proposalID", meta.GetProposal().Id,
-				"proposer", meta.GetProposal().Proposer,
+				"proposalID", meta.GetEventData().Id,
+				"proposer", meta.GetEventData().Proposer,
 				"anchorBlockNumber", lastAnchorBlockNumber,
 			)
 		}
@@ -453,7 +456,7 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
-	s.lastInsertedBatchID = meta.GetProposal().Id
+	s.lastInsertedBatchID = meta.GetEventData().Id
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()

@@ -135,17 +135,17 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 					return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
 				}
 
-				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetEventData().Id) < 0 {
 					log.Warn(
 						"The parent block proposal ID is smaller than the latest proposal ID seen in event",
 						"parentProposalID", parentProposalID,
-						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetProposal().Id,
+						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetEventData().Id,
 					)
 
 					return s.returnError(c, http.StatusBadRequest,
 						fmt.Errorf(
 							"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
-							s.latestSeenProposal.Shasta().GetProposal().Id,
+							s.latestSeenProposal.Shasta().GetEventData().Id,
 							parentProposalID,
 						),
 					)

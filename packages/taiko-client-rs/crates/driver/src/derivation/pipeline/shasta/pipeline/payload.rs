@@ -508,7 +508,7 @@ where
             position,
             is_low_bond_proposal,
         } = ctx;
-        let origin_block_hash = meta.origin_block_hash;
+        let l1_block_hash = meta.l1_block_hash;
 
         let tx_list = encode_transactions(transactions);
         let extra_data = encode_extra_data(meta.basefee_sharing_pctg, is_low_bond_proposal);
@@ -531,8 +531,8 @@ where
         let l1_origin = RpcL1Origin {
             block_id: U256::from(block_number),
             l2_block_hash: B256::ZERO,
-            l1_block_height: Some(U256::from(meta.origin_block_number)),
-            l1_block_hash: Some(origin_block_hash),
+            l1_block_height: Some(U256::from(meta.l1_block_number)),
+            l1_block_hash: Some(l1_block_hash),
             build_payload_args_id,
             is_forced_inclusion: position.is_forced_inclusion(),
             signature,
