@@ -5,14 +5,19 @@ use std::path::PathBuf;
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, Bytes as AlloyBytes};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    anchor::Anchor::AnchorInstance, codec::Codec::CodecInstance, inbox::Inbox::InboxInstance,
+    anchor::Anchor::AnchorInstance,
+    codec::{
+        Codec::CodecInstance,
+        IInbox::{ProposeInput, ProveInput},
+    },
+    inbox::Inbox::InboxInstance,
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -129,6 +134,26 @@ impl<P: Provider + Clone> Client<P> {
             designated_prover: Address::from_slice(proposal_state.designatedProver.as_slice()),
             anchor_block_number: block_state.anchorBlockNumber.to::<u64>(),
         })
+    }
+
+    /// Encode a Shasta propose input using the Inbox codec.
+    pub async fn encode_propose_input(&self, input: ProposeInput) -> Result<AlloyBytes> {
+        self.shasta.codec.encodeProposeInput(input).call().await.map_err(Into::into)
+    }
+
+    /// Decode a Shasta propose input using the Inbox codec.
+    pub async fn decode_propose_input(&self, data: AlloyBytes) -> Result<ProposeInput> {
+        self.shasta.codec.decodeProposeInput(data).call().await.map_err(Into::into)
+    }
+
+    /// Encode a Shasta prove input using the Inbox codec.
+    pub async fn encode_prove_input(&self, input: ProveInput) -> Result<AlloyBytes> {
+        self.shasta.codec.encodeProveInput(input).call().await.map_err(Into::into)
+    }
+
+    /// Decode a Shasta prove input using the Inbox codec.
+    pub async fn decode_prove_input(&self, data: AlloyBytes) -> Result<ProveInput> {
+        self.shasta.codec.decodeProveInput(data).call().await.map_err(Into::into)
     }
 }
 
