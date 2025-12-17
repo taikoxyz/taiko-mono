@@ -214,7 +214,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	ApplyInheritedMetadata(
 		sourcePayload,
 		proposal,
-		uint64(parentTime+5),
+		parentTime+5,
 		parentAnchorBlockNumber,
 		parentTime,
 	)
@@ -247,7 +247,13 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 	}
 
 	expectedLowerBound := max(parentTime+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
-	ApplyInheritedMetadata(sourcePayload, &shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer}, proposal.Timestamp.Uint64(), 900, parentTime-10)
+	ApplyInheritedMetadata(
+		sourcePayload,
+		&shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer},
+		proposal.Timestamp.Uint64(),
+		900,
+		parentTime-10,
+	)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
 	s.Equal(uint64(900), sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 	s.Equal(expectedLowerBound, sourcePayload.BlockPayloads[0].Timestamp)
@@ -263,7 +269,13 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 		},
 	}
 	exceedingFork := proposal.Timestamp.Uint64() + 1
-	ApplyInheritedMetadata(sourcePayload, &shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer}, proposal.Timestamp.Uint64(), 900, exceedingFork)
+	ApplyInheritedMetadata(
+		sourcePayload,
+		&shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer},
+		proposal.Timestamp.Uint64(),
+		900,
+		exceedingFork,
+	)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
 	s.Equal(max(parentTime+1, exceedingFork), sourcePayload.BlockPayloads[0].Timestamp)
 }
