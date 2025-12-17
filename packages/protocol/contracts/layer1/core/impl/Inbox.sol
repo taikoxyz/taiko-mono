@@ -298,9 +298,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             uint256 proposalAge;
             if (numProposals == 1) {
-                // We count proposaAge as the time since it became available for proving.
-                proposalAge = block.timestamp
-                    - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+                // We count proposalAge as the time since it became available for proving.
+                proposalAge = block.timestamp - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             }
 
             // ---------------------------------------------------------
