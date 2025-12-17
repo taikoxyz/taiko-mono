@@ -161,6 +161,7 @@ func assembleBatchProposedIteratorCallback(
 			log.Debug("Updating current block cursor for processing BatchProposed events", "block", current.Number)
 
 			lastPacayaBatchID = event.Meta.BatchId
+
 			updateCurrentFunc(current)
 		}
 
