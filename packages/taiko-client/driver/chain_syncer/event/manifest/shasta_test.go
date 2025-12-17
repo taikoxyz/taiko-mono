@@ -91,7 +91,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	parentTime := uint64(1_000)
 	proposalTimestamp := parentTime + manifest.TimestampMaxOffset + 100
 	forkTime := proposalTimestamp - 50
-	proposal := shastaBindings.IInboxProposal{Timestamp: big.NewInt(int64(proposalTimestamp))}
+	proposal := &shastaBindings.ShastaInboxClientProposed{}
 
 	// Timestamp above proposal timestamp should fail.
 	sourcePayload := &ShastaDerivationSourcePayload{
@@ -100,7 +100,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: proposalTimestamp + 1}},
 		},
 	}
-	s.False(validateMetadataTimestamp(sourcePayload, propose, proposalTimestamp, forkTime))
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime))
 
 	// Timestamp below lower bound should fail.
 	expectedLowerBound := max(parentTime+1, proposalTimestamp-manifest.TimestampMaxOffset)
@@ -111,7 +111,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: expectedLowerBound - 1}},
 		},
 	}
-	s.False(validateMetadataTimestamp(sourcePayload, proposal, forkTime))
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime))
 
 	// Valid payload passes.
 	validTimestamp := expectedLowerBound + 10
@@ -121,7 +121,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: validTimestamp}},
 		},
 	}
-	s.True(validateMetadataTimestamp(sourcePayload, proposal, forkTime))
+	s.True(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime))
 	s.Equal(validTimestamp, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
@@ -130,6 +130,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	parentAnchorBlockNumber := uint64(900)
 	proposalID := testutils.RandomHash().Big()
 	parentTime := uint64(1_000)
+	proposer := common.BytesToAddress(testutils.RandomBytes(20))
 
 	// Test 1: Non-monotonic progression - should return false
 	sourcePayload := &ShastaDerivationSourcePayload{
@@ -140,7 +141,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		},
 	}
 
-	proposal := shastaBindings.IInboxProposal{Id: proposalID}
+	proposal := &shastaBindings.ShastaInboxClientProposed{Id: proposalID, Proposer: proposer}
 	result := validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result)
 
@@ -212,7 +213,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	}
 	ApplyInheritedMetadata(
 		sourcePayload,
-		&shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer},
+		proposal,
 		uint64(parentTime+5),
 		parentAnchorBlockNumber,
 		parentTime,
@@ -397,6 +398,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 		Timestamp: big.NewInt(int64(parentTime + 20)),
 		Proposer:  common.BytesToAddress(testutils.RandomBytes(20)),
 	}
+	proposalEvent := &shastaBindings.ShastaInboxClientProposed{Id: proposal.Id, Proposer: proposal.Proposer}
+	proposalTimestamp := proposal.Timestamp.Uint64()
 
 	rpcClient := &rpc.Client{
 		ShastaClients: &rpc.ShastaClients{ForkTime: parentTime},
@@ -405,7 +408,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 	s.True(ValidateMetadata(
 		rpcClient,
 		sourcePayload,
-		proposal,
+		proposalEvent,
+		proposalTimestamp,
 		1_000,
 		900,
 		false,
@@ -416,7 +420,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 	s.False(ValidateMetadata(
 		rpcClient,
 		sourcePayload,
-		proposal,
+		proposalEvent,
+		proposalTimestamp,
 		1_000,
 		900,
 		false,

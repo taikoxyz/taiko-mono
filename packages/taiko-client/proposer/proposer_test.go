@@ -397,7 +397,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	s.Nil(err)
 	s.NotNil(header)
 
-	meta := metadata.NewTaikoProposalMetadataShasta(event, event.Raw, header.Time)
+	meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
 	s.Nil(err)

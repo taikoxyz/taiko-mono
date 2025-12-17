@@ -94,7 +94,6 @@ func (s *ProverEventHandlerTestSuite) TestIsProvingWindowExpiredShasta_Remaining
 			Id:       common.Big1,
 			Proposer: common.Address{},
 		},
-		types.Log{},
 		uint64(notExpiredTs),
 	)
 
@@ -109,7 +108,6 @@ func (s *ProverEventHandlerTestSuite) TestIsProvingWindowExpiredShasta_Remaining
 			Id:       common.Big2,
 			Proposer: common.Address{},
 		},
-		types.Log{},
 		uint64(expiredTs),
 	)
 

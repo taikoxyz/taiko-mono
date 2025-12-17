@@ -191,7 +191,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	// Prove the first Shasta proposal proposed in `ForkIntoShasta`.
 	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
 	s.Nil(err)
-	meta := metadata.NewTaikoProposalMetadataShasta(payload, *eventLog, header.Time)
+	meta := metadata.NewTaikoProposalMetadataShasta(payload, header.Time)
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), meta, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))

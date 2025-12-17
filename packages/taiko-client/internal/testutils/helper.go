@@ -90,7 +90,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 		case event := <-sink2:
 			header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 			s.Nil(err)
-			meta := metadata.NewTaikoProposalMetadataShasta(event, event.Raw, header.Time)
+			meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 			metadataList = append(metadataList, meta)
 			txHash = event.Raw.TxHash
 		}
@@ -173,7 +173,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	case event := <-sink2:
 		header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 		s.Nil(err)
-		meta = metadata.NewTaikoProposalMetadataShasta(event, event.Raw, header.Time)
+		meta = metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 		txHash = event.Raw.TxHash
 	}
 

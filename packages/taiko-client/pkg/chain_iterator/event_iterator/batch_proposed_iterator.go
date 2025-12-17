@@ -178,7 +178,7 @@ func assembleBatchProposedIteratorCallback(
 				return fmt.Errorf("failed to fetch L1 block header: %w", err)
 			}
 
-			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(event, event.Raw, header.Time)
+			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 			proposalID := proposedEventPayload.Shasta().GetEventData().Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 

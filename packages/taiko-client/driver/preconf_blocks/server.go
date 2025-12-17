@@ -1168,7 +1168,6 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 				Sources:                        recordedProposal.Sources,
 				Raw:                            recordedProposal.Raw,
 			},
-			*eventLog,
 			header.Time,
 		),
 		PreconfChainReorged: true,
