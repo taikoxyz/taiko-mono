@@ -6,7 +6,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
@@ -56,6 +55,7 @@ abstract contract InboxTestBase is CommonTest {
 
         config = _buildConfig();
         inbox = _deployInbox();
+        codec = ICodec(address(inbox));
         _setSignalServiceSyncer(address(inbox));
         inbox.activate(bytes32(uint256(1)));
 
@@ -68,10 +68,7 @@ abstract contract InboxTestBase is CommonTest {
     // ---------------------------------------------------------------
 
     function _buildConfig() internal virtual returns (IInbox.Config memory) {
-        codec = ICodec(new Codec());
-
         return IInbox.Config({
-            codec: address(codec),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
             proverWhitelist: address(proverWhitelistContract),

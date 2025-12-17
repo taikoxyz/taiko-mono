@@ -10,8 +10,6 @@ import { LibBonds } from "src/shared/libs/LibBonds.sol";
 interface IInbox {
     /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
-        /// @notice The codec used for encoding and hashing
-        address codec;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract

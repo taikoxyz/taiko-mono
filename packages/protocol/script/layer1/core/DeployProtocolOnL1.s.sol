@@ -8,7 +8,6 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
-import "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
@@ -211,9 +210,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(
-                    proofVerifier, whitelist, proverWhitelist, signalService, address(new Codec())
-                )
+                new DevnetInbox(proofVerifier, whitelist, proverWhitelist, signalService)
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });

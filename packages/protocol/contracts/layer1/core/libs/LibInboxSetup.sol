@@ -22,8 +22,7 @@ library LibInboxSetup {
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
     function validateConfig(IInbox.Config memory _config) public pure {
-        // Validate in the order fields are defined in Config struct
-        require(_config.codec != address(0), CodecZero());
+        // Validate in the order fields are defined in Config struct.
         require(_config.proofVerifier != address(0), ProofVerifierZero());
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
         require(_config.signalService != address(0), SignalServiceZero());
@@ -91,7 +90,6 @@ library LibInboxSetup {
 
     error ActivationPeriodExpired();
     error BasefeeSharingPctgTooLarge();
-    error CodecZero();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaBlockHash();

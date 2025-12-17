@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
@@ -31,7 +32,7 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Bond instruction calculation(but actual funds are managed on L2)
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
+contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
@@ -55,9 +56,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
-
-    /// @notice The codec used for encoding and hashing.
-    address internal immutable _codec;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -133,7 +131,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     constructor(Config memory _config) {
         LibInboxSetup.validateConfig(_config);
 
-        _codec = _config.codec;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
@@ -349,6 +346,66 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
+
+    /// @inheritdoc ICodec
+    function encodeProposeInput(IInbox.ProposeInput calldata _input)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibProposeInputCodec.encode(_input);
+    }
+
+    /// @inheritdoc ICodec
+    function decodeProposeInput(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProposeInput memory input_)
+    {
+        return LibProposeInputCodec.decode(_data);
+    }
+
+    /// @inheritdoc ICodec
+    function encodeProveInput(IInbox.ProveInput calldata _input)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibProveInputCodec.encode(_input);
+    }
+
+    /// @inheritdoc ICodec
+    function decodeProveInput(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProveInput memory input_)
+    {
+        return LibProveInputCodec.decode(_data);
+    }
+
+    /// @inheritdoc ICodec
+    function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
+        return LibHashOptimized.hashProposal(_proposal);
+    }
+
+    /// @inheritdoc ICodec
+    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibBonds.hashBondInstruction(_bondInstruction);
+    }
+
+    /// @inheritdoc ICodec
+    function hashCommitment(IInbox.Commitment calldata _commitment)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashOptimized.hashCommitment(_commitment);
+    }
+
     // ---------------------------------------------------------------
     // External and Public View Functions
     // ---------------------------------------------------------------
@@ -379,7 +436,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function getConfig() external view returns (Config memory config_) {
         config_ = Config({
-            codec: _codec,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             proverWhitelist: address(_proverWhitelist),
