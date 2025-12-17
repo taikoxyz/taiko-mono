@@ -223,6 +223,22 @@ contract AnchorTest is Test {
         assertEq(provingFee, 0);
     }
 
+    function test_getDesignatedProver_FallsBackToProposerWhenLowBondAndCurrentUnset() external {
+        bytes memory auth = _buildProverAuth(1, 5 ether);
+
+        vm.prank(address(anchor));
+        bondManager.debitBond(proposer, type(uint256).max);
+        vm.prank(address(anchor));
+        bondManager.creditBond(proposer, 1 ether);
+
+        (bool isLowBond, address designated, uint256 provingFee) =
+            anchor.getDesignatedProver(1, proposer, auth, address(0));
+
+        assertTrue(isLowBond);
+        assertEq(designated, proposer);
+        assertEq(provingFee, 0);
+    }
+
     function test_validateProverAuth_ReturnsProposerWhenSignatureInvalid() external view {
         Anchor.ProverAuth memory auth = Anchor.ProverAuth({
             proposalId: 1, proposer: proposer, provingFee: 1 ether, signature: new bytes(0)

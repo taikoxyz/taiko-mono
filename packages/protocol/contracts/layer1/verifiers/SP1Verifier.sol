@@ -9,8 +9,6 @@ import { ISP1Verifier } from "@sp1-contracts/src/ISP1Verifier.sol";
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is IProofVerifier, Ownable2Step {
-    bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
-
     uint64 public immutable taikoChainId;
     address public immutable sp1RemoteVerifier;
 

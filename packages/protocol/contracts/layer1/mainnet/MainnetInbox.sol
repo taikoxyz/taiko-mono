@@ -18,9 +18,10 @@ contract MainnetInbox is Inbox {
     /// @dev Ring buffer size for storing proposal hashes.
     /// Assumptions:
     /// - D = 14: Proposals may continue without finalization for up to 14 days.
-    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
+    /// - Expected proposal cadence: ~1 proposal per epoch (≈384s, 32 Ethereum slots).
+    /// - P = 6: Conservative sizing assumes 1 proposal every 6 Ethereum slots (≈72s).
     ///
-    /// Calculation:
+    /// Calculation (conservative):
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 14) / 12 / 6
     ///                     = 16800
@@ -43,7 +44,7 @@ contract MainnetInbox is Inbox {
                 proverWhitelist: _proverWhitelist,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
                 provingWindow: 4 hours,
-                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
+                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,

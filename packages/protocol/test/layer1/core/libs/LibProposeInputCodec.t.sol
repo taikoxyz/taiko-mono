@@ -51,4 +51,37 @@ contract LibProposeInputCodecTest is Test {
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "max offset");
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
     }
+
+    function testFuzz_encodeDecodeProposeInput_PreservesFields(
+        uint48 deadline,
+        uint16 blobStartIndex,
+        uint16 numBlobs,
+        uint24 offset,
+        uint8 numForcedInclusions
+    )
+        public
+        pure
+    {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: deadline,
+            blobReference: LibBlobs.BlobReference({
+                blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
+            }),
+            numForcedInclusions: numForcedInclusions
+        });
+
+        bytes memory encoded = LibProposeInputCodec.encode(input);
+        assertEq(encoded.length, 14, "encoded length");
+
+        IInbox.ProposeInput memory decoded = LibProposeInputCodec.decode(encoded);
+        assertEq(decoded.deadline, input.deadline, "deadline");
+        assertEq(
+            decoded.blobReference.blobStartIndex,
+            input.blobReference.blobStartIndex,
+            "blobStartIndex"
+        );
+        assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
+        assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
+    }
 }

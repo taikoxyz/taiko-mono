@@ -171,4 +171,99 @@ contract LibProveInputCodecTest is Test {
         assertEq(encoded1.length, encoded2.length, "length match");
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
     }
+
+    function testFuzz_encodeDecodeProveInput_PreservesFields(
+        bytes32 seed,
+        uint8 transitionsLen,
+        bool forceCheckpointSync
+    )
+        public
+        pure
+    {
+        transitionsLen = uint8(bound(uint256(transitionsLen), 0, 16));
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](transitionsLen);
+        for (uint256 i; i < transitionsLen; ++i) {
+            transitions[i] = IInbox.Transition({
+                proposer: _addr(seed, "proposer", i),
+                designatedProver: _addr(seed, "designatedProver", i),
+                timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
+                blockHash: keccak256(abi.encode(seed, "blockHash", i))
+            });
+        }
+
+        IInbox.ProveInput memory input;
+        input.commitment = IInbox.Commitment({
+            firstProposalId: uint48(uint256(keccak256(abi.encode(seed, "firstProposalId")))),
+            firstProposalParentBlockHash: keccak256(abi.encode(seed, "parentBlockHash")),
+            lastProposalHash: keccak256(abi.encode(seed, "lastProposalHash")),
+            actualProver: _addr(seed, "actualProver", 0),
+            endBlockNumber: uint48(uint256(keccak256(abi.encode(seed, "endBlockNumber")))),
+            endStateRoot: keccak256(abi.encode(seed, "endStateRoot")),
+            transitions: transitions
+        });
+        input.forceCheckpointSync = forceCheckpointSync;
+
+        bytes memory encoded = LibProveInputCodec.encode(input);
+        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
+
+        assertEq(
+            decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
+        );
+        assertEq(
+            decoded.commitment.firstProposalParentBlockHash,
+            input.commitment.firstProposalParentBlockHash,
+            "firstProposalParentBlockHash"
+        );
+        assertEq(
+            decoded.commitment.lastProposalHash,
+            input.commitment.lastProposalHash,
+            "lastProposalHash"
+        );
+        assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
+        assertEq(
+            decoded.commitment.endBlockNumber, input.commitment.endBlockNumber, "endBlockNumber"
+        );
+        assertEq(decoded.commitment.endStateRoot, input.commitment.endStateRoot, "endStateRoot");
+        assertEq(
+            decoded.commitment.transitions.length, input.commitment.transitions.length, "length"
+        );
+
+        for (uint256 i; i < input.commitment.transitions.length; ++i) {
+            assertEq(
+                decoded.commitment.transitions[i].proposer,
+                input.commitment.transitions[i].proposer,
+                "transition proposer"
+            );
+            assertEq(
+                decoded.commitment.transitions[i].designatedProver,
+                input.commitment.transitions[i].designatedProver,
+                "transition designatedProver"
+            );
+            assertEq(
+                decoded.commitment.transitions[i].timestamp,
+                input.commitment.transitions[i].timestamp,
+                "transition timestamp"
+            );
+            assertEq(
+                decoded.commitment.transitions[i].blockHash,
+                input.commitment.transitions[i].blockHash,
+                "transition blockHash"
+            );
+        }
+
+        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
+    }
+
+    function _addr(
+        bytes32 seed,
+        string memory label,
+        uint256 index
+    )
+        private
+        pure
+        returns (address)
+    {
+        return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
+    }
 }

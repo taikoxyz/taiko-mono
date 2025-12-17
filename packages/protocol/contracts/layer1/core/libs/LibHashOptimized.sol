@@ -15,12 +15,14 @@ library LibHashOptimized {
     // Core Structure Hashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for Proposal structs
-    /// @dev Uses ABI encoding to keep the commitment bound to all proposal fields, including
-    ///      derivation sources.
+    /// @notice Hashing for proposal data.
+    /// @dev Uses keccak256(abi.encode(...)) to hash the proposal. Contrarty to the intuition,
+    /// this is as efficient if not more than using `EfficientHashLib` in this case because
+    /// the structure of the data(nested dynamic arryas).
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
+        /// forge-lint: disable-start(asm-keccak256)
         return keccak256(abi.encode(_proposal));
     }
 

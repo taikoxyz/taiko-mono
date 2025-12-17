@@ -293,7 +293,17 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // ---------------------------------------------------------
-            // 5. Update core state and emit event
+            // 5. Compute proposalAge (for single-proposal proofs only)
+            // ---------------------------------------------------------
+            uint256 proposalAge;
+            if (numProposals == 1) {
+                // We count proposalAge as the time since it became available for proving.
+                proposalAge = block.timestamp
+                    - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+            }
+
+            // ---------------------------------------------------------
+            // 6. Update core state and emit event
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
@@ -310,11 +320,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 6. Verify the proof
+            // 7. Verify the proof
             // ---------------------------------------------------------
-            // We count the proposalAge as the time since it became available for proving.
-            uint256 proposalAge = block.timestamp
-                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             _proofVerifier.verifyProof(
                 proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
             );

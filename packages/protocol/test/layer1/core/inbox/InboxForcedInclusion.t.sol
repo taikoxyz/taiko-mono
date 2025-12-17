@@ -11,6 +11,8 @@ import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol"
 
 /// @notice Tests for forced inclusion functionality
 contract InboxForcedInclusionTest is InboxTestBase {
+    LibForcedInclusion.Storage private feeStore;
+
     function test_saveForcedInclusion_refundsExcessPayment() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
@@ -210,6 +212,48 @@ contract InboxForcedInclusionTest is InboxTestBase {
 
         uint64 expectedFee = uint64((uint256(baseFee) * (threshold + 2)) / threshold);
         assertEq(inbox.getCurrentForcedInclusionFee(), expectedFee, "fee scales linearly");
+    }
+
+    function test_getCurrentForcedInclusionFee_matchesFormulaAndIsMonotonic() public {
+        // First propose to enable forced inclusions
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+        _setBlobHashes(2);
+
+        uint64 baseFee = config.forcedInclusionFeeInGwei;
+        uint64 threshold = config.forcedInclusionFeeDoubleThreshold;
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+
+        uint64 prevFee;
+        for (uint256 numPending; numPending < 10; ++numPending) {
+            uint64 actualFee = inbox.getCurrentForcedInclusionFee();
+
+            uint256 multipliedFee = uint256(baseFee) * (uint256(threshold) + numPending);
+            uint256 expected256 = multipliedFee / uint256(threshold);
+            if (expected256 > type(uint64).max) expected256 = type(uint64).max;
+
+            assertEq(actualFee, uint64(expected256), "fee formula mismatch");
+            if (numPending > 0) assertGe(actualFee, prevFee, "fee must be non-decreasing");
+            prevFee = actualFee;
+
+            uint256 requiredFee = uint256(actualFee) * 1 gwei;
+            vm.prank(proposer);
+            inbox.saveForcedInclusion{ value: requiredFee }(forcedRef);
+        }
+    }
+
+    function test_getCurrentForcedInclusionFee_saturatesAtUint64Max() public {
+        feeStore.head = 0;
+        feeStore.tail = type(uint48).max;
+
+        uint64 actual =
+            LibForcedInclusion.getCurrentForcedInclusionFee(feeStore, type(uint64).max, 1);
+        assertEq(actual, type(uint64).max, "fee should saturate at max uint64");
     }
 
     function test_getForcedInclusionState_tracksQueueProgress() public {
