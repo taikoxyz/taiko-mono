@@ -149,26 +149,6 @@ impl<P: Provider + Clone> Client<P> {
             anchor_block_number: block_state.anchorBlockNumber.to::<u64>(),
         })
     }
-
-    /// Encode a Shasta propose input using the Inbox codec.
-    pub async fn encode_propose_input(&self, input: ProposeInput) -> Result<AlloyBytes> {
-        self.shasta.codec.encodeProposeInput(input).call().await.map_err(Into::into)
-    }
-
-    /// Decode a Shasta propose input using the Inbox codec.
-    pub async fn decode_propose_input(&self, data: AlloyBytes) -> Result<ProposeInput> {
-        self.shasta.codec.decodeProposeInput(data).call().await.map_err(Into::into)
-    }
-
-    /// Encode a Shasta prove input using the Inbox codec.
-    pub async fn encode_prove_input(&self, input: ProveInput) -> Result<AlloyBytes> {
-        self.shasta.codec.encodeProveInput(input).call().await.map_err(Into::into)
-    }
-
-    /// Decode a Shasta prove input using the Inbox codec.
-    pub async fn decode_prove_input(&self, data: AlloyBytes) -> Result<ProveInput> {
-        self.shasta.codec.decodeProveInput(data).call().await.map_err(Into::into)
-    }
 }
 
 /// Builds a RootProvider for the L2 auth provider using the provided URL and JWT secret.
