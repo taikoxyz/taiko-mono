@@ -58,55 +58,39 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ## Metadata Preparation
 
-The metadata preparation process initiates with a subscription to the inbox's `Proposed` event, which emits a `ProposedEventPayload` object containing the `proposal` and `coreState`. The proposal structure is defined in the protocol's L1 smart contract as follows:
+The metadata preparation process initiates with a subscription to the inbox's `Proposed` event.
 
 ```solidity
-/// @notice Represents a proposal for L2 blocks.
-struct Proposal {
-  /// @notice Unique identifier for the proposal.
-  uint48 id;
-  /// @notice The L1 block timestamp when the proposal was accepted.
-  uint48 timestamp;
-  /// @notice The timestamp of the last slot where the current preconfer can propose.
-  uint48 endOfSubmissionWindowTimestamp;
-  /// @notice Address of the proposer.
-  address proposer;
-  /// @notice The L1 block number when the proposal was accepted.
-  uint48 originBlockNumber;
-  /// @notice The hash of the origin block.
-  bytes32 originBlockHash;
-  /// @notice The percentage of base fee paid to coinbase.
-  uint8 basefeeSharingPctg;
-  /// @notice Array of derivation sources, where each can be regular or forced inclusion.
-  DerivationSource[] sources;
-}
-
-/// @notice Represents a source of derivation data within a Proposal
-struct DerivationSource {
-  /// @notice Whether this source is from a forced inclusion.
-  bool isForcedInclusion;
-  /// @notice Blobs that contain the source's manifest data.
-  LibBlobs.BlobSlice blobSlice;
-}
+event Proposed(
+  uint48 indexed id,
+  address indexed proposer,
+  uint48 endOfSubmissionWindowTimestamp,
+  uint8 basefeeSharingPctg,
+  DerivationSource[] sources
+);
 ```
 
-The following metadata fields are extracted from the `proposal` and `proposal.sources[i]` objects:
+The other fields can be derived by querying the contract:
+
+- `timestamp` and `originBlockHash/Number` come from the L1 block that emitted the log.
+- `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
+
+The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                | Value Assignment              |
-| ----------------------------- | ----------------------------- |
-| `metadata.id`                 | `proposal.id`                 |
-| `metadata.proposer`           | `proposal.proposer`           |
-| `metadata.timestamp`          | `proposal.timestamp`          |
-| `metadata.originBlockNumber`  | `proposal.originBlockNumber`  |
-| `metadata.basefeeSharingPctg` | `proposal.basefeeSharingPctg` |
+| Metadata Field                            | Value Assignment                         |
+| ----------------------------------------- | ---------------------------------------- |
+| `metadata.id`                             | `payload.id`                             |
+| `metadata.proposer`                       | `payload.proposer`                       |
+| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp` |
+| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
 
 **Derivation source-level assignments (for source `i`):**
 
-| Metadata Field               | Value Assignment                        |
-| ---------------------------- | --------------------------------------- |
-| `metadata.isForcedInclusion` | `proposal.sources[i].isForcedInclusion` |
+| Metadata Field               | Value Assignment                       |
+| ---------------------------- | -------------------------------------- |
+| `metadata.isForcedInclusion` | `payload.sources[i].isForcedInclusion` |
 
 The `proposal.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
@@ -134,21 +118,6 @@ struct SignedTransaction {
   bytes32 s;
 }
 
-/// @notice Represents a block manifest
-struct BlockManifest {
-  /// @notice The timestamp of the block.
-  uint48 timestamp;
-  /// @notice The coinbase of the block.
-  address coinbase;
-  /// @notice The anchor block number. This field can be zero, if so, this block will use the
-  /// most recent anchor in a previous block.
-  uint48 anchorBlockNumber;
-  /// @notice The block's gas limit.
-  uint48 gasLimit;
-  /// @notice The transactions for this block.
-  SignedTransaction[] transactions;
-}
-
 /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 struct ProposalManifest {
@@ -165,6 +134,21 @@ struct DerivationSourceManifest {
   bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
+}
+
+/// @notice Represents a block manifest
+struct BlockManifest {
+  /// @notice The timestamp of the block.
+  uint48 timestamp;
+  /// @notice The coinbase of the block.
+  address coinbase;
+  /// @notice The anchor block number. This field can be zero, if so, this block will use the
+  /// most recent anchor in a previous block.
+  uint48 anchorBlockNumber;
+  /// @notice The block's gas limit.
+  uint48 gasLimit;
+  /// @notice The transactions for this block.
+  SignedTransaction[] transactions;
 }
 ```
 
