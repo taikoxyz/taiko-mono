@@ -5,19 +5,14 @@ use std::path::PathBuf;
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
-use alloy_primitives::{Address, B256, Bytes as AlloyBytes};
+use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    anchor::Anchor::AnchorInstance,
-    codec::{
-        Codec::CodecInstance,
-        IInbox::{ProposeInput, ProveInput},
-    },
-    inbox::Inbox::InboxInstance,
+    anchor::Anchor::AnchorInstance, codec::Codec::CodecInstance, inbox::Inbox::InboxInstance,
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
