@@ -417,7 +417,7 @@ func (s *Syncer) processShastaProposal(
 			sourcePayload,
 			meta.GetEventData(),
 			meta.GetTimestamp(),
-			meta.GetLog().BlockNumber-1,
+			meta.GetRawBlockHeight().Uint64()-1,
 			lastAnchorBlockNumber,
 			isForcedInclusion,
 		) {
