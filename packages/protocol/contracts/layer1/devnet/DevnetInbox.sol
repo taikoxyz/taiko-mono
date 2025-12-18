@@ -33,11 +33,9 @@ contract DevnetInbox is Inbox {
         address _proofVerifier,
         address _proposerChecker,
         address _proverWhitelist,
-        address _signalService,
-        address _codec
+        address _signalService
     )
         Inbox(Config({
-                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,

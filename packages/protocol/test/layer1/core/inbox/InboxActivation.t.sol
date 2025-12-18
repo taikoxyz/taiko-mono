@@ -113,7 +113,6 @@ contract InboxActivationTest is InboxTestBase {
             config.forcedInclusionFeeInGwei,
             "forcedInclusionFeeInGwei mismatch"
         );
-        assertEq(cfg.codec, config.codec, "codec mismatch");
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
         assertEq(cfg.signalService, config.signalService, "signalService mismatch");
@@ -122,14 +121,6 @@ contract InboxActivationTest is InboxTestBase {
 
 /// @notice Tests for LibInboxSetup config validation
 contract LibInboxSetupConfigValidationTest is InboxTestBase {
-    function test_validateConfig_RevertWhen_CodecZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.codec = address(0);
-
-        vm.expectRevert(LibInboxSetup.CodecZero.selector);
-        new Inbox(cfg);
-    }
-
     function test_validateConfig_RevertWhen_ProofVerifierZero() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.proofVerifier = address(0);

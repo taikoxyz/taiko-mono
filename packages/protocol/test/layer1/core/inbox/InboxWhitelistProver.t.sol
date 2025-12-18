@@ -3,9 +3,7 @@ pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Codec } from "src/layer1/core/impl/Codec.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBonds } from "src/shared/libs/LibBonds.sol";
@@ -19,8 +17,6 @@ contract InboxWhitelistProverTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function _buildConfig() internal override returns (IInbox.Config memory) {
-        codec = ICodec(new Codec());
-
         // Deploy and setup ProverWhitelist
         ProverWhitelist proverWhitelistImpl = new ProverWhitelist();
         proverWhitelist = ProverWhitelist(
@@ -34,7 +30,6 @@ contract InboxWhitelistProverTest is InboxTestBase {
         proverWhitelist.whitelistProver(whitelistedProver, true);
 
         return IInbox.Config({
-            codec: address(codec),
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
             proverWhitelist: address(proverWhitelist),

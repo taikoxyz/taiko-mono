@@ -34,11 +34,9 @@ contract MainnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _proverWhitelist,
-        address _codec
+        address _proverWhitelist
     )
         Inbox(Config({
-                codec: _codec,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
