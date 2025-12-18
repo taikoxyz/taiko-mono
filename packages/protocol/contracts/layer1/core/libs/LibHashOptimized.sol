@@ -5,10 +5,10 @@ import { IInbox } from "../iface/IInbox.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 /// @title LibHashOptimized
-/// @notice Optimized hashing functions using Solady's EfficientHashLib
+/// @notice Optimized hashing functions using Solady's EfficientHashLib(when more efficient than keccak256)
 /// @dev This library provides gas-optimized implementations of all hashing functions
 ///      used in the Inbox contract, replacing standard keccak256(abi.encode(...)) calls
-///      with more efficient alternatives from Solady's EfficientHashLib.
+///      with more efficient alternatives from Solady's EfficientHashLib(when more efficient than keccak256).
 /// @custom:security-contact security@taiko.xyz
 library LibHashOptimized {
     // ---------------------------------------------------------------
