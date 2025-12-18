@@ -658,6 +658,11 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 			}
 
 			return nil, err
+		} else if l1Origin.L1BlockHeight.Cmp(common.Big0) == 0 {
+			// An L1BlockHeight of 0 in L1Origin indicates a preconfirmation block.
+			// This case is treated equivalently to NotFound.
+			log.Info("Found L1Origin for preconfirmation", "batchID", batchID, "blockID", batch.LastBlockId)
+			return result, nil
 		}
 
 		// Compare the L1 header hash in the L1Origin with the current L1 header hash in the L1 chain.
