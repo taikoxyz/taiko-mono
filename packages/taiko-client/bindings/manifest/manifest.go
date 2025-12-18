@@ -15,8 +15,6 @@ const (
 	ProposalMaxBlocks = 384
 	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp.
 	TimestampMaxOffset = 12 * 128
-	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number.
-	AnchorMinOffset = 2
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number.
 	AnchorMaxOffset = 128
 	// MaxBlockGasLimitChangePermyriad The maximum block gas limit change per block,

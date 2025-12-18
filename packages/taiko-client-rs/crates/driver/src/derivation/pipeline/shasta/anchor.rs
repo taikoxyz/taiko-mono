@@ -12,7 +12,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::Anchor::{BlockParams, ProposalParams};
+use bindings::anchor::{Anchor::ProposalParams, ICheckpointStore::Checkpoint};
 use rpc::client::Client;
 use thiserror::Error;
 use tracing::{info, instrument};
@@ -141,13 +141,13 @@ where
             proverAuth: prover_auth.into(),
         };
 
-        let block_params = BlockParams {
-            anchorBlockNumber: U48::from(anchor_block_number),
-            anchorBlockHash: anchor_block_hash,
-            anchorStateRoot: anchor_state_root,
+        let checkpoint = Checkpoint {
+            blockNumber: U48::from(anchor_block_number),
+            blockHash: anchor_block_hash,
+            stateRoot: anchor_state_root,
         };
 
-        let call_builder = self.rpc.shasta.anchor.anchorV4(proposal_params, block_params);
+        let call_builder = self.rpc.shasta.anchor.anchorV4(proposal_params, checkpoint);
 
         let call_builder = call_builder
             .from(self.golden_touch_address)

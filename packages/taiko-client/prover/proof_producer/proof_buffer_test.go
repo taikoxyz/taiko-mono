@@ -24,7 +24,7 @@ func TestProofBuffer(t *testing.T) {
 	}
 
 	// Mark its aggregating status.
-	b.MarkAggregating()
+	b.MarkAggregatingIfNot()
 	require.True(t, b.IsAggregating())
 
 	// Clear items from the buffer.

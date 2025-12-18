@@ -59,7 +59,7 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offset is invalid,
 	// return the default payload.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
-		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
+		meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
 			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
 		return &ShastaDerivationSourcePayload{Default: true}, nil
 	}
@@ -84,7 +84,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 ) (*ShastaDerivationSourcePayload, error) {
 	var (
 		proverAuth               []byte
-		offset                   = int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64())
+		offset                   = int(meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64())
 		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
 		derivationSourceManifest = new(manifest.DerivationSourceManifest)
 	)
@@ -131,12 +131,12 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
+	if derivationIdx != len(meta.GetEventData().Sources)-1 {
 		// For forced-inclusion source, ensure it contains exactly one block.
 		if len(derivationSourceManifest.Blocks) != 1 {
 			log.Warn(
 				"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
-				"blobs", len(meta.GetDerivation().Sources[derivationIdx].BlobSlice.BlobHashes),
+				"blobs", len(meta.GetEventData().Sources[derivationIdx].BlobSlice.BlobHashes),
 				"blocks", len(derivationSourceManifest.Blocks),
 			)
 			return defaultPayload, nil
@@ -187,7 +187,7 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 
 	log.Info(
 		"Fetch sidecars",
-		"proposalID", meta.GetProposal().Id,
+		"proposalID", meta.GetEventData().Id,
 		"l1Height", meta.GetRawBlockHeight(),
 		"sidecars", len(sidecars),
 	)
@@ -280,7 +280,8 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 func ValidateMetadata(
 	rpc *rpc.Client,
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
+	proposalTimestamp uint64,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
 	isForcedInclusion bool,
@@ -289,7 +290,7 @@ func ValidateMetadata(
 		return false
 	}
 
-	if !validateMetadataTimestamp(sourcePayload, proposal, rpc.ShastaClients.ForkTime) {
+	if !validateMetadataTimestamp(sourcePayload, event, proposalTimestamp, rpc.ShastaClients.ForkTime) {
 		return false
 	}
 
@@ -297,7 +298,7 @@ func ValidateMetadata(
 		sourcePayload,
 		originBlockNumber,
 		parentAnchorBlockNumber,
-		proposal,
+		event,
 		isForcedInclusion,
 	) {
 		return false
@@ -317,12 +318,12 @@ func ValidateMetadata(
 // validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
 func validateMetadataTimestamp(
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
+	proposalTimestamp uint64,
 	forkTime uint64,
 ) bool {
 	var (
-		parentTimestamp   = sourcePayload.ParentBlock.Time()
-		proposalTimestamp = proposal.Timestamp.Uint64()
+		parentTimestamp = sourcePayload.ParentBlock.Time()
 	)
 
 	for i := range sourcePayload.BlockPayloads {
@@ -378,7 +379,7 @@ func validateAnchorBlockNumber(
 	sourcePayload *ShastaDerivationSourcePayload,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
 	isForcedInclusion bool,
 ) bool {
 	var (
@@ -391,7 +392,7 @@ func validateAnchorBlockNumber(
 		if anchorBlockNumber < parentAnchorBlockNumber {
 			log.Info(
 				"Invalid anchor block number: non-monotonic progression",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
@@ -399,10 +400,10 @@ func validateAnchorBlockNumber(
 			return false
 		}
 
-		if anchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
+		if anchorBlockNumber > originBlockNumber {
 			log.Info(
-				"Invalid anchor block number: future reference",
-				"proposal", proposal.Id,
+				"Invalid anchor block number: cannot be newer than origin block",
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
@@ -414,7 +415,7 @@ func validateAnchorBlockNumber(
 			anchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Info(
 				"Invalid anchor block number: excessive lag",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
@@ -435,7 +436,7 @@ func validateAnchorBlockNumber(
 	if !isForcedInclusion && highestAnchorNumber <= originalParentAnchorNumber {
 		log.Info(
 			"Invalid anchor block numbers: no valid anchor numbers greater than parent's",
-			"proposal", proposal.Id,
+			"proposal", event.Id,
 			"highestAnchorBlockNumber", highestAnchorNumber,
 			"parentAnchorBlockNumber", originalParentAnchorNumber,
 			"isForcedInclusion", isForcedInclusion,
@@ -493,7 +494,8 @@ func validateGasLimit(
 // from the parent block metadata.
 func ApplyInheritedMetadata(
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
+	timestamp uint64,
 	anchorBlockNumber uint64,
 	forkTime uint64,
 ) {
@@ -506,10 +508,10 @@ func ApplyInheritedMetadata(
 	}
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposal.Timestamp.Uint64(), forkTime)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime)
 
 		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
-		sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
+		sourcePayload.BlockPayloads[i].Coinbase = event.Proposer
 		sourcePayload.BlockPayloads[i].AnchorBlockNumber = anchorBlockNumber
 		sourcePayload.BlockPayloads[i].GasLimit = parentGasLimit
 
