@@ -9,8 +9,9 @@
 
 # Client services
 /packages/taiko-client/**       @cyberhorsey @YoGhurt111 @davidtaikocha @MatusKysel
-/packages/eventindexer/**       @cyberhorsey @YoGhurt111 @davidtaikocha
-/packages/relayer/**            @cyberhorsey @YoGhurt111 @davidtaikocha
+/packages/taiko-client-rs/**    @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/eventindexer/**       @cyberhorsey @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/relayer/**            @cyberhorsey @YoGhurt111 @davidtaikocha @MatusKysel
 
 # Frontend applications
 /packages/docs-site/**          @ggonzalez94 @RogerLamTd
@@ -18,6 +19,6 @@
 
 # Infrastructure and tools
 /packages/balance-monitor/**    @cyberhorsey @YoGhurt111 @davidtaikocha
-/packages/ejector/**            @cyberhorsey @YoGhurt111 @davidtaikocha
+/packages/ejector/**            @cyberhorsey @YoGhurt111 @davidtaikocha @MatusKysel
 /packages/fork-diff/**          @cyberhorsey @YoGhurt111 @davidtaikocha @RogerLamTd
 /packages/geth-rpc-gateway/**   @cyberhorsey @YoGhurt111 @davidtaikocha
