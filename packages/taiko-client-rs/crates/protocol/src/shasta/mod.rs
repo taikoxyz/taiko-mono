@@ -1,7 +1,9 @@
 //! Shasta protocol implementation.
 
+pub mod blob_coder;
 pub mod constants;
 pub mod error;
 pub mod manifest;
 
-pub use error::{ProtocolError, Result};
+pub use blob_coder::BlobCoder;
+pub use error::{ForkConfigResult, ProtocolError, Result, ShastaForkConfigError};

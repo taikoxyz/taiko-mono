@@ -6,13 +6,15 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tokio::runtime::Runtime;
 
-use crate::commands::proposer::ProposerSubCommand;
+use crate::commands::{driver::DriverSubCommand, proposer::ProposerSubCommand};
 
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
     /// Run the proposer.
     Proposer(ProposerSubCommand),
+    /// Run the driver.
+    Driver(DriverSubCommand),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -28,6 +30,7 @@ impl Cli {
     pub fn run(self) -> Result<()> {
         match self.subcommand {
             Commands::Proposer(proposer_cmd) => Self::run_until_ctrl_c(proposer_cmd.run()),
+            Commands::Driver(driver_cmd) => Self::run_until_ctrl_c(driver_cmd.run()),
         }
     }
 

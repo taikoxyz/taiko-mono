@@ -114,7 +114,11 @@ func IsProvingWindowExpired(
 		now       = uint64(time.Now().Unix())
 		expiredAt = timestamp + uint64(provingWindow.Seconds())
 	)
-	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
+	remainingSeconds := int64(expiredAt) - int64(now)
+	if remainingSeconds < 0 {
+		remainingSeconds = 0
+	}
+	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(remainingSeconds) * time.Second, nil
 }
 
 // IsProvingWindowExpiredShasta returns true as the first return parameter if the assigned prover
@@ -126,12 +130,16 @@ func IsProvingWindowExpiredShasta(
 ) (bool, time.Time, time.Duration, error) {
 	configs, err := rpc.GetProtocolConfigsShasta(nil)
 	if err != nil {
-		return false, time.Time{}, 0, fmt.Errorf("failed to get Pacaya protocol configs: %w", err)
+		return false, time.Time{}, 0, fmt.Errorf("failed to get Shasta protocol configs: %w", err)
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.Shasta().GetProposal().Timestamp.Uint64() + configs.ProvingWindow.Uint64()
+		expiredAt = metadata.Shasta().GetTimestamp() + configs.ProvingWindow.Uint64()
 	)
-	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
+	remainingSeconds := int64(expiredAt) - int64(now)
+	if remainingSeconds < 0 {
+		remainingSeconds = 0
+	}
+	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(remainingSeconds) * time.Second, nil
 }

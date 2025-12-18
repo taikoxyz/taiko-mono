@@ -60,10 +60,46 @@
   ],
   "separate-pull-requests": true,
   "packages": {
+    "packages/blobindexer-rs": {
+      "package-name": "blobindexer-rs",
+      "release-type": "simple",
+      "component": "blobindexer-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/bridge-ui": {},
     "packages/docs-site": {},
     "packages/eventindexer": {},
+    "packages/ejector": {
+      "package-name": "ejector",
+      "release-type": "simple",
+      "component": "ejector",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/fork-diff": {},
+    "packages/overseer-rs": {
+      "package-name": "overseer-rs",
+      "release-type": "simple",
+      "component": "overseer-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/protocol": {
       "package-name": "taiko-alethia-protocol"
     },
@@ -80,13 +116,24 @@
     "packages/taiko-client-rs": {
       "package-name": "taiko-alethia-client-rs",
       "release-type": "simple",
-      "release-as": "2.0.0",
       "component": "taiko-alethia-client-rs",
       "extra-files": [
         {
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.workspace.package.version"
+        }
+      ]
+    },
+    "packages/urcindexer-rs": {
+      "package-name": "urcindexer-rs",
+      "release-type": "simple",
+      "component": "urcindexer-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
         }
       ]
     },

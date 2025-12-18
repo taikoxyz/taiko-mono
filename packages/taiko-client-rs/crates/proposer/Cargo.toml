@@ -17,12 +17,12 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # ethereum
 alloy = { workspace = true }
 alloy-eips = { workspace = true }
+alloy-hardforks = { workspace = true }
 alloy-network = { workspace = true }
 
 # taiko
 alethia-reth-consensus = { workspace = true }
 bindings = { path = "../bindings" }
-event-indexer = { path = "../event-indexer" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
@@ -33,3 +33,8 @@ url = { workspace = true }
 
 # serialization
 serde_json = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness" }

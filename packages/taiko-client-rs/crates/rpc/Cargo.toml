@@ -26,12 +26,18 @@ alloy-rpc-types-engine = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
 alloy-sol-types = { workspace = true }
 alloy-transport-http = { workspace = true }
+once_cell = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+url = { workspace = true }
 
 # taiko
 alethia-reth-evm = { workspace = true }
 alethia-reth-primitives = { workspace = true }
 alethia-reth-rpc = { workspace = true }
 bindings = { path = "../bindings" }
+event-scanner = { workspace = true }
+protocol = { path = "../protocol" }
 
 # types
 anyhow = { workspace = true }
@@ -40,3 +46,4 @@ thiserror = { workspace = true }
 # serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = "0.10"

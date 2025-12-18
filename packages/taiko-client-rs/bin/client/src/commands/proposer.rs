@@ -3,14 +3,15 @@ use std::time::Duration;
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
+use async_trait::async_trait;
 use clap::Parser;
-use event_indexer::metrics::IndexerMetrics;
-use metrics_exporter_prometheus::PrometheusBuilder;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
 use rpc::SubscriptionSource;
-use tracing::info;
 
-use crate::flags::{common::CommonArgs, proposer::ProposerArgs};
+use crate::{
+    commands::Subcommand,
+    flags::{common::CommonArgs, proposer::ProposerArgs},
+};
 
 /// Command-line interface for running a proposer.
 ///
@@ -27,60 +28,12 @@ pub struct ProposerSubCommand {
 }
 
 impl ProposerSubCommand {
-    /// Initializes the logging system based on global arguments.
-    pub fn init_logs(&self, args: &CommonArgs) -> anyhow::Result<()> {
-        let log_level = args.log_level();
-        let env_filter =
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new(log_level.as_str().to_lowercase())
-            });
-        let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
-        Ok(())
-    }
-
-    /// Return a reference to the common CLI arguments.
-    pub fn common_flags(&self) -> &CommonArgs {
-        &self.common_flags
-    }
-
-    /// Return a reference to the proposer-specific CLI arguments.
-    pub fn proposer_flags(&self) -> &ProposerArgs {
-        &self.proposer_flags
-    }
-
-    /// Initialize Prometheus metrics server.
-    fn init_metrics(&self) -> Result<()> {
-        if !self.common_flags.metrics_enabled {
-            return Ok(());
-        }
-
-        let metrics_addr =
-            format!("{}:{}", self.common_flags.metrics_addr, self.common_flags.metrics_port);
-
-        let socket_addr: std::net::SocketAddr = metrics_addr.parse()?;
-        PrometheusBuilder::new().with_http_listener(socket_addr).install()?;
-
-        ProposerMetrics::init();
-        IndexerMetrics::init();
-
-        info!(
-            target: "metrics",
-            "Prometheus metrics server started at http://{}",
-            metrics_addr
-        );
-
-        Ok(())
-    }
-
-    /// Run the proposer software.
-    pub async fn run(&self) -> Result<()> {
-        self.init_logs(self.common_flags())?;
-        self.init_metrics()?;
-
+    /// Build proposer configuration from command-line arguments.
+    fn build_config(&self) -> Result<ProposerConfigs> {
         let l1_provider_source =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
 
-        let cfg = ProposerConfigs {
+        Ok(ProposerConfigs {
             l1_provider_source,
             l2_provider_url: RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?,
             l2_auth_provider_url: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
@@ -90,7 +43,40 @@ impl ProposerSubCommand {
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
             gas_limit: self.proposer_flags.gas_limit,
-        };
+            anchor_offset: self.proposer_flags.anchor_offset,
+        })
+    }
+
+    /// Return a reference to the proposer-specific CLI arguments.
+    pub fn proposer_flags(&self) -> &ProposerArgs {
+        &self.proposer_flags
+    }
+
+    /// Run the proposer software.
+    pub async fn run(&self) -> Result<()> {
+        <Self as Subcommand>::run(self).await
+    }
+}
+
+#[async_trait]
+impl Subcommand for ProposerSubCommand {
+    // Return a reference to the common CLI arguments.
+    fn common_args(&self) -> &CommonArgs {
+        &self.common_flags
+    }
+
+    // Register proposer and indexer metrics.
+    fn register_metrics(&self) -> Result<()> {
+        ProposerMetrics::init();
+        Ok(())
+    }
+
+    // Run the proposer software.
+    async fn run(&self) -> Result<()> {
+        self.init_logs()?;
+        self.init_metrics()?;
+
+        let cfg = self.build_config()?;
 
         Proposer::new(cfg).await?.start().await.map_err(Into::into)
     }

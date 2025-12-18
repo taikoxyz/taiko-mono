@@ -24,9 +24,8 @@ type Inserter interface {
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
 		sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
-		startBlockIdx uint16,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
-	) error
+	) (*big.Int, error)
 }
 
 // createExecutionPayloadsMetaData is a struct that contains all the necessary metadata
@@ -46,9 +45,16 @@ type createExecutionPayloadsMetaData struct {
 	Withdrawals           []*types.Withdrawal
 }
 
+// verifiedCheckpoint holds the latest verified checkpoint info used for setting Safe/Finalized hash.
+type verifiedCheckpoint struct {
+	BlockID   *big.Int
+	BlockHash common.Hash
+}
+
 // createPayloadAndSetHeadMetaData is a struct that contains all the necessary metadata
 // for inserting a new head block to the L2 execution engine's local block chain.
 type createPayloadAndSetHeadMetaData struct {
 	*createExecutionPayloadsMetaData
-	Parent *types.Header
+	Parent             *types.Header
+	VerifiedCheckpoint *verifiedCheckpoint
 }

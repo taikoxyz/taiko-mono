@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 
 use alethia_reth_evm::handler::get_treasury_address;
-use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
+use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
+use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
@@ -11,8 +12,7 @@ use alloy_provider::{
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{
-    codec_optimized::CodecOptimized::CodecOptimizedInstance, i_inbox::IInbox::IInboxInstance,
-    taiko_anchor::TaikoAnchor::TaikoAnchorInstance,
+    anchor::Anchor::AnchorInstance, codec::Codec::CodecInstance, inbox::Inbox::InboxInstance,
 };
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -31,27 +31,48 @@ pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWall
 /// Instances of Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct ShastaProtocolInstance<P: Provider + Clone> {
-    pub inbox: IInboxInstance<P>,
-    pub codec: CodecOptimizedInstance<P>,
-    pub anchor: TaikoAnchorInstance<RootProvider>,
+    /// Inbox contract instance on L1.
+    pub inbox: InboxInstance<P>,
+    /// Codec contract instance for proposal/prove input encoding.
+    pub codec: CodecInstance<P>,
+    /// Anchor contract instance on L2 (auth provider).
+    pub anchor: AnchorInstance<RootProvider>,
+}
+
+/// Snapshot of anchor contract state at a given L2 block.
+#[derive(Clone, Debug)]
+pub struct AnchorState {
+    /// Prover designated by the anchor contract for the proposal.
+    pub designated_prover: Address,
+    /// Anchor block number advertised by the anchor contract.
+    pub anchor_block_number: u64,
 }
 
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
+    /// L1 provider (optionally with wallet) used for contract calls.
     pub l1_provider: P,
+    /// L2 public provider for read-only access.
     pub l2_provider: RootProvider,
+    /// L2 authenticated provider for engine/anchor interactions.
     pub l2_auth_provider: RootProvider,
+    /// Shasta protocol contract bundle (Inbox/Codec/Anchor).
     pub shasta: ShastaProtocolInstance<P>,
 }
 
 /// Configuration for the `Client`.
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
+    /// Source describing how to build the L1 provider (WS/HTTP/etc).
     pub l1_provider_source: SubscriptionSource,
+    /// HTTP endpoint for the L2 public provider.
     pub l2_provider_url: Url,
+    /// HTTP endpoint for the L2 authenticated provider.
     pub l2_auth_provider_url: Url,
+    /// Path to the engine JWT secret.
     pub jwt_secret: PathBuf,
+    /// L1 address of the Inbox contract.
     pub inbox_address: Address,
 }
 
@@ -83,10 +104,9 @@ impl<P: Provider + Clone> Client<P> {
         let l2_auth_provider =
             build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
-        let inbox = IInboxInstance::new(config.inbox_address, l1_provider.clone());
-        let codec =
-            CodecOptimizedInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
-        let anchor = TaikoAnchorInstance::new(
+        let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
+        let codec = CodecInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
+        let anchor = AnchorInstance::new(
             get_treasury_address(l2_provider.get_chain_id().await?),
             l2_auth_provider.clone(),
         );
@@ -101,6 +121,28 @@ impl<P: Provider + Clone> Client<P> {
         let shasta = ShastaProtocolInstance { inbox, codec, anchor };
 
         Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
+    }
+
+    /// Fetch the L1 block hash for a given block number.
+    pub async fn l1_block_hash_by_number(&self, block_number: u64) -> Result<Option<B256>> {
+        self.l1_provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map(|origin_block| origin_block.map(|block| block.hash()))
+            .map_err(|err| RpcClientError::Provider(err.to_string()))
+    }
+
+    /// Fetch the Shasta anchor state for the given parent block hash.
+    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
+        let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
+
+        let proposal_state = self.shasta.anchor.getProposalState().block(block_id).call().await?;
+        let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
+
+        Ok(AnchorState {
+            designated_prover: Address::from_slice(proposal_state.designatedProver.as_slice()),
+            anchor_block_number: block_state.anchorBlockNumber.to::<u64>(),
+        })
     }
 }
 

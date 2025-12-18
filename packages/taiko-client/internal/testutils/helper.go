@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -23,7 +23,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -57,7 +56,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -89,9 +88,9 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataPacaya(event))
 			txHash = event.Raw.TxHash
 		case event := <-sink2:
-			decoded, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
+			header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 			s.Nil(err)
-			meta := metadata.NewTaikoProposalMetadataShasta(decoded, event.Raw)
+			meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 			metadataList = append(metadataList, meta)
 			txHash = event.Raw.TxHash
 		}
@@ -105,7 +104,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Nil(err)
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), nil))
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	return metadataList
 }
@@ -131,7 +130,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
 	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -172,9 +171,9 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
 		txHash = event.Raw.TxHash
 	case event := <-sink2:
-		decoded, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
+		header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 		s.Nil(err)
-		meta = metadata.NewTaikoProposalMetadataShasta(decoded, event.Raw)
+		meta = metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 		txHash = event.Raw.TxHash
 	}
 
@@ -195,7 +194,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 	s.Nil(backoff.Retry(func() error { return chainSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
 
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	_, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -215,7 +214,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -271,33 +270,22 @@ func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyn
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	// Already forked into Shasta.
-	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+	// Already forked into Shasta (timestamp-based).
+	if head.Time >= s.RPCClient.ShastaClients.ForkTime {
+		log.Debug("Already forked into Shasta")
 		s.InitShastaGenesisProposal()
 		return
 	}
 
-	txList := make([]types.Transactions, 0)
-	for i := 0; i < int(s.RPCClient.ShastaClients.ForkHeight.Uint64()-head.Number.Uint64()); i++ {
-		txList = append(txList, types.Transactions{})
-	}
+	s.SetNextBlockTimestamp(s.RPCClient.ShastaClients.ForkTime)
+	s.L1Mine()
 
-	log.Info("Forking into Shasta", "numBlocks", len(txList))
-
-	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
-	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 	s.InitShastaGenesisProposal()
-
-	for i := 0; i <= manifest.AnchorMinOffset; i++ {
-		s.L1Mine()
-	}
-
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
 	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(s.RPCClient.ShastaClients.ForkHeight, headBlock.Number())
 	s.GreaterOrEqual(1, len(headBlock.Transactions()))
 }
 
@@ -306,29 +294,19 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		txMgr = s.TxMgr("initShastaGenesisProposal", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
 		inbox = common.HexToAddress(os.Getenv("SHASTA_INBOX"))
 	)
-	var l2HeadNumber *big.Int
-	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
-	if err != nil {
-		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-		s.Nil(err)
-		l2HeadNumber = l2Head.Number
-	} else {
-		l2HeadNumber = headL1Origin.BlockID
-	}
-	if l2HeadNumber.Uint64()+1 >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	if l1Head.Time >= s.RPCClient.ShastaClients.ForkTime {
 		proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
 		s.Nil(err)
 		if proposalHash != (common.Hash{}) {
 			return
 		}
-
-		head, err := s.RPCClient.L2.HeaderByNumber(
-			context.Background(),
-			new(big.Int).Sub(s.RPCClient.ShastaClients.ForkHeight, common.Big1),
-		)
+		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 		s.Nil(err)
 
-		data, err := encoding.ShastaInboxABI.Pack("activate", head.Hash())
+		data, err := encoding.ShastaInboxABI.Pack("activate", l2Head.Hash())
 		s.Nil(err)
 		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
 		s.Nil(err)
@@ -490,8 +468,8 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	)
 	s.Nil(err)
 
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(), parent, &e.Info.BaseFeeConfig, e.Info.LastBlockTimestamp,
+	baseFee, err := s.RPCClient.CalculateBaseFeePacaya(
+		context.Background(), parent, e.Info.LastBlockTimestamp, &e.Info.BaseFeeConfig,
 	)
 	s.Nil(err)
 
@@ -523,7 +501,7 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: e.Info.Coinbase,
-			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3GasLimit,
+			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3V4GasLimit,
 			Timestamp:   e.Info.LastBlockTimestamp,
 			TxList:      txListBytes,
 			MixHash:     common.Hash(difficulty),

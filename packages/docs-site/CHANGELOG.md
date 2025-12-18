@@ -1,5 +1,67 @@
 # Changelog
 
+## [1.32.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.5...docs-site-v1.32.6) (2025-11-24)
+
+
+### Chores
+
+* **docs-site:** add growthepie Taiko Alethia link card to developer tools ([#20792](https://github.com/taikoxyz/taiko-mono/issues/20792)) ([20f401c](https://github.com/taikoxyz/taiko-mono/commit/20f401c459e63c891d7f72ddafde451b8dc08327))
+
+## [1.32.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.4...docs-site-v1.32.5) (2025-11-13)
+
+
+### Bug Fixes
+
+* **docs-site:** replace broken link with working ([#20715](https://github.com/taikoxyz/taiko-mono/issues/20715)) ([9723b53](https://github.com/taikoxyz/taiko-mono/commit/9723b53467c012c13e19ec40c47d98aa5c504085))
+
+
+### Chores
+
+* **docs-site:** remove taiko hekla ([#20718](https://github.com/taikoxyz/taiko-mono/issues/20718)) ([683e062](https://github.com/taikoxyz/taiko-mono/commit/683e06236692d05ba686404e6457aeacceedd8ac))
+
+## [1.32.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.3...docs-site-v1.32.4) (2025-11-12)
+
+
+### Chores
+
+* **deps:** bump astro from 4.13.1 to 5.14.3 ([#20662](https://github.com/taikoxyz/taiko-mono/issues/20662)) ([09a2e4a](https://github.com/taikoxyz/taiko-mono/commit/09a2e4a246e8bc36642190ad15568bd4a2a0d33d))
+* **docs-site:** add other erc8004 contract addresses for taiko hoodi ([#20703](https://github.com/taikoxyz/taiko-mono/issues/20703)) ([8fec23b](https://github.com/taikoxyz/taiko-mono/commit/8fec23bcfcf0999e9fe85fb9f0ff8737182adffd))
+* **docs-site:** fix build ([#20696](https://github.com/taikoxyz/taiko-mono/issues/20696)) ([f94e90f](https://github.com/taikoxyz/taiko-mono/commit/f94e90f50e68fc4d2e4c6626d43d612306077610))
+* **docs-site:** update taiko inbox contract address for hoodi ([#20710](https://github.com/taikoxyz/taiko-mono/issues/20710)) ([3fbcb11](https://github.com/taikoxyz/taiko-mono/commit/3fbcb11f885f62462b6720988babb48ccc82aba4))
+
+## [1.32.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.2...docs-site-v1.32.3) (2025-11-07)
+
+
+### Chores
+
+* **docs-site:** add GoldRush LinkCard to developer tools section ([#20664](https://github.com/taikoxyz/taiko-mono/issues/20664)) ([3a1e775](https://github.com/taikoxyz/taiko-mono/commit/3a1e775b29225363c1bccd4d3671fd2c3b79792a))
+
+## [1.32.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.1...docs-site-v1.32.2) (2025-11-06)
+
+
+### Chores
+
+* **docs-site:** add other l2 contracts for hoodi ([#20650](https://github.com/taikoxyz/taiko-mono/issues/20650)) ([1f245ae](https://github.com/taikoxyz/taiko-mono/commit/1f245ae7921201f2472ce2d36c3baa9a0e93e6c6))
+
+## [1.32.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.0...docs-site-v1.32.1) (2025-10-30)
+
+
+### Chores
+
+* **whitepaper:** add v2.0.0 ([#20599](https://github.com/taikoxyz/taiko-mono/issues/20599)) ([ec933b4](https://github.com/taikoxyz/taiko-mono/commit/ec933b4732965cc48fc32c7620921c0f59608089))
+
+## [1.32.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.2...docs-site-v1.32.0) (2025-10-29)
+
+
+### Features
+
+* **docs-site:** update docs for hoodi and fusaka upgrade ([#20574](https://github.com/taikoxyz/taiko-mono/issues/20574)) ([09b96fe](https://github.com/taikoxyz/taiko-mono/commit/09b96fed73e6876b4b1a271951b8ce4772a0c156))
+
+
+### Documentation
+
+* **docs-site:** add troubleshooting entry for genesis header hash mismatch ([#20516](https://github.com/taikoxyz/taiko-mono/issues/20516)) ([c716f0c](https://github.com/taikoxyz/taiko-mono/commit/c716f0c3342b1db67b6fc52306e63f953ebd1f80))
+
 ## [1.31.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.1...docs-site-v1.31.2) (2025-10-07)
 
 

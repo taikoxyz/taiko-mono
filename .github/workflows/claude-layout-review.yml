@@ -1,0 +1,29 @@
+name: Claude Storage Layout Review
+
+on:
+  pull_request:
+    paths:
+      - "packages/protocol/contracts/**/*_Layout.sol"
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: number
+
+jobs:
+  claude-layout-review:
+    runs-on: [arc-runner-set]
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: /review-layout ${{ github.event.pull_request.number || inputs.pr_number }} --post-comment
+        env:
+          GH_TOKEN: ${{ github.token }}

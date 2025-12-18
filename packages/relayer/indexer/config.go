@@ -18,10 +18,11 @@ import (
 // and used to create a new Indexer.
 type Config struct {
 	// address configs
-	SrcBridgeAddress        common.Address
-	SrcSignalServiceAddress common.Address
-	SrcTaikoAddress         common.Address
-	DestBridgeAddress       common.Address
+	SrcBridgeAddress                  common.Address
+	SrcSignalServiceAddress           common.Address
+	SrcSignalServiceForkRouterAddress common.Address
+	SrcTaikoAddress                   common.Address
+	DestBridgeAddress                 common.Address
 	// db configs
 	DatabaseUsername        string
 	DatabasePassword        string
@@ -60,37 +61,38 @@ type Config struct {
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
-		SrcBridgeAddress:                 common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
-		SrcTaikoAddress:                  common.HexToAddress(c.String(flags.SrcTaikoAddress.Name)),
-		SrcSignalServiceAddress:          common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
-		DestBridgeAddress:                common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
-		DatabaseUsername:                 c.String(flags.DatabaseUsername.Name),
-		DatabasePassword:                 c.String(flags.DatabasePassword.Name),
-		DatabaseName:                     c.String(flags.DatabaseName.Name),
-		DatabaseHost:                     c.String(flags.DatabaseHost.Name),
-		DatabaseMaxIdleConns:             c.Uint64(flags.DatabaseMaxIdleConns.Name),
-		DatabaseMaxOpenConns:             c.Uint64(flags.DatabaseMaxOpenConns.Name),
-		DatabaseMaxConnLifetime:          c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-		QueueUsername:                    c.String(flags.QueueUsername.Name),
-		QueuePassword:                    c.String(flags.QueuePassword.Name),
-		QueuePort:                        c.Uint64(flags.QueuePort.Name),
-		QueueHost:                        c.String(flags.QueueHost.Name),
-		SrcRPCUrl:                        c.String(flags.SrcRPCUrl.Name),
-		DestRPCUrl:                       c.String(flags.DestRPCUrl.Name),
-		BlockBatchSize:                   c.Uint64(flags.BlockBatchSize.Name),
-		NumGoroutines:                    c.Uint64(flags.MaxNumGoroutines.Name),
-		SubscriptionBackoff:              c.Uint64(flags.SubscriptionBackoff.Name),
-		WatchMode:                        WatchMode(c.String(flags.WatchMode.Name)),
-		SyncMode:                         SyncMode(c.String(flags.SyncMode.Name)),
-		ETHClientTimeout:                 c.Uint64(flags.ETHClientTimeout.Name),
-		NumLatestBlocksEndWhenCrawling:   c.Uint64(flags.NumLatestBlocksEndWhenCrawling.Name),
-		NumLatestBlocksStartWhenCrawling: c.Uint64(flags.NumLatestBlocksStartWhenCrawling.Name),
-		EventName:                        c.String(flags.EventName.Name),
-		BackOffMaxRetries:                c.Uint64(flags.BackOffMaxRetries.Name),
-		BackOffRetryInterval:             c.Duration(flags.BackOffRetryInterval.Name),
-		MinFeeToIndex:                    c.Uint64(flags.MinFeeToIndex.Name),
-		ConfirmationTimeout:              c.Duration(flags.WaitForConfirmationTimeout.Name),
-		Confirmations:                    c.Uint64(flags.IndexingConfirmations.Name),
+		SrcBridgeAddress:                  common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
+		SrcTaikoAddress:                   common.HexToAddress(c.String(flags.SrcTaikoAddress.Name)),
+		SrcSignalServiceAddress:           common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
+		SrcSignalServiceForkRouterAddress: common.HexToAddress(c.String(flags.SrcSignalServiceForkRouterAddress.Name)),
+		DestBridgeAddress:                 common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
+		DatabaseUsername:                  c.String(flags.DatabaseUsername.Name),
+		DatabasePassword:                  c.String(flags.DatabasePassword.Name),
+		DatabaseName:                      c.String(flags.DatabaseName.Name),
+		DatabaseHost:                      c.String(flags.DatabaseHost.Name),
+		DatabaseMaxIdleConns:              c.Uint64(flags.DatabaseMaxIdleConns.Name),
+		DatabaseMaxOpenConns:              c.Uint64(flags.DatabaseMaxOpenConns.Name),
+		DatabaseMaxConnLifetime:           c.Uint64(flags.DatabaseConnMaxLifetime.Name),
+		QueueUsername:                     c.String(flags.QueueUsername.Name),
+		QueuePassword:                     c.String(flags.QueuePassword.Name),
+		QueuePort:                         c.Uint64(flags.QueuePort.Name),
+		QueueHost:                         c.String(flags.QueueHost.Name),
+		SrcRPCUrl:                         c.String(flags.SrcRPCUrl.Name),
+		DestRPCUrl:                        c.String(flags.DestRPCUrl.Name),
+		BlockBatchSize:                    c.Uint64(flags.BlockBatchSize.Name),
+		NumGoroutines:                     c.Uint64(flags.MaxNumGoroutines.Name),
+		SubscriptionBackoff:               c.Uint64(flags.SubscriptionBackoff.Name),
+		WatchMode:                         WatchMode(c.String(flags.WatchMode.Name)),
+		SyncMode:                          SyncMode(c.String(flags.SyncMode.Name)),
+		ETHClientTimeout:                  c.Uint64(flags.ETHClientTimeout.Name),
+		NumLatestBlocksEndWhenCrawling:    c.Uint64(flags.NumLatestBlocksEndWhenCrawling.Name),
+		NumLatestBlocksStartWhenCrawling:  c.Uint64(flags.NumLatestBlocksStartWhenCrawling.Name),
+		EventName:                         c.String(flags.EventName.Name),
+		BackOffMaxRetries:                 c.Uint64(flags.BackOffMaxRetries.Name),
+		BackOffRetryInterval:              c.Duration(flags.BackOffRetryInterval.Name),
+		MinFeeToIndex:                     c.Uint64(flags.MinFeeToIndex.Name),
+		ConfirmationTimeout:               c.Duration(flags.WaitForConfirmationTimeout.Name),
+		Confirmations:                     c.Uint64(flags.IndexingConfirmations.Name),
 		TargetBlockNumber: func() *uint64 {
 			if c.IsSet(flags.TargetBlockNumber.Name) {
 				value := c.Uint64(flags.TargetBlockNumber.Name)

@@ -1,3 +1,5 @@
 target/
 **/target/
-Cargo.lock
+.bmad-core/
+.code/
+crates/event-indexer/pkg/

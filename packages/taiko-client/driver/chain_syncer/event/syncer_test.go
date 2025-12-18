@@ -41,7 +41,6 @@ func (s *EventSyncerTestSuite) SetupTest() {
 	syncer, err := NewSyncer(
 		context.Background(),
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
@@ -88,7 +87,7 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 		Withdrawals:           make([]*types.Withdrawal, 0),
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.GetCoinbase(),
-			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3GasLimit,
+			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3V4GasLimit,
 			Timestamp:   meta.Pacaya().GetLastBlockTimestamp(),
 			TxList:      txListBytes,
 			MixHash:     common.BytesToHash(difficulty),

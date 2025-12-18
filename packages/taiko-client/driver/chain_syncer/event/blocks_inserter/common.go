@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,6 +31,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
+// errBatchNotKnown is returned when a batch is not known in the canonical chain.
+var errBatchNotKnown = errors.New("batch not known in canonical chain")
+
 // createPayloadAndSetHead tries to insert a new head block to the L2 execution engine's local
 // block chain through Engine APIs.
 func createPayloadAndSetHead(
@@ -46,7 +48,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -55,7 +57,7 @@ func createPayloadAndSetHead(
 	}
 
 	// Increase the gas limit for the anchor block.
-	meta.GasLimit += consensus.AnchorV3GasLimit
+	meta.GasLimit += consensus.AnchorV3V4GasLimit
 
 	// Update execution payload id for the L1 origin.
 	var (
@@ -73,7 +75,13 @@ func createPayloadAndSetHead(
 	meta.L1Origin.BuildPayloadArgsID = args.Id()
 
 	// Create a new execution payload and set the chain head.
-	return createExecutionPayloadsAndSetHead(ctx, rpc, meta.createExecutionPayloadsMetaData, txListBytes)
+	return createExecutionPayloadsAndSetHead(
+		ctx,
+		rpc,
+		meta.createExecutionPayloadsMetaData,
+		txListBytes,
+		meta.VerifiedCheckpoint,
+	)
 }
 
 // createExecutionPayloadsAndSetHead creates a new execution payloads through Engine APIs,
@@ -83,6 +91,7 @@ func createExecutionPayloadsAndSetHead(
 	rpc *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
+	safeCheckpoint *verifiedCheckpoint,
 ) (payloadData *engine.ExecutableData, err error) {
 	// Create a new execution payload.
 	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
@@ -91,13 +100,8 @@ func createExecutionPayloadsAndSetHead(
 	}
 
 	var lastVerifiedBlockHash common.Hash
-	lastVerifiedTS, err := rpc.GetLastVerifiedTransitionPacaya(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-	}
-
-	if meta.BlockID.Uint64() > lastVerifiedTS.BlockId {
-		lastVerifiedBlockHash = lastVerifiedTS.Ts.BlockHash
+	if safeCheckpoint != nil && safeCheckpoint.BlockID != nil && meta.BlockID.Cmp(safeCheckpoint.BlockID) > 0 {
+		lastVerifiedBlockHash = safeCheckpoint.BlockHash
 	}
 
 	fc := &engine.ForkchoiceStateV1{
@@ -215,17 +219,20 @@ func isKnownCanonicalBatchPacaya(
 	metadata metadata.TaikoProposalMetaData,
 	allTxs []*types.Transaction,
 	parent *types.Header,
-) (*types.Header, error) {
+) (*types.Header, bool, error) {
 	var (
 		headers = make([]*types.Header, len(metadata.Pacaya().GetBlocks()))
 		g       = new(errgroup.Group)
 	)
 
-	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
+	// Check each block in the batch, and if all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
+				if errors.Is(err, ethereum.NotFound) {
+					return errBatchNotKnown
+				}
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
 			}
 
@@ -247,7 +254,8 @@ func isKnownCanonicalBatchPacaya(
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
 
-			if headers[i], err = isKnownCanonicalBlock(
+			var known bool
+			if headers[i], known, err = isKnownCanonicalBlock(
 				ctx,
 				rpc,
 				&createPayloadAndSetHeadMetaData{
@@ -257,14 +265,24 @@ func isKnownCanonicalBatchPacaya(
 				b,
 				anchorTx,
 			); err != nil {
-				return fmt.Errorf("block %d is an unknown block, reason: %w", createExecutionPayloadsMetaData.BlockID, err)
+				return err
 			}
-
+			if !known {
+				return errBatchNotKnown
+			}
 			return nil
 		})
 	}
 
-	return headers[len(headers)-1], g.Wait()
+	// Wait for all goroutines to finish, and check for errors.
+	if err := g.Wait(); err != nil {
+		if errors.Is(err, errBatchNotKnown) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+
+	return headers[len(headers)-1], true, nil
 }
 
 // isKnownCanonicalBatchShasta checks if all blocks in the given Shasta batch are in the canonical chain already,
@@ -275,22 +293,24 @@ func isKnownCanonicalBatchShasta(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
-	startBlockIdx uint16,
 	parent *types.Header,
-) (*types.Header, error) {
+) (*types.Header, bool, error) {
 	if !metadata.IsShasta() {
-		return nil, fmt.Errorf("metadata is not for Shasta fork blocks")
+		return nil, false, fmt.Errorf("metadata is not for Shasta fork blocks")
 	}
 	var (
 		headers = make([]*types.Header, len(sourcePayload.BlockPayloads))
 		g       = new(errgroup.Group)
 	)
 
-	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
+	// Check each block in the batch, and if all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(sourcePayload.BlockPayloads); i++ {
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
+				if errors.Is(err, ethereum.NotFound) {
+					return errBatchNotKnown
+				}
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
 			}
 
@@ -302,7 +322,6 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
-				startBlockIdx,
 				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
@@ -314,7 +333,8 @@ func isKnownCanonicalBatchShasta(
 				return fmt.Errorf("failed to RLP encode tx list: %w", err)
 			}
 
-			if headers[i], err = isKnownCanonicalBlock(
+			var known bool
+			if headers[i], known, err = isKnownCanonicalBlock(
 				ctx,
 				rpc,
 				&createPayloadAndSetHeadMetaData{
@@ -324,16 +344,24 @@ func isKnownCanonicalBatchShasta(
 				b,
 				anchorTx,
 			); err != nil {
-				return fmt.Errorf(
-					"block %d is an unknown Shasta block, reason: %w", createExecutionPayloadsMetaData.BlockID, err,
-				)
+				return err
 			}
-
+			if !known {
+				return errBatchNotKnown
+			}
 			return nil
 		})
 	}
 
-	return headers[len(headers)-1], g.Wait()
+	// Wait for all goroutines to finish, and check for errors.
+	if err := g.Wait(); err != nil {
+		if errors.Is(err, errBatchNotKnown) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+
+	return headers[len(headers)-1], true, nil
 }
 
 // isKnownCanonicalBlock checks if the block is in canonical chain already.
@@ -343,15 +371,25 @@ func isKnownCanonicalBlock(
 	meta *createPayloadAndSetHeadMetaData,
 	txListBytes []byte,
 	anchorTx *types.Transaction,
-) (*types.Header, error) {
+) (*types.Header, bool, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
 	block, err := rpc.L2.BlockByNumber(ctx, blockID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
+	if err != nil && !errors.Is(err, ethereum.NotFound) {
+		return nil, false, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
+	}
+
+	// Helper function to log unknown block reasons.
+	logUnknown := func(reason string) {
+		fields := []interface{}{"blockID", blockID, "reason", reason}
+		if block != nil {
+			fields = append(fields, "coinbase", block.Coinbase())
+		}
+		log.Warn("Unknown block for the canonical chain", fields...)
 	}
 
 	if block == nil {
-		return nil, fmt.Errorf("block not found by number %d", blockID)
+		logUnknown("block not found")
+		return nil, false, nil
 	}
 
 	var (
@@ -377,24 +415,18 @@ func isKnownCanonicalBlock(
 
 	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
-		return nil, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
+		return nil, false, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 	}
 	// If L1Origin is not found, it means this block is synced from beacon sync.
 	if l1Origin == nil {
-		return nil, fmt.Errorf("L1Origin not found by ID %d", blockID)
+		logUnknown("L1Origin not found")
+		return nil, false, nil
 	}
 	// If the payload ID matches, it means this block is already in the canonical chain.
 	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
-		return nil, fmt.Errorf(
-			`payload ID for block %d mismatch,
-			l1Origin payload id: %s,
-			current payload id %s,
-			parentHash: %s,
-			timestamp: %d,
-			suggestedFeeRecipient: %s,
-			difficulty: %s,
-			txListHash: %s`,
-			blockID,
+		logUnknown(fmt.Sprintf(
+			"payload ID mismatch: l1Origin payload id: %s, current payload id %s, parentHash: %s, "+
+				"timestamp: %d, suggestedFeeRecipient: %s, difficulty: %s, txListHash: %s",
 			engine.PayloadID(l1Origin.BuildPayloadArgsID),
 			id,
 			meta.Parent.Hash().Hex(),
@@ -402,68 +434,64 @@ func isKnownCanonicalBlock(
 			meta.SuggestedFeeRecipient.Hex(),
 			meta.Difficulty.Hex(),
 			txListHash.Hex(),
-		)
+		))
+		return nil, false, nil
 	}
-	defer func() {
-		if err != nil {
-			log.Warn("Unknown block for the canonical chain", "blockID", blockID, "coinbase", block.Coinbase(), "reason", err)
-		}
-	}()
 
 	if block.ParentHash() != meta.Parent.Hash() {
-		err = fmt.Errorf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash())
-		return nil, err
+		logUnknown(fmt.Sprintf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash()))
+		return nil, false, nil
 	}
 	if block.Transactions().Len() == 0 {
-		err = errors.New("transactions list is empty")
-		return nil, err
+		logUnknown("transactions list is empty")
+		return nil, false, nil
 	}
 	if block.Transactions()[0].Hash() != anchorTx.Hash() {
-		err = fmt.Errorf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash())
-		return nil, err
+		logUnknown(fmt.Sprintf("anchor transaction mismatch: %s != %s", block.Transactions()[0].Hash(), anchorTx.Hash()))
+		return nil, false, nil
 	}
 	if block.UncleHash() != types.EmptyUncleHash {
-		err = fmt.Errorf("uncle hash mismatch: %s != %s", block.UncleHash(), types.EmptyUncleHash)
-		return nil, err
+		logUnknown(fmt.Sprintf("uncle hash mismatch: %s != %s", block.UncleHash(), types.EmptyUncleHash))
+		return nil, false, nil
 	}
 	if block.Coinbase() != meta.SuggestedFeeRecipient {
-		err = fmt.Errorf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient)
-		return nil, err
+		logUnknown(fmt.Sprintf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient))
+		return nil, false, nil
 	}
 	if block.Difficulty().Cmp(common.Big0) != 0 {
-		err = fmt.Errorf("difficulty mismatch: %s != 0", block.Difficulty())
-		return nil, err
+		logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
+		return nil, false, nil
 	}
 	if block.MixDigest() != meta.Difficulty {
-		err = fmt.Errorf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty)
-		return nil, err
+		logUnknown(fmt.Sprintf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty))
+		return nil, false, nil
 	}
 	if block.Number().Uint64() != meta.BlockID.Uint64() {
-		err = fmt.Errorf("block number mismatch: %d != %d", block.Number(), meta.BlockID)
-		return nil, err
+		logUnknown(fmt.Sprintf("block number mismatch: %d != %d", block.Number(), meta.BlockID))
+		return nil, false, nil
 	}
-	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3GasLimit {
-		err = fmt.Errorf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3GasLimit)
-		return nil, err
+	if block.GasLimit() != meta.GasLimit+consensus.AnchorV3V4GasLimit {
+		logUnknown(fmt.Sprintf("gas limit mismatch: %d != %d", block.GasLimit(), meta.GasLimit+consensus.AnchorV3V4GasLimit))
+		return nil, false, nil
 	}
 	if block.Time() != meta.Timestamp {
-		err = fmt.Errorf("timestamp mismatch: %d != %d", block.Time(), meta.Timestamp)
-		return nil, err
+		logUnknown(fmt.Sprintf("timestamp mismatch: %d != %d", block.Time(), meta.Timestamp))
+		return nil, false, nil
 	}
 	if !bytes.Equal(block.Extra(), meta.ExtraData) {
-		err = fmt.Errorf("extra data mismatch: %s != %s", block.Extra(), meta.ExtraData)
-		return nil, err
+		logUnknown(fmt.Sprintf("extra data mismatch: %s != %s", block.Extra(), meta.ExtraData))
+		return nil, false, nil
 	}
 	if block.BaseFee().Cmp(meta.BaseFee) != 0 {
-		err = fmt.Errorf("base fee mismatch: %s != %s", block.BaseFee(), meta.BaseFee)
-		return nil, err
+		logUnknown(fmt.Sprintf("base fee mismatch: %s != %s", block.BaseFee(), meta.BaseFee))
+		return nil, false, nil
 	}
 	if block.Withdrawals().Len() != 0 {
-		err = fmt.Errorf("withdrawals mismatch: %d != 0", block.Withdrawals().Len())
-		return nil, err
+		logUnknown(fmt.Sprintf("withdrawals mismatch: %d != 0", block.Withdrawals().Len()))
+		return nil, false, nil
 	}
 
-	return block.Header(), nil
+	return block.Header(), true, nil
 }
 
 // assembleCreateExecutionPayloadMetaPacaya assembles the metadata for creating an execution payload,
@@ -498,7 +526,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
 		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
 	}
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, meta.GetBaseFeeConfig(), timestamp)
+	baseFee, err := rpc.CalculateBaseFeePacaya(ctx, parent, timestamp, meta.GetBaseFeeConfig())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
@@ -568,7 +596,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 }
 
 // assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
-// and the `ShastaAnchor.updateState` transaction for the given Shasta block.
+// and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
 func assembleCreateExecutionPayloadMetaShasta(
 	ctx context.Context,
 	rpc *rpc.Client,
@@ -577,7 +605,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
-	startBlockIdx uint16,
 	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
@@ -598,24 +625,16 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, uint64(time.Now().Unix()))
+	baseFee, err := rpc.CalculateBaseFeeShasta(ctx, parent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
-	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
+	latestState, err := rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
-	}
-	var parentAnchorBlockNumber = latestState.AnchorBlockNumber.Uint64()
-	if meta.GetProposal().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.NumberU64() != 0 {
-		if _, parentAnchorBlockNumber, _, err = rpc.GetSyncedL1SnippetFromAnchor(
-			sourcePayload.ParentBlock.Transactions()[0],
-		); err != nil {
-			return nil, nil, err
-		}
 	}
 
 	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
@@ -627,11 +646,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		anchorBlockHeaderRoot = anchorBlockHeader.Root
 	)
 
-	// If anchorBlockNumber == parent.metadata.anchorBlockNumber: Both anchorBlockHash and anchorStateRoot must be zero
-	if anchorBlockID.Uint64() <= parentAnchorBlockNumber {
-		anchorBlockHeaderHash = common.Hash{}
-		anchorBlockHeaderRoot = common.Hash{}
-	}
 	log.Info(
 		"L2 anchor block",
 		"number", anchorBlockID,
@@ -640,28 +654,25 @@ func assembleCreateExecutionPayloadMetaShasta(
 		"root", anchorBlockHeaderRoot,
 	)
 
-	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
+	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
-		meta.GetProposal().Id,
-		meta.GetProposal().Proposer,
+		meta.GetEventData().Id,
+		meta.GetEventData().Proposer,
 		sourcePayload.ProverAuthBytes,
-		blockInfo.BondInstructionsHash,
-		blockInfo.BondInstructions,
-		startBlockIdx+uint16(blockIndex),
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,
-		meta.GetProposal().EndOfSubmissionWindowTimestamp,
+		meta.GetEventData().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
-	extraData, err := encodeShastaExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
+	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, isLowBondProposal)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -669,7 +680,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	// Set batchID only for the last block in the proposal
 	var batchID *big.Int
 	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
-		batchID = meta.GetProposal().Id
+		batchID = meta.GetEventData().Id
 	}
 
 	return &createExecutionPayloadsMetaData{
@@ -808,7 +819,7 @@ func updateL1OriginForBatchShasta(
 		func(i int) *big.Int {
 			return new(big.Int).SetUint64(lastBlockID - uint64(len(sourcePayload.BlockPayloads)-1-i))
 		},
-		func() *big.Int { return meta.GetProposal().Id },
+		func() *big.Int { return meta.GetEventData().Id },
 		meta.GetRawBlockHeight(),
 		meta.GetRawBlockHash(),
 	)
@@ -956,6 +967,7 @@ func InsertPreconfBlockFromEnvelope(
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
 		decompressedTxs,
+		nil, // We don't need to progress safe / finalized block when inserting preconf blocks.
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
@@ -982,28 +994,5 @@ func IsBasedOnCanonicalChain(
 		return true, nil
 	}
 
-	// Otherwise, we try to connect the L2 ancient blocks to the L2 block in current L1 head Origin.
-	currentParent, err := cli.L2.HeaderByHash(ctx, envelope.Payload.ParentHash)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", envelope.Payload.ParentHash, err)
-	}
-	for currentParent.Number.Cmp(headL1Origin.BlockID) > 0 {
-		if currentParent, err = cli.L2.HeaderByHash(ctx, currentParent.ParentHash); err != nil {
-			return false, fmt.Errorf("failed to fetch current parent block (%s): %w", currentParent.ParentHash, err)
-		}
-	}
-
-	// If the current parent block hash matches the L2 block hash in the head L1 origin, it is in the canonical chain.
-	isBasedOnCanonicalChain := currentParent.Hash() == headL1Origin.L2BlockHash
-
-	log.Debug(
-		"Check if block is based on canonical chain",
-		"blockID", uint64(envelope.Payload.BlockNumber),
-		"blockHash", envelope.Payload.BlockHash,
-		"parentHash", envelope.Payload.ParentHash,
-		"headL1OriginBlockID", headL1Origin.BlockID,
-		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
-	)
-
-	return isBasedOnCanonicalChain, nil
+	return false, nil
 }

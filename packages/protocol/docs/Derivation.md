@@ -174,6 +174,8 @@ struct ProposalManifest {
 /// @notice Represents a derivation source manifest containing blocks for one source
 /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
 struct DerivationSourceManifest {
+  /// @notice Proposal-level prover authentication data; ignored when the derivation source is a forced inclusion.
+  bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
@@ -186,7 +188,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
+Should any of these validation checks fail (as determined by the `anchorV4` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
 
 ### Manifest Extraction
 
@@ -256,6 +258,8 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
+If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
+
 ### Metadata Validation and Computation
 
 With the extracted `ProposalManifest`, metadata computation proceeds using both the proposal manifest data and the parent block's metadata (`parent.metadata`). Each `DerivationSourceManifest` within the `ProposalManifest.sources[]` array is processed sequentially, with validation applied to each source's blocks. The following sections detail the validation rules for each metadata component:
@@ -265,7 +269,7 @@ With the extracted `ProposalManifest`, metadata computation proceeds using both 
 Timestamp validation is performed collectively across all blocks and may result in block count reduction:
 
 1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
-2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
+2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET, SHASTA_FORK_TIME)`
 3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
 
 #### `anchorBlockNumber` Validation
@@ -275,17 +279,14 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 **Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
-- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber > proposal.originBlockNumber`
+- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
 **Forced inclusion protection**: For non-forced derivation sources (`derivationSource.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire source manifest is replaced with the default source manifest (single block with only an anchor transaction), penalizing proposers that fail to provide proper L1 anchoring. Forced inclusion sources are exempt from this penalty.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
-The anchor hash and state root must maintain consistency with the anchor block number (enforced by the Taiko node/driver):
-
-- If `anchorBlockNumber == parent.metadata.anchorBlockNumber`: Both `anchorBlockHash` and `anchorStateRoot` must be zero
-- Otherwise: Both fields must accurately reflect the L1 block state at the specified `anchorBlockNumber`
+The anchor hash and state root must always correspond to the actual L1 block referenced by `anchorBlockNumber`. The Taiko node/driver enforces that both `anchorBlockHash` and `anchorStateRoot` accurately reflect the L1 state for that block.
 
 #### `coinbase` Assignment
 
@@ -297,14 +298,13 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 10, this allows ±10 millionths (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Calculation process**:
 
 1. **Define bounds**:
-
-   - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
+   - `lowerBound = max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
@@ -312,9 +312,11 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad 
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
 
+After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
+
 #### `bondInstructionsHash` and `bondInstructions` Validation
 
-The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Bond instructions are defined as follows:
+The first block's anchor transaction in each proposal must process all bond instructions linked to transitions finalized by the parent proposal. Subsequent blocks carry the same bond instruction payload (`bondInstructionsHash` and `bondInstructions`) in their `anchorV4` parameters, but that data is ignored because bond settlement occurs only once per proposal. Bond instructions are defined as follows:
 
 ```solidity
 /// @notice Represents a bond instruction for processing in the anchor transaction
@@ -339,7 +341,7 @@ A parent proposal L1 transaction may revert, potentially causing the subsequent 
 
 ### Designated Prover System
 
-The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `updateState` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
+The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal.
 
 The `ProverAuth` structure used in Shasta for prover authentication:
 
@@ -347,31 +349,28 @@ The `ProverAuth` structure used in Shasta for prover authentication:
 /// @notice Structure for prover authentication
 /// @dev Used in the proverAuthBytes field of ProposalManifest (proposal-level)
 struct ProverAuth {
-  address prover;
-  address feeToken;
-  uint96 fee;
-  uint64 validUntil; // optional
-  uint64 batchId; // optional
+  uint48 proposalId;
+  address proposer;
+  uint256 provingFee; // denominated in Wei
   bytes signature;
 }
 ```
 
 #### Prover Designation Process
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once during the first block of the proposal (`_blockIndex == 0`) when the `updateState` function designates the prover for the entire proposal.
+**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once when a block belonging to a strictly higher `proposalId` arrives; the same `proverAuthBytes` payload must still be supplied for subsequent blocks of that proposal, but it will be ignored.
 
 ##### 1. Authentication and Validation
 
 The `_validateProverAuth` function processes prover authentication data with the following steps:
 
 - **Signature Verification**:
-
   - Validates the `ProverAuth` struct from the provided bytes
-  - Decodes the `ProverAuth` containing: `prover`, `feeToken`, `fee`, `validUntil`, `batchId`, and ECDSA `signature`
+  - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
   - Verifies the signature against the computed message digest
   - Returns the authenticated prover address and fee information
 
-- **Validation Failures**: If authentication fails (insufficient data length < 161 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
+- **Validation Failures**: If authentication fails (insufficient data length < 225 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
 ##### 2. Bond Sufficiency Assessment
 
@@ -458,26 +457,14 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count within that source.
 
-#### Block Index Monotonicity
+#### Proposal Identifier Monotonicity
 
-The `_blockIndex` parameter in the anchor transaction's `updateState` function is **globally monotonic** across all `DerivationSourceManifest` objects within **the same proposal**. This means:
+The `proposalId` supplied to `anchorV4` must be the same across blocks in the same proposal and strictly increase only when a new proposal begins.
 
-- First source's blocks: `_blockIndex = 0, 1, 2, ...`
-- Second source's blocks: `_blockIndex` continues from where the first source ended
-- Third source's blocks: `_blockIndex` continues sequentially, etc.
-
-**Why this is critical**: The check `if (_blockIndex == 0)` gates proposal-level operations that must execute exactly once per proposal:
+**Why this is critical**: This check gates proposal-level operations that must execute exactly once per proposal:
 
 1. **Prover designation** - ONE designated prover per proposal
 2. **Bond instruction processing** - Bond instructions must be processed exactly once (enforced by hash chain validation)
-
-If `_blockIndex` were to reset per source (e.g., each source starting from 0), these operations would execute multiple times, causing:
-
-- Financial incorrectness (bond instructions processed multiple times)
-- Multiple prover designations (violating the one-prover-per-proposal design)
-- Hash chain integrity violations
-
-Therefore, `_blockIndex` **must** be globally monotonic across all sources in a proposal. This is not a design choice—it's a correctness requirement.
 
 ## Metadata Application
 
@@ -514,7 +501,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
 
 | Parameter            | Type              | Description                                              |
 | -------------------- | ----------------- | -------------------------------------------------------- |
@@ -523,7 +510,6 @@ The anchor transaction serves as a privileged system transaction responsible for
 | proverAuth           | bytes             | Encoded ProverAuth for prover designation                |
 | bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions   |
 | bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block |
-| blockIndex           | uint16            | Current block index within the proposal (0-based)        |
 | anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)          |
 | anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                       |
 | anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                       |
@@ -538,12 +524,10 @@ The function returns:
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
-
    - Verifies the current block number is at or after the Shasta fork height
-   - Tracks parent block hash to prevent duplicate `updateState` calls within the same block
+   - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
-2. **Proposal initialization** (blockIndex == 0 only)
-
+2. **Proposal initialization** (first block with a higher `proposalId`)
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state
@@ -560,8 +544,27 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
-### Transaction Execution
-
 ## Base Fee Calculation
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
+
+The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within `MIN_BASE_FEE` and `MAX_BASE_FEE`.
+
+## Constants
+
+The following constants govern the block derivation process:
+
+| Constant                       | Value                         | Description                                                                                                                                                                       |
+| ------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                                   |
+| **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                                     |
+| **TIMESTAMP_MAX_OFFSET**       | `384` (12 \* 32)              | The maximum number timestamp offset from the proposal origin timestamp.                                                                                                           |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                             |
+| **MIN_BLOCK_GAS_LIMIT**        | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                                 |
+| **MAX_BLOCK_GAS_LIMIT**        | `100,000,000`                 | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                                  |
+| **BOND_PROCESSING_DELAY**      | `6`                           | The delay in processing bond instructions relative to the current proposal. A value of 1 signifies that the bond instructions of the immediate parent proposal will be processed. |
+| **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                                      |
+| **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                               |
+| **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                               |
+| **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                            |
+| **SHASTA_FORK_TIME**           | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                         |

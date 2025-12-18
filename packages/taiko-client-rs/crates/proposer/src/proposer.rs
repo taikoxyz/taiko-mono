@@ -1,14 +1,12 @@
 //! Core proposer implementation for submitting block proposals.
 
-use alethia_reth_consensus::{
-    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
-    validation::SHASTA_INITIAL_BASE_FEE_BLOCKS,
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
 };
 use alloy_network::TransactionBuilder;
-use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
@@ -44,7 +42,6 @@ impl Proposer {
             "initializing proposer"
         );
 
-        // Initialize RPC client.
         let rpc_provider = Client::new_with_wallet(
             ClientConfig {
                 l1_provider_source: cfg.l1_provider_source.clone(),
@@ -57,26 +54,13 @@ impl Proposer {
         )
         .await?;
 
-        // Initialize event indexer.
-        let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
-            l1_subscription_source: cfg.l1_provider_source.clone(),
-            inbox_address: cfg.inbox_address,
-        })
-        .await?;
-        indexer.clone().spawn();
-        indexer.wait_historical_indexing_finished().await;
+        let transaction_builder = ShastaProposalTransactionBuilder::new(
+            rpc_provider.clone(),
+            cfg.l2_suggested_fee_recipient,
+            cfg.anchor_offset,
+        );
 
-        let l2_suggested_fee_recipient = cfg.l2_suggested_fee_recipient;
-
-        Ok(Self {
-            rpc_provider: rpc_provider.clone(),
-            cfg,
-            transaction_builder: ShastaProposalTransactionBuilder::new(
-                rpc_provider,
-                indexer,
-                l2_suggested_fee_recipient,
-            ),
-        })
+        Ok(Self { rpc_provider, cfg, transaction_builder })
     }
 
     /// Start the proposer main loop.
@@ -95,7 +79,8 @@ impl Proposer {
     }
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
-    async fn fetch_and_propose(&self) -> Result<()> {
+    /// Fetch transactions and submit a proposal once.
+    pub async fn fetch_and_propose(&self) -> Result<()> {
         // Fetch mempool content from L2 execution engine.
         let pool_content = self.fetch_pool_content().await?;
 
@@ -104,8 +89,7 @@ impl Proposer {
         gauge!(ProposerMetrics::TX_POOL_SIZE).set(tx_count as f64);
         info!(txs_lists = pool_content.len(), tx_count, "fetched transaction pool content");
 
-        let mut transaction_request =
-            self.transaction_builder.build(pool_content).await?.with_to(self.cfg.inbox_address);
+        let mut transaction_request = self.transaction_builder.build(pool_content).await?;
 
         // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
@@ -139,6 +123,11 @@ impl Proposer {
         }
 
         Ok(())
+    }
+
+    /// Return a clone of the RPC client bundle used by the proposer.
+    pub fn rpc_client(&self) -> ClientWithWallet {
+        self.rpc_provider.clone()
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
@@ -188,12 +177,8 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // For the first `SHASTA_INITIAL_BASE_FEE_BLOCKS` Shasta blocks, return the initial base
-        // fee.
-        if parent.number() + 1 <
-            self.rpc_provider.shasta.anchor.shastaForkHeight().call().await? +
-                SHASTA_INITIAL_BASE_FEE_BLOCKS
-        {
+        // If the parent is genesis, return the initial base fee.
+        if parent.number() == 0 {
             return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
         }
 
@@ -211,74 +196,5 @@ impl Proposer {
             &parent.header.inner,
             parent_block_time,
         )))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{borrow::Cow, env, path::PathBuf, str::FromStr, sync::OnceLock, time::Duration};
-
-    use super::*;
-    use alloy::{
-        primitives::{Address, B256, aliases::U48},
-        rpc::client::NoParams,
-        transports::http::reqwest::Url,
-    };
-    use rpc::SubscriptionSource;
-
-    fn init_tracing() {
-        static INIT: OnceLock<()> = OnceLock::new();
-
-        INIT.get_or_init(|| {
-            let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));
-            let _ = tracing_subscriber::fmt().with_env_filter(env_filter).try_init();
-        });
-    }
-
-    #[tokio::test]
-    async fn propose_shasta_batches() -> anyhow::Result<()> {
-        init_tracing();
-
-        let cfg = ProposerConfigs {
-            l1_provider_source: SubscriptionSource::Ws(Url::from_str(&env::var("L1_WS")?)?),
-            l2_provider_url: Url::from_str(&env::var("L2_HTTP")?)?,
-            l2_auth_provider_url: Url::from_str(&env::var("L2_AUTH")?)?,
-            jwt_secret: PathBuf::from_str(&env::var("JWT_SECRET")?)?,
-            inbox_address: Address::from_str(&env::var("SHASTA_INBOX")?)?,
-            l2_suggested_fee_recipient: Address::from_str(&env::var(
-                "L2_SUGGESTED_FEE_RECIPIENT",
-            )?)?,
-            propose_interval: Duration::from_secs(0),
-            l1_proposer_private_key: env::var("L1_PROPOSER_PRIVATE_KEY")?.parse()?,
-            gas_limit: None,
-        };
-
-        let proposer = Proposer::new(cfg.clone()).await?;
-        let provider = proposer.rpc_provider.clone();
-
-        for i in 0..3 {
-            assert_eq!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
-
-            evm_mine(provider.clone()).await?;
-            proposer.fetch_and_propose().await?;
-
-            assert_ne!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
-        }
-
-        Ok(())
-    }
-
-    async fn evm_mine(client: ClientWithWallet) -> anyhow::Result<()> {
-        client
-            .l1_provider
-            .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
-            .await?;
-        Ok(())
-    }
-
-    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> anyhow::Result<B256> {
-        let hash = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
-        Ok(hash)
     }
 }

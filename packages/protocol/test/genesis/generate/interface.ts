@@ -8,13 +8,13 @@ export interface Config {
     predeployERC20: boolean;
     contractAddresses: Object;
     param1559: Object;
-    pacayaForkHeight: number;
-    shastaForkHeight: number;
-    livenessBondGwei: number;
-    provabilityBondGwei: number;
+    livenessBond: string | number;
+    provabilityBond: string | number;
     withdrawalDelay: number;
     minBond: number;
     bondToken: string;
+    remoteSignalService: string;
+    pacayaTaikoAnchor: string;
 }
 
 export interface Result {

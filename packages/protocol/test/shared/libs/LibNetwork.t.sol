@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "src/shared/libs/LibTrieProof.sol";
 import "../CommonTest.sol";
+import "src/shared/libs/LibTrieProof.sol";
 
 contract LibNetworkTest is CommonTest {
     function test_isEthereumTestnet() public pure {

@@ -1,6 +1,8 @@
 //! Error types for RPC operations.
 
-use alloy::transports::{RpcError, TransportErrorKind};
+use alloy::transports::{RpcError, TransportError, TransportErrorKind};
+use anyhow::anyhow;
+use protocol::subscription_source::SubscriptionSourceError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -46,10 +48,25 @@ impl From<RpcError<TransportErrorKind>> for RpcClientError {
     }
 }
 
+impl From<TransportError<TransportErrorKind>> for RpcClientError {
+    fn from(err: TransportError<TransportErrorKind>) -> Self {
+        RpcClientError::Rpc(err.to_string())
+    }
+}
+
 // Manual From implementation for alloy contract Error
 impl From<alloy::contract::Error> for RpcClientError {
     fn from(err: alloy::contract::Error) -> Self {
         RpcClientError::Contract(err.to_string())
+    }
+}
+
+impl From<SubscriptionSourceError> for RpcClientError {
+    fn from(err: SubscriptionSourceError) -> Self {
+        match err {
+            SubscriptionSourceError::Connection(msg) => RpcClientError::Connection(msg),
+            SubscriptionSourceError::Wallet(msg) => RpcClientError::Other(anyhow!(msg)),
+        }
     }
 }
 

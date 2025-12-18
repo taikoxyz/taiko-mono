@@ -26,7 +26,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 const (
@@ -42,7 +41,6 @@ type Driver struct {
 	*Config
 	rpc                *rpc.Client
 	l2ChainSyncer      *chainSyncer.L2ChainSyncer
-	shastaIndexer      *shastaIndexer.Indexer
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
 	state              *state.State
 	chainConfig        *config.ChainConfig
@@ -61,8 +59,9 @@ type Driver struct {
 	// Last epoch when the handover config was reloaded
 	lastConfigReloadEpoch uint64
 
-	ctx context.Context
-	wg  sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // InitFromCli initializes the given driver instance based on the command line flags.
@@ -78,7 +77,7 @@ func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 // InitFromConfig initializes the driver instance based on the given configurations.
 func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadCh = make(chan *types.Header, 1024)
-	d.ctx = ctx
+	d.ctx, d.cancel = context.WithCancel(ctx)
 	d.Config = cfg
 
 	// Initialize handover config caching
@@ -102,19 +101,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
-	if d.shastaIndexer, err = shastaIndexer.New(
-		d.ctx,
-		d.rpc,
-		d.rpc.ShastaClients.ForkHeight,
-	); err != nil {
-		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
-	}
-
 	latestSeenProposalCh := make(chan *encoding.LastSeenProposal, 1024)
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
-		d.shastaIndexer,
 		d.state,
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
@@ -129,7 +119,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.rpc.L2.ChainID,
 		d.rpc.PacayaClients.ForkHeights.Ontake,
 		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.ShastaClients.ForkHeight.Uint64(),
+		d.rpc.ShastaClients.ForkTime,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
@@ -148,7 +138,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
 			d.rpc,
-			d.shastaIndexer,
 			latestSeenProposalCh,
 		); err != nil {
 			return fmt.Errorf("failed to create preconf block server: %w", err)
@@ -195,10 +184,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 // Start starts the driver instance.
 func (d *Driver) Start() error {
-	if err := d.shastaIndexer.Start(); err != nil {
-		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
-	}
-
 	go d.eventLoop()
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
@@ -236,7 +221,13 @@ func (d *Driver) Start() error {
 
 // Close closes the driver instance.
 func (d *Driver) Close(_ context.Context) {
-	d.l1HeadSub.Unsubscribe()
+	if d.cancel != nil {
+		d.cancel()
+	}
+
+	if d.l1HeadSub != nil {
+		d.l1HeadSub.Unsubscribe()
+	}
 	d.state.Close()
 	// Close the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
@@ -361,17 +352,17 @@ func (d *Driver) reportStatus(maxNumProposals uint64) {
 
 // reportProtocolStatusShasta reports some status for Shasta protocol.
 func (d *Driver) reportProtocolStatusShasta() {
-	lastProposal := d.shastaIndexer.GetLastProposal()
-	if lastProposal == nil || lastProposal.CoreState == nil || lastProposal.Proposal == nil {
-		log.Debug("Last proposal not found, skip reporting Shasta protocol status")
+	coreState, err := d.rpc.GetCoreStateShasta(&bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Debug("Failed to get Shasta Inbox core state", "error", err)
 		return
 	}
 
 	log.Info(
 		"📖 Shasta protocol status",
-		"lastVerifiedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
-		"nextProposalID", lastProposal.CoreState.NextProposalId,
-		"endOfSubmissionWindowTimestamp", lastProposal.Proposal.EndOfSubmissionWindowTimestamp,
+		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
+		"lastFinalizedTimestamp", coreState.LastFinalizedTimestamp,
+		"nextProposalID", coreState.NextProposalId,
 	)
 }
 
@@ -686,6 +677,7 @@ func (d *Driver) peerLoop(ctx context.Context) {
 	defer d.wg.Done()
 
 	t := time.NewTicker(peerLoopReportInterval)
+	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -730,12 +722,6 @@ func (d *Driver) peerTick() {
 		"advertisedTCP", advertisedTCP,
 		"advertisedIP", advertisedIP,
 	)
-}
-
-// ShastaIndexer returns the driver's Shasta state indexer, this method
-// should only be used for testing.
-func (d *Driver) ShastaIndexer() *shastaIndexer.Indexer {
-	return d.shastaIndexer
 }
 
 // Name returns the application name.
