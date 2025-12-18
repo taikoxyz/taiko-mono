@@ -422,21 +422,6 @@ func isKnownCanonicalBlock(
 		logUnknown("L1Origin not found")
 		return nil, false, nil
 	}
-	// If the payload ID matches, it means this block is already in the canonical chain.
-	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
-		logUnknown(fmt.Sprintf(
-			"payload ID mismatch: l1Origin payload id: %s, current payload id %s, parentHash: %s, "+
-				"timestamp: %d, suggestedFeeRecipient: %s, difficulty: %s, txListHash: %s",
-			engine.PayloadID(l1Origin.BuildPayloadArgsID),
-			id,
-			meta.Parent.Hash().Hex(),
-			meta.Timestamp,
-			meta.SuggestedFeeRecipient.Hex(),
-			meta.Difficulty.Hex(),
-			txListHash.Hex(),
-		))
-		return nil, false, nil
-	}
 
 	if block.ParentHash() != meta.Parent.Hash() {
 		logUnknown(fmt.Sprintf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash()))
@@ -488,6 +473,21 @@ func isKnownCanonicalBlock(
 	}
 	if block.Withdrawals().Len() != 0 {
 		logUnknown(fmt.Sprintf("withdrawals mismatch: %d != 0", block.Withdrawals().Len()))
+		return nil, false, nil
+	}
+	// If the payload ID matches, it means this block is already in the canonical chain.
+	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
+		logUnknown(fmt.Sprintf(
+			"payload ID mismatch: l1Origin payload id: %s, current payload id %s, parentHash: %s, "+
+				"timestamp: %d, suggestedFeeRecipient: %s, difficulty: %s, txListHash: %s",
+			engine.PayloadID(l1Origin.BuildPayloadArgsID),
+			id,
+			meta.Parent.Hash().Hex(),
+			meta.Timestamp,
+			meta.SuggestedFeeRecipient.Hex(),
+			meta.Difficulty.Hex(),
+			txListHash.Hex(),
+		))
 		return nil, false, nil
 	}
 
