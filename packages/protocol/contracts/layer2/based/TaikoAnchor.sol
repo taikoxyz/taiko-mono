@@ -29,7 +29,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant BASEFEE_MIN_VALUE = 2_500_000; // 0.0025 gwei
+    uint256 public constant BASEFEE_MIN_VALUE = 10_000_000; // 0.01 gwei
 
     ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
