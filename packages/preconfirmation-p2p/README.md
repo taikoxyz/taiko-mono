@@ -13,7 +13,7 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
   `NetworkConfig`, `NetworkCommand` (publish/request), `NetworkEvent` (gossip/req-resp/lifecycle),
   `NetworkDriver`/`NetworkHandle`.
 - `crates/service`: Async façade owning the network driver. Exposes a small channel-based API:
-  `P2pService::start(cfg)` -> command sender + event stream; `shutdown()` for graceful stop.
+  `P2pService::start(cfg, lookahead)` -> command sender + event stream; `shutdown()` for graceful stop.
 - `crates/service/examples/p2p-node.rs`: Minimal CLI example that starts the service and logs
   network events (replaces the previous standalone `bin/p2p-node`).
 - `docs/specification.md`: Authoritative specification for the permissionless preconfirmation P2P protocol.
@@ -57,6 +57,7 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 ## Using from taiko-client-rs (quickstart)
 
 Add dependency:
+
 ```toml
 [dependencies]
 preconfirmation-types = { path = "packages/preconfirmation-p2p/crates/types" }
@@ -67,6 +68,7 @@ Key types: `NetworkConfig`, `NetworkCommand`, `NetworkEvent`, `P2pService`, and 
 types in `preconfirmation_p2p_types` (e.g., `SignedCommitment`, `RawTxListGossip`).
 
 Feature switches:
+
 - `reth-discovery`: use reth-discv5 wrapper for peer discovery (default on in p2p-net).
 - `kona-presets`: (removed, always on).
 - `kona-gater`: (removed, always on). Gossip scoring/gating is handled by Kona gossipsub; the
@@ -78,22 +80,25 @@ Feature switches:
   this feature only to disable the test in constrained environments.
 
 Typical flow:
+
 1. Build a `NetworkConfig` (set listen/discovery, chain_id, reputation knobs as needed). The
    driver now binds the libp2p swarm to `listen_addr` automatically; use port `0` to request an
    ephemeral port.
-2. Start `P2pService::start(cfg)`; use `publish_*`/`request_*` helpers or send `NetworkCommand`s.
+2. Start `P2pService::start(cfg, lookahead)`; use `publish_*`/`request_*` helpers or send `NetworkCommand`s.
 3. Receive `NetworkEvent`s via `next_event()`, `run_with_handler`, or a custom `subscribe()`d
    receiver (events are fanned out internally so multiple consumers are safe).
 
 ### Operational knobs (CLI flags in `p2p-node`)
+
 - `--listen-addr`, `--discv5-listen`, `--bootnode` (ENR): networking endpoints.
 - `--chain-id`: select gossip topics/protocol IDs.
 - `--no-discovery`: disable discv5.
+- `--expected-signer`: expected preconfer address for schedule validation.
 - Reputation/DoS tuning:
   - `--reputation-greylist` (default -5.0), `--reputation-ban` (default -10.0),
   - `--reputation-halflife-secs` (default 600),
   - `--request-window-secs` (default 10), `--max-requests-per-window` (default 8).
-  These feed `NetworkConfig` and drive score decay, greylist/ban, and req/resp rate limiting.
+    These feed `NetworkConfig` and drive score decay, greylist/ban, and req/resp rate limiting.
 - Discovery/connection presets:
   - `discovery_preset` and `connection_preset` (dev/test/prod) adjust discv5 lookup intervals,
     pending/established caps, and dial concurrency (prod defaults: pending 40/40, established

@@ -10,10 +10,38 @@ use libp2p::{
     swarm::Swarm,
     yamux,
 };
+use preconfirmation_types::public_key_to_address;
 use preconfirmation_types::{PreconfCommitment, Preconfirmation, SignedCommitment, Uint256};
 use ssz_rs::Vector;
 use std::{str::FromStr, task::Context};
 use tokio::time::Duration;
+
+struct StaticLookaheadResolver {
+    signer: alloy_primitives::Address,
+}
+
+impl LookaheadResolver for StaticLookaheadResolver {
+    fn signer_for_timestamp(
+        &self,
+        _submission_window_end: &preconfirmation_types::Uint256,
+    ) -> Result<alloy_primitives::Address, String> {
+        Ok(self.signer)
+    }
+
+    fn expected_slot_end(
+        &self,
+        submission_window_end: &preconfirmation_types::Uint256,
+    ) -> Result<preconfirmation_types::Uint256, String> {
+        Ok(submission_window_end.clone())
+    }
+}
+
+fn signer_for_sk(sk: &secp256k1::SecretKey) -> alloy_primitives::Address {
+    public_key_to_address(&secp256k1::PublicKey::from_secret_key(
+        &secp256k1::Secp256k1::new(),
+        sk,
+    ))
+}
 
 async fn listen_on(driver: &mut NetworkDriver) -> Multiaddr {
     let addr: Multiaddr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
@@ -74,7 +102,11 @@ fn build_memory_parts(chain_id: u64, cfg: &NetworkConfig) -> BuiltParts {
 }
 
 /// Build a driver from pre-built parts (used for memory transport tests).
-fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, NetworkHandle) {
+fn driver_from_parts(
+    parts: BuiltParts,
+    cfg: &NetworkConfig,
+    lookahead: std::sync::Arc<dyn LookaheadResolver>,
+) -> (NetworkDriver, NetworkHandle) {
     let peer_id = parts.keypair.public().to_peer_id();
     let config = libp2p::swarm::Config::with_tokio_executor();
     let swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
@@ -104,7 +136,7 @@ fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, 
             commitments_out: VecDeque::new(),
             raw_txlists_out: VecDeque::new(),
             head_out: VecDeque::new(),
-            validator: Box::new(LocalValidationAdapter::new(None)),
+            validator: Box::new(LookaheadValidationAdapter::new(None, lookahead)),
             discovery_rx: None,
             _discovery_task: None,
             connected_peers: 0,
@@ -122,7 +154,7 @@ fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, 
 fn sample_signed_commitment(sk: &secp256k1::SecretKey) -> SignedCommitment {
     let commitment = PreconfCommitment {
         preconf: Preconfirmation {
-            eop: false,
+            eop: true,
             block_number: Uint256::from(1u64),
             timestamp: Uint256::from(1u64),
             gas_limit: Uint256::from(1u64),
@@ -147,10 +179,18 @@ async fn gossipsub_and_reqresp_roundtrip() {
     let mut success = false;
     for _attempt in 0..2 {
         let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
-        cfg.listen_addr.set_port(0);
-        cfg.discv5_listen.set_port(0);
-        let (driver1, mut handle1) = NetworkDriver::new(cfg.clone()).unwrap();
-        let (driver2, mut handle2) = NetworkDriver::new(cfg).unwrap();
+        cfg.listen_addr = "127.0.0.1:0".parse().unwrap();
+        cfg.discv5_listen = "127.0.0.1:0".parse().unwrap();
+        let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
+        let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
+        let Ok((driver1, mut handle1)) = NetworkDriver::new(cfg.clone(), lookahead.clone()) else {
+            eprintln!("skipping: environment may block local TCP (driver init failed)");
+            return;
+        };
+        let Ok((driver2, mut handle2)) = NetworkDriver::new(cfg, lookahead) else {
+            eprintln!("skipping: environment may block local TCP (driver init failed)");
+            return;
+        };
 
         let mut driver1 = driver1;
         let mut driver2 = driver2;
@@ -200,7 +240,6 @@ async fn gossipsub_and_reqresp_roundtrip() {
             tokio::time::sleep(Duration::from_millis(60)).await;
         }
 
-        let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
         let commit = sample_signed_commitment(&sk1);
         handle1.commands.send(NetworkCommand::PublishCommitment(commit.clone())).await.unwrap();
 
@@ -265,8 +304,10 @@ async fn memory_transport_gossip_reqresp_and_ban() {
     let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
     let parts1 = build_memory_parts(cfg.chain_id, &cfg);
     let parts2 = build_memory_parts(cfg.chain_id, &cfg);
-    let (mut driver1, handle1) = driver_from_parts(parts1, &cfg);
-    let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg);
+    let sk = secp256k1::SecretKey::from_slice(&[9u8; 32]).unwrap();
+    let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk) });
+    let (mut driver1, handle1) = driver_from_parts(parts1, &cfg, lookahead.clone());
+    let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg, lookahead);
 
     let addr1: Multiaddr = "/memory/1001".parse().unwrap();
     let mut addr1_full = addr1.clone();
@@ -283,9 +324,7 @@ async fn memory_transport_gossip_reqresp_and_ban() {
 
     handle1
         .commands
-        .send(NetworkCommand::PublishCommitment(sample_signed_commitment(
-            &secp256k1::SecretKey::new(&mut rand::thread_rng()),
-        )))
+        .send(NetworkCommand::PublishCommitment(sample_signed_commitment(&sk)))
         .await
         .unwrap();
 

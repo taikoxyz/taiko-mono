@@ -36,8 +36,6 @@ impl NetworkDriver {
                                     .gossipsub
                                     .set_application_score(&propagation_source, new_score);
                             }
-                            // TODO: reintroduce lookahead/schedule gating and parent linkage
-                            // checks.
                             let _ = self
                                 .swarm
                                 .behaviour_mut()
@@ -191,3 +189,4 @@ impl NetworkDriver {
         }
     }
 }
+

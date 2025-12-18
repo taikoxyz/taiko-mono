@@ -4335,6 +4335,7 @@ dependencies = [
 name = "preconfirmation-service"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "anyhow",
  "clap",
  "futures",

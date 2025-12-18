@@ -6,8 +6,28 @@
 
 use clap::Parser;
 use libp2p::PeerId;
-use preconfirmation_service::{NetworkConfig, NetworkError, P2pHandler, P2pService};
+use preconfirmation_service::{LookaheadResolver, NetworkConfig, NetworkError, P2pHandler, P2pService};
 use std::net::SocketAddr;
+
+struct CliLookaheadResolver {
+    expected_signer: alloy_primitives::Address,
+}
+
+impl LookaheadResolver for CliLookaheadResolver {
+    fn signer_for_timestamp(
+        &self,
+        _submission_window_end: &preconfirmation_types::Uint256,
+    ) -> Result<alloy_primitives::Address, String> {
+        Ok(self.expected_signer)
+    }
+
+    fn expected_slot_end(
+        &self,
+        submission_window_end: &preconfirmation_types::Uint256,
+    ) -> Result<preconfirmation_types::Uint256, String> {
+        Ok(submission_window_end.clone())
+    }
+}
 
 /// Minimal CLI arguments.
 #[derive(Debug, Parser)]
@@ -52,6 +72,10 @@ struct Args {
     /// Max requests per peer per window
     #[arg(long, default_value_t = 8u32)]
     max_requests_per_window: u32,
+
+    /// Expected signer for the current lookahead schedule.
+    #[arg(long)]
+    expected_signer: String,
 }
 
 #[tokio::main]
@@ -78,7 +102,9 @@ async fn main() -> anyhow::Result<()> {
     cfg.request_window = std::time::Duration::from_secs(args.request_window_secs);
     cfg.max_requests_per_window = args.max_requests_per_window;
 
-    let mut service = P2pService::start(cfg)?;
+    let expected_signer = args.expected_signer.parse()?;
+    let lookahead = std::sync::Arc::new(CliLookaheadResolver { expected_signer });
+    let mut service = P2pService::start(cfg, lookahead)?;
     let handler = LoggingHandler;
     let handler_task = service.run_with_handler(handler)?;
 
@@ -127,12 +153,25 @@ impl P2pHandler for LoggingHandler {
         tracing::info!(target = "p2p-node", %from, "raw txlist response");
     }
 
+    fn on_head_response(
+        &self,
+        from: PeerId,
+        _head: preconfirmation_types::PreconfHead,
+        _request_id: Option<u64>,
+    ) {
+        tracing::info!(target = "p2p-node", %from, "head response");
+    }
+
     fn on_inbound_commitments_request(&self, from: PeerId) {
         tracing::info!(target = "p2p-node", %from, "inbound commitments request");
     }
 
     fn on_inbound_raw_txlist_request(&self, from: PeerId) {
         tracing::info!(target = "p2p-node", %from, "inbound raw txlist request");
+    }
+
+    fn on_inbound_head_request(&self, from: PeerId) {
+        tracing::info!(target = "p2p-node", %from, "inbound head request");
     }
 
     fn on_peer_connected(&self, peer: PeerId) {

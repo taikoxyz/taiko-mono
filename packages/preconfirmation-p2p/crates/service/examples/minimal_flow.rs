@@ -2,7 +2,7 @@
 //! req/resp query. This is intentionally simple and uses random local TCP ports; it is meant as
 //! scaffolding for higher-level clients (e.g., taiko-client-rs) rather than a production node.
 
-use preconfirmation_service::{NetworkConfig, P2pService};
+use preconfirmation_service::{LookaheadResolver, NetworkConfig, P2pService};
 use preconfirmation_types::{
     Bytes20, Bytes32, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
     sign_commitment,
@@ -10,11 +10,25 @@ use preconfirmation_types::{
 use secp256k1::SecretKey;
 use tokio::time::{Duration, sleep};
 
+struct StaticLookaheadResolver {
+    signer: alloy_primitives::Address,
+}
+
+impl LookaheadResolver for StaticLookaheadResolver {
+    fn signer_for_timestamp(&self, _submission_window_end: &Uint256) -> Result<alloy_primitives::Address, String> {
+        Ok(self.signer)
+    }
+
+    fn expected_slot_end(&self, submission_window_end: &Uint256) -> Result<Uint256, String> {
+        Ok(submission_window_end.clone())
+    }
+}
+
 // Helper to build a dummy signed commitment (signature bytes zeroed for demo only).
 fn dummy_commitment() -> SignedCommitment {
     let commitment = PreconfCommitment {
         preconf: Preconfirmation {
-            eop: false,
+            eop: true,
             block_number: Uint256::from(1u64),
             timestamp: Uint256::from(1u64),
             gas_limit: Uint256::from(1u64),
@@ -42,8 +56,15 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg2 = cfg1.clone();
 
-    let mut svc1 = P2pService::start(cfg1)?;
-    let mut svc2 = P2pService::start(cfg2)?;
+    let sk = SecretKey::from_slice(&[7u8; 32]).expect("secret key");
+    let signer = preconfirmation_types::public_key_to_address(&secp256k1::PublicKey::from_secret_key(
+        &secp256k1::Secp256k1::new(),
+        &sk,
+    ));
+    let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer });
+
+    let mut svc1 = P2pService::start(cfg1, lookahead.clone())?;
+    let mut svc2 = P2pService::start(cfg2, lookahead)?;
 
     // Publish a commitment from svc1 (it will also receive it locally).
     let commit = dummy_commitment();

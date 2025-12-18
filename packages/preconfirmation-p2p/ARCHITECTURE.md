@@ -61,7 +61,7 @@ gating/scoring remains blocked until upstream publishes a compatible crate/API f
 1. Build a `NetworkConfig` (listen/discovery/reputation knobs, chain_id for topics/protocol IDs).
    The driver binds the libp2p swarm to `listen_addr` automatically; use port `0` for an ephemeral
    bind.
-2. Start `P2pService::start(config)`; keep the returned command sender and subscribe to events as needed.
+2. Start `P2pService::start(config, lookahead)`; keep the returned command sender and subscribe to events as needed.
 3. Publish via `NetworkCommand::Publish*` or helper methods; request via `NetworkCommand::Request*`.
 4. Consume the `NetworkEvent` stream via `next_event`, `run_with_handler`, or your own subscription.
 
