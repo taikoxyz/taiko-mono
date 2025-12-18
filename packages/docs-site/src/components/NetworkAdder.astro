@@ -2,11 +2,11 @@
 import { customIcons } from '../assets/custom-icons';
 
 interface Props {
-  network: 'Taiko Alethia' | 'Taiko Hekla' | 'Taiko Hoodi';
+  network: 'Taiko Alethia' | 'Taiko Hoodi';
 }
 
 const { network } = Astro.props;
-const chainName = network === 'Taiko Alethia' ? 'Taiko Alethia' : network === 'Taiko Hekla' ? 'Taiko Hekla' : 'Taiko Hoodi';
+const chainName = network === 'Taiko Alethia' ? 'Taiko Alethia' : 'Taiko Hoodi';
 const metamaskIcon = customIcons.custom.icons['metamask-logo'].body;
 ---
 
@@ -109,14 +109,8 @@ const metamaskIcon = customIcons.custom.icons['metamask-logo'].body;
       rpcUrls: ['https://rpc.mainnet.taiko.xyz'],
       blockExplorerUrls: ['https://taikoscan.io/'],
     },
-    'Taiko Hekla': {
-      chainId: '0x28c61',
-      chainName: 'Taiko Hekla',
-      rpcUrls: ['https://rpc.hekla.taiko.xyz'],
-      blockExplorerUrls: ['https://hekla.taikoscan.io/'],
-    },
     'Taiko Hoodi': {
-      chainId: '0x28c64',
+      chainId: '0x28C65',
       chainName: 'Taiko Hoodi',
       rpcUrls: ['https://rpc.hoodi.taiko.xyz'],
       blockExplorerUrls: ['https://hoodi.taikoscan.io/']
@@ -128,7 +122,7 @@ const metamaskIcon = customIcons.custom.icons['metamask-logo'].body;
 
     buttons.forEach(button => {
       button.addEventListener('click', async () => {
-        const network = button.getAttribute('data-network') as 'Taiko Alethia' | 'Taiko Hekla' | 'Taiko Hoodi';
+        const network = button.getAttribute('data-network') as 'Taiko Alethia' | 'Taiko Hoodi';
         const networkConfig = config[network];
 
         if (typeof window.ethereum === 'undefined') {

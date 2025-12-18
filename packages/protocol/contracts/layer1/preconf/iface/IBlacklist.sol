@@ -28,15 +28,6 @@ interface IBlacklist {
     event OverseersAdded(address[] overseers);
     event OverseersRemoved(address[] overseers);
 
-    error BlacklistDelayNotMet();
-    error NotOverseer();
-    error NotOwnerOrOverseer();
-    error OperatorAlreadyBlacklisted();
-    error OperatorNotBlacklisted();
-    error UnblacklistDelayNotMet();
-    error OverseerAlreadyExists();
-    error OverseerDoesNotExist();
-
     /// @notice Blacklists a preconf operator for subjective faults
     /// @param _operatorRegistrationRoot registration root of the operator being blacklisted
     function blacklistOperator(bytes32 _operatorRegistrationRoot) external;

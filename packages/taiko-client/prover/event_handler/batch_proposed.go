@@ -8,7 +8,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -17,7 +17,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
@@ -33,7 +32,6 @@ type BatchProposedEventHandler struct {
 	proverAddress          common.Address
 	proverSetAddress       common.Address
 	rpc                    *rpc.Client
-	indexer                *shastaIndexer.Indexer
 	localProposerAddresses []common.Address
 	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
 	proofSubmissionCh      chan<- *proofProducer.ProofRequestBody
@@ -48,7 +46,6 @@ type NewBatchProposedEventHandlerOps struct {
 	ProverAddress          common.Address
 	ProverSetAddress       common.Address
 	RPC                    *rpc.Client
-	Indexer                *shastaIndexer.Indexer
 	LocalProposerAddresses []common.Address
 	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
 	ProofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -64,7 +61,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 		opts.ProverAddress,
 		opts.ProverSetAddress,
 		opts.RPC,
-		opts.Indexer,
 		opts.LocalProposerAddresses,
 		opts.AssignmentExpiredCh,
 		opts.ProofSubmissionCh,
@@ -207,10 +203,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
-	if !windowExpired &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !windowExpired && !h.shouldProve(meta.GetProposer()) {
 		log.Info(
 			"Proposed batch is not provable by current prover at the moment",
 			"batchID", meta.Pacaya().GetBatchID(),
@@ -239,10 +232,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 
 	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
 	// we should skip proving this batch.
-	if !h.proveUnassignedBlocks &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+	if !h.proveUnassignedBlocks && !h.shouldProve(meta.GetProposer()) {
 		log.Info(
 			"Expired batch is not provable by current prover",
 			"batchID", meta.Pacaya().GetBatchID(),
@@ -298,21 +288,41 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	if reorgCheckResult.IsReorged {
+		lastHandledOld := h.sharedState.GetLastHandledPacayaBatchID()
+		if meta.IsShasta() {
+			lastHandledOld = h.sharedState.GetLastHandledShastaBatchID()
+		}
+
 		log.Info(
 			"Reset L1Current cursor due to reorg",
 			"l1CurrentHeightOld", h.sharedState.GetL1Current().Number,
 			"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
-			"lastHandledBatchIDOld", h.sharedState.GetLastHandledPacayaBatchID(),
+			"lastHandledBatchIDOld", lastHandledOld,
 			"lastHandledBatchIDNew", reorgCheckResult.LastHandledBatchIDToReset,
 		)
 		h.sharedState.SetL1Current(reorgCheckResult.L1CurrentToReset)
-		if reorgCheckResult.LastHandledBatchIDToReset == nil {
-			h.sharedState.SetLastHandledPacayaBatchID(0)
+		if meta.IsShasta() {
+			if reorgCheckResult.LastHandledBatchIDToReset == nil {
+				h.sharedState.SetLastHandledShastaBatchID(0)
+			} else {
+				h.sharedState.SetLastHandledShastaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			}
 		} else {
-			h.sharedState.SetLastHandledPacayaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			if reorgCheckResult.LastHandledBatchIDToReset == nil {
+				h.sharedState.SetLastHandledPacayaBatchID(0)
+			} else {
+				h.sharedState.SetLastHandledPacayaBatchID(reorgCheckResult.LastHandledBatchIDToReset.Uint64())
+			}
 		}
 		return errL1Reorged
 	}
 
 	return nil
+}
+
+// shouldProve checks whether the current running prover is assigned to prove the proposed batch.
+func (h *BatchProposedEventHandler) shouldProve(assignedProver common.Address) bool {
+	return assignedProver == h.proverAddress ||
+		assignedProver == h.proverSetAddress ||
+		slices.Contains(h.localProposerAddresses, assignedProver)
 }

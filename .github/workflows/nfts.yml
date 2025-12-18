@@ -23,16 +23,13 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git
-
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.2.0
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

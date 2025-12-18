@@ -24,10 +24,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
+
+// ShastaForkBufferSeconds is the buffer time in seconds before Shasta fork time,
+// to ensure no Pacaya blocks are proposed after Shasta fork time.
+const shastaForkBufferSeconds = uint64(60)
 
 // l2HeadUpdateInfo keeps track of the latest L2 head update information.
 type l2HeadUpdateInfo struct {
@@ -64,8 +67,7 @@ type Proposer struct {
 	// Fallback proposer related
 	l2HeadUpdate l2HeadUpdateInfo
 
-	txmgrSelector      *utils.TxMgrSelector
-	shastaStateIndexer *shastaIndexer.Indexer
+	txmgrSelector *utils.TxMgrSelector
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -127,20 +129,16 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
-	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
-		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
-	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
 		p.rpc.L2.ChainID,
 		p.rpc.PacayaClients.ForkHeights.Ontake,
 		p.rpc.PacayaClients.ForkHeights.Pacaya,
-		p.rpc.PacayaClients.ForkHeights.Shasta,
+		p.rpc.ShastaClients.ForkTime,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
-		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
 		cfg.PacayaInboxAddress,
@@ -153,6 +151,7 @@ func (p *Proposer) InitFromConfig(
 		cfg.RevertProtectionEnabled,
 		cfg.BlobAllowed,
 		cfg.FallbackToCalldata,
+		cfg.AnchorOffset,
 	)
 
 	return nil
@@ -170,10 +169,6 @@ func (p *Proposer) Start() error {
 	p.l2HeadUpdate = l2HeadUpdateInfo{
 		blockID:   head.Number.Uint64(),
 		updatedAt: time.Now().UTC(),
-	}
-
-	if err := p.shastaStateIndexer.Start(); err != nil {
-		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
 
 	p.wg.Add(1)
@@ -235,11 +230,17 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		minTip = 0
 	}
 
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		p.protocolConfigs.BlockMaxGasLimit(),
+		uint32(l2Head.GasLimit),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
@@ -286,12 +287,11 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Wait until L2 execution engine is synced at first.
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx, p.shastaStateIndexer.GetLastCoreState()); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
 	ok, err := p.shouldPropose(ctx)
-
 	if err != nil {
 		return fmt.Errorf("failed to check if proposer should propose: %w", err)
 	} else if !ok {
@@ -330,33 +330,27 @@ func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	var l2HeadNumber *big.Int
-	headL1Origin, err := p.rpc.L2.HeadL1Origin(ctx)
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
-		log.Warn("Failed to get L2 head L1 origin", "error", err)
-		l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 head: %w", err)
-		}
-		l2HeadNumber = l2Head.Number
-	} else {
-		l2HeadNumber = headL1Origin.BlockID
+		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	if new(big.Int).Add(l2HeadNumber, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
-		// Fetch the latest parent meta hash, which will be used
-		// by revert protection.
+	// Still in the Pacaya era.
+	if l1Head.Time < p.rpc.ShastaClients.ForkTime {
+		// If we are within the buffer window, pause proposing to avoid submitting Pacaya batches
+		// right before the Shasta fork activates.
+		if l1Head.Time+shastaForkBufferSeconds >= p.rpc.ShastaClients.ForkTime {
+			log.Info(
+				"Approaching Shasta fork time, waiting to switch to Shasta proposals",
+				"l1HeadTime", l1Head.Time,
+				"shastaForkTime", p.rpc.ShastaClients.ForkTime,
+			)
+			return nil
+		}
+
+		// Fetch the latest parent meta hash, which will be used by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
-		}
-		// Ensure we are not proposing too many tx lists before Shasta fork.
-		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1) {
-			log.Warn(
-				"Too many tx lists, trimming to fit before Shasta fork",
-				"txLists", len(txLists),
-				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1,
-			)
-			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2HeadNumber.Uint64()-1]
 		}
 
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
@@ -430,7 +424,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		log.Info(
 			"Forced inclusion",
 			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"blobHash", common.Hash(forcedInclusion.BlobHash),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,
@@ -487,9 +481,9 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	}
 
 	// Get the last proposal to ensure we are proposing a block after its NextProposalBlockId.
-	lastProposal := p.ShastaIndexer().GetLastProposal()
-	if lastProposal == nil {
-		return errors.New("no previous proposal found, cannot propose new batch")
+	state, err := p.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta Inbox core state: %w", err)
 	}
 
 	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
@@ -499,12 +493,12 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 
 	log.Info(
 		"Last proposal",
-		"id", lastProposal.Proposal.Id,
-		"nextProposalId", lastProposal.CoreState.NextProposalId,
+		"id", state.LastProposalBlockId,
+		"nextProposalId", state.NextProposalId,
 		"l1Head", l1Head.Number,
 	)
 
-	if lastProposal.CoreState.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
+	if state.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
 		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}
@@ -635,11 +629,22 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
 		}
 
-		// It needs to be either us, or the proverSet we propose through
-		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
+		// check the active operators
+		operators, err := p.rpc.GetAllActiveOperators(&bind.CallOpts{
+			Context: ctx,
+		})
+		if err != nil {
+			return false, fmt.Errorf("failed to get all active preconfer address: %w", err)
+		}
+
+		// it needs to be either us, or the proverSet we propose through
+		if len(operators) != 0 ||
+			(fallbackPreconferAddress != p.proposerAddress &&
+				fallbackPreconferAddress != p.ProverSetAddress) {
 			log.Info(
 				"Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
 				"time", time.Now(),
+				"activeOperatorNums", len(operators),
 			)
 			return false, nil
 		}
@@ -668,10 +673,4 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// ShastaIndexer returns the proposer's Shasta state indexer, this method
-// should only be used for testing.
-func (p *Proposer) ShastaIndexer() *shastaIndexer.Indexer {
-	return p.shastaStateIndexer
 }

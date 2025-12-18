@@ -1,0 +1,71 @@
+name: "Eventindexer CI"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/eventindexer/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/eventindexer/**"
+      - "go.mod"
+      - "go.sum"
+      - "!**/*.md"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-eventindexer:
+    name: lint-eventindexer
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    runs-on: [arc-runner-set]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+          version: latest
+
+          # Optional: working directory, useful for monorepos
+          working-directory: ./packages/eventindexer
+          args: --config=.golangci.yml --timeout=10m
+
+  test-eventindexer:
+    runs-on: [arc-runner-set]
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: eventindexer - Unit Tests
+        working-directory: ./packages/eventindexer
+        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
+
+      - name: eventindexer - Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./packages/eventindexer/coverage.txt
+          flags: eventindexer
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

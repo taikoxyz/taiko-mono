@@ -1,0 +1,37 @@
+[package]
+name = "taiko-client"
+version.workspace = true
+description = "Rust client implementation for Taiko protocol"
+
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# async
+tokio = { workspace = true }
+
+# cli
+clap = { workspace = true }
+
+# observability
+async-trait = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# ethereum
+alloy = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+
+# taiko
+driver = { path = "../../crates/driver" }
+proposer = { path = "../../crates/proposer" }
+rpc = { path = "../../crates/rpc" }
+
+# types
+anyhow = { workspace = true }
+url = { workspace = true }

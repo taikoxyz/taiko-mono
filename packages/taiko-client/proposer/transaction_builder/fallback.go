@@ -19,7 +19,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -36,7 +35,6 @@ type TxBuilderWithFallback struct {
 // NewBuilderWithFallback creates a new TxBuilderWithFallback instance.
 func NewBuilderWithFallback(
 	rpc *rpc.Client,
-	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
 	pacayaInboxAddress common.Address,
@@ -49,12 +47,12 @@ func NewBuilderWithFallback(
 	revertProtectionEnabled bool,
 	blobAllowed bool,
 	fallback bool,
+	anchorOffset uint64,
 ) *TxBuilderWithFallback {
 	builder := &TxBuilderWithFallback{rpc: rpc, fallback: fallback, txmgrSelector: txmgrSelector}
 	if blobAllowed {
 		builder.blobTransactionBuilder = NewBlobTransactionBuilder(
 			rpc,
-			shastaStateIndexer,
 			proposerPrivateKey,
 			pacayaInboxAddress,
 			shastaInboxAddress,
@@ -64,6 +62,7 @@ func NewBuilderWithFallback(
 			gasLimit,
 			chainConfig,
 			revertProtectionEnabled,
+			anchorOffset,
 		)
 	}
 
@@ -195,6 +194,10 @@ func (b *TxBuilderWithFallback) BuildShasta(
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
+	// Shasta requires blob transactions for proposal data availability.
+	if b.blobTransactionBuilder == nil {
+		return nil, fmt.Errorf("blob transactions must be enabled for Shasta; set --l1.blobAllowed=true")
+	}
 	return b.blobTransactionBuilder.BuildShasta(
 		ctx,
 		txBatch,
@@ -256,7 +259,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	), nil
 }
 
-// TxBuilderWithFallback returns whether the blob transactions is enabled.
+// BlobAllow returns whether blob transactions are allowed.
 func (b *TxBuilderWithFallback) BlobAllow() bool {
 	return b.blobTransactionBuilder != nil
 }

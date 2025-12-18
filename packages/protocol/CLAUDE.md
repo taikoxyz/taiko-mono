@@ -60,12 +60,12 @@ This guide provides specific instructions for working with Taiko's smart contrac
 - `contracts/layer2/`: L2 contracts
 - `contracts/shared/`: Shared utilities
 - `test/`: Test files (mirror contract structure)
-- `test/layer1/shasta/inbox/suite2`: Test files for the shasta inbox (our main focus at the moment)
+- `test/layer1/shasta/inbox`: Test files for the shasta inbox (our main focus at the moment)
 
 ### 📍 Key Contract Locations (Shasta)
 
-- `contracts/layer1/shasta/impl/Inbox.sol`: main rollup contract that handles propose, prove and finalization.
-- `contracts/layer1/shasta/iface`: interfaces for protocol contracts, including most data structures.
+- `contracts/layer1/impl/Inbox.sol`: main rollup contract that handles propose, prove and finalization.
+- `contracts/layer1/iface`: interfaces for protocol contracts, including most data structures.
 - `contracts/layer2/based/ShastaAnchor.sol`: Anchor contract for synchronizing L1 state into the L2 and also does bond management.
 
 ### Design Patterns
@@ -75,6 +75,8 @@ This guide provides specific instructions for working with Taiko's smart contrac
 - Storage gaps (`uint256[50] __gap`) for upgrade safety (upgradeable contracts only)
 
 ## 🧪 Testing Methodology
+
+**IMPORTANT**: Always use the `solidity-tester` subagent (via Task tool) for running tests, writing tests, or debugging test failures.
 
 ### Test Naming Convention
 
@@ -147,7 +149,7 @@ forge test --match-path <path> --summary  # Test summary with gas usage
 
 ```bash
 # IMPORTANT: When testing shasta changes, run ONLY:
-forge test --match-path "test/layer1/shasta/inbox/suite2/*"
+forge test --match-path "test/layer1/shasta/inbox/*"
 # DO NOT run the entire test suite for shasta development
 ```
 
@@ -191,6 +193,41 @@ pnpm snapshot:l1
 ```bash
 pnpm layout  # CRITICAL: Run before and after changes to upgradeable contracts
 ```
+
+## 🔢 Unchecked Arithmetic Guidelines
+
+### Overview
+
+The Inbox contract and its subcontracts (InboxOptimized1, InboxOptimized2) use unchecked blocks aggressively for gas optimization. All unchecked operations have been verified safe through:
+
+- Bounded loop counters (limited by array lengths or configuration parameters)
+- Modulo operations (mathematically cannot overflow)
+- Increments with protocol invariant guarantees (e.g., proposal IDs, span counters)
+- Timestamp/block number arithmetic with practical overflow impossibility
+
+See inline comments for specific safety justifications on each unchecked block.
+
+### IMPORTANT - Type Conversions in Unchecked Blocks
+
+Due to aggressive use of unchecked blocks throughout these contracts, developers **MUST** explicitly cast values to their proper types before performing mathematical operations when mixing different numeric types. Without explicit casts, Solidity may perform implicit conversions that could lead to unexpected results within unchecked blocks.
+
+**Example:**
+
+```solidity
+// ✅ CORRECT - Explicit casting
+uint256(uint48Value) + uint256(anotherUint48)
+
+// ❌ WRONG - May cause unexpected behavior
+uint48Value + anotherUint48  // Could overflow in unchecked block
+```
+
+### Best Practices for Unchecked Blocks
+
+1. **Always document safety**: Add inline comments explaining why each unchecked operation is safe
+2. **Use explicit type casting**: Convert to the target type before operations
+3. **Verify bounds**: Ensure all values are within safe ranges before unchecked operations
+4. **Test edge cases**: Include tests for maximum values and boundary conditions
+5. **Review carefully**: All unchecked blocks should be reviewed by multiple developers
 
 ## 📋 Pre-Commit Checklist
 

@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -21,6 +22,7 @@ type TaikoProposalMetaData interface {
 	GetTxHash() common.Hash
 	GetProposer() common.Address
 	GetCoinbase() common.Address
+	GetProposalID() *big.Int
 }
 
 type TaikoBatchMetaDataPacaya interface {
@@ -50,11 +52,11 @@ type TaikoBatchMetaDataPacaya interface {
 }
 
 type TaikoProposalMetaDataShasta interface {
-	GetProposal() shastaBindings.IInboxProposal
-	GetDerivation() shastaBindings.IInboxDerivation
-	GetCoreState() shastaBindings.IInboxCoreState
+	GetEventData() *shastaBindings.ShastaInboxClientProposed
 	GetBlobHashes(int) []common.Hash
 	GetBlobTimestamp(int) uint64
+	GetTimestamp() uint64
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
+	GetLog() *types.Log
 }

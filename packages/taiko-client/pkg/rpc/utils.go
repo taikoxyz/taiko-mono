@@ -174,9 +174,9 @@ func GetBatchProofStatus(
 			"batchID", batchID,
 			"parent", parent.Hash().Hex(),
 			"localBlockHash", lastHeaderInBatch.Hash(),
-			"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
+			"protocolTransitionBlockHash", common.Hash(transition.BlockHash),
 			"localStateRoot", lastHeaderInBatch.Root,
-			"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
+			"protocolTransitionStateRoot", common.Hash(transition.StateRoot),
 		)
 		// Status 2, an invalid proof has been submitted.
 		return &BatchProofStatus{IsSubmitted: true, Invalid: true, ParentHeader: parent}, nil
@@ -201,6 +201,31 @@ func StringToBytes32(str string) [32]byte {
 	copy(b[:], []byte(str))
 
 	return b
+}
+
+// LastPacayaBlockID returns the last Pacaya block ID by querying the Pacaya Inbox.
+// It reads stats2.NumBatches and then getBatch(NumBatches-1).LastBlockId.
+// If there are no batches yet, it returns 0.
+func (c *Client) LastPacayaBlockID(ctx context.Context) (*big.Int, error) {
+	if c == nil || c.PacayaClients == nil || c.PacayaClients.TaikoInbox == nil {
+		return nil, errors.New("rpc or pacaya inbox client not initialized")
+	}
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	stats2, err := c.PacayaClients.TaikoInbox.GetStats2(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, err
+	}
+	if stats2.NumBatches == 0 {
+		return common.Big0, nil
+	}
+	lastBatchID := stats2.NumBatches - 1
+	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, lastBatchID)
+	if err != nil {
+		return nil, err
+	}
+	return new(big.Int).SetUint64(batch.LastBlockId), nil
 }
 
 // CtxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,

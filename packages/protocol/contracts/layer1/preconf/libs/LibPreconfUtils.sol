@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "../iface/ILookaheadStore.sol";
 import "./LibPreconfConstants.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @title LibPreconfUtils
 /// @custom:security-contact security@taiko.xyz
@@ -86,10 +86,8 @@ library LibPreconfUtils {
             * LibPreconfConstants.SECONDS_IN_EPOCH;
         /// forge-lint: disable-end
 
-        return (
-            genesisTimestamp + timePassedUptoCurrentEpoch
-                + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH
-        ).toUint48();
+        return (genesisTimestamp + timePassedUptoCurrentEpoch + _epochOffset
+                * LibPreconfConstants.SECONDS_IN_EPOCH).toUint48();
     }
 
     /// @notice Calculates the timestamp of the epoch containing the provided slot timestamp .

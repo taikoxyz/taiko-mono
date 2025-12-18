@@ -9,6 +9,7 @@ import (
 var (
 	ErrBufferOverflow = errors.New("proof buffer overflow")
 	ErrNotEnoughProof = errors.New("not enough proof")
+	ErrNilBatchID     = errors.New("batch ID cannot be nil")
 )
 
 // ProofBuffer caches all single proof with a fixed size.
@@ -33,6 +34,19 @@ func NewProofBuffer(maxLength uint64) *ProofBuffer {
 func (pb *ProofBuffer) Write(item *ProofResponse) (int, error) {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
+
+	// Validate that BatchID is not nil
+	if item.BatchID == nil {
+		return len(pb.buffer), ErrNilBatchID
+	}
+
+	// Check for duplicate BatchID (idempotency check)
+	// If duplicate found, return success without adding the item
+	for _, existingItem := range pb.buffer {
+		if existingItem.BatchID.Cmp(item.BatchID) == 0 {
+			return len(pb.buffer), nil
+		}
+	}
 
 	if len(pb.buffer)+1 > int(pb.MaxLength) {
 		return len(pb.buffer), ErrBufferOverflow
@@ -70,8 +84,10 @@ func (pb *ProofBuffer) Len() int {
 	return len(pb.buffer)
 }
 
-// FirstItemAt returns the first item updated time of the buffer.
+// FirstItemAt returns the first item updated time of the buffer, only makes sense when Len() is greater than 0.
 func (pb *ProofBuffer) FirstItemAt() time.Time {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	return pb.firstItemAt
 }
 
@@ -97,16 +113,28 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	}
 
 	pb.buffer = newBuffer
+	if len(pb.buffer) == 0 {
+		pb.firstItemAt = time.Time{}
+	}
 	pb.isAggregating = false
 	return clearedCount
 }
 
-// MarkAggregating marks the proofs in this buffer are aggregating.
-func (pb *ProofBuffer) MarkAggregating() {
+// MarkAggregatingIfNot marks the proofs in this buffer are aggregating if not.
+func (pb *ProofBuffer) MarkAggregatingIfNot() bool {
+	pb.mutex.Lock()
+	defer pb.mutex.Unlock()
+
+	if pb.isAggregating {
+		return false
+	}
 	pb.isAggregating = true
+	return true
 }
 
 // IsAggregating returns if the proofs in this buffer are aggregating.
 func (pb *ProofBuffer) IsAggregating() bool {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	return pb.isAggregating
 }
