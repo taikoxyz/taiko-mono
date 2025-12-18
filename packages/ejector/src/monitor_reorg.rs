@@ -64,10 +64,9 @@ impl ChainReorgTracker {
             break;
         }
 
-        let parent_missing = match self.history.back() {
-            Some(last) => last.hash != block.parent_hash,
-            None => !outcome.reorged.is_empty(),
-        };
+        // If history is not empty, we exited the loop via break, meaning parent was found.
+        // If history is empty and reorged is not empty, parent was not found.
+        let parent_missing = self.history.back().is_none() && !outcome.reorged.is_empty();
 
         if parent_missing {
             outcome.parent_not_found = true;
