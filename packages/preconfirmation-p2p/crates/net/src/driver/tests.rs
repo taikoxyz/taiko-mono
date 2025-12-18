@@ -10,8 +10,9 @@ use libp2p::{
     swarm::Swarm,
     yamux,
 };
-use preconfirmation_types::public_key_to_address;
-use preconfirmation_types::{PreconfCommitment, Preconfirmation, SignedCommitment, Uint256};
+use preconfirmation_types::{
+    PreconfCommitment, Preconfirmation, SignedCommitment, Uint256, public_key_to_address,
+};
 use ssz_rs::Vector;
 use std::{str::FromStr, task::Context};
 use tokio::time::Duration;
@@ -37,10 +38,7 @@ impl LookaheadResolver for StaticLookaheadResolver {
 }
 
 fn signer_for_sk(sk: &secp256k1::SecretKey) -> alloy_primitives::Address {
-    public_key_to_address(&secp256k1::PublicKey::from_secret_key(
-        &secp256k1::Secp256k1::new(),
-        sk,
-    ))
+    public_key_to_address(&secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), sk))
 }
 
 async fn listen_on(driver: &mut NetworkDriver) -> Multiaddr {
@@ -182,7 +180,8 @@ async fn gossipsub_and_reqresp_roundtrip() {
         cfg.listen_addr = "127.0.0.1:0".parse().unwrap();
         cfg.discv5_listen = "127.0.0.1:0".parse().unwrap();
         let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
-        let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
+        let lookahead =
+            std::sync::Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
         let Ok((driver1, mut handle1)) = NetworkDriver::new(cfg.clone(), lookahead.clone()) else {
             eprintln!("skipping: environment may block local TCP (driver init failed)");
             return;

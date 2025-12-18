@@ -15,7 +15,10 @@ struct StaticLookaheadResolver {
 }
 
 impl LookaheadResolver for StaticLookaheadResolver {
-    fn signer_for_timestamp(&self, _submission_window_end: &Uint256) -> Result<alloy_primitives::Address, String> {
+    fn signer_for_timestamp(
+        &self,
+        _submission_window_end: &Uint256,
+    ) -> Result<alloy_primitives::Address, String> {
         Ok(self.signer)
     }
 
@@ -57,10 +60,9 @@ async fn main() -> anyhow::Result<()> {
     let cfg2 = cfg1.clone();
 
     let sk = SecretKey::from_slice(&[7u8; 32]).expect("secret key");
-    let signer = preconfirmation_types::public_key_to_address(&secp256k1::PublicKey::from_secret_key(
-        &secp256k1::Secp256k1::new(),
-        &sk,
-    ));
+    let signer = preconfirmation_types::public_key_to_address(
+        &secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &sk),
+    );
     let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer });
 
     let mut svc1 = P2pService::start(cfg1, lookahead.clone())?;

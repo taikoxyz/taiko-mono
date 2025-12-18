@@ -6,7 +6,9 @@
 
 use clap::Parser;
 use libp2p::PeerId;
-use preconfirmation_service::{LookaheadResolver, NetworkConfig, NetworkError, P2pHandler, P2pService};
+use preconfirmation_service::{
+    LookaheadResolver, NetworkConfig, NetworkError, P2pHandler, P2pService,
+};
 use std::net::SocketAddr;
 
 struct CliLookaheadResolver {

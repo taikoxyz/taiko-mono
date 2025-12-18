@@ -36,9 +36,7 @@ use crate::{
         reth_adapter::RethReputationAdapter,
     },
     storage::{PreconfStorage, default_storage},
-    validation::{
-        LookaheadResolver, LookaheadValidationAdapter, ValidationAdapter,
-    },
+    validation::{LookaheadResolver, LookaheadValidationAdapter, ValidationAdapter},
 };
 use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
 use preconfirmation_types::{PreconfHead, address_to_bytes20};

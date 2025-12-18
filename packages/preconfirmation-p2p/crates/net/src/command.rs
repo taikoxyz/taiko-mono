@@ -52,16 +52,4 @@ pub enum NetworkCommand {
         /// The new `PreconfHead` to be served.
         head: preconfirmation_types::PreconfHead,
     },
-    /// TODO: lookahead wiring temporarily disabled; retained for API compatibility.
-    SetScheduleReady {
-        /// True when schedule data is available for validation.
-        ready: bool,
-    },
-    /// TODO: lookahead wiring temporarily disabled; retained for API compatibility.
-    UpsertParentPreconf {
-        /// Hash of the parent preconfirmation.
-        hash: Bytes32,
-        /// Parent preconfirmation body.
-        preconf: preconfirmation_types::Preconfirmation,
-    },
 }

@@ -175,12 +175,6 @@ impl NetworkDriver {
             NetworkCommand::UpdateHead { head } => {
                 self.head = head;
             }
-            NetworkCommand::SetScheduleReady { ready: _ } => {
-                // TODO: reintroduce lookahead gating once schedule provider is available.
-            }
-            NetworkCommand::UpsertParentPreconf { hash: _, preconf: _ } => {
-                // TODO: cache parent preconfirmations when lookahead enforcement returns.
-            }
         }
     }
 }

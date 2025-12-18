@@ -562,7 +562,10 @@ mod tests {
 
     struct TestLookaheadResolver;
     impl LookaheadResolver for TestLookaheadResolver {
-        fn signer_for_timestamp(&self, _submission_window_end: &Uint256) -> Result<Address, String> {
+        fn signer_for_timestamp(
+            &self,
+            _submission_window_end: &Uint256,
+        ) -> Result<Address, String> {
             Ok(Address::ZERO)
         }
 
@@ -579,8 +582,7 @@ mod tests {
             enable_discovery: false,
             ..Default::default()
         };
-        let Ok(mut svc) = P2pService::start(cfg, std::sync::Arc::new(TestLookaheadResolver))
-        else {
+        let Ok(mut svc) = P2pService::start(cfg, std::sync::Arc::new(TestLookaheadResolver)) else {
             eprintln!("skipping: environment may block local networking (service init failed)");
             return;
         };
