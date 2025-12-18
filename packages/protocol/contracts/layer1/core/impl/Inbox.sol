@@ -61,7 +61,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     /// @notice The proof verifier contract.
-    IProofVerifier internal immutable _proofVerifier;
+    address internal immutable _proofVerifier;
 
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
@@ -149,7 +149,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     constructor(Config memory _config) {
         LibInboxSetup.validateConfig(_config);
 
-        _proofVerifier = IProofVerifier(_config.proofVerifier);
+        _proofVerifier = _config.proofVerifier;
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
@@ -204,9 +204,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
     ///      3. Updates core state and emits `Proposed` event
+    /// @param _lookahead Additional data used for lookahead operations.
+    /// @param _data The encoded proposal input data.
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) public nonReentrant {
+        // Surge: Add a pre proposal hook
+        _beforePropose();
+
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -256,7 +261,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(bytes calldata _data, bytes calldata _proof) external {
+    function prove(bytes calldata _data, bytes calldata _proof) public {
+        // Surge: Add a pre proving hook
+        _beforeProve();
+
         unchecked {
 
             bool isWhitelistEnabled = _checkProver(msg.sender);
@@ -341,9 +349,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // 7. Verify the proof
             // ---------------------------------------------------------
-            _proofVerifier.verifyProof(
-                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
-            );
+            // Surge: Extract logic to a virtual handler
+            _handleProofVerification(commitment, _proof);
         }
     }
 
@@ -781,6 +788,35 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // The offset points to the first proposal that will be finalized.
             offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Surge: Internal virtual functions
+    // ---------------------------------------------------------------
+
+    /// @dev A pre proposal hook to execute extra logic before making a proposal
+    function _beforePropose() internal virtual { }
+
+    /// @dev A pre proving hook to execute extra logic before proving a proposal
+    function _beforeProve() internal virtual { }
+
+    /// @dev Handles proof verification by delegating to the proof verifier contract.
+    /// @param _commitment The commitment containing the batch transitions to verify.
+    /// @param _proof The encoded proof data to verify against the commitment.
+    function _handleProofVerification(
+        Commitment memory _commitment,
+        bytes calldata _proof
+    )
+        internal
+        view
+        virtual
+    {
+        // Surge: We do not use `proposalAge`
+        // We count the proposalAge as the time since it became available for proving.
+        // uint256 proposalAge = block.timestamp
+        //     - _commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+        IProofVerifier(_proofVerifier)
+            .verifyProof(0, LibHashOptimized.hashCommitment(_commitment), _proof);
     }
 
     // ---------------------------------------------------------------
