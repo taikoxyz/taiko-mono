@@ -3,10 +3,89 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { LibProveInputCodec } from "src/layer1/core/libs/LibProveInputCodec.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibCodec } from "src/layer1/core/libs/LibCodec.sol";
 
-contract LibProveInputCodecTest is Test {
-    function test_encode_decode_roundtrip() public pure {
+contract LibCodecTest is Test {
+    function test_encode_decode_proposeInput_roundtrip() public pure {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: 1_234_567,
+            blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 }),
+            numForcedInclusions: 3
+        });
+
+        bytes memory encoded = LibCodec.encodeProposeInput(input);
+        assertEq(encoded.length, 14, "encoded length");
+
+        IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
+        assertEq(decoded.deadline, input.deadline, "deadline");
+        assertEq(
+            decoded.blobReference.blobStartIndex,
+            input.blobReference.blobStartIndex,
+            "blobStartIndex"
+        );
+        assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
+        assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
+    }
+
+    function test_encode_decode_proposeInput_boundaryValues() public pure {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: type(uint48).max,
+            blobReference: LibBlobs.BlobReference({
+                blobStartIndex: type(uint16).max,
+                numBlobs: type(uint16).max,
+                offset: type(uint24).max
+            }),
+            numForcedInclusions: type(uint8).max
+        });
+
+        bytes memory encoded = LibCodec.encodeProposeInput(input);
+        IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
+
+        assertEq(decoded.deadline, input.deadline, "max deadline");
+        assertEq(
+            decoded.blobReference.blobStartIndex, input.blobReference.blobStartIndex, "max start"
+        );
+        assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "max numBlobs");
+        assertEq(decoded.blobReference.offset, input.blobReference.offset, "max offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
+    }
+
+    function testFuzz_encodeDecodeProposeInput_PreservesFields(
+        uint48 deadline,
+        uint16 blobStartIndex,
+        uint16 numBlobs,
+        uint24 offset,
+        uint8 numForcedInclusions
+    )
+        public
+        pure
+    {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: deadline,
+            blobReference: LibBlobs.BlobReference({
+                blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
+            }),
+            numForcedInclusions: numForcedInclusions
+        });
+
+        bytes memory encoded = LibCodec.encodeProposeInput(input);
+        assertEq(encoded.length, 14, "encoded length");
+
+        IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
+        assertEq(decoded.deadline, input.deadline, "deadline");
+        assertEq(
+            decoded.blobReference.blobStartIndex,
+            input.blobReference.blobStartIndex,
+            "blobStartIndex"
+        );
+        assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
+        assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
+    }
+
+    function test_encode_decode_proveInput_roundtrip() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
             proposer: address(0x1111),
@@ -34,8 +113,8 @@ contract LibProveInputCodecTest is Test {
             forceCheckpointSync: true
         });
 
-        bytes memory encoded = LibProveInputCodec.encode(input);
-        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
+        bytes memory encoded = LibCodec.encodeProveInput(input);
+        IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
 
         assertEq(
             decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
@@ -89,7 +168,7 @@ contract LibProveInputCodecTest is Test {
         assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
-    function test_encode_decode_singleProposal() public pure {
+    function test_encode_decode_proveInput_singleProposal() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: address(0x5555),
@@ -111,8 +190,8 @@ contract LibProveInputCodecTest is Test {
             forceCheckpointSync: false
         });
 
-        bytes memory encoded = LibProveInputCodec.encode(input);
-        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
+        bytes memory encoded = LibCodec.encodeProveInput(input);
+        IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
 
         assertEq(decoded.commitment.firstProposalId, 1, "firstProposalId");
         assertEq(decoded.commitment.transitions.length, 1, "transitions length");
@@ -121,29 +200,30 @@ contract LibProveInputCodecTest is Test {
         assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
 
-    function test_encode_decode_emptyProposals() public pure {
+    function test_encode_decode_proveInput_emptyProposals() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
             commitment: IInbox.Commitment({
-                firstProposalId: 0,
-                firstProposalParentBlockHash: bytes32(0),
-                lastProposalHash: bytes32(0),
-                actualProver: address(0),
-                endBlockNumber: 0,
-                endStateRoot: bytes32(0),
+                firstProposalId: 10,
+                firstProposalParentBlockHash: bytes32(uint256(123)),
+                lastProposalHash: bytes32(uint256(456)),
+                actualProver: address(0xDEAD),
+                endBlockNumber: 9999,
+                endStateRoot: bytes32(uint256(789)),
                 transitions: transitions
             }),
             forceCheckpointSync: false
         });
 
-        bytes memory encoded = LibProveInputCodec.encode(input);
-        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
+        bytes memory encoded = LibCodec.encodeProveInput(input);
+        IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
 
+        assertEq(decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId");
         assertEq(decoded.commitment.transitions.length, 0, "empty transitions");
     }
 
-    function test_encode_deterministic() public pure {
+    function test_encode_proveInput_deterministic() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: address(0x1234),
@@ -165,8 +245,8 @@ contract LibProveInputCodecTest is Test {
             forceCheckpointSync: true
         });
 
-        bytes memory encoded1 = LibProveInputCodec.encode(input);
-        bytes memory encoded2 = LibProveInputCodec.encode(input);
+        bytes memory encoded1 = LibCodec.encodeProveInput(input);
+        bytes memory encoded2 = LibCodec.encodeProveInput(input);
 
         assertEq(encoded1.length, encoded2.length, "length match");
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
@@ -204,8 +284,8 @@ contract LibProveInputCodecTest is Test {
         });
         input.forceCheckpointSync = forceCheckpointSync;
 
-        bytes memory encoded = LibProveInputCodec.encode(input);
-        IInbox.ProveInput memory decoded = LibProveInputCodec.decode(encoded);
+        bytes memory encoded = LibCodec.encodeProveInput(input);
+        IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
 
         assertEq(
             decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
@@ -267,3 +347,4 @@ contract LibProveInputCodecTest is Test {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }
+

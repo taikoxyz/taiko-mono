@@ -5,14 +5,55 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { LibTransitionCodec } from "./LibTransitionCodec.sol";
 
-/// @title LibProveInputCodec
-/// @notice Compact encoder/decoder for ProveInput using LibPackUnpack.
+/// @title LibCodec
+/// @notice Compact encoder/decoder for Inbox inputs using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
-library LibProveInputCodec {
-    /// @notice Encodes ProveInput data using compact packing.
-    function encode(IInbox.ProveInput memory _input) internal pure returns (bytes memory encoded_) {
+library LibCodec {
+    // ---------------------------------------------------------------
+    // ProposeInputCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes propose input data using compact packing.
+    function encodeProposeInput(IInbox.ProposeInput memory _input)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        encoded_ = new bytes(14);
+        uint256 ptr = P.dataPtr(encoded_);
+        ptr = P.packUint48(ptr, _input.deadline);
+        ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
+        ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
+        ptr = P.packUint24(ptr, _input.blobReference.offset);
+        ptr = P.packUint8(ptr, _input.numForcedInclusions);
+    }
+
+    /// @dev Decodes propose input data using compact packing.
+    function decodeProposeInput(bytes memory _data)
+        internal
+        pure
+        returns (IInbox.ProposeInput memory input_)
+    {
+        uint256 ptr = P.dataPtr(_data);
+        (input_.deadline, ptr) = P.unpackUint48(ptr);
+        (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
+        (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
+        (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
+        (input_.numForcedInclusions,) = P.unpackUint8(ptr);
+    }
+
+    // ---------------------------------------------------------------
+    // ProveInputCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes prove input data using compact packing.
+    function encodeProveInput(IInbox.ProveInput memory _input)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
         IInbox.Commitment memory c = _input.commitment;
-        uint256 bufferSize = _calculateSize(c.transitions.length);
+        uint256 bufferSize = _calculateProveInputSize(c.transitions.length);
         encoded_ = new bytes(bufferSize);
 
         uint256 ptr = P.dataPtr(encoded_);
@@ -34,8 +75,12 @@ library LibProveInputCodec {
         P.packUint8(ptr, _input.forceCheckpointSync ? 1 : 0);
     }
 
-    /// @notice Decodes ProveInput data using compact packing.
-    function decode(bytes memory _data) internal pure returns (IInbox.ProveInput memory input_) {
+    /// @dev Decodes prove input data using compact packing.
+    function decodeProveInput(bytes memory _data)
+        internal
+        pure
+        returns (IInbox.ProveInput memory input_)
+    {
         uint256 ptr = P.dataPtr(_data);
 
         (input_.commitment.firstProposalId, ptr) = P.unpackUint48(ptr);
@@ -58,10 +103,14 @@ library LibProveInputCodec {
         input_.forceCheckpointSync = forceCheckpointSyncByte != 0;
     }
 
-    /// @dev Calculate the size needed for encoding.
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Calculates the size needed for ProveInput encoding.
     /// @param _numTransitions Number of transitions in the array.
     /// @return size_ Total byte size needed.
-    function _calculateSize(uint256 _numTransitions) private pure returns (uint256 size_) {
+    function _calculateProveInputSize(uint256 _numTransitions) private pure returns (uint256 size_) {
         unchecked {
             // Fixed fields:
             //   firstProposalId: 6 bytes
@@ -73,13 +122,6 @@ library LibProveInputCodec {
             //   transitions array length: 2 bytes
             //   forceCheckpointSync: 1 byte
             // Total fixed: 131 bytes
-            //
-            // Per Transition:
-            //   proposer: 20 bytes
-            //   designatedProver: 20 bytes
-            //   timestamp: 6 bytes
-            //   blockHash: 32 bytes
-            // Total per transition: 78 bytes
             size_ = 131 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
         }
     }

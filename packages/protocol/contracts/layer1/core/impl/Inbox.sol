@@ -7,11 +7,10 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
-import { LibProposeInputCodec } from "../libs/LibProposeInputCodec.sol";
-import { LibProveInputCodec } from "../libs/LibProveInputCodec.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -186,7 +185,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            ProposeInput memory input = LibProposeInputCodec.decode(_data);
+            ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
 
             uint48 nextProposalId = _coreState.nextProposalId;
@@ -239,7 +238,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
             bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
-            ProveInput memory input = LibProveInputCodec.decode(_data);
+            ProveInput memory input = LibCodec.decodeProveInput(_data);
 
             // -------------------------------------------------------------------------------
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
@@ -352,7 +351,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposeInputCodec.encode(_input);
+        return LibCodec.encodeProposeInput(_input);
     }
 
     /// @inheritdoc ICodec
@@ -361,7 +360,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         pure
         returns (IInbox.ProposeInput memory input_)
     {
-        return LibProposeInputCodec.decode(_data);
+        return LibCodec.decodeProposeInput(_data);
     }
 
     /// @inheritdoc ICodec
@@ -370,7 +369,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProveInputCodec.encode(_input);
+        return LibCodec.encodeProveInput(_input);
     }
 
     /// @inheritdoc ICodec
@@ -379,7 +378,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         pure
         returns (IInbox.ProveInput memory input_)
     {
-        return LibProveInputCodec.decode(_data);
+        return LibCodec.decodeProveInput(_data);
     }
 
     /// @inheritdoc ICodec
