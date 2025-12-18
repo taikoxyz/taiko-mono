@@ -110,7 +110,11 @@ library LibCodec {
     /// @dev Calculates the size needed for ProveInput encoding.
     /// @param _numTransitions Number of transitions in the array.
     /// @return size_ Total byte size needed.
-    function _calculateProveInputSize(uint256 _numTransitions) private pure returns (uint256 size_) {
+    function _calculateProveInputSize(uint256 _numTransitions)
+        private
+        pure
+        returns (uint256 size_)
+    {
         unchecked {
             // Fixed fields:
             //   firstProposalId: 6 bytes

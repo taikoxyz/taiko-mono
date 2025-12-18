@@ -219,7 +219,9 @@ contract LibCodecTest is Test {
         bytes memory encoded = LibCodec.encodeProveInput(input);
         IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
 
-        assertEq(decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId");
+        assertEq(
+            decoded.commitment.firstProposalId, input.commitment.firstProposalId, "firstProposalId"
+        );
         assertEq(decoded.commitment.transitions.length, 0, "empty transitions");
     }
 
