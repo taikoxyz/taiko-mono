@@ -26,7 +26,6 @@ import (
 	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
 	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
 	v4 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
-	signalserviceforkrouter "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalserviceforkrouter"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -227,30 +226,13 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		}
 
 		if cfg.SrcSignalServiceAddress == ZeroAddress {
-			router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
-				cfg.SrcSignalServiceForkRouterAddress,
-				srcEthClient,
+			slog.Info("using fork router address for chainDataSynced events",
+				"addr", cfg.SrcSignalServiceForkRouterAddress.Hex(),
 			)
+
+			signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
 			if err != nil {
-				return errors.Wrap(err, "signalserviceforkrouter.NewSignalServiceForkRouter")
-			}
-
-			oldForkAddress, err := router.OldFork(&bind.CallOpts{Context: ctx})
-			if err != nil {
-				return errors.Wrap(err, "signalserviceforkrouter.OldFork")
-			}
-
-			if oldForkAddress != ZeroAddress {
-				slog.Info("setting srcSignalServiceAddress from fork router", "addr", oldForkAddress.Hex())
-
-				signalService, err = signalservice.NewSignalService(oldForkAddress, srcEthClient)
-				if err != nil {
-					return errors.Wrap(err, "signalservice.NewSignalService")
-				}
-			} else {
-				slog.Warn("fork router oldFork is zero; chainDataSynced indexing disabled",
-					"forkRouter", cfg.SrcSignalServiceForkRouterAddress.Hex(),
-				)
+				return errors.Wrap(err, "signalservice.NewSignalService")
 			}
 		}
 	}
