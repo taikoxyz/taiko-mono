@@ -37,7 +37,6 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let builder = ShastaProposalTransactionBuilder::new(
         proposer_client.clone(),
         env.l2_suggested_fee_recipient,
-        0,
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
