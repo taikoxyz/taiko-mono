@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.2.0...ejector-v0.3.0) (2025-12-19)
+
+
+### Features
+
+* **ejector:** add check if L2 is not syncing ([#21034](https://github.com/taikoxyz/taiko-mono/issues/21034)) ([fad36d1](https://github.com/taikoxyz/taiko-mono/commit/fad36d1632b7d3ba14158f2a1ddfb53fb808febe))
+* **ejector:** fix the tick duration and simplify config ([#21037](https://github.com/taikoxyz/taiko-mono/issues/21037)) ([461c662](https://github.com/taikoxyz/taiko-mono/commit/461c66257205105440c769742cdc2c1792cef9c6))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.2...ejector-v0.2.0) (2025-12-15)
 
 
