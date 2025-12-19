@@ -12,7 +12,7 @@ use alloy::{
     rpc::types::TransactionRequest,
 };
 use alloy_network::TransactionBuilder4844;
-use bindings::codec::{IInbox::ProposeInput, LibBlobs::BlobReference};
+use bindings::inbox::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
     constants::MAX_BLOCK_GAS_LIMIT,
@@ -106,7 +106,7 @@ impl ShastaProposalTransactionBuilder {
             .inbox
             .propose(
                 Bytes::new(),
-                self.rpc_provider.shasta.codec.encodeProposeInput(input).call().await?,
+                self.rpc_provider.shasta.inbox.encodeProposeInput(input).call().await?,
             )
             .into_transaction_request()
             .with_blob_sidecar(sidecar);
