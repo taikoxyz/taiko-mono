@@ -663,6 +663,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         emit Proposed(
             _proposal.id,
             _proposal.proposer,
+            _proposal.parentProposalHash,
             _proposal.endOfSubmissionWindowTimestamp,
             _proposal.basefeeSharingPctg,
             _proposal.sources
