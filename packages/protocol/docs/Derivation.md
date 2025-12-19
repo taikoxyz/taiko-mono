@@ -28,7 +28,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting |
 | **designatedProver**   | The prover responsible for proving the block                  |
 | **timestamp**          | The timestamp when the proposal was accepted on L1            |
-| **originBlockNumber**  | The L1 block number in which the proposal was accepted        |
+| **originBlockNumber**  | The L1 block number **just before** the block that emitted the `Proposed` event (event block - 1); used as the upper bound for `anchorBlockNumber` |
 | **proverAuthBytes**    | An ABI-encoded ProverAuth object                              |
 | **basefeeSharingPctg** | The percentage of base fee paid to coinbase                   |
 | **bondInstruction**    | Optional bond debit/credit instruction for late proofs        |
@@ -64,6 +64,7 @@ The metadata preparation process initiates with a subscription to the inbox's `P
 event Proposed(
   uint48 indexed id,
   address indexed proposer,
+  bytes32 parentProposalHash,
   uint48 endOfSubmissionWindowTimestamp,
   uint8 basefeeSharingPctg,
   DerivationSource[] sources
@@ -154,12 +155,7 @@ struct BlockManifest {
 
 ### Proposer and `isLowBondProposal` Validation
 
-To maintain the integrity of the proposal process, the `proposer` address must pass specific validation checks, which include:
-
-- Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
-- Ensuring the proposer is not waiting for exiting.
-
-Should any of these validation checks fail (as determined by the `anchorV4` function returning `isLowBondProposal = true`), the proposer's derivation source is replaced with the default manifest, which contains a single block with only an anchor transaction.
+The proposer must have sufficient L2 BondManager balance; if `anchorV4` flags `isLowBondProposal = true`, the proposer’s derivation source is replaced with the default manifest.
 
 ### Manifest Extraction
 
@@ -293,16 +289,9 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 #### Bond instruction signaling
 
-Sequential proving emits at most one bond instruction for the first proven proposal. When the instruction exists, the L1 inbox:
+Late-proof handling on L1 may emit at most one bond instruction for the first proven proposal. When triggered, the Inbox emits `BondInstructionCreated` and forwards the hash via `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
 
-1. Emits the instruction and its signal hash in the `Proved` event.
-2. Calls `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
-
-Bond settlement happens on L2 by a dedicated bond signal processor that verifies the signal with a proof and applies best-effort debits/credits through the `BondManager`. The anchor call no longer carries bond-related calldata.
-
-Bond instructions are emitted in the `Proposed` event, requiring clients to index these events. This indexing allows for the off-chain aggregation of bond instructions, which are then provided to the anchor transaction as input. Transitions that are proved but not used for finalization will be excluded from the anchor process and should be removed from the index.
-
-A parent proposal L1 transaction may revert, potentially causing the subsequent proposal's anchor transaction to revert due to differing bond instructions. To reduce such reverts, the anchor transaction processes bond instructions from an ancestor proposal that is `BOND_PROCESSING_DELAY` proposals prior to the current one. If `BOND_PROCESSING_DELAY` is set to 1, it effectively processes the parent proposal's instructions.
+Bond instruction settlement is **entirely on L2**: `BondManager.processBondInstruction` will consume the signal, which can be called by everyone.
 
 ### Designated Prover System
 
@@ -327,7 +316,7 @@ struct ProverAuth {
 
 ##### 1. Authentication and Validation
 
-The `_validateProverAuth` function processes prover authentication data with the following steps:
+The `validateProverAuth` function processes prover authentication data with the following steps:
 
 - **Signature Verification**:
   - Validates the `ProverAuth` struct from the provided bytes
@@ -335,16 +324,14 @@ The `_validateProverAuth` function processes prover authentication data with the
   - Verifies the signature against the computed message digest
   - Returns the authenticated prover address and fee information
 
-- **Validation Failures**: If authentication fails (insufficient data length < 225 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
+- **Validation Failures**: If authentication fails (payload too large, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
 ##### 2. Bond Sufficiency Assessment
 
 The system evaluates bond adequacy through multiple checks:
 
 - **Proposer Bond Check**: Verifies if the proposer maintains sufficient L2 bonds to cover the proving fee
-- **Low-Bond Detection**: Sets `metadata.isLowBondProposal = true` when:
-  - The proposer's bond balance falls below the protocol threshold
-  - The proposer is in the process of exiting the system
+- **Low-Bond Detection**: Sets `metadata.isLowBondProposal = true` when the proposer's bond balance falls below the protocol threshold.
 - **Designated Prover Bond Check**: If a different prover is designated, verifies they have sufficient bonds
 
 ##### 3. Prover Assignment Logic
@@ -352,19 +339,42 @@ The system evaluates bond adequacy through multiple checks:
 The final prover assignment follows a hierarchical fallback mechanism:
 
 ```solidity
-if (isLowBondProposal) {
-    // Inherit the parent block's designated prover
-    designatedProver = parent.metadata.designatedProver;
-} else if (designatedProver != proposer && !hasSufficientBond(designatedProver)) {
-    // Fallback to proposer if designated prover lacks bonds
-    designatedProver = proposer;
-} else {
-    // Use the authenticated prover
-    designatedProver = authenticatedProver;
+function getDesignatedProver(
+    uint48 _proposalId,
+    address _proposer,
+    bytes calldata _proverAuth,
+    address _currentDesignatedProver
+)
+    public
+    view
+    returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
+{
+    (address candidate, uint256 provingFee) =
+        validateProverAuth(_proposalId, _proposer, _proverAuth);
+
+    bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFee);
+
+    if (!proposerHasBond) {
+        // Low-bond proposals inherit the last designated prover; if unset (i.e., first ever
+        // proposal), fall back to the proposer to avoid returning address(0).
+        address designatedProver =
+            _currentDesignatedProver == address(0) ? _proposer : _currentDesignatedProver;
+        return (true, designatedProver, 0);
+    }
+
+    if (candidate == _proposer) {
+        return (false, _proposer, 0);
+    }
+
+    if (!bondManager.hasSufficientBond(candidate, 0)) {
+        return (false, _proposer, 0);
+    }
+
+    return (false, candidate, provingFee);
 }
 ```
 
-The assigned prover is stored in contract state and emitted via `ProverDesignated` event.
+The assigned prover is stored in contract state.
 
 #### Low-Bond Proposal Handling
 
@@ -372,7 +382,7 @@ Low-bond proposals present a critical challenge: maintaining chain liveness when
 
 ##### Immediate Mitigations
 
-- **Default Manifest Replacement**: When `isLowBondProposal = true`, the **only the proposer's manifest** is replaced with the default manifest, minimizing proving costs and disincentivizing spam. Forced inclusion manifests are still processed.
+- **Default Manifest Replacement**: When `isLowBondProposal = true`, **only the proposer's manifest** is replaced with the default manifest, minimizing proving costs and disincentivizing spam. Forced inclusion manifests are still processed.
 - **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
 - **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
 
@@ -426,10 +436,7 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 The `proposalId` supplied to `anchorV4` must be the same across blocks in the same proposal and strictly increase only when a new proposal begins.
 
-**Why this is critical**: This check gates proposal-level operations that must execute exactly once per proposal:
-
-1. **Prover designation** - ONE designated prover per proposal
-2. **Bond instruction processing** - Bond instructions must be processed exactly once (enforced by hash chain validation)
+**Why this is critical**: This check gates proposal-level operations that must execute exactly once per proposal, chiefly the **prover designation** (one designated prover per proposal).
 
 ## Metadata Application
 
@@ -477,11 +484,6 @@ The anchor transaction serves as a privileged system transaction responsible for
 | anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber                       |
 | anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber                       |
 
-The function returns:
-
-- `isLowBondProposal` (bool): True if proposer has insufficient bonds
-- `designatedProver` (address): Address of the designated prover
-
 #### Transaction Execution Flow
 
 The anchor transaction executes a carefully orchestrated sequence of operations:
@@ -494,7 +496,6 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state
-   - Emits `ProverDesignated` event
 
 3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointManager.saveCheckpoint`
