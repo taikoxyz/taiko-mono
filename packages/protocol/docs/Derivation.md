@@ -323,7 +323,7 @@ The `validateProverAuth` function processes prover authentication data with the 
   - Verifies the signature against the computed message digest
   - Returns the authenticated prover address and fee information
 
-- **Validation Failures**: If authentication fails (payload too large, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
+- **Validation Failures**: If authentication fails (data length > 4096 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
 ##### 2. Bond Sufficiency Assessment
 
