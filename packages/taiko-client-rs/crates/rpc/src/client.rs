@@ -11,9 +11,7 @@ use alloy_provider::{
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
-use bindings::{
-    anchor::Anchor::AnchorInstance, codec::Codec::CodecInstance, inbox::Inbox::InboxInstance,
-};
+use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
@@ -33,8 +31,6 @@ pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWall
 pub struct ShastaProtocolInstance<P: Provider + Clone> {
     /// Inbox contract instance on L1.
     pub inbox: InboxInstance<P>,
-    /// Codec contract instance for proposal/prove input encoding.
-    pub codec: CodecInstance<P>,
     /// Anchor contract instance on L2 (auth provider).
     pub anchor: AnchorInstance<RootProvider>,
 }
@@ -57,7 +53,7 @@ pub struct Client<P: Provider + Clone> {
     pub l2_provider: RootProvider,
     /// L2 authenticated provider for engine/anchor interactions.
     pub l2_auth_provider: RootProvider,
-    /// Shasta protocol contract bundle (Inbox/Codec/Anchor).
+    /// Shasta protocol contract bundle (Inbox/Anchor).
     pub shasta: ShastaProtocolInstance<P>,
 }
 
@@ -105,7 +101,6 @@ impl<P: Provider + Clone> Client<P> {
             build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
-        let codec = CodecInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
         let anchor = AnchorInstance::new(
             get_treasury_address(l2_provider.get_chain_id().await?),
             l2_auth_provider.clone(),
@@ -113,12 +108,11 @@ impl<P: Provider + Clone> Client<P> {
 
         info!(
             inbox_address = ?config.inbox_address,
-            codec_address = ?codec.address(),
             anchor_address = ?anchor.address(),
             "Shasta protocol contract addresses"
         );
 
-        let shasta = ShastaProtocolInstance { inbox, codec, anchor };
+        let shasta = ShastaProtocolInstance { inbox, anchor };
 
         Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
     }
