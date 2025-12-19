@@ -226,7 +226,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 			return errors.Wrap(err, "signalservice.NewSignalService")
 		}
 
-		if signalService == nil {
+		if cfg.SrcSignalServiceAddress == ZeroAddress {
 			router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
 				cfg.SrcSignalServiceForkRouterAddress,
 				srcEthClient,
