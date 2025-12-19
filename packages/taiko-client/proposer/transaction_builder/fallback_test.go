@@ -171,6 +171,5 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 		true,
 		blobAllowed,
 		fallback,
-		0,
 	)
 }
