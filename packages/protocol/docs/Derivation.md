@@ -95,7 +95,7 @@ The following metadata fields are extracted directly from the event payload:
 The `proposal.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
 - **Forced inclusion submitters** publish their `DerivationSourceManifest` blob on L1 directly as blobs.
-- **The proposer** gathers every required derivation source—both their own blocks and any outstanding forced inclusions—and publishes a single `ProposalManifest` within their own `DerivationSource` (**appended last**). The inbox contract guarantees that forced inclusions are proposed as they were posted(without metadata being maniupalted).
+- **The proposer** gathers every required derivation source—both their own blocks and any outstanding forced inclusions—and publishes a single `ProposalManifest` within their own `DerivationSource` (**appended last**). The inbox contract guarantees that forced inclusions are proposed as they were posted (without metadata being manipulated).
 
 The manifest data structures are defined as follows:
 
