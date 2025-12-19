@@ -272,18 +272,16 @@ func (p *Processor) processMessage(
 	return false, msgBody.TimesRetried, nil
 }
 
-// generateEncodedSignalProof takes a MessageSent event and calls a
-// proof generation service to generate a proof for the source call
-// as well as any additional hops required.
-func (p *Processor) generateEncodedSignalProof(ctx context.Context,
-	event *bridge.BridgeMessageSent) ([]byte, error) {
-	var encodedSignalProof []byte
+func (p *Processor) generateEncodedSignalProofForSignal(
+	ctx context.Context,
+	srcChainID uint64,
+	app common.Address,
+	signal [32]byte,
+	blockNumber uint64,
+) ([]byte, error) {
+	blockNum := blockNumber
 
-	var err error
-
-	var blockNum = event.Raw.BlockNumber
-
-	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, event.Raw.BlockNumber)
+	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +314,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 		blockNum = event.SyncedInBlockID
 	} else {
-		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
+		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), blockNumber); err != nil {
 			return nil, err
 		}
 	}
@@ -325,12 +323,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	key, err := signalService.GetSignalSlot(&bind.CallOpts{
 		Context: ctx,
-	},
-		event.Message.SrcChainId,
-		event.Raw.Address,
-		event.MsgHash,
-	)
-
+	}, srcChainID, app, signal)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +339,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 		if latestBlockID == 0 {
 			latestBlockID = blockNum
-			slog.Warn("no synced header found; using message block number",
+			slog.Warn("no synced header found; using signal block number",
 				"fallbackBlockNum", latestBlockID,
 				"srcChainId", p.srcChainId.Uint64(),
 				"destChainId", p.destChainId.Uint64(),
@@ -416,11 +409,21 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		})
 	}
 
-	encodedSignalProof, err = p.prover.EncodedSignalProofWithHops(
-		ctx,
-		hops,
-	)
+	return p.prover.EncodedSignalProofWithHops(ctx, hops)
+}
 
+// generateEncodedSignalProof takes a MessageSent event and calls a
+// proof generation service to generate a proof for the source call
+// as well as any additional hops required.
+func (p *Processor) generateEncodedSignalProof(ctx context.Context,
+	event *bridge.BridgeMessageSent) ([]byte, error) {
+	encodedSignalProof, err := p.generateEncodedSignalProofForSignal(
+		ctx,
+		event.Message.SrcChainId,
+		event.Raw.Address,
+		event.MsgHash,
+		event.Raw.BlockNumber,
+	)
 	if err != nil {
 		slog.Error("error encoding hop proof",
 			"srcChainID", event.Message.SrcChainId,
@@ -431,7 +434,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"srcOwner", event.Message.SrcOwner.Hex(),
 			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
-			"hopsLength", len(hops),
+			"hopsLength", len(p.hops),
 		)
 
 		return nil, err

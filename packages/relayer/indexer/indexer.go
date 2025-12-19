@@ -29,6 +29,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
+	shasta "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 var (
@@ -102,6 +103,7 @@ type Indexer struct {
 	taikol1      *taikol1.TaikoL1
 	taikoL1V2    *v2.TaikoL1
 	taikoInboxV3 *v3.TaikoInbox
+	shastaInbox  *shasta.ShastaInboxClient
 
 	queue queue.Queue
 
@@ -143,6 +145,11 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // InitFromConfig inits a new Indexer from a provided Config struct
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
+	if cfg.EventName == relayer.EventNameBondInstructionCreated &&
+		cfg.SrcTaikoAddress == ZeroAddress {
+		return fmt.Errorf("srcTaikoAddress is required for event %s", relayer.EventNameBondInstructionCreated)
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
@@ -184,6 +191,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	var taikoL1V2 *v2.TaikoL1
 
 	var taikoInboxV3 *v3.TaikoInbox
+	var shastaInbox *shasta.ShastaInboxClient
 
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
@@ -201,6 +209,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		taikoInboxV3, err = v3.NewTaikoInbox(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "v3.NewTaikoInbox")
+		}
+
+		shastaInbox, err = shasta.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "shasta.NewShastaInboxClient")
 		}
 	}
 
@@ -246,6 +259,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.taikol1 = taikoL1
 	i.taikoL1V2 = taikoL1V2
 	i.taikoInboxV3 = taikoInboxV3
+	i.shastaInbox = shastaInbox
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)
@@ -447,6 +461,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 					}
 				}
 
+				if i.signalServiceV4 != nil {
+					if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
+						slog.Error("i.indexCheckpointSavedEvents", "error", err)
+						relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
+					}
+				}
+			}
+		case relayer.EventNameBondInstructionCreated:
+			if err := i.withRetry(func() error { return i.indexBondInstructionCreatedEvents(ctx, filterOpts) }); err != nil {
+				slog.Error("i.indexBondInstructionCreatedEvents", "error", err)
+			}
+
+			if i.watchMode != CrawlPastBlocks {
 				if i.signalServiceV4 != nil {
 					if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
 						slog.Error("i.indexCheckpointSavedEvents", "error", err)
