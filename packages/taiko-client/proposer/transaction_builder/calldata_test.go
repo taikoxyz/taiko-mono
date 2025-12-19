@@ -54,7 +54,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		10_000_000,
 		chainConfig,
 		false,
-		0,
 	)
 
 	for i := 0; i < 100; i++ {
