@@ -1066,11 +1066,12 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
 	log.Info(
 		"Params for Shasta base fee calculation",
-		"parentBlockNumber", l2Head.Number,
-		"parentGasLimit", l2Head.GasLimit,
-		"parentGasUsed", l2Head.GasUsed,
-		"parentBaseFee", l2Head.BaseFee,
-		"parentTime", l2Head.Time-parentBlock.Time,
+		"parentBlockNumber", parentBlock.Number,
+		"parentGasLimit", parentBlock.GasLimit,
+		"parentGasUsed", parentBlock.GasUsed,
+		"parentBaseFee", parentBlock.BaseFee,
+		"parentTimestamp", parentBlock.Time,
+		"timeDelta", l2Head.Time-parentBlock.Time,
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
 		"shastaForkTime", c.ShastaClients.ForkTime,
