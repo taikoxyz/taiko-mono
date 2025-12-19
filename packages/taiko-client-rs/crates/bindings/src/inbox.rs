@@ -4467,7 +4467,7 @@ interface Inbox {
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Paused(address account);
-    event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, IInbox.DerivationSource[] sources);
+    event Proposed(uint48 indexed id, address indexed proposer, bytes32 parentProposalHash, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, IInbox.DerivationSource[] sources);
     event Proved(uint48 firstProposalId, uint48 firstNewProposalId, uint48 lastProposalId, address indexed actualProver, bool checkpointSynced);
     event Unpaused(address account);
     event Upgraded(address indexed implementation);
@@ -5804,6 +5804,12 @@ interface Inbox {
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "parentProposalHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       },
       {
         "name": "endOfSubmissionWindowTimestamp",
@@ -8817,9 +8823,9 @@ event Paused(address account);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Event with signature `Proposed(uint48,address,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])` and selector `0x2f9b2be1d008f45c6acd1ecb40656e6d37a000996720a67478bfe2e37c5d1292`.
+    /**Event with signature `Proposed(uint48,address,bytes32,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])` and selector `0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213`.
 ```solidity
-event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, IInbox.DerivationSource[] sources);
+event Proposed(uint48 indexed id, address indexed proposer, bytes32 parentProposalHash, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, IInbox.DerivationSource[] sources);
 ```*/
     #[allow(
         non_camel_case_types,
@@ -8833,6 +8839,8 @@ event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissi
         pub id: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub proposer: alloy::sol_types::private::Address,
+        #[allow(missing_docs)]
+        pub parentProposalHash: alloy::sol_types::private::FixedBytes<32>,
         #[allow(missing_docs)]
         pub endOfSubmissionWindowTimestamp: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
@@ -8853,6 +8861,7 @@ event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissi
         #[automatically_derived]
         impl alloy_sol_types::SolEvent for Proposed {
             type DataTuple<'a> = (
+                alloy::sol_types::sol_data::FixedBytes<32>,
                 alloy::sol_types::sol_data::Uint<48>,
                 alloy::sol_types::sol_data::Uint<8>,
                 alloy::sol_types::sol_data::Array<IInbox::DerivationSource>,
@@ -8865,11 +8874,11 @@ event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissi
                 alloy::sol_types::sol_data::Uint<48>,
                 alloy::sol_types::sol_data::Address,
             );
-            const SIGNATURE: &'static str = "Proposed(uint48,address,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])";
+            const SIGNATURE: &'static str = "Proposed(uint48,address,bytes32,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])";
             const SIGNATURE_HASH: alloy_sol_types::private::B256 = alloy_sol_types::private::B256::new([
-                47u8, 155u8, 43u8, 225u8, 208u8, 8u8, 244u8, 92u8, 106u8, 205u8, 30u8,
-                203u8, 64u8, 101u8, 110u8, 109u8, 55u8, 160u8, 0u8, 153u8, 103u8, 32u8,
-                166u8, 116u8, 120u8, 191u8, 226u8, 227u8, 124u8, 93u8, 18u8, 146u8,
+                124u8, 76u8, 69u8, 35u8, 225u8, 117u8, 51u8, 228u8, 81u8, 223u8, 21u8,
+                118u8, 42u8, 9u8, 62u8, 6u8, 147u8, 162u8, 205u8, 139u8, 39u8, 159u8,
+                229u8, 76u8, 108u8, 211u8, 119u8, 126u8, 213u8, 119u8, 18u8, 19u8,
             ]);
             const ANONYMOUS: bool = false;
             #[allow(unused_variables)]
@@ -8881,9 +8890,10 @@ event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissi
                 Self {
                     id: topics.1,
                     proposer: topics.2,
-                    endOfSubmissionWindowTimestamp: data.0,
-                    basefeeSharingPctg: data.1,
-                    sources: data.2,
+                    parentProposalHash: data.0,
+                    endOfSubmissionWindowTimestamp: data.1,
+                    basefeeSharingPctg: data.2,
+                    sources: data.3,
                 }
             }
             #[inline]
@@ -8904,6 +8914,9 @@ event Proposed(uint48 indexed id, address indexed proposer, uint48 endOfSubmissi
             #[inline]
             fn tokenize_body(&self) -> Self::DataToken<'_> {
                 (
+                    <alloy::sol_types::sol_data::FixedBytes<
+                        32,
+                    > as alloy_sol_types::SolType>::tokenize(&self.parentProposalHash),
                     <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::SolType>::tokenize(
@@ -16531,11 +16544,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 132u8, 14u8, 32u8, 126u8, 92u8, 8u8, 155u8, 233u8, 93u8, 62u8,
             ],
             [
-                47u8, 155u8, 43u8, 225u8, 208u8, 8u8, 244u8, 92u8, 106u8, 205u8, 30u8,
-                203u8, 64u8, 101u8, 110u8, 109u8, 55u8, 160u8, 0u8, 153u8, 103u8, 32u8,
-                166u8, 116u8, 120u8, 191u8, 226u8, 227u8, 124u8, 93u8, 18u8, 146u8,
-            ],
-            [
                 56u8, 209u8, 107u8, 140u8, 172u8, 34u8, 217u8, 159u8, 199u8, 193u8, 36u8,
                 185u8, 205u8, 13u8, 226u8, 211u8, 250u8, 31u8, 174u8, 244u8, 32u8, 191u8,
                 231u8, 145u8, 216u8, 195u8, 98u8, 215u8, 101u8, 226u8, 39u8, 0u8,
@@ -16549,6 +16557,11 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
                 98u8, 231u8, 140u8, 234u8, 1u8, 190u8, 227u8, 32u8, 205u8, 78u8, 66u8,
                 2u8, 112u8, 181u8, 234u8, 116u8, 0u8, 13u8, 17u8, 176u8, 201u8, 247u8,
                 71u8, 84u8, 235u8, 219u8, 252u8, 84u8, 75u8, 5u8, 162u8, 88u8,
+            ],
+            [
+                124u8, 76u8, 69u8, 35u8, 225u8, 117u8, 51u8, 228u8, 81u8, 223u8, 21u8,
+                118u8, 42u8, 9u8, 62u8, 6u8, 147u8, 162u8, 205u8, 139u8, 39u8, 159u8,
+                229u8, 76u8, 108u8, 211u8, 119u8, 126u8, 213u8, 119u8, 18u8, 19u8,
             ],
             [
                 124u8, 160u8, 241u8, 227u8, 0u8, 153u8, 72u8, 140u8, 78u8, 226u8, 78u8,
