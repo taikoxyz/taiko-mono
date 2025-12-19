@@ -29,10 +29,9 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **designatedProver**   | The prover responsible for proving the block                  |
 | **timestamp**          | The timestamp when the proposal was accepted on L1            |
 | **originBlockNumber**  | The L1 block number **just before** the proposal was accepted |
+| **originBlockHash**    | The hash of `originBlockNumber` block                              |
 | **proverAuthBytes**    | An ABI-encoded ProverAuth object                              |
 | **basefeeSharingPctg** | The percentage of base fee paid to coinbase                   |
-| **bondInstruction**    | Optional bond debit/credit instruction for late proofs        |
-| **bondSignal**         | Signal hash emitted via the SignalService when a bond exists  |
 
 ### Derivation Source-level Metadata
 
@@ -73,7 +72,7 @@ event Proposed(
 
 The other fields can be derived by querying the contract:
 
-- `timestamp` and `originBlockHash/Number` come from the L1 block that emitted the log.
+- `timestamp` comes from the L1 block that emitted the log; `originBlockHash/Number` come from its parent block (event block - 1).
 - `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
 
 The following metadata fields are extracted directly from the event payload:
@@ -223,7 +222,7 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 #### Forced Inclusion Submission Requirements
 
-Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields must be set to zero, allowing the protocol to assign appropriate values:
+Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields are ignored and replaced by inherited values from the parent/proposer during metadata application:
 
 | Field               | Value                                                           |
 | ------------------- | --------------------------------------------------------------- |
@@ -235,7 +234,7 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
-If any of `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is non-zero, the decoder overwrites that field with zero so the derivation source remains valid rather than being downgraded to the default manifest.
+Any non-zero `gasLimit`, `coinbase`, `anchorBlockNumber`, or `timestamp` is overwritten during metadata application with inherited proposer/parent values, keeping the source valid and avoiding a fallback to the default manifest.
 
 ### Metadata Validation and Computation
 
