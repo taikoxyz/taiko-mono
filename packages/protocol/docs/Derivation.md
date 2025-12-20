@@ -178,7 +178,7 @@ defaultSource.blocks = new BlockManifest[](1);  // Single block
 
 | Field               | Value                                                           |
 | ------------------- | --------------------------------------------------------------- |
-| `timestamp`         | Ignored; metadata application overwrites it with the computed lower bound (see [`timestamp` validation](#timestamp-validation) for the exact rule). |
+| `timestamp`         | Protocol applies the timestamp validation lower bound afterward (see [`timestamp` validation](#timestamp-validation) for the exact rule). |
 | `coinbase`          | Protocol substitutes `proposal.proposer`                        |
 | `anchorBlockNumber` | Protocol inherits from the parent block                         |
 | `gasLimit`          | Protocol inherits from the parent block                         |
