@@ -20,7 +20,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
     address public immutable anchor;
     address public immutable bridge;
 
-    constructor(address _unifiedSlasher, address _anchor, address _bridge) EssentialContract() {
+    constructor(address _unifiedSlasher, address _anchor, address _bridge) {
         unifiedSlasher = _unifiedSlasher;
         anchor = _anchor;
         bridge = _bridge;
