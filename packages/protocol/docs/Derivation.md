@@ -70,7 +70,7 @@ event Proposed(
 );
 ```
 
-The other fields can be derived by querying the contract:
+The other fields can be derived by querying the L1 and the inbox contract:
 
 - `timestamp` comes from the L1 block that emitted the log; `originBlockHash/Number` come from its parent block (event block - 1).
 - `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
