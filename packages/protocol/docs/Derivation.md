@@ -73,7 +73,6 @@ The following metadata fields are extracted directly from the event payload:
 | ----------------------------------------- | ---------------------------------------- |
 | `metadata.id`                             | `payload.id`                             |
 | `metadata.proposer`                       | `payload.proposer`                       |
-| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp` |
 | `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
 
 **Derivation source-level assignments (for source `i`):**
