@@ -28,7 +28,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting |
 | **designatedProver**   | The prover responsible for proving the block                  |
 | **timestamp**          | The timestamp when the proposal was accepted on L1            |
-| **originBlockNumber**  | The L1 block number **just before** the proposal was accepted |
+| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
 | **originBlockHash**    | The hash of `originBlockNumber` block                         |
 | **proverAuthBytes**    | An ABI-encoded ProverAuth object                              |
 | **basefeeSharingPctg** | The percentage of base fee paid to coinbase                   |
