@@ -81,9 +81,10 @@ The following metadata fields are extracted directly from the event payload:
 | ---------------------------- | -------------------------------------- |
 | `metadata.isForcedInclusion` | `payload.sources[i].isForcedInclusion` |
 
-The `proposal.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
+The `sources` array in the `Proposed` event (`payload.sources`) contains `DerivationSource` objects (see
+[`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L47-L53)). Each source includes a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
-- **Forced inclusion submitters** publish blob data for a `DerivationSourceManifest` and then call `Inbox.saveForcedInclusion(blobReference);` the inbox stores the resulting `blobSlice` in a queue.
+- **Forced inclusion submitters** publish blob data for a `DerivationSourceManifest` and call `Inbox.saveForcedInclusion(blobReference)`; the inbox stores the resulting `blobSlice` in a queue.
 - **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues that many forced inclusions and appends the proposer's source **last**.
 
 The manifest data structures are defined as follows:
@@ -91,8 +92,10 @@ The manifest data structures are defined as follows:
 ```solidity
 /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
+/// The ProposalManifest is conceptual and used at derivation time only (i.e. it is not posted in blobs).
 struct ProposalManifest {
   /// @notice Prover authentication data (proposal-level).
+  /// @dev Retrieved from the proposer's derivation source manifest (the last manifest in `sources`).
   bytes proverAuthBytes;
   /// @notice Array of derivation source manifests (one per derivation source).
   DerivationSourceManifest[] sources;
@@ -113,8 +116,7 @@ struct BlockManifest {
   uint48 timestamp;
   /// @notice The coinbase of the block.
   address coinbase;
-  /// @notice The anchor block number. This field can be zero, if so, this block will use the
-  /// most recent anchor in a previous block.
+  /// @notice The anchor block number. If set to zero, it will use the parent's anchor.
   uint48 anchorBlockNumber;
   /// @notice The block's gas limit.
   uint48 gasLimit;
@@ -143,7 +145,7 @@ struct SignedTransaction {
 
 ### Proposer and `isLowBondProposal` Validation
 
-The proposer must have sufficient L2 BondManager balance; if `anchorV4` flags `isLowBondProposal = true`, the proposer’s derivation source is replaced with the default manifest.
+The proposer must have sufficient balance in the L2 [`BondManager`](../contracts/layer2/core/BondManager.sol) contract. If the `anchorV4` transaction flags `isLowBondProposal = true`, the proposer’s derivation source is replaced with the default source manifest.
 
 ### Manifest Extraction
 
@@ -198,7 +200,7 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 #### Forced Inclusion Submission Requirements
 
-Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest`rules are applied:
+Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` rules are applied:
 
 | Field               | Value                                                                                                                                               |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -266,119 +268,41 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 Late-proof handling on L1 may emit at most one bond instruction for the first proven proposal. When triggered, the Inbox emits `BondInstructionCreated` and forwards the hash via `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
 
-Bond instruction settlement is **entirely on L2**: `BondManager.processBondInstruction` will consume the signal, which can be called by everyone.
+Bond instruction settlement is **entirely on L2** and not part of the derivation process. [`BondManager.processBondInstruction`](../contracts/layer2/core/BondManager.sol#L180-L219) consumes the signals emitted on the L1 and can be called by anyone. It has its own incentive system to incentivize slashing faulty provers.
 
 ### Designated Prover System
 
-The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `anchorV4` function in ShastaAnchor, which manages prover designation on the first block of each proposal.
+The designated prover system ensures every proposal has a responsible prover. It is implemented in the L2
+[`Anchor`](../contracts/layer2/core/Anchor.sol) contract and runs inside `anchorV4` on the first block of each
+proposal.
 
-The `ProverAuth` structure used in Shasta for prover authentication:
+#### ProverAuth Payload
 
-```solidity
-/// @notice Structure for prover authentication
-/// @dev Used in the proverAuthBytes field of ProposalManifest (proposal-level)
-struct ProverAuth {
-  uint48 proposalId;
-  address proposer;
-  uint256 provingFee; // denominated in Wei
-  bytes signature;
-}
-```
+The `proverAuthBytes` value is proposal-level data. During derivation, `proposalManifest.proverAuthBytes` is
+taken from the proposer's derivation source manifest (the last manifest in `sources`) and passed as
+`proposalParams.proverAuth` in `anchorV4`.
 
-#### Prover Designation Process
+Although `anchorV4` only processes proposal-level parameters when `proposalId` increases, later blocks must
+still include the same `proposalId`, `proposer`, and `proverAuth` bytes so the anchor transaction calldata
+(and thus the derived block) is deterministic.
 
-**Proposal-Level Prover Authentication**: The `proverAuthBytes` field in the `ProposalManifest` is proposal-level data, meaning there is ONE designated prover per proposal (shared across all `DerivationSourceManifest` objects in the `sources[]` array). This field is processed only once when a block belonging to a strictly higher `proposalId` arrives; the same `proverAuthBytes` payload must still be supplied for subsequent blocks of that proposal, but it will be ignored.
+#### Prover Designation
 
-##### 1. Authentication and Validation
+The canonical implementation lives in
+[`Anchor.validateProverAuth`](../contracts/layer2/core/Anchor.sol#L327-L370) and
+[`Anchor.getDesignatedProver`](../contracts/layer2/core/Anchor.sol#L264-L296) and can be summarized as:
 
-The `validateProverAuth` function processes prover authentication data with the following steps:
-
-- **Signature Verification**:
-  - Validates the `ProverAuth` struct from the provided bytes
-  - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFee`, and ECDSA `signature`
-  - Verifies the signature against the computed message digest
-  - Returns the authenticated prover address and fee information
-
-- **Validation Failures**: If authentication fails (data length > 4096 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
-
-##### 2. Bond Sufficiency Assessment
-
-The system evaluates bond adequacy through multiple checks:
-
-- **Proposer Bond Check**: Verifies if the proposer maintains sufficient L2 bonds to cover the proving fee
-- **Low-Bond Detection**: Sets `metadata.isLowBondProposal = true` when the proposer's bond balance falls below the protocol threshold.
-- **Designated Prover Bond Check**: If a different prover is designated, verifies they have sufficient bonds
-
-##### 3. Prover Assignment Logic
-
-The final prover assignment follows a hierarchical fallback mechanism:
-
-```solidity
-function getDesignatedProver(
-    uint48 _proposalId,
-    address _proposer,
-    bytes calldata _proverAuth,
-    address _currentDesignatedProver
-)
-    public
-    view
-    returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
-{
-    (address candidate, uint256 provingFee) =
-        validateProverAuth(_proposalId, _proposer, _proverAuth);
-
-    bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFee);
-
-    if (!proposerHasBond) {
-        // Low-bond proposals inherit the last designated prover; if unset (i.e., first ever
-        // proposal), fall back to the proposer to avoid returning address(0).
-        address designatedProver =
-            _currentDesignatedProver == address(0) ? _proposer : _currentDesignatedProver;
-        return (true, designatedProver, 0);
-    }
-
-    if (candidate == _proposer) {
-        return (false, _proposer, 0);
-    }
-
-    if (!bondManager.hasSufficientBond(candidate, 0)) {
-        return (false, _proposer, 0);
-    }
-
-    return (false, candidate, provingFee);
-}
-```
-
-The assigned prover is stored in contract state.
+- If `proverAuth` is invalid, fall back to the proposer with zero proving fee. Invalid prover auth does not
+  trigger default manifest replacement.
+- If the proposer lacks sufficient bond for the proving fee, flag `isLowBondProposal = true` and inherit the
+  previous `designatedProver` (falling back to the proposer if unset).
+- Otherwise, designate the authenticated prover (or the proposer) and transfer the proving fee when
+  applicable.
 
 #### Low-Bond Proposal Handling
 
-Low-bond proposals present a critical challenge: maintaining chain liveness when proposers lack sufficient bonds. The system implements several mitigation strategies:
-
-##### Immediate Mitigations
-
-- **Default Manifest Replacement**: When `isLowBondProposal = true`, **only the proposer's manifest** is replaced with the default manifest, minimizing proving costs and disincentivizing spam. Forced inclusion manifests are still processed.
-- **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
-- **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
-
-##### Economic Incentives and Penalties
-
-- **Unpaid Proving**: The inherited prover must prove low-bond proposals without earning fees
-- **Liveness Bonds**: Failure to prove results in liveness bond penalties
-- **Penalty Redistribution**: Forfeited bonds can incentivize other provers to step in
-
-##### System Implications
-
-The current design creates an asymmetric burden where the last legitimate designated prover may need to prove multiple low-bond proposals without compensation. This ensures chain liveness but raises fairness concerns during sustained attacks.
-
-#### Future Improvements
-
-Several enhancements are under consideration to address current limitations:
-
-- **Prover Rotation**: Distribute low-bond proving responsibility across multiple provers using round-robin or stake-weighted selection
-- **Reward Pool**: Establish a dedicated fund for compensating low-bond proposal proving
-- **Dynamic Thresholds**: Adjust bond requirements based on network conditions and attack patterns
-- **Alternative Finality**: Explore mechanisms that ensure chain progress without overburdening individual provers
+When `isLowBondProposal = true`, off-chain derivation replaces only the proposer's derivation source with the
+default source manifest; forced inclusion sources are still processed.
 
 ### Additional Metadata Fields
 
