@@ -83,8 +83,8 @@ The following metadata fields are extracted directly from the event payload:
 
 The `proposal.sources` array contains `DerivationSource` objects, each with a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
-- **Forced inclusion submitters** publish their `DerivationSourceManifest` blob on L1 directly as blobs.
-- **The proposer** gathers every required derivation source—both their own blocks and any outstanding forced inclusions—and publishes a single `ProposalManifest` within their own `DerivationSource` (**appended last**). The inbox contract guarantees that forced inclusions are proposed as they were posted (without metadata being manipulated).
+- **Forced inclusion submitters** publish blob data for a `DerivationSourceManifest` and then call `Inbox.saveForcedInclusion(blobReference);` the inbox stores the resulting `blobSlice` in a queue.
+- **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues that many forced inclusions and appends the proposer's source **last**.
 
 The manifest data structures are defined as follows:
 
@@ -147,22 +147,10 @@ The proposer must have sufficient L2 BondManager balance; if `anchorV4` flags `i
 
 ### Manifest Extraction
 
-The `BlobSlice` struct is defined as:
-
-```solidity
-/// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
-/// encoded as a bytes32 at the offset location.
-struct BlobSlice {
-  /// @notice The blobs containing the proposal's content.
-  bytes32[] blobHashes;
-  /// @notice The byte offset of the proposal's content in the containing blobs.
-  uint24 offset;
-  /// @notice The timestamp when the frame was created.
-  uint48 timestamp;
-}
-```
-
-The `BlobSlice` struct represents binary data distributed across multiple blobs. `DerivationSource` entries are processed sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final manifest and cross-check data integrity.
+The `BlobSlice` struct (used in [`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L47-L53))
+represents binary data distributed across multiple blobs. `DerivationSource` entries are processed
+sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final
+manifest and cross-check data integrity.
 
 #### Per-Source Manifest Extraction
 
@@ -191,7 +179,7 @@ defaultSource.blocks = new BlockManifest[](1);  // Single block
 
 | Field               | Value                                                           |
 | ------------------- | --------------------------------------------------------------- |
-| `timestamp`         | Protocol applies the timestamp validation lower bound afterward |
+| `timestamp`         | Ignored; metadata application overwrites it with the computed lower bound (see [`timestamp` validation](#timestamp-validation) for the exact rule). |
 | `coinbase`          | Protocol substitutes `proposal.proposer`                        |
 | `anchorBlockNumber` | Protocol inherits from the parent block                         |
 | `gasLimit`          | Protocol inherits from the parent block                         |
@@ -215,7 +203,7 @@ Users submit forced inclusion transactions directly to L1 by posting blob data c
 
 | Field               | Value                                                           |
 | ------------------- | --------------------------------------------------------------- |
-| `timestamp`         | Protocol applies the timestamp validation lower bound afterward |
+| `timestamp`         | Ignored; metadata application overwrites it with the computed lower bound (see [`timestamp` validation](#timestamp-validation) for the exact rule). |
 | `coinbase`          | Protocol substitutes `proposal.proposer`                        |
 | `anchorBlockNumber` | Protocol inherits from the parent block                         |
 | `gasLimit`          | Protocol inherits from the parent block                         |
