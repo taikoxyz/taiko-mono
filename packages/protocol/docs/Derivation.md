@@ -211,7 +211,7 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 #### Forced Inclusion Submission Requirements
 
-Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest` fields are ignored and replaced by inherited values from the parent/proposer during metadata application:
+Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest`rules are applied:
 
 | Field               | Value                                                           |
 | ------------------- | --------------------------------------------------------------- |
