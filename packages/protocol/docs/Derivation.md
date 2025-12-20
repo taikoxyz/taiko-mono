@@ -26,7 +26,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **id**                 | A unique, sequential identifier for the proposal              |
 | **proposer**           | The address that proposed the proposal                        |
 | **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting |
-| **designatedProver**   | The prover responsible for proving the block                  |
+| **designatedProver**   | The prover responsible for proving the proposal               |
 | **timestamp**          | The timestamp when the proposal was accepted on L1            |
 | **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
 | **originBlockHash**    | The hash of `originBlockNumber` block                         |
@@ -57,18 +57,8 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ## Metadata Preparation
 
-The metadata preparation process initiates with a subscription to the inbox's `Proposed` event.
-
-```solidity
-event Proposed(
-  uint48 indexed id,
-  address indexed proposer,
-  bytes32 parentProposalHash,
-  uint48 endOfSubmissionWindowTimestamp,
-  uint8 basefeeSharingPctg,
-  DerivationSource[] sources
-);
-```
+The metadata preparation process initiates with a subscription to the inbox's `Proposed` event (see
+[`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L174-L188)).
 
 The other fields can be derived by querying the L1 and the inbox contract:
 
