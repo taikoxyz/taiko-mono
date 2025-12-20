@@ -147,10 +147,9 @@ The proposer must have sufficient L2 BondManager balance; if `anchorV4` flags `i
 
 ### Manifest Extraction
 
-The `BlobSlice` struct (used in [`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L47-L53))
-represents binary data distributed across multiple blobs. `DerivationSource` entries are processed
-sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final
-manifest and cross-check data integrity.
+The `BlobSlice` struct is defined in [`LibBlobs.BlobSlice`](../contracts/layer1/core/libs/LibBlobs.sol#L19-L28).
+
+The `BlobSlice` struct represents binary data distributed across multiple blobs. `DerivationSource` entries are processed sequentially—forced inclusions first, followed by the proposer’s source—to reassemble the final manifest and cross-check data integrity.
 
 #### Per-Source Manifest Extraction
 
