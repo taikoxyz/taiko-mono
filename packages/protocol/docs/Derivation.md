@@ -21,17 +21,17 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component** | **Description**                                               |
-| ---------------------- | ------------------------------------------------------------- |
-| **id**                 | A unique, sequential identifier for the proposal              |
-| **proposer**           | The address that proposed the proposal                        |
-| **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting |
-| **designatedProver**   | The prover responsible for proving the proposal               |
-| **timestamp**          | The timestamp when the proposal was accepted on L1            |
+| **Metadata Component** | **Description**                                                         |
+| ---------------------- | ----------------------------------------------------------------------- |
+| **id**                 | A unique, sequential identifier for the proposal                        |
+| **proposer**           | The address that proposed the proposal                                  |
+| **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting           |
+| **designatedProver**   | The prover responsible for proving the proposal                         |
+| **timestamp**          | The timestamp when the proposal was accepted on L1                      |
 | **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
-| **originBlockHash**    | The hash of `originBlockNumber` block                         |
-| **proverAuthBytes**    | An ABI-encoded ProverAuth object                              |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                   |
+| **originBlockHash**    | The hash of `originBlockNumber` block                                   |
+| **proverAuthBytes**    | An ABI-encoded ProverAuth object                                        |
+| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                             |
 
 ### Derivation Source-level Metadata
 
@@ -69,11 +69,11 @@ The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                            | Value Assignment                         |
-| ----------------------------------------- | ---------------------------------------- |
-| `metadata.id`                             | `payload.id`                             |
-| `metadata.proposer`                       | `payload.proposer`                       |
-| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
+| Metadata Field                | Value Assignment             |
+| ----------------------------- | ---------------------------- |
+| `metadata.id`                 | `payload.id`                 |
+| `metadata.proposer`           | `payload.proposer`           |
+| `metadata.basefeeSharingPctg` | `payload.basefeeSharingPctg` |
 
 **Derivation source-level assignments (for source `i`):**
 
@@ -89,24 +89,6 @@ The `proposal.sources` array contains `DerivationSource` objects, each with a `b
 The manifest data structures are defined as follows:
 
 ```solidity
-/// @notice Represents a signed Ethereum transaction
-/// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
-struct SignedTransaction {
-  uint8 txType;
-  uint64 chainId;
-  uint64 nonce;
-  uint256 maxPriorityFeePerGas;
-  uint256 maxFeePerGas;
-  uint64 gasLimit;
-  address to;
-  uint256 value;
-  bytes data;
-  bytes accessList;
-  uint8 v;
-  bytes32 r;
-  bytes32 s;
-}
-
 /// @notice Represents a proposal manifest containing proposal-level metadata and all sources
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 struct ProposalManifest {
@@ -138,6 +120,24 @@ struct BlockManifest {
   uint48 gasLimit;
   /// @notice The transactions for this block.
   SignedTransaction[] transactions;
+}
+
+/// @notice Represents a signed Ethereum transaction
+/// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
+struct SignedTransaction {
+  uint8 txType;
+  uint64 chainId;
+  uint64 nonce;
+  uint256 maxPriorityFeePerGas;
+  uint256 maxFeePerGas;
+  uint64 gasLimit;
+  address to;
+  uint256 value;
+  bytes data;
+  bytes accessList;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
 }
 ```
 
@@ -176,13 +176,13 @@ DerivationSourceManifest memory defaultSource;
 defaultSource.blocks = new BlockManifest[](1);  // Single block
 ```
 
-| Field               | Value                                                           |
-| ------------------- | --------------------------------------------------------------- |
+| Field               | Value                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `timestamp`         | Protocol applies the timestamp validation lower bound afterward (see [`timestamp` validation](#timestamp-validation) for the exact rule). |
-| `coinbase`          | Protocol substitutes `proposal.proposer`                        |
-| `anchorBlockNumber` | Protocol inherits from the parent block                         |
-| `gasLimit`          | Protocol inherits from the parent block                         |
-| `transactions`      | Empty list (only includes the anchor transaction)               |
+| `coinbase`          | Protocol substitutes `proposal.proposer`                                                                                                  |
+| `anchorBlockNumber` | Protocol inherits from the parent block                                                                                                   |
+| `gasLimit`          | Protocol inherits from the parent block                                                                                                   |
+| `transactions`      | Empty list (only includes the anchor transaction)                                                                                         |
 
 #### ProposalManifest Construction
 
@@ -200,13 +200,13 @@ manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults fo
 
 Users submit forced inclusion transactions directly to L1 by posting blob data containing a `DerivationSourceManifest` struct. To ensure valid forced inclusions that pass validation, the following `BlockManifest`rules are applied:
 
-| Field               | Value                                                           |
-| ------------------- | --------------------------------------------------------------- |
+| Field               | Value                                                                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `timestamp`         | Ignored; metadata application overwrites it with the computed lower bound (see [`timestamp` validation](#timestamp-validation) for the exact rule). |
-| `coinbase`          | Protocol substitutes `proposal.proposer`                        |
-| `anchorBlockNumber` | Protocol inherits from the parent block                         |
-| `gasLimit`          | Protocol inherits from the parent block                         |
-| `transactions`      | User-provided list of L2 transactions to force-include          |
+| `coinbase`          | Protocol substitutes `proposal.proposer`                                                                                                            |
+| `anchorBlockNumber` | Protocol inherits from the parent block                                                                                                             |
+| `gasLimit`          | Protocol inherits from the parent block                                                                                                             |
+| `transactions`      | User-provided list of L2 transactions to force-include                                                                                              |
 
 This design ensures forced inclusions integrate properly with the chain's metadata while allowing users to specify only their transactions without requiring knowledge of chain state parameters.
 
