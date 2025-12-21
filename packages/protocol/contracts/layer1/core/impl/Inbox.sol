@@ -201,7 +201,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
-            // Transfer proving fee to ProverAuction contract
+           
 
 
             _emitProposedEvent(proposal);
