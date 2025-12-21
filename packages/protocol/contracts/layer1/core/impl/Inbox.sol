@@ -183,7 +183,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant  payable {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -200,6 +200,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
+
+            // Transfer proving fee to ProverAuction contract
+
 
             _emitProposedEvent(proposal);
         }
@@ -265,8 +268,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // -----------------------------------------------------------------------------
             // 3. Process bonds
             // -----------------------------------------------------------------------------
-            _processBonds(commitment.transitions, state.lastFinalizedTimestamp);
-
+                _processLivenessBonds(commitment.transitions, commitment.actualProver, state.lastFinalizedTimestamp);
+          
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
@@ -464,46 +467,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     // Private State-Changing Functions
     // ---------------------------------------------------------------
 
-    /// @dev Processes bonds for transitions, penalizing provers who submitted late proofs.
-    /// @param _transitions Array of transitions to process.
-    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
-    function _processBonds(
-        Transition[] memory _transitions,
-        uint48 _lastFinalizedTimestamp
-    )
-        private
-    {
-        if (address(_proverAuction) == address(0)) return;
+    /// @dev Stores a proposal hash in the ring buffer
+    /// Overwrites any existing hash at the calculated buffer slot
+    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
+        _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
+    }
 
-        address designatedProver;
-        uint256 penaltyMultiplier;
-
-        for (uint256 i; i < _transitions.length; i++) {
-            address transitionDesignatedProver = _transitions[i].designatedProver;
-            if (transitionDesignatedProver == address(0)) continue;
-
-            if (designatedProver != transitionDesignatedProver) {
-                if (designatedProver != address(0) && penaltyMultiplier != 0) {
-                    _proverAuction.penalizeProver(designatedProver);
-                }
-                designatedProver = transitionDesignatedProver;
-                penaltyMultiplier = 0;
-            }
-
-            uint256 livenessWindowDeadline =
-                (_transitions[i].timestamp + _provingWindow).max(_lastFinalizedTimestamp + _maxProofSubmissionDelay);
-
-            if (block.timestamp <= livenessWindowDeadline) {
-                // On-time proof
-                _proverAuction.payProver(_transitions[i].proposer, transitionDesignatedProver);
-            } else {
-                ++penaltyMultiplier;
-            }
-        }
-
-        if (designatedProver != address(0) && penaltyMultiplier != 0) {
-            _proverAuction.penalizeProver(designatedProver);
-        }
+    /// @dev Emits the Proposed event
+    function _emitProposedEvent(Proposal memory _proposal) private {
+        emit Proposed(
+            _proposal.id,
+            _proposal.proposer,
+            _proposal.parentProposalHash,
+            _proposal.endOfSubmissionWindowTimestamp,
+            _proposal.basefeeSharingPctg,
+            _proposal.sources
+        );
     }
 
     /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
@@ -548,7 +527,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // Get the designated prover from the auction contract
             address designatedProver;
             if (address(_proverAuction) != address(0)) {
-                designatedProver = _proverAuction.getCurrentProver();
+            uint provingFee;
+                (designatedProver, provingFee) = _proverAuction.getCurrentProverAndFee();
+
+                if (designatedProver != address(0) && provingFee != 0) {
+                    require(msg.value == provingFee, IncorrectProvingFee());
+                    designatedProver.sendEtherAndVerify(provingFee);
+                }
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -568,10 +553,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Stores a proposal hash in the ring buffer
-    /// Overwrites any existing hash at the calculated buffer slot
-    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
-        _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
+    // ---------------------------------------------------------------
+    // Private View/Pure Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Validates propose function inputs.
+    /// @param _input The ProposeInput to validate
+    function _validateProposeInput(ProposeInput memory _input) private view {
+        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+    }
+
+    /// @dev Calculates remaining capacity for new proposals
+    /// Subtracts unfinalized proposals from total capacity
+    /// @param _nextProposalId The next proposal ID
+    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
+    /// @return _ Number of additional proposals that can be submitted
+    function _getAvailableCapacity(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId
+    )
+        private
+        view
+        returns (uint256)
+    {
+        unchecked {
+            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
+            return _ringBufferSize - 1 - numUnfinalizedProposals;
+        }
     }
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
@@ -668,47 +676,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Emits the Proposed event
-    function _emitProposedEvent(Proposal memory _proposal) private {
-        emit Proposed(
-            _proposal.id,
-            _proposal.proposer,
-            _proposal.parentProposalHash,
-            _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
-            _proposal.sources
-        );
-    }
-
-    // ---------------------------------------------------------------
-    // Private View/Pure Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Calculates remaining capacity for new proposals
-    /// Subtracts unfinalized proposals from total capacity
-    /// @param _nextProposalId The next proposal ID
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(
-        uint48 _nextProposalId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        view
-        returns (uint256)
-    {
-        unchecked {
-            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
-        }
-    }
-
-    /// @dev Validates propose function inputs.
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
     ///      to the first unfinalized proposal.
     /// @param _state The core state.
@@ -742,6 +709,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    /// @dev Processes bonds for transitions, penalizing provers who submitted late proofs.
+    /// @param _transitions Array of transitions to process.
+    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
+    function _processLivenessBonds(
+        Transition[] memory _transitions,
+        address _actualProver,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
+       if ( _proverAuction == IProverAuction(address(0))) return;
+
+        uint256 minLivenessDeadline = _lastFinalizedTimestamp + _maxProofSubmissionDelay;
+
+        for (uint256 i; i < _transitions.length; i++) {
+            if (_transitions[i].designatedProver == address(0)) continue;
+
+            uint256 livenessDeadline = minLivenessDeadline.max(_transitions[i].timestamp + _provingWindow);
+            if (block.timestamp > livenessDeadline) {
+                _proverAuction.penalizeProver(
+                    _transitions[i].designatedProver,
+           _actualProver);
+            }
+        }
+
+    }
+
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
@@ -758,4 +752,5 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
     error UnprocessedForcedInclusionIsDue();
+    error IncorrectProvingFee();
 }

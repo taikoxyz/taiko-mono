@@ -302,18 +302,18 @@ contract InboxProveTest is InboxTestBase {
         proverAuction.resetCallCounts();
         _prove(input);
 
-        // Both transitions are late with the same designated prover, so penalize is called once
-        assertEq(proverAuction.penalizeProverCallCount(), 1, "penalizeProver should be called once for same prover");
-        assertEq(proverAuction.lastPenalizedProver(), proposer, "penalized prover should be proposer");
+        // Both transitions are late with the same designated prover, so penalize is called twice
+        assertEq(proverAuction.penalizeProverCallCount(), 2, "penalizeProver should be called for each late transition");
+        assertEq(proverAuction.lastDesignatedProver(), proposer, "penalized prover should be proposer");
     }
 
-    function test_prove_paysProver_withinProvingWindow() public {
+    function test_prove_noPenalty_withinProvingWindow() public {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
         proverAuction.resetCallCounts();
         _prove(input);
 
-        assertEq(proverAuction.payProverCallCount(), 1, "payProver should be called once");
+        // No penalty for on-time proof
         assertEq(proverAuction.penalizeProverCallCount(), 0, "penalizeProver should not be called");
     }
 
@@ -339,7 +339,7 @@ contract InboxProveTest is InboxTestBase {
         _prove(input);
 
         assertEq(proverAuction.penalizeProverCallCount(), 1, "penalizeProver should be called once");
-        assertEq(proverAuction.lastPenalizedProver(), prover, "penalized prover should be prover");
+        assertEq(proverAuction.lastDesignatedProver(), prover, "penalized prover should be prover");
     }
 
     // ---------------------------------------------------------------------
@@ -401,7 +401,7 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     // Boundary Tests - Prover auction timing
     // ---------------------------------------------------------------------
-    function test_prove_paysProver_atExactProvingWindowBoundary() public {
+    function test_prove_noPenalty_atExactProvingWindowBoundary() public {
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
 
@@ -421,7 +421,7 @@ contract InboxProveTest is InboxTestBase {
         proverAuction.resetCallCounts();
         _prove(input);
 
-        assertEq(proverAuction.payProverCallCount(), 1, "payProver should be called once");
+        // No penalty at exact boundary (still on time)
         assertEq(proverAuction.penalizeProverCallCount(), 0, "penalizeProver should not be called at exact boundary");
     }
 
@@ -446,7 +446,7 @@ contract InboxProveTest is InboxTestBase {
         _prove(input);
 
         assertEq(proverAuction.penalizeProverCallCount(), 1, "penalizeProver should be called once");
-        assertEq(proverAuction.lastPenalizedProver(), proposer, "penalized prover should be proposer");
+        assertEq(proverAuction.lastDesignatedProver(), proposer, "penalized prover should be proposer");
     }
 
     // ---------------------------------------------------------------------

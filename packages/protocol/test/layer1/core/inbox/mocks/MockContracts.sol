@@ -22,37 +22,34 @@ contract MockProofVerifier is IProofVerifier {
 
 contract MockProverAuction is IProverAuction {
     address public currentProver;
-    uint256 public payProverCallCount;
+    uint256 public currentFee;
     uint256 public penalizeProverCallCount;
-    address public lastPenalizedProver;
-    address public lastPayerAddress;
-    address public lastPayeeAddress;
+    address public lastDesignatedProver;
+    address public lastActualProver;
 
     constructor(address _prover) {
         currentProver = _prover;
+        currentFee = 0; // No fee by default for tests
     }
 
-    function getCurrentProver() external view returns (address) {
-        return currentProver;
+    function getCurrentProverAndFee() external view returns (address, uint256) {
+        return (currentProver, currentFee);
     }
 
-    function payProver(address _payer, address _prover) external {
-        payProverCallCount++;
-        lastPayerAddress = _payer;
-        lastPayeeAddress = _prover;
-    }
-
-    function penalizeProver(address _prover) external {
+    function penalizeProver(address _designatedProver, address _actualProver) external {
         penalizeProverCallCount++;
-        lastPenalizedProver = _prover;
+        lastDesignatedProver = _designatedProver;
+        lastActualProver = _actualProver;
+    }
+
+    function setCurrentFee(uint256 _fee) external {
+        currentFee = _fee;
     }
 
     function resetCallCounts() external {
-        payProverCallCount = 0;
         penalizeProverCallCount = 0;
-        lastPenalizedProver = address(0);
-        lastPayerAddress = address(0);
-        lastPayeeAddress = address(0);
+        lastDesignatedProver = address(0);
+        lastActualProver = address(0);
     }
 }
 

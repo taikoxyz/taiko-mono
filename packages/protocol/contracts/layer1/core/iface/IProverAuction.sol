@@ -7,14 +7,11 @@ interface IProverAuction {
 
     /// @notice Get the current prover.
     /// @return currentProver_ The address of the current prover.
-    function getCurrentProver() external view returns (address currentProver_);
-
-    /// @notice Pay a designated prover for delivering proofs on time.
-    /// @param _payer The proposer responsible for rewarding the prover.
-    /// @param _prover The designated prover that should be rewarded.
-    function payProver(address _payer, address _prover) external;
+    /// @return provingFee_ The current proving fee per proposal in ETH.
+    function getCurrentProverAndFee() external view returns (address currentProver_, uint256 provingFee_);
 
     /// @notice Penalize a prover for its late proof submission.
-    /// @param _prover The address of the prover to be penalized.
-    function penalizeProver(address _prover) external;
+    /// @param _designatedProver The designated prover to be penalized by burning liveness bond.
+    /// @param _actualProver The actual prover to be rewarded with part of the liveness bond.
+    function penalizeProver(address _designatedProver, address _actualProver) external;
 }

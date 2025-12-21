@@ -317,7 +317,7 @@ abstract contract InboxTestBase is CommonTest {
             timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: _payload.endOfSubmissionWindowTimestamp,
             proposer: _payload.proposer,
-            designatedProver: proverAuction.getCurrentProver(),
+            designatedProver: proverAuction.currentProver(),
             parentProposalHash: parentProposalHash,
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,

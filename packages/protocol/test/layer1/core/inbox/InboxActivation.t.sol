@@ -137,6 +137,14 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
+    function test_validateConfig_RevertWhen_ProverAuctionZero() public {
+        IInbox.Config memory cfg = _buildConfig();
+        cfg.proverAuction = address(0);
+
+        vm.expectRevert(LibInboxSetup.ProverAuctionZero.selector);
+        new Inbox(cfg);
+    }
+
     function test_validateConfig_RevertWhen_SignalServiceZero() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.signalService = address(0);
