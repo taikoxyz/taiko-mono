@@ -524,18 +524,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 ? 0
                 : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
-            // Get the designated prover from the auction contract
-            address designatedProver;
-            if (address(_proverAuction) != address(0)) {
-            uint provingFee;
-                (designatedProver, provingFee) = _proverAuction.getCurrentProverAndFee();
-
-                if (designatedProver != address(0) && provingFee != 0) {
-                    require(msg.value == provingFee, IncorrectProvingFee());
-                    designatedProver.sendEtherAndVerify(provingFee);
-                }
-            }
-
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
             proposal_ = Proposal({
@@ -543,42 +531,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                designatedProver: designatedProver,
+                designatedProver: _getDesignatedProverAndPayFee(),
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
                 sources: result.sources
             });
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // Private View/Pure Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Validates propose function inputs.
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Calculates remaining capacity for new proposals
-    /// Subtracts unfinalized proposals from total capacity
-    /// @param _nextProposalId The next proposal ID
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(
-        uint48 _nextProposalId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        view
-        returns (uint256)
-    {
-        unchecked {
-            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
 
@@ -676,6 +635,82 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    /// @dev Gets the designated prover from the auction and pays the proving fee.
+    /// @return designatedProver_ The address of the designated prover.
+    function _getDesignatedProverAndPayFee() private returns (address designatedProver_) {
+        unchecked{
+        uint256 provingFee;
+        (designatedProver_, provingFee) = _proverAuction.getCurrentProverAndFee();
+
+        uint _value = msg.value;
+        if (designatedProver_ != address(0) && provingFee != 0) {
+            require(_value >= provingFee, IncorrectProvingFee());
+            // Fee payment using ETH is much cheaper than using ERC20 tokens
+            designatedProver_.sendEtherAndVerify(provingFee);
+            _value -= provingFee;
+        }
+
+        if (_value > 0) {
+            msg.sender.sendEtherAndVerify(_value);
+        }   
+        }
+    }
+
+    /// @dev Processes bonds for transitions, penalizing provers who submitted late proofs.
+    /// @param _transitions Array of transitions to process.
+    /// @param _actualProver The actual prover submitting the proof.
+    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
+    function _processLivenessBonds(
+        Transition[] memory _transitions,
+        address _actualProver,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
+        unchecked{
+        uint256 minLivenessDeadline = _lastFinalizedTimestamp + _maxProofSubmissionDelay;
+
+        for (uint256 i; i < _transitions.length; i++) {
+            if (_transitions[i].designatedProver == address(0)) continue;
+
+            uint256 livenessDeadline =
+                minLivenessDeadline.max(_transitions[i].timestamp + _provingWindow);
+            if (block.timestamp > livenessDeadline) {
+                _proverAuction.penalizeProver(_transitions[i].designatedProver, _actualProver);
+            }
+        }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Private View/Pure Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Validates propose function inputs.
+    /// @param _input The ProposeInput to validate
+    function _validateProposeInput(ProposeInput memory _input) private view {
+        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+    }
+
+    /// @dev Calculates remaining capacity for new proposals
+    /// Subtracts unfinalized proposals from total capacity
+    /// @param _nextProposalId The next proposal ID
+    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
+    /// @return _ Number of additional proposals that can be submitted
+    function _getAvailableCapacity(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId
+    )
+        private
+        view
+        returns (uint256)
+    {
+        unchecked {
+            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
+            return _ringBufferSize - 1 - numUnfinalizedProposals;
+        }
+    }
+
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
     ///      to the first unfinalized proposal.
     /// @param _state The core state.
@@ -707,33 +742,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // The offset points to the first proposal that will be finalized.
             offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
         }
-    }
-
-    /// @dev Processes bonds for transitions, penalizing provers who submitted late proofs.
-    /// @param _transitions Array of transitions to process.
-    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
-    function _processLivenessBonds(
-        Transition[] memory _transitions,
-        address _actualProver,
-        uint48 _lastFinalizedTimestamp
-    )
-        private
-    {
-       if ( _proverAuction == IProverAuction(address(0))) return;
-
-        uint256 minLivenessDeadline = _lastFinalizedTimestamp + _maxProofSubmissionDelay;
-
-        for (uint256 i; i < _transitions.length; i++) {
-            if (_transitions[i].designatedProver == address(0)) continue;
-
-            uint256 livenessDeadline = minLivenessDeadline.max(_transitions[i].timestamp + _provingWindow);
-            if (block.timestamp > livenessDeadline) {
-                _proverAuction.penalizeProver(
-                    _transitions[i].designatedProver,
-           _actualProver);
-            }
-        }
-
     }
 
     // ---------------------------------------------------------------
