@@ -37,7 +37,7 @@ contract TestLibEIP1559 is Layer2Test {
             "Mainnet minimal basefee ontake: ", LibEIP1559.basefee(5_000_000 * 8, 1_340_000_000)
         );
         console2.log(
-            "Mainnet minimal basefee pacaya: ", LibEIP1559.basefee(5_000_000 * 8, 1_289_447_652)
+            "Mainnet minimal basefee pacaya: ", LibEIP1559.basefee(5_000_000 * 8, 1_344_899_430)
         );
     }
 
