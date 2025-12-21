@@ -15,7 +15,7 @@ import "./BondManager_Layout.sol"; // DO NOT DELETE
 /// @notice L2 bond manager handling deposits/withdrawals and L1 bond-signal processing.
 /// @dev Combines bond accounting and signal verification so bond movements happen in one place:
 ///      - Standard deposit/withdraw logic with optional minimum bond and withdrawal delay.
-///      - Processes proved L1 bond signals (provability/liveness) with best-effort debits/credits.
+///      - Processes proved L1 bond signals with best-effort debits/credits.
 /// @custom:security-contact security@taiko.xyz
 contract BondManager is EssentialContract, IBondManager, IBondProcessor {
     using SafeERC20 for IERC20;

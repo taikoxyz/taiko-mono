@@ -25,6 +25,7 @@ library LibInboxSetup {
         // Validate in the order fields are defined in Config struct.
         require(_config.proofVerifier != address(0), ProofVerifierZero());
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
+        require(_config.proverAuction != address(0), ProverAuctionZero());
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
         require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
@@ -97,6 +98,7 @@ library LibInboxSetup {
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
+    error ProverAuctionZero();
     error ProvingWindowZero();
     error RingBufferSizeTooSmall();
     error SignalServiceZero();

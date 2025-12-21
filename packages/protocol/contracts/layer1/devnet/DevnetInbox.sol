@@ -32,13 +32,13 @@ contract DevnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _proverWhitelist,
+        address _proverAuction,
         address _signalService
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                proverWhitelist: _proverWhitelist,
+                proverAuction: _proverAuction,
                 signalService: _signalService,
                 provingWindow: 2 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence

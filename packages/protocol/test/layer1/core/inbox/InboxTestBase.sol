@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { MockProofVerifier } from "./mocks/MockContracts.sol";
+import { MockProofVerifier, MockProverAuction } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -33,9 +32,9 @@ abstract contract InboxTestBase is CommonTest {
     ICodec internal codec;
 
     MockProofVerifier internal verifier;
+    MockProverAuction internal proverAuction;
     SignalService internal signalService;
     PreconfWhitelist internal proposerChecker;
-    ProverWhitelist internal proverWhitelistContract;
 
     address internal proposer = Bob;
     address internal prover = Carol;
@@ -72,7 +71,7 @@ abstract contract InboxTestBase is CommonTest {
         return IInbox.Config({
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
-            proverWhitelist: address(proverWhitelistContract),
+            proverAuction: address(proverAuction),
             signalService: address(signalService),
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
@@ -94,12 +93,12 @@ abstract contract InboxTestBase is CommonTest {
 
     function _setupMocks() internal virtual {
         verifier = new MockProofVerifier();
+        proverAuction = new MockProverAuction(prover);
     }
 
     function _setupDependencies() internal virtual {
         signalService = _deploySignalService(address(this));
         proposerChecker = _deployProposerChecker();
-        proverWhitelistContract = _deployProverWhitelist();
         _addProposer(proposer);
     }
 
@@ -132,17 +131,6 @@ abstract contract InboxTestBase is CommonTest {
             address(
                 new ERC1967Proxy(
                     address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))
-                )
-            )
-        );
-    }
-
-    function _deployProverWhitelist() internal returns (ProverWhitelist) {
-        ProverWhitelist impl = new ProverWhitelist();
-        return ProverWhitelist(
-            address(
-                new ERC1967Proxy(
-                    address(impl), abi.encodeCall(ProverWhitelist.init, (address(this)))
                 )
             )
         );
@@ -329,6 +317,7 @@ abstract contract InboxTestBase is CommonTest {
             timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: _payload.endOfSubmissionWindowTimestamp,
             proposer: _payload.proposer,
+            designatedProver: proverAuction.getCurrentProver(),
             parentProposalHash: parentProposalHash,
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,

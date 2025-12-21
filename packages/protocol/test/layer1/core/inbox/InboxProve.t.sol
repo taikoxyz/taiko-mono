@@ -7,7 +7,6 @@ import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 contract InboxProveTest is InboxTestBase {
@@ -270,9 +269,9 @@ contract InboxProveTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
-    // Bond signalling
+    // Prover auction calls
     // ---------------------------------------------------------------------
-    function test_prove_emitsBondSignal_whenLate() public {
+    function test_prove_penalizesProver_whenLate() public {
         ProposedEvent memory p1 = _proposeOne();
         uint48 p1Timestamp = uint48(block.timestamp);
         _advanceBlock();
@@ -288,43 +287,37 @@ contract InboxProveTest is InboxTestBase {
             timestamp: p1Timestamp,
             blockHash: keccak256("checkpoint1")
         });
-        transitions[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        // Second transition also has same designatedProver to test single penalization
+        transitions[1] = IInbox.Transition({
+            proposer: p2.proposer,
+            designatedProver: proposer,
+            timestamp: p2Timestamp,
+            blockHash: keccak256("checkpoint2")
+        });
 
         IInbox.ProveInput memory input = _buildInput(
             p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, keccak256("stateRoot")
         );
 
+        proverAuction.resetCallCounts();
         _prove(input);
 
-        LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
-            proposalId: p1.id, bondType: LibBonds.BondType.LIVENESS, payer: proposer, payee: prover
-        });
-        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
-        assertTrue(
-            signalService.isSignalSent(address(inbox), expectedSignal),
-            "liveness bond signal when late"
-        );
+        // Both transitions are late with the same designated prover, so penalize is called once
+        assertEq(proverAuction.penalizeProverCallCount(), 1, "penalizeProver should be called once for same prover");
+        assertEq(proverAuction.lastPenalizedProver(), proposer, "penalized prover should be proposer");
     }
 
-    function test_prove_noBondSignal_withinProvingWindow() public {
+    function test_prove_paysProver_withinProvingWindow() public {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
+        proverAuction.resetCallCounts();
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: input.commitment.firstProposalId,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-
-        assertFalse(
-            signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal"
-        );
+        assertEq(proverAuction.payProverCallCount(), 1, "payProver should be called once");
+        assertEq(proverAuction.penalizeProverCallCount(), 0, "penalizeProver should not be called");
     }
 
-    function test_prove_emitsBondSignal_whenPayerEqualsPayee() public {
+    function test_prove_penalizesProver_whenLate_sameDesignatedProver() public {
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
         vm.warp(proposalTimestamp + config.provingWindow + 1);
@@ -332,7 +325,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
 
-        // designatedProver == actualProver so payer == payee
+        // designatedProver == actualProver
         transitions[0].designatedProver = prover;
 
         IInbox.ProveInput memory input = _buildInput(
@@ -342,20 +335,11 @@ contract InboxProveTest is InboxTestBase {
             keccak256("stateRoot")
         );
 
+        proverAuction.resetCallCounts();
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: payload.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: prover,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-
-        assertTrue(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "liveness signal when payer==payee"
-        );
+        assertEq(proverAuction.penalizeProverCallCount(), 1, "penalizeProver should be called once");
+        assertEq(proverAuction.lastPenalizedProver(), prover, "penalized prover should be prover");
     }
 
     // ---------------------------------------------------------------------
@@ -415,9 +399,9 @@ contract InboxProveTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
-    // Boundary Tests - Bond instruction timing
+    // Boundary Tests - Prover auction timing
     // ---------------------------------------------------------------------
-    function test_prove_noBondSignal_atExactProvingWindowBoundary() public {
+    function test_prove_paysProver_atExactProvingWindowBoundary() public {
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
 
@@ -425,7 +409,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
-        transitions[0].designatedProver = proposer; // Different from actual to exercise bond path
+        transitions[0].designatedProver = proposer;
 
         IInbox.ProveInput memory input = _buildInput(
             payload.id,
@@ -434,22 +418,14 @@ contract InboxProveTest is InboxTestBase {
             keccak256("stateRoot")
         );
 
+        proverAuction.resetCallCounts();
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: payload.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertFalse(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "no liveness at exact provingWindow"
-        );
+        assertEq(proverAuction.payProverCallCount(), 1, "payProver should be called once");
+        assertEq(proverAuction.penalizeProverCallCount(), 0, "penalizeProver should not be called at exact boundary");
     }
 
-    function test_prove_livenessBond_oneSecondPastProvingWindow() public {
+    function test_prove_penalizesProver_oneSecondPastProvingWindow() public {
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
 
@@ -466,19 +442,11 @@ contract InboxProveTest is InboxTestBase {
             keccak256("stateRoot")
         );
 
+        proverAuction.resetCallCounts();
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: payload.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertTrue(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "liveness bond 1 sec past window"
-        );
+        assertEq(proverAuction.penalizeProverCallCount(), 1, "penalizeProver should be called once");
+        assertEq(proverAuction.lastPenalizedProver(), proposer, "penalized prover should be proposer");
     }
 
     // ---------------------------------------------------------------------

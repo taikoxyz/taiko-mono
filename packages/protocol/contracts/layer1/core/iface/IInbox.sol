@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -14,8 +13,8 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
-        /// @notice The prover whitelist contract (address(0) means no whitelist)
-        address proverWhitelist;
+        /// @notice The prover auction contract
+        address proverAuction;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The proving window in seconds
@@ -62,6 +61,8 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
+        /// @notice Address of the designated prover.
+        address designatedProver;
         /// @notice Hash of the parent proposal (zero for genesis).
         bytes32 parentProposalHash;
         /// @notice The L1 block number when the proposal was accepted.
@@ -199,13 +200,6 @@ interface IInbox {
         uint48 lastProposalId,
         address indexed actualProver,
         bool checkpointSynced
-    );
-
-    /// @notice Emitted when a bond instruction is signaled to L2
-    /// @param proposalId The proposal ID that triggered the bond instruction
-    /// @param bondInstruction The encoded bond instruction
-    event BondInstructionCreated(
-        uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction
     );
 
     // ---------------------------------------------------------------

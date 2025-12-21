@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 contract MockERC20 is ERC20 {
@@ -17,6 +18,42 @@ contract MockERC20 is ERC20 {
 
 contract MockProofVerifier is IProofVerifier {
     function verifyProof(uint256, bytes32, bytes calldata) external pure { }
+}
+
+contract MockProverAuction is IProverAuction {
+    address public currentProver;
+    uint256 public payProverCallCount;
+    uint256 public penalizeProverCallCount;
+    address public lastPenalizedProver;
+    address public lastPayerAddress;
+    address public lastPayeeAddress;
+
+    constructor(address _prover) {
+        currentProver = _prover;
+    }
+
+    function getCurrentProver() external view returns (address) {
+        return currentProver;
+    }
+
+    function payProver(address _payer, address _prover) external {
+        payProverCallCount++;
+        lastPayerAddress = _payer;
+        lastPayeeAddress = _prover;
+    }
+
+    function penalizeProver(address _prover) external {
+        penalizeProverCallCount++;
+        lastPenalizedProver = _prover;
+    }
+
+    function resetCallCounts() external {
+        payProverCallCount = 0;
+        penalizeProverCallCount = 0;
+        lastPenalizedProver = address(0);
+        lastPayerAddress = address(0);
+        lastPayeeAddress = address(0);
+    }
 }
 
 contract MockSignalService is ISignalService {
