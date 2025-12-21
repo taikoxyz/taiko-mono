@@ -1825,7 +1825,7 @@ Fillers are helpful in reworking txs submission logic, depending on any custom c
 
 The provider trait is generic over the network type, `Provider<N: Network = Ethereum>`, with the default network set to `Ethereum`.
 
-The `Network` generic helps the provider to accomodate various network types with different transaction and RPC response types seamlessly.
+The `Network` generic helps the provider to accommodate various network types with different transaction and RPC response types seamlessly.
 
 ### The Network trait
 

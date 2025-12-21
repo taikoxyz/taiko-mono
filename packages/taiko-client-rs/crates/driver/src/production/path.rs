@@ -66,10 +66,10 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
             ProductionInput::Preconfirmation(preconf) => {
-                let payload = preconf.execution_payload().clone();
+                let payload = preconf.execution_payload();
                 let block_number = payload.execution_payload.block_number;
                 let outcome =
-                    self.injector.apply_execution_payload(&payload, None).await.map_err(|err| {
+                    self.injector.apply_execution_payload(payload, None).await.map_err(|err| {
                         DriverError::PreconfInjectionFailed { block_number, source: err }
                     })?;
                 Ok(vec![outcome])

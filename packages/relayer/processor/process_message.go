@@ -161,19 +161,17 @@ func (p *Processor) processMessage(
 
 				return true, msgBody.TimesRetried, nil
 			}
+		} else {
+			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("approaching shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
 
-			return false, msgBody.TimesRetried, nil
-		}
-
-		diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
-		if diff <= p.forkWindow {
-			slog.Info("approaching shasta fork window, pausing processing",
-				"blockTimestamp", blockTs,
-				"shastaForkTimestamp", p.shastaForkTimestamp,
-				"windowSeconds", p.forkWindow.Seconds(),
-			)
-
-			return true, msgBody.TimesRetried, nil
+				return true, msgBody.TimesRetried, nil
+			}
 		}
 	}
 

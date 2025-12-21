@@ -224,6 +224,17 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
 		}
+
+		if cfg.SrcSignalServiceAddress == ZeroAddress {
+			slog.Info("using fork router address for chainDataSynced events",
+				"addr", cfg.SrcSignalServiceForkRouterAddress.Hex(),
+			)
+
+			signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
+			if err != nil {
+				return errors.Wrap(err, "signalservice.NewSignalService")
+			}
+		}
 	}
 
 	srcChainID, err := srcEthClient.ChainID(context.Background())
