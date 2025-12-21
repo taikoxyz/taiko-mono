@@ -15,23 +15,23 @@ The current minimum base fee was set conservatively when preconfs were launched.
 ### Actions
 
 1. **Upgrade L2 TaikoAnchor (proxy: `0x1670000000000000000000000000000000010001`)**
-   - New implementation: **`0x442DBaF14EB7a602a910D4e6f00CC867A4efdc24`**
-   - Change: lower the `BASEFEE_MIN_VALUE` hard floor to `2_500_000` wei (0.01 gwei).
+   - New implementation: **`0xf381868dd6b2ac8cca468d63b42f9040de2257e9`**
+   - Change: lower the `BASEFEE_MIN_VALUE` hard floor to `10_000_000` wei (0.01 gwei).
 
 ### Expected Post-Upgrade Behavior
 
-- Minimum base fee hard floor is `2_500_000` wei (0.01 gwei).
+- Minimum base fee hard floor is `10_000_000` wei (0.01 gwei).
 - Under load, the EIP-1559 curve continues to drive price increases as today.
 
 ### Verification
 
 Before submission:
 
-- Confirm the new implementation address (`0x442DBaF14EB7a602a910D4e6f00CC867A4efdc24`) is deployed and verified on L2.
+- Confirm the new implementation address (`0xf381868dd6b2ac8cca468d63b42f9040de2257e9`) is deployed and verified on L2.
 
 After execution:
 
-1. On L2, call `BASEFEE_MIN_VALUE()` on the TaikoAnchor proxy; expect `2_500_000`.
+1. On L2, call `BASEFEE_MIN_VALUE()` on the TaikoAnchor proxy; expect `10_000_000`.
 2. Observe subsequent blocks’ `basefee` on Taiko L2 bottoming out around 0.01 gwei during low utilization.
 
 ## Security Contacts
