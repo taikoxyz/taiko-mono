@@ -7,8 +7,8 @@ import "../governance/BuildProposal.sol";
 // To dryrun the proposal on L1: `P=0007 pnpm proposal:dryrun:l1`
 // To dryrun the proposal on L2: `P=0007 pnpm proposal:dryrun:l2`
 contract Proposal0007 is BuildProposal {
-    // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0x442DBaF14EB7a602a910D4e6f00CC867A4efdc24&chainid=167000
-    address public constant ANCHOR_NEW_IMPL = 0x442DBaF14EB7a602a910D4e6f00CC867A4efdc24;
+    // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0xf381868dd6b2ac8cca468d63b42f9040de2257e9&chainid=167000
+    address public constant ANCHOR_NEW_IMPL = 0xf381868DD6B2aC8cca468D63B42F9040DE2257E9;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](0);
