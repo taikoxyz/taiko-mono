@@ -40,6 +40,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
+	shasta "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // ethClient is a slimmed down interface of a go-ethereum ethclient.Client
@@ -97,6 +98,7 @@ type Processor struct {
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
 	destQuotaManager relayer.QuotaManager
+	bondManager      *shasta.BondManager
 
 	prover *proof.Prover
 
@@ -135,6 +137,8 @@ type Processor struct {
 
 	processingTxHashes map[common.Hash]bool
 	processingTxHashMu sync.Mutex
+	processingSignals  map[common.Hash]bool
+	processingSignalMu sync.Mutex
 
 	minFeeToProcess uint64
 
@@ -143,6 +147,8 @@ type Processor struct {
 
 	shastaOldForkSignalService relayer.SignalService
 	shastaNewForkSignalService relayer.SignalService
+
+	eventName string
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -158,6 +164,11 @@ func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
 // nolint: funlen
 func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.cfg = cfg
+
+	if cfg.EventName == relayer.EventNameBondInstructionCreated &&
+		cfg.DestBondManagerAddress == relayer.ZeroAddress {
+		return fmt.Errorf("destBondManagerAddress is required for event %s", relayer.EventNameBondInstructionCreated)
+	}
 
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
@@ -335,6 +346,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
+	var bondManager *shasta.BondManager
+	if cfg.DestBondManagerAddress != relayer.ZeroAddress {
+		bondManager, err = shasta.NewBondManager(cfg.DestBondManagerAddress, destEthClient)
+		if err != nil {
+			return err
+		}
+	}
+
 	srcChainID, err := srcEthClient.ChainID(context.Background())
 	if err != nil {
 		return err
@@ -399,6 +418,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
+	p.bondManager = bondManager
 
 	p.ecdsaKey = cfg.ProcessorPrivateKey
 	p.relayerAddr = relayerAddr
@@ -435,8 +455,15 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.maxMessageRetries = cfg.MaxMessageRetries
 
 	p.processingTxHashes = make(map[common.Hash]bool, 0)
+	p.processingSignals = make(map[common.Hash]bool, 0)
 
 	p.minFeeToProcess = p.cfg.MinFeeToProcess
+
+	if cfg.EventName == "" {
+		p.eventName = relayer.EventNameMessageSent
+	} else {
+		p.eventName = cfg.EventName
+	}
 
 	slog.Info("minFeeToProcess", "minFeeToProcess", p.minFeeToProcess)
 
@@ -510,7 +537,21 @@ func (p *Processor) Start() error {
 }
 
 func (p *Processor) queueName() string {
-	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), relayer.EventNameMessageSent)
+	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), p.eventName)
+}
+
+func (p *Processor) processQueueMessage(
+	ctx context.Context,
+	msg queue.Message,
+) (bool, uint64, error) {
+	switch p.eventName {
+	case relayer.EventNameMessageSent:
+		return p.processMessage(ctx, msg)
+	case relayer.EventNameBondInstructionCreated:
+		return p.processBondInstruction(ctx, msg)
+	default:
+		return false, 0, fmt.Errorf("unsupported eventName: %s", p.eventName)
+	}
 }
 
 // eventLoop is the main event loop of a Processor which should read
@@ -525,7 +566,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			go func(m queue.Message) {
-				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
+				shouldRequeue, timesRetried, err := p.processQueueMessage(ctx, m)
 
 				if err != nil {
 					switch {
@@ -533,7 +574,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
-					case errors.Is(err, relayer.ErrUnprofitable):
+					case errors.Is(err, relayer.ErrUnprofitable) && p.eventName == relayer.EventNameMessageSent:
 						slog.Info("publishing to unprofitable queue")
 
 						headers := make(map[string]interface{}, 0)
