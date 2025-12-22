@@ -16,10 +16,10 @@ use alloy_primitives::Address;
 use libp2p::PeerId;
 
 use preconfirmation_types::{
-    Bytes20, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
-    SignedCommitment, Uint256, validate_commitments_response, validate_head_response,
-    validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
-    verify_signed_commitment,
+    validate_commitments_response, validate_head_response, validate_preconfirmation_basic,
+    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment, Bytes20,
+    GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
+    Uint256,
 };
 
 /// Resolver that can validate commitments against an external lookahead schedule.
@@ -212,7 +212,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
 mod tests {
     use super::*;
     use preconfirmation_types::{
-        Bytes20, PreconfCommitment, Preconfirmation, Uint256, sign_commitment,
+        sign_commitment, Bytes20, PreconfCommitment, Preconfirmation, Uint256,
     };
     use secp256k1::SecretKey;
     use ssz_rs::Vector;
