@@ -55,6 +55,7 @@ func (p *Processor) processBondInstruction(
 		}
 
 		p.processingSignals[hash] = true
+
 		return nil
 	}
 
@@ -81,13 +82,16 @@ func (p *Processor) processBondInstruction(
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
+
 	if processed {
 		slog.Info("bond instruction already processed", "signal", signalHex)
+
 		if msg.Internal != nil {
 			if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatusDone); err != nil {
 				return false, msgBody.TimesRetried, err
 			}
 		}
+
 		return false, msgBody.TimesRetried, errUnprocessable
 	}
 

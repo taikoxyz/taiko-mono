@@ -191,6 +191,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	var taikoL1V2 *v2.TaikoL1
 
 	var taikoInboxV3 *v3.TaikoInbox
+
 	var shastaInbox *shasta.ShastaInboxClient
 
 	if cfg.SrcTaikoAddress != ZeroAddress {
