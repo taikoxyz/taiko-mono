@@ -402,9 +402,15 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
 
-			i.latestIndexedBlockNumber = *i.targetBlockNumber
+			if *i.targetBlockNumber == 0 {
+				slog.Error("invalid targetBlockNumber, must be greater than 0", "targetBlockNumber", *i.targetBlockNumber)
 
-			endBlockID = i.latestIndexedBlockNumber + 1
+				return errors.New("targetBlockNumber must be greater than 0")
+			}
+
+			i.latestIndexedBlockNumber = *i.targetBlockNumber - 1
+
+			endBlockID = *i.targetBlockNumber
 		} else {
 			// set the initial processing block back to either 0 or the genesis block again.
 			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
