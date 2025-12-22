@@ -20,8 +20,13 @@ abstract contract Blacklist is IBlacklist {
 
     uint256[48] private __gap;
 
+    error EMPTY_OVERSEERS();
+    error INVALID_OVERSEER();
+
     constructor(address[] memory _overseers) {
+        if (_overseers.length == 0) revert EMPTY_OVERSEERS();
         for (uint256 i = 0; i < _overseers.length; i++) {
+            if (_overseers[i] == address(0)) revert INVALID_OVERSEER();
             overseers[_overseers[i]] = true;
         }
     }
