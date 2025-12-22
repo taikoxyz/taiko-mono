@@ -33,7 +33,7 @@ func (p *Processor) processBondInstruction(
 	}
 
 	if p.bondManager == nil || p.cfg.DestBondManagerAddress == relayer.ZeroAddress {
-		return true, msgBody.TimesRetried, errors.New("bond manager not configured")
+		return false, msgBody.TimesRetried, errors.New("bond manager not configured")
 	}
 
 	signal, signalHex, err := p.resolveBondInstructionSignal(ctx, msgBody)
@@ -69,7 +69,14 @@ func (p *Processor) processBondInstruction(
 
 	if msgBody.TimesRetried >= p.maxMessageRetries {
 		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)
-		return false, msgBody.TimesRetried, nil
+
+		if msg.Internal != nil {
+			if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatusFailed); err != nil {
+				return false, msgBody.TimesRetried, err
+			}
+		}
+
+		return false, msgBody.TimesRetried, errUnprocessable
 	}
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash); err != nil {

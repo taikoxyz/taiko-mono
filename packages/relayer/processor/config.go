@@ -138,8 +138,14 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var destQuotaManagerAddress common.Address
+
 	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
-		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
+		destQuotaManagerAddressStr := c.String(flags.DestQuotaManagerAddress.Name)
+		if !common.IsHexAddress(destQuotaManagerAddressStr) {
+			return nil, fmt.Errorf("invalid destQuotaManagerAddress")
+		}
+
+		destQuotaManagerAddress = common.HexToAddress(destQuotaManagerAddressStr)
 	}
 
 	var destBondManagerAddress common.Address

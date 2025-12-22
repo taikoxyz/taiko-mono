@@ -56,7 +56,7 @@ func newBondInstructionEvent() *shasta.ShastaInboxClientBondInstructionCreated {
 	}
 }
 
-func TestProcessBondInstruction_ConfigErrorRequeues(t *testing.T) {
+func TestProcessBondInstruction_ConfigErrorDoesNotRequeue(t *testing.T) {
 	p := newTestProcessor(false)
 
 	body := queue.QueueBondInstructionCreatedBody{
@@ -70,7 +70,7 @@ func TestProcessBondInstruction_ConfigErrorRequeues(t *testing.T) {
 
 	shouldRequeue, _, err := p.processBondInstruction(context.Background(), msg)
 	assert.ErrorContains(t, err, "bond manager not configured")
-	assert.True(t, shouldRequeue)
+	assert.False(t, shouldRequeue)
 }
 
 func TestResolveBondInstructionSignal_UsesSignal(t *testing.T) {
