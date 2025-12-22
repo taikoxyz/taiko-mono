@@ -684,7 +684,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		group.Go(func() error {
 			err := i.handleChainDataSyncedEvent(ctx, event, true)
 			if err != nil {
-				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+				relayer.ChainDataSyncedEventsIndexingErrors.Inc()
 
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling chainDataSynced", "err", err.Error())
