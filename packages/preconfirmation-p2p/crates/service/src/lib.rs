@@ -24,6 +24,7 @@ use preconfirmation_types::{
     validate_raw_txlist_gossip, verify_signed_commitment,
 };
 
+/// Monotonic request identifier used to correlate outbound req/resp flows.
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Application-facing callbacks for P2P events.
@@ -163,6 +164,7 @@ impl P2pService {
         self.events_tx.subscribe()
     }
 
+    /// Receive the next event from a broadcast receiver, skipping over lagged drops.
     async fn recv_broadcast(rx: &mut broadcast::Receiver<NetworkEvent>) -> Option<NetworkEvent> {
         loop {
             match rx.recv().await {
@@ -560,8 +562,10 @@ mod tests {
     use preconfirmation_types::{Bytes32, TxListBytes, Uint256, keccak256_bytes};
     use tokio::{task, time::Duration};
 
+    /// Deterministic resolver used in service tests.
     struct TestLookaheadResolver;
     impl LookaheadResolver for TestLookaheadResolver {
+        /// Always returns the zero address for testing.
         fn signer_for_timestamp(
             &self,
             _submission_window_end: &Uint256,
@@ -569,11 +573,13 @@ mod tests {
             Ok(Address::ZERO)
         }
 
+        /// Echo the provided slot end unchanged for testing.
         fn expected_slot_end(&self, submission_window_end: &Uint256) -> Result<Uint256, String> {
             Ok(submission_window_end.clone())
         }
     }
 
+    /// Service can start, surface channels, and shut down cleanly.
     #[tokio::test]
     async fn service_starts_and_stops() {
         let cfg = NetworkConfig {
@@ -594,6 +600,7 @@ mod tests {
         svc.shutdown().await;
     }
 
+    /// Blocking helper APIs receive the expected responses.
     #[tokio::test]
     async fn blocking_helpers_return_responses() {
         // Build a manual service with test channels.
@@ -674,6 +681,7 @@ mod tests {
         assert_eq!(got_head, head);
     }
 
+    /// Fanout delivers events to multiple subscribers concurrently.
     #[tokio::test]
     async fn multiple_consumers_receive_events() {
         let (cmd_tx, mut cmd_rx) = mpsc::channel(8);
@@ -694,15 +702,20 @@ mod tests {
             atomic::{AtomicUsize, Ordering},
         };
 
+        /// Handler that counts peer connections.
         struct CountingHandler {
+            /// Shared counter incremented on peer connections.
             seen: Arc<AtomicUsize>,
         }
 
         impl P2pHandler for CountingHandler {
+            /// Ignore signed commitment payloads in tests.
             fn on_signed_commitment(&self, _from: PeerId, _msg: SignedCommitment) {}
 
+            /// Ignore raw txlist payloads in tests.
             fn on_raw_txlist(&self, _from: PeerId, _msg: RawTxListGossip) {}
 
+            /// Ignore commitments responses in tests.
             fn on_commitments_response(
                 &self,
                 _from: PeerId,
@@ -711,6 +724,7 @@ mod tests {
             ) {
             }
 
+            /// Ignore raw txlist responses in tests.
             fn on_raw_txlist_response(
                 &self,
                 _from: PeerId,
@@ -719,6 +733,7 @@ mod tests {
             ) {
             }
 
+            /// Ignore head responses in tests.
             fn on_head_response(
                 &self,
                 _from: PeerId,
@@ -727,18 +742,24 @@ mod tests {
             ) {
             }
 
+            /// Ignore inbound commitments requests in tests.
             fn on_inbound_commitments_request(&self, _from: PeerId) {}
 
+            /// Ignore inbound raw-txlist requests in tests.
             fn on_inbound_raw_txlist_request(&self, _from: PeerId) {}
 
+            /// Ignore inbound head requests in tests.
             fn on_inbound_head_request(&self, _from: PeerId) {}
 
+            /// Increment connection counter when a peer connects.
             fn on_peer_connected(&self, _peer: PeerId) {
                 self.seen.fetch_add(1, Ordering::SeqCst);
             }
 
+            /// Ignore disconnects in tests.
             fn on_peer_disconnected(&self, _peer: PeerId) {}
 
+            /// Ignore errors in tests.
             fn on_error(&self, _err: &NetworkError) {}
         }
 

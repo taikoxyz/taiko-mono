@@ -1,3 +1,6 @@
+//! libp2p behaviour bundle combining ping, identify, gossipsub, req/resp, and gating for
+//! preconfirmation networking.
+
 use anyhow::Result;
 use libp2p::{
     gossipsub::{self, IdentTopic},

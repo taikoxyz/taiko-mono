@@ -78,16 +78,22 @@ pub struct NetworkConfig {
 /// Discovery presets for common environments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiscoveryPreset {
+    /// Fast but less stable timings for local/dev networks.
     Dev,
+    /// Moderate timings for shared testnets.
     Test,
+    /// Conservative timings for production.
     Prod,
 }
 
 /// Connection presets for common environments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionPreset {
+    /// Small caps for local/dev environments.
     Dev,
+    /// Moderate caps for shared testnets.
     Test,
+    /// Higher caps suited for production.
     Prod,
 }
 

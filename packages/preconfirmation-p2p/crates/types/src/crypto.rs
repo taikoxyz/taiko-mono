@@ -187,6 +187,7 @@ mod tests {
     use super::*;
     use crate::types::{PreconfCommitment, Preconfirmation, Uint256};
 
+    /// Build a deterministic commitment used for hashing/signing tests.
     fn sample_commitment() -> PreconfCommitment {
         PreconfCommitment {
             preconf: Preconfirmation {
@@ -206,6 +207,7 @@ mod tests {
         }
     }
 
+    /// Keccak over SSZ matches manual keccak of domain + serialized value.
     #[test]
     fn keccak_ssz_matches_keccak_bytes() {
         let value = sample_commitment();
@@ -216,6 +218,7 @@ mod tests {
         assert_eq!(ssz_hash, manual);
     }
 
+    /// Signing and recovery yields the expected Ethereum address.
     #[test]
     fn sign_and_verify_commitment_recovers_address() {
         let commitment = sample_commitment();
@@ -228,6 +231,7 @@ mod tests {
         assert_eq!(recovered, expected);
     }
 
+    /// Verifying a signed commitment recovers the signer used to create it.
     #[test]
     fn verify_signed_commitment_roundtrip() {
         let commitment = sample_commitment();

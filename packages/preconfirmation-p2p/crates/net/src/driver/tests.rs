@@ -17,7 +17,9 @@ use ssz_rs::Vector;
 use std::{str::FromStr, task::Context};
 use tokio::time::Duration;
 
+/// Deterministic resolver that always returns the configured signer and echoes the slot end.
 struct StaticLookaheadResolver {
+    /// Signer address to return for all timestamps.
     signer: alloy_primitives::Address,
 }
 
@@ -37,10 +39,12 @@ impl LookaheadResolver for StaticLookaheadResolver {
     }
 }
 
+/// Derive an Ethereum address from a secp256k1 secret key.
 fn signer_for_sk(sk: &secp256k1::SecretKey) -> alloy_primitives::Address {
     public_key_to_address(&secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), sk))
 }
 
+/// Listen on a loopback memory transport and return the assigned address.
 async fn listen_on(driver: &mut NetworkDriver) -> Multiaddr {
     let addr: Multiaddr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
     driver.swarm.listen_on(addr).unwrap();
@@ -54,12 +58,14 @@ async fn listen_on(driver: &mut NetworkDriver) -> Multiaddr {
     driver.swarm.listeners().next().cloned().expect("listener addr")
 }
 
+/// Poll the driver once synchronously.
 fn pump_sync(driver: &mut NetworkDriver) {
     let w = noop_waker_ref();
     let mut cx = Context::from_waker(w);
     let _ = driver.poll(&mut cx);
 }
 
+/// Poll the driver once asynchronously.
 async fn pump_async(driver: &mut NetworkDriver) {
     futures::future::poll_fn(|cx| {
         let _ = driver.poll(cx);
@@ -149,6 +155,7 @@ fn driver_from_parts(
     )
 }
 
+/// Create a signed commitment for testing using the provided secret key.
 fn sample_signed_commitment(sk: &secp256k1::SecretKey) -> SignedCommitment {
     let commitment = PreconfCommitment {
         preconf: Preconfirmation {
@@ -170,6 +177,7 @@ fn sample_signed_commitment(sk: &secp256k1::SecretKey) -> SignedCommitment {
     SignedCommitment { commitment, signature: sig }
 }
 
+/// End-to-end gossip and req/resp roundtrip between two in-memory peers.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn gossipsub_and_reqresp_roundtrip() {
     // Keep a hard cap so dev runs don't stall; still exercises the same path.
@@ -298,6 +306,7 @@ async fn gossipsub_and_reqresp_roundtrip() {
     }
 }
 
+/// In-memory transport covers gossip, req/resp, and ban propagation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn memory_transport_gossip_reqresp_and_ban() {
     let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };

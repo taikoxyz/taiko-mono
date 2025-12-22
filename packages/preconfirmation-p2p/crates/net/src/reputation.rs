@@ -36,8 +36,11 @@ pub enum PeerAction {
 }
 
 pub type PeerScore = f64;
+/// Default ban threshold from the spec.
 const DEFAULT_BAN_THRESHOLD: PeerScore = -5.0; // spec ban threshold
+/// Default greylist/prune threshold from the spec.
 const DEFAULT_GREYLIST_THRESHOLD: PeerScore = -2.0; // spec prune/grey threshold
+/// Reputation delta applied on successful responses.
 const SUCCESS_REWARD: PeerScore = 0.05; // acceptance delta
 
 /// Represents the current reputation score of a peer.
@@ -241,6 +244,7 @@ pub struct ReputationEvent {
     pub was_greylisted: bool,
 }
 
+/// Map a `PeerAction` into a reputation delta using configured weights.
 fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerScore {
     match action {
         // Apply lightweight app feedback per spec §7.1
@@ -260,6 +264,7 @@ fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerSc
     }
 }
 
+/// Exponential decay helper reused in tests.
 pub(crate) fn decayed(
     score: PeerScore,
     last: Instant,
@@ -276,23 +281,30 @@ pub(crate) fn decayed(
 
 /// Request/response rate limiter built on reth's `RateLimit` (token bucket, per peer/protocol).
 pub struct RequestRateLimiter {
+    /// Token bucket rate shared by per-peer/per-protocol limiters.
     rate: reth_tokio_util::ratelimit::Rate,
+    /// Duration after which idle buckets are evicted.
     horizon: tokio::time::Duration,
-    // (peer, protocol) -> limiter state
+    /// Per-peer/per-protocol limiter state.
     state: HashMap<(PeerId, ReqRespKind), LimiterState>,
 }
 
 #[derive(Debug)]
 struct LimiterState {
+    /// Token bucket instance for the peer/protocol pair.
     limiter: reth_tokio_util::ratelimit::RateLimit,
+    /// Timestamp of last request, used for eviction.
     last_used: tokio::time::Instant,
 }
 
 /// Req/resp protocol kind used for per-protocol buckets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ReqRespKind {
+    /// Commitments request/response protocol.
     Commitments,
+    /// Raw tx list request/response protocol.
     RawTxList,
+    /// Head request/response protocol.
     Head,
 }
 
@@ -306,6 +318,7 @@ impl RequestRateLimiter {
         Self { rate, horizon, state: HashMap::new() }
     }
 
+    /// Drop idle limiters whose buckets have not been used within the horizon.
     fn evict_idle(&mut self, now: tokio::time::Instant) {
         self.state.retain(|_, entry| now.saturating_duration_since(entry.last_used) < self.horizon);
     }
@@ -504,6 +517,7 @@ pub mod reth_adapter {
         }
 
         #[cfg(test)]
+        /// Test-only entry point to exercise the reth-keyed path directly.
         pub(crate) fn apply_reth_for_test(
             &mut self,
             peer: PeerId,
@@ -539,6 +553,7 @@ mod tests {
     use libp2p::{PeerId, identity};
     use std::task::Poll;
 
+    /// Convenience config for tests using default thresholds and weights.
     fn cfg() -> ReputationConfig {
         ReputationConfig {
             greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
@@ -548,6 +563,7 @@ mod tests {
         }
     }
 
+    /// Repeated errors eventually ban a peer.
     #[test]
     fn peer_store_reaches_ban_threshold() {
         let mut adapter = reth_adapter::RethReputationAdapter::new(cfg());
@@ -562,6 +578,7 @@ mod tests {
         panic!("peer was not banned after repeated errors");
     }
 
+    /// Conversion failure falls back to libp2p-keyed store.
     #[test]
     fn reth_adapter_falls_back_when_conversion_fails() {
         let mut adapter = reth_adapter::RethReputationAdapter::new(cfg());
@@ -576,6 +593,7 @@ mod tests {
         assert!(adapter.is_banned(&peer));
     }
 
+    /// Reth-keyed path mirrors bans to libp2p ids.
     #[test]
     fn reth_adapter_uses_reth_key_when_convertible() {
         // Directly exercise the reth-keyed path by applying with an explicit reth peer id.
@@ -600,6 +618,7 @@ mod tests {
         assert!(banned, "reth-keyed path should ban and mirror to libp2p");
     }
 
+    /// Decay drives scores toward zero over time.
     #[test]
     fn decay_heals_greylist_over_time() {
         // Start well below greylist and ensure decay moves score toward zero.
@@ -611,6 +630,7 @@ mod tests {
         assert!(healed > -1.0, "should clear greylist over long decay period");
     }
 
+    /// Dial gating blocks banned peers.
     #[test]
     fn allow_dial_respects_ban() {
         let mut adapter = reth_adapter::RethReputationAdapter::new(cfg());
@@ -627,6 +647,7 @@ mod tests {
         assert!(!adapter.allow_dial(&peer, None));
     }
 
+    /// Allows within quota then limits until bucket refills.
     #[tokio::test]
     async fn request_rate_limiter_under_and_over_limit() {
         let mut rl = RequestRateLimiter::new(Duration::from_secs(1), 2);
@@ -658,6 +679,7 @@ mod tests {
         .await;
     }
 
+    /// Buckets are independent per peer.
     #[tokio::test]
     async fn request_rate_limiter_is_per_peer() {
         let mut rl = RequestRateLimiter::new(Duration::from_secs(5), 1);
@@ -683,6 +705,7 @@ mod tests {
         .await;
     }
 
+    /// Idle limiter entries are evicted after the horizon.
     #[tokio::test]
     async fn request_rate_limiter_evicts_idle_entries() {
         let window = Duration::from_millis(100);

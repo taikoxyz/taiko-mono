@@ -31,6 +31,7 @@ pub struct DiscoveryConfig {
 }
 
 impl Default for DiscoveryConfig {
+    /// Provides a zeroed discovery config suitable for test scaffolding.
     fn default() -> Self {
         Self {
             listen: SocketAddr::from(([0, 0, 0, 0], 0)),
@@ -242,6 +243,7 @@ fn spawn_reth_discv5(
 }
 
 #[cfg(feature = "reth-discovery")]
+/// Apply preset tuning values to a discv5 config builder.
 fn apply_preset(
     builder: reth_discv5::ConfigBuilder,
     preset: DiscoveryPreset,

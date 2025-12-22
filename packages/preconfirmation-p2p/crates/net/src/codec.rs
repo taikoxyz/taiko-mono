@@ -1,3 +1,5 @@
+//! SSZ codecs and protocol identifiers for libp2p request/response handlers.
+
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p_request_response::Codec;
@@ -13,6 +15,7 @@ use unsigned_varint as uvar;
 /// unbounded frame allocations. The bounds are derived from protocol-level caps in
 /// `preconfirmation_types::constants` and tuned per message type.
 pub struct SszCodec<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> {
+    /// Phantom data tracking request/response types.
     _marker: std::marker::PhantomData<(Req, Resp)>,
 }
 
@@ -33,6 +36,7 @@ impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Default
 }
 
 /// Type alias for the `SszCodec` handling commitments requests and responses.
+/// Maximum encoded size for commitments request/response frames.
 const COMMIT_REQ_MAX_BYTES: usize = 512; // block number + small fields
 const COMMIT_RESP_MAX_BYTES: usize = MAX_COMMITMENTS_PER_RESPONSE * 4096; // ~1 MiB upper bound
 pub type CommitmentsCodec = SszCodec<
@@ -56,9 +60,13 @@ pub type HeadCodec = SszCodec<
     HEAD_RESP_MAX_BYTES,
 >;
 
+/// Maximum encoded size for raw-txlist request frames.
 const RAW_TXLIST_REQ_MAX_BYTES: usize = 256; // hash + small fields
+/// Maximum encoded size for raw-txlist response frames.
 const RAW_TXLIST_RESP_MAX_BYTES: usize = MAX_TXLIST_BYTES + 4096; // payload + slack
+/// Maximum encoded size for head request frames.
 const HEAD_REQ_MAX_BYTES: usize = 128;
+/// Maximum encoded size for head response frames.
 const HEAD_RESP_MAX_BYTES: usize = 64 * 1024;
 
 #[derive(Clone)]
@@ -194,6 +202,7 @@ mod tests {
         GetRawTxListResponse, Uint256,
     };
 
+    /// Commitments codec roundtrips requests and responses within bounds.
     #[tokio::test]
     async fn commitments_codec_roundtrip() {
         let mut codec = CommitmentsCodec::default();
@@ -215,6 +224,7 @@ mod tests {
         assert_eq!(resp, decoded);
     }
 
+    /// Responses exceeding the configured cap are rejected on decode.
     #[tokio::test]
     async fn oversized_response_is_rejected_on_read() {
         let mut codec = RawTxListCodec::default();
@@ -233,6 +243,7 @@ mod tests {
         assert_eq!(err.kind(), io::ErrorKind::InvalidData);
     }
 
+    /// Encoding fails when a frame would exceed its max length.
     #[tokio::test]
     async fn write_errors_when_frame_exceeds_cap() {
         // Use a deliberately tiny cap to force an error on write.

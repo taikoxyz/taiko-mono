@@ -1,3 +1,9 @@
+//! SSZ container definitions and conversions for preconfirmation gossip and req/resp payloads.
+//!
+//! This module mirrors the wire-format structures from the specification (see
+//! `docs/specification.md`) and provides helpers for bridging between SSZ types and alloy
+//! primitives.
+
 use alloy_primitives::{Address, B256, U256};
 use ssz_rs::prelude::{List, SimpleSerialize, U256 as SSZU256, Vector, *};
 
@@ -212,6 +218,7 @@ pub fn bytes32_to_b256(value: &Bytes32) -> B256 {
 mod tests {
     use super::*;
 
+    /// Construct a deterministic preconfirmation used across tests.
     fn sample_preconf() -> Preconfirmation {
         Preconfirmation {
             eop: false,
@@ -228,6 +235,7 @@ mod tests {
         }
     }
 
+    /// SSZ roundtrip for `Preconfirmation` preserves all fields.
     #[test]
     fn ssz_roundtrip_preconf() {
         let preconf = sample_preconf();
@@ -236,6 +244,7 @@ mod tests {
         assert_eq!(preconf, decoded);
     }
 
+    /// SSZ roundtrip for `SignedCommitment` preserves commitment and signature.
     #[test]
     fn ssz_roundtrip_signed_commitment() {
         let commit = PreconfCommitment {
@@ -251,6 +260,7 @@ mod tests {
         assert_eq!(signed, decoded);
     }
 
+    /// Txlist container allows a payload exactly at the configured size cap.
     #[test]
     fn txlist_size_cap_allows_equal_limit() {
         let txlist = TxListBytes::try_from(vec![0u8; MAX_TXLIST_BYTES]).unwrap();

@@ -71,10 +71,12 @@ pub trait ValidationAdapter: Send + Sync {
 
 /// Default adapter that reuses the existing local validators.
 pub struct LocalValidationAdapter {
+    /// Optional slasher address to enforce on inbound commitments.
     expected_slasher: Option<Bytes20>,
 }
 
 impl LocalValidationAdapter {
+    /// Construct a local validator that optionally enforces a specific slasher address.
     pub fn new(expected_slasher: Option<Bytes20>) -> Self {
         Self { expected_slasher }
     }
@@ -138,11 +140,14 @@ impl ValidationAdapter for LocalValidationAdapter {
 
 /// Validation adapter that calls into an external lookahead resolver after basic checks.
 pub struct LookaheadValidationAdapter {
+    /// Local validator used for basic SSZ/hash/signature checks.
     local: LocalValidationAdapter,
+    /// External resolver providing expected signer/slot for commitments.
     resolver: Arc<dyn LookaheadResolver>,
 }
 
 impl LookaheadValidationAdapter {
+    /// Construct a lookahead validator wrapping the local validator and an external resolver.
     pub fn new(expected_slasher: Option<Bytes20>, resolver: Arc<dyn LookaheadResolver>) -> Self {
         Self { local: LocalValidationAdapter::new(expected_slasher), resolver }
     }
@@ -212,6 +217,7 @@ mod tests {
     use secp256k1::SecretKey;
     use ssz_rs::Vector;
 
+    /// Helper to create a deterministic signed commitment for testing.
     fn sample_signed_commitment(slasher: Bytes20) -> SignedCommitment {
         let preconf = Preconfirmation {
             eop: false,
@@ -232,6 +238,7 @@ mod tests {
         SignedCommitment { commitment, signature: sig }
     }
 
+    /// Accepts commitments when the slasher address matches expectation.
     #[test]
     fn slasher_address_enforced_when_expected() {
         let expected = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -240,6 +247,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
     }
 
+    /// Rejects commitments when the slasher address mismatches expectation.
     #[test]
     fn slasher_mismatch_rejected() {
         let expected = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -249,8 +257,11 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 
+    /// Resolver that always returns a configured signer and slot end.
     struct AcceptResolver {
+        /// Signer to return for all timestamps.
         signer: Address,
+        /// Slot end to return for all timestamps.
         slot_end: Uint256,
     }
     impl LookaheadResolver for AcceptResolver {
@@ -265,6 +276,7 @@ mod tests {
         }
     }
 
+    /// Resolver that rejects all lookups.
     struct RejectResolver;
     impl LookaheadResolver for RejectResolver {
         fn signer_for_timestamp(
@@ -278,6 +290,7 @@ mod tests {
         }
     }
 
+    /// Lookahead adapter accepts when resolver agrees with signer and slot.
     #[test]
     fn lookahead_adapter_delegates_ok() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -297,6 +310,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
     }
 
+    /// Lookahead adapter propagates resolver errors.
     #[test]
     fn lookahead_adapter_propagates_error() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -305,6 +319,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 
+    /// Lookahead adapter rejects commitments signed by an unexpected signer.
     #[test]
     fn lookahead_rejects_wrong_signer() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -320,6 +335,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 
+    /// Lookahead adapter rejects when slot end differs from resolver expectation.
     #[test]
     fn lookahead_rejects_slot_end_mismatch() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
