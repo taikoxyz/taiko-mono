@@ -95,11 +95,13 @@ impl P2pService {
     /// as a background task on the tokio runtime.
     ///
     /// This function initializes the entire network stack and provides a handle
-    /// for sending commands and receiving events.
+    /// for sending commands and receiving events. Commitment validation uses the
+    /// provided lookahead resolver.
     ///
     /// # Arguments
     ///
     /// * `config` - The `NetworkConfig` used to configure the underlying network driver.
+    /// * `lookahead` - The `LookaheadResolver` used to validate commitment signers and slots.
     ///
     /// # Returns
     ///
@@ -114,6 +116,17 @@ impl P2pService {
     }
 
     /// Starts the P2P service with a lookahead resolver and optional storage backend.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The `NetworkConfig` used to configure the underlying network driver.
+    /// * `lookahead` - The `LookaheadResolver` used to validate commitment signers and slots.
+    /// * `storage` - Optional `PreconfStorage` backend for persistence.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` which is `Ok(Self)` on successful startup, or an `anyhow::Error`
+    /// if the network driver fails to initialize.
     pub fn start_with_lookahead_and_storage(
         config: NetworkConfig,
         lookahead: std::sync::Arc<dyn LookaheadResolver>,
@@ -240,6 +253,27 @@ impl P2pService {
         })
     }
 
+    /// Shared helper for blocking req/resp calls that await a correlated response or error.
+    async fn request_blocking<T>(
+        &self,
+        build_cmd: impl FnOnce(u64) -> NetworkCommand,
+        mut match_event: impl FnMut(NetworkEvent, u64) -> Option<Result<T, NetworkError>>,
+        timeout_msg: &'static str,
+    ) -> Result<T, NetworkError> {
+        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
+        let mut rx = self.subscribe();
+        self.command_tx.send(build_cmd(request_id)).await.map_err(|e| {
+            NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
+        })?;
+
+        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
+            if let Some(result) = match_event(ev, request_id) {
+                return result;
+            }
+        }
+        Err(NetworkError::new(NetworkErrorKind::ReqRespTimeout, timeout_msg))
+    }
+
     /// Convenience: request commitments and await a response (or error).
     pub async fn request_commitments_blocking(
         &self,
@@ -247,35 +281,25 @@ impl P2pService {
         max_count: u32,
         peer: Option<PeerId>,
     ) -> Result<GetCommitmentsByNumberResponse, NetworkError> {
-        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
-        let mut rx = self.subscribe();
-        self.command_tx
-            .send(NetworkCommand::RequestCommitments {
+        self.request_blocking(
+            |request_id| NetworkCommand::RequestCommitments {
                 request_id: Some(request_id),
                 start_block,
                 max_count,
                 peer,
-            })
-            .await
-            .map_err(|e| {
-                NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
-            })?;
-
-        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
-            match ev {
+            },
+            |ev, request_id| match ev {
                 NetworkEvent::ReqRespCommitments { msg, request_id: rid, .. }
                     if rid == Some(request_id) || rid.is_none() =>
                 {
-                    return Ok(msg);
+                    Some(Ok(msg))
                 }
-                NetworkEvent::Error(err) if err.request_id == Some(request_id) => return Err(err),
-                _ => continue,
-            }
-        }
-        Err(NetworkError::new(
-            NetworkErrorKind::ReqRespTimeout,
+                NetworkEvent::Error(err) if err.request_id == Some(request_id) => Some(Err(err)),
+                _ => None,
+            },
             "service stopped before commitments response",
-        ))
+        )
+        .await
     }
 
     /// Convenience: request a raw txlist and await a response (or error).
@@ -284,34 +308,24 @@ impl P2pService {
         raw_tx_list_hash: preconfirmation_types::Bytes32,
         peer: Option<PeerId>,
     ) -> Result<GetRawTxListResponse, NetworkError> {
-        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
-        let mut rx = self.subscribe();
-        self.command_tx
-            .send(NetworkCommand::RequestRawTxList {
+        self.request_blocking(
+            |request_id| NetworkCommand::RequestRawTxList {
                 request_id: Some(request_id),
                 raw_tx_list_hash: raw_tx_list_hash.clone(),
                 peer,
-            })
-            .await
-            .map_err(|e| {
-                NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
-            })?;
-
-        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
-            match ev {
+            },
+            |ev, request_id| match ev {
                 NetworkEvent::ReqRespRawTxList { msg, request_id: rid, .. }
                     if rid == Some(request_id) || rid.is_none() =>
                 {
-                    return Ok(msg);
+                    Some(Ok(msg))
                 }
-                NetworkEvent::Error(err) if err.request_id == Some(request_id) => return Err(err),
-                _ => continue,
-            }
-        }
-        Err(NetworkError::new(
-            NetworkErrorKind::ReqRespTimeout,
+                NetworkEvent::Error(err) if err.request_id == Some(request_id) => Some(Err(err)),
+                _ => None,
+            },
             "service stopped before raw-txlist response",
-        ))
+        )
+        .await
     }
 
     /// Convenience: request head and await a response (or error).
@@ -319,30 +333,20 @@ impl P2pService {
         &self,
         peer: Option<PeerId>,
     ) -> Result<preconfirmation_types::PreconfHead, NetworkError> {
-        let request_id = NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
-        let mut rx = self.subscribe();
-        self.command_tx
-            .send(NetworkCommand::RequestHead { request_id: Some(request_id), peer })
-            .await
-            .map_err(|e| {
-                NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
-            })?;
-
-        while let Some(ev) = Self::recv_broadcast(&mut rx).await {
-            match ev {
+        self.request_blocking(
+            |request_id| NetworkCommand::RequestHead { request_id: Some(request_id), peer },
+            |ev, request_id| match ev {
                 NetworkEvent::ReqRespHead { head, request_id: rid, .. }
                     if rid == Some(request_id) || rid.is_none() =>
                 {
-                    return Ok(head);
+                    Some(Ok(head))
                 }
-                NetworkEvent::Error(err) if err.request_id == Some(request_id) => return Err(err),
-                _ => continue,
-            }
-        }
-        Err(NetworkError::new(
-            NetworkErrorKind::ReqRespTimeout,
+                NetworkEvent::Error(err) if err.request_id == Some(request_id) => Some(Err(err)),
+                _ => None,
+            },
             "service stopped before head response",
-        ))
+        )
+        .await
     }
 
     /// Requests a range of commitments via the request-response protocol.

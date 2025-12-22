@@ -21,11 +21,11 @@ Scope: This spec covers preconfirmation metadata and raw transaction list (txlis
 Sidecars MUST publish and subscribe to the following live gossip topics:
 
 1. `/taiko/<chainID>/0/preconfirmationCommitments`
-   - Payload: raw SSZ-encoded `SignedCommitment` (no snappy compression).
-   - Purpose: live, authoritative preconfirmation metadata feed.
+    - Payload: raw SSZ-encoded `SignedCommitment` (no snappy compression).
+    - Purpose: live, authoritative preconfirmation metadata feed.
 2. `/taiko/<chainID>/0/rawTxLists`
-   - Payload: `RawTxListGossip` (see §3.4) — includes `rawTxListHash` and compressed `txlist` bytes.
-   - Purpose: live distribution of raw txlists referenced by commitments.
+    - Payload: `RawTxListGossip` (see §3.4) — includes `rawTxListHash`, `anchorBlockNumber`, and compressed `txlist` bytes.
+    - Purpose: live distribution of raw txlists referenced by commitments.
 
 Sidecars SHOULD deprecate the following legacy topics when operating in permissionless mode (MUST NOT publish to them):
 
@@ -84,7 +84,6 @@ SignedCommitment := container {
 ```
 
 Encoding rules:
-
 - `SignedCommitment` is SSZ‑encoded (bool → 1 byte; LE32 encoding for `uint256`; hashes/addresses/signature copied as raw bytes). The signature is NOT part of the signing preimage.
 - On the wire, `SignedCommitment` MUST be sent as raw SSZ bytes (no additional compression or envelope).
 
@@ -100,7 +99,6 @@ RawTxListGossip := container {
 ```
 
 Rules:
-
 - Receivers MUST verify `keccak256(txlist) == rawTxListHash` before storing.
 - The message does not require a signature; authenticity is derived from the content hash and subsequent commitment verification.
 - Implementations SHOULD cap the maximum `txlist` size per chain config.
@@ -132,17 +130,19 @@ MUST REJECT if any of the following hold:
 - `c.slasherAddress != PRECONFER_SLASHER_ADDRESS`.
 - `p.submissionWindowEnd` does not equal the expected slot end timestamp according to the local schedule.
 - Parent consistency fails:
-  - `p.parentPreconfirmationHash` does not equal the local canonical head’s `PreconfirmationHash`.
+    - `p.parentPreconfirmationHash` does not equal the local canonical head’s `PreconfirmationHash`.
 - Block parameter validation fails:
-  - `p.blockNumber` does not follow the local canonical head (e.g., not parent.blockNumber + 1).
-  - `p.timestamp`, `p.gasLimit`, `p.coinbase`, `p.proverAuth`, or `p.proposalId` violate the chain’s derivation rules (e.g., timestamp drift bounds, gas limit progression, correct coinbase/prover authorization per lookahead/URC configuration).
+    - `p.blockNumber` does not follow the local canonical head (e.g., not parent.blockNumber + 1).
+    - `p.timestamp`, `p.gasLimit`, `p.coinbase`, `p.proverAuth`, or `p.proposalId` violate the chain’s derivation rules (e.g., timestamp drift bounds, gas limit progression, correct coinbase/prover authorization per lookahead/URC configuration).
+
+Missing parents:
+
+- If the referenced parent commitment is not yet known locally (e.g., commitments 101–102 arrive before 100), implementations SHOULD buffer the child as pending and MUST NOT reject or penalize it until the parent is available. Once the parent is known, only reject if the expected parent hash does not match; otherwise continue validation.
 
 EOP-only handling:
-
 - If `p.eop == true` and the local sidecar does not expect a transaction list for this slot (`rawTxListHash == 0x00`), the sidecar MUST treat this as a handoff signal (advance the expected preconfer to the next committer per schedule). Any further non-EOP preconfs by the same committer for the same window SHOULD be considered misbehavior (basis for slashing evidence; outside this P2P scope).
 
 Client execution checks (out of P2P):
-
 - Before executing the L2 block, the client MUST ensure that `keccak256(txlist) == p.rawTxListHash` and MUST use the L1 anchor corresponding to `p.anchorBlockNumber` to construct the anchor transaction.
 
 ## 6. Sidecar Behavior
@@ -150,7 +150,6 @@ Client execution checks (out of P2P):
 ### 6.1 Publishing
 
 The elected preconfer for each L2 slot SHOULD:
-
 - Publish the `RawTxListGossip` on `/taiko/<chainID>/0/rawTxLists` (for non‑EOP slots), and
 - Publish the `SignedCommitment` on `/taiko/<chainID>/0/preconfirmationCommitments` before `submissionWindowEnd`.
 
@@ -163,16 +162,16 @@ Ordering: Sidecars MAY publish the txlist first (or concurrently) and the commit
 Upon receiving a `SignedCommitment`:
 
 1. Validate per section 5.
-   - If the local lookahead schedule for `p.submissionWindowEnd` is not yet available (e.g., still syncing the lookahead), implementations MAY buffer the commitment as “pending schedule”; during this phase they SHOULD only enforce hash‑chain linkage via `parentPreconfirmationHash` and defer all other validation until the schedule is known (or drop per local policy). No on‑chain lookups are required in
-     the hot path.
+    - If the local lookahead schedule for `p.submissionWindowEnd` is not yet available (e.g., still syncing the lookahead), implementations MAY buffer the commitment as “pending schedule”; during this phase they SHOULD only enforce hash‑chain linkage via `parentPreconfirmationHash` and defer all other validation until the schedule is known (or drop per local policy). No on‑chain lookups are required in
+    the hot path.
 2. If valid and `eop=false`, the client SHOULD look up the txlist by `p.rawTxListHash` in its local cache (populated by `/rawTxLists`) or via §12, verify the hash, reconstruct the L2 block (anchorTx from `p.anchorBlockNumber` + txlist) using the committed block parameters (`timestamp`, `gasLimit`, `coinbase`, `proverAuth`, `proposalId`), execute, and advance local L2 head.
 3. If valid and `eop=true` and:
+    1.  **`rawTxListHash != 0x0`, d**o the same execution flow as in step (2), **and then** update local schedule state to reflect handoff to the next committer.
 
-   1. **`rawTxListHash != 0x0`, d**o the same execution flow as in step (2), **and then** update local schedule state to reflect handoff to the next committer.
-   2. **`rawTxListHash == 0x00`**, no execution is required. Update local schedule state to reflect handoff to the next committer for subsequent slots.
+    2. **`rawTxListHash == 0x00`**, no execution is required. Update local schedule state to reflect handoff to the next committer for subsequent slots.
+
 
 Startup and catch‑up:
-
 - After beacon‑syncing the L2 execution engine to the latest on‑chain tip, sidecars SHOULD synchronize missing preconfirmation metadata via the req/resp commitment sync (§11), then subscribe for live updates on `/preconfirmationCommitments`.
 - If the sidecar lacks required txlists for validated commitments (e.g., due to downtime and no local cache), it SHOULD fetch the missing txlists by hash using the req/resp rawTxList retrieval (§12) or an equivalent non‑P2P path.
 
@@ -195,12 +194,12 @@ On L1 reorgs affecting any `anchorBlockNumber` in the executed range, implementa
 The following scoring profile is normative for all preconfirmation topics unless overridden by network configuration:
 
 - Enable gossipsub v1.1 scoring with application feedback.
-- App feedback MUST apply a negative delta on validation failure (bad signature, wrong slot signer, hash mismatch, oversized txlist) and a small positive delta on acceptance/forward; defaults: ‑0.5 per failure (cap ‑2 per 10s per peer), +0.05 per acceptance (with a cap).
+- App feedback MUST apply a negative delta on validation failure (bad signature, wrong slot signer, hash mismatch, oversized txlist) and a small positive delta on acceptance/forward; defaults: ‑1 per failure (cap ‑4 per 10s per peer), +0.05 per acceptance (with a cap).
 - Parameters (defaults to be exposed/configurable but supported):
-  - decay: ~0.9 per 10s tick; `appScore` clamp: [‑10, +10]; `topicWeight` : 1.0.
-  - `invalidMessageDeliveriesWeight`: 1.0; `invalidMessageDeliveriesDecay`: 0.99; cap at ‑10.
-  - `firstMessageDeliveriesWeight`: 0.5; `firstMessageDeliveriesDecay`: 0.999; cap at 20.
-  - `timeInMeshQuantum`: 1s; `timeInMeshCap`: 3600s.
+    - decay: ~0.9 per 10s tick; `appScore` clamp: [‑10, +10]; `topicWeight` : 1.0.
+    - `invalidMessageDeliveriesWeight`: 2.0 (dominant); `invalidMessageDeliveriesDecay`: 0.99; cap at ‑20 (networks MAY remove the cap entirely to accelerate eviction).
+    - `firstMessageDeliveriesWeight`: 0.5; `firstMessageDeliveriesDecay`: 0.999; cap at 20.
+    - `timeInMeshQuantum`: 1s; `timeInMeshCap`: 3600s.
 - Enforcement MUST drop peers below score ‑1, prune below ‑2, and ban (disconnect + ignore) below ‑5 sustained >30s (or stricter).
 - Implementations MUST NOT penalize buffered commitments awaiting lookahead availability; only score once validation can definitively succeed/fail.
 
@@ -255,7 +254,6 @@ GetCommitmentsByNumberResponse := container {
 ```
 
 Constraints:
-
 - Responders MUST cap `maxCount` and the total response bytes.
 - Receivers MUST validate each `SignedCommitment` per §5.
 
@@ -268,13 +266,11 @@ Constraints:
 ### 10.3 Behavior
 
 Requester (catch‑up):
-
 - After beacon‑sync, call `get_head` to discover peer preconf head P.
 - If `P > local_onchain_tip`, page `get_commitments_by_number{ start = local_onchain_tip+1, maxCount = CAP }` until caught up.
-- For each commitment, validate (§5); for any missing txlist, retrieve by hash via §12; then reconstruct and execute.
+- For each commitment, validate (§5); for any missing txlist, retrieve by hash via §11; then reconstruct and execute.
 
 Responder:
-
 - Rate‑limit per peer; deduplicate repeated requests; respond with ordered commitments up to limits.
 
 ### 10.4 DoS and Limits
@@ -311,7 +307,6 @@ GetRawTxListResponse := container {
 ```
 
 Constraints:
-
 - Responders MUST ensure `keccak256(txlist) == rawTxListHash` before serving.
 - Responders SHOULD cap the maximum response size per chain config (e.g., `BlockMaxTxListBytes`).
 
@@ -324,12 +319,10 @@ Constraints:
 ### 11.3 Behavior
 
 Requester:
-
 - For each validated commitment lacking a local txlist, call `get_raw_txlist{ rawTxListHash }`.
 - Verify `keccak256(txlist) == rawTxListHash`, store by hash, reconstruct and execute using `anchorBlockNumber` from the related commitment.
 
 Responder:
-
 - Serve available txlists keyed by hash; rate‑limit and deduplicate per peer/hash.
 
 ### 11.4 DoS and Limits

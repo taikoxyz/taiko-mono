@@ -16,10 +16,10 @@ use alloy_primitives::Address;
 use libp2p::PeerId;
 
 use preconfirmation_types::{
-    validate_commitments_response, validate_head_response, validate_preconfirmation_basic,
-    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment, Bytes20,
-    GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
-    Uint256,
+    Bytes20, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
+    SignedCommitment, Uint256, validate_commitments_response, validate_head_response,
+    validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
+    verify_signed_commitment,
 };
 
 /// Resolver that can validate commitments against an external lookahead schedule.
@@ -80,6 +80,18 @@ impl LocalValidationAdapter {
     pub fn new(expected_slasher: Option<Bytes20>) -> Self {
         Self { expected_slasher }
     }
+
+    /// Validate slasher address and basic preconfirmation invariants.
+    fn validate_commitment_fields(&self, msg: &SignedCommitment) -> Result<(), String> {
+        if self
+            .expected_slasher
+            .as_ref()
+            .is_some_and(|expected| &msg.commitment.slasher_address != expected)
+        {
+            return Err("slasher_address mismatch".to_string());
+        }
+        validate_preconfirmation_basic(&msg.commitment.preconf).map_err(|e| e.to_string())
+    }
 }
 
 impl ValidationAdapter for LocalValidationAdapter {
@@ -89,16 +101,8 @@ impl ValidationAdapter for LocalValidationAdapter {
         _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        verify_signed_commitment(msg).map_err(|e| e.to_string()).and_then(|_| {
-            if self
-                .expected_slasher
-                .as_ref()
-                .is_some_and(|expected| &msg.commitment.slasher_address != expected)
-            {
-                return Err("slasher_address mismatch".to_string());
-            }
-            validate_preconfirmation_basic(&msg.commitment.preconf).map_err(|e| e.to_string())
-        })
+        verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        self.validate_commitment_fields(msg)
     }
 
     /// Validate a raw txlist gossip message using local SSZ/size rules.
@@ -154,14 +158,14 @@ impl LookaheadValidationAdapter {
 }
 
 impl ValidationAdapter for LookaheadValidationAdapter {
+    /// Validate a signed commitment gossip message using local checks plus lookahead rules.
     fn validate_gossip_commitment(
         &self,
-        from: &PeerId,
+        _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        self.local.validate_gossip_commitment(from, msg)?;
-
         let recovered = verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        self.local.validate_commitment_fields(msg)?;
         let slot_end = &msg.commitment.preconf.submission_window_end;
         let expected_signer = self.resolver.signer_for_timestamp(slot_end)?;
         if recovered != expected_signer {
@@ -183,6 +187,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         self.local.validate_gossip_raw_txlist(from, msg)
     }
 
+    /// Validate an inbound commitments response using the local validator.
     fn validate_commitments_response(
         &self,
         from: &PeerId,
@@ -191,6 +196,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         self.local.validate_commitments_response(from, resp)
     }
 
+    /// Validate an inbound raw txlist response using the local validator.
     fn validate_raw_txlist_response(
         &self,
         from: &PeerId,
@@ -199,6 +205,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         self.local.validate_raw_txlist_response(from, resp)
     }
 
+    /// Validate an inbound head response using the local validator.
     fn validate_head_response(
         &self,
         from: &PeerId,
@@ -212,7 +219,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
 mod tests {
     use super::*;
     use preconfirmation_types::{
-        sign_commitment, Bytes20, PreconfCommitment, Preconfirmation, Uint256,
+        Bytes20, PreconfCommitment, Preconfirmation, Uint256, sign_commitment,
     };
     use secp256k1::SecretKey;
     use ssz_rs::Vector;
