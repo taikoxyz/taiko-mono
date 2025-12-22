@@ -24,7 +24,7 @@ Sidecars MUST publish and subscribe to the following live gossip topics:
     - Payload: raw SSZ-encoded `SignedCommitment` (no snappy compression).
     - Purpose: live, authoritative preconfirmation metadata feed.
 2. `/taiko/<chainID>/0/rawTxLists`
-    - Payload: `RawTxListGossip` (see §3.4) — includes `rawTxListHash`, `anchorBlockNumber`, and compressed `txlist` bytes.
+    - Payload: `RawTxListGossip` (see §3.4) — includes `rawTxListHash` and raw `txlist` bytes.
     - Purpose: live distribution of raw txlists referenced by commitments.
 
 Sidecars SHOULD deprecate the following legacy topics when operating in permissionless mode (MUST NOT publish to them):
@@ -60,7 +60,7 @@ Preconfirmation := container {
 
 Notes:
 
-- `eop=true` denotes an EOP-only preconf **iff** no transaction list is provided for the slot (`rawTxListHash == 0x00`).
+- `eop=true` denotes an EOP preconf. If `rawTxListHash == 0x00`, it is EOP-only (no txlist).
 - `anchorBlockNumber` is the L1 block number (anchor ID) selected for this block’s anchor transaction.
 - `parentPreconfirmationHash` links to the parent commitment and is computed as `keccak256(SSZ(Preconfirmation(parent)))` (excluding the parent signature). It is part of the signing preimage for this block.
 - The additional block parameters (`timestamp`, `gasLimit`, `coinbase`, `proverAuth`, `proposalId`) are part of the commitment and subject to slashing if contradicted on L1.
@@ -93,8 +93,8 @@ For live distribution of txlists, sidecars MUST use the following container on `
 
 ```
 RawTxListGossip := container {
-  rawTxListHash:      Bytes32,   # keccak256(compressed RLP(tx list))
-  txlist:             bytes      # compressed RLP(tx list); compression per chain config (e.g., zlib)
+  rawTxListHash:      Bytes32,   # keccak256(raw RLP(tx list))
+  txlist:             bytes      # raw RLP(tx list)
 }
 ```
 
@@ -301,8 +301,7 @@ GetRawTxList (response):
 ```
 GetRawTxListResponse := container {
   rawTxListHash:      Bytes32,   # echo of request key
-  anchorBlockNumber:  uint256,   # optional; MUST match related commitment if provided
-  txlist:             bytes      # compressed RLP(tx list); compression per chain config (e.g., zlib)
+  txlist:             bytes      # raw RLP(tx list)
 }
 ```
 
@@ -312,8 +311,8 @@ Constraints:
 
 ### 11.2.1 Transport Framing and Encoding
 
-- Each request and response is a single SSZ container (request) or length‑delimited binary (response) on the libp2p stream.
-- The `txlist` field carries compressed RLP bytes; compression algorithm is defined by chain configuration (e.g., zlib). The outer message is not additionally compressed unless peers negotiate a compression extension (e.g., ssz_snappy for the container sans `txlist`).
+- Each request and response is a single SSZ container on the libp2p stream.
+- The `txlist` field carries raw RLP bytes. The outer message is not additionally compressed unless peers negotiate a compression extension (e.g., ssz_snappy).
 - A varint length prefix (per libp2p) MUST bound each frame.
 
 ### 11.3 Behavior

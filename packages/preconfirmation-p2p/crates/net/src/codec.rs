@@ -259,7 +259,6 @@ mod tests {
         let txlist = preconfirmation_types::TxListBytes::try_from(vec![0u8; 32]).unwrap();
         let resp = GetRawTxListResponse {
             raw_tx_list_hash: Bytes32::try_from(vec![1u8; 32]).unwrap(),
-            anchor_block_number: Uint256::from(1u64),
             txlist,
         };
 

@@ -117,10 +117,14 @@ impl ValidationAdapter for LocalValidationAdapter {
     /// Validate an inbound commitments response (SSZ + size caps).
     fn validate_commitments_response(
         &self,
-        _from: &PeerId,
+        from: &PeerId,
         resp: &GetCommitmentsByNumberResponse,
     ) -> Result<(), String> {
-        validate_commitments_response(resp).map_err(|e| e.to_string())
+        validate_commitments_response(resp).map_err(|e| e.to_string())?;
+        for commitment in resp.commitments.iter() {
+            self.validate_gossip_commitment(from, commitment)?;
+        }
+        Ok(())
     }
 
     /// Validate an inbound raw txlist response (hash match + size caps).
@@ -193,7 +197,11 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         from: &PeerId,
         resp: &GetCommitmentsByNumberResponse,
     ) -> Result<(), String> {
-        self.local.validate_commitments_response(from, resp)
+        validate_commitments_response(resp).map_err(|e| e.to_string())?;
+        for commitment in resp.commitments.iter() {
+            self.validate_gossip_commitment(from, commitment)?;
+        }
+        Ok(())
     }
 
     /// Validate an inbound raw txlist response using the local validator.

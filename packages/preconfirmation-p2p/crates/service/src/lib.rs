@@ -646,7 +646,6 @@ mod tests {
         let hash = keccak256_bytes(tx_bytes.as_ref());
         let raw_resp = GetRawTxListResponse {
             raw_tx_list_hash: Bytes32::try_from(hash.as_slice().to_vec()).unwrap(),
-            anchor_block_number: Uint256::from(0u64),
             txlist: tx_bytes,
         };
         let raw_resp_for_task = raw_resp.clone();

@@ -287,7 +287,6 @@ impl NetworkDriver {
                     if let Some(msg) = self.storage.get_txlist(&hash) {
                         let resp = GetRawTxListResponse {
                             raw_tx_list_hash: msg.raw_tx_list_hash.clone(),
-                            anchor_block_number: preconfirmation_types::Uint256::default(),
                             txlist: msg.txlist.clone(),
                         };
                         let _ =
@@ -299,7 +298,6 @@ impl NetworkDriver {
                         // reputation impact.
                         let resp = GetRawTxListResponse {
                             raw_tx_list_hash: request.raw_tx_list_hash.clone(),
-                            anchor_block_number: preconfirmation_types::Uint256::default(),
                             txlist: TxListBytes::default(),
                         };
                         let _ =

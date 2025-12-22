@@ -78,8 +78,8 @@ pub struct SignedCommitment {
 pub struct RawTxListGossip {
     /// Hash of the raw tx list payload.
     pub raw_tx_list_hash: Bytes32,
-    /// Compressed RLP-encoded tx list bytes.
-    pub txlist: TxListBytes, // compressed RLP(tx list)
+    /// Raw RLP-encoded tx list bytes.
+    pub txlist: TxListBytes, // raw RLP(tx list)
 }
 
 // ---------- Req/Resp (spec §10, §11) ----------
@@ -134,9 +134,7 @@ pub struct GetRawTxListRequest {
 pub struct GetRawTxListResponse {
     /// Hash of the raw transaction list payload.
     pub raw_tx_list_hash: Bytes32,
-    /// Anchor block number tied to the transaction list.
-    pub anchor_block_number: Uint256,
-    /// Compressed RLP-encoded transaction list bytes.
+    /// Raw RLP-encoded transaction list bytes.
     pub txlist: TxListBytes,
 }
 
