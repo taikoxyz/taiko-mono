@@ -1,6 +1,6 @@
 //! Constants and string helpers for topics, protocol IDs, and size caps.
 
-/// Default maximum commitments returned per response (spec suggests ≤256; tune via config later).
+/// Default maximum commitments returned per response.
 pub const MAX_COMMITMENTS_PER_RESPONSE: usize = 256;
 
 /// Maximum raw txlist size served in gossip/req-resp (align with chain BlockMaxTxListBytes).
