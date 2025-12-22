@@ -46,6 +46,7 @@ func (i *Indexer) indexBondInstructionCreatedEvents(
 			if err != nil {
 				relayer.ErrorEvents.Inc()
 				slog.Error("error handling bond instruction created", "err", err.Error())
+
 				return err
 			}
 

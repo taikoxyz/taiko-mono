@@ -16,6 +16,8 @@ import (
 	shasta "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
+const bondInstructionGasLimitOverheadPercent = 10
+
 func (p *Processor) processBondInstruction(
 	ctx context.Context,
 	msg queue.Message,
@@ -41,10 +43,6 @@ func (p *Processor) processBondInstruction(
 
 	signalHash := common.Hash(signal)
 
-	if p.processingSignals == nil {
-		p.processingSignals = make(map[common.Hash]bool, 0)
-	}
-
 	checkSignal := func(hash common.Hash) error {
 		p.processingSignalMu.Lock()
 		defer p.processingSignalMu.Unlock()
@@ -55,6 +53,7 @@ func (p *Processor) processBondInstruction(
 		}
 
 		p.processingSignals[hash] = true
+
 		return nil
 	}
 
@@ -81,13 +80,16 @@ func (p *Processor) processBondInstruction(
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
+
 	if processed {
 		slog.Info("bond instruction already processed", "signal", signalHex)
+
 		if msg.Internal != nil {
 			if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatusDone); err != nil {
 				return false, msgBody.TimesRetried, err
 			}
 		}
+
 		return false, msgBody.TimesRetried, errUnprocessable
 	}
 
@@ -121,7 +123,7 @@ func (p *Processor) processBondInstruction(
 		return false, msgBody.TimesRetried, err
 	}
 
-	gasLimit := uint64(float64(gasUsed) * 1.1)
+	gasLimit := gasUsed + (gasUsed*bondInstructionGasLimitOverheadPercent)/100
 
 	candidate := txmgr.TxCandidate{
 		TxData:   data,
@@ -164,12 +166,11 @@ func (p *Processor) resolveBondInstructionSignal(
 		return [32]byte(hash), hash.Hex(), nil
 	}
 
-	contractCaller, ok := p.srcEthClient.(bind.ContractCaller)
-	if !ok {
-		return [32]byte{}, "", errors.New("src eth client does not implement bind.ContractCaller")
+	if p.srcContractCaller == nil {
+		return [32]byte{}, "", errors.New("src contract caller not configured")
 	}
 
-	inbox, err := shasta.NewShastaInboxClientCaller(msgBody.Event.Raw.Address, contractCaller)
+	inbox, err := shasta.NewShastaInboxClientCaller(msgBody.Event.Raw.Address, p.srcContractCaller)
 	if err != nil {
 		return [32]byte{}, "", err
 	}
