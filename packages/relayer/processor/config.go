@@ -142,6 +142,17 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
 	}
 
+	var destBondManagerAddress common.Address
+
+	if c.IsSet(flags.DestBondManagerAddress.Name) {
+		destBondManagerAddressStr := c.String(flags.DestBondManagerAddress.Name)
+		if !common.IsHexAddress(destBondManagerAddressStr) {
+			return nil, fmt.Errorf("invalid destBondManagerAddress")
+		}
+
+		destBondManagerAddress = common.HexToAddress(destBondManagerAddressStr)
+	}
+
 	return &Config{
 		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
@@ -153,7 +164,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DestERC20VaultAddress:              common.HexToAddress(c.String(flags.DestERC20VaultAddress.Name)),
 		DestERC1155VaultAddress:            common.HexToAddress(c.String(flags.DestERC1155VaultAddress.Name)),
 		DestQuotaManagerAddress:            destQuotaManagerAddress,
-		DestBondManagerAddress:             common.HexToAddress(c.String(flags.DestBondManagerAddress.Name)),
+		DestBondManagerAddress:             destBondManagerAddress,
 		DatabaseUsername:                   c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                   c.String(flags.DatabasePassword.Name),
 		DatabaseName:                       c.String(flags.DatabaseName.Name),
