@@ -13,8 +13,7 @@ import "./Anchor_Layout.sol"; // DO NOT DELETE
 /// @notice Implements the Shasta fork's anchoring mechanism with proposal tracking and checkpoint
 /// management.
 /// @dev This contract implements:
-///      - Prover designation (proposer-as-prover)
-///      - State tracking for multi-block proposals
+///      - Proposal ID monotonicity tracking
 ///      - Anchoring of L1 checkpoints for cross-chain verification
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract {
@@ -28,14 +27,6 @@ contract Anchor is EssentialContract {
     /// @notice Proposal-level data that applies to the entire batch of blocks.
     struct ProposalParams {
         uint48 proposalId; // Unique identifier of the proposal
-        address proposer; // Address of the entity that proposed this batch
-    }
-
-    /// @notice Stored proposal-level state for the ongoing batch.
-    struct ProposalState {
-        address designatedProver;
-        bool isLowBondProposal; // Deprecated: always false under L1 bond model.
-        uint48 proposalId;
     }
 
     /// @notice Stored block-level state for the latest anchor.
@@ -54,7 +45,6 @@ contract Anchor is EssentialContract {
 
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
-
 
     // ---------------------------------------------------------------
     // Immutables
@@ -79,8 +69,8 @@ contract Anchor is EssentialContract {
     /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
-    /// @notice Latest proposal-level state, updated only on the first block of a proposal.
-    ProposalState internal _proposalState;
+    /// @notice Latest proposal ID processed.
+    uint48 private _lastProposalId;
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
@@ -94,9 +84,6 @@ contract Anchor is EssentialContract {
 
     event Anchored(
         uint48 indexed proposalId,
-        bool indexed isNewProposal,
-        bool indexed isLowBondProposal,
-        address designatedProver,
         uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
         bytes32 ancestorsHash
@@ -145,7 +132,7 @@ contract Anchor is EssentialContract {
 
     /// @notice Processes a block within a proposal and anchors L1 data.
     /// @dev Core function that processes blocks sequentially within a proposal:
-    ///      1. Designates prover when a new proposal starts (i.e. the first block of a proposal)
+    ///      1. Ensures proposal IDs do not go backward
     ///      2. Anchors L1 block data for cross-chain verification
     /// @param _proposalParams Proposal-level parameters that define the overall batch.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
@@ -157,17 +144,16 @@ contract Anchor is EssentialContract {
         onlyValidSender
         nonReentrant
     {
-        uint48 lastProposalId = _proposalState.proposalId;
+        uint48 proposalId = _proposalParams.proposalId;
+        uint48 lastProposalId = _lastProposalId;
 
-        if (_proposalParams.proposalId < lastProposalId) {
+        if (proposalId < lastProposalId) {
             // Proposal ID cannot go backward
             revert ProposalIdMismatch();
         }
 
-        bool isNewProposal = _proposalParams.proposalId > lastProposalId;
-        // We do not need to account for proposalId = 0, since that's genesis
-        if (isNewProposal) {
-            _validateProposal(_proposalParams);
+        if (proposalId > lastProposalId) {
+            _lastProposalId = proposalId;
         }
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
@@ -176,10 +162,7 @@ contract Anchor is EssentialContract {
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            _proposalState.proposalId,
-            isNewProposal,
-            _proposalState.isLowBondProposal,
-            _proposalState.designatedProver,
+            proposalId,
             prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
@@ -208,28 +191,14 @@ contract Anchor is EssentialContract {
     // Public View Functions
     // ---------------------------------------------------------------
 
-    /// @notice Returns the current proposal-level state snapshot.
-    function getProposalState() external view returns (ProposalState memory) {
-        return _proposalState;
-    }
-
     /// @notice Returns the current block-level state snapshot.
     function getBlockState() external view returns (BlockState memory) {
         return _blockState;
     }
 
-
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @dev Validates and processes proposal-level data on the first block.
-    /// @param _proposalParams Proposal-level parameters containing all proposal data.
-    function _validateProposal(ProposalParams calldata _proposalParams) private {
-        _proposalState.isLowBondProposal = false;
-        _proposalState.designatedProver = _proposalParams.proposer;
-        _proposalState.proposalId = _proposalParams.proposalId;
-    }
 
     /// @dev Validates and processes block-level data.
     /// @param _checkpoint Anchor checkpoint data from L1.

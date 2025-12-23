@@ -15,8 +15,6 @@ contract AnchorTest is Test {
     Anchor internal anchor;
     SignalService internal signalService;
 
-    address internal proposer;
-
     function setUp() external {
         SignalService signalServiceImpl = new SignalService(address(this), address(0x1234));
         signalService = SignalService(
@@ -36,7 +34,6 @@ contract AnchorTest is Test {
 
         signalService.upgradeTo(address(new SignalService(address(anchor), address(0x1234))));
 
-        proposer = address(0xA11CE);
     }
 
     function test_anchorV4_processesFirstBlock() external {
@@ -47,12 +44,8 @@ contract AnchorTest is Test {
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
-        Anchor.ProposalState memory proposalState = anchor.getProposalState();
         Anchor.BlockState memory blockState = anchor.getBlockState();
 
-        assertEq(proposalState.designatedProver, proposer);
-        assertFalse(proposalState.isLowBondProposal);
-        assertEq(proposalState.proposalId, proposalParams.proposalId);
         assertEq(blockState.anchorBlockNumber, blockParams.blockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
@@ -63,7 +56,7 @@ contract AnchorTest is Test {
         assertEq(saved.stateRoot, blockParams.stateRoot);
     }
 
-    function test_anchorV4_allowsMultipleBlocksWithoutExtraStateChanges() external {
+    function test_anchorV4_allowsMultipleBlocksSameProposalId() external {
         Anchor.ProposalParams memory proposalParams = _proposalParams(1);
         ICheckpointStore.Checkpoint memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
@@ -71,16 +64,14 @@ contract AnchorTest is Test {
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
-        Anchor.ProposalState memory proposalStateBefore = anchor.getProposalState();
+        Anchor.BlockState memory blockStateBefore = anchor.getBlockState();
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
-        Anchor.ProposalState memory proposalState = anchor.getProposalState();
-        assertEq(proposalState.proposalId, proposalStateBefore.proposalId);
-        assertEq(proposalState.designatedProver, proposalStateBefore.designatedProver);
-        assertEq(proposalState.isLowBondProposal, proposalStateBefore.isLowBondProposal);
+        Anchor.BlockState memory blockState = anchor.getBlockState();
+        assertEq(blockState.anchorBlockNumber, blockStateBefore.anchorBlockNumber);
     }
 
     function test_anchorV4_rejectsBackwardProposalId() external {
@@ -113,11 +104,8 @@ contract AnchorTest is Test {
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(secondProposal, blockParams2);
 
-        Anchor.ProposalState memory proposalState = anchor.getProposalState();
         Anchor.BlockState memory blockState = anchor.getBlockState();
 
-        assertEq(proposalState.proposalId, 2);
-        assertEq(proposalState.designatedProver, proposer);
         assertEq(blockState.anchorBlockNumber, blockParams2.blockNumber);
     }
 
@@ -125,12 +113,8 @@ contract AnchorTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _proposalParams(uint48 _proposalId)
-        internal
-        view
-        returns (Anchor.ProposalParams memory)
-    {
-        return Anchor.ProposalParams({ proposalId: _proposalId, proposer: proposer });
+    function _proposalParams(uint48 _proposalId) internal pure returns (Anchor.ProposalParams memory) {
+        return Anchor.ProposalParams({ proposalId: _proposalId });
     }
 
     function _blockParams(

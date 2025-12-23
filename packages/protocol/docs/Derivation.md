@@ -21,15 +21,14 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component** | **Description**                                                          |
-| ---------------------- | ------------------------------------------------------------------------ |
-| **id**                 | A unique, sequential identifier for the proposal                         |
-| **proposer**           | The address that proposed the proposal                                   |
-| **designatedProver**   | The prover responsible for proving the proposal (currently the proposer) |
-| **timestamp**          | The timestamp when the proposal was accepted on L1                       |
-| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted  |
-| **originBlockHash**    | The hash of `originBlockNumber` block                                    |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                              |
+| **Metadata Component** | **Description**                                                         |
+| ---------------------- | ----------------------------------------------------------------------- |
+| **id**                 | A unique, sequential identifier for the proposal                        |
+| **proposer**           | The address that proposed the proposal                                  |
+| **timestamp**          | The timestamp when the proposal was accepted on L1                      |
+| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
+| **originBlockHash**    | The hash of `originBlockNumber` block                                   |
+| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                             |
 
 ### Derivation Source-level Metadata
 
@@ -262,9 +261,8 @@ Late-proof handling on L1 applies liveness slashing directly via the L1 BondMana
 
 ### Designated Prover System
 
-The designated prover for a proposal is always the proposer. The L2 `Anchor` sets `designatedProver` to the
-proposal proposer on the first block of each proposal. ProverAuth payloads and low-bond proposal handling are
-no longer used.
+The designated prover for a proposal is always the proposer on L1. The L2 `Anchor` no longer tracks or emits
+prover metadata. ProverAuth payloads and low-bond proposal handling are no longer used.
 
 ### Additional Metadata Fields
 
@@ -291,7 +289,7 @@ The remaining metadata fields follow straightforward assignment patterns:
 
 The `proposalId` supplied to `anchorV4` must be the same across blocks in the same proposal and strictly increase only when a new proposal begins.
 
-**Why this is critical**: This check gates proposal-level operations that must execute exactly once per proposal, chiefly the **prover designation** (one designated prover per proposal).
+**Why this matters**: This check prevents proposal reordering and keeps proposal boundaries deterministic for off-chain consumers.
 
 ## Metadata Application
 
@@ -329,13 +327,12 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
 
-| Parameter         | Type    | Description                                              |
-| ----------------- | ------- | -------------------------------------------------------- |
-| proposalId        | uint48  | Unique identifier of the proposal being anchored         |
-| proposer          | address | Address of the entity that proposed this batch of blocks |
-| anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring)          |
-| anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber                       |
-| anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber                       |
+| Parameter         | Type    | Description                                      |
+| ----------------- | ------- | ------------------------------------------------ |
+| proposalId        | uint48  | Unique identifier of the proposal being anchored |
+| anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring)  |
+| anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber               |
+| anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber               |
 
 #### Transaction Execution Flow
 
@@ -345,8 +342,8 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
-2. **Proposal initialization** (first block with a higher `proposalId`)
-   - Designates the prover for the proposal (proposer-as-prover)
+2. **Proposal ID tracking** (first block with a higher `proposalId`)
+   - Updates the latest proposal ID
 
 3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointManager.saveCheckpoint`

@@ -49,14 +49,13 @@ Add `layer1/core/impl/BondManager` to hold ERC20 bonds on L1:
 ### L2 Anchor Changes
 
 - Remove prover delegation/auth.
-- Set `designatedProver = proposer` for each proposal.
-- Keep `isLowBondProposal` in state/event but always set to `false` (can be removed later).
+- Remove proposal-level prover/low-bond tracking from Anchor.
+- Keep only proposal ID monotonicity checks and L1 checkpoint anchoring.
 
 ### Derivation Changes
 
 - Remove `proverAuthBytes` usage from proposal manifests.
-- `designatedProver` is always `proposer`.
-- `isLowBondProposal` is no longer used to replace proposer sources.
+- `designatedProver` in L1 transitions is always `proposer` (no L2 Anchor tracking).
 - Liveness slashing is on L1; no bond signals or L2 bond processing.
 
 ## Contract/API Changes
@@ -64,7 +63,7 @@ Add `layer1/core/impl/BondManager` to hold ERC20 bonds on L1:
 - `IInbox.Config` gains `bondManager` address.
 - New `layer1/core/iface/IBondManager` and `layer1/core/impl/BondManager`.
 - `ICodec.hashBondInstruction` and `IInbox.BondInstructionCreated` removed.
-- L2 `Anchor` removes `ProverAuth` and proving-fee transfer logic.
+- L2 `Anchor` removes `ProverAuth` and proposal-level prover tracking.
 
 ## Gas/Performance Impact
 

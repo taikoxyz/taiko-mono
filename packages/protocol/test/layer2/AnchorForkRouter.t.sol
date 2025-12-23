@@ -27,7 +27,7 @@ contract AnchorForkRouterTest is Test {
 
     function test_shouldNotRouteNonLegacySelectors() public view {
         assertFalse(router.shouldRouteToOldFork(bytes4(keccak256("withdraw(address,address)"))));
-        assertFalse(router.shouldRouteToOldFork(bytes4(keccak256("getProposalState()"))));
+        assertFalse(router.shouldRouteToOldFork(bytes4(keccak256("getBlockState()"))));
         assertFalse(router.shouldRouteToOldFork(bytes4(keccak256("init(address)"))));
     }
 }
