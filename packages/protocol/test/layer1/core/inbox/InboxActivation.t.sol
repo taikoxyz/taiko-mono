@@ -116,7 +116,8 @@ contract InboxActivationTest is InboxTestBase {
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
         assertEq(cfg.signalService, config.signalService, "signalService mismatch");
-        assertEq(cfg.bondManager, config.bondManager, "bondManager mismatch");
+        assertEq(cfg.bondToken, config.bondToken, "bondToken mismatch");
+        assertEq(cfg.livenessBond, config.livenessBond, "livenessBond mismatch");
     }
 }
 
@@ -146,11 +147,11 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
-    function test_validateConfig_RevertWhen_BondManagerZero() public {
+    function test_validateConfig_RevertWhen_BondTokenZero() public {
         IInbox.Config memory cfg = _buildConfig();
-        cfg.bondManager = address(0);
+        cfg.bondToken = address(0);
 
-        vm.expectRevert(LibInboxSetup.BondManagerZero.selector);
+        vm.expectRevert(LibInboxSetup.BondTokenZero.selector);
         new Inbox(cfg);
     }
 

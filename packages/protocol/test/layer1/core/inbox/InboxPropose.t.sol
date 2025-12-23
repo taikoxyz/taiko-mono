@@ -5,9 +5,9 @@ pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { BondManager } from "src/layer1/core/impl/BondManager.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibBonding } from "src/layer1/core/libs/LibBonding.sol";
 
 contract InboxProposeTest is InboxTestBase {
     function test_propose() public {
@@ -59,13 +59,13 @@ contract InboxProposeTest is InboxTestBase {
     function test_propose_RevertWhen_InsufficientBond() public {
         _setBlobHashes(1);
         uint256 balance = bondManager.getBondBalance(proposer);
-        vm.prank(address(inbox));
-        bondManager.debitBond(proposer, balance);
+        vm.prank(proposer);
+        bondManager.withdraw(proposer, balance);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
-        vm.expectRevert(BondManager.InsufficientBondBalance.selector);
+        vm.expectRevert(LibBonding.InsufficientBondBalance.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
     }
@@ -73,13 +73,14 @@ contract InboxProposeTest is InboxTestBase {
     function test_propose_RevertWhen_BondWithdrawn() public {
         _setBlobHashes(1);
         uint256 balance = bondManager.getBondBalance(proposer);
+        uint256 remaining = LIVENESS_BOND - 1;
         vm.prank(proposer);
-        bondManager.withdraw(proposer, balance);
+        bondManager.withdraw(proposer, balance - remaining);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
-        vm.expectRevert(BondManager.InsufficientBondBalance.selector);
+        vm.expectRevert(LibBonding.InsufficientBondBalance.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
     }

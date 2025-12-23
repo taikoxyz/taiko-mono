@@ -35,14 +35,16 @@ contract MainnetInbox is Inbox {
         address _proofVerifier,
         address _proposerChecker,
         address _proverWhitelist,
-        address _bondManager
+        address _bondToken,
+        uint256 _livenessBond
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
-                bondManager: _bondManager,
+                bondToken: _bondToken,
+                livenessBond: _livenessBond,
                 provingWindow: 4 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,

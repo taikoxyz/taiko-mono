@@ -34,14 +34,16 @@ contract DevnetInbox is Inbox {
         address _proposerChecker,
         address _proverWhitelist,
         address _signalService,
-        address _bondManager
+        address _bondToken,
+        uint256 _livenessBond
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
                 signalService: _signalService,
-                bondManager: _bondManager,
+                bondToken: _bondToken,
+                livenessBond: _livenessBond,
                 provingWindow: 2 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,

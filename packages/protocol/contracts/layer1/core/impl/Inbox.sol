@@ -8,10 +8,12 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBonding } from "../libs/LibBonding.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -31,7 +33,7 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - L1 bond checks and liveness slashing
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
+contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
     using LibAddress for address;
     using LibMath for uint48;
     using LibMath for uint256;
@@ -68,8 +70,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
 
-    /// @notice Bond manager responsible for proposer bonds and liveness slashing.
-    IBondManager internal immutable _bondManager;
+    /// @notice ERC20 token used for proposer bonds.
+    IERC20 public immutable bondToken;
+
+    /// @notice Bond amount (Wei) for liveness guarantees.
+    uint256 public immutable livenessBond;
 
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
@@ -118,11 +123,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// - proposalHash: The keccak256 hash of the Proposal struct
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
+    /// @notice Storage for bond balances.
+    LibBonding.Storage private _bondingStorage;
+
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[44] private __gap;
+    uint256[43] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -137,7 +145,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
-        _bondManager = IBondManager(_config.bondManager);
+        bondToken = IERC20(_config.bondToken);
+        livenessBond = _config.livenessBond;
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
@@ -196,8 +205,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
-            uint256 bondAmount = _bondManager.livenessBond();
-            if (bondAmount > 0) _bondManager.debitBond(msg.sender, bondAmount);
+            uint256 bondAmount = livenessBond;
+            if (bondAmount > 0) LibBonding.debitBond(_bondingStorage, msg.sender, bondAmount);
 
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
@@ -399,6 +408,42 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
+    // Bond Manager Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc IBondManager
+    function deposit(uint256 _amount) external nonReentrant {
+        LibBonding.deposit(_bondingStorage, bondToken, msg.sender, msg.sender, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
+        LibBonding.deposit(_bondingStorage, bondToken, msg.sender, _recipient, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function withdraw(address _to, uint256 _amount) external nonReentrant {
+        LibBonding.withdraw(_bondingStorage, bondToken, msg.sender, _to, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function getBondBalance(address _address) external view returns (uint256) {
+        return LibBonding.getBondBalance(_bondingStorage, _address);
+    }
+
+    /// @inheritdoc IBondManager
+    function hasSufficientBond(
+        address _address,
+        uint256 _additionalBond
+    )
+        external
+        view
+        returns (bool)
+    {
+        return LibBonding.hasSufficientBond(_bondingStorage, livenessBond, _address, _additionalBond);
+    }
+
+    // ---------------------------------------------------------------
     // External and Public View Functions
     // ---------------------------------------------------------------
     /// @inheritdoc IForcedInclusionStore
@@ -432,7 +477,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             proposerChecker: address(_proposerChecker),
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
-            bondManager: address(_bondManager),
+            bondToken: address(bondToken),
+            livenessBond: livenessBond,
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
@@ -639,19 +685,21 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-        uint256 bondAmount = _bondManager.livenessBond();
+        uint256 bondAmount = livenessBond;
         if (bondAmount == 0) return;
 
         unchecked {
             uint256 start = _offset;
             if (!_isWhitelistEnabled) {
-                uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                        + _provingWindow)
-                .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+                uint256 livenessWindowDeadline =
+                    (_commitment.transitions[_offset].timestamp + _provingWindow)
+                        .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
                 if (block.timestamp > livenessWindowDeadline) {
                     start = _offset + 1;
-                    _bondManager.processLivenessBond(
+                    LibBonding.processLivenessBond(
+                        _bondingStorage,
+                        bondAmount,
                         _commitment.transitions[_offset].proposer,
                         _commitment.actualProver,
                         msg.sender
@@ -660,7 +708,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             }
 
             for (uint256 i = start; i < _numProposals; ++i) {
-                _bondManager.creditBond(_commitment.transitions[i].proposer, bondAmount);
+                LibBonding.creditBond(
+                    _bondingStorage, _commitment.transitions[i].proposer, bondAmount
+                );
             }
         }
     }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { MockProofVerifier } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
-import { BondManager } from "src/layer1/core/impl/BondManager.sol";
+import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
@@ -33,7 +33,7 @@ abstract contract InboxTestBase is CommonTest {
     Inbox internal inbox;
     IInbox.Config internal config;
     ICodec internal codec;
-    BondManager internal bondManager;
+    IBondManager internal bondManager;
     TestERC20 internal bondToken;
 
     MockProofVerifier internal verifier;
@@ -59,13 +59,13 @@ abstract contract InboxTestBase is CommonTest {
         _mockBeaconBlockRoot();
         _setupMocks();
         _setupDependencies();
-        _setupBondManager();
+        _setupBondToken();
 
         config = _buildConfig();
         inbox = _deployInbox();
         codec = ICodec(address(inbox));
+        bondManager = IBondManager(address(inbox));
         _setSignalServiceSyncer(address(inbox));
-        _upgradeBondManagerOperator(address(inbox));
         inbox.activate(bytes32(uint256(1)));
 
         vm.roll(INITIAL_BLOCK_NUMBER);
@@ -84,7 +84,8 @@ abstract contract InboxTestBase is CommonTest {
             proposerChecker: address(proposerChecker),
             proverWhitelist: address(proverWhitelistContract),
             signalService: address(signalService),
-            bondManager: address(bondManager),
+            bondToken: address(bondToken),
+            livenessBond: LIVENESS_BOND,
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
@@ -114,14 +115,8 @@ abstract contract InboxTestBase is CommonTest {
         _addProposer(proposer);
     }
 
-    function _setupBondManager() internal {
+    function _setupBondToken() internal {
         bondToken = new TestERC20("Bond Token", "BOND");
-        BondManager impl = new BondManager(address(bondToken), address(this), LIVENESS_BOND);
-        bondManager = BondManager(
-            address(
-                new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (address(this))))
-            )
-        );
     }
 
     // ---------------------------------------------------------------
@@ -147,16 +142,6 @@ abstract contract InboxTestBase is CommonTest {
         );
     }
 
-    function _upgradeBondManagerOperator(address _operator) internal {
-        bondManager.upgradeTo(
-            address(
-                new BondManager(
-                    address(bondToken), _operator, LIVENESS_BOND
-                )
-            )
-        );
-    }
-
     function _fundProposerBond() internal {
         _fundBond(proposer, INITIAL_BOND);
     }
@@ -164,7 +149,7 @@ abstract contract InboxTestBase is CommonTest {
     function _fundBond(address _account, uint256 _amount) internal {
         bondToken.mint(_account, _amount);
         vm.startPrank(_account);
-        bondToken.approve(address(bondManager), type(uint256).max);
+        bondToken.approve(address(inbox), type(uint256).max);
         bondManager.deposit(_amount);
         vm.stopPrank();
     }

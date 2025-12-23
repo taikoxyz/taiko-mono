@@ -16,8 +16,10 @@ interface IInbox {
         address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
-        /// @notice The bond manager contract address
-        address bondManager;
+        /// @notice The ERC20 bond token address
+        address bondToken;
+        /// @notice The liveness bond amount
+        uint256 livenessBond;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.

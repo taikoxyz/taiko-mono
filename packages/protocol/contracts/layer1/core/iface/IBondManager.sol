@@ -54,17 +54,6 @@ interface IBondManager {
     // Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Debits a bond from an address.
-    /// @dev Reverts if `_bond` exceeds the available balance.
-    /// @param _address The address to debit the bond from.
-    /// @param _bond The amount of bond to debit.
-    function debitBond(address _address, uint256 _bond) external;
-
-    /// @notice Credits a bond to an address.
-    /// @param _address The address to credit the bond to.
-    /// @param _bond The amount of bond to credit.
-    function creditBond(address _address, uint256 _bond) external;
-
     /// @notice Deposit ERC20 bond tokens for the caller.
     /// @param _amount The amount to deposit.
     function deposit(uint256 _amount) external;
@@ -79,19 +68,6 @@ interface IBondManager {
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
-
-    /// @notice Processes a liveness bond transfer for a late proof using the reserved bond.
-    /// @param _payer The address whose bond is debited.
-    /// @param _payee The address receiving the reward.
-    /// @param _caller The address receiving the caller reward when payer == payee.
-    /// @return debitedAmount_ The amount debited from the payer.
-    function processLivenessBond(
-        address _payer,
-        address _payee,
-        address _caller
-    )
-        external
-        returns (uint256 debitedAmount_);
 
     /// @notice Returns the liveness bond amount.
     /// @return livenessBond_ The liveness bond amount.

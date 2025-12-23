@@ -28,22 +28,22 @@ This creates low-bond proposal handling, signal proofs, and extra complexity aro
 
 ## Proposed Design
 
-### L1 Bond Manager
+### L1 Bonding In Inbox
 
-Add `layer1/core/impl/BondManager` to hold ERC20 bonds on L1:
+Move bond accounting into the Inbox via a small library (`LibBonding`) to keep the Inbox readable:
 
 - Tracks per-account balances.
 - Uses `livenessBond` as the per-proposal bond amount.
 - Holds the `livenessBond` amount used for late-proof slashing.
-- Only the L1 Inbox (bond operator) can apply liveness slashing.
+- Exposes deposit/withdraw and balance queries directly on the Inbox (via `IBondManager`).
 
 ### Inbox Changes
 
-- **Propose**: reserve the proposer bond by calling `bondManager.debitBond`, which reverts if
-  the proposer lacks `livenessBond`. This debits `livenessBond` per proposal on acceptance.
-- **Prove**: for late proofs (same timing rules as today), call `bondManager.processLivenessBond`.
-  The liveness bond keeps the existing split rules (50% total slash, with a 40% payee + 10% caller
-  split when payer == payee).
+- **Propose**: reserve the proposer bond by debiting the caller’s Inbox bond balance; revert if the
+  proposer lacks `livenessBond`. This debits `livenessBond` per proposal on acceptance.
+- **Prove**: for late proofs (same timing rules as today), process liveness slashing using the
+  reserved bond. The liveness bond keeps the existing split rules (50% total slash, with a 40%
+  payee + 10% caller split when payer == payee).
 - Remove bond signal emission and `BondInstructionCreated` from the Inbox.
 
 ### L2 Anchor Changes
@@ -60,15 +60,15 @@ Add `layer1/core/impl/BondManager` to hold ERC20 bonds on L1:
 
 ## Contract/API Changes
 
-- `IInbox.Config` gains `bondManager` address.
-- New `layer1/core/iface/IBondManager` and `layer1/core/impl/BondManager`.
+- `IInbox.Config` uses `bondToken` and `livenessBond`.
+- `IBondManager` is implemented by the Inbox (no standalone L1 BondManager).
 - `ICodec.hashBondInstruction` and `IInbox.BondInstructionCreated` removed.
 - L2 `Anchor` removes `ProverAuth` and proposal-level prover tracking.
 
 ## Gas/Performance Impact
 
-- **Propose**: adds one external call to reserve the bond.
-- **Prove**: adds one external call on late proofs only; unchanged for on-time proofs.
+- **Propose**: no external calls; a single storage debit in the Inbox.
+- **Prove**: no external calls; slashing only adjusts Inbox storage when late.
 - Removes signal proof costs and L2 bond processing overhead.
 
 ## Notes
