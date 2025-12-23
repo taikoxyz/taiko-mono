@@ -21,17 +21,15 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component** | **Description**                                                         |
-| ---------------------- | ----------------------------------------------------------------------- |
-| **id**                 | A unique, sequential identifier for the proposal                        |
-| **proposer**           | The address that proposed the proposal                                  |
-| **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting           |
-| **designatedProver**   | The prover responsible for proving the proposal                         |
-| **timestamp**          | The timestamp when the proposal was accepted on L1                      |
-| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
-| **originBlockHash**    | The hash of `originBlockNumber` block                                   |
-| **proverAuthBytes**    | An ABI-encoded ProverAuth object                                        |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                             |
+| **Metadata Component** | **Description**                                                          |
+| ---------------------- | ------------------------------------------------------------------------ |
+| **id**                 | A unique, sequential identifier for the proposal                         |
+| **proposer**           | The address that proposed the proposal                                   |
+| **designatedProver**   | The prover responsible for proving the proposal (currently the proposer) |
+| **timestamp**          | The timestamp when the proposal was accepted on L1                       |
+| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted  |
+| **originBlockHash**    | The hash of `originBlockNumber` block                                    |
+| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                              |
 
 ### Derivation Source-level Metadata
 
@@ -94,9 +92,6 @@ The manifest data structures are defined as follows:
 /// @dev The ProposalManifest aggregates all DerivationSources' blob data for a proposal.
 /// The ProposalManifest is conceptual and used at derivation time only (i.e. it is not posted in blobs).
 struct ProposalManifest {
-  /// @notice Prover authentication data (proposal-level).
-  /// @dev Retrieved from the proposer's derivation source manifest (the last manifest in `sources`).
-  bytes proverAuthBytes;
   /// @notice Array of derivation source manifests (one per derivation source).
   DerivationSourceManifest[] sources;
 }
@@ -104,8 +99,6 @@ struct ProposalManifest {
 /// @notice Represents a derivation source manifest containing blocks for one source
 /// @dev Each proposal can have multiple DerivationSourceManifests (one per DerivationSource).
 struct DerivationSourceManifest {
-  /// @notice Proposal-level prover authentication data; ignored when the derivation source is a forced inclusion.
-  bytes proverAuthBytes;
   /// @notice The blocks for this derivation source.
   BlockManifest[] blocks;
 }
@@ -143,9 +136,9 @@ struct SignedTransaction {
 }
 ```
 
-### Proposer and `isLowBondProposal` Validation
+### Proposer Bond Validation
 
-The proposer must have sufficient balance in the L2 [`BondManager`](../contracts/layer2/core/BondManager.sol) contract. If the `anchorV4` transaction flags `isLowBondProposal = true`, the proposer’s derivation source is replaced with the default source manifest.
+The proposer must have sufficient balance in the L1 [`BondManager`](../contracts/layer1/core/impl/BondManager.sol) contract before `Inbox.propose` accepts the proposal. Low-bond proposals are no longer accepted, so derivation never replaces the proposer source due to bond insufficiency.
 
 ### Manifest Extraction
 
@@ -192,7 +185,6 @@ After processing all sources, the `ProposalManifest` is constructed:
 
 ```solidity
 ProposalManifest memory manifest;
-manifest.proverAuthBytes = proverAuthBytesFromProposerSource;
 manifest.sources = [sourceManifest0, sourceManifest1, ...];  // With defaults for failed sources
 ```
 
@@ -264,45 +256,15 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
-#### Bond instruction signaling
+#### Liveness Bond Processing
 
-Late-proof handling on L1 may emit at most one bond instruction for the first proven proposal. When triggered, the Inbox emits `BondInstructionCreated` and forwards the hash via `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
-
-Bond instruction settlement is **entirely on L2** and not part of the derivation process. [`BondManager.processBondInstruction`](../contracts/layer2/core/BondManager.sol#L180-L219) consumes the signals emitted on the L1 and can be called by anyone. It has its own incentive system to incentivize slashing faulty provers.
+Late-proof handling on L1 applies liveness slashing directly via the L1 BondManager. When a proof is late, the Inbox calls `BondManager.processLivenessBond` for the first proven proposal in the batch. There are no bond signals sent to L2.
 
 ### Designated Prover System
 
-The designated prover system ensures every proposal has a responsible prover. It is implemented in the L2
-[`Anchor`](../contracts/layer2/core/Anchor.sol) contract and runs inside `anchorV4` on the first block of each
-proposal.
-
-#### ProverAuth Payload
-
-The `proverAuthBytes` value is proposal-level data. During derivation, `proposalManifest.proverAuthBytes` is
-taken from the proposer's derivation source manifest (the last manifest in `sources`) and passed as
-`proposalParams.proverAuth` in `anchorV4`.
-
-Although `anchorV4` only processes proposal-level parameters when `proposalId` increases, later blocks must
-still include the same `proposalId`, `proposer`, and `proverAuth` bytes so the anchor transaction calldata
-(and thus the derived block) is deterministic.
-
-#### Prover Designation
-
-The canonical implementation lives in
-[`Anchor.validateProverAuth`](../contracts/layer2/core/Anchor.sol#L327-L370) and
-[`Anchor.getDesignatedProver`](../contracts/layer2/core/Anchor.sol#L264-L296) and can be summarized as:
-
-- If `proverAuth` is invalid, fall back to the proposer with zero proving fee. Invalid prover auth does not
-  trigger default manifest replacement.
-- If the proposer lacks sufficient bond for the proving fee, flag `isLowBondProposal = true` and inherit the
-  previous `designatedProver` (falling back to the proposer if unset).
-- Otherwise, designate the authenticated prover (or the proposer) and transfer the proving fee when
-  applicable.
-
-#### Low-Bond Proposal Handling
-
-When `isLowBondProposal = true`, off-chain derivation replaces only the proposer's derivation source with the
-default source manifest; forced inclusion sources are still processed.
+The designated prover for a proposal is always the proposer. The L2 `Anchor` sets `designatedProver` to the
+proposal proposer on the first block of each proposal. ProverAuth payloads and low-bond proposal handling are
+no longer used.
 
 ### Additional Metadata Fields
 
@@ -316,12 +278,6 @@ The remaining metadata fields follow straightforward assignment patterns:
 | `metadata.number`       | `parent.metadata.number + 1`                                      |
 | `metadata.difficulty`   | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
 | `metadata.transactions` | `sourceManifest.blocks[i].transactions` (from current source)     |
-
-**Proposal-level assignments:**
-
-| Metadata Field             | Value Assignment                   |
-| -------------------------- | ---------------------------------- |
-| `metadata.proverAuthBytes` | `proposalManifest.proverAuthBytes` |
 
 **Derivation source-level assignments:**
 
@@ -349,14 +305,13 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field                              |
-| -------------------- | ------- | ----------------------------------------- |
-| `number`             | uint256 | `number`                                  |
-| `timestamp`          | uint256 | `timestamp`                               |
-| `difficulty`         | uint256 | `difficulty`                              |
-| `gasLimit`           | uint256 | `gasLimit`                                |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`                 |
-| `isLowBondProposal`  | bool    | Lowest bit in the 2nd byte in `extraData` |
+| Metadata Component   | Type    | Header Field              |
+| -------------------- | ------- | ------------------------- |
+| `number`             | uint256 | `number`                  |
+| `timestamp`          | uint256 | `timestamp`               |
+| `difficulty`         | uint256 | `difficulty`              |
+| `gasLimit`           | uint256 | `gasLimit`                |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData` |
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -378,7 +333,6 @@ The anchor transaction serves as a privileged system transaction responsible for
 | ----------------- | ------- | -------------------------------------------------------- |
 | proposalId        | uint48  | Unique identifier of the proposal being anchored         |
 | proposer          | address | Address of the entity that proposed this batch of blocks |
-| proverAuth        | bytes   | Encoded ProverAuth for prover designation                |
 | anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring)          |
 | anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber                       |
 | anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber                       |
@@ -392,9 +346,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
-   - Designates the prover for the proposal
-   - Sets `isLowBondProposal` flag based on bond sufficiency
-   - Stores designated prover and low-bond status in contract state
+   - Designates the prover for the proposal (proposer-as-prover)
 
 3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointManager.saveCheckpoint`

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IBondManager } from "../iface/IBondManager.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
@@ -14,7 +15,6 @@ import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
@@ -28,7 +28,7 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Proposal submission with forced inclusion support
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
-///      - Bond instruction calculation(but actual funds are managed on L2)
+///      - L1 bond checks and liveness slashing
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
@@ -65,8 +65,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @notice The prover whitelist contract (address(0) means no whitelist)
     IProverWhitelist internal immutable _proverWhitelist;
 
-    /// @notice Signal service responsible for checkpoints and bond signals.
+    /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
+
+    /// @notice Bond manager responsible for proposer bonds and liveness slashing.
+    IBondManager internal immutable _bondManager;
 
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
@@ -134,6 +137,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
+        _bondManager = IBondManager(_config.bondManager);
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
@@ -192,6 +196,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
+            if (!_bondManager.hasSufficientBond(msg.sender, 0)) revert InsufficientBond();
 
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
@@ -264,11 +269,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Process bond instruction
+            // 3. Process liveness bond
             // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
+            // Liveness slashing only applies when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset);
+                _processLivenessBond(commitment, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -387,15 +392,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc ICodec
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibBonds.hashBondInstruction(_bondInstruction);
-    }
-
-    /// @inheritdoc ICodec
     function hashCommitment(IInbox.Commitment calldata _commitment)
         external
         pure
@@ -438,6 +434,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             proposerChecker: address(_proposerChecker),
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
+            bondManager: address(_bondManager),
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
@@ -623,19 +620,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Calculates and emits bond instruction if applicable.
-    /// @dev Bond instruction rules:
+    /// @dev Applies liveness slashing on L1 for late proofs.
+    /// @dev Rules:
     ///      - On-time (within provingWindow + sequential grace): No bond changes.
     ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
-    ///        same address (L2 processing handles slashing/reward splits).
+    ///        same address (BondManager handles slashing/reward splits).
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processBondInstruction(
-        Commitment memory _commitment,
-        uint48 _offset
-    )
-        private
-    {
+    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
                     + _provingWindow)
@@ -646,15 +638,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 return;
             }
 
-            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
-                proposalId: _commitment.firstProposalId + _offset,
-                bondType: LibBonds.BondType.LIVENESS,
-                payer: _commitment.transitions[_offset].designatedProver,
-                payee: _commitment.actualProver
-            });
-
-            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            _bondManager.processLivenessBond(
+                _commitment.transitions[_offset].designatedProver,
+                _commitment.actualProver,
+                msg.sender
+            );
         }
     }
 
@@ -754,6 +742,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
+    error InsufficientBond();
     error IncorrectProposalCount();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();

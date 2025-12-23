@@ -7,7 +7,6 @@ import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 contract InboxProveTest is InboxTestBase {
@@ -272,7 +271,7 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     // Bond signalling
     // ---------------------------------------------------------------------
-    function test_prove_emitsBondSignal_whenLate() public {
+    function test_prove_slashesLivenessBond_whenLate() public {
         ProposedEvent memory p1 = _proposeOne();
         uint48 p1Timestamp = uint48(block.timestamp);
         _advanceBlock();
@@ -284,7 +283,7 @@ contract InboxProveTest is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
             proposer: p1.proposer,
-            designatedProver: proposer, // different from actual prover
+            designatedProver: proposer,
             timestamp: p1Timestamp,
             blockHash: keccak256("checkpoint1")
         });
@@ -294,67 +293,70 @@ contract InboxProveTest is InboxTestBase {
             p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, keccak256("stateRoot")
         );
 
+        uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
+        uint256 proverBalanceBefore = bondManager.getBondBalance(prover);
+        uint256 livenessBond = bondManager.livenessBond();
+
         _prove(input);
 
-        LibBonds.BondInstruction memory expectedInstruction = LibBonds.BondInstruction({
-            proposalId: p1.id, bondType: LibBonds.BondType.LIVENESS, payer: proposer, payee: prover
-        });
-        bytes32 expectedSignal = codec.hashBondInstruction(expectedInstruction);
-        assertTrue(
-            signalService.isSignalSent(address(inbox), expectedSignal),
-            "liveness bond signal when late"
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceBefore - livenessBond,
+            "payer debited"
+        );
+        assertEq(
+            bondManager.getBondBalance(prover),
+            proverBalanceBefore + livenessBond / 2,
+            "payee credited"
         );
     }
 
-    function test_prove_noBondSignal_withinProvingWindow() public {
+    function test_prove_doesNotSlash_withinProvingWindow() public {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
+        uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
+        uint256 proverBalanceBefore = bondManager.getBondBalance(prover);
+
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: input.commitment.firstProposalId,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-
-        assertFalse(
-            signalService.isSignalSent(address(inbox), livenessSignal), "no liveness signal"
-        );
+        assertEq(bondManager.getBondBalance(proposer), proposerBalanceBefore, "payer unchanged");
+        assertEq(bondManager.getBondBalance(prover), proverBalanceBefore, "payee unchanged");
     }
 
-    function test_prove_emitsBondSignal_whenPayerEqualsPayee() public {
+    function test_prove_slashesWhenPayerEqualsPayee() public {
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
         vm.warp(proposalTimestamp + config.provingWindow + 1);
 
-        IInbox.Transition[] memory transitions =
-            _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] =
+            _transitionFor(payload, proposalTimestamp, proposer, keccak256("checkpoint"));
 
-        // designatedProver == actualProver so payer == payee
-        transitions[0].designatedProver = prover;
-
-        IInbox.ProveInput memory input = _buildInput(
-            payload.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            keccak256("stateRoot")
-        );
-
-        _prove(input);
-
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: payload.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: prover,
-            payee: prover
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            commitment: IInbox.Commitment({
+                firstProposalId: payload.id,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
+                lastProposalHash: inbox.getProposalHash(payload.id),
+                actualProver: proposer,
+                endBlockNumber: uint48(block.number),
+                endStateRoot: keccak256("stateRoot"),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
         });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
 
-        assertTrue(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "liveness signal when payer==payee"
+        uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
+        uint256 livenessBond = bondManager.livenessBond();
+
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.prank(proposer);
+        inbox.prove(encodedInput, bytes("proof"));
+
+        uint256 expectedRefund = (livenessBond * 4) / 10 + livenessBond / 10;
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceBefore - livenessBond + expectedRefund,
+            "payer slashed"
         );
     }
 
@@ -415,9 +417,9 @@ contract InboxProveTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
-    // Boundary Tests - Bond instruction timing
+    // Boundary Tests - Liveness bond timing
     // ---------------------------------------------------------------------
-    function test_prove_noBondSignal_atExactProvingWindowBoundary() public {
+    function test_prove_noLivenessSlash_atExactProvingWindowBoundary() public {
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
 
@@ -434,19 +436,13 @@ contract InboxProveTest is InboxTestBase {
             keccak256("stateRoot")
         );
 
+        uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
+        uint256 proverBalanceBefore = bondManager.getBondBalance(prover);
+
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: payload.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertFalse(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "no liveness at exact provingWindow"
-        );
+        assertEq(bondManager.getBondBalance(proposer), proposerBalanceBefore, "payer unchanged");
+        assertEq(bondManager.getBondBalance(prover), proverBalanceBefore, "payee unchanged");
     }
 
     function test_prove_livenessBond_oneSecondPastProvingWindow() public {
@@ -466,18 +462,21 @@ contract InboxProveTest is InboxTestBase {
             keccak256("stateRoot")
         );
 
+        uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
+        uint256 proverBalanceBefore = bondManager.getBondBalance(prover);
+        uint256 livenessBond = bondManager.livenessBond();
+
         _prove(input);
 
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: payload.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer,
-            payee: prover
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertTrue(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "liveness bond 1 sec past window"
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceBefore - livenessBond,
+            "payer debited"
+        );
+        assertEq(
+            bondManager.getBondBalance(prover),
+            proverBalanceBefore + livenessBond / 2,
+            "payee credited"
         );
     }
 

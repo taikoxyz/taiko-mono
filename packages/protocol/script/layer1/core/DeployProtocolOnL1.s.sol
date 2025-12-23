@@ -52,6 +52,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address sharedResolver;
         address remoteSigSvc;
         address preconfWhitelist;
+        address bondManager;
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
@@ -103,6 +104,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
+        config.bondManager = vm.envAddress("BOND_MANAGER");
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
@@ -112,6 +114,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
+        require(config.bondManager != address(0), "BOND_MANAGER not set");
     }
 
     function _deployAllVerifiers(DeploymentConfig memory config)
@@ -210,7 +213,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(proofVerifier, whitelist, proverWhitelist, signalService)
+                new DevnetInbox(
+                    proofVerifier, whitelist, proverWhitelist, signalService, config.bondManager
+                )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });

@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
-
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
 /// @custom:security-contact security@taiko.xyz
@@ -18,6 +16,8 @@ interface IInbox {
         address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
+        /// @notice The bond manager contract address
+        address bondManager;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
@@ -199,13 +199,6 @@ interface IInbox {
         uint48 lastProposalId,
         address indexed actualProver,
         bool checkpointSynced
-    );
-
-    /// @notice Emitted when a bond instruction is signaled to L2
-    /// @param proposalId The proposal ID that triggered the bond instruction
-    /// @param bondInstruction The encoded bond instruction
-    event BondInstructionCreated(
-        uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction
     );
 
     // ---------------------------------------------------------------

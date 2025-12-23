@@ -152,10 +152,6 @@ contract TestGenerateGenesis is Test {
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.checkpointStore())
         );
-        assertEq(
-            getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
-        );
-        assertEq(livenessBond, taikoAnchorProxy.livenessBond());
 
         vm.startPrank(taikoAnchorProxy.owner());
 

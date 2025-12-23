@@ -239,12 +239,7 @@ async function generateContractConfigs(
     );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
-        getImmutableReference("Anchor", [
-            "checkpointStore",
-            "livenessBond",
-            "bondManager",
-            "l1ChainId",
-        ]),
+        getImmutableReference("Anchor", ["checkpointStore", "l1ChainId"]),
     );
     const anchorForkRouterReferencesMap: any = getImmutableReference(
         "AnchorForkRouter",
@@ -781,20 +776,6 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SignalService,
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.livenessBond.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.BigNumber.from(livenessBond).toHexString(),
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.bondManager.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.BondManager,
                             32,
                         ),
                     },

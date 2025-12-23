@@ -55,6 +55,32 @@ contract InboxProposeTest is InboxTestBase {
         unactivated.propose(bytes(""), encodedInput);
     }
 
+    function test_propose_RevertWhen_InsufficientBond() public {
+        _setBlobHashes(1);
+        vm.prank(address(inbox));
+        bondManager.debitBond(proposer, type(uint256).max);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.expectRevert(Inbox.InsufficientBond.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
+    function test_propose_RevertWhen_BondWithdrawn() public {
+        _setBlobHashes(1);
+        vm.prank(proposer);
+        bondManager.withdraw(proposer, MIN_BOND);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.expectRevert(Inbox.InsufficientBond.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
     function test_propose_RevertWhen_SameBlock() public {
         _setBlobHashes(2);
         IInbox.ProposeInput memory input = _defaultProposeInput();
@@ -113,6 +139,8 @@ contract InboxProposeTest is InboxTestBase {
             * uint256(config.permissionlessInclusionMultiplier);
         vm.warp(block.timestamp + waitTime + 1);
         vm.roll(block.number + 1);
+
+        _fundBond(David);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
