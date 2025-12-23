@@ -81,10 +81,15 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
         uint256 proverBalanceBefore = bondManager.getBondBalance(whitelistedProver);
+        uint256 livenessBond = bondManager.livenessBond();
 
         _proveAs(whitelistedProver, input);
 
-        assertEq(bondManager.getBondBalance(proposer), proposerBalanceBefore, "payer unchanged");
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceBefore + livenessBond,
+            "payer refunded"
+        );
         assertEq(
             bondManager.getBondBalance(whitelistedProver),
             proverBalanceBefore,

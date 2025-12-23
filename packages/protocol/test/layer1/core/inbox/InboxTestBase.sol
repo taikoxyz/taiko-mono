@@ -44,8 +44,8 @@ abstract contract InboxTestBase is CommonTest {
     address internal proposer = Bob;
     address internal prover = Carol;
 
-    uint256 internal constant MIN_BOND = 5 ether;
     uint256 internal constant LIVENESS_BOND = 5 ether;
+    uint256 internal constant INITIAL_BOND = 100 ether;
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
@@ -116,8 +116,7 @@ abstract contract InboxTestBase is CommonTest {
 
     function _setupBondManager() internal {
         bondToken = new TestERC20("Bond Token", "BOND");
-        BondManager impl =
-            new BondManager(address(bondToken), MIN_BOND, address(this), LIVENESS_BOND);
+        BondManager impl = new BondManager(address(bondToken), address(this), LIVENESS_BOND);
         bondManager = BondManager(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(BondManager.init, (address(this))))
@@ -152,21 +151,21 @@ abstract contract InboxTestBase is CommonTest {
         bondManager.upgradeTo(
             address(
                 new BondManager(
-                    address(bondToken), MIN_BOND, _operator, LIVENESS_BOND
+                    address(bondToken), _operator, LIVENESS_BOND
                 )
             )
         );
     }
 
     function _fundProposerBond() internal {
-        _fundBond(proposer);
+        _fundBond(proposer, INITIAL_BOND);
     }
 
-    function _fundBond(address _account) internal {
-        bondToken.mint(_account, MIN_BOND);
+    function _fundBond(address _account, uint256 _amount) internal {
+        bondToken.mint(_account, _amount);
         vm.startPrank(_account);
         bondToken.approve(address(bondManager), type(uint256).max);
-        bondManager.deposit(MIN_BOND);
+        bondManager.deposit(_amount);
         vm.stopPrank();
     }
 

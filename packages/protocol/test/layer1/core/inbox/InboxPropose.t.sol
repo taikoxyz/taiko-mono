@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { BondManager } from "src/layer1/core/impl/BondManager.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
@@ -57,26 +58,28 @@ contract InboxProposeTest is InboxTestBase {
 
     function test_propose_RevertWhen_InsufficientBond() public {
         _setBlobHashes(1);
+        uint256 balance = bondManager.getBondBalance(proposer);
         vm.prank(address(inbox));
-        bondManager.debitBond(proposer, type(uint256).max);
+        bondManager.debitBond(proposer, balance);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
-        vm.expectRevert(Inbox.InsufficientBond.selector);
+        vm.expectRevert(BondManager.InsufficientBondBalance.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
     }
 
     function test_propose_RevertWhen_BondWithdrawn() public {
         _setBlobHashes(1);
+        uint256 balance = bondManager.getBondBalance(proposer);
         vm.prank(proposer);
-        bondManager.withdraw(proposer, MIN_BOND);
+        bondManager.withdraw(proposer, balance);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
-        vm.expectRevert(Inbox.InsufficientBond.selector);
+        vm.expectRevert(BondManager.InsufficientBondBalance.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
     }
@@ -140,7 +143,7 @@ contract InboxProposeTest is InboxTestBase {
         vm.warp(block.timestamp + waitTime + 1);
         vm.roll(block.number + 1);
 
-        _fundBond(David);
+        _fundBond(David, LIVENESS_BOND);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;

@@ -33,14 +33,14 @@ This creates low-bond proposal handling, signal proofs, and extra complexity aro
 Add `layer1/core/impl/BondManager` to hold ERC20 bonds on L1:
 
 - Tracks per-account balances.
-- Enforces a `minBond` (withdrawals are immediate, no delay or request flow).
+- Uses `livenessBond` as the per-proposal bond amount.
 - Holds the `livenessBond` amount used for late-proof slashing.
 - Only the L1 Inbox (bond operator) can apply liveness slashing.
 
 ### Inbox Changes
 
-- **Propose**: check `bondManager.hasSufficientBond(msg.sender, 0)` and revert if insufficient. The
-  required proposer bond is configured via `minBond` in the L1 BondManager.
+- **Propose**: reserve the proposer bond by calling `bondManager.debitBond`, which reverts if
+  the proposer lacks `livenessBond`. This debits `livenessBond` per proposal on acceptance.
 - **Prove**: for late proofs (same timing rules as today), call `bondManager.processLivenessBond`.
   The liveness bond keeps the existing split rules (50% total slash, with a 40% payee + 10% caller
   split when payer == payee).
@@ -67,11 +67,11 @@ Add `layer1/core/impl/BondManager` to hold ERC20 bonds on L1:
 
 ## Gas/Performance Impact
 
-- **Propose**: adds one external view call to check bond.
+- **Propose**: adds one external call to reserve the bond.
 - **Prove**: adds one external call on late proofs only; unchanged for on-time proofs.
 - Removes signal proof costs and L2 bond processing overhead.
 
 ## Notes
 
-- `minBond` should be configured to cover the intended proposer requirement (e.g., set equal to
-  `livenessBond` if full liveness slashing is desired on every late proof).
+- `livenessBond` should be configured to cover the intended proposer requirement and slashing
+  severity for late proofs.

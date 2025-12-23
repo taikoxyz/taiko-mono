@@ -24,14 +24,11 @@ contract BondManager is EssentialContract, IBondManager {
     /// @notice ERC20 token used as bond.
     IERC20 public immutable bondToken;
 
-    /// @notice Minimum bond required.
-    uint256 public immutable minBond;
-
     /// @notice Bond amount (Wei) for liveness guarantees.
     uint256 public immutable livenessBond;
 
-    /// @notice Per-account bond state.
-    mapping(address account => Bond bond) public bond;
+    /// @notice Per-account bond balance.
+    mapping(address account => uint256 balance) public bondBalance;
 
     uint256[44] private __gap;
 
@@ -41,12 +38,10 @@ contract BondManager is EssentialContract, IBondManager {
 
     /// @notice Constructor disables initializers for upgradeable pattern.
     /// @param _bondToken The ERC20 bond token address.
-    /// @param _minBond The minimum bond required.
     /// @param _bondOperator Address allowed to debit/credit bonds.
     /// @param _livenessBond Liveness bond amount (Wei).
     constructor(
         address _bondToken,
-        uint256 _minBond,
         address _bondOperator,
         uint256 _livenessBond
     ) {
@@ -54,7 +49,6 @@ contract BondManager is EssentialContract, IBondManager {
         require(_bondOperator != address(0), InvalidAddress());
 
         bondToken = IERC20(_bondToken);
-        minBond = _minBond;
         bondOperator = _bondOperator;
         livenessBond = _livenessBond;
     }
@@ -70,15 +64,8 @@ contract BondManager is EssentialContract, IBondManager {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IBondManager
-    function debitBond(
-        address _address,
-        uint256 _bond
-    )
-        external
-        onlyFrom(bondOperator)
-        returns (uint256 amountDebited_)
-    {
-        amountDebited_ = _debitBond(_address, _bond);
+    function debitBond(address _address, uint256 _bond) external onlyFrom(bondOperator) {
+        _debitBond(_address, _bond);
     }
 
     /// @inheritdoc IBondManager
@@ -99,8 +86,6 @@ contract BondManager is EssentialContract, IBondManager {
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint256 _amount) external nonReentrant {
-        Bond storage bond_ = bond[msg.sender];
-        require(_amount <= bond_.balance, InsufficientBondBalance());
         _withdraw(msg.sender, _to, _amount);
     }
 
@@ -115,7 +100,7 @@ contract BondManager is EssentialContract, IBondManager {
         nonReentrant
         returns (uint256 debitedAmount_)
     {
-        uint256 debited = _debitBond(_payer, livenessBond);
+        uint256 debited = livenessBond;
         if (debited == 0) {
             emit LivenessBondProcessed(_payer, _payee, _caller, 0, 0, 0);
             return 0;
@@ -157,8 +142,7 @@ contract BondManager is EssentialContract, IBondManager {
         view
         returns (bool)
     {
-        Bond storage bond_ = bond[_address];
-        return bond_.balance >= minBond + _additionalBond;
+        return bondBalance[_address] >= livenessBond + _additionalBond;
     }
 
     // ---------------------------------------------------------------
@@ -178,35 +162,23 @@ contract BondManager is EssentialContract, IBondManager {
     /// @dev Internal implementation for debiting a bond.
     /// @param _address The address to debit the bond from.
     /// @param _bond The amount of bond to debit in gwei.
-    /// @return bondDebited_ The actual amount debited in gwei.
-    function _debitBond(
-        address _address,
-        uint256 _bond
-    )
-        internal
-        returns (uint256 bondDebited_)
-    {
-        Bond storage bond_ = bond[_address];
+    function _debitBond(address _address, uint256 _bond) internal {
+        if (_bond == 0) return;
 
-        if (bond_.balance <= _bond) {
-            bondDebited_ = bond_.balance;
-            bond_.balance = 0;
-        } else {
-            bondDebited_ = _bond;
-            bond_.balance = bond_.balance - _bond;
+        uint256 balance = bondBalance[_address];
+        require(balance >= _bond, InsufficientBondBalance());
+        unchecked {
+            bondBalance[_address] = balance - _bond;
         }
 
-        if (bondDebited_ > 0) {
-            emit BondDebited(_address, bondDebited_);
-        }
+        emit BondDebited(_address, _bond);
     }
 
     /// @dev Internal implementation for crediting a bond.
     /// @param _address The address to credit the bond to.
     /// @param _bond The amount of bond to credit in gwei.
     function _creditBond(address _address, uint256 _bond) internal {
-        Bond storage bond_ = bond[_address];
-        bond_.balance = bond_.balance + _bond;
+        bondBalance[_address] = bondBalance[_address] + _bond;
         emit BondCredited(_address, _bond);
     }
 
@@ -215,16 +187,16 @@ contract BondManager is EssentialContract, IBondManager {
     /// @param _to The recipient address.
     /// @param _amount The amount to withdraw.
     function _withdraw(address _from, address _to, uint256 _amount) internal {
-        uint256 debited = _debitBond(_from, _amount);
-        bondToken.safeTransfer(_to, debited);
-        emit BondWithdrawn(_from, debited);
+        _debitBond(_from, _amount);
+        bondToken.safeTransfer(_to, _amount);
+        emit BondWithdrawn(_from, _amount);
     }
 
     /// @dev Internal implementation for getting the bond balance.
     /// @param _address The address to get the bond balance for.
     /// @return The bond balance of the address.
     function _getBondBalance(address _address) internal view returns (uint256) {
-        return bond[_address].balance;
+        return bondBalance[_address];
     }
 
     // ---------------------------------------------------------------

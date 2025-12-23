@@ -9,11 +9,6 @@ interface IBondManager {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Represents a bond for a given address.
-    struct Bond {
-        uint256 balance; // Bond balance
-    }
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -59,18 +54,11 @@ interface IBondManager {
     // Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Debits a bond from an address with best effort.
-    /// @dev Best effort means that if `_bond` is greater than the balance, the entire balance is
-    /// debited instead.
+    /// @notice Debits a bond from an address.
+    /// @dev Reverts if `_bond` exceeds the available balance.
     /// @param _address The address to debit the bond from.
     /// @param _bond The amount of bond to debit.
-    /// @return amountDebited_ The actual amount debited.
-    function debitBond(
-        address _address,
-        uint256 _bond
-    )
-        external
-        returns (uint256 amountDebited_);
+    function debitBond(address _address, uint256 _bond) external;
 
     /// @notice Credits a bond to an address.
     /// @param _address The address to credit the bond to.
@@ -92,7 +80,7 @@ interface IBondManager {
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
 
-    /// @notice Processes a liveness bond transfer for a late proof.
+    /// @notice Processes a liveness bond transfer for a late proof using the reserved bond.
     /// @param _payer The address whose bond is debited.
     /// @param _payee The address receiving the reward.
     /// @param _caller The address receiving the caller reward when payer == payee.
@@ -105,6 +93,10 @@ interface IBondManager {
         external
         returns (uint256 debitedAmount_);
 
+    /// @notice Returns the liveness bond amount.
+    /// @return livenessBond_ The liveness bond amount.
+    function livenessBond() external view returns (uint256 livenessBond_);
+
     // ---------------------------------------------------------------
     // View Functions
     // ---------------------------------------------------------------
@@ -114,11 +106,11 @@ interface IBondManager {
     /// @return bondBalance_ The bond balance of the address.
     function getBondBalance(address _address) external view returns (uint256 bondBalance_);
 
-    /// @notice Checks if an account has sufficient bond.
+    /// @notice Checks if an account has sufficient bond to cover the liveness bond.
     /// @param _address The address to check.
     /// @param _additionalBond The additional bond required the account has to have on top of the
-    /// minimum bond.
-    /// @return hasBond_ True if the account has sufficient bond.
+    /// liveness bond.
+    /// @return hasBond_ True if the account has sufficient bond for a proposal.
     function hasSufficientBond(
         address _address,
         uint256 _additionalBond

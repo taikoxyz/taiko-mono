@@ -196,7 +196,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
-            if (!_bondManager.hasSufficientBond(msg.sender, 0)) revert InsufficientBond();
+            uint256 bondAmount = _bondManager.livenessBond();
+            if (bondAmount > 0) _bondManager.debitBond(msg.sender, bondAmount);
 
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
@@ -269,12 +270,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Process liveness bond
+            // 3. Settle proposer bonds
             // ---------------------------------------------------------
-            // Liveness slashing only applies when whitelist is not enabled.
-            if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset);
-            }
+            _settleProposalBonds(commitment, offset, numProposals, isWhitelistEnabled, state);
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -620,29 +618,50 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Applies liveness slashing on L1 for late proofs.
+    /// @dev Settles proposer bonds for finalized proposals in the batch.
     /// @dev Rules:
-    ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
-    ///        same address (BondManager handles slashing/reward splits).
+    ///      - The proposer bond is reserved at propose time.
+    ///      - On-time: refund the reserved bond to the proposer.
+    ///      - Late: apply liveness slashing for the first unfinalized proposal only.
+    ///      - All additional proposals in the batch are refunded (they are younger than the
+    ///        first unfinalized proposal).
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
-        unchecked {
-            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+    /// @param _numProposals The number of proposals in the batch.
+    /// @param _isWhitelistEnabled Whether prover whitelist is enabled.
+    /// @param _state The core state snapshot before updates.
+    function _settleProposalBonds(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint256 _numProposals,
+        bool _isWhitelistEnabled,
+        CoreState memory _state
+    )
+        private
+    {
+        uint256 bondAmount = _bondManager.livenessBond();
+        if (bondAmount == 0) return;
 
-            // On-time proof - no bond transfer needed.
-            if (block.timestamp <= livenessWindowDeadline) {
-                return;
+        unchecked {
+            uint256 start = _offset;
+            if (!_isWhitelistEnabled) {
+                uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
+                        + _provingWindow)
+                .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+
+                if (block.timestamp > livenessWindowDeadline) {
+                    start = _offset + 1;
+                    _bondManager.processLivenessBond(
+                        _commitment.transitions[_offset].proposer,
+                        _commitment.actualProver,
+                        msg.sender
+                    );
+                }
             }
 
-            _bondManager.processLivenessBond(
-                _commitment.transitions[_offset].designatedProver,
-                _commitment.actualProver,
-                msg.sender
-            );
+            for (uint256 i = start; i < _numProposals; ++i) {
+                _bondManager.creditBond(_commitment.transitions[i].proposer, bondAmount);
+            }
         }
     }
 
@@ -742,7 +761,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
-    error InsufficientBond();
     error IncorrectProposalCount();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();

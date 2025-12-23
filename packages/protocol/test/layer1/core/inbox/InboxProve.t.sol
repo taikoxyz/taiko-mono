@@ -301,8 +301,8 @@ contract InboxProveTest is InboxTestBase {
 
         assertEq(
             bondManager.getBondBalance(proposer),
-            proposerBalanceBefore - livenessBond,
-            "payer debited"
+            proposerBalanceBefore + livenessBond,
+            "payer refunded"
         );
         assertEq(
             bondManager.getBondBalance(prover),
@@ -316,10 +316,15 @@ contract InboxProveTest is InboxTestBase {
 
         uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
         uint256 proverBalanceBefore = bondManager.getBondBalance(prover);
+        uint256 livenessBond = bondManager.livenessBond();
 
         _prove(input);
 
-        assertEq(bondManager.getBondBalance(proposer), proposerBalanceBefore, "payer unchanged");
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceBefore + livenessBond,
+            "payer refunded"
+        );
         assertEq(bondManager.getBondBalance(prover), proverBalanceBefore, "payee unchanged");
     }
 
@@ -355,7 +360,7 @@ contract InboxProveTest is InboxTestBase {
         uint256 expectedRefund = (livenessBond * 4) / 10 + livenessBond / 10;
         assertEq(
             bondManager.getBondBalance(proposer),
-            proposerBalanceBefore - livenessBond + expectedRefund,
+            proposerBalanceBefore + expectedRefund,
             "payer slashed"
         );
     }
@@ -438,10 +443,15 @@ contract InboxProveTest is InboxTestBase {
 
         uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
         uint256 proverBalanceBefore = bondManager.getBondBalance(prover);
+        uint256 livenessBond = bondManager.livenessBond();
 
         _prove(input);
 
-        assertEq(bondManager.getBondBalance(proposer), proposerBalanceBefore, "payer unchanged");
+        assertEq(
+            bondManager.getBondBalance(proposer),
+            proposerBalanceBefore + livenessBond,
+            "payer refunded"
+        );
         assertEq(bondManager.getBondBalance(prover), proverBalanceBefore, "payee unchanged");
     }
 
@@ -470,8 +480,8 @@ contract InboxProveTest is InboxTestBase {
 
         assertEq(
             bondManager.getBondBalance(proposer),
-            proposerBalanceBefore - livenessBond,
-            "payer debited"
+            proposerBalanceBefore,
+            "payer unchanged"
         );
         assertEq(
             bondManager.getBondBalance(prover),
