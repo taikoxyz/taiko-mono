@@ -269,7 +269,7 @@ func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
 		proofPollingInterval:      10 * time.Millisecond,
 	}
 
-	s.startProofBufferMonitors(ctx)
+	go monitorProofBuffer(ctx, proofProducer.ProofTypeOp, buffer, 50*time.Millisecond, s.TryAggregate)
 
 	select {
 	case proofType := <-s.batchAggregationNotify:
