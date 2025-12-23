@@ -84,7 +84,7 @@ pub struct NetworkDriver {
     /// Kona connection gater for managing inbound and outbound connections.
     kona_gater: kona_gossip::ConnectionGater,
     /// Storage backend for commitments/txlists (in-memory by default).
-    storage: std::sync::Arc<dyn PreconfStorage>,
+    storage: Arc<dyn PreconfStorage>,
     /// Correlation IDs for outbound commitments requests.
     commitments_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
     /// Correlation IDs for outbound raw-txlist requests.
@@ -133,7 +133,7 @@ impl NetworkDriver {
     pub fn new_with_lookahead_and_storage(
         cfg: NetworkConfig,
         lookahead: Arc<dyn LookaheadResolver>,
-        storage: Option<std::sync::Arc<dyn PreconfStorage>>,
+        storage: Option<Arc<dyn PreconfStorage>>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
         let dial_factor = {
             let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();

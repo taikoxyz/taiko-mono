@@ -5,7 +5,10 @@
 //! configuration for discovery, the events it can emit, and a function
 //! to spawn the discovery service.
 
-use std::{net::SocketAddr, time::Instant};
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::Instant,
+};
 
 use crate::config::DiscoveryPreset;
 use discv5::ListenConfig;
@@ -217,8 +220,8 @@ fn spawn_reth_discv5(
                     let addr = peer.node_record.address;
                     let tcp = peer.node_record.tcp_port;
                     let maybe_multi = match addr {
-                        std::net::IpAddr::V4(ip4) => format!("/ip4/{}/tcp/{}", ip4, tcp),
-                        std::net::IpAddr::V6(ip6) => format!("/ip6/{}/tcp/{}", ip6, tcp),
+                        IpAddr::V4(ip4) => format!("/ip4/{}/tcp/{}", ip4, tcp),
+                        IpAddr::V6(ip6) => format!("/ip6/{}/tcp/{}", ip6, tcp),
                     }
                     .parse()
                     .ok();

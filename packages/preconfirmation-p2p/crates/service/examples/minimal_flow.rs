@@ -8,6 +8,7 @@ use preconfirmation_types::{
     sign_commitment,
 };
 use secp256k1::SecretKey;
+use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
 /// Lookahead resolver that returns a fixed signer for all slots.
@@ -67,7 +68,7 @@ async fn main() -> anyhow::Result<()> {
     let signer = preconfirmation_types::public_key_to_address(
         &secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &sk),
     );
-    let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer });
+    let lookahead = Arc::new(StaticLookaheadResolver { signer });
 
     let mut svc1 = P2pService::start(cfg1, lookahead.clone())?;
     let mut svc2 = P2pService::start(cfg2, lookahead)?;

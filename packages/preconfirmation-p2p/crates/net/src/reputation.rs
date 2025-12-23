@@ -15,6 +15,7 @@ use libp2p::PeerId;
 use reth_network_types::peers::reputation::ReputationChangeWeights;
 use std::{
     collections::{HashMap, HashSet},
+    task::{Context, Poll},
     time::{Duration, Instant},
 };
 
@@ -334,8 +335,8 @@ impl RequestRateLimiter {
         &mut self,
         peer: PeerId,
         kind: ReqRespKind,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<bool> {
+        cx: &mut Context<'_>,
+    ) -> Poll<bool> {
         let now = tokio::time::Instant::now();
         self.evict_idle(now);
 
@@ -346,11 +347,11 @@ impl RequestRateLimiter {
         entry.last_used = now;
 
         match entry.limiter.poll_ready(cx) {
-            std::task::Poll::Ready(()) => {
+            Poll::Ready(()) => {
                 entry.limiter.tick();
-                std::task::Poll::Ready(true)
+                Poll::Ready(true)
             }
-            std::task::Poll::Pending => std::task::Poll::Pending,
+            Poll::Pending => Poll::Pending,
         }
     }
 }

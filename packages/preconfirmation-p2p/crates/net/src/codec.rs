@@ -5,7 +5,7 @@ use futures::prelude::*;
 use libp2p_request_response::Codec;
 use preconfirmation_types::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES};
 use ssz_rs::prelude::*;
-use std::io;
+use std::{io, marker::PhantomData};
 use unsigned_varint as uvar;
 
 /// SSZ codec that can encode and decode distinct request/response types for a protocol with
@@ -16,7 +16,7 @@ use unsigned_varint as uvar;
 /// `preconfirmation_types::constants` and tuned per message type.
 pub struct SszCodec<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> {
     /// Phantom data tracking request/response types.
-    _marker: std::marker::PhantomData<(Req, Resp)>,
+    _marker: PhantomData<(Req, Resp)>,
 }
 
 impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Clone
@@ -24,7 +24,7 @@ impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Clone
 {
     /// Returns a clone of the codec marker.
     fn clone(&self) -> Self {
-        Self { _marker: std::marker::PhantomData }
+        Self { _marker: PhantomData }
     }
 }
 
@@ -33,7 +33,7 @@ impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Default
 {
     /// Creates a default codec marker instance.
     fn default() -> Self {
-        Self { _marker: std::marker::PhantomData }
+        Self { _marker: PhantomData }
     }
 }
 

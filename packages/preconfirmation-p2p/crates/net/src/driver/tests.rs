@@ -14,7 +14,12 @@ use preconfirmation_types::{
     PreconfCommitment, Preconfirmation, SignedCommitment, Uint256, public_key_to_address,
 };
 use ssz_rs::Vector;
-use std::{str::FromStr, task::Context};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::Arc,
+    task::{Context, Poll},
+};
 use tokio::time::Duration;
 
 /// Deterministic resolver that always returns the configured signer and echoes the slot end.
@@ -69,7 +74,7 @@ fn pump_sync(driver: &mut NetworkDriver) {
 async fn pump_async(driver: &mut NetworkDriver) {
     futures::future::poll_fn(|cx| {
         let _ = driver.poll(cx);
-        std::task::Poll::Ready(())
+        Poll::Ready(())
     })
     .await;
 }
@@ -109,7 +114,7 @@ fn build_memory_parts(chain_id: u64, cfg: &NetworkConfig) -> BuiltParts {
 fn driver_from_parts(
     parts: BuiltParts,
     cfg: &NetworkConfig,
-    lookahead: std::sync::Arc<dyn LookaheadResolver>,
+    lookahead: Arc<dyn LookaheadResolver>,
 ) -> (NetworkDriver, NetworkHandle) {
     let peer_id = parts.keypair.public().to_peer_id();
     let config = libp2p::swarm::Config::with_tokio_executor();
@@ -147,9 +152,9 @@ fn driver_from_parts(
             head: PreconfHead::default(),
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
-            commitments_req_ids: std::collections::HashMap::new(),
-            raw_txlists_req_ids: std::collections::HashMap::new(),
-            head_req_ids: std::collections::HashMap::new(),
+            commitments_req_ids: HashMap::new(),
+            raw_txlists_req_ids: HashMap::new(),
+            head_req_ids: HashMap::new(),
         },
         NetworkHandle { events: events_rx, commands: cmd_tx },
     )
@@ -188,8 +193,7 @@ async fn gossipsub_and_reqresp_roundtrip() {
         cfg.listen_addr = "127.0.0.1:0".parse().unwrap();
         cfg.discv5_listen = "127.0.0.1:0".parse().unwrap();
         let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
-        let lookahead =
-            std::sync::Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
+        let lookahead = Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
         let Ok((driver1, mut handle1)) = NetworkDriver::new(cfg.clone(), lookahead.clone()) else {
             eprintln!("skipping: environment may block local TCP (driver init failed)");
             return;
@@ -313,7 +317,7 @@ async fn memory_transport_gossip_reqresp_and_ban() {
     let parts1 = build_memory_parts(cfg.chain_id, &cfg);
     let parts2 = build_memory_parts(cfg.chain_id, &cfg);
     let sk = secp256k1::SecretKey::from_slice(&[9u8; 32]).unwrap();
-    let lookahead = std::sync::Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk) });
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk) });
     let (mut driver1, handle1) = driver_from_parts(parts1, &cfg, lookahead.clone());
     let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg, lookahead);
 

@@ -3,6 +3,7 @@
 use preconfirmation_types::{
     GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
 };
+use std::{error::Error, fmt};
 
 /// Classification of driver-level failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,14 +107,14 @@ impl From<&str> for NetworkError {
     }
 }
 
-impl std::fmt::Display for NetworkError {
+impl fmt::Display for NetworkError {
     /// Format the error for human-readable output.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.kind.as_str(), self.detail)
     }
 }
 
-impl std::error::Error for NetworkError {}
+impl Error for NetworkError {}
 
 /// High-level events emitted by the network driver for consumption by the service.
 #[derive(Debug, Clone)]

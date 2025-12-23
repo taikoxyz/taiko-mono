@@ -8,7 +8,10 @@
 
 use anyhow::Result;
 use futures::future::poll_fn;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 use tokio::{
     sync::{broadcast, mpsc, oneshot},
     task::JoinHandle,
@@ -108,10 +111,7 @@ impl P2pService {
     /// A `Result` which is `Ok(Self)` on successful startup, or an `anyhow::Error`
     /// if the network driver fails to initialize.
     /// Starts the P2P service with a lookahead resolver for commitment validation.
-    pub fn start(
-        config: NetworkConfig,
-        lookahead: std::sync::Arc<dyn LookaheadResolver>,
-    ) -> Result<Self> {
+    pub fn start(config: NetworkConfig, lookahead: Arc<dyn LookaheadResolver>) -> Result<Self> {
         Self::start_with_lookahead_and_storage(config, lookahead, None)
     }
 
@@ -129,8 +129,8 @@ impl P2pService {
     /// if the network driver fails to initialize.
     pub fn start_with_lookahead_and_storage(
         config: NetworkConfig,
-        lookahead: std::sync::Arc<dyn LookaheadResolver>,
-        storage: Option<std::sync::Arc<dyn PreconfStorage>>,
+        lookahead: Arc<dyn LookaheadResolver>,
+        storage: Option<Arc<dyn PreconfStorage>>,
     ) -> Result<Self> {
         let (mut driver, handle) =
             NetworkDriver::new_with_lookahead_and_storage(config, lookahead, storage)?;
@@ -592,7 +592,7 @@ mod tests {
             enable_discovery: false,
             ..Default::default()
         };
-        let Ok(mut svc) = P2pService::start(cfg, std::sync::Arc::new(TestLookaheadResolver)) else {
+        let Ok(mut svc) = P2pService::start(cfg, Arc::new(TestLookaheadResolver)) else {
             eprintln!("skipping: environment may block local networking (service init failed)");
             return;
         };

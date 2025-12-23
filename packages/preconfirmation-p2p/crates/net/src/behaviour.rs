@@ -10,6 +10,7 @@ use libp2p::{
 use libp2p_allow_block_list::{Behaviour as BlockListBehaviour, BlockedPeers};
 use libp2p_connection_limits::{Behaviour as ConnectionLimitsBehaviour, ConnectionLimits};
 use preconfirmation_types::MAX_GOSSIP_SIZE_BYTES;
+use std::{collections::HashMap, iter, time::Duration};
 
 /// Combined libp2p behaviour: ping, identify, gossipsub, request-response, and gating behaviours.
 ///
@@ -91,7 +92,7 @@ impl NetBehaviour {
         };
 
         // Build per-topic params aligned with the spec defaults.
-        let mut topic_params = std::collections::HashMap::new();
+        let mut topic_params = HashMap::new();
         for topic in [&topics.0, &topics.1] {
             let p = TopicScoreParams {
                 invalid_message_deliveries_weight: 2.0,
@@ -99,7 +100,7 @@ impl NetBehaviour {
                 first_message_deliveries_weight: 0.5,
                 first_message_deliveries_decay: 0.999,
                 time_in_mesh_weight: 0.0,
-                time_in_mesh_quantum: std::time::Duration::from_secs(1),
+                time_in_mesh_quantum: Duration::from_secs(1),
                 time_in_mesh_cap: 3600.0,
                 ..Default::default()
             };
@@ -109,9 +110,9 @@ impl NetBehaviour {
         let params = PeerScoreParams {
             topics: topic_params,
             app_specific_weight: 1.0,
-            decay_interval: std::time::Duration::from_secs(10),
+            decay_interval: Duration::from_secs(10),
             decay_to_zero: 0.1,
-            retain_score: std::time::Duration::from_secs(3600),
+            retain_score: Duration::from_secs(3600),
             ..Default::default()
         };
 
@@ -123,18 +124,18 @@ impl NetBehaviour {
 
         let commitments_rr = rr::Behaviour::with_codec(
             crate::codec::CommitmentsCodec::default(),
-            std::iter::once((protocols.commitments.clone(), rr::ProtocolSupport::Full)),
+            iter::once((protocols.commitments.clone(), rr::ProtocolSupport::Full)),
             reqresp_cfg.clone(),
         );
         let raw_txlists_rr = rr::Behaviour::with_codec(
             crate::codec::RawTxListCodec::default(),
-            std::iter::once((protocols.raw_txlists.clone(), rr::ProtocolSupport::Full)),
+            iter::once((protocols.raw_txlists.clone(), rr::ProtocolSupport::Full)),
             reqresp_cfg.clone(),
         );
 
         let head_rr = rr::Behaviour::with_codec(
             crate::codec::HeadCodec::default(),
-            std::iter::once((protocols.head.clone(), rr::ProtocolSupport::Full)),
+            iter::once((protocols.head.clone(), rr::ProtocolSupport::Full)),
             reqresp_cfg,
         );
 

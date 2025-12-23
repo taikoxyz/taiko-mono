@@ -4,6 +4,7 @@ use alloy_primitives::{B256, U256};
 use crossbeam_skiplist::SkipMap;
 use dashmap::DashMap;
 use preconfirmation_types::{RawTxListGossip, SignedCommitment};
+use std::sync::Arc;
 
 /// Pluggable storage for commitments/txlists. Implementations must be Send+Sync.
 pub trait PreconfStorage: Send + Sync {
@@ -57,8 +58,8 @@ impl PreconfStorage for InMemoryStorage {
 }
 
 /// Construct the default in-memory storage backend wrapped in an `Arc`.
-pub fn default_storage() -> std::sync::Arc<dyn PreconfStorage> {
-    std::sync::Arc::new(InMemoryStorage::default())
+pub fn default_storage() -> Arc<dyn PreconfStorage> {
+    Arc::new(InMemoryStorage::default())
 }
 
 #[cfg(test)]

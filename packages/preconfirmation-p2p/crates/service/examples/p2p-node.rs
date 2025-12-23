@@ -9,7 +9,7 @@ use libp2p::PeerId;
 use preconfirmation_service::{
     LookaheadResolver, NetworkConfig, NetworkError, P2pHandler, P2pService,
 };
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 /// Lookahead resolver that returns a configured signer for all slots.
 struct CliLookaheadResolver {
@@ -104,12 +104,12 @@ async fn main() -> anyhow::Result<()> {
     cfg.enable_discovery = !args.no_discovery;
     cfg.reputation_greylist = args.reputation_greylist;
     cfg.reputation_ban = args.reputation_ban;
-    cfg.reputation_halflife = std::time::Duration::from_secs(args.reputation_halflife_secs);
-    cfg.request_window = std::time::Duration::from_secs(args.request_window_secs);
+    cfg.reputation_halflife = Duration::from_secs(args.reputation_halflife_secs);
+    cfg.request_window = Duration::from_secs(args.request_window_secs);
     cfg.max_requests_per_window = args.max_requests_per_window;
 
     let expected_signer = args.expected_signer.parse()?;
-    let lookahead = std::sync::Arc::new(CliLookaheadResolver { expected_signer });
+    let lookahead = Arc::new(CliLookaheadResolver { expected_signer });
     let mut service = P2pService::start(cfg, lookahead)?;
     let handler = LoggingHandler;
     let handler_task = service.run_with_handler(handler)?;
