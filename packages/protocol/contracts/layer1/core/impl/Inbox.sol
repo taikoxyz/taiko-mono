@@ -123,12 +123,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// - proposalHash: The keccak256 hash of the Proposal struct
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
-    /// @notice Storage for bond balances.
-    LibBonding.Storage private _bondingStorage;
-
     /// @dev Storage for forced inclusion requests
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
+
+    /// @notice Storage for bond balances.
+    LibBonding.Storage private _bondingStorage;
 
     uint256[43] private __gap;
 
