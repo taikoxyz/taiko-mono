@@ -132,7 +132,7 @@ fn driver_from_parts(
             events_tx: events_tx.clone(),
             commands_rx: cmd_rx,
             topics: parts.topics,
-            reputation: super::build_reputation_backend(ReputationConfig {
+            reputation: super::build_reputation_store(ReputationConfig {
                 greylist_threshold: cfg.reputation_greylist,
                 ban_threshold: cfg.reputation_ban,
                 halflife: cfg.reputation_halflife,

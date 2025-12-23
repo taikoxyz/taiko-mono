@@ -4343,7 +4343,6 @@ dependencies = [
  "preconfirmation-types",
  "rand 0.8.5",
  "reth-discv5",
- "reth-network-peers",
  "reth-network-types",
  "reth-tokio-util",
  "secp256k1 0.30.0",

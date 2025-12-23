@@ -53,14 +53,6 @@ impl NetworkDriver {
             .report_message_validation_result(message_id, peer, acceptance);
     }
 
-    /// Adjust the application score for a peer, clamped to the spec bounds.
-    fn adjust_app_score(&mut self, peer: &PeerId, delta: f64) {
-        if let Some(score) = self.swarm.behaviour().gossipsub.peer_score(peer) {
-            let new_score = (score + delta).clamp(-10.0, 10.0);
-            let _ = self.swarm.behaviour_mut().gossipsub.set_application_score(peer, new_score);
-        }
-    }
-
     /// Shared handler for decoding, validating, scoring, and emitting a gossip payload.
     fn handle_gossip_payload<T, E>(
         &mut self,
@@ -74,7 +66,6 @@ impl NetworkDriver {
         match decode() {
             Ok(msg) => {
                 if validate(self.validator.as_ref(), &propagation_source, &msg).is_ok() {
-                    self.adjust_app_score(&propagation_source, 0.05);
                     self.report_gossip_result(
                         message_id,
                         &propagation_source,
@@ -103,7 +94,6 @@ impl NetworkDriver {
                 metrics::counter!("p2p_gossip_invalid", "kind" => kind.label(), "reason" => "decode")
                     .increment(1);
                 self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                self.adjust_app_score(&propagation_source, -1.0);
                 self.emit_error(NetworkErrorKind::GossipDecode, kind.decode_error());
             }
         }

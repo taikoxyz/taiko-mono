@@ -23,8 +23,7 @@ impl NetworkDriver {
         }
     }
 
-    /// Unified dial gating: consult Kona's connection gater first, then reputation bans/greylist
-    /// via `ReputationBackend::allow_dial`. This keeps a single decision path for outbound dials.
+    /// Unified dial gating: consult Kona's connection gater first, then the reputation store.
     pub(super) fn allow_dial_addr(&mut self, addr: &Multiaddr) -> bool {
         if self.kona_gater.can_dial(addr).is_err() {
             metrics::counter!("p2p_dial_blocked", "source" => "kona_gater").increment(1);
@@ -32,7 +31,7 @@ impl NetworkDriver {
         }
 
         if let Some(peer) = Self::peer_id_from_multiaddr(addr) {
-            if !self.reputation.allow_dial(&peer, Some(addr)) {
+            if !self.reputation.allow_dial(&peer) {
                 metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
                 return false;
             }

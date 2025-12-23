@@ -22,8 +22,9 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   custom ENR/UDP wiring.
 - **Kona gossipsub presets** (tag `kona-client/v1.2.4`, always on): mesh/score defaults +
   heartbeat; we override only spec-required bits (max transmit size, validation mode).
-- **Reputation via reth**: `ReputationChangeWeights` defaults come from reth; `RethReputationAdapter`
-  mirrors bans to libp2p IDs, falling back to the local store on ID conversion failure.
+- **Reputation**: `ReputationChangeWeights` defaults come from reth; a single libp2p-keyed
+  reputation store handles scoring and gating, wiring bans into the libp2p block list and Kona
+  gater.
 - **Kona connection gater**: dial path first consults Kona gater (blocked subnets/redial limits),
   then local reputation; knobs exposed on `NetworkConfig`.
 - **Rate limiting**: per-peer/per-protocol token bucket built on `reth-tokio-util` (upstream),
@@ -42,10 +43,10 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   feature only to disable it in constrained environments. In-memory transport tests always run.
 - Lighthouse-style peer scoring/gating: blocked (no published crate compatible with libp2p 0.56).
 
-Note: Reth peer-id keyed reputation is always enabled and is the sole backend; it mirrors bans to
-libp2p `PeerId` while using reth weights/thresholds for scoring. IP colocation protection today
-relies on libp2p connection limits (per-peer/incoming caps) plus request limiting; Lighthouse-style
-gating/scoring remains blocked until upstream publishes a compatible crate/API for libp2p 0.56.
+Note: Reputation is keyed by libp2p `PeerId` using reth weights/thresholds for scoring. IP
+colocation protection today relies on libp2p connection limits (per-peer/incoming caps) plus
+request limiting; Lighthouse-style gating/scoring remains blocked until upstream publishes a
+compatible crate/API for libp2p 0.56.
 
 ## Protocol details (current implementation)
 

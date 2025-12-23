@@ -34,7 +34,6 @@ metrics-exporter-prometheus.workspace = true
 preconfirmation-types = { path = "../types" }
 rand.workspace = true
 reth-discv5 = { workspace = true, optional = true }
-reth-network-peers = { workspace = true }
 reth-network-types.workspace = true
 reth-tokio-util = { workspace = true, features = ["time"] }
 secp256k1.workspace = true

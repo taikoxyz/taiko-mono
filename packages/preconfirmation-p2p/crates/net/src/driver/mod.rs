@@ -32,8 +32,7 @@ use crate::{
     discovery::{DiscoveryConfig, DiscoveryEvent, spawn_discovery},
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
     reputation::{
-        PeerAction, ReputationBackend, ReputationConfig, ReqRespKind, RequestRateLimiter,
-        reth_adapter::RethReputationAdapter,
+        PeerAction, PeerReputationStore, ReputationConfig, ReqRespKind, RequestRateLimiter,
     },
     storage::{PreconfStorage, default_storage},
     validation::{LookaheadResolver, LookaheadValidationAdapter, ValidationAdapter},
@@ -62,7 +61,7 @@ pub struct NetworkDriver {
     /// Gossip topics for commitments and raw transaction lists.
     topics: (gossipsub::IdentTopic, gossipsub::IdentTopic),
     /// Backend for managing peer reputation.
-    reputation: Box<dyn ReputationBackend>,
+    reputation: PeerReputationStore,
     /// Rate limiter for incoming requests.
     request_limiter: RequestRateLimiter,
     /// Pending outbound req/resp timestamps for latency metrics.
@@ -93,10 +92,9 @@ pub struct NetworkDriver {
     head_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
 }
 
-/// Constructs the reputation backend adapter. At runtime this delegates to the reth-backed
-/// implementation so we reuse upstream scoring/ban logic instead of duplicating it here.
-fn build_reputation_backend(cfg: ReputationConfig) -> Box<dyn ReputationBackend> {
-    Box::new(RethReputationAdapter::new(cfg))
+/// Constructs the reputation store used for scoring and gating.
+fn build_reputation_store(cfg: ReputationConfig) -> PeerReputationStore {
+    PeerReputationStore::new(cfg)
 }
 
 /// Builds a `ConnectionGater` instance based on the provided `NetworkConfig`.
@@ -195,7 +193,7 @@ impl NetworkDriver {
                 events_tx: events_tx.clone(),
                 commands_rx: cmd_rx,
                 topics: parts.topics,
-                reputation: build_reputation_backend(ReputationConfig {
+                reputation: build_reputation_store(ReputationConfig {
                     greylist_threshold: cfg.reputation_greylist,
                     ban_threshold: cfg.reputation_ban,
                     halflife: cfg.reputation_halflife,

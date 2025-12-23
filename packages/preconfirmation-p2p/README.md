@@ -33,8 +33,8 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 - Gossip and gating reuse Kona (`kona-client/v1.2.4`): gossipsub presets (mesh/score/heartbeat,
   max transmit size tied to `preconfirmation_types::MAX_GOSSIP_SIZE_BYTES`) and the connection
   gater (blocked subnets/redial limits).
-- Reputation weights come from reth (`ReputationChangeWeights`); bans mirror to libp2p IDs with a
-  fallback local store when ID conversion fails.
+- Reputation weights come from reth (`ReputationChangeWeights`); scoring and gating run through a
+  single libp2p-keyed reputation store that enforces the libp2p block list and Kona gater.
 - Req/resp: SSZ messages framed with libp2p unsigned-varint lengths, protocol IDs and size caps
   from `preconfirmation_types`; per-peer fixed-window rate limiting lives in `NetworkConfig`.
 - This package is library-only; runnable smoke testing lives in `crates/service/examples/p2p-node.rs`.
@@ -42,13 +42,12 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 ## Reputation & Scoring
 
 - Default: local `PeerReputationStore` with decay/thresholds, libp2p block-list enforcement, and
-  rate limiting.
+  rate limiting (no alternate adapters).
 - Upstream request-rate limiter swap: still local; no compatible upstream rate-limit module is
   published for our libp2p/reth/Lighthouse versions, so no code change here yet.
 - `kona-presets`: (removed, always on). Gossipsub config now comes from Kona’s preset helper.
-- `reth-peers`: always on. Reputation is keyed by reth `PeerId` when conversion succeeds; bans are
-  mirrored to libp2p `PeerId`. Scoring still uses the local decay/threshold logic and falls back to
-  the local store if conversion fails.
+- Single-path reputation keyed by libp2p `PeerId` using reth weights/thresholds; bans wire into the
+  libp2p block list and Kona gater.
 - Kona connection gater is always on and now consulted in the same dial path as reputation
   (`allow_dial`); NetworkConfig exposes minimal knobs (`gater_blocked_subnets`,
   `gater_peer_redialing`, `gater_dial_period`). Lighthouse-style gating remains blocked until a
