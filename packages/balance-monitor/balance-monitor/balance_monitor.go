@@ -112,7 +112,8 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client *ethclien
 	tokenDecimals, ok := b.erc20DecimalsCache[tokenAddress]
 	if !ok {
 		// If not in the cache, fetch the decimals from the contract
-		tokenDecimals, err := b.getErc20Decimals(ctx, client, tokenAddress)
+		var err error
+		tokenDecimals, err = b.getErc20Decimals(ctx, client, tokenAddress)
 		if err != nil {
 			slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 decimals for token. Use default value: 18", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
 			tokenDecimals = 18
