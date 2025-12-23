@@ -11,11 +11,14 @@ use preconfirmation_service::{
 };
 use std::net::SocketAddr;
 
+/// Lookahead resolver that returns a configured signer for all slots.
 struct CliLookaheadResolver {
+    /// Expected signer returned for every lookup.
     expected_signer: alloy_primitives::Address,
 }
 
 impl LookaheadResolver for CliLookaheadResolver {
+    /// Returns the configured expected signer.
     fn signer_for_timestamp(
         &self,
         _submission_window_end: &preconfirmation_types::Uint256,
@@ -23,6 +26,7 @@ impl LookaheadResolver for CliLookaheadResolver {
         Ok(self.expected_signer)
     }
 
+    /// Echoes the provided slot end unchanged.
     fn expected_slot_end(
         &self,
         submission_window_end: &preconfirmation_types::Uint256,
@@ -126,17 +130,21 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Logs P2P events to the tracing subscriber.
 struct LoggingHandler;
 
 impl P2pHandler for LoggingHandler {
+    /// Log signed commitment gossip events.
     fn on_signed_commitment(&self, from: PeerId, _msg: preconfirmation_types::SignedCommitment) {
         tracing::info!(target = "p2p-node", %from, "received signed commitment gossip");
     }
 
+    /// Log raw txlist gossip events.
     fn on_raw_txlist(&self, from: PeerId, _msg: preconfirmation_types::RawTxListGossip) {
         tracing::info!(target = "p2p-node", %from, "received raw txlist gossip");
     }
 
+    /// Log commitment response events.
     fn on_commitments_response(
         &self,
         from: PeerId,
@@ -146,6 +154,7 @@ impl P2pHandler for LoggingHandler {
         tracing::info!(target = "p2p-node", %from, "commitments response");
     }
 
+    /// Log raw txlist response events.
     fn on_raw_txlist_response(
         &self,
         from: PeerId,
@@ -155,6 +164,7 @@ impl P2pHandler for LoggingHandler {
         tracing::info!(target = "p2p-node", %from, "raw txlist response");
     }
 
+    /// Log head response events.
     fn on_head_response(
         &self,
         from: PeerId,
@@ -164,26 +174,32 @@ impl P2pHandler for LoggingHandler {
         tracing::info!(target = "p2p-node", %from, "head response");
     }
 
+    /// Log inbound commitments request events.
     fn on_inbound_commitments_request(&self, from: PeerId) {
         tracing::info!(target = "p2p-node", %from, "inbound commitments request");
     }
 
+    /// Log inbound raw-txlist request events.
     fn on_inbound_raw_txlist_request(&self, from: PeerId) {
         tracing::info!(target = "p2p-node", %from, "inbound raw txlist request");
     }
 
+    /// Log inbound head request events.
     fn on_inbound_head_request(&self, from: PeerId) {
         tracing::info!(target = "p2p-node", %from, "inbound head request");
     }
 
+    /// Log peer connect events.
     fn on_peer_connected(&self, peer: PeerId) {
         tracing::info!(target = "p2p-node", %peer, "peer connected");
     }
 
+    /// Log peer disconnect events.
     fn on_peer_disconnected(&self, peer: PeerId) {
         tracing::info!(target = "p2p-node", %peer, "peer disconnected");
     }
 
+    /// Log network error events.
     fn on_error(&self, err: &NetworkError) {
         tracing::warn!(
             target = "p2p-node",

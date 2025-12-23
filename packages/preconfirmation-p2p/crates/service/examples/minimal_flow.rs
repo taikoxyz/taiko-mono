@@ -10,11 +10,14 @@ use preconfirmation_types::{
 use secp256k1::SecretKey;
 use tokio::time::{Duration, sleep};
 
+/// Lookahead resolver that returns a fixed signer for all slots.
 struct StaticLookaheadResolver {
+    /// Expected signer returned for every lookup.
     signer: alloy_primitives::Address,
 }
 
 impl LookaheadResolver for StaticLookaheadResolver {
+    /// Returns the configured signer for any submission window.
     fn signer_for_timestamp(
         &self,
         _submission_window_end: &Uint256,
@@ -22,6 +25,7 @@ impl LookaheadResolver for StaticLookaheadResolver {
         Ok(self.signer)
     }
 
+    /// Echoes the provided slot end unchanged.
     fn expected_slot_end(&self, submission_window_end: &Uint256) -> Result<Uint256, String> {
         Ok(submission_window_end.clone())
     }

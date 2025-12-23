@@ -67,7 +67,9 @@ pub struct NetworkDriver {
     request_limiter: RequestRateLimiter,
     /// Pending outbound req/resp timestamps for latency metrics.
     commitments_out: VecDeque<tokio::time::Instant>,
+    /// Pending outbound raw-txlist req/resp timestamps for latency metrics.
     raw_txlists_out: VecDeque<tokio::time::Instant>,
+    /// Pending outbound head req/resp timestamps for latency metrics.
     head_out: VecDeque<tokio::time::Instant>,
     /// Validator adapter (swap in upstream implementation here).
     validator: Box<dyn ValidationAdapter>,

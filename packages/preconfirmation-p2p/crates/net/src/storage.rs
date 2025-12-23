@@ -28,24 +28,29 @@ pub struct InMemoryStorage {
 }
 
 impl Default for InMemoryStorage {
+    /// Create a fresh in-memory storage instance.
     fn default() -> Self {
         Self { commitments: SkipMap::new(), txlists: DashMap::new() }
     }
 }
 
 impl PreconfStorage for InMemoryStorage {
+    /// Insert a commitment into the in-memory store.
     fn insert_commitment(&self, block: U256, commitment: SignedCommitment) {
         self.commitments.insert(block, commitment);
     }
 
+    /// Insert a raw txlist into the in-memory store.
     fn insert_txlist(&self, hash: B256, tx: RawTxListGossip) {
         self.txlists.insert(hash, tx);
     }
 
+    /// Return a range of commitments from the in-memory store.
     fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
         self.commitments.range(start..).take(max).map(|entry| entry.value().clone()).collect()
     }
 
+    /// Fetch a raw txlist by hash from the in-memory store.
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
         self.txlists.get(hash).map(|entry| entry.value().clone())
     }

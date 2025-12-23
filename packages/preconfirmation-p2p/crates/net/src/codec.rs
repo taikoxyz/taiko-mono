@@ -22,6 +22,7 @@ pub struct SszCodec<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> {
 impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Clone
     for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
 {
+    /// Returns a clone of the codec marker.
     fn clone(&self) -> Self {
         Self { _marker: std::marker::PhantomData }
     }
@@ -30,6 +31,7 @@ impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Clone
 impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Default
     for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
 {
+    /// Creates a default codec marker instance.
     fn default() -> Self {
         Self { _marker: std::marker::PhantomData }
     }
@@ -37,8 +39,11 @@ impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Default
 
 /// Type alias for the `SszCodec` handling commitments requests and responses.
 /// Maximum encoded size for commitments request/response frames.
+/// Maximum encoded size for commitments request frames.
 const COMMIT_REQ_MAX_BYTES: usize = 512; // block number + small fields
+/// Maximum encoded size for commitments response frames.
 const COMMIT_RESP_MAX_BYTES: usize = MAX_COMMITMENTS_PER_RESPONSE * 4096; // ~1 MiB upper bound
+/// Type alias for the `SszCodec` handling commitments requests and responses.
 pub type CommitmentsCodec = SszCodec<
     preconfirmation_types::GetCommitmentsByNumberRequest,
     preconfirmation_types::GetCommitmentsByNumberResponse,
@@ -84,9 +89,13 @@ pub struct Protocols {
 /// A wrapper for a protocol ID string.
 ///
 /// Implements `AsRef<str>` to allow easy conversion to `&str`.
-pub struct SszProtocol(pub String);
+pub struct SszProtocol(
+    /// Protocol identifier string.
+    pub String,
+);
 
 impl AsRef<str> for SszProtocol {
+    /// Return the protocol identifier as a string slice.
     fn as_ref(&self) -> &str {
         &self.0
     }
@@ -103,6 +112,7 @@ where
     type Request = Req;
     type Response = Resp;
 
+    /// Read and decode a request frame.
     async fn read_request<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Request>
     where
         R: AsyncRead + Unpin + Send,
@@ -110,6 +120,7 @@ where
         read_ssz(io, MAX_REQ).await
     }
 
+    /// Read and decode a response frame.
     async fn read_response<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Response>
     where
         R: AsyncRead + Unpin + Send,
@@ -117,6 +128,7 @@ where
         read_ssz(io, MAX_RESP).await
     }
 
+    /// Encode and write a request frame.
     async fn write_request<W>(
         &mut self,
         _: &SszProtocol,
@@ -129,6 +141,7 @@ where
         write_ssz(io, req, MAX_REQ).await
     }
 
+    /// Encode and write a response frame.
     async fn write_response<W>(
         &mut self,
         _: &SszProtocol,

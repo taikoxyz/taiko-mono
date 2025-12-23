@@ -93,18 +93,21 @@ impl NetworkError {
 }
 
 impl From<String> for NetworkError {
+    /// Convert a string message into a generic network error.
     fn from(detail: String) -> Self {
         Self { kind: NetworkErrorKind::Other, detail, request_id: None }
     }
 }
 
 impl From<&str> for NetworkError {
+    /// Convert a string slice into a generic network error.
     fn from(detail: &str) -> Self {
         Self { kind: NetworkErrorKind::Other, detail: detail.to_owned(), request_id: None }
     }
 }
 
 impl std::fmt::Display for NetworkError {
+    /// Format the error for human-readable output.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.kind.as_str(), self.detail)
     }

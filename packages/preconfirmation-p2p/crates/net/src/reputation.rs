@@ -101,6 +101,7 @@ pub(crate) struct PeerReputationStore {
 }
 
 impl Default for PeerReputationStore {
+    /// Build a store with default thresholds and weights.
     fn default() -> Self {
         Self::new(ReputationConfig {
             greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
@@ -289,6 +290,7 @@ pub struct RequestRateLimiter {
     state: HashMap<(PeerId, ReqRespKind), LimiterState>,
 }
 
+/// Cached limiter state for a peer/protocol bucket.
 #[derive(Debug)]
 struct LimiterState {
     /// Token bucket instance for the peer/protocol pair.
@@ -529,6 +531,7 @@ pub mod reth_adapter {
     }
 
     impl ReputationBackend for RethReputationAdapter {
+        /// Apply an action using the reth-keyed backend when possible.
         fn apply(&mut self, peer: PeerId, action: PeerAction) -> ReputationEvent {
             if let Some(rid) = libp2p_to_reth(&peer) {
                 self.apply_reth(peer, rid, action)
@@ -537,6 +540,7 @@ pub mod reth_adapter {
             }
         }
 
+        /// Check if the peer is currently banned.
         fn is_banned(&self, peer: &PeerId) -> bool {
             if self.banned_l2p.contains(peer) {
                 return true;

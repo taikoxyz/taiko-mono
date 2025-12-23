@@ -183,6 +183,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         Ok(())
     }
 
+    /// Validate a raw txlist gossip message using the local validator.
     fn validate_gossip_raw_txlist(
         &self,
         from: &PeerId,
