@@ -43,7 +43,6 @@ impl ProposerSubCommand {
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
             gas_limit: self.proposer_flags.gas_limit,
-            anchor_offset: self.proposer_flags.anchor_offset,
         })
     }
 

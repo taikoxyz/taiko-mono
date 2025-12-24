@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	EventNameMessageSent          = "MessageSent"
-	EventNameMessageStatusChanged = "MessageStatusChanged"
-	EventNameMessageProcessed     = "MessageProcessed"
-	EventNameChainDataSynced      = "ChainDataSynced"
-	EventNameCheckpointSaved      = "CheckpointSaved"
+	EventNameMessageSent            = "MessageSent"
+	EventNameMessageStatusChanged   = "MessageStatusChanged"
+	EventNameMessageProcessed       = "MessageProcessed"
+	EventNameChainDataSynced        = "ChainDataSynced"
+	EventNameCheckpointSaved        = "CheckpointSaved"
+	EventNameBondInstructionCreated = "BondInstructionCreated"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -38,6 +39,7 @@ const (
 	EventTypeSendERC20
 	EventTypeSendERC721
 	EventTypeSendERC1155
+	EventTypeBondInstruction
 )
 
 // String returns string representation of an event status for logging
@@ -46,7 +48,7 @@ func (e EventStatus) String() string {
 }
 
 func (e EventType) String() string {
-	return [...]string{"sendETH", "sendERC20", "sendERC721", "sendERC1155"}[e]
+	return [...]string{"sendETH", "sendERC20", "sendERC721", "sendERC1155", "bondInstruction"}[e]
 }
 
 // Event represents a stored EVM event. The fields will be serialized
