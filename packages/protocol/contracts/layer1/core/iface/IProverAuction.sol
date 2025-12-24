@@ -55,10 +55,7 @@ interface IProverAuction {
     /// @param recipient The recipient of the reward
     /// @param rewarded The amount rewarded to recipient
     event BondSlashed(
-        address indexed prover,
-        uint128 slashed,
-        address indexed recipient,
-        uint128 rewarded
+        address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded
     );
 
     /// @notice Emitted when a prover is forced out due to insufficient bond
@@ -133,7 +130,8 @@ interface IProverAuction {
         uint128 _slashAmount,
         address _recipient,
         uint128 _rewardAmount
-    ) external;
+    )
+        external;
 
     // ---------------------------------------------------------------
     // View Functions

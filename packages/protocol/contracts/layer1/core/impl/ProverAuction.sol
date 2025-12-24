@@ -153,7 +153,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
         BondInfo storage info = _bonds[msg.sender];
 
         // Check withdrawal delay if set
-        require(info.withdrawableAt == 0 || block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
+        require(
+            info.withdrawableAt == 0 || block.timestamp >= info.withdrawableAt,
+            WithdrawalDelayNotPassed()
+        );
 
         // Check sufficient balance
         require(info.balance >= _amount, InsufficientBond());
@@ -253,7 +256,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
             uint48 maxAllowedFee;
             unchecked {
                 // Safe: uint48 * uint16 / 10000 fits in uint48
-                maxAllowedFee = uint48(uint256(current.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
+                maxAllowedFee =
+                    uint48(uint256(current.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
             }
             require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         }
