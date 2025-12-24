@@ -1,6 +1,6 @@
 //! # P2P SDK for Taiko Preconfirmation Networking
 //!
-//! This crate provides a high-level SDK façade over [`preconfirmation-net`], layering
+//! This crate provides a high-level SDK façade over [`preconfirmation_net`], layering
 //! SDK storage, deduplication, validation, a catch-up pipeline, and a typed event API
 //! for building preconfirmation-aware applications on Taiko.
 //!
@@ -123,7 +123,8 @@
 //!     // Your current local head block number
 //!     let local_head = 12345u64;
 //!
-//!     // Start catch-up (SDK will request network head and page through)
+//!     // Start catch-up from local head. Pass 0 as network_head to let
+//!     // the SDK request the network head from peers before syncing.
 //!     handle.start_catchup(local_head, 0).await?;
 //!
 //!     // The SDK will emit HeadSyncStatus { synced: true } when complete
