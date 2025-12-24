@@ -20,12 +20,8 @@ async fn main() -> P2pResult<()> {
 
     // Demo-safe: skip network startup unless explicitly enabled.
     if std::env::var("P2P_EXAMPLE_RUN").is_err() {
-        eprintln!(
-            "P2P_EXAMPLE_RUN not set; example is compile-only by default.\n"
-        );
-        eprintln!(
-            "Set P2P_EXAMPLE_RUN=1 and configure config.network to run the node."
-        );
+        eprintln!("P2P_EXAMPLE_RUN not set; example is compile-only by default.\n");
+        eprintln!("Set P2P_EXAMPLE_RUN=1 and configure config.network to run the node.");
         return Ok(());
     }
 
