@@ -24,4 +24,5 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+secp256k1 = "0.30"
 tokio = { workspace = true, features = ["full"] }

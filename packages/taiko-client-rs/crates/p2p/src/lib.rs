@@ -13,9 +13,14 @@ mod config;
 mod error;
 pub mod storage;
 mod types;
+pub mod validation;
 
 pub use config::P2pClientConfig;
 pub use error::{P2pClientError, P2pResult};
+pub use validation::{
+    BlockParamsValidator, CommitmentValidator, DefaultBlockParamsValidator, ValidationOutcome,
+    ValidationResult, ValidationStatus,
+};
 // Re-export key network types so consumers can depend on this crate alone.
 pub use preconfirmation_net::{
     LookaheadResolver, NetworkCommand, NetworkError, NetworkErrorKind, NetworkEvent, P2pConfig,
