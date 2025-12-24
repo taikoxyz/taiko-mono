@@ -1,11 +1,12 @@
 //! Development CLI entrypoint for the preconfirmation P2P stack.
 //!
-//! Starts a `P2pNode`, logs basic events, and exits on Ctrl+C.
+//! Starts a `P2pNode`, logs events, requests head on startup, and exits on Ctrl+C.
 
 use clap::Parser;
 use futures::StreamExt;
 use preconfirmation_net::{
-    LookaheadResolver, LookaheadValidationAdapter, NetworkEvent, P2pConfig, P2pNode,
+    LookaheadResolver, LookaheadValidationAdapter, NetworkCommand, NetworkEvent, P2pConfig,
+    P2pNode,
 };
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
@@ -114,42 +115,52 @@ async fn main() -> anyhow::Result<()> {
     let (mut handle, node) = P2pNode::new(cfg, validator)?;
     let node_task = tokio::spawn(async move { node.run().await });
 
+    // Request head from peers on startup.
+    let cmd_sender = handle.command_sender();
+    cmd_sender.send(NetworkCommand::RequestHead { respond_to: None, peer: None }).await?;
+    tracing::info!(target: "p2p-node", "sent initial head request");
+
     let logger = tokio::spawn(async move {
         let mut events = handle.events();
         while let Some(ev) = events.next().await {
             match ev {
                 NetworkEvent::GossipSignedCommitment { from, .. } => {
-                    tracing::info!(target = "p2p-node", %from, "received signed commitment gossip");
+                    tracing::info!(target: "p2p-node", %from, "received signed commitment gossip");
                 }
                 NetworkEvent::GossipRawTxList { from, .. } => {
-                    tracing::info!(target = "p2p-node", %from, "received raw txlist gossip");
+                    tracing::info!(target: "p2p-node", %from, "received raw txlist gossip");
                 }
                 NetworkEvent::ReqRespCommitments { from, .. } => {
-                    tracing::info!(target = "p2p-node", %from, "commitments response");
+                    tracing::info!(target: "p2p-node", %from, "commitments response");
                 }
                 NetworkEvent::ReqRespRawTxList { from, .. } => {
-                    tracing::info!(target = "p2p-node", %from, "raw txlist response");
+                    tracing::info!(target: "p2p-node", %from, "raw txlist response");
                 }
-                NetworkEvent::ReqRespHead { from, .. } => {
-                    tracing::info!(target = "p2p-node", %from, "head response");
+                NetworkEvent::ReqRespHead { from, head } => {
+                    tracing::info!(
+                        target: "p2p-node",
+                        %from,
+                        block_number = ?head.block_number,
+                        "head response"
+                    );
                 }
                 NetworkEvent::InboundCommitmentsRequest { from } => {
-                    tracing::info!(target = "p2p-node", %from, "inbound commitments request");
+                    tracing::info!(target: "p2p-node", %from, "inbound commitments request");
                 }
                 NetworkEvent::InboundRawTxListRequest { from } => {
-                    tracing::info!(target = "p2p-node", %from, "inbound raw txlist request");
+                    tracing::info!(target: "p2p-node", %from, "inbound raw txlist request");
                 }
                 NetworkEvent::InboundHeadRequest { from } => {
-                    tracing::info!(target = "p2p-node", %from, "inbound head request");
+                    tracing::info!(target: "p2p-node", %from, "inbound head request");
                 }
                 NetworkEvent::PeerConnected(peer) => {
-                    tracing::info!(target = "p2p-node", %peer, "peer connected");
+                    tracing::info!(target: "p2p-node", %peer, "peer connected");
                 }
                 NetworkEvent::PeerDisconnected(peer) => {
-                    tracing::info!(target = "p2p-node", %peer, "peer disconnected");
+                    tracing::info!(target: "p2p-node", %peer, "peer disconnected");
                 }
                 NetworkEvent::Error(err) => {
-                    tracing::warn!(target = "p2p-node", %err, "network error");
+                    tracing::warn!(target: "p2p-node", %err, "network error");
                 }
                 NetworkEvent::Started | NetworkEvent::Stopped => {}
             }
