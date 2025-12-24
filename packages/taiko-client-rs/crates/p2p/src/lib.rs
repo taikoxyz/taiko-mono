@@ -9,12 +9,14 @@
 
 #![deny(missing_docs)]
 
+mod client;
 mod config;
 mod error;
 pub mod storage;
 mod types;
 pub mod validation;
 
+pub use client::{P2pClient, P2pClientHandle};
 pub use config::P2pClientConfig;
 pub use error::{P2pClientError, P2pResult};
 pub use validation::{

@@ -6899,6 +6899,7 @@ dependencies = [
  "secp256k1 0.30.0",
  "serde",
  "sha3",
+ "ssz_rs",
  "thiserror 2.0.17",
  "tokio",
  "tracing",

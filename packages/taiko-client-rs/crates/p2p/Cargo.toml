@@ -19,6 +19,7 @@ preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 serde = { workspace = true, features = ["derive"] }
 sha3 = "0.10"
+ssz_rs = { version = "0.9", default-features = false, features = ["std"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
