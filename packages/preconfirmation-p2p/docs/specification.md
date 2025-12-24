@@ -187,17 +187,17 @@ On L1 reorgs affecting any `anchorBlockNumber` in the executed range, implementa
 - Deduplication: Implementations SHOULD deduplicate commitments per `(slot, signer)` and per `(blockNumber, rawTxListHash)`; txlists per `rawTxListHash`.
 - Size caps: Implementations MUST enforce a maximum txlist size and discard oversized `RawTxListGossip` messages.
 - Self‑messages: Implementations MUST ignore messages originating from the local sidecar.
-- Peer scoring: Implementations MUST integrate gossipsub peer scoring feedback to penalize peers whose messages fail validation (e.g., wrong signer for the slot), to reduce repeated spam from misbehaving peers.
+- Peer scoring: Implementations SHOULD penalize peers whose messages fail validation via the local
+  reputation store (e.g., wrong signer for the slot) and can rely on the gossipsub preset for base
+  scoring; explicit application score writes are optional.
 
 ### 7.1 Gossipsub Scoring Profile
 
-The following scoring profile is normative for all preconfirmation topics unless overridden by network configuration:
-
-- Enable gossipsub v1.1 scoring with application feedback.
-- App feedback MUST apply a negative delta on validation failure (bad signature, wrong slot signer, hash mismatch, oversized txlist) and a small positive delta on acceptance/forward; defaults: ‑1 per failure (cap ‑4 per 10s per peer), +0.05 per acceptance (with a cap).
-- Parameters (defaults to be exposed/configurable but supported):
-    - decay: ~0.9 per 10s tick; `appScore` clamp: [‑10, +10]; `topicWeight` : 1.0.
-    - `invalidMessageDeliveriesWeight`: 2.0 (dominant); `invalidMessageDeliveriesDecay`: 0.99; cap at ‑20 (networks MAY remove the cap entirely to accelerate eviction).
+Implementations SHOULD use the Kona gossipsub presets for mesh/scoring defaults. Explicit
+application score writes are not required by this spec; validation outcomes are enforced via the
+local reputation store (greylists/bans) and standard gossipsub scoring. If a deployment enables
+application score feedback, keep deltas small and bounded to avoid over-penalizing transient
+validation errors.
     - `firstMessageDeliveriesWeight`: 0.5; `firstMessageDeliveriesDecay`: 0.999; cap at 20.
     - `timeInMeshQuantum`: 1s; `timeInMeshCap`: 3600s.
 - Enforcement MUST drop peers below score ‑1, prune below ‑2, and ban (disconnect + ignore) below ‑5 sustained >30s (or stricter).

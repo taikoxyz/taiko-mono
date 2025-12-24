@@ -8,11 +8,9 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
 - `crates/types`: Spec-driven SSZ message types (gossip + req/resp), topic/protocol helpers,
   and crypto/validation utilities (domain-prefixed SSZ hashing, secp256k1 signing/recovery).
 - `crates/net`: libp2p transport + behaviours (ping, identify, gossipsub, request/response),
-  discovery scaffold (reth-discv5-backed), basic reputation + rate limiting, and the driver/handle
-  API: `NetworkConfig`, `NetworkCommand`, `NetworkEvent`, `NetworkDriver`, `NetworkHandle`.
-- `crates/service`: Async façade that owns the driver, spawns it on tokio, and exposes a small
-  channel-based API (`publish_*`, `request_*`, `next_event`, `run_with_handler`). Examples live
-  under `crates/service/examples/` (no binaries are installed).
+  discovery scaffold (reth-discv5-backed), basic reputation + rate limiting, and the node/handle
+  API: `P2pConfig`, `P2pNode`, `P2pHandle`, `NetworkCommand`, `NetworkEvent` (see
+  `crates/net/examples/p2p-node.rs`).
 
 ## Upstream reuse (how pieces fit)
 
@@ -20,51 +18,48 @@ This crate group is a library-only scaffold for the Taiko preconfirmation P2P la
   identify, allow/block list, connection limits.
 - **reth-discv5** (tag `v1.9.3`, feature `reth-discovery`): discovery wrapper; reused to avoid
   custom ENR/UDP wiring.
-- **Kona gossipsub presets** (tag `kona-client/v1.2.4`, always on): mesh/score defaults +
+- **Kona gossipsub defaults** (tag `kona-client/v1.2.4`, always on): mesh/score defaults +
   heartbeat; we override only spec-required bits (max transmit size, validation mode).
-- **Reputation**: `ReputationChangeWeights` defaults come from reth; a single libp2p-keyed
-  reputation store handles scoring and gating, wiring bans into the libp2p block list and Kona
-  gater.
+- **Reputation via reth**: `ReputationChangeWeights` defaults come from reth and feed the local
+  peer reputation store; bans/greylists are mirrored to libp2p `PeerId`s.
 - **Kona connection gater**: dial path first consults Kona gater (blocked subnets/redial limits),
-  then local reputation; knobs exposed on `NetworkConfig`.
+  then local reputation; advanced knobs remain internal to the networking layer.
 - **Rate limiting**: per-peer/per-protocol token bucket built on `reth-tokio-util` (upstream),
   replacing the old fixed window limiter.
-- **Presets**: discovery presets (dev/test/prod) adjust discv5 lookup cadence; connection presets
-  (dev/test/prod) set pending/established caps and dial concurrency (prod defaults: pending 40/40,
-  established 110/110, total 220, dial factor 16). Event fanout uses broadcast so handlers, blocking
-  helpers, and `next_event` can run concurrently.
+- Discovery uses conservative discv5 timing defaults (aligned with prior production tuning).
+- Connection caps and dial concurrency default to production-safe values and can be tuned directly.
+  Event fanout uses broadcast so handlers, blocking helpers, and `next_event` can run concurrently.
 
 ## Feature flags
 
 - `reth-discovery` (default on): enable discovery via `reth-discv5` wrapper.
-- `kona-presets`: always on (Kona gossipsub mesh/score presets).
+- `kona-presets`: always on (Kona gossipsub mesh/score defaults).
 - `kona-gater`: always on (Kona connection gater reused in dial/ban path).
 - `real-transport-test`: real TCP integration test now runs by default with retries; use this
   feature only to disable it in constrained environments. In-memory transport tests always run.
 - Lighthouse-style peer scoring/gating: blocked (no published crate compatible with libp2p 0.56).
 
-Note: Reputation is keyed by libp2p `PeerId` using reth weights/thresholds for scoring. IP
-colocation protection today relies on libp2p connection limits (per-peer/incoming caps) plus
-request limiting; Lighthouse-style gating/scoring remains blocked until upstream publishes a
-compatible crate/API for libp2p 0.56.
+Note: Reth peer-id keyed reputation is always enabled and is the sole backend; it mirrors bans to
+libp2p `PeerId` while using reth weights/thresholds for scoring. IP colocation protection today
+relies on libp2p connection limits (per-peer/incoming caps) plus request limiting; Lighthouse-style
+gating/scoring remains blocked until upstream publishes a compatible crate/API for libp2p 0.56.
 
 ## Protocol details (current implementation)
 
-- Gossip: Kona gossipsub presets with max transmit size = `preconfirmation_types::MAX_GOSSIP_SIZE_BYTES`.
+- Gossip: Kona gossipsub defaults with max transmit size = `preconfirmation_types::MAX_GOSSIP_SIZE_BYTES`.
 - Req/Resp: SSZ payloads framed with unsigned-varint length (libp2p style), protocol IDs from
   `preconfirmation_types`, per-message size caps enforced in codecs.
-- Rate limits: fixed (tumbling) per-peer window (`NetworkConfig.request_window` and
-  `max_requests_per_window`), rate-limit errors surface as NetworkEvent errors and reputation
-  timeouts.
+- Rate limits: fixed (tumbling) per-peer window (`P2pConfig.rate_limit`), rate-limit errors
+  surface as NetworkEvent errors and reputation timeouts.
 
 ## Typical usage flow
 
-1. Build a `NetworkConfig` (listen/discovery/reputation knobs, chain_id for topics/protocol IDs).
+1. Build a `P2pConfig` (listen/discovery/reputation knobs, chain_id for topics/protocol IDs).
    The driver binds the libp2p swarm to `listen_addr` automatically; use port `0` for an ephemeral
    bind.
-2. Start `P2pService::start(config, lookahead)`; keep the returned command sender and subscribe to events as needed.
-3. Publish via `NetworkCommand::Publish*` or helper methods; request via `NetworkCommand::Request*`.
-4. Consume the `NetworkEvent` stream via `next_event`, `run_with_handler`, or your own subscription.
+2. Create `(handle, node)` via `P2pNode::new(config, validator)` and spawn `node.run()`.
+3. Publish via `P2pHandle::publish_*` or `NetworkCommand::Publish*` if using the raw sender.
+4. Consume events via `P2pHandle::events()`.
 
 ## Operations / Tuning (quick reference)
 
@@ -72,9 +67,12 @@ compatible crate/API for libp2p 0.56.
   - `p2p_reqresp_rtt_seconds{protocol,outcome}`, `p2p_reqresp_error`, `p2p_reqresp_rate_limited`.
   - `p2p_discovery_event{kind=lookup_success|lookup_failure}`, `p2p_discovery_lookup_latency_seconds{outcome}`.
   - `p2p_conn_rejected_total`, `p2p_dial_throttled_total` for limit hits; `p2p_conn_error` for other transport errors.
-- Config knobs (all on `NetworkConfig`):
-  - Rate limit: `request_window`, `max_requests_per_window` (per-peer fixed window).
-  - Size caps: enforced in `preconfirmation_types` (txlist, commitments, head) and codecs.
+- Config knobs (user-facing `P2pConfig`):
+  - Rate limit: `rate_limit.window`, `rate_limit.max_requests` (per-peer fixed window).
+  - Reputation: `reputation.greylist_threshold`, `reputation.ban_threshold`, `reputation.halflife`.
+  - Discovery: `enable_discovery`, `discovery_listen`, `bootnodes`.
+  - Request/response: `request_timeout`, `max_reqresp_concurrent_streams`.
+- Internal network tunables (not exposed via `P2pConfig`):
   - Connection caps: `max_pending_{in,out}`, `max_established_{in,out,total,per_peer}`.
   - Kona gater: `gater_blocked_subnets`, `gater_peer_redialing`, `gater_dial_period`.
 - Typical failure modes & reactions:

@@ -7,8 +7,6 @@
     helpers, size caps, hashing/signing, validation.
   - `crates/net`: libp2p transport + behaviours (ping/identify/gossipsub/req-resp), discv5 discovery,
     reth-backed reputation, Kona presets/gater, connection limits, request rate limiting, tests.
-  - `crates/service`: Async façade over the network driver with event fanout; example CLI in
-    `crates/service/examples/p2p-node.rs`.
 - Key docs: `README.md`, `ARCHITECTURE.md`, `AGENTS.md`, `docs/specification.md` (authoritative P2P
   protocol spec covering topics/IDs, varint framing, size/rate limits, and `get_head`).
 
@@ -17,12 +15,12 @@
 - Checks/tests:
   - `cargo check`
   - `just test` (cargo nextest, workspace + all features)
-  - `cargo test -p preconfirmation-types|preconfirmation-net|preconfirmation-service`
+  - `cargo test -p preconfirmation-types|preconfirmation-net`
 
 ## Coding Style & Naming Conventions
 - Rust 2024; prefer module-level docs (`//!`) and `///` on public items.
 - Keep code ASCII; add concise comments only where non-obvious.
-- Config/command/event naming pattern: `NetworkConfig`, `NetworkCommand`, `NetworkEvent`.
+- Config/command/event naming pattern: `P2pConfig`, `NetworkCommand`, `NetworkEvent`.
 - Tracing/metrics follow taiko-client-rs style.
 
 ## Testing Guidelines
@@ -40,12 +38,12 @@
 - Upstream reuse via features: `reth-discovery` (discv5, default on). Reth peer-id keyed backend is
   always on and is the sole reputation backend; it mirrors bans/greylist to libp2p `PeerId` and the
   Kona gater.
-- Kona gossipsub presets and connection gater are always on; `NetworkConfig` exposes
-  `gater_blocked_subnets`, `gater_peer_redialing`, and `gater_dial_period` for tuning.
+- Kona gossipsub presets and connection gater are always on; advanced gater tuning remains
+  internal, while `P2pConfig` stays the user-facing surface.
 - Request rate limiting uses reth's token-bucket limiter (per peer/per protocol) wired through
   `request_window` and `max_requests_per_window`.
-- Connection presets (dev/test/prod) tune discv5 lookup cadence, libp2p connection caps, and dial
-  concurrency; size caps + protocol IDs live in `preconfirmation-types` and codecs.
+- Connection caps and dial concurrency are configured directly; size caps + protocol IDs live in
+  `preconfirmation-types` and codecs.
 - Req/resp protocols cover commitments, raw txlists, and head; framing is libp2p unsigned-varint SSZ.
 - Lighthouse-style scoring/gating reuse remains blocked until a published crate matches our
   libp2p version.
