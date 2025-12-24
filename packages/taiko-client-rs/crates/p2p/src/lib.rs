@@ -151,8 +151,8 @@
 //!         parent: &Preconfirmation,
 //!     ) -> ValidationOutcome {
 //!         // Custom gas limit check
-//!         let child_gas = child.gas_limit.to::<u64>();
-//!         if child_gas > self.max_gas_limit {
+//!         let max_gas = preconfirmation_types::Uint256::from(self.max_gas_limit);
+//!         if child.gas_limit > max_gas {
 //!             return ValidationOutcome::invalid("gas limit too high", true);
 //!         }
 //!
