@@ -146,7 +146,14 @@ impl<S: SdkStorage> EventHandler<S> {
         P2pMetrics::record_gossip_received("commitment");
 
         // Compute message ID for deduplication using chain-specific topic
-        let payload = ssz_encode_commitment(&msg);
+        let payload = match ssz_encode_commitment(&msg) {
+            Ok(buf) => buf,
+            Err(e) => {
+                warn!("SSZ serialization failed for commitment from {from}: {e}");
+                P2pMetrics::record_network_error();
+                return None;
+            }
+        };
         let topic = topic_preconfirmation_commitments(self.chain_id);
         let msg_id = compute_message_id(&topic, &payload);
 
@@ -268,7 +275,14 @@ impl<S: SdkStorage> EventHandler<S> {
         P2pMetrics::record_gossip_received("txlist");
 
         // Compute message ID for deduplication using chain-specific topic
-        let payload = ssz_encode_txlist(&msg);
+        let payload = match ssz_encode_txlist(&msg) {
+            Ok(buf) => buf,
+            Err(e) => {
+                warn!("SSZ serialization failed for txlist from {from}: {e}");
+                P2pMetrics::record_network_error();
+                return None;
+            }
+        };
         let topic = topic_raw_txlists(self.chain_id);
         let msg_id = compute_message_id(&topic, &payload);
 
@@ -318,27 +332,22 @@ fn uint256_to_u256(v: &preconfirmation_types::Uint256) -> U256 {
 
 /// SSZ-encode a signed commitment for message ID computation.
 ///
-/// If serialization fails (which should not happen for valid types), logs a warning
-/// and returns an empty buffer. This will produce a consistent (though incorrect)
-/// message ID, which is safer than panicking.
-fn ssz_encode_commitment(msg: &SignedCommitment) -> Vec<u8> {
+/// Returns an error if serialization fails, allowing callers to handle the failure
+/// appropriately (e.g., reject the message and record metrics).
+fn ssz_encode_commitment(msg: &SignedCommitment) -> Result<Vec<u8>, ssz_rs::SerializeError> {
     let mut buf = Vec::new();
-    if let Err(e) = msg.serialize(&mut buf) {
-        warn!("SSZ serialization failed for commitment: {e}");
-    }
-    buf
+    msg.serialize(&mut buf)?;
+    Ok(buf)
 }
 
 /// SSZ-encode a raw txlist gossip for message ID computation.
 ///
-/// If serialization fails (which should not happen for valid types), logs a warning
-/// and returns an empty buffer.
-fn ssz_encode_txlist(msg: &RawTxListGossip) -> Vec<u8> {
+/// Returns an error if serialization fails, allowing callers to handle the failure
+/// appropriately (e.g., reject the message and record metrics).
+fn ssz_encode_txlist(msg: &RawTxListGossip) -> Result<Vec<u8>, ssz_rs::SerializeError> {
     let mut buf = Vec::new();
-    if let Err(e) = msg.serialize(&mut buf) {
-        warn!("SSZ serialization failed for txlist: {e}");
-    }
-    buf
+    msg.serialize(&mut buf)?;
+    Ok(buf)
 }
 
 #[cfg(test)]
@@ -584,5 +593,51 @@ mod tests {
 
         // Should produce an error SDK event
         assert!(matches!(result, Some(SdkEvent::Error { .. })));
+    }
+
+    #[test]
+    fn ssz_encode_commitment_returns_ok_for_valid_commitment() {
+        use preconfirmation_types::{
+            Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
+            Uint256,
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment {
+                preconf: Preconfirmation {
+                    eop: false,
+                    block_number: Uint256::from(100u64),
+                    timestamp: Uint256::from(1000u64),
+                    gas_limit: Uint256::from(30_000_000u64),
+                    coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+                    anchor_block_number: Uint256::from(99u64),
+                    raw_tx_list_hash: Bytes32::try_from(vec![1u8; 32]).unwrap(),
+                    parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+                    submission_window_end: Uint256::from(2000u64),
+                    prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+                    proposal_id: Uint256::from(1u64),
+                },
+                slasher_address: Bytes20::try_from(vec![0xAA; 20]).unwrap(),
+            },
+            signature: Bytes65::try_from(vec![0xBB; 65]).unwrap(),
+        };
+
+        let result = ssz_encode_commitment(&commitment);
+        assert!(result.is_ok(), "SSZ encoding should succeed for valid commitment");
+        assert!(!result.unwrap().is_empty(), "Encoded buffer should not be empty");
+    }
+
+    #[test]
+    fn ssz_encode_txlist_returns_ok_for_valid_txlist() {
+        use preconfirmation_types::{Bytes32, RawTxListGossip, TxListBytes};
+
+        let txlist = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(vec![0xAB; 32]).unwrap(),
+            txlist: TxListBytes::try_from(vec![0xCC; 100]).unwrap(),
+        };
+
+        let result = ssz_encode_txlist(&txlist);
+        assert!(result.is_ok(), "SSZ encoding should succeed for valid txlist");
+        assert!(!result.unwrap().is_empty(), "Encoded buffer should not be empty");
     }
 }
