@@ -41,6 +41,11 @@ impl Default for CatchupConfig {
 pub enum CatchupState {
     /// Not actively syncing; waiting for trigger.
     Idle,
+    /// Awaiting network head response before syncing.
+    AwaitingHead {
+        /// Local block number to sync from.
+        local_head: u64,
+    },
     /// Actively syncing from `current_block` toward `target_block`.
     Syncing {
         /// Current block number we've synced up to.
@@ -55,6 +60,8 @@ pub enum CatchupState {
 /// Actions the catch-up pipeline can request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CatchupAction {
+    /// Request the current network head from peers.
+    RequestHead,
     /// Request commitments starting from a block number.
     RequestCommitments {
         /// Starting block number.
@@ -76,9 +83,10 @@ pub enum CatchupAction {
 /// Catch-up pipeline state machine.
 ///
 /// Manages the process of syncing from a local head to the network head by:
-/// 1. Requesting commitments in pages
-/// 2. Tracking missing txlists and requesting them
-/// 3. Handling failures with exponential backoff
+/// 1. Requesting the network head from peers
+/// 2. Requesting commitments in pages
+/// 3. Tracking missing txlists and requesting them
+/// 4. Handling failures with exponential backoff
 #[derive(Debug)]
 pub struct CatchupPipeline {
     /// Pipeline configuration.
@@ -93,6 +101,8 @@ pub struct CatchupPipeline {
     backoff: Duration,
     /// Whether we're waiting for a response.
     waiting_for_response: bool,
+    /// Instant when the backoff period expires (None if not in backoff).
+    backoff_until: Option<std::time::Instant>,
 }
 
 impl CatchupPipeline {
@@ -105,6 +115,7 @@ impl CatchupPipeline {
             pending_txlists: VecDeque::new(),
             retries: 0,
             waiting_for_response: false,
+            backoff_until: None,
         }
     }
 
@@ -121,14 +132,67 @@ impl CatchupPipeline {
         };
         self.retries = 0;
         self.backoff = self.config.initial_backoff;
+        self.backoff_until = None;
         self.pending_txlists.clear();
         self.waiting_for_response = false;
     }
 
+    /// Start catch-up by first requesting the network head.
+    ///
+    /// This transitions to `AwaitingHead` state and will request the head
+    /// before beginning the sync process.
+    pub fn start_catchup(&mut self, local_head: u64) {
+        self.state = CatchupState::AwaitingHead { local_head };
+        self.retries = 0;
+        self.backoff = self.config.initial_backoff;
+        self.backoff_until = None;
+        self.pending_txlists.clear();
+        self.waiting_for_response = false;
+    }
+
+    /// Called when the network head is received.
+    ///
+    /// Transitions from `AwaitingHead` to `Syncing` if there are blocks to sync,
+    /// or to `Live` if already at the head.
+    pub fn on_head_received(&mut self, network_head: u64) {
+        self.waiting_for_response = false;
+        self.retries = 0;
+        self.backoff = self.config.initial_backoff;
+        self.backoff_until = None;
+
+        if let CatchupState::AwaitingHead { local_head } = self.state {
+            if local_head >= network_head {
+                // Already synced
+                self.state = CatchupState::Live;
+            } else {
+                // Need to sync
+                self.state = CatchupState::Syncing {
+                    current_block: local_head,
+                    target_block: network_head,
+                };
+            }
+        }
+    }
+
     /// Get the next action the caller should perform.
     pub fn next_action(&mut self) -> CatchupAction {
+        // Check if we're in backoff
+        if self.is_in_backoff() {
+            return CatchupAction::Wait;
+        }
+
+        // Check if we're waiting for a response
+        if self.waiting_for_response {
+            return CatchupAction::Wait;
+        }
+
         match &self.state {
             CatchupState::Idle => CatchupAction::Wait,
+            CatchupState::AwaitingHead { .. } => {
+                // Request the network head
+                self.waiting_for_response = true;
+                CatchupAction::RequestHead
+            }
             CatchupState::Live => CatchupAction::SyncComplete,
             CatchupState::Syncing { current_block, target_block } => {
                 // If we have pending txlists, request them first
@@ -163,6 +227,7 @@ impl CatchupPipeline {
         self.waiting_for_response = false;
         self.retries = 0;
         self.backoff = self.config.initial_backoff;
+        self.backoff_until = None;
 
         // Add missing txlists to queue
         for hash in missing_txlist_hashes {
@@ -186,6 +251,7 @@ impl CatchupPipeline {
         self.waiting_for_response = false;
         self.retries = 0;
         self.backoff = self.config.initial_backoff;
+        self.backoff_until = None;
         // The txlist is removed from pending_txlists in next_action when popped
     }
 
@@ -198,11 +264,14 @@ impl CatchupPipeline {
             // Give up and return to idle
             self.state = CatchupState::Idle;
             self.pending_txlists.clear();
+            self.backoff_until = None;
             return;
         }
 
         // Exponential backoff with jitter (simplified - just double)
         self.backoff = std::cmp::min(self.backoff * 2, self.config.max_backoff);
+        // Set backoff expiry time
+        self.backoff_until = Some(std::time::Instant::now() + self.backoff);
     }
 
     /// Get the current retry count.
@@ -222,6 +291,28 @@ impl CatchupPipeline {
         self.retries = 0;
         self.backoff = self.config.initial_backoff;
         self.waiting_for_response = false;
+        self.backoff_until = None;
+    }
+
+    /// Check if the pipeline is currently in a backoff period.
+    pub fn is_in_backoff(&self) -> bool {
+        self.backoff_until
+            .map(|until| std::time::Instant::now() < until)
+            .unwrap_or(false)
+    }
+
+    /// Get the remaining backoff duration, if any.
+    ///
+    /// Returns `Some(duration)` if in backoff, `None` otherwise.
+    pub fn remaining_backoff(&self) -> Option<Duration> {
+        self.backoff_until.and_then(|until| {
+            let now = std::time::Instant::now();
+            if now < until {
+                Some(until - now)
+            } else {
+                None
+            }
+        })
     }
 
     /// Check if the pipeline is currently synced.
@@ -229,9 +320,12 @@ impl CatchupPipeline {
         matches!(self.state, CatchupState::Live)
     }
 
-    /// Check if the pipeline is actively syncing.
+    /// Check if the pipeline is actively syncing (including awaiting head).
     pub fn is_syncing(&self) -> bool {
-        matches!(self.state, CatchupState::Syncing { .. })
+        matches!(
+            self.state,
+            CatchupState::Syncing { .. } | CatchupState::AwaitingHead { .. }
+        )
     }
 
     /// Update the target block number during sync.
@@ -275,15 +369,18 @@ mod tests {
         ];
         catchup.on_commitments_received(5, missing_hashes.clone());
 
-        // Next actions should be requesting txlists
+        // Next action should be requesting first txlist
         let action = catchup.next_action();
         assert!(matches!(action, CatchupAction::RequestTxList { hash } if hash == missing_hashes[0]));
 
+        // Simulate first txlist received (clears waiting_for_response)
+        catchup.on_txlist_received(&missing_hashes[0]);
+
+        // Now request second txlist
         let action = catchup.next_action();
         assert!(matches!(action, CatchupAction::RequestTxList { hash } if hash == missing_hashes[1]));
 
-        // Simulate txlists received
-        catchup.on_txlist_received(&missing_hashes[0]);
+        // Simulate second txlist received
         catchup.on_txlist_received(&missing_hashes[1]);
 
         // Should request more commitments since we're at block 6 but target is 10
@@ -352,6 +449,132 @@ mod tests {
 
         // Can reset back to Idle
         catchup.reset();
+        assert!(matches!(catchup.state(), CatchupState::Idle));
+    }
+
+    #[tokio::test]
+    async fn catchup_requests_head_first() {
+        let config = CatchupConfig::default();
+        let mut catchup = CatchupPipeline::new(config);
+
+        // Start catchup without knowing network head
+        catchup.start_catchup(5);
+        assert!(matches!(catchup.state(), CatchupState::AwaitingHead { local_head: 5 }));
+        assert!(catchup.is_syncing());
+
+        // First action should be RequestHead
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestHead));
+
+        // While waiting for response, should return Wait
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::Wait));
+
+        // Simulate receiving head that's ahead
+        catchup.on_head_received(10);
+        assert!(matches!(
+            catchup.state(),
+            CatchupState::Syncing { current_block: 5, target_block: 10 }
+        ));
+
+        // Now should request commitments
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestCommitments { start_block: 5, .. }));
+    }
+
+    #[tokio::test]
+    async fn catchup_already_synced_on_head_received() {
+        let config = CatchupConfig::default();
+        let mut catchup = CatchupPipeline::new(config);
+
+        // Start catchup from block 10
+        catchup.start_catchup(10);
+
+        // Request head
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestHead));
+
+        // Receive head that's at or behind local head
+        catchup.on_head_received(10);
+
+        // Should transition directly to Live
+        assert!(matches!(catchup.state(), CatchupState::Live));
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::SyncComplete));
+    }
+
+    #[tokio::test]
+    async fn catchup_backoff_gating() {
+        let config = CatchupConfig {
+            initial_backoff: std::time::Duration::from_millis(20),
+            max_backoff: std::time::Duration::from_millis(200),
+            max_retries: 5,
+            ..Default::default()
+        };
+        let mut catchup = CatchupPipeline::new(config);
+
+        catchup.start_catchup(0);
+
+        // Request head
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestHead));
+
+        // Simulate failure - should set backoff (initial_backoff * 2 = 40ms due to exponential)
+        catchup.on_request_failed();
+        assert!(catchup.is_in_backoff());
+
+        // Should return Wait while in backoff
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::Wait));
+
+        // remaining_backoff should return Some
+        assert!(catchup.remaining_backoff().is_some());
+
+        // Wait for backoff to expire (40ms + margin)
+        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+
+        // Should no longer be in backoff
+        assert!(!catchup.is_in_backoff());
+        assert!(catchup.remaining_backoff().is_none());
+
+        // Should now return RequestHead again (still in AwaitingHead state)
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestHead));
+    }
+
+    #[tokio::test]
+    async fn catchup_head_request_failure_retries() {
+        let config = CatchupConfig {
+            initial_backoff: std::time::Duration::from_millis(10),
+            max_backoff: std::time::Duration::from_millis(50),
+            max_retries: 2,
+            ..Default::default()
+        };
+        let mut catchup = CatchupPipeline::new(config);
+
+        catchup.start_catchup(0);
+
+        // First request
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestHead));
+
+        // Fail (sets backoff to 20ms = initial * 2)
+        catchup.on_request_failed();
+        assert_eq!(catchup.retry_count(), 1);
+        assert!(catchup.is_in_backoff());
+
+        // Wait for backoff to expire (20ms + margin)
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        // Should no longer be in backoff
+        assert!(!catchup.is_in_backoff());
+
+        // Retry - should return RequestHead
+        let action = catchup.next_action();
+        assert!(matches!(action, CatchupAction::RequestHead));
+
+        // Fail again - should exceed max retries and go to Idle
+        catchup.on_request_failed();
         assert!(matches!(catchup.state(), CatchupState::Idle));
     }
 }

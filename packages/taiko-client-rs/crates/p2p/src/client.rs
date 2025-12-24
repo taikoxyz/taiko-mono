@@ -315,6 +315,12 @@ impl P2pClient {
         let _ = self.event_tx.send(SdkEvent::HeadSyncStatus { synced: false });
 
         loop {
+            // Calculate sleep duration for backoff or default polling interval
+            let sleep_duration = self
+                .catchup
+                .remaining_backoff()
+                .unwrap_or(std::time::Duration::from_millis(100));
+
             tokio::select! {
                 // Process network events from the handle
                 event = async {
@@ -339,11 +345,16 @@ impl P2pClient {
                     }
                 }
 
-                // Node task exited
-                _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {
+                // Backoff timer / periodic check
+                _ = tokio::time::sleep(sleep_duration) => {
+                    // Check if node task exited
                     if node_handle.is_finished() {
                         warn!("P2P node task exited unexpectedly");
                         break;
+                    }
+                    // Process catchup if syncing and backoff has expired
+                    if self.catchup.is_syncing() && !self.catchup.is_in_backoff() {
+                        self.process_catchup().await;
                     }
                 }
             }
@@ -620,8 +631,15 @@ impl P2pClient {
             }
 
             SdkCommand::StartCatchup { local_head, network_head } => {
-                info!("Starting catch-up from block {local_head} to {network_head}");
-                self.catchup.start_sync(local_head, network_head);
+                if network_head > 0 {
+                    // Network head was provided, start sync directly
+                    info!("Starting catch-up from block {local_head} to {network_head}");
+                    self.catchup.start_sync(local_head, network_head);
+                } else {
+                    // No network head provided, request it first
+                    info!("Starting catch-up from block {local_head} (requesting network head)");
+                    self.catchup.start_catchup(local_head);
+                }
                 let _ = self.event_tx.send(SdkEvent::HeadSyncStatus { synced: false });
             }
 
@@ -646,6 +664,27 @@ impl P2pClient {
                     info!("Catch-up complete, now synced");
                     let _ = self.event_tx.send(SdkEvent::HeadSyncStatus { synced: true });
                     break;
+                }
+                CatchupAction::RequestHead => {
+                    debug!("Catch-up: requesting network head");
+                    match self.handle.request_head(None).await {
+                        Ok(head) => {
+                            let network_head = uint256_to_u256(&head.block_number).to::<u64>();
+                            debug!("Catch-up: received network head at block {network_head}");
+                            self.catchup.on_head_received(network_head);
+
+                            // Emit the head response event
+                            let _ = self.event_tx.send(SdkEvent::ReqRespHead {
+                                from: libp2p::PeerId::random(),
+                                head,
+                            });
+                        }
+                        Err(e) => {
+                            warn!("Catch-up: failed to request network head: {e}");
+                            self.catchup.on_request_failed();
+                            break;
+                        }
+                    }
                 }
                 CatchupAction::RequestCommitments { start_block, max_count } => {
                     debug!("Catch-up: requesting commitments from block {start_block}");
