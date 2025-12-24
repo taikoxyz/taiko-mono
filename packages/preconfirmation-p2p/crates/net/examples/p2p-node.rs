@@ -16,6 +16,7 @@ struct CliLookaheadResolver {
 }
 
 impl LookaheadResolver for CliLookaheadResolver {
+    /// Returns the expected signer for any submission window end.
     fn signer_for_timestamp(
         &self,
         _submission_window_end: &preconfirmation_types::Uint256,
@@ -23,6 +24,7 @@ impl LookaheadResolver for CliLookaheadResolver {
         Ok(self.expected_signer)
     }
 
+    /// Returns the expected slot end as-is.
     fn expected_slot_end(
         &self,
         submission_window_end: &preconfirmation_types::Uint256,

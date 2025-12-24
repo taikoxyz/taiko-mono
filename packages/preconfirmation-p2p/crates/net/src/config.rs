@@ -1,3 +1,10 @@
+//! Configuration types for the preconfirmation P2P network layer.
+//!
+//! This module provides:
+//! - [`P2pConfig`]: A minimal, user-facing configuration for the simplified API.
+//! - [`NetworkConfig`]: The full internal configuration used by the network driver.
+//! - [`RateLimitConfig`]: Settings for request rate limiting.
+
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
@@ -5,19 +12,34 @@ use std::{
 
 use crate::reputation::ReputationConfig;
 
-/// Minimal configuration for the simplified API.
+/// Configuration for the P2P.
+///
+/// This struct provides a streamlined set of options for users who do not need
+/// the full flexibility of [`NetworkConfig`]. It can be converted into a
+/// `NetworkConfig` via the `From` trait implementation.
 #[derive(Debug, Clone)]
 pub struct P2pConfig {
+    /// Chain ID used to derive gossip topics and protocol IDs.
     pub chain_id: u64,
+    /// Libp2p listen address for TCP/QUIC transports.
     pub listen_addr: SocketAddr,
+    /// Enable discv5 peer discovery. If `false`, only manual bootnodes are used.
     pub enable_discovery: bool,
+    /// UDP listen address for discv5 discovery.
     pub discovery_listen: SocketAddr,
+    /// Bootnodes as ENR or multiaddr strings for initial peer discovery.
     pub bootnodes: Vec<String>,
+    /// Enable QUIC transport (requires `quic-transport` feature).
     pub enable_quic: bool,
+    /// Enable TCP transport.
     pub enable_tcp: bool,
+    /// Timeout for request/response operations.
     pub request_timeout: Duration,
+    /// Maximum concurrent inbound+outbound req/resp streams.
     pub max_reqresp_concurrent_streams: usize,
+    /// Rate limiting configuration for inbound requests.
     pub rate_limit: RateLimitConfig,
+    /// Peer reputation configuration for scoring and banning.
     pub reputation: ReputationConfig,
 }
 
@@ -87,6 +109,7 @@ pub(crate) struct NetworkConfig {
 }
 
 impl Default for P2pConfig {
+    /// Provides a default `P2pConfig` that maps to the default `NetworkConfig`.
     fn default() -> Self {
         let base = NetworkConfig::default();
         Self {
@@ -113,6 +136,7 @@ impl Default for P2pConfig {
 }
 
 impl From<P2pConfig> for NetworkConfig {
+    /// Convert a simplified `P2pConfig` into a full `NetworkConfig`.
     fn from(cfg: P2pConfig) -> Self {
         Self {
             chain_id: cfg.chain_id,
@@ -203,13 +227,19 @@ impl NetworkConfig {
 }
 
 /// Rate limit configuration for req/resp protocols.
+///
+/// This struct defines the parameters for a fixed (tumbling) window rate limiter
+/// that restricts the number of requests a peer can make within a given time window.
 #[derive(Debug, Clone, Copy)]
 pub struct RateLimitConfig {
+    /// The duration of the rate limiting window.
     pub window: Duration,
+    /// Maximum number of requests allowed per peer within the window.
     pub max_requests: u32,
 }
 
 impl Default for RateLimitConfig {
+    /// Provides default rate limit settings: 10s window, 8 requests.
     fn default() -> Self {
         Self { window: Duration::from_secs(10), max_requests: 8 }
     }

@@ -1,3 +1,9 @@
+//! Swarm and behaviour event handling for the network driver.
+//!
+//! This module implements the core poll loop and event dispatch logic, handling
+//! incoming commands, swarm events (connections, disconnections), and behaviour
+//! events (gossip, req/resp).
+
 use std::task::{Context, Poll};
 
 use libp2p::swarm::SwarmEvent;

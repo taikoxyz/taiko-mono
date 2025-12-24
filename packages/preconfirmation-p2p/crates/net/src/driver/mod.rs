@@ -73,7 +73,6 @@ pub(crate) struct NetworkDriver {
     kona_gater: kona_gossip::ConnectionGater,
     /// Storage backend for commitments/txlists (in-memory by default).
     storage: Arc<dyn PreconfStorage>,
-    // Pending responders are stored in `pending_requests`.
 }
 
 /// Builds a `ConnectionGater` instance based on the provided `NetworkConfig`.

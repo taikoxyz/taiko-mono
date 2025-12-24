@@ -1,3 +1,9 @@
+//! Gossipsub event handling for the network driver.
+//!
+//! This module processes incoming gossip messages on the commitments and raw
+//! transaction list topics, decoding SSZ payloads, validating them, reporting
+//! gossip validation results, updating peer reputation, and emitting events.
+
 use libp2p::gossipsub::{self, MessageAcceptance};
 use preconfirmation_types::{RawTxListGossip, SignedCommitment, bytes32_to_b256, uint256_to_u256};
 

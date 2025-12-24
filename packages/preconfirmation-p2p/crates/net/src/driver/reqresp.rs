@@ -1,3 +1,13 @@
+//! Request/response protocol handling for the network driver.
+//!
+//! This module handles the three req/resp protocols defined by the preconfirmation spec:
+//! - `get_commitments_by_number`: Fetch a range of commitments by block number.
+//! - `get_raw_txlist`: Fetch a raw transaction list by its hash.
+//! - `get_head`: Fetch the current preconfirmation head from a peer.
+//!
+//! Each protocol handler processes inbound requests (serving local data), outbound
+//! responses (consuming remote data), and failure events (timeouts, codec errors).
+
 use std::task::{Context, Poll};
 
 use libp2p::request_response as rr;
@@ -10,15 +20,25 @@ use preconfirmation_types::{
 use super::*;
 
 /// Typed responder for req/resp exchanges keyed by request id.
+///
+/// Each variant holds a oneshot sender that delivers the result (or error) back to
+/// the caller who initiated the request.
 pub enum ReqRespResponder {
+    /// Responder for commitments requests.
     Commitments(tokio::sync::oneshot::Sender<Result<GetCommitmentsByNumberResponse, NetworkError>>),
+    /// Responder for raw transaction list requests.
     RawTxList(tokio::sync::oneshot::Sender<Result<GetRawTxListResponse, NetworkError>>),
+    /// Responder for head requests.
     Head(tokio::sync::oneshot::Sender<Result<PreconfHead, NetworkError>>),
 }
 
 /// Pending outbound req/resp request details.
+///
+/// Tracks the responder (if any) and the start time for RTT metrics.
 pub(super) struct PendingRequest {
+    /// Optional responder to deliver the result to the caller.
     responder: Option<ReqRespResponder>,
+    /// Timestamp when the request was sent, used for RTT measurement.
     started_at: tokio::time::Instant,
 }
 
@@ -76,6 +96,7 @@ impl NetworkDriver {
         self.pending_requests.remove(&(kind, request_id))
     }
 
+    /// Send an error response via the given responder.
     fn respond_with_error(responder: ReqRespResponder, err: NetworkError) {
         match responder {
             ReqRespResponder::Commitments(tx) => {
@@ -90,6 +111,7 @@ impl NetworkDriver {
         }
     }
 
+    /// Handle the case where no peers are available for a req/resp request.
     pub(super) fn handle_no_peer_available(
         &mut self,
         kind: ReqRespKind,

@@ -1,3 +1,8 @@
+//! Discovery integration for the network driver.
+//!
+//! This module handles multiaddrs discovered by the discv5 layer, applying
+//! dial gating (Kona gater + reputation bans) before initiating connections.
+
 use libp2p::{Multiaddr, PeerId, multiaddr::Protocol};
 
 use super::*;

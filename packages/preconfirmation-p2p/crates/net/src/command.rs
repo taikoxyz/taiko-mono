@@ -1,3 +1,8 @@
+//! Network command definitions for the preconfirmation P2P layer.
+//!
+//! This module defines the [`NetworkCommand`] enum, which represents actions
+//! that the service layer can request from the network driver.
+
 use libp2p::PeerId;
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, Uint256};
 use tokio::sync::oneshot;

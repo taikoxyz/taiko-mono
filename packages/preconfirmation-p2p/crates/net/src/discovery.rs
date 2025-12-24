@@ -11,32 +11,24 @@ use discv5::ListenConfig;
 use libp2p::Multiaddr;
 use metrics::{counter, histogram};
 use rand::RngCore;
+use reth_discv5::{Config as RethDiscv5Config, Discv5 as RethDiscv5};
+use secp256k1::SecretKey;
 use tokio::sync::mpsc;
 
 /// Spawns a Discv5 instance in the background and forwards discovered multiaddrs via a channel.
+///
+/// # Arguments
+///
+/// * `listen` - The UDP socket address to listen on for discv5.
+/// * `bootnodes` - A list of ENR strings for bootstrap nodes.
+///
+/// # Returns
+///
+/// A receiver that yields discovered peer multiaddrs.
 pub fn spawn_discovery(
     listen: SocketAddr,
     bootnodes: Vec<String>,
 ) -> anyhow::Result<mpsc::Receiver<Multiaddr>> {
-    #[cfg(feature = "reth-discovery")]
-    {
-        // Keep the async side-effect hidden behind a small, testable surface.
-        spawn_reth_discv5(listen, bootnodes)
-    }
-    #[cfg(not(feature = "reth-discovery"))]
-    {
-        anyhow::bail!("discovery feature disabled (enable `reth-discovery` feature)")
-    }
-}
-
-#[cfg(feature = "reth-discovery")]
-fn spawn_reth_discv5(
-    listen: SocketAddr,
-    bootnodes: Vec<String>,
-) -> anyhow::Result<mpsc::Receiver<Multiaddr>> {
-    use reth_discv5::{Config as RethDiscv5Config, Discv5 as RethDiscv5};
-    use secp256k1::SecretKey;
-
     // Conservative defaults aligned with prior production tuning.
     const LOOKUP_INTERVAL_SECS: u64 = 20;
     const BOOTSTRAP_LOOKUP_INTERVAL_SECS: u64 = 5;
