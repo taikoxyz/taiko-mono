@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+/// @title IProverAuction
+/// @notice Interface for the ProverAuction contract that manages a continuous reverse auction
+/// for prover services. Provers compete by offering the lowest proving fee per proposal.
+/// @dev The auction follows these key rules:
+///      - The prover offering the lowest fee wins immediately (no delay)
+///      - Winner remains prover indefinitely until outbid, exited, or forced out
+///      - Outbidding requires at least `minFeeReductionBps` lower fee (e.g., 5%)
+///      - Current prover can lower their own fee without the reduction requirement
+///      - Bond is required to participate; insufficient bond triggers forced exit
+/// @custom:security-contact security@taiko.xyz
+interface IProverAuction {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @notice Bond information for an account
+    /// @param balance The current bond token balance
+    /// @param withdrawableAt Timestamp when withdrawal is allowed (0 = no delay if not current prover)
+    struct BondInfo {
+        uint128 balance;
+        uint48 withdrawableAt;
+    }
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when bond tokens are deposited
+    /// @param account The account that deposited
+    /// @param amount The amount deposited
+    event Deposited(address indexed account, uint128 amount);
+
+    /// @notice Emitted when bond tokens are withdrawn
+    /// @param account The account that withdrew
+    /// @param amount The amount withdrawn
+    event Withdrawn(address indexed account, uint128 amount);
+
+    /// @notice Emitted when a new bid is placed or current prover lowers their fee
+    /// @param newProver The address of the new prover
+    /// @param feeInGwei The new fee per proposal in Gwei
+    /// @param oldProver The address of the previous prover (address(0) if none)
+    event BidPlaced(address indexed newProver, uint48 feeInGwei, address indexed oldProver);
+
+    /// @notice Emitted when the current prover requests to exit
+    /// @param prover The prover that requested exit
+    /// @param withdrawableAt Timestamp when bond becomes withdrawable
+    event ExitRequested(address indexed prover, uint48 withdrawableAt);
+
+    /// @notice Emitted when a prover's bond is slashed
+    /// @param prover The prover whose bond was slashed
+    /// @param slashed The amount slashed
+    /// @param recipient The recipient of the reward
+    /// @param rewarded The amount rewarded to recipient
+    event BondSlashed(
+        address indexed prover,
+        uint128 slashed,
+        address indexed recipient,
+        uint128 rewarded
+    );
+
+    /// @notice Emitted when a prover is forced out due to insufficient bond
+    /// @param prover The prover that was forced out
+    event ProverForcedOut(address indexed prover);
+
+    // ---------------------------------------------------------------
+    // Bond Management
+    // ---------------------------------------------------------------
+
+    /// @notice Deposit bond tokens to caller's balance
+    /// @param _amount Amount of bond tokens to deposit
+    /// @dev Tokens are transferred from msg.sender to this contract
+    /// @dev Can be called anytime, including when prover is being slashed (for top-up)
+    function deposit(uint128 _amount) external;
+
+    /// @notice Withdraw bond tokens from caller's balance
+    /// @param _amount Amount to withdraw
+    /// @dev Reverts if caller is current prover
+    /// @dev Reverts if withdrawal delay has not passed (when withdrawableAt > 0)
+    function withdraw(uint128 _amount) external;
+
+    // ---------------------------------------------------------------
+    // Auction Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Get the current active prover and their fee
+    /// @return prover_ Current prover address (address(0) if none)
+    /// @return feeInGwei_ Fee per proposal in Gwei (0 if no prover)
+    /// @dev Optimized for 1 SLOAD - called on every proposal by Inbox
+    function getCurrentProver() external view returns (address prover_, uint48 feeInGwei_);
+
+    /// @notice Get the maximum allowed bid fee at the current time
+    /// @return maxFee_ Maximum fee in Gwei that a bid can specify
+    /// @dev If active prover exists: returns fee * (10000 - minFeeReductionBps) / 10000
+    /// @dev If slot is vacant: returns time-based cap (doubles every feeDoublingPeriod)
+    function getMaxBidFee() external view returns (uint48 maxFee_);
+
+    /// @notice Submit a bid to become prover, or lower fee if already current prover
+    /// @param _feeInGwei Fee per proposal in Gwei
+    /// @dev Requirements:
+    ///      - Caller must have sufficient bond balance (>= getRequiredBond())
+    ///      - If caller is current prover: fee must be lower than current fee
+    ///      - If caller is not current prover: fee must be <= getMaxBidFee()
+    /// @dev Effects:
+    ///      - If outbidding another prover, their withdrawableAt is set
+    ///      - Moving average is updated with new fee
+    ///      - Caller becomes the current prover
+    function bid(uint48 _feeInGwei) external;
+
+    /// @notice Request to exit as the current prover
+    /// @dev Only callable by current prover
+    /// @dev Sets exitTimestamp and starts withdrawal delay timer
+    /// @dev After exit, slot becomes vacant and time-based fee cap applies
+    function requestExit() external;
+
+    // ---------------------------------------------------------------
+    // Slashing (Inbox Only)
+    // ---------------------------------------------------------------
+
+    /// @notice Slash a prover's bond for failing to prove within the time window
+    /// @param _prover Address of the prover to slash
+    /// @param _slashAmount Amount to slash from prover's bond
+    /// @param _recipient Address to receive the reward (typically the actual prover)
+    /// @param _rewardAmount Amount to reward the recipient
+    /// @dev Only callable by the Inbox contract
+    /// @dev Best-effort slash: if balance < _slashAmount, slashes entire balance
+    /// @dev If bond falls below force-exit threshold, prover is automatically removed
+    /// @dev The difference (slashed - rewarded) is tracked and locked forever in contract
+    function slashBond(
+        address _prover,
+        uint128 _slashAmount,
+        address _recipient,
+        uint128 _rewardAmount
+    ) external;
+
+    // ---------------------------------------------------------------
+    // View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Get bond information for an account
+    /// @param _account The account to query
+    /// @return bondInfo_ The bond information struct
+    function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_);
+
+    /// @notice Get the required bond amount to become prover
+    /// @return requiredBond_ The minimum bond required (livenessBond * maxPendingProposals * 2)
+    function getRequiredBond() external view returns (uint128 requiredBond_);
+
+    /// @notice Get the bond threshold that triggers forced exit
+    /// @return threshold_ The force-exit threshold (livenessBond * maxPendingProposals / 2)
+    function getForceExitThreshold() external view returns (uint128 threshold_);
+
+    /// @notice Get the current moving average fee
+    /// @return avgFee_ The exponential moving average of winning fees in Gwei
+    function getMovingAverageFee() external view returns (uint48 avgFee_);
+
+    /// @notice Get the total accumulated slash difference (slashed - rewarded)
+    /// @return totalSlashDiff_ The total amount locked forever in the contract
+    function getTotalSlashDiff() external view returns (uint128 totalSlashDiff_);
+}
