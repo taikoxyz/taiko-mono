@@ -9,8 +9,10 @@
 use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
-use p2p::storage::{InMemoryStorage, SdkStorage, compute_message_id};
-use p2p::{CatchupAction, CatchupConfig, CatchupPipeline, CatchupState, EventHandler, SdkEvent};
+use p2p::{
+    CatchupAction, CatchupConfig, CatchupPipeline, CatchupState, EventHandler, SdkEvent,
+    storage::{InMemoryStorage, SdkStorage, compute_message_id},
+};
 use preconfirmation_net::NetworkEvent;
 use preconfirmation_types::{
     Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, RawTxListGossip,

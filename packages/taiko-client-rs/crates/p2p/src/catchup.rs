@@ -7,8 +7,7 @@
 //! 3. Enqueues and requests missing txlists by hash
 //! 4. Emits `SdkEvent::HeadSyncStatus` transitions
 
-use std::collections::VecDeque;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
 
 use alloy_primitives::B256;
 
@@ -126,10 +125,7 @@ impl CatchupPipeline {
 
     /// Start syncing from `start_block` to `target_block`.
     pub fn start_sync(&mut self, start_block: u64, target_block: u64) {
-        self.state = CatchupState::Syncing {
-            current_block: start_block,
-            target_block,
-        };
+        self.state = CatchupState::Syncing { current_block: start_block, target_block };
         self.retries = 0;
         self.backoff = self.config.initial_backoff;
         self.backoff_until = None;
@@ -166,10 +162,8 @@ impl CatchupPipeline {
                 self.state = CatchupState::Live;
             } else {
                 // Need to sync
-                self.state = CatchupState::Syncing {
-                    current_block: local_head,
-                    target_block: network_head,
-                };
+                self.state =
+                    CatchupState::Syncing { current_block: local_head, target_block: network_head };
             }
         }
     }
@@ -223,7 +217,11 @@ impl CatchupPipeline {
     ///
     /// * `highest_block` - The highest block number in the received commitments.
     /// * `missing_txlist_hashes` - Hashes of txlists that need to be fetched.
-    pub fn on_commitments_received(&mut self, highest_block: u64, missing_txlist_hashes: Vec<B256>) {
+    pub fn on_commitments_received(
+        &mut self,
+        highest_block: u64,
+        missing_txlist_hashes: Vec<B256>,
+    ) {
         self.waiting_for_response = false;
         self.retries = 0;
         self.backoff = self.config.initial_backoff;
@@ -296,9 +294,7 @@ impl CatchupPipeline {
 
     /// Check if the pipeline is currently in a backoff period.
     pub fn is_in_backoff(&self) -> bool {
-        self.backoff_until
-            .map(|until| std::time::Instant::now() < until)
-            .unwrap_or(false)
+        self.backoff_until.map(|until| std::time::Instant::now() < until).unwrap_or(false)
     }
 
     /// Get the remaining backoff duration, if any.
@@ -307,11 +303,7 @@ impl CatchupPipeline {
     pub fn remaining_backoff(&self) -> Option<Duration> {
         self.backoff_until.and_then(|until| {
             let now = std::time::Instant::now();
-            if now < until {
-                Some(until - now)
-            } else {
-                None
-            }
+            if now < until { Some(until - now) } else { None }
         })
     }
 
@@ -322,10 +314,7 @@ impl CatchupPipeline {
 
     /// Check if the pipeline is actively syncing (including awaiting head).
     pub fn is_syncing(&self) -> bool {
-        matches!(
-            self.state,
-            CatchupState::Syncing { .. } | CatchupState::AwaitingHead { .. }
-        )
+        matches!(self.state, CatchupState::Syncing { .. } | CatchupState::AwaitingHead { .. })
     }
 
     /// Update the target block number during sync.
@@ -371,14 +360,18 @@ mod tests {
 
         // Next action should be requesting first txlist
         let action = catchup.next_action();
-        assert!(matches!(action, CatchupAction::RequestTxList { hash } if hash == missing_hashes[0]));
+        assert!(
+            matches!(action, CatchupAction::RequestTxList { hash } if hash == missing_hashes[0])
+        );
 
         // Simulate first txlist received (clears waiting_for_response)
         catchup.on_txlist_received(&missing_hashes[0]);
 
         // Now request second txlist
         let action = catchup.next_action();
-        assert!(matches!(action, CatchupAction::RequestTxList { hash } if hash == missing_hashes[1]));
+        assert!(
+            matches!(action, CatchupAction::RequestTxList { hash } if hash == missing_hashes[1])
+        );
 
         // Simulate second txlist received
         catchup.on_txlist_received(&missing_hashes[1]);

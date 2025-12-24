@@ -223,7 +223,8 @@ impl P2pMetrics {
 
     /// Record a gossip message published.
     pub fn record_gossip_published(msg_type: &str) {
-        metrics::counter!(Self::GOSSIP_PUBLISHED_TOTAL, "type" => msg_type.to_string()).increment(1);
+        metrics::counter!(Self::GOSSIP_PUBLISHED_TOTAL, "type" => msg_type.to_string())
+            .increment(1);
     }
 
     /// Record a gossip message stored after validation.

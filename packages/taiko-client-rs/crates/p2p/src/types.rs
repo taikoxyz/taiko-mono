@@ -203,10 +203,7 @@ mod tests {
     #[test]
     fn update_head_command_has_required_fields() {
         // Verify UpdateHead has both fields needed to construct PreconfHead
-        let cmd = SdkCommand::UpdateHead {
-            block_number: 12345,
-            submission_window_end: 1700000000,
-        };
+        let cmd = SdkCommand::UpdateHead { block_number: 12345, submission_window_end: 1700000000 };
 
         if let SdkCommand::UpdateHead { block_number, submission_window_end } = cmd {
             assert_eq!(block_number, 12345);

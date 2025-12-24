@@ -22,15 +22,17 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkEvent;
 use preconfirmation_types::{
-    topic_preconfirmation_commitments, topic_raw_txlists, RawTxListGossip, SignedCommitment,
+    RawTxListGossip, SignedCommitment, topic_preconfirmation_commitments, topic_raw_txlists,
 };
 use ssz_rs::Serialize;
 use tracing::{debug, trace, warn};
 
-use crate::metrics::P2pMetrics;
-use crate::storage::{compute_message_id, CommitmentDedupeKey, SdkStorage, TxListDedupeKey};
-use crate::types::SdkEvent;
-use crate::validation::{CommitmentValidator, ValidationStatus};
+use crate::{
+    metrics::P2pMetrics,
+    storage::{CommitmentDedupeKey, SdkStorage, TxListDedupeKey, compute_message_id},
+    types::SdkEvent,
+    validation::{CommitmentValidator, ValidationStatus},
+};
 
 /// Handler for processing network events with deduplication and validation.
 ///
@@ -52,11 +54,7 @@ pub struct EventHandler<S: SdkStorage> {
 impl<S: SdkStorage> EventHandler<S> {
     /// Create a new event handler with the given storage and chain ID.
     pub fn new(storage: Arc<S>, chain_id: u64) -> Self {
-        Self {
-            storage,
-            chain_id,
-            validator: CommitmentValidator::new(),
-        }
+        Self { storage, chain_id, validator: CommitmentValidator::new() }
     }
 
     /// Create a new event handler with a custom commitment validator.
@@ -170,8 +168,9 @@ impl<S: SdkStorage> EventHandler<S> {
 
         // Try to recover signer for commitment-level dedupe.
         // If signature verification fails, we skip this dedupe layer but continue to validation.
-        // The validator will reject the commitment (invalid signature) and record metrics appropriately.
-        // This avoids duplicate work while ensuring bad signatures are always caught.
+        // The validator will reject the commitment (invalid signature) and record metrics
+        // appropriately. This avoids duplicate work while ensuring bad signatures are
+        // always caught.
         if let Ok(signer) = preconfirmation_types::verify_signed_commitment(&msg) {
             let dedupe_key = CommitmentDedupeKey { block_number, signer };
             if self.storage.is_duplicate_commitment(&dedupe_key) {
@@ -194,16 +193,18 @@ impl<S: SdkStorage> EventHandler<S> {
                 P2pMetrics::record_gossip_stored("commitment");
 
                 // Check if any pending commitments can now be released
-                let commitment_hash = match preconfirmation_types::preconfirmation_hash(
-                    &msg.commitment.preconf,
-                ) {
-                    Ok(h) => B256::from_slice(h.as_ref()),
-                    Err(e) => {
-                        warn!("Failed to compute hash for valid commitment from {from}: {e}");
-                        P2pMetrics::record_network_error();
-                        return Some(SdkEvent::CommitmentGossip { from, commitment: Box::new(msg) });
-                    }
-                };
+                let commitment_hash =
+                    match preconfirmation_types::preconfirmation_hash(&msg.commitment.preconf) {
+                        Ok(h) => B256::from_slice(h.as_ref()),
+                        Err(e) => {
+                            warn!("Failed to compute hash for valid commitment from {from}: {e}");
+                            P2pMetrics::record_network_error();
+                            return Some(SdkEvent::CommitmentGossip {
+                                from,
+                                commitment: Box::new(msg),
+                            });
+                        }
+                    };
 
                 let released = self.storage.release_pending(&commitment_hash);
                 P2pMetrics::record_pending_released(released.len());
@@ -214,8 +215,10 @@ impl<S: SdkStorage> EventHandler<S> {
                 // Now that the parent is available, we validate them with their parent context.
                 for pending in released {
                     let pending_block = uint256_to_u256(&pending.commitment.preconf.block_number);
-                    // For released commitments, we have the parent available (the commitment we just stored)
-                    let pending_result = self.validator.validate(&pending, Some(&msg.commitment.preconf));
+                    // For released commitments, we have the parent available (the commitment we
+                    // just stored)
+                    let pending_result =
+                        self.validator.validate(&pending, Some(&msg.commitment.preconf));
                     match pending_result.outcome.status {
                         ValidationStatus::Valid => {
                             self.storage.insert_commitment(pending_block, pending);
@@ -223,14 +226,19 @@ impl<S: SdkStorage> EventHandler<S> {
                             P2pMetrics::record_gossip_stored("commitment");
                         }
                         ValidationStatus::Invalid => {
-                            warn!("Released pending commitment failed validation: {:?}", pending_result.outcome.reason);
+                            warn!(
+                                "Released pending commitment failed validation: {:?}",
+                                pending_result.outcome.reason
+                            );
                             P2pMetrics::record_validation_result("invalid");
                             // Drop invalid commitment
                         }
                         ValidationStatus::Pending => {
                             // Still pending (shouldn't happen normally, but handle gracefully)
                             warn!("Released commitment still pending, re-buffering");
-                            let parent_hash = B256::from_slice(pending.commitment.preconf.parent_preconfirmation_hash.as_ref());
+                            let parent_hash = B256::from_slice(
+                                pending.commitment.preconf.parent_preconfirmation_hash.as_ref(),
+                            );
                             self.storage.add_pending(parent_hash, pending);
                             P2pMetrics::set_pending_buffer_size(self.storage.pending_count());
                         }

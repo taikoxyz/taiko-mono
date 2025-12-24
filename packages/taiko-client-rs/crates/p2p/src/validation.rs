@@ -10,8 +10,8 @@
 
 use alloy_primitives::{Address, B256};
 use preconfirmation_types::{
-    keccak256_bytes, preconfirmation_hash, verify_signed_commitment, Preconfirmation,
-    SignedCommitment,
+    Preconfirmation, SignedCommitment, keccak256_bytes, preconfirmation_hash,
+    verify_signed_commitment,
 };
 
 /// Status of a validation check.
@@ -58,29 +58,17 @@ pub struct ValidationOutcome {
 impl ValidationOutcome {
     /// Create a valid outcome (no penalty, no reason needed).
     pub fn valid() -> Self {
-        Self {
-            status: ValidationStatus::Valid,
-            penalize: false,
-            reason: None,
-        }
+        Self { status: ValidationStatus::Valid, penalize: false, reason: None }
     }
 
     /// Create a pending outcome (no penalty, with explanation).
     pub fn pending(reason: impl Into<String>) -> Self {
-        Self {
-            status: ValidationStatus::Pending,
-            penalize: false,
-            reason: Some(reason.into()),
-        }
+        Self { status: ValidationStatus::Pending, penalize: false, reason: Some(reason.into()) }
     }
 
     /// Create an invalid outcome with penalty decision.
     pub fn invalid(reason: impl Into<String>, penalize: bool) -> Self {
-        Self {
-            status: ValidationStatus::Invalid,
-            penalize,
-            reason: Some(reason.into()),
-        }
+        Self { status: ValidationStatus::Invalid, penalize, reason: Some(reason.into()) }
     }
 }
 
@@ -99,10 +87,9 @@ pub fn validate_eop_rule(preconf: &Preconfirmation) -> ValidationOutcome {
         // EOP=true with zero hash: valid
         (true, true) => ValidationOutcome::valid(),
         // EOP=true with non-zero hash: invalid (should have no txlist)
-        (true, false) => ValidationOutcome::invalid(
-            "EOP preconfirmation must have zero raw_tx_list_hash",
-            true,
-        ),
+        (true, false) => {
+            ValidationOutcome::invalid("EOP preconfirmation must have zero raw_tx_list_hash", true)
+        }
         // EOP=false with non-zero hash: valid
         (false, false) => ValidationOutcome::valid(),
         // EOP=false with zero hash: invalid (must have txlist)
@@ -158,10 +145,7 @@ pub fn validate_block_progression(
     if child.block_number >= parent.block_number {
         ValidationOutcome::valid()
     } else {
-        ValidationOutcome::invalid(
-            "child block_number must be >= parent block_number",
-            true,
-        )
+        ValidationOutcome::invalid("child block_number must be >= parent block_number", true)
     }
 }
 
@@ -169,8 +153,8 @@ pub fn validate_block_progression(
 ///
 /// This enforces that:
 /// - `timestamp` must strictly increase (child.timestamp > parent.timestamp)
-/// - `anchor_block_number` must be monotonically non-decreasing
-///   (child.anchor_block_number >= parent.anchor_block_number)
+/// - `anchor_block_number` must be monotonically non-decreasing (child.anchor_block_number >=
+///   parent.anchor_block_number)
 ///
 /// Violations are penalized as they indicate an invalid commitment ordering.
 pub fn validate_block_params_progression(
@@ -179,10 +163,7 @@ pub fn validate_block_params_progression(
 ) -> ValidationOutcome {
     // Timestamp must strictly increase
     if child.timestamp <= parent.timestamp {
-        return ValidationOutcome::invalid(
-            "child timestamp must be > parent timestamp",
-            true,
-        );
+        return ValidationOutcome::invalid("child timestamp must be > parent timestamp", true);
     }
 
     // Anchor block number must be monotonically non-decreasing
@@ -229,10 +210,7 @@ pub fn validate_signature_with_address(
 ) -> (ValidationOutcome, Option<Address>) {
     match verify_signed_commitment(signed) {
         Ok(addr) => (ValidationOutcome::valid(), Some(addr)),
-        Err(_) => (
-            ValidationOutcome::invalid("signature recovery failed", true),
-            None,
-        ),
+        Err(_) => (ValidationOutcome::invalid("signature recovery failed", true), None),
     }
 }
 
@@ -297,9 +275,7 @@ pub struct CommitmentValidator {
 
 impl Default for CommitmentValidator {
     fn default() -> Self {
-        Self {
-            block_params_hook: Some(Box::new(DefaultBlockParamsValidator)),
-        }
+        Self { block_params_hook: Some(Box::new(DefaultBlockParamsValidator)) }
     }
 }
 
@@ -314,18 +290,14 @@ impl CommitmentValidator {
     /// The hook will be called after standard validations (signature, EOP, parent linkage,
     /// block number progression) to perform chain-specific parameter checks.
     pub fn with_hook(hook: Box<dyn BlockParamsValidator>) -> Self {
-        Self {
-            block_params_hook: Some(hook),
-        }
+        Self { block_params_hook: Some(hook) }
     }
 
     /// Create a new validator without any block params validation hook.
     ///
     /// This disables the default timestamp and anchor_block_number progression checks.
     pub fn without_hook() -> Self {
-        Self {
-            block_params_hook: None,
-        }
+        Self { block_params_hook: None }
     }
 
     /// Validate a signed commitment with optional parent context.
@@ -341,57 +313,39 @@ impl CommitmentValidator {
         // 1. Validate signature and recover signer
         let (sig_outcome, signer) = validate_signature_with_address(signed);
         if !sig_outcome.status.is_valid() {
-            return ValidationResult {
-                outcome: sig_outcome,
-                signer: None,
-            };
+            return ValidationResult { outcome: sig_outcome, signer: None };
         }
 
         // 2. Validate EOP rule
         let eop_outcome = validate_eop_rule(preconf);
         if !eop_outcome.status.is_valid() {
-            return ValidationResult {
-                outcome: eop_outcome,
-                signer,
-            };
+            return ValidationResult { outcome: eop_outcome, signer };
         }
 
         // 3. Validate parent linkage
         let linkage_outcome = validate_parent_linkage(preconf, parent);
         if !linkage_outcome.status.is_valid() {
-            return ValidationResult {
-                outcome: linkage_outcome,
-                signer,
-            };
+            return ValidationResult { outcome: linkage_outcome, signer };
         }
 
         // 4. Validate block progression (only if parent is present)
         if let Some(parent_preconf) = parent {
             let prog_outcome = validate_block_progression(preconf, parent_preconf);
             if !prog_outcome.status.is_valid() {
-                return ValidationResult {
-                    outcome: prog_outcome,
-                    signer,
-                };
+                return ValidationResult { outcome: prog_outcome, signer };
             }
 
             // 5. Validate block parameters via hook (if configured)
             if let Some(hook) = &self.block_params_hook {
                 let params_outcome = hook.validate_params(preconf, parent_preconf);
                 if !params_outcome.status.is_valid() {
-                    return ValidationResult {
-                        outcome: params_outcome,
-                        signer,
-                    };
+                    return ValidationResult { outcome: params_outcome, signer };
                 }
             }
         }
 
         // All validations passed
-        ValidationResult {
-            outcome: ValidationOutcome::valid(),
-            signer,
-        }
+        ValidationResult { outcome: ValidationOutcome::valid(), signer }
     }
 }
 
@@ -458,7 +412,10 @@ mod tests {
 
     // --- EOP validation tests ---
 
-    fn sample_preconfirmation(eop: bool, zero_hash: bool) -> preconfirmation_types::Preconfirmation {
+    fn sample_preconfirmation(
+        eop: bool,
+        zero_hash: bool,
+    ) -> preconfirmation_types::Preconfirmation {
         use preconfirmation_types::{Bytes20, Bytes32, Uint256};
         let hash = if zero_hash { [0u8; 32] } else { [1u8; 32] };
         preconfirmation_types::Preconfirmation {
@@ -767,8 +724,7 @@ mod tests {
         let child = make_signed_commitment_for_validation(100, parent_hash.0, false, false);
 
         // Validate with parent present
-        let result = CommitmentValidator::new()
-            .validate(&child, Some(&parent.commitment.preconf));
+        let result = CommitmentValidator::new().validate(&child, Some(&parent.commitment.preconf));
 
         assert!(result.outcome.status.is_valid());
         assert!(result.signer.is_some());
@@ -796,8 +752,7 @@ mod tests {
         // EOP=false but zero hash (violation)
         let child = make_signed_commitment_for_validation(100, parent_hash.0, false, true);
 
-        let result = CommitmentValidator::new()
-            .validate(&child, Some(&parent.commitment.preconf));
+        let result = CommitmentValidator::new().validate(&child, Some(&parent.commitment.preconf));
 
         assert!(result.outcome.status.is_invalid());
         assert!(result.outcome.penalize);
@@ -814,8 +769,7 @@ mod tests {
         // Child at block 99 (regression)
         let child = make_signed_commitment_for_validation(99, parent_hash.0, false, false);
 
-        let result = CommitmentValidator::new()
-            .validate(&child, Some(&parent.commitment.preconf));
+        let result = CommitmentValidator::new().validate(&child, Some(&parent.commitment.preconf));
 
         assert!(result.outcome.status.is_invalid());
         assert!(result.outcome.penalize);
@@ -942,10 +896,7 @@ mod tests {
         let validator = CommitmentValidator::with_hook(Box::new(RejectAllValidator));
         let result = validator.validate(&child, Some(&parent.commitment.preconf));
         assert!(result.outcome.status.is_invalid());
-        assert_eq!(
-            result.outcome.reason,
-            Some("rejected by custom validator".to_string())
-        );
+        assert_eq!(result.outcome.reason, Some("rejected by custom validator".to_string()));
 
         // With AcceptAllValidator, should pass
         let validator = CommitmentValidator::with_hook(Box::new(AcceptAllValidator));
@@ -965,8 +916,7 @@ mod tests {
         let child = make_signed_commitment_for_validation(100, parent_hash.0, false, false);
 
         // Default validator should run block params progression checks
-        let result = CommitmentValidator::new()
-            .validate(&child, Some(&parent.commitment.preconf));
+        let result = CommitmentValidator::new().validate(&child, Some(&parent.commitment.preconf));
 
         assert!(result.outcome.status.is_valid());
     }

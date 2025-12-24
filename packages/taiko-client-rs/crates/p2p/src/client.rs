@@ -12,8 +12,8 @@ use preconfirmation_net::{
     NetworkEvent, P2pHandle, P2pNode, ValidationAdapter,
 };
 use preconfirmation_types::{
-    topic_preconfirmation_commitments, topic_raw_txlists, Bytes20, Bytes32, PreconfHead,
-    RawTxListGossip, SignedCommitment, Uint256,
+    Bytes20, Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, Uint256,
+    topic_preconfirmation_commitments, topic_raw_txlists,
 };
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, trace, warn};
@@ -22,7 +22,7 @@ use crate::{
     catchup::{CatchupAction, CatchupConfig, CatchupPipeline, CatchupState},
     config::P2pClientConfig,
     error::{P2pClientError, P2pResult},
-    storage::{compute_message_id, CommitmentDedupeKey, InMemoryStorage, SdkStorage},
+    storage::{CommitmentDedupeKey, InMemoryStorage, SdkStorage, compute_message_id},
     types::{SdkCommand, SdkEvent},
     validation::{CommitmentValidator, ValidationStatus},
 };
@@ -106,10 +106,7 @@ impl P2pClientHandle {
     }
 
     /// Publish a signed commitment to the network.
-    pub async fn publish_commitment(
-        &self,
-        commitment: SignedCommitment,
-    ) -> P2pResult<()> {
+    pub async fn publish_commitment(&self, commitment: SignedCommitment) -> P2pResult<()> {
         self.command_tx
             .send(SdkCommand::PublishCommitment(Box::new(commitment)))
             .await
@@ -125,11 +122,7 @@ impl P2pClientHandle {
     }
 
     /// Request commitments starting from a block number.
-    pub async fn request_commitments(
-        &self,
-        start_block: u64,
-        max_count: u32,
-    ) -> P2pResult<()> {
+    pub async fn request_commitments(&self, start_block: u64, max_count: u32) -> P2pResult<()> {
         self.command_tx
             .send(SdkCommand::RequestCommitments { start_block, max_count })
             .await
@@ -146,17 +139,18 @@ impl P2pClientHandle {
 
     /// Request the current preconfirmation head from a peer.
     pub async fn request_head(&self) -> P2pResult<()> {
-        self.command_tx
-            .send(SdkCommand::RequestHead)
-            .await
-            .map_err(|_| P2pClientError::Shutdown)
+        self.command_tx.send(SdkCommand::RequestHead).await.map_err(|_| P2pClientError::Shutdown)
     }
 
     /// Update the local preconfirmation head and broadcast to network.
     ///
     /// This updates the local head and sends the update to the network layer
     /// so peers can query the updated head via the `get_head` request/response protocol.
-    pub async fn update_head(&self, block_number: u64, submission_window_end: u64) -> P2pResult<()> {
+    pub async fn update_head(
+        &self,
+        block_number: u64,
+        submission_window_end: u64,
+    ) -> P2pResult<()> {
         self.command_tx
             .send(SdkCommand::UpdateHead { block_number, submission_window_end })
             .await
@@ -176,10 +170,7 @@ impl P2pClientHandle {
 
     /// Request graceful shutdown of the client.
     pub async fn shutdown(&self) -> P2pResult<()> {
-        self.command_tx
-            .send(SdkCommand::Shutdown)
-            .await
-            .map_err(|_| P2pClientError::Shutdown)
+        self.command_tx.send(SdkCommand::Shutdown).await.map_err(|_| P2pClientError::Shutdown)
     }
 
     /// Notify the SDK of an L1 reorg affecting the anchor block.
@@ -291,10 +282,7 @@ impl P2pClient {
     /// The handle can be used to send commands and subscribe to events
     /// from multiple tasks.
     pub fn handle(&self) -> P2pClientHandle {
-        P2pClientHandle {
-            command_tx: self.command_tx.clone(),
-            event_tx: self.event_tx.clone(),
-        }
+        P2pClientHandle { command_tx: self.command_tx.clone(), event_tx: self.event_tx.clone() }
     }
 
     /// Run the P2P client event loop.
@@ -314,10 +302,9 @@ impl P2pClient {
             .node
             .take()
             .ok_or_else(|| P2pClientError::MissingData("node already consumed".to_string()))?;
-        let mut command_rx = self
-            .command_rx
-            .take()
-            .ok_or_else(|| P2pClientError::MissingData("command_rx already consumed".to_string()))?;
+        let mut command_rx = self.command_rx.take().ok_or_else(|| {
+            P2pClientError::MissingData("command_rx already consumed".to_string())
+        })?;
 
         // Spawn the P2P node in the background
         let node_handle = tokio::spawn(async move {
@@ -333,10 +320,8 @@ impl P2pClient {
 
         loop {
             // Calculate sleep duration for backoff or default polling interval
-            let sleep_duration = self
-                .catchup
-                .remaining_backoff()
-                .unwrap_or(std::time::Duration::from_millis(100));
+            let sleep_duration =
+                self.catchup.remaining_backoff().unwrap_or(std::time::Duration::from_millis(100));
 
             tokio::select! {
                 // Process network events from the handle
@@ -441,9 +426,7 @@ impl P2pClient {
 
             NetworkEvent::Error(err) => {
                 warn!("Network error: {err}");
-                let _ = self.event_tx.send(SdkEvent::Error {
-                    detail: format!("network: {err}"),
-                });
+                let _ = self.event_tx.send(SdkEvent::Error { detail: format!("network: {err}") });
             }
         }
     }
@@ -467,10 +450,7 @@ impl P2pClient {
 
         // Try to recover signer for dedupe key
         if let Ok(signer) = preconfirmation_types::verify_signed_commitment(&msg) {
-            let dedupe_key = CommitmentDedupeKey {
-                block_number,
-                signer,
-            };
+            let dedupe_key = CommitmentDedupeKey { block_number, signer };
             if self.storage.is_duplicate_commitment(&dedupe_key) {
                 trace!("Duplicate commitment for block {block_number} from signer {signer}");
                 return;
@@ -488,28 +468,27 @@ impl P2pClient {
                 self.storage.insert_commitment(block_number, msg.clone());
 
                 // Check if any pending commitments can now be released
-                let commitment_hash = match preconfirmation_types::preconfirmation_hash(
-                    &msg.commitment.preconf,
-                ) {
-                    Ok(h) => B256::from_slice(h.as_ref()),
-                    Err(_) => return,
-                };
+                let commitment_hash =
+                    match preconfirmation_types::preconfirmation_hash(&msg.commitment.preconf) {
+                        Ok(h) => B256::from_slice(h.as_ref()),
+                        Err(_) => return,
+                    };
                 let released = self.storage.release_pending(&commitment_hash);
                 for pending in released {
-                    debug!("Released pending commitment for block {:?}",
-                        uint256_to_u256(&pending.commitment.preconf.block_number));
+                    debug!(
+                        "Released pending commitment for block {:?}",
+                        uint256_to_u256(&pending.commitment.preconf.block_number)
+                    );
                     let pending_block = uint256_to_u256(&pending.commitment.preconf.block_number);
                     self.storage.insert_commitment(pending_block, pending.clone());
-                    let _ = self.event_tx.send(SdkEvent::CommitmentGossip {
-                        from,
-                        commitment: Box::new(pending),
-                    });
+                    let _ = self
+                        .event_tx
+                        .send(SdkEvent::CommitmentGossip { from, commitment: Box::new(pending) });
                 }
 
-                let _ = self.event_tx.send(SdkEvent::CommitmentGossip {
-                    from,
-                    commitment: Box::new(msg),
-                });
+                let _ = self
+                    .event_tx
+                    .send(SdkEvent::CommitmentGossip { from, commitment: Box::new(msg) });
             }
             ValidationStatus::Pending => {
                 debug!(
@@ -517,16 +496,12 @@ impl P2pClient {
                     result.outcome.reason
                 );
                 // Buffer the commitment, waiting for its parent
-                let parent_hash = B256::from_slice(
-                    msg.commitment.preconf.parent_preconfirmation_hash.as_ref(),
-                );
+                let parent_hash =
+                    B256::from_slice(msg.commitment.preconf.parent_preconfirmation_hash.as_ref());
                 self.storage.add_pending(parent_hash, msg);
             }
             ValidationStatus::Invalid => {
-                warn!(
-                    "Invalid commitment from {from}: {:?}",
-                    result.outcome.reason
-                );
+                warn!("Invalid commitment from {from}: {:?}", result.outcome.reason);
                 // Invalid commitments are dropped; network layer handles penalization
             }
         }
@@ -552,10 +527,7 @@ impl P2pClient {
         debug!("Received raw txlist from {from} with hash {hash}");
         self.storage.insert_txlist(hash, msg.clone());
 
-        let _ = self.event_tx.send(SdkEvent::RawTxListGossip {
-            from,
-            msg: Box::new(msg),
-        });
+        let _ = self.event_tx.send(SdkEvent::RawTxListGossip { from, msg: Box::new(msg) });
     }
 
     /// Handle an SDK command.
@@ -617,10 +589,9 @@ impl P2pClient {
                 debug!("Requesting head");
                 match self.handle.request_head(None).await {
                     Ok(head) => {
-                        let _ = self.event_tx.send(SdkEvent::ReqRespHead {
-                            from: libp2p::PeerId::random(),
-                            head,
-                        });
+                        let _ = self
+                            .event_tx
+                            .send(SdkEvent::ReqRespHead { from: libp2p::PeerId::random(), head });
                     }
                     Err(e) => {
                         warn!("Failed to request head: {e}");
@@ -637,11 +608,8 @@ impl P2pClient {
                     block_number: Uint256::from(block_number),
                     submission_window_end: Uint256::from(submission_window_end),
                 };
-                if let Err(e) = self
-                    .handle
-                    .command_sender()
-                    .send(NetworkCommand::UpdateHead { head })
-                    .await
+                if let Err(e) =
+                    self.handle.command_sender().send(NetworkCommand::UpdateHead { head }).await
                 {
                     warn!("Failed to send UpdateHead to network: {e}");
                 }
@@ -670,10 +638,7 @@ impl P2pClient {
                 // Emit reorg event for downstream consumers per spec §6.3
                 // This signals that commitments from the affected anchor block
                 // need to be re-executed
-                let _ = self.event_tx.send(SdkEvent::Reorg {
-                    anchor_block_number,
-                    reason,
-                });
+                let _ = self.event_tx.send(SdkEvent::Reorg { anchor_block_number, reason });
             }
         }
         Ok(false)
@@ -724,7 +689,8 @@ impl P2pClient {
                             let mut missing_hashes = Vec::new();
 
                             for commitment in resp.commitments.iter() {
-                                let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+                                let block =
+                                    uint256_to_u256(&commitment.commitment.preconf.block_number);
                                 let block_u64 = block.to::<u64>();
                                 if block_u64 > highest_block {
                                     highest_block = block_u64;
@@ -732,9 +698,11 @@ impl P2pClient {
 
                                 // Check if we have the txlist
                                 let txlist_hash = B256::from_slice(
-                                    commitment.commitment.preconf.raw_tx_list_hash.as_ref()
+                                    commitment.commitment.preconf.raw_tx_list_hash.as_ref(),
                                 );
-                                if !txlist_hash.is_zero() && self.storage.get_txlist(&txlist_hash).is_none() {
+                                if !txlist_hash.is_zero() &&
+                                    self.storage.get_txlist(&txlist_hash).is_none()
+                                {
                                     missing_hashes.push(txlist_hash);
                                 }
 
@@ -830,24 +798,19 @@ mod tests {
                 let _handle = client.handle();
 
                 // Spawn the client event loop
-                let client_handle = tokio::spawn(async move {
-                    client.run().await
-                });
+                let client_handle = tokio::spawn(async move { client.run().await });
 
                 // Wait briefly for the initial event
-                let event = tokio::time::timeout(
-                    std::time::Duration::from_millis(100),
-                    events.recv()
-                )
-                .await;
+                let event =
+                    tokio::time::timeout(std::time::Duration::from_millis(100), events.recv())
+                        .await;
 
                 // We expect either a HeadSyncStatus event or a timeout (network issues)
                 if let Ok(Ok(evt)) = event {
                     assert!(
                         matches!(
                             evt,
-                            SdkEvent::HeadSyncStatus { .. } |
-                            SdkEvent::PeerConnected { .. }
+                            SdkEvent::HeadSyncStatus { .. } | SdkEvent::PeerConnected { .. }
                         ),
                         "first event should be startup-related, got: {:?}",
                         evt
@@ -875,10 +838,7 @@ mod tests {
         let (event_tx, _) = broadcast::channel(16);
         let (command_tx, _) = mpsc::channel(16);
 
-        let handle = P2pClientHandle {
-            command_tx,
-            event_tx,
-        };
+        let handle = P2pClientHandle { command_tx, event_tx };
 
         let _handle2 = handle.clone();
     }
