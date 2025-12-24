@@ -6,22 +6,16 @@ license = "MIT"
 publish = false
 
 [dependencies]
-alloy-primitives = { workspace = true }
-anyhow = { workspace = true }
-arc-swap = "1.7"
 futures = "0.3"
-libp2p = { version = "0.56", default-features = false, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "macros", "tokio"] }
-metrics = { workspace = true }
+lru = "0.12"
 moka = { version = "0.12", features = ["sync"] }
-parking_lot = "0.12"
-preconfirmation-service = { path = "../../../preconfirmation-p2p/crates/service" }
+preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+metrics = { workspace = true }
 
 [dev-dependencies]
-anyhow = { workspace = true }
-secp256k1 = { version = "0.30", features = ["std"] }
 tokio = { workspace = true, features = ["full"] }
