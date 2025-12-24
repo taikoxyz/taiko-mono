@@ -8,10 +8,13 @@ use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::{
-    LocalValidationAdapter, LookaheadResolver, LookaheadValidationAdapter, NetworkEvent, P2pHandle,
-    P2pNode, ValidationAdapter,
+    LocalValidationAdapter, LookaheadResolver, LookaheadValidationAdapter, NetworkCommand,
+    NetworkEvent, P2pHandle, P2pNode, ValidationAdapter,
 };
-use preconfirmation_types::{Bytes20, Bytes32, RawTxListGossip, SignedCommitment, Uint256};
+use preconfirmation_types::{
+    topic_preconfirmation_commitments, topic_raw_txlists, Bytes20, Bytes32, PreconfHead,
+    RawTxListGossip, SignedCommitment, Uint256,
+};
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, trace, warn};
 
@@ -150,10 +153,13 @@ impl P2pClientHandle {
             .map_err(|_| P2pClientError::Shutdown)
     }
 
-    /// Update the local head block number.
-    pub async fn update_head(&self, block_number: u64) -> P2pResult<()> {
+    /// Update the local preconfirmation head and broadcast to network.
+    ///
+    /// This updates the local head and sends the update to the network layer
+    /// so peers can query the updated head via the `get_head` request/response protocol.
+    pub async fn update_head(&self, block_number: u64, submission_window_end: u64) -> P2pResult<()> {
         self.command_tx
-            .send(SdkCommand::UpdateHead { block_number })
+            .send(SdkCommand::UpdateHead { block_number, submission_window_end })
             .await
             .map_err(|_| P2pClientError::Shutdown)
     }
@@ -393,9 +399,10 @@ impl P2pClient {
 
     /// Handle a signed commitment gossip message.
     async fn handle_commitment_gossip(&mut self, from: libp2p::PeerId, msg: SignedCommitment) {
-        // Compute message ID for deduplication
+        // Compute message ID for deduplication using chain-specific topic
         let payload = ssz_encode_commitment(&msg);
-        let msg_id = compute_message_id("/taiko/preconf/commitments", &payload);
+        let topic = topic_preconfirmation_commitments(self.config.chain_id);
+        let msg_id = compute_message_id(&topic, &payload);
 
         // Check message-level dedupe
         if self.storage.is_duplicate_message(&msg_id) {
@@ -476,9 +483,10 @@ impl P2pClient {
 
     /// Handle a raw txlist gossip message.
     async fn handle_txlist_gossip(&mut self, from: libp2p::PeerId, msg: RawTxListGossip) {
-        // Compute message ID for deduplication
+        // Compute message ID for deduplication using chain-specific topic
         let payload = ssz_encode_txlist(&msg);
-        let msg_id = compute_message_id("/taiko/preconf/rawtxlist", &payload);
+        let topic = topic_raw_txlists(self.config.chain_id);
+        let msg_id = compute_message_id(&topic, &payload);
 
         // Check message-level dedupe
         if self.storage.is_duplicate_message(&msg_id) {
@@ -569,10 +577,23 @@ impl P2pClient {
                 }
             }
 
-            SdkCommand::UpdateHead { block_number } => {
-                debug!("Updating local head to {block_number}");
+            SdkCommand::UpdateHead { block_number, submission_window_end } => {
+                debug!("Updating local head to block {block_number}");
                 self.local_head = U256::from(block_number);
-                // TODO: Trigger catch-up if behind network head
+
+                // Construct PreconfHead and send to network layer
+                let head = PreconfHead {
+                    block_number: Uint256::from(block_number),
+                    submission_window_end: Uint256::from(submission_window_end),
+                };
+                if let Err(e) = self
+                    .handle
+                    .command_sender()
+                    .send(NetworkCommand::UpdateHead { head })
+                    .await
+                {
+                    warn!("Failed to send UpdateHead to network: {e}");
+                }
             }
 
             SdkCommand::Shutdown => {

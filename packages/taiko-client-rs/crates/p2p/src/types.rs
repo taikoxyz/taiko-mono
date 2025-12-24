@@ -96,10 +96,12 @@ pub enum SdkCommand {
     },
     /// Request the current preconfirmation head.
     RequestHead,
-    /// Update the local head block number.
+    /// Update the local preconfirmation head and broadcast to network.
     UpdateHead {
         /// The new head block number.
         block_number: u64,
+        /// The submission window end timestamp for the head.
+        submission_window_end: u64,
     },
     /// Shutdown the SDK client.
     Shutdown,
@@ -161,8 +163,25 @@ mod tests {
         let _ = SdkCommand::RequestRawTxList { hash: B256::ZERO };
         let _ = SdkCommand::RequestHead;
 
-        // Control commands
-        let _ = SdkCommand::UpdateHead { block_number: 100 };
+        // Control commands - UpdateHead includes both block_number and submission_window_end
+        // for constructing the full PreconfHead to send to the network
+        let _ = SdkCommand::UpdateHead { block_number: 100, submission_window_end: 2000 };
         let _ = SdkCommand::Shutdown;
+    }
+
+    #[test]
+    fn update_head_command_has_required_fields() {
+        // Verify UpdateHead has both fields needed to construct PreconfHead
+        let cmd = SdkCommand::UpdateHead {
+            block_number: 12345,
+            submission_window_end: 1700000000,
+        };
+
+        if let SdkCommand::UpdateHead { block_number, submission_window_end } = cmd {
+            assert_eq!(block_number, 12345);
+            assert_eq!(submission_window_end, 1700000000);
+        } else {
+            panic!("Expected UpdateHead variant");
+        }
     }
 }

@@ -419,7 +419,8 @@ mod tests {
 
     #[test]
     fn compute_message_id_deterministic() {
-        let topic = "/taiko/preconf/commitments";
+        // Use chain-specific topic format (chain_id = 167000 for Taiko mainnet)
+        let topic = "/taiko/167000/0/preconfirmationCommitments";
         let payload = b"test payload data";
 
         let id1 = compute_message_id(topic, payload);
