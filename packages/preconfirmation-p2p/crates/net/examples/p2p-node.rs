@@ -5,8 +5,7 @@
 use clap::Parser;
 use futures::StreamExt;
 use preconfirmation_net::{
-    LookaheadResolver, LookaheadValidationAdapter, NetworkCommand, NetworkEvent, P2pConfig,
-    P2pNode,
+    LookaheadResolver, LookaheadValidationAdapter, NetworkCommand, NetworkEvent, P2pConfig, P2pNode,
 };
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
