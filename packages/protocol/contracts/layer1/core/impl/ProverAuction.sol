@@ -110,6 +110,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint8 _maxFeeDoublings,
         uint48 _initialMaxFee
     ) {
+        require(_initialMaxFee > 0, InitialMaxFeeCannotBeZero());
+
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
         livenessBond = _livenessBond;
@@ -205,8 +207,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
             baseFee = initialMaxFee;
             startTime = _contractCreationTime;
         } else {
-            // Previous prover exited
-            baseFee = current.feeInGwei;
+            // Previous prover exited - use their fee, but fall back to initialMaxFee if 0
+            // This prevents the slot from being permanently stuck at 0 fee
+            baseFee = current.feeInGwei > 0 ? current.feeInGwei : initialMaxFee;
             startTime = current.exitTimestamp;
         }
 
@@ -417,6 +420,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     error CurrentProverCannotWithdraw();
     error FeeMustBeLower();
     error FeeTooHigh();
+    error InitialMaxFeeCannotBeZero();
     error InsufficientBond();
     error NotCurrentProver();
     error OnlyInbox();

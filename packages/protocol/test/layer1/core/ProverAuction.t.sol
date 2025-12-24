@@ -925,10 +925,11 @@ contract ProverAuctionTest is CommonTest {
         assertGt(secondWithdrawableAt, firstWithdrawableAt, "second delay should be later than first");
     }
 
-    /// @notice Issue 2.6: Test getMaxBidFee when baseFee is zero
+    /// @notice Issue 2.6: Test that initialMaxFee = 0 is now rejected (FIXED)
     function test_bug_getMaxBidFeeWithZeroBaseFee() public {
-        // Deploy auction with initialMaxFee = 0
-        ProverAuction impl = new ProverAuction(
+        // Deploy auction with initialMaxFee = 0 should now revert
+        vm.expectRevert(ProverAuction.InitialMaxFeeCannotBeZero.selector);
+        new ProverAuction(
             inbox,
             address(bondToken),
             LIVENESS_BOND,
@@ -937,44 +938,14 @@ contract ProverAuctionTest is CommonTest {
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
-            0 // initialMaxFee = 0
+            0 // initialMaxFee = 0 - now rejected
         );
 
-        ProverAuction zeroFeeAuction = ProverAuction(
-            address(
-                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
-            )
-        );
-
-        // Approve and deposit
-        vm.prank(prover1);
-        bondToken.approve(address(zeroFeeAuction), type(uint256).max);
-        vm.prank(prover1);
-        zeroFeeAuction.deposit(REQUIRED_BOND);
-
-        // maxBidFee should be 0
-        assertEq(zeroFeeAuction.getMaxBidFee(), 0);
-
-        // Can only bid 0
-        vm.prank(prover1);
-        zeroFeeAuction.bid(0);
-
-        (address prover, uint48 fee) = zeroFeeAuction.getCurrentProver();
-        assertEq(prover, prover1);
-        assertEq(fee, 0);
-
-        // Even after time passes, 0 << N = 0
-        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD * 10);
-        vm.prank(prover1);
-        zeroFeeAuction.requestExit();
-
-        assertEq(zeroFeeAuction.getMaxBidFee(), 0, "0 doubled any number of times is still 0");
-
-        // CONFIRMED BUG: If initialMaxFee is 0 or a prover exits with fee 0,
-        // the slot becomes stuck at 0 max fee forever (0 << N = 0)
+        // FIXED: Constructor now validates that initialMaxFee > 0
+        // This prevents the slot from being permanently stuck at 0 fee
     }
 
-    /// @notice Issue 2.6 variant: Test what happens when a prover exits with fee 0
+    /// @notice Issue 2.6 variant: Test what happens when a prover exits with fee 0 (FIXED)
     function test_bug_proverExitsWithZeroFee() public {
         // First, bid with 0 fee (already tested this works)
         _depositBond(prover1, REQUIRED_BOND);
@@ -985,15 +956,15 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        // Max fee should be 0 (base fee from exited prover)
-        assertEq(auction.getMaxBidFee(), 0);
+        // After fix: Max fee should fall back to initialMaxFee when exited prover had fee 0
+        assertEq(auction.getMaxBidFee(), INITIAL_MAX_FEE, "should fall back to initialMaxFee");
 
-        // Even after time passes
-        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD * MAX_FEE_DOUBLINGS);
-        assertEq(auction.getMaxBidFee(), 0, "0 doubled is still 0");
+        // After time passes, it should double from initialMaxFee
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD);
+        assertEq(auction.getMaxBidFee(), INITIAL_MAX_FEE * 2, "should double from initialMaxFee");
 
-        // CONFIRMED: If a prover exits with fee 0, no one can bid with fee > 0
-        // This is either a bug or intentional design (free proving forever)
+        // FIXED: If a prover exits with fee 0, the slot falls back to initialMaxFee
+        // instead of being permanently stuck at 0
     }
 
     /// @notice Issue 2.7: Test that force exit is skipped for already-exited prover (FIXED)
