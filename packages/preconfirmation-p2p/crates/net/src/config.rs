@@ -13,6 +13,8 @@ pub struct P2pConfig {
     pub enable_discovery: bool,
     pub discovery_listen: SocketAddr,
     pub bootnodes: Vec<String>,
+    pub enable_quic: bool,
+    pub enable_tcp: bool,
     pub request_timeout: Duration,
     pub max_reqresp_concurrent_streams: usize,
     pub rate_limit: RateLimitConfig,
@@ -34,7 +36,8 @@ pub(crate) struct NetworkConfig {
     pub discv5_listen: SocketAddr,
     /// Bootnodes as ENR or multiaddr strings. These are used for initial peer discovery.
     pub bootnodes: Vec<String>,
-    /// Enable QUIC transport. If true, the network will attempt to use QUIC.
+    /// Enable QUIC transport. If true, the network will attempt to use QUIC when
+    /// the `quic-transport` feature is enabled.
     pub enable_quic: bool,
     /// Enable TCP transport. If true, the network will attempt to use TCP.
     pub enable_tcp: bool,
@@ -92,6 +95,8 @@ impl Default for P2pConfig {
             enable_discovery: base.enable_discovery,
             discovery_listen: base.discv5_listen,
             bootnodes: base.bootnodes,
+            enable_quic: base.enable_quic,
+            enable_tcp: base.enable_tcp,
             request_timeout: base.request_timeout,
             max_reqresp_concurrent_streams: base.max_reqresp_concurrent_streams,
             rate_limit: RateLimitConfig {
@@ -115,6 +120,8 @@ impl From<P2pConfig> for NetworkConfig {
             discv5_listen: cfg.discovery_listen,
             enable_discovery: cfg.enable_discovery,
             bootnodes: cfg.bootnodes,
+            enable_quic: cfg.enable_quic,
+            enable_tcp: cfg.enable_tcp,
             request_timeout: cfg.request_timeout,
             max_reqresp_concurrent_streams: cfg.max_reqresp_concurrent_streams,
             request_window: cfg.rate_limit.window,

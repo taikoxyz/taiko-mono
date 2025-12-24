@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::{
+    P2pConfig,
     behaviour::NetBehaviour,
     builder::BuiltParts,
     reputation::PeerReputationStore,
@@ -459,4 +460,19 @@ async fn reqresp_errors_when_no_peer_available() {
         panic!("expected req/resp error when no peers available");
     };
     assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
+}
+
+#[test]
+fn p2p_config_enable_quic_wiring() {
+    let p2p = P2pConfig { enable_quic: false, enable_tcp: true, ..Default::default() };
+    let internal: NetworkConfig = p2p.into();
+    assert!(!internal.enable_quic);
+    assert!(internal.enable_tcp);
+}
+
+#[test]
+fn p2p_config_transport_defaults_match_internal() {
+    let p2p = P2pConfig::default();
+    assert!(p2p.enable_quic);
+    assert!(p2p.enable_tcp);
 }

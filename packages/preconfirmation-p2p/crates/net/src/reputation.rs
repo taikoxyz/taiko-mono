@@ -266,7 +266,7 @@ fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerSc
     match action {
         // Apply lightweight app feedback per spec §7.1
         PeerAction::GossipValid => SUCCESS_REWARD,
-        PeerAction::GossipInvalid => -0.5,
+        PeerAction::GossipInvalid => -1.0,
         // Reward successful RPCs modestly so decay can heal peers.
         PeerAction::ReqRespSuccess => SUCCESS_REWARD,
         PeerAction::ReqRespError => weights
