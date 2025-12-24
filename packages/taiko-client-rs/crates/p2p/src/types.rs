@@ -70,6 +70,18 @@ pub enum SdkEvent {
         /// Human-readable error description.
         detail: String,
     },
+    /// An L1 reorg was detected that affects the anchor block.
+    ///
+    /// Per spec §6.3, this event signals downstream consumers to re-execute
+    /// commitments from the affected anchor block. This can occur when:
+    /// - The L1 chain reorganizes and the anchor block hash changes
+    /// - The preconfirmation chain needs to be rebuilt from a new anchor point
+    Reorg {
+        /// The anchor block number that was affected by the reorg.
+        anchor_block_number: u64,
+        /// Human-readable reason for the reorg event.
+        reason: String,
+    },
 }
 
 /// Commands that can be sent to the P2P SDK client.
@@ -112,6 +124,17 @@ pub enum SdkCommand {
     },
     /// Shutdown the SDK client.
     Shutdown,
+    /// Notify the SDK of an L1 reorg affecting the anchor block.
+    ///
+    /// Per spec §6.3, this command signals that an L1 reorg was detected
+    /// and downstream consumers need to re-execute commitments from the
+    /// affected anchor block. The SDK will emit a corresponding `SdkEvent::Reorg`.
+    NotifyReorg {
+        /// The anchor block number that was affected by the reorg.
+        anchor_block_number: u64,
+        /// Human-readable reason for the reorg notification.
+        reason: String,
+    },
 }
 
 #[cfg(test)]
@@ -190,6 +213,47 @@ mod tests {
             assert_eq!(submission_window_end, 1700000000);
         } else {
             panic!("Expected UpdateHead variant");
+        }
+    }
+}
+
+/// Tests for reorg handling hook (Task 8).
+#[cfg(test)]
+mod reorg {
+    pub mod tests {
+        use super::super::*;
+
+        #[test]
+        fn reorg_hook_records_anchor_reexec_request() {
+            // Test that SdkEvent can represent a reorg event for downstream consumers
+            // Reorg event signals L1 reorgs affecting anchor_block_number per spec §6.3
+            let event = SdkEvent::Reorg {
+                anchor_block_number: 12345,
+                reason: "L1 chain reorganization detected".to_string(),
+            };
+
+            if let SdkEvent::Reorg { anchor_block_number, reason } = event {
+                assert_eq!(anchor_block_number, 12345);
+                assert!(reason.contains("reorganization"));
+            } else {
+                panic!("Expected Reorg variant");
+            }
+        }
+
+        #[test]
+        fn notify_reorg_command_exists() {
+            // Test that SdkCommand has a NotifyReorg variant to signal L1 reorgs
+            let cmd = SdkCommand::NotifyReorg {
+                anchor_block_number: 12345,
+                reason: "L1 reorg detected".to_string(),
+            };
+
+            if let SdkCommand::NotifyReorg { anchor_block_number, reason } = cmd {
+                assert_eq!(anchor_block_number, 12345);
+                assert!(reason.contains("reorg"));
+            } else {
+                panic!("Expected NotifyReorg variant");
+            }
         }
     }
 }

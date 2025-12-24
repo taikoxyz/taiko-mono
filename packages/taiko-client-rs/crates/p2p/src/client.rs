@@ -181,6 +181,23 @@ impl P2pClientHandle {
             .await
             .map_err(|_| P2pClientError::Shutdown)
     }
+
+    /// Notify the SDK of an L1 reorg affecting the anchor block.
+    ///
+    /// Per spec §6.3, this signals that an L1 reorg was detected and downstream
+    /// consumers need to re-execute commitments from the affected anchor block.
+    /// The SDK will emit a corresponding `SdkEvent::Reorg` to all subscribers.
+    ///
+    /// # Arguments
+    ///
+    /// * `anchor_block_number` - The anchor block number affected by the reorg.
+    /// * `reason` - Human-readable description of why the reorg was detected.
+    pub async fn notify_reorg(&self, anchor_block_number: u64, reason: String) -> P2pResult<()> {
+        self.command_tx
+            .send(SdkCommand::NotifyReorg { anchor_block_number, reason })
+            .await
+            .map_err(|_| P2pClientError::Shutdown)
+    }
 }
 
 impl P2pClient {
@@ -646,6 +663,17 @@ impl P2pClient {
             SdkCommand::Shutdown => {
                 info!("Shutdown requested");
                 return Ok(true);
+            }
+
+            SdkCommand::NotifyReorg { anchor_block_number, reason } => {
+                warn!("L1 reorg detected at anchor block {anchor_block_number}: {reason}");
+                // Emit reorg event for downstream consumers per spec §6.3
+                // This signals that commitments from the affected anchor block
+                // need to be re-executed
+                let _ = self.event_tx.send(SdkEvent::Reorg {
+                    anchor_block_number,
+                    reason,
+                });
             }
         }
         Ok(false)
