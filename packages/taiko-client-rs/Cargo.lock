@@ -6885,7 +6885,9 @@ dependencies = [
 name = "p2p"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "futures",
+ "libp2p",
  "lru 0.12.5",
  "metrics 0.24.2",
  "moka",

@@ -9,9 +9,14 @@
 
 #![deny(missing_docs)]
 
+mod config;
+mod types;
+
+pub use config::P2pClientConfig;
 // Re-export key network types so consumers can depend on this crate alone.
 pub use preconfirmation_net::{
     LookaheadResolver, NetworkCommand, NetworkError, NetworkErrorKind, NetworkEvent, P2pConfig,
     P2pHandle, P2pNode, PreconfStorage,
 };
 pub use preconfirmation_types;
+pub use types::{SdkCommand, SdkEvent};

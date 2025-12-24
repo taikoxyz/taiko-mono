@@ -6,8 +6,11 @@ license = "MIT"
 publish = false
 
 [dependencies]
+alloy-primitives = { workspace = true }
 futures = "0.3"
+libp2p = { version = "0.56", default-features = false }
 lru = "0.12"
+metrics = { workspace = true }
 moka = { version = "0.12", features = ["sync"] }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
@@ -15,7 +18,6 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-metrics = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
