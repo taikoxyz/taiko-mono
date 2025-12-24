@@ -6886,14 +6886,18 @@ name = "p2p"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "crossbeam-skiplist",
+ "dashmap 6.1.0",
  "futures",
  "libp2p",
  "lru 0.12.5",
  "metrics 0.24.2",
  "moka",
+ "parking_lot",
  "preconfirmation-net",
  "preconfirmation-types",
  "serde",
+ "sha3",
  "thiserror 2.0.17",
  "tokio",
  "tracing",

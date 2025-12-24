@@ -11,6 +11,7 @@
 
 mod config;
 mod error;
+pub mod storage;
 mod types;
 
 pub use config::P2pClientConfig;
