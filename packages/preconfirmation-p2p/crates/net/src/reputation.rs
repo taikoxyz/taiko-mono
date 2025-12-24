@@ -4,7 +4,7 @@
 //! in the preconfirmation P2P network. It includes:
 //! - `PeerAction`: Discrete events that influence a peer's score.
 //! - `RequestRateLimiter`: Prevents individual peers from overwhelming the service with requests.
-//! - `PeerReputationStore`: Single reputation store responsible for scoring and gating.
+//! - `PeerReputationStore`: Maintains per-peer scores, bans, and greylists.
 //!
 //! The Kona connection gater from `kona_gossip` is used for low-level connection
 //! management, while this module focuses on application-level reputation.
@@ -72,6 +72,17 @@ impl PeerReputation {
 }
 
 /// Configuration for the peer reputation system.
+///
+/// ```compile_fail
+/// use preconfirmation_net::ReputationConfig;
+///
+/// let _cfg = ReputationConfig {
+///     greylist_threshold: -5.0,
+///     ban_threshold: -10.0,
+///     halflife: std::time::Duration::from_secs(600),
+///     weights: Default::default(),
+/// };
+/// ```
 #[derive(Debug, Clone)]
 pub struct ReputationConfig {
     /// Score at or below which a peer is greylisted (soft drop).
@@ -80,8 +91,6 @@ pub struct ReputationConfig {
     pub ban_threshold: PeerScore,
     /// Exponential decay halflife applied to scores. Scores decay towards zero.
     pub halflife: Duration,
-    /// Weights mapping actions into reputation deltas (reth defaults).
-    pub weights: ReputationChangeWeights,
 }
 
 /// Stores and manages the reputation of peers.
@@ -97,6 +106,8 @@ pub(crate) struct PeerReputationStore {
     greylisted: HashSet<PeerId>,
     /// Configuration for reputation thresholds and decay.
     cfg: ReputationConfig,
+    /// Weights mapping actions into reputation deltas.
+    weights: ReputationChangeWeights,
 }
 
 impl Default for PeerReputationStore {
@@ -106,7 +117,6 @@ impl Default for PeerReputationStore {
             greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
             ban_threshold: DEFAULT_BAN_THRESHOLD,
             halflife: Duration::from_secs(600),
-            weights: ReputationChangeWeights::default(),
         })
     }
 }
@@ -122,7 +132,14 @@ impl PeerReputationStore {
     ///
     /// A new `PeerReputationStore` instance.
     pub fn new(cfg: ReputationConfig) -> Self {
-        Self { scores: HashMap::new(), banned: HashSet::new(), greylisted: HashSet::new(), cfg }
+        let weights = ReputationChangeWeights::default();
+        Self {
+            scores: HashMap::new(),
+            banned: HashSet::new(),
+            greylisted: HashSet::new(),
+            cfg,
+            weights,
+        }
     }
 
     /// Applies a `PeerAction` to a specific peer, updating its score and ban status.
@@ -148,7 +165,7 @@ impl PeerReputationStore {
         // Decay ensures older infractions fade so recent behavior dominates decisions.
         let mut score = entry.score;
         score = Self::decayed(score, entry.last_updated, now, self.cfg.halflife);
-        score += action_delta(action, &self.cfg.weights);
+        score += action_delta(action, &self.weights);
         entry.score = score;
         entry.last_updated = now;
         self.update_lists(peer, score);
@@ -176,11 +193,6 @@ impl PeerReputationStore {
     /// `true` if the peer is banned, `false` otherwise.
     pub fn is_banned(&self, peer: &PeerId) -> bool {
         self.banned.contains(peer)
-    }
-
-    /// Dial gating helper; currently only bans block outbound dials.
-    pub fn allow_dial(&self, peer: &PeerId) -> bool {
-        !self.is_banned(peer)
     }
 
     /// Calculates the decayed score of a peer.
@@ -269,21 +281,6 @@ fn action_delta(action: PeerAction, weights: &ReputationChangeWeights) -> PeerSc
     }
 }
 
-/// Exponential decay helper reused in tests.
-pub(crate) fn decayed(
-    score: PeerScore,
-    last: Instant,
-    now: Instant,
-    halflife: Duration,
-) -> PeerScore {
-    let dt = now.saturating_duration_since(last).as_secs_f64();
-    if dt == 0.0 {
-        return score;
-    }
-    let lambda = std::f64::consts::LN_2 / halflife.as_secs_f64().max(1.0);
-    score * (-lambda * dt).exp()
-}
-
 /// Request/response rate limiter built on reth's `RateLimit` (token bucket, per peer/protocol).
 pub struct RequestRateLimiter {
     /// Token bucket rate shared by per-peer/per-protocol limiters.
@@ -363,16 +360,15 @@ impl RequestRateLimiter {
 mod tests {
     use super::*;
     use futures::future::poll_fn;
-    use libp2p::PeerId;
+    use libp2p::{PeerId, identity};
     use std::task::Poll;
 
-    /// Convenience config for tests using default thresholds and weights.
+    /// Convenience config for tests using default thresholds.
     fn cfg() -> ReputationConfig {
         ReputationConfig {
             greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
             ban_threshold: DEFAULT_BAN_THRESHOLD,
             halflife: Duration::from_secs(600),
-            weights: ReputationChangeWeights::default(),
         }
     }
 
@@ -391,6 +387,14 @@ mod tests {
         panic!("peer was not banned after repeated errors");
     }
 
+    /// Fresh peers are not banned before any actions are applied.
+    #[test]
+    fn store_allows_fresh_peers() {
+        let store = PeerReputationStore::new(cfg());
+        let peer = identity::Keypair::generate_ed25519().public().to_peer_id();
+        assert!(!store.is_banned(&peer));
+    }
+
     /// Decay drives scores toward zero over time.
     #[test]
     fn decay_heals_greylist_over_time() {
@@ -398,26 +402,9 @@ mod tests {
         let score = -5.0;
         let last = Instant::now() - Duration::from_secs(600);
         let halflife = Duration::from_secs(60);
-        let healed = decayed(score, last, Instant::now(), halflife);
+        let healed = PeerReputationStore::decayed(score, last, Instant::now(), halflife);
         assert!(healed > score, "decay should move score toward zero");
         assert!(healed > -1.0, "should clear greylist over long decay period");
-    }
-
-    /// Dial gating blocks banned peers.
-    #[test]
-    fn allow_dial_respects_ban() {
-        let mut store = PeerReputationStore::new(cfg());
-        let peer = PeerId::random();
-        // Fresh peer allowed.
-        assert!(store.allow_dial(&peer));
-        // Ban via repeated errors.
-        for _ in 0..20 {
-            let ev = store.apply(peer, PeerAction::ReqRespError);
-            if ev.is_banned {
-                break;
-            }
-        }
-        assert!(!store.allow_dial(&peer));
     }
 
     /// Allows within quota then limits until bucket refills.

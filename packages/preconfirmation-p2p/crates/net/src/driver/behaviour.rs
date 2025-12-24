@@ -14,31 +14,33 @@ impl NetworkDriver {
         &mut self,
         peer: Option<PeerId>,
         kind: ReqRespKind,
-        request_id: Option<u64>,
+        responder: Option<super::reqresp::ReqRespResponder>,
         send: F,
     ) where
         F: FnOnce(&mut Self, PeerId) -> libp2p::request_response::OutboundRequestId,
     {
         if let Some(target) = self.choose_peer(peer) {
             let req_handle = send(self, target);
-            self.track_outbound_request(kind, req_handle, request_id);
-            self.push_outbound_start(kind);
+            self.track_outbound_request(kind, req_handle, responder);
+        } else {
+            self.handle_no_peer_available(kind, responder);
         }
     }
 
     /// Polls the swarm for events and processes commands.
     pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<()> {
-        while let Ok(cmd) = self.commands_rx.try_recv() {
+        while let Poll::Ready(Some(cmd)) = self.commands_rx.poll_recv(cx) {
             self.handle_command(cmd);
         }
 
         if let Some(rx) = self.discovery_rx.as_mut() {
             let mut drained = Vec::new();
-            while let Ok(event) = rx.try_recv() {
-                drained.push(event);
+            while let Poll::Ready(Some(addr)) = rx.poll_recv(cx) {
+                drained.push(addr);
             }
-            for event in drained {
-                self.handle_discovery_event(event);
+
+            for addr in drained {
+                self.handle_discovered_addr(addr);
             }
         }
 
@@ -140,14 +142,14 @@ impl NetworkDriver {
                     );
                 }
             }
-            NetworkCommand::RequestCommitments { request_id, start_block, max_count, peer } => {
+            NetworkCommand::RequestCommitments { respond_to, start_block, max_count, peer } => {
                 let req =
                     GetCommitmentsByNumberRequest { start_block_number: start_block, max_count };
                 if validate_commitments_request(&req, MAX_COMMITMENTS_PER_RESPONSE as u32).is_ok() {
                     self.send_outbound_request(
                         peer,
                         ReqRespKind::Commitments,
-                        request_id,
+                        respond_to.map(super::reqresp::ReqRespResponder::Commitments),
                         move |driver, target| {
                             driver.swarm.behaviour_mut().commitments_rr.send_request(&target, req)
                         },
@@ -157,28 +159,27 @@ impl NetworkDriver {
                     let err = NetworkError::new(
                         NetworkErrorKind::ReqRespValidation,
                         format!("invalid commitments request: max_count {max_count} exceeds cap"),
-                    )
-                    .with_request_id(request_id);
+                    );
                     let _ = self.events_tx.try_send(NetworkEvent::Error(err));
                 }
             }
-            NetworkCommand::RequestRawTxList { request_id, raw_tx_list_hash, peer } => {
+            NetworkCommand::RequestRawTxList { respond_to, raw_tx_list_hash, peer } => {
                 let req = GetRawTxListRequest { raw_tx_list_hash };
                 self.send_outbound_request(
                     peer,
                     ReqRespKind::RawTxList,
-                    request_id,
+                    respond_to.map(super::reqresp::ReqRespResponder::RawTxList),
                     move |driver, target| {
                         driver.swarm.behaviour_mut().raw_txlists_rr.send_request(&target, req)
                     },
                 );
             }
-            NetworkCommand::RequestHead { request_id, peer } => {
+            NetworkCommand::RequestHead { respond_to, peer } => {
                 let req = GetHeadRequest::default();
                 self.send_outbound_request(
                     peer,
                     ReqRespKind::Head,
-                    request_id,
+                    respond_to.map(super::reqresp::ReqRespResponder::Head),
                     move |driver, target| {
                         driver.swarm.behaviour_mut().head_rr.send_request(&target, req)
                     },

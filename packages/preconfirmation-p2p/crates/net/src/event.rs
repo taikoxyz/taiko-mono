@@ -26,8 +26,6 @@ pub enum NetworkErrorKind {
     ReqRespFailure,
     /// Request/response timed out.
     ReqRespTimeout,
-    /// Discovery subsystem failed.
-    Discovery,
     /// Dial attempt failed.
     DialFailed,
     /// Peer disconnected unexpectedly.
@@ -57,7 +55,6 @@ impl NetworkErrorKind {
             NetworkErrorKind::ReqRespBackpressure => "reqresp_backpressure",
             NetworkErrorKind::ReqRespFailure => "reqresp_failure",
             NetworkErrorKind::ReqRespTimeout => "reqresp_timeout",
-            NetworkErrorKind::Discovery => "discovery",
             NetworkErrorKind::DialFailed => "dial_failed",
             NetworkErrorKind::Disconnect => "disconnect",
             NetworkErrorKind::GateBlocked => "gate_blocked",
@@ -76,34 +73,26 @@ pub struct NetworkError {
     pub kind: NetworkErrorKind,
     /// Human-readable context.
     pub detail: String,
-    /// Optional req/resp correlation id (if applicable).
-    pub request_id: Option<u64>,
 }
 
 impl NetworkError {
     /// Construct a new error with the given kind and detail.
     pub fn new(kind: NetworkErrorKind, detail: impl Into<String>) -> Self {
-        Self { kind, detail: detail.into(), request_id: None }
-    }
-
-    /// Attach a req/resp correlation id.
-    pub fn with_request_id(mut self, request_id: Option<u64>) -> Self {
-        self.request_id = request_id;
-        self
+        Self { kind, detail: detail.into() }
     }
 }
 
 impl From<String> for NetworkError {
     /// Convert a string message into a generic network error.
     fn from(detail: String) -> Self {
-        Self { kind: NetworkErrorKind::Other, detail, request_id: None }
+        Self { kind: NetworkErrorKind::Other, detail }
     }
 }
 
 impl From<&str> for NetworkError {
     /// Convert a string slice into a generic network error.
     fn from(detail: &str) -> Self {
-        Self { kind: NetworkErrorKind::Other, detail: detail.to_owned(), request_id: None }
+        Self { kind: NetworkErrorKind::Other, detail: detail.to_owned() }
     }
 }
 
@@ -128,19 +117,11 @@ pub enum NetworkEvent {
     /// Received a raw txlist gossip payload.
     GossipRawTxList { from: libp2p::PeerId, msg: Box<RawTxListGossip> },
     /// Received a commitments response to an outbound request.
-    ReqRespCommitments {
-        from: libp2p::PeerId,
-        msg: GetCommitmentsByNumberResponse,
-        request_id: Option<u64>,
-    },
+    ReqRespCommitments { from: libp2p::PeerId, msg: GetCommitmentsByNumberResponse },
     /// Received a raw-txlist response to an outbound request.
-    ReqRespRawTxList { from: libp2p::PeerId, msg: GetRawTxListResponse, request_id: Option<u64> },
+    ReqRespRawTxList { from: libp2p::PeerId, msg: GetRawTxListResponse },
     /// Received a head response to an outbound request.
-    ReqRespHead {
-        from: libp2p::PeerId,
-        head: preconfirmation_types::PreconfHead,
-        request_id: Option<u64>,
-    },
+    ReqRespHead { from: libp2p::PeerId, head: preconfirmation_types::PreconfHead },
     /// Inbound commitments request arrived.
     InboundCommitmentsRequest { from: libp2p::PeerId },
     /// Inbound raw-txlist request arrived.

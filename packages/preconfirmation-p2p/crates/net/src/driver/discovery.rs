@@ -3,40 +3,29 @@ use libp2p::{Multiaddr, PeerId, multiaddr::Protocol};
 use super::*;
 
 impl NetworkDriver {
-    /// Handles `DiscoveryEvent`s from the discovery layer.
-    pub(super) fn handle_discovery_event(&mut self, event: DiscoveryEvent) {
-        match event {
-            DiscoveryEvent::MultiaddrFound(addr) => {
-                if self.allow_dial_addr(&addr) {
-                    // Discovery feed can surface many addresses; defer actual connect to libp2p
-                    // dialer.
-                    let _ = self.swarm.dial(addr);
-                }
-            }
-            DiscoveryEvent::BootnodeFailed(err) => {
-                let _ = self.events_tx.try_send(NetworkEvent::Error(NetworkError::new(
-                    NetworkErrorKind::Discovery,
-                    format!("discovery bootnode: {err}"),
-                )));
-            }
-            DiscoveryEvent::PeerDiscovered(_) => {}
+    /// Handles multiaddrs surfaced by the discovery layer.
+    pub(super) fn handle_discovered_addr(&mut self, addr: Multiaddr) {
+        if self.allow_dial_addr(&addr) {
+            // Discovery feed can surface many addresses; defer actual connect to libp2p dialer.
+            let _ = self.swarm.dial(addr);
         }
     }
 
-    /// Unified dial gating: consult Kona's connection gater first, then the reputation store.
+    /// Unified dial gating: consult Kona's connection gater first, then ban list from
+    /// `PeerReputationStore`. This keeps a single decision path for outbound dials.
     pub(super) fn allow_dial_addr(&mut self, addr: &Multiaddr) -> bool {
         if self.kona_gater.can_dial(addr).is_err() {
             metrics::counter!("p2p_dial_blocked", "source" => "kona_gater").increment(1);
             return false;
         }
 
-        if let Some(peer) = Self::peer_id_from_multiaddr(addr) {
-            if !self.reputation.allow_dial(&peer) {
-                metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
-                return false;
-            }
-        } else {
+        let Some(peer) = Self::peer_id_from_multiaddr(addr) else {
             metrics::counter!("p2p_dial_blocked", "source" => "missing_peer_id").increment(1);
+            return false;
+        };
+
+        if self.reputation.is_banned(&peer) {
+            metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
             return false;
         }
 

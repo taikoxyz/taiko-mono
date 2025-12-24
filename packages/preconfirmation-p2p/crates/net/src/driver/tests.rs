@@ -1,8 +1,13 @@
 #![allow(clippy::too_many_arguments)]
 
 use super::*;
-use crate::{behaviour::NetBehaviour, builder::BuiltParts};
-use futures::task::noop_waker_ref;
+use crate::{
+    behaviour::NetBehaviour,
+    builder::BuiltParts,
+    reputation::PeerReputationStore,
+    validation::{LookaheadResolver, LookaheadValidationAdapter},
+};
+use futures::task::{ArcWake, noop_waker_ref, waker_ref};
 use libp2p::{
     Multiaddr, Transport,
     core::{transport::memory::MemoryTransport, upgrade},
@@ -17,10 +22,13 @@ use ssz_rs::Vector;
 use std::{
     collections::HashMap,
     str::FromStr,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
     task::{Context, Poll},
 };
-use tokio::time::Duration;
+use tokio::{sync::oneshot, time::Duration};
 
 /// Deterministic resolver that always returns the configured signer and echoes the slot end.
 struct StaticLookaheadResolver {
@@ -79,6 +87,38 @@ async fn pump_async(driver: &mut NetworkDriver) {
     .await;
 }
 
+#[test]
+fn driver_poll_registers_command_waker() {
+    struct WakeCounter {
+        wakes: AtomicUsize,
+    }
+
+    impl ArcWake for WakeCounter {
+        fn wake_by_ref(arc_self: &Arc<Self>) {
+            arc_self.wakes.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let parts = build_memory_parts(cfg.chain_id, &cfg);
+    let (mut driver, handle) = driver_from_parts(parts, &cfg, lookahead);
+
+    let waker_state = Arc::new(WakeCounter { wakes: AtomicUsize::new(0) });
+    let waker = waker_ref(&waker_state);
+    let mut cx = Context::from_waker(&waker);
+
+    assert!(matches!(driver.poll(&mut cx), Poll::Pending));
+    assert_eq!(waker_state.wakes.load(Ordering::SeqCst), 0);
+
+    handle
+        .commands
+        .try_send(NetworkCommand::UpdateHead { head: PreconfHead::default() })
+        .expect("send update head command");
+
+    assert!(waker_state.wakes.load(Ordering::SeqCst) > 0);
+}
+
 /// Build transport/behaviour parts using the in-memory transport for deterministic tests.
 fn build_memory_parts(chain_id: u64, cfg: &NetworkConfig) -> BuiltParts {
     let keypair = identity::Keypair::generate_ed25519();
@@ -132,32 +172,37 @@ fn driver_from_parts(
             events_tx: events_tx.clone(),
             commands_rx: cmd_rx,
             topics: parts.topics,
-            reputation: super::build_reputation_store(ReputationConfig {
+            reputation: PeerReputationStore::new(ReputationConfig {
                 greylist_threshold: cfg.reputation_greylist,
                 ban_threshold: cfg.reputation_ban,
                 halflife: cfg.reputation_halflife,
-                weights: reth_network_types::peers::reputation::ReputationChangeWeights::default(),
             }),
             request_limiter: RequestRateLimiter::new(
                 cfg.request_window,
                 cfg.max_requests_per_window,
             ),
-            commitments_out: VecDeque::new(),
-            raw_txlists_out: VecDeque::new(),
-            head_out: VecDeque::new(),
+            pending_requests: HashMap::new(),
             validator: Box::new(LookaheadValidationAdapter::new(None, lookahead)),
             discovery_rx: None,
-            _discovery_task: None,
             connected_peers: 0,
             head: PreconfHead::default(),
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
-            commitments_req_ids: HashMap::new(),
-            raw_txlists_req_ids: HashMap::new(),
-            head_req_ids: HashMap::new(),
         },
         NetworkHandle { events: events_rx, commands: cmd_tx },
     )
+}
+
+#[test]
+fn driver_exposes_peer_reputation_store() {
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let parts = build_memory_parts(cfg.chain_id, &cfg);
+    let (driver, _handle) = driver_from_parts(parts, &cfg, lookahead);
+
+    let store: &PeerReputationStore = &driver.reputation;
+    let peer = *driver.swarm.local_peer_id();
+    assert!(!store.is_banned(&peer));
 }
 
 /// Create a signed commitment for testing using the provided secret key.
@@ -194,11 +239,14 @@ async fn gossipsub_and_reqresp_roundtrip() {
         cfg.discv5_listen = "127.0.0.1:0".parse().unwrap();
         let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
         let lookahead = Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
-        let Ok((driver1, mut handle1)) = NetworkDriver::new(cfg.clone(), lookahead.clone()) else {
+        let validator1 = Box::new(LookaheadValidationAdapter::new(None, lookahead.clone()));
+        let Ok((driver1, mut handle1)) = NetworkDriver::new_with_validator(cfg.clone(), validator1)
+        else {
             eprintln!("skipping: environment may block local TCP (driver init failed)");
             return;
         };
-        let Ok((driver2, mut handle2)) = NetworkDriver::new(cfg, lookahead) else {
+        let validator2 = Box::new(LookaheadValidationAdapter::new(None, lookahead));
+        let Ok((driver2, mut handle2)) = NetworkDriver::new_with_validator(cfg, validator2) else {
             eprintln!("skipping: environment may block local TCP (driver init failed)");
             return;
         };
@@ -276,7 +324,7 @@ async fn gossipsub_and_reqresp_roundtrip() {
         handle1
             .commands
             .send(NetworkCommand::RequestCommitments {
-                request_id: None,
+                respond_to: None,
                 start_block: Uint256::from(0u64),
                 max_count: 1,
                 peer: None,
@@ -321,6 +369,19 @@ async fn memory_transport_gossip_reqresp_and_ban() {
     let (mut driver1, handle1) = driver_from_parts(parts1, &cfg, lookahead.clone());
     let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg, lookahead);
 
+    let (tx, rx) = oneshot::channel();
+    handle1
+        .commands
+        .send(NetworkCommand::RequestHead { respond_to: Some(tx), peer: None })
+        .await
+        .unwrap();
+    pump_async(&mut driver1).await;
+    let result = tokio::time::timeout(Duration::from_millis(50), rx).await;
+    let Ok(Ok(Err(err))) = result else {
+        panic!("expected req/resp error when no peers available");
+    };
+    assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
+
     let addr1: Multiaddr = "/memory/1001".parse().unwrap();
     let mut addr1_full = addr1.clone();
     addr1_full.push(libp2p::multiaddr::Protocol::P2p(*driver1.swarm.local_peer_id()));
@@ -343,7 +404,7 @@ async fn memory_transport_gossip_reqresp_and_ban() {
     handle2
         .commands
         .send(NetworkCommand::RequestCommitments {
-            request_id: None,
+            respond_to: None,
             start_block: Uint256::from(0u64),
             max_count: 1,
             peer: None,
@@ -374,4 +435,28 @@ async fn memory_transport_gossip_reqresp_and_ban() {
 
     assert!(received);
     assert!(!banned);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reqresp_errors_when_no_peer_available() {
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let validator = Box::new(LookaheadValidationAdapter::new(None, lookahead));
+    let Ok((mut driver, handle)) = NetworkDriver::new_with_validator(cfg, validator) else {
+        panic!("driver init failed");
+    };
+
+    let (tx, rx) = oneshot::channel();
+    handle
+        .commands
+        .send(NetworkCommand::RequestHead { respond_to: Some(tx), peer: None })
+        .await
+        .unwrap();
+    pump_async(&mut driver).await;
+
+    let result = tokio::time::timeout(Duration::from_millis(50), rx).await;
+    let Ok(Ok(Err(err))) = result else {
+        panic!("expected req/resp error when no peers available");
+    };
+    assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
 }

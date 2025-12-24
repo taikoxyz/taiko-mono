@@ -4327,6 +4327,7 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
+ "clap",
  "crossbeam-skiplist",
  "dashmap",
  "discv5 0.10.2",
@@ -4354,25 +4355,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unsigned-varint 0.8.0",
-]
-
-[[package]]
-name = "preconfirmation-service"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "anyhow",
- "clap",
- "futures",
- "libp2p",
- "preconfirmation-net",
- "preconfirmation-types",
- "secp256k1 0.30.0",
- "serde",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
