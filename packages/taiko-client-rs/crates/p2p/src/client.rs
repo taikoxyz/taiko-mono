@@ -19,6 +19,7 @@ use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::{
+    catchup::{CatchupAction, CatchupConfig, CatchupPipeline, CatchupState},
     config::P2pClientConfig,
     error::{P2pClientError, P2pResult},
     storage::{compute_message_id, CommitmentDedupeKey, InMemoryStorage, SdkStorage},
@@ -76,13 +77,11 @@ pub struct P2pClient {
     /// Channel for sending SDK commands (cloneable handle).
     command_tx: mpsc::Sender<SdkCommand>,
     /// Configuration.
-    #[allow(dead_code)]
     config: P2pClientConfig,
     /// Current local head block number.
     local_head: U256,
-    /// Whether the client is synced with the network.
-    #[allow(dead_code)]
-    synced: bool,
+    /// Catch-up pipeline for syncing with network head.
+    catchup: CatchupPipeline,
 }
 
 /// Handle for interacting with a running P2pClient.
@@ -164,6 +163,17 @@ impl P2pClientHandle {
             .map_err(|_| P2pClientError::Shutdown)
     }
 
+    /// Start catch-up sync from local head to network head.
+    ///
+    /// This triggers the catch-up pipeline to request commitments and txlists
+    /// from peers until the client is synced with the network head.
+    pub async fn start_catchup(&self, local_head: u64, network_head: u64) -> P2pResult<()> {
+        self.command_tx
+            .send(SdkCommand::StartCatchup { local_head, network_head })
+            .await
+            .map_err(|_| P2pClientError::Shutdown)
+    }
+
     /// Request graceful shutdown of the client.
     pub async fn shutdown(&self) -> P2pResult<()> {
         self.command_tx
@@ -234,6 +244,15 @@ impl P2pClient {
         ));
         let sdk_validator = CommitmentValidator::new();
 
+        // Create catch-up pipeline
+        let catchup_config = CatchupConfig {
+            max_commitments_per_page: config.max_commitments_per_page,
+            initial_backoff: config.catchup_initial_backoff,
+            max_backoff: config.catchup_max_backoff,
+            max_retries: config.catchup_max_retries,
+        };
+        let catchup = CatchupPipeline::new(catchup_config);
+
         let client = Self {
             handle,
             node: Some(node),
@@ -244,7 +263,7 @@ impl P2pClient {
             command_tx,
             config,
             local_head: U256::ZERO,
-            synced: false,
+            catchup,
         };
 
         Ok((client, event_rx))
@@ -313,6 +332,10 @@ impl P2pClient {
                     if self.handle_command(cmd).await? {
                         // Shutdown requested
                         break;
+                    }
+                    // Process any pending catch-up actions after command
+                    if self.catchup.is_syncing() {
+                        self.process_catchup().await;
                     }
                 }
 
@@ -596,12 +619,100 @@ impl P2pClient {
                 }
             }
 
+            SdkCommand::StartCatchup { local_head, network_head } => {
+                info!("Starting catch-up from block {local_head} to {network_head}");
+                self.catchup.start_sync(local_head, network_head);
+                let _ = self.event_tx.send(SdkEvent::HeadSyncStatus { synced: false });
+            }
+
             SdkCommand::Shutdown => {
                 info!("Shutdown requested");
                 return Ok(true);
             }
         }
         Ok(false)
+    }
+
+    /// Process catch-up pipeline actions.
+    async fn process_catchup(&mut self) {
+        loop {
+            let action = self.catchup.next_action();
+            match action {
+                CatchupAction::Wait => break,
+                CatchupAction::SyncComplete => {
+                    if !matches!(self.catchup.state(), CatchupState::Live) {
+                        break;
+                    }
+                    info!("Catch-up complete, now synced");
+                    let _ = self.event_tx.send(SdkEvent::HeadSyncStatus { synced: true });
+                    break;
+                }
+                CatchupAction::RequestCommitments { start_block, max_count } => {
+                    debug!("Catch-up: requesting commitments from block {start_block}");
+                    let start = Uint256::from(start_block);
+                    match self.handle.request_commitments(start, max_count, None).await {
+                        Ok(resp) => {
+                            // Find highest block and missing txlists
+                            let mut highest_block = start_block;
+                            let mut missing_hashes = Vec::new();
+
+                            for commitment in resp.commitments.iter() {
+                                let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+                                let block_u64 = block.to::<u64>();
+                                if block_u64 > highest_block {
+                                    highest_block = block_u64;
+                                }
+
+                                // Check if we have the txlist
+                                let txlist_hash = B256::from_slice(
+                                    commitment.commitment.preconf.raw_tx_list_hash.as_ref()
+                                );
+                                if !txlist_hash.is_zero() && self.storage.get_txlist(&txlist_hash).is_none() {
+                                    missing_hashes.push(txlist_hash);
+                                }
+
+                                // Store the commitment
+                                self.storage.insert_commitment(block, commitment.clone());
+                            }
+
+                            self.catchup.on_commitments_received(highest_block, missing_hashes);
+                        }
+                        Err(e) => {
+                            warn!("Catch-up: failed to request commitments: {e}");
+                            self.catchup.on_request_failed();
+                            break;
+                        }
+                    }
+                }
+                CatchupAction::RequestTxList { hash } => {
+                    debug!("Catch-up: requesting txlist {hash}");
+                    let hash_bytes = match Bytes32::try_from(hash.as_slice().to_vec()) {
+                        Ok(h) => h,
+                        Err(_) => {
+                            self.catchup.on_request_failed();
+                            continue;
+                        }
+                    };
+                    match self.handle.request_raw_txlist(hash_bytes, None).await {
+                        Ok(resp) => {
+                            // Store the txlist - construct RawTxListGossip from response
+                            let txlist_gossip = RawTxListGossip {
+                                raw_tx_list_hash: resp.raw_tx_list_hash.clone(),
+                                txlist: resp.txlist,
+                            };
+                            let stored_hash = B256::from_slice(resp.raw_tx_list_hash.as_ref());
+                            self.storage.insert_txlist(stored_hash, txlist_gossip);
+                            self.catchup.on_txlist_received(&hash);
+                        }
+                        Err(e) => {
+                            warn!("Catch-up: failed to request txlist: {e}");
+                            self.catchup.on_request_failed();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

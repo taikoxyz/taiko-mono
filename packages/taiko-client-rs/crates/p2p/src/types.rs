@@ -103,6 +103,13 @@ pub enum SdkCommand {
         /// The submission window end timestamp for the head.
         submission_window_end: u64,
     },
+    /// Start catch-up sync from local head to network head.
+    StartCatchup {
+        /// Local head block number to start from.
+        local_head: u64,
+        /// Network head block number to sync to.
+        network_head: u64,
+    },
     /// Shutdown the SDK client.
     Shutdown,
 }
@@ -166,6 +173,7 @@ mod tests {
         // Control commands - UpdateHead includes both block_number and submission_window_end
         // for constructing the full PreconfHead to send to the network
         let _ = SdkCommand::UpdateHead { block_number: 100, submission_window_end: 2000 };
+        let _ = SdkCommand::StartCatchup { local_head: 0, network_head: 100 };
         let _ = SdkCommand::Shutdown;
     }
 
