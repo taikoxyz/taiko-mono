@@ -292,13 +292,15 @@ contract ProverAuction is EssentialContract, IProverAuction {
         // Mark as exited
         p.exitTimestamp = uint48(block.timestamp);
 
-        // Set withdrawal timer
+        // Set withdrawal timer (cache value to avoid redundant SLOAD in emit)
+        uint48 withdrawableAt;
         unchecked {
             // Safe: uint48 + uint48 won't overflow for ~8900 years
-            _bonds[msg.sender].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+            withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         }
+        _bonds[msg.sender].withdrawableAt = withdrawableAt;
 
-        emit ExitRequested(msg.sender, _bonds[msg.sender].withdrawableAt);
+        emit ExitRequested(msg.sender, withdrawableAt);
     }
 
     // ---------------------------------------------------------------
@@ -337,9 +339,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         emit BondSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
-        // Force out if below threshold AND is current prover
+        // Force out if below threshold AND is current prover AND not already exited
         Prover storage currentProver = _prover;
-        if (_proverAddr == currentProver.addr && bond.balance < getForceExitThreshold()) {
+        if (
+            _proverAddr == currentProver.addr && currentProver.exitTimestamp == 0
+                && bond.balance < getForceExitThreshold()
+        ) {
             currentProver.exitTimestamp = uint48(block.timestamp);
             unchecked {
                 // Safe: uint48 + uint48 won't overflow for ~8900 years

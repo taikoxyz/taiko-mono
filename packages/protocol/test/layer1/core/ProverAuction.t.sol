@@ -829,4 +829,320 @@ contract ProverAuctionTest is CommonTest {
         (address prover,) = auction.getCurrentProver();
         assertEq(prover, prover1);
     }
+
+    // ---------------------------------------------------------------
+    // Bug verification tests (from REVIEW_ProverAuction.md)
+    // ---------------------------------------------------------------
+
+    /// @notice Issue 2.1/4.1: Test withdrawal delay bypass via re-entry
+    /// When an outbid prover re-enters by bidding again, their withdrawableAt is cleared,
+    /// but they cannot withdraw while being the current prover anyway.
+    /// The potential bug is: if they re-enter and then get outbid AGAIN, do they get a NEW delay?
+    function test_bug_withdrawalDelayBypassViaReentry() public {
+        // Step 1: Prover1 becomes prover
+        _depositAndBid(prover1, REQUIRED_BOND, 1000 gwei);
+
+        // Step 2: Prover2 outbids prover1
+        _depositAndBid(prover2, REQUIRED_BOND, 950 gwei);
+
+        // Step 3: Prover1 should have withdrawableAt set
+        IProverAuction.BondInfo memory info1 = auction.getBondInfo(prover1);
+        uint48 originalWithdrawableAt = info1.withdrawableAt;
+        assertGt(originalWithdrawableAt, 0, "prover1 should have withdrawableAt set after being outbid");
+
+        // Step 4: Prover1 re-enters immediately (bypasses delay by bidding)
+        vm.prank(prover1);
+        auction.bid(900 gwei);
+
+        // Step 5: withdrawableAt should be cleared
+        IProverAuction.BondInfo memory info2 = auction.getBondInfo(prover1);
+        assertEq(info2.withdrawableAt, 0, "withdrawableAt should be cleared after re-entry");
+
+        // Step 6: Prover1 cannot withdraw while being current prover
+        vm.prank(prover1);
+        vm.expectRevert(ProverAuction.CurrentProverCannotWithdraw.selector);
+        auction.withdraw(1 ether);
+
+        // Step 7: Prover3 outbids prover1
+        _depositAndBid(prover3, REQUIRED_BOND, 855 gwei);
+
+        // Step 8: Prover1 should have a NEW withdrawableAt set
+        IProverAuction.BondInfo memory info3 = auction.getBondInfo(prover1);
+        assertGt(info3.withdrawableAt, 0, "prover1 should have new withdrawableAt after being outbid again");
+
+        // Step 9: Prover1 cannot withdraw before delay passes
+        vm.prank(prover1);
+        vm.expectRevert(ProverAuction.WithdrawalDelayNotPassed.selector);
+        auction.withdraw(1 ether);
+
+        // Step 10: After delay passes, prover1 can withdraw
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
+        vm.prank(prover1);
+        auction.withdraw(1 ether); // Should succeed
+
+        // CONCLUSION: The withdrawal delay bypass is NOT a real bug because:
+        // 1. Current prover cannot withdraw anyway
+        // 2. If they get outbid after re-entering, a new delay is set
+        // The "bypass" only clears the delay temporarily while they're the active prover
+    }
+
+    /// @notice Issue 2.1 variant: Test that outbid prover CAN withdraw immediately after re-entering
+    /// and getting outbid again IF the delay from the second outbid has passed
+    function test_bug_withdrawalDelayResetOnReentry() public {
+        uint256 startTime = block.timestamp;
+
+        // Prover1 becomes prover, then gets outbid
+        _depositAndBid(prover1, REQUIRED_BOND, 1000 gwei);
+        _depositAndBid(prover2, REQUIRED_BOND, 950 gwei);
+
+        // Record the first withdrawableAt
+        IProverAuction.BondInfo memory info1 = auction.getBondInfo(prover1);
+        uint48 firstWithdrawableAt = info1.withdrawableAt;
+        assertEq(firstWithdrawableAt, uint48(startTime) + BOND_WITHDRAWAL_DELAY);
+
+        // Time passes but not enough for withdrawal
+        vm.warp(startTime + BOND_WITHDRAWAL_DELAY / 2);
+
+        // Prover1 re-enters
+        vm.prank(prover1);
+        auction.bid(900 gwei);
+
+        // withdrawableAt is now 0
+        IProverAuction.BondInfo memory info2 = auction.getBondInfo(prover1);
+        assertEq(info2.withdrawableAt, 0);
+
+        // Prover2 outbids again
+        vm.prank(prover2);
+        auction.bid(855 gwei);
+
+        // NEW withdrawableAt is set based on current time
+        IProverAuction.BondInfo memory info3 = auction.getBondInfo(prover1);
+        uint48 secondWithdrawableAt = info3.withdrawableAt;
+        assertEq(secondWithdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
+
+        // The second withdrawableAt is LATER than the first would have been
+        // This means re-entry actually EXTENDS the wait time, not bypasses it
+        assertGt(secondWithdrawableAt, firstWithdrawableAt, "second delay should be later than first");
+    }
+
+    /// @notice Issue 2.6: Test getMaxBidFee when baseFee is zero
+    function test_bug_getMaxBidFeeWithZeroBaseFee() public {
+        // Deploy auction with initialMaxFee = 0
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            MAX_PENDING_PROPOSALS,
+            MIN_FEE_REDUCTION_BPS,
+            BOND_WITHDRAWAL_DELAY,
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            0 // initialMaxFee = 0
+        );
+
+        ProverAuction zeroFeeAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        // Approve and deposit
+        vm.prank(prover1);
+        bondToken.approve(address(zeroFeeAuction), type(uint256).max);
+        vm.prank(prover1);
+        zeroFeeAuction.deposit(REQUIRED_BOND);
+
+        // maxBidFee should be 0
+        assertEq(zeroFeeAuction.getMaxBidFee(), 0);
+
+        // Can only bid 0
+        vm.prank(prover1);
+        zeroFeeAuction.bid(0);
+
+        (address prover, uint48 fee) = zeroFeeAuction.getCurrentProver();
+        assertEq(prover, prover1);
+        assertEq(fee, 0);
+
+        // Even after time passes, 0 << N = 0
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD * 10);
+        vm.prank(prover1);
+        zeroFeeAuction.requestExit();
+
+        assertEq(zeroFeeAuction.getMaxBidFee(), 0, "0 doubled any number of times is still 0");
+
+        // CONFIRMED BUG: If initialMaxFee is 0 or a prover exits with fee 0,
+        // the slot becomes stuck at 0 max fee forever (0 << N = 0)
+    }
+
+    /// @notice Issue 2.6 variant: Test what happens when a prover exits with fee 0
+    function test_bug_proverExitsWithZeroFee() public {
+        // First, bid with 0 fee (already tested this works)
+        _depositBond(prover1, REQUIRED_BOND);
+        vm.prank(prover1);
+        auction.bid(0);
+
+        // Exit
+        vm.prank(prover1);
+        auction.requestExit();
+
+        // Max fee should be 0 (base fee from exited prover)
+        assertEq(auction.getMaxBidFee(), 0);
+
+        // Even after time passes
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD * MAX_FEE_DOUBLINGS);
+        assertEq(auction.getMaxBidFee(), 0, "0 doubled is still 0");
+
+        // CONFIRMED: If a prover exits with fee 0, no one can bid with fee > 0
+        // This is either a bug or intentional design (free proving forever)
+    }
+
+    /// @notice Issue 2.7: Test that force exit is skipped for already-exited prover (FIXED)
+    function test_bug_forceExitOnAlreadyExitedProver() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 500 gwei);
+
+        // Prover exits voluntarily
+        vm.prank(prover1);
+        auction.requestExit();
+
+        IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        uint48 exitWithdrawableAt = infoBefore.withdrawableAt;
+
+        // Advance time a bit
+        vm.warp(block.timestamp + 1 hours);
+
+        // Slash the already-exited prover below threshold
+        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
+        vm.prank(inbox);
+        auction.slashBond(prover1, slashAmount, prover2, 0);
+
+        // After optimization: force-exit logic is skipped for already-exited provers
+        // So withdrawableAt should remain unchanged (the original exit time)
+        IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        assertEq(infoAfter.withdrawableAt, exitWithdrawableAt, "withdrawableAt should not change for already-exited");
+    }
+
+    /// @notice Issue 4.3: Test slash when balance exactly equals threshold
+    function test_bug_slashAtExactThreshold() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 500 gwei);
+
+        // Slash to exactly the threshold (not below)
+        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD;
+        vm.prank(inbox);
+        auction.slashBond(prover1, slashAmount, prover2, 0);
+
+        // Should NOT be force-exited (balance == threshold, not < threshold)
+        (address prover,) = auction.getCurrentProver();
+        assertEq(prover, prover1, "prover should not be force-exited at exact threshold");
+
+        IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
+        assertEq(info.balance, FORCE_EXIT_THRESHOLD);
+    }
+
+    /// @notice Issue 4.3 variant: Test slash to just below threshold
+    function test_bug_slashJustBelowThreshold() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 500 gwei);
+
+        // Slash to 1 wei below threshold
+        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
+        vm.prank(inbox);
+        auction.slashBond(prover1, slashAmount, prover2, 0);
+
+        // Should be force-exited
+        (address prover,) = auction.getCurrentProver();
+        assertEq(prover, address(0), "prover should be force-exited below threshold");
+    }
+
+    /// @notice Issue 2.3: Test minFeeReductionBps at boundary values
+    function test_bug_minFeeReductionBpsAt10000() public {
+        // Deploy with 100% reduction required (should make outbidding impossible except with 0)
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            MAX_PENDING_PROPOSALS,
+            10_000, // 100% reduction required
+            BOND_WITHDRAWAL_DELAY,
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE
+        );
+
+        ProverAuction maxReductionAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        // Approve and deposit for both provers
+        vm.prank(prover1);
+        bondToken.approve(address(maxReductionAuction), type(uint256).max);
+        vm.prank(prover1);
+        maxReductionAuction.deposit(REQUIRED_BOND);
+
+        vm.prank(prover2);
+        bondToken.approve(address(maxReductionAuction), type(uint256).max);
+        vm.prank(prover2);
+        maxReductionAuction.deposit(REQUIRED_BOND);
+
+        // First prover bids
+        vm.prank(prover1);
+        maxReductionAuction.bid(1000 gwei);
+
+        // getMaxBidFee should be 0 (1000 * (10000 - 10000) / 10000 = 0)
+        assertEq(maxReductionAuction.getMaxBidFee(), 0);
+
+        // Second prover can only bid 0
+        vm.prank(prover2);
+        maxReductionAuction.bid(0);
+
+        (, uint48 fee) = maxReductionAuction.getCurrentProver();
+        assertEq(fee, 0);
+    }
+
+    /// @notice Issue 2.3 variant: Test minFeeReductionBps at 0 (no reduction required)
+    function test_bug_minFeeReductionBpsAtZero() public {
+        // Deploy with 0% reduction required
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            MAX_PENDING_PROPOSALS,
+            0, // 0% reduction required
+            BOND_WITHDRAWAL_DELAY,
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE
+        );
+
+        ProverAuction noReductionAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        // Approve and deposit
+        vm.prank(prover1);
+        bondToken.approve(address(noReductionAuction), type(uint256).max);
+        vm.prank(prover1);
+        noReductionAuction.deposit(REQUIRED_BOND);
+
+        vm.prank(prover2);
+        bondToken.approve(address(noReductionAuction), type(uint256).max);
+        vm.prank(prover2);
+        noReductionAuction.deposit(REQUIRED_BOND);
+
+        // First prover bids
+        vm.prank(prover1);
+        noReductionAuction.bid(1000 gwei);
+
+        // getMaxBidFee should be 1000 (no reduction)
+        assertEq(noReductionAuction.getMaxBidFee(), 1000 gwei);
+
+        // Second prover can bid the same fee
+        vm.prank(prover2);
+        noReductionAuction.bid(1000 gwei);
+
+        (address prover,) = noReductionAuction.getCurrentProver();
+        assertEq(prover, prover2, "prover2 should be able to outbid with same fee");
+    }
 }
