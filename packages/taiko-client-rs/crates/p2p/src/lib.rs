@@ -13,6 +13,8 @@ pub mod catchup;
 mod client;
 mod config;
 mod error;
+pub mod handlers;
+pub mod metrics;
 pub mod storage;
 mod types;
 pub mod validation;
@@ -21,6 +23,8 @@ pub use catchup::{CatchupAction, CatchupConfig, CatchupPipeline, CatchupState};
 pub use client::{P2pClient, P2pClientHandle};
 pub use config::P2pClientConfig;
 pub use error::{P2pClientError, P2pResult};
+pub use handlers::EventHandler;
+pub use metrics::P2pMetrics;
 pub use validation::{
     BlockParamsValidator, CommitmentValidator, DefaultBlockParamsValidator, ValidationOutcome,
     ValidationResult, ValidationStatus,
