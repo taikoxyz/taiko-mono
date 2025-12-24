@@ -126,6 +126,13 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_some());
+
+        let violation = result.unwrap();
+        assert_eq!(violation.criterion, "pending_tx_age");
+        assert!(violation.reason.contains("1 pending transactions"));
+        assert!(violation.reason.contains("older than 10s"));
+        assert!(violation.reason.contains("0xabc"));
+        assert!(violation.reason.contains("aged 30s"));
     }
 
     /// Ensures that the absence of stalled transactions yields no violation.
