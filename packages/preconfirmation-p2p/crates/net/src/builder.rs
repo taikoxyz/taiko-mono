@@ -1,3 +1,5 @@
+//! Constructs libp2p transport and combined behaviour for the preconfirmation P2P stack.
+
 use futures::future::Either;
 use libp2p::{
     Transport,
@@ -24,12 +26,12 @@ pub struct BuiltParts {
 
 /// Builds the transport (TCP and/or QUIC) and base behaviours for a network instance.
 ///
-/// This function sets up the libp2p transport and initializes the `NetBehaviour`
-/// with the specified network configuration.
+/// Derives protocol IDs and gossipsub topics from the configured `chain_id`, applies connection
+/// limits from `cfg`, and wires noise + yamux on top of TCP (and QUIC when enabled).
 ///
 /// # Arguments
 ///
-/// * `_cfg` - The `NetworkConfig` used to configure the network components.
+/// * `cfg` - Network configuration controlling transports, limits, and timeouts.
 ///
 /// # Returns
 ///

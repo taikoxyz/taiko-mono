@@ -11,9 +11,7 @@ use alloy_provider::{
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
-use bindings::{
-    anchor::Anchor::AnchorInstance, codec::Codec::CodecInstance, inbox::Inbox::InboxInstance,
-};
+use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
@@ -31,34 +29,46 @@ pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWall
 /// Instances of Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct ShastaProtocolInstance<P: Provider + Clone> {
+    /// Inbox contract instance on L1.
     pub inbox: InboxInstance<P>,
-    pub codec: CodecInstance<P>,
+    /// Anchor contract instance on L2 (auth provider).
     pub anchor: AnchorInstance<RootProvider>,
 }
 
 /// Snapshot of anchor contract state at a given L2 block.
 #[derive(Clone, Debug)]
 pub struct AnchorState {
+    /// Prover designated by the anchor contract for the proposal.
     pub designated_prover: Address,
+    /// Anchor block number advertised by the anchor contract.
     pub anchor_block_number: u64,
 }
 
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
+    /// L1 provider (optionally with wallet) used for contract calls.
     pub l1_provider: P,
+    /// L2 public provider for read-only access.
     pub l2_provider: RootProvider,
+    /// L2 authenticated provider for engine/anchor interactions.
     pub l2_auth_provider: RootProvider,
+    /// Shasta protocol contract bundle (Inbox/Anchor).
     pub shasta: ShastaProtocolInstance<P>,
 }
 
 /// Configuration for the `Client`.
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
+    /// Source describing how to build the L1 provider (WS/HTTP/etc).
     pub l1_provider_source: SubscriptionSource,
+    /// HTTP endpoint for the L2 public provider.
     pub l2_provider_url: Url,
+    /// HTTP endpoint for the L2 authenticated provider.
     pub l2_auth_provider_url: Url,
+    /// Path to the engine JWT secret.
     pub jwt_secret: PathBuf,
+    /// L1 address of the Inbox contract.
     pub inbox_address: Address,
 }
 
@@ -91,7 +101,6 @@ impl<P: Provider + Clone> Client<P> {
             build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
-        let codec = CodecInstance::new(inbox.getConfig().call().await?.codec, l1_provider.clone());
         let anchor = AnchorInstance::new(
             get_treasury_address(l2_provider.get_chain_id().await?),
             l2_auth_provider.clone(),
@@ -99,12 +108,11 @@ impl<P: Provider + Clone> Client<P> {
 
         info!(
             inbox_address = ?config.inbox_address,
-            codec_address = ?codec.address(),
             anchor_address = ?anchor.address(),
             "Shasta protocol contract addresses"
         );
 
-        let shasta = ShastaProtocolInstance { inbox, codec, anchor };
+        let shasta = ShastaProtocolInstance { inbox, anchor };
 
         Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
     }

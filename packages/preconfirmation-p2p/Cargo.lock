@@ -1342,6 +1342,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-skiplist"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df29de440c58ca2cc6e587ec3d22347551a32435fbde9d2bff64e78a9ffa151b"
+dependencies = [
+ "crossbeam-epoch",
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1481,6 +1491,20 @@ dependencies = [
  "darling_core 0.21.3",
  "quote",
  "syn 2.0.111",
+]
+
+[[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -4303,6 +4327,9 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
+ "clap",
+ "crossbeam-skiplist",
+ "dashmap",
  "discv5 0.10.2",
  "futures",
  "ipnet",
@@ -4317,7 +4344,6 @@ dependencies = [
  "preconfirmation-types",
  "rand 0.8.5",
  "reth-discv5",
- "reth-network-peers",
  "reth-network-types",
  "reth-tokio-util",
  "secp256k1 0.30.0",
@@ -4329,24 +4355,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unsigned-varint 0.8.0",
-]
-
-[[package]]
-name = "preconfirmation-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "futures",
- "libp2p",
- "preconfirmation-net",
- "preconfirmation-types",
- "secp256k1 0.30.0",
- "serde",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

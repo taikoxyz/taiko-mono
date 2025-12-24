@@ -269,15 +269,16 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
 func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
-	if !buffer.IsAggregating() &&
-		(uint64(buffer.Len()) >= buffer.MaxLength ||
-			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		buffer.MarkAggregating()
-		s.batchAggregationNotify <- proofType
-
-		return true
+	// Check conditions first (without locking)
+	if uint64(buffer.Len()) < buffer.MaxLength &&
+		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
+		return false
 	}
 
+	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
+		s.batchAggregationNotify <- proofType
+		return true
+	}
 	return false
 }
 
@@ -408,6 +409,14 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Aggregate proof error", "error", err)
+		batchIDs := make([]uint64, 0, len(buffer))
+		for _, proof := range buffer {
+			if proof.BatchID == nil {
+				continue
+			}
+			batchIDs = append(batchIDs, proof.BatchID.Uint64())
+		}
+		proofBuffer.ClearItems(batchIDs...)
 		return err
 	}
 	return nil

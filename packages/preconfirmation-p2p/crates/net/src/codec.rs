@@ -1,9 +1,11 @@
+//! SSZ codecs and protocol identifiers for libp2p request/response handlers.
+
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p_request_response::Codec;
 use preconfirmation_types::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES};
 use ssz_rs::prelude::*;
-use std::io;
+use std::{io, marker::PhantomData};
 use unsigned_varint as uvar;
 
 /// SSZ codec that can encode and decode distinct request/response types for a protocol with
@@ -13,28 +15,35 @@ use unsigned_varint as uvar;
 /// unbounded frame allocations. The bounds are derived from protocol-level caps in
 /// `preconfirmation_types::constants` and tuned per message type.
 pub struct SszCodec<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> {
-    _marker: std::marker::PhantomData<(Req, Resp)>,
+    /// Phantom data tracking request/response types.
+    _marker: PhantomData<(Req, Resp)>,
 }
 
 impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Clone
     for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
 {
+    /// Returns a clone of the codec marker.
     fn clone(&self) -> Self {
-        Self { _marker: std::marker::PhantomData }
+        Self { _marker: PhantomData }
     }
 }
 
 impl<Req, Resp, const MAX_REQ: usize, const MAX_RESP: usize> Default
     for SszCodec<Req, Resp, MAX_REQ, MAX_RESP>
 {
+    /// Creates a default codec marker instance.
     fn default() -> Self {
-        Self { _marker: std::marker::PhantomData }
+        Self { _marker: PhantomData }
     }
 }
 
 /// Type alias for the `SszCodec` handling commitments requests and responses.
+/// Maximum encoded size for commitments request/response frames.
+/// Maximum encoded size for commitments request frames.
 const COMMIT_REQ_MAX_BYTES: usize = 512; // block number + small fields
+/// Maximum encoded size for commitments response frames.
 const COMMIT_RESP_MAX_BYTES: usize = MAX_COMMITMENTS_PER_RESPONSE * 4096; // ~1 MiB upper bound
+/// Type alias for the `SszCodec` handling commitments requests and responses.
 pub type CommitmentsCodec = SszCodec<
     preconfirmation_types::GetCommitmentsByNumberRequest,
     preconfirmation_types::GetCommitmentsByNumberResponse,
@@ -56,9 +65,13 @@ pub type HeadCodec = SszCodec<
     HEAD_RESP_MAX_BYTES,
 >;
 
+/// Maximum encoded size for raw-txlist request frames.
 const RAW_TXLIST_REQ_MAX_BYTES: usize = 256; // hash + small fields
+/// Maximum encoded size for raw-txlist response frames.
 const RAW_TXLIST_RESP_MAX_BYTES: usize = MAX_TXLIST_BYTES + 4096; // payload + slack
+/// Maximum encoded size for head request frames.
 const HEAD_REQ_MAX_BYTES: usize = 128;
+/// Maximum encoded size for head response frames.
 const HEAD_RESP_MAX_BYTES: usize = 64 * 1024;
 
 #[derive(Clone)]
@@ -76,9 +89,13 @@ pub struct Protocols {
 /// A wrapper for a protocol ID string.
 ///
 /// Implements `AsRef<str>` to allow easy conversion to `&str`.
-pub struct SszProtocol(pub String);
+pub struct SszProtocol(
+    /// Protocol identifier string.
+    pub String,
+);
 
 impl AsRef<str> for SszProtocol {
+    /// Return the protocol identifier as a string slice.
     fn as_ref(&self) -> &str {
         &self.0
     }
@@ -95,6 +112,7 @@ where
     type Request = Req;
     type Response = Resp;
 
+    /// Read and decode a request frame.
     async fn read_request<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Request>
     where
         R: AsyncRead + Unpin + Send,
@@ -102,6 +120,7 @@ where
         read_ssz(io, MAX_REQ).await
     }
 
+    /// Read and decode a response frame.
     async fn read_response<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Response>
     where
         R: AsyncRead + Unpin + Send,
@@ -109,6 +128,7 @@ where
         read_ssz(io, MAX_RESP).await
     }
 
+    /// Encode and write a request frame.
     async fn write_request<W>(
         &mut self,
         _: &SszProtocol,
@@ -121,6 +141,7 @@ where
         write_ssz(io, req, MAX_REQ).await
     }
 
+    /// Encode and write a response frame.
     async fn write_response<W>(
         &mut self,
         _: &SszProtocol,
@@ -194,6 +215,7 @@ mod tests {
         GetRawTxListResponse, Uint256,
     };
 
+    /// Commitments codec roundtrips requests and responses within bounds.
     #[tokio::test]
     async fn commitments_codec_roundtrip() {
         let mut codec = CommitmentsCodec::default();
@@ -215,6 +237,7 @@ mod tests {
         assert_eq!(resp, decoded);
     }
 
+    /// Responses exceeding the configured cap are rejected on decode.
     #[tokio::test]
     async fn oversized_response_is_rejected_on_read() {
         let mut codec = RawTxListCodec::default();
@@ -233,6 +256,7 @@ mod tests {
         assert_eq!(err.kind(), io::ErrorKind::InvalidData);
     }
 
+    /// Encoding fails when a frame would exceed its max length.
     #[tokio::test]
     async fn write_errors_when_frame_exceeds_cap() {
         // Use a deliberately tiny cap to force an error on write.
@@ -248,7 +272,6 @@ mod tests {
         let txlist = preconfirmation_types::TxListBytes::try_from(vec![0u8; 32]).unwrap();
         let resp = GetRawTxListResponse {
             raw_tx_list_hash: Bytes32::try_from(vec![1u8; 32]).unwrap(),
-            anchor_block_number: Uint256::from(1u64),
             txlist,
         };
 

@@ -7,22 +7,20 @@ license = "MIT"
 authors = ["Taiko Labs"]
 
 [features]
-default = ["reth-discovery"]
-# Enable discovery via reth's discv5 wrapper; can be disabled for minimal builds or alternative
-# discovery providers.
-reth-discovery = ["dep:reth-discv5"]
-# Optional: run the real TCP transport integration test.
-real-transport-test = []
+default = []
 # Optional: enable QUIC transport support.
 quic-transport = ["libp2p/quic"]
 
 [dependencies]
+alloy-primitives.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
+clap = { version = "4", features = ["derive"] }
+crossbeam-skiplist.workspace = true
+dashmap.workspace = true
 discv5.workspace = true
 futures.workspace = true
 ipnet.workspace = true
-alloy-primitives.workspace = true
 libp2p = { workspace = true, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "noise", "yamux", "macros", "tokio"] }
 libp2p-allow-block-list.workspace = true
 libp2p-connection-limits.workspace = true
@@ -31,8 +29,7 @@ metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 preconfirmation-types = { path = "../types" }
 rand.workspace = true
-reth-discv5 = { workspace = true, optional = true }
-reth-network-peers = { workspace = true }
+reth-discv5.workspace = true
 reth-network-types.workspace = true
 reth-tokio-util = { workspace = true, features = ["time"] }
 secp256k1.workspace = true

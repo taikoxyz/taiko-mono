@@ -12,10 +12,10 @@ use alloy::{
     rpc::types::TransactionRequest,
 };
 use alloy_network::TransactionBuilder4844;
-use bindings::codec::{IInbox::ProposeInput, LibBlobs::BlobReference};
+use bindings::inbox::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
-    constants::{MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET},
+    constants::MAX_BLOCK_GAS_LIMIT,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
@@ -44,16 +44,8 @@ impl ShastaProposalTransactionBuilder {
     pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
         let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
 
-        // Ensure the current L1 head is sufficiently advanced.
         let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
-        if current_l1_head <= MIN_ANCHOR_OFFSET {
-            return Err(ProposerError::L1HeadTooLow {
-                current: current_l1_head,
-                minimum: MIN_ANCHOR_OFFSET,
-            });
-        }
-
-        let anchor_block_number = current_l1_head - (MIN_ANCHOR_OFFSET + 1);
+        let anchor_block_number = current_l1_head;
         let timestamp =
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
 
@@ -108,7 +100,7 @@ impl ShastaProposalTransactionBuilder {
             .inbox
             .propose(
                 Bytes::new(),
-                self.rpc_provider.shasta.codec.encodeProposeInput(input).call().await?,
+                self.rpc_provider.shasta.inbox.encodeProposeInput(input).call().await?,
             )
             .into_transaction_request()
             .with_blob_sidecar(sidecar);

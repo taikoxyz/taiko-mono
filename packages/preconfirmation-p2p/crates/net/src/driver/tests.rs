@@ -1,8 +1,14 @@
 #![allow(clippy::too_many_arguments)]
 
 use super::*;
-use crate::{behaviour::NetBehaviour, builder::BuiltParts};
-use futures::task::noop_waker_ref;
+use crate::{
+    P2pConfig,
+    behaviour::NetBehaviour,
+    builder::BuiltParts,
+    reputation::PeerReputationStore,
+    validation::{LookaheadResolver, LookaheadValidationAdapter},
+};
+use futures::task::{ArcWake, noop_waker_ref, waker_ref};
 use libp2p::{
     Multiaddr, Transport,
     core::{transport::memory::MemoryTransport, upgrade},
@@ -10,11 +16,49 @@ use libp2p::{
     swarm::Swarm,
     yamux,
 };
-use preconfirmation_types::{PreconfCommitment, Preconfirmation, SignedCommitment, Uint256};
+use preconfirmation_types::{
+    PreconfCommitment, Preconfirmation, SignedCommitment, Uint256, public_key_to_address,
+};
 use ssz_rs::Vector;
-use std::{str::FromStr, task::Context};
-use tokio::time::Duration;
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    task::{Context, Poll},
+};
+use tokio::{sync::oneshot, time::Duration};
 
+/// Deterministic resolver that always returns the configured signer and echoes the slot end.
+struct StaticLookaheadResolver {
+    /// Signer address to return for all timestamps.
+    signer: alloy_primitives::Address,
+}
+
+impl LookaheadResolver for StaticLookaheadResolver {
+    fn signer_for_timestamp(
+        &self,
+        _submission_window_end: &preconfirmation_types::Uint256,
+    ) -> Result<alloy_primitives::Address, String> {
+        Ok(self.signer)
+    }
+
+    fn expected_slot_end(
+        &self,
+        submission_window_end: &preconfirmation_types::Uint256,
+    ) -> Result<preconfirmation_types::Uint256, String> {
+        Ok(submission_window_end.clone())
+    }
+}
+
+/// Derive an Ethereum address from a secp256k1 secret key.
+fn signer_for_sk(sk: &secp256k1::SecretKey) -> alloy_primitives::Address {
+    public_key_to_address(&secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), sk))
+}
+
+/// Listen on a loopback memory transport and return the assigned address.
 async fn listen_on(driver: &mut NetworkDriver) -> Multiaddr {
     let addr: Multiaddr = Multiaddr::from_str("/ip4/127.0.0.1/tcp/0").unwrap();
     driver.swarm.listen_on(addr).unwrap();
@@ -28,18 +72,52 @@ async fn listen_on(driver: &mut NetworkDriver) -> Multiaddr {
     driver.swarm.listeners().next().cloned().expect("listener addr")
 }
 
+/// Poll the driver once synchronously.
 fn pump_sync(driver: &mut NetworkDriver) {
     let w = noop_waker_ref();
     let mut cx = Context::from_waker(w);
     let _ = driver.poll(&mut cx);
 }
 
+/// Poll the driver once asynchronously.
 async fn pump_async(driver: &mut NetworkDriver) {
     futures::future::poll_fn(|cx| {
         let _ = driver.poll(cx);
-        std::task::Poll::Ready(())
+        Poll::Ready(())
     })
     .await;
+}
+
+#[test]
+fn driver_poll_registers_command_waker() {
+    struct WakeCounter {
+        wakes: AtomicUsize,
+    }
+
+    impl ArcWake for WakeCounter {
+        fn wake_by_ref(arc_self: &Arc<Self>) {
+            arc_self.wakes.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let parts = build_memory_parts(cfg.chain_id, &cfg);
+    let (mut driver, handle) = driver_from_parts(parts, &cfg, lookahead);
+
+    let waker_state = Arc::new(WakeCounter { wakes: AtomicUsize::new(0) });
+    let waker = waker_ref(&waker_state);
+    let mut cx = Context::from_waker(&waker);
+
+    assert!(matches!(driver.poll(&mut cx), Poll::Pending));
+    assert_eq!(waker_state.wakes.load(Ordering::SeqCst), 0);
+
+    handle
+        .commands
+        .try_send(NetworkCommand::UpdateHead { head: PreconfHead::default() })
+        .expect("send update head command");
+
+    assert!(waker_state.wakes.load(Ordering::SeqCst) > 0);
 }
 
 /// Build transport/behaviour parts using the in-memory transport for deterministic tests.
@@ -74,7 +152,11 @@ fn build_memory_parts(chain_id: u64, cfg: &NetworkConfig) -> BuiltParts {
 }
 
 /// Build a driver from pre-built parts (used for memory transport tests).
-fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, NetworkHandle) {
+fn driver_from_parts(
+    parts: BuiltParts,
+    cfg: &NetworkConfig,
+    lookahead: Arc<dyn LookaheadResolver>,
+) -> (NetworkDriver, NetworkHandle) {
     let peer_id = parts.keypair.public().to_peer_id();
     let config = libp2p::swarm::Config::with_tokio_executor();
     let swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
@@ -91,38 +173,44 @@ fn driver_from_parts(parts: BuiltParts, cfg: &NetworkConfig) -> (NetworkDriver, 
             events_tx: events_tx.clone(),
             commands_rx: cmd_rx,
             topics: parts.topics,
-            reputation: super::build_reputation_backend(ReputationConfig {
+            reputation: PeerReputationStore::new(ReputationConfig {
                 greylist_threshold: cfg.reputation_greylist,
                 ban_threshold: cfg.reputation_ban,
                 halflife: cfg.reputation_halflife,
-                weights: reth_network_types::peers::reputation::ReputationChangeWeights::default(),
             }),
             request_limiter: RequestRateLimiter::new(
                 cfg.request_window,
                 cfg.max_requests_per_window,
             ),
-            commitments_out: VecDeque::new(),
-            raw_txlists_out: VecDeque::new(),
-            head_out: VecDeque::new(),
-            validator: Box::new(LocalValidationAdapter::new(None)),
+            pending_requests: HashMap::new(),
+            validator: Box::new(LookaheadValidationAdapter::new(None, lookahead)),
             discovery_rx: None,
-            _discovery_task: None,
             connected_peers: 0,
             head: PreconfHead::default(),
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
-            commitments_req_ids: std::collections::HashMap::new(),
-            raw_txlists_req_ids: std::collections::HashMap::new(),
-            head_req_ids: std::collections::HashMap::new(),
         },
         NetworkHandle { events: events_rx, commands: cmd_tx },
     )
 }
 
+#[test]
+fn driver_exposes_peer_reputation_store() {
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let parts = build_memory_parts(cfg.chain_id, &cfg);
+    let (driver, _handle) = driver_from_parts(parts, &cfg, lookahead);
+
+    let store: &PeerReputationStore = &driver.reputation;
+    let peer = *driver.swarm.local_peer_id();
+    assert!(!store.is_banned(&peer));
+}
+
+/// Create a signed commitment for testing using the provided secret key.
 fn sample_signed_commitment(sk: &secp256k1::SecretKey) -> SignedCommitment {
     let commitment = PreconfCommitment {
         preconf: Preconfirmation {
-            eop: false,
+            eop: true,
             block_number: Uint256::from(1u64),
             timestamp: Uint256::from(1u64),
             gas_limit: Uint256::from(1u64),
@@ -140,6 +228,7 @@ fn sample_signed_commitment(sk: &secp256k1::SecretKey) -> SignedCommitment {
     SignedCommitment { commitment, signature: sig }
 }
 
+/// End-to-end gossip and req/resp roundtrip between two in-memory peers.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn gossipsub_and_reqresp_roundtrip() {
     // Keep a hard cap so dev runs don't stall; still exercises the same path.
@@ -147,10 +236,21 @@ async fn gossipsub_and_reqresp_roundtrip() {
     let mut success = false;
     for _attempt in 0..2 {
         let mut cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
-        cfg.listen_addr.set_port(0);
-        cfg.discv5_listen.set_port(0);
-        let (driver1, mut handle1) = NetworkDriver::new(cfg.clone()).unwrap();
-        let (driver2, mut handle2) = NetworkDriver::new(cfg).unwrap();
+        cfg.listen_addr = "127.0.0.1:0".parse().unwrap();
+        cfg.discv5_listen = "127.0.0.1:0".parse().unwrap();
+        let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
+        let lookahead = Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
+        let validator1 = Box::new(LookaheadValidationAdapter::new(None, lookahead.clone()));
+        let Ok((driver1, mut handle1)) = NetworkDriver::new_with_validator(cfg.clone(), validator1)
+        else {
+            eprintln!("skipping: environment may block local TCP (driver init failed)");
+            return;
+        };
+        let validator2 = Box::new(LookaheadValidationAdapter::new(None, lookahead));
+        let Ok((driver2, mut handle2)) = NetworkDriver::new_with_validator(cfg, validator2) else {
+            eprintln!("skipping: environment may block local TCP (driver init failed)");
+            return;
+        };
 
         let mut driver1 = driver1;
         let mut driver2 = driver2;
@@ -200,7 +300,6 @@ async fn gossipsub_and_reqresp_roundtrip() {
             tokio::time::sleep(Duration::from_millis(60)).await;
         }
 
-        let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
         let commit = sample_signed_commitment(&sk1);
         handle1.commands.send(NetworkCommand::PublishCommitment(commit.clone())).await.unwrap();
 
@@ -226,7 +325,7 @@ async fn gossipsub_and_reqresp_roundtrip() {
         handle1
             .commands
             .send(NetworkCommand::RequestCommitments {
-                request_id: None,
+                respond_to: None,
                 start_block: Uint256::from(0u64),
                 max_count: 1,
                 peer: None,
@@ -260,13 +359,29 @@ async fn gossipsub_and_reqresp_roundtrip() {
     }
 }
 
+/// In-memory transport covers gossip, req/resp, and ban propagation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn memory_transport_gossip_reqresp_and_ban() {
     let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
     let parts1 = build_memory_parts(cfg.chain_id, &cfg);
     let parts2 = build_memory_parts(cfg.chain_id, &cfg);
-    let (mut driver1, handle1) = driver_from_parts(parts1, &cfg);
-    let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg);
+    let sk = secp256k1::SecretKey::from_slice(&[9u8; 32]).unwrap();
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk) });
+    let (mut driver1, handle1) = driver_from_parts(parts1, &cfg, lookahead.clone());
+    let (mut driver2, mut handle2) = driver_from_parts(parts2, &cfg, lookahead);
+
+    let (tx, rx) = oneshot::channel();
+    handle1
+        .commands
+        .send(NetworkCommand::RequestHead { respond_to: Some(tx), peer: None })
+        .await
+        .unwrap();
+    pump_async(&mut driver1).await;
+    let result = tokio::time::timeout(Duration::from_millis(50), rx).await;
+    let Ok(Ok(Err(err))) = result else {
+        panic!("expected req/resp error when no peers available");
+    };
+    assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
 
     let addr1: Multiaddr = "/memory/1001".parse().unwrap();
     let mut addr1_full = addr1.clone();
@@ -283,16 +398,14 @@ async fn memory_transport_gossip_reqresp_and_ban() {
 
     handle1
         .commands
-        .send(NetworkCommand::PublishCommitment(sample_signed_commitment(
-            &secp256k1::SecretKey::new(&mut rand::thread_rng()),
-        )))
+        .send(NetworkCommand::PublishCommitment(sample_signed_commitment(&sk)))
         .await
         .unwrap();
 
     handle2
         .commands
         .send(NetworkCommand::RequestCommitments {
-            request_id: None,
+            respond_to: None,
             start_block: Uint256::from(0u64),
             max_count: 1,
             peer: None,
@@ -323,4 +436,43 @@ async fn memory_transport_gossip_reqresp_and_ban() {
 
     assert!(received);
     assert!(!banned);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reqresp_errors_when_no_peer_available() {
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let validator = Box::new(LookaheadValidationAdapter::new(None, lookahead));
+    let Ok((mut driver, handle)) = NetworkDriver::new_with_validator(cfg, validator) else {
+        panic!("driver init failed");
+    };
+
+    let (tx, rx) = oneshot::channel();
+    handle
+        .commands
+        .send(NetworkCommand::RequestHead { respond_to: Some(tx), peer: None })
+        .await
+        .unwrap();
+    pump_async(&mut driver).await;
+
+    let result = tokio::time::timeout(Duration::from_millis(50), rx).await;
+    let Ok(Ok(Err(err))) = result else {
+        panic!("expected req/resp error when no peers available");
+    };
+    assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
+}
+
+#[test]
+fn p2p_config_enable_quic_wiring() {
+    let p2p = P2pConfig { enable_quic: false, enable_tcp: true, ..Default::default() };
+    let internal: NetworkConfig = p2p.into();
+    assert!(!internal.enable_quic);
+    assert!(internal.enable_tcp);
+}
+
+#[test]
+fn p2p_config_transport_defaults_match_internal() {
+    let p2p = P2pConfig::default();
+    assert!(p2p.enable_quic);
+    assert!(p2p.enable_tcp);
 }

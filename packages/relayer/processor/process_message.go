@@ -33,6 +33,11 @@ var (
 	errAlreadyProcessing = errors.New("already processing txHash")
 )
 
+const (
+	gasLimitPaddingContractPercent = 10
+	gasLimitPaddingEOAPercent      = 5
+)
+
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
 // get its on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
@@ -161,19 +166,17 @@ func (p *Processor) processMessage(
 
 				return true, msgBody.TimesRetried, nil
 			}
+		} else {
+			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("approaching shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
 
-			return false, msgBody.TimesRetried, nil
-		}
-
-		diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
-		if diff <= p.forkWindow {
-			slog.Info("approaching shasta fork window, pausing processing",
-				"blockTimestamp", blockTs,
-				"shastaForkTimestamp", p.shastaForkTimestamp,
-				"windowSeconds", p.forkWindow.Seconds(),
-			)
-
-			return true, msgBody.TimesRetried, nil
+				return true, msgBody.TimesRetried, nil
+			}
 		}
 	}
 
@@ -272,18 +275,16 @@ func (p *Processor) processMessage(
 	return false, msgBody.TimesRetried, nil
 }
 
-// generateEncodedSignalProof takes a MessageSent event and calls a
-// proof generation service to generate a proof for the source call
-// as well as any additional hops required.
-func (p *Processor) generateEncodedSignalProof(ctx context.Context,
-	event *bridge.BridgeMessageSent) ([]byte, error) {
-	var encodedSignalProof []byte
+func (p *Processor) generateEncodedSignalProofForSignal(
+	ctx context.Context,
+	srcChainID uint64,
+	app common.Address,
+	signal [32]byte,
+	blockNumber uint64,
+) ([]byte, error) {
+	blockNum := blockNumber
 
-	var err error
-
-	var blockNum = event.Raw.BlockNumber
-
-	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, event.Raw.BlockNumber)
+	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +317,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 		blockNum = event.SyncedInBlockID
 	} else {
-		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
+		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), blockNumber); err != nil {
 			return nil, err
 		}
 	}
@@ -325,12 +326,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	key, err := signalService.GetSignalSlot(&bind.CallOpts{
 		Context: ctx,
-	},
-		event.Message.SrcChainId,
-		event.Raw.Address,
-		event.MsgHash,
-	)
-
+	}, srcChainID, app, signal)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +342,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 		if latestBlockID == 0 {
 			latestBlockID = blockNum
-			slog.Warn("no synced header found; using message block number",
+			slog.Warn("no synced header found; using signal block number",
 				"fallbackBlockNum", latestBlockID,
 				"srcChainId", p.srcChainId.Uint64(),
 				"destChainId", p.destChainId.Uint64(),
@@ -416,11 +412,21 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		})
 	}
 
-	encodedSignalProof, err = p.prover.EncodedSignalProofWithHops(
-		ctx,
-		hops,
-	)
+	return p.prover.EncodedSignalProofWithHops(ctx, hops)
+}
 
+// generateEncodedSignalProof takes a MessageSent event and calls a
+// proof generation service to generate a proof for the source call
+// as well as any additional hops required.
+func (p *Processor) generateEncodedSignalProof(ctx context.Context,
+	event *bridge.BridgeMessageSent) ([]byte, error) {
+	encodedSignalProof, err := p.generateEncodedSignalProofForSignal(
+		ctx,
+		event.Message.SrcChainId,
+		event.Raw.Address,
+		event.MsgHash,
+		event.Raw.BlockNumber,
+	)
 	if err != nil {
 		slog.Error("error encoding hop proof",
 			"srcChainID", event.Message.SrcChainId,
@@ -431,7 +437,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"srcOwner", event.Message.SrcOwner.Hex(),
 			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
-			"hopsLength", len(hops),
+			"hopsLength", len(p.hops),
 		)
 
 		return nil, err
@@ -510,7 +516,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	gasLimit := uint64(float64(event.Message.GasLimit))
+	gasLimit := uint64(event.Message.GasLimit)
 
 	// if destination address is a contract, add padding. check message.to
 	// to see if it is a contract address.
@@ -520,9 +526,9 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	if len(code) != 0 {
-		gasLimit = uint64(float64(gasLimit) * 1.1)
+		gasLimit += (gasLimit * gasLimitPaddingContractPercent) / 100
 	} else {
-		gasLimit = uint64(float64(gasLimit) * 1.05)
+		gasLimit += (gasLimit * gasLimitPaddingEOAPercent) / 100
 	}
 
 	var estimatedMaxCost uint64

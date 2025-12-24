@@ -35,7 +35,7 @@ pub enum ValidationError {
     #[error("txlist hash mismatch: expected {expected}, got {actual}")]
     TxListHashMismatch { expected: String, actual: String },
     /// Indicates an invalid combination of EOP flag and raw tx list hash.
-    #[error("eop flag requires raw_tx_list_hash to be zero or non-zero consistently")]
+    #[error("non-eop preconfirmation requires non-zero raw_tx_list_hash")]
     EopTxListMismatch,
     /// Indicates the supplied parent hash does not match the computed preconfirmation hash.
     #[error("parent_preconfirmation_hash mismatch")]
@@ -101,6 +101,7 @@ pub fn validate_raw_txlist_response(msg: &GetRawTxListResponse) -> Result<(), Va
     validate_raw_txlist_parts(&msg.raw_tx_list_hash, &msg.txlist)
 }
 
+/// Shared helper to enforce txlist size cap and hash match for gossip and req/resp bodies.
 fn validate_raw_txlist_parts(hash: &Bytes32, txlist: &TxListBytes) -> Result<(), ValidationError> {
     validate_txlist(txlist)?;
     let actual = keccak256_bytes(txlist.as_ref());
@@ -145,10 +146,10 @@ pub fn validate_commitments_response(
 }
 
 /// Validate basic preconfirmation invariants that do not require chain context.
-/// - EOP must be set iff the raw tx list hash is all zeros (spec §3.1 notes).
+/// - Non-EOP preconfirmations must have a non-zero raw tx list hash (spec §3.1 notes).
 pub fn validate_preconfirmation_basic(preconf: &Preconfirmation) -> Result<(), ValidationError> {
     let is_zero_hash = preconf.raw_tx_list_hash.iter().all(|b| *b == 0);
-    if preconf.eop != is_zero_hash {
+    if !preconf.eop && is_zero_hash {
         return Err(ValidationError::EopTxListMismatch);
     }
     Ok(())
@@ -194,46 +195,50 @@ mod tests {
     use super::*;
     use crate::Uint256;
 
+    /// Txlist exactly at the configured limit is accepted.
     #[test]
     fn txlist_within_limit_ok() {
         let txlist = TxListBytes::try_from(vec![0u8; MAX_TXLIST_BYTES]).unwrap();
         assert!(validate_txlist(&txlist).is_ok());
     }
 
+    /// Oversized txlist is rejected.
     #[test]
     fn txlist_over_limit_errs() {
         let txlist = TxListBytes::try_from(vec![0u8; MAX_TXLIST_BYTES + 1]);
         assert!(txlist.is_err());
     }
 
+    /// Valid raw-txlist response passes size and hash checks.
     #[test]
     fn raw_txlist_response_cap() {
         let txlist = TxListBytes::try_from(vec![0u8; MAX_TXLIST_BYTES]).unwrap();
         let hash = crate::crypto::keccak256_bytes(txlist.as_ref());
         let resp = GetRawTxListResponse {
             raw_tx_list_hash: crate::Bytes32::try_from(hash.as_slice().to_vec()).unwrap(),
-            anchor_block_number: crate::Uint256::from(0u64),
             txlist,
         };
         assert!(validate_raw_txlist_response(&resp).is_ok());
     }
 
+    /// Empty txlist is treated as not-found and accepted.
     #[test]
     fn raw_txlist_empty_allows_not_found() {
         let resp = GetRawTxListResponse {
             raw_tx_list_hash: crate::Bytes32::try_from(vec![0u8; 32]).unwrap(),
-            anchor_block_number: crate::Uint256::from(0u64),
             txlist: TxListBytes::default(),
         };
         assert!(validate_raw_txlist_response(&resp).is_ok());
     }
 
+    /// Commitments response exceeding the per-message cap is rejected.
     #[test]
     fn commitments_response_cap() {
         let resp = GetCommitmentsByNumberResponse { commitments: Default::default() };
         assert!(validate_commitments_response(&resp).is_ok());
     }
 
+    /// Commitments request exceeding caller cap is rejected.
     #[test]
     fn commitments_request_cap() {
         let req = GetCommitmentsByNumberRequest {
@@ -246,6 +251,7 @@ mod tests {
         ));
     }
 
+    /// Head request/response validators are currently no-ops.
     #[test]
     fn head_validation_noop() {
         let req = GetHeadRequest::default();

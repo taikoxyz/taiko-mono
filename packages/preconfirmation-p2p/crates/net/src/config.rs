@@ -1,9 +1,47 @@
+//! Configuration types for the preconfirmation P2P network layer.
+//!
+//! This module provides:
+//! - [`P2pConfig`]: A minimal, user-facing configuration for the simplified API.
+//! - [`NetworkConfig`]: The full internal configuration used by the network driver.
+//! - [`RateLimitConfig`]: Settings for request rate limiting.
+
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
 };
 
-use alloy_primitives::Address;
+use crate::reputation::ReputationConfig;
+
+/// Configuration for the P2P.
+///
+/// This struct provides a streamlined set of options for users who do not need
+/// the full flexibility of [`NetworkConfig`]. It can be converted into a
+/// `NetworkConfig` via the `From` trait implementation.
+#[derive(Debug, Clone)]
+pub struct P2pConfig {
+    /// Chain ID used to derive gossip topics and protocol IDs.
+    pub chain_id: u64,
+    /// Libp2p listen address for TCP/QUIC transports.
+    pub listen_addr: SocketAddr,
+    /// Enable discv5 peer discovery. If `false`, only manual bootnodes are used.
+    pub enable_discovery: bool,
+    /// UDP listen address for discv5 discovery.
+    pub discovery_listen: SocketAddr,
+    /// Bootnodes as ENR or multiaddr strings for initial peer discovery.
+    pub bootnodes: Vec<String>,
+    /// Enable QUIC transport (requires `quic-transport` feature).
+    pub enable_quic: bool,
+    /// Enable TCP transport.
+    pub enable_tcp: bool,
+    /// Timeout for request/response operations.
+    pub request_timeout: Duration,
+    /// Maximum concurrent inbound+outbound req/resp streams.
+    pub max_reqresp_concurrent_streams: usize,
+    /// Rate limiting configuration for inbound requests.
+    pub rate_limit: RateLimitConfig,
+    /// Peer reputation configuration for scoring and banning.
+    pub reputation: ReputationConfig,
+}
 
 /// Network configuration (libp2p + discv5) with conservative defaults used by the preconfirmation
 /// P2P stack.
@@ -11,20 +49,17 @@ use alloy_primitives::Address;
 /// This struct consolidates all network-related settings, from listen addresses
 /// and bootnodes to various protocol tunings and reputation parameters.
 #[derive(Debug, Clone)]
-pub struct NetworkConfig {
+pub(crate) struct NetworkConfig {
     /// Chain ID used to derive gossip topics and protocol IDs.
     pub chain_id: u64,
     /// Libp2p listen address (TCP/QUIC as enabled).
     pub listen_addr: SocketAddr,
     /// discv5 listen address (UDP).
     pub discv5_listen: SocketAddr,
-    /// Discovery tuning preset (dev/test/prod) for discv5 intervals.
-    pub discovery_preset: DiscoveryPreset,
-    /// Connection tuning preset (dev/test/prod) for connection caps and dial concurrency.
-    pub connection_preset: ConnectionPreset,
     /// Bootnodes as ENR or multiaddr strings. These are used for initial peer discovery.
     pub bootnodes: Vec<String>,
-    /// Enable QUIC transport. If true, the network will attempt to use QUIC.
+    /// Enable QUIC transport. If true, the network will attempt to use QUIC when
+    /// the `quic-transport` feature is enabled.
     pub enable_quic: bool,
     /// Enable TCP transport. If true, the network will attempt to use TCP.
     pub enable_tcp: bool,
@@ -49,8 +84,6 @@ pub struct NetworkConfig {
     pub max_requests_per_window: u32,
     /// Maximum concurrent inbound+outbound req/resp streams (libp2p request-response config).
     pub max_reqresp_concurrent_streams: usize,
-    /// Expected slasher address (spec §4.2); if set, gossip validation enforces it.
-    pub slasher_address: Option<Address>,
     /// Maximum pending inbound connections (None = unlimited).
     pub max_pending_incoming: Option<u32>,
     /// Maximum pending outbound connections (None = unlimited).
@@ -75,20 +108,54 @@ pub struct NetworkConfig {
     pub gater_dial_period: Duration,
 }
 
-/// Discovery presets for common environments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DiscoveryPreset {
-    Dev,
-    Test,
-    Prod,
+impl Default for P2pConfig {
+    /// Provides a default `P2pConfig` that maps to the default `NetworkConfig`.
+    fn default() -> Self {
+        let base = NetworkConfig::default();
+        Self {
+            chain_id: base.chain_id,
+            listen_addr: base.listen_addr,
+            enable_discovery: base.enable_discovery,
+            discovery_listen: base.discv5_listen,
+            bootnodes: base.bootnodes,
+            enable_quic: base.enable_quic,
+            enable_tcp: base.enable_tcp,
+            request_timeout: base.request_timeout,
+            max_reqresp_concurrent_streams: base.max_reqresp_concurrent_streams,
+            rate_limit: RateLimitConfig {
+                window: base.request_window,
+                max_requests: base.max_requests_per_window,
+            },
+            reputation: ReputationConfig {
+                greylist_threshold: base.reputation_greylist,
+                ban_threshold: base.reputation_ban,
+                halflife: base.reputation_halflife,
+            },
+        }
+    }
 }
 
-/// Connection presets for common environments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConnectionPreset {
-    Dev,
-    Test,
-    Prod,
+impl From<P2pConfig> for NetworkConfig {
+    /// Convert a simplified `P2pConfig` into a full `NetworkConfig`.
+    fn from(cfg: P2pConfig) -> Self {
+        Self {
+            chain_id: cfg.chain_id,
+            listen_addr: cfg.listen_addr,
+            discv5_listen: cfg.discovery_listen,
+            enable_discovery: cfg.enable_discovery,
+            bootnodes: cfg.bootnodes,
+            enable_quic: cfg.enable_quic,
+            enable_tcp: cfg.enable_tcp,
+            request_timeout: cfg.request_timeout,
+            max_reqresp_concurrent_streams: cfg.max_reqresp_concurrent_streams,
+            request_window: cfg.rate_limit.window,
+            max_requests_per_window: cfg.rate_limit.max_requests,
+            reputation_greylist: cfg.reputation.greylist_threshold,
+            reputation_ban: cfg.reputation.ban_threshold,
+            reputation_halflife: cfg.reputation.halflife,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for NetworkConfig {
@@ -100,8 +167,6 @@ impl Default for NetworkConfig {
             chain_id: 167_000, // placeholder, override via CLI/config
             listen_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9000),
             discv5_listen: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9001),
-            discovery_preset: DiscoveryPreset::Prod,
-            connection_preset: ConnectionPreset::Prod,
             bootnodes: Vec::new(),
             enable_quic: true,
             enable_tcp: true,
@@ -114,7 +179,6 @@ impl Default for NetworkConfig {
             request_window: Duration::from_secs(10),
             max_requests_per_window: 8,
             max_reqresp_concurrent_streams: 100,
-            slasher_address: None,
             max_pending_incoming: Some(40),
             max_pending_outgoing: Some(40),
             max_established_incoming: Some(110),
@@ -131,7 +195,7 @@ impl Default for NetworkConfig {
 
 /// Logical grouping for the resolved connection caps and dial factor returned by
 /// `NetworkConfig::resolve_connection_caps`.
-pub type ConnectionCaps = (
+pub(crate) type ConnectionCaps = (
     Option<u32>, // pending inbound cap
     Option<u32>, // pending outbound cap
     Option<u32>, // established inbound cap
@@ -142,33 +206,16 @@ pub type ConnectionCaps = (
 );
 
 impl NetworkConfig {
-    /// Convenience constructor that sets `chain_id` and keeps all other defaults.
-    pub fn for_chain(chain_id: u64) -> Self {
-        Self { chain_id, ..Default::default() }
-    }
-
-    /// Apply the connection preset, returning the resolved limits and dial factor.
+    /// Resolve connection caps and dial factor.
     pub(crate) fn resolve_connection_caps(&self) -> ConnectionCaps {
-        let (pend_in, pend_out, est_in, est_out, est_total, per_peer, dial) = match self
-            .connection_preset
-        {
-            ConnectionPreset::Dev => (Some(10), Some(10), Some(20), Some(20), Some(40), Some(4), 4),
-            ConnectionPreset::Test => {
-                (Some(30), Some(30), Some(60), Some(60), Some(120), Some(4), 10)
-            }
-            ConnectionPreset::Prod => {
-                (Some(40), Some(40), Some(110), Some(110), Some(220), Some(4), 16)
-            }
-        };
-
         (
-            self.max_pending_incoming.or(pend_in),
-            self.max_pending_outgoing.or(pend_out),
-            self.max_established_incoming.or(est_in),
-            self.max_established_outgoing.or(est_out),
-            self.max_established_total.or(est_total),
-            self.max_established_per_peer.or(per_peer),
-            self.dial_concurrency_factor.max(dial),
+            self.max_pending_incoming,
+            self.max_pending_outgoing,
+            self.max_established_incoming,
+            self.max_established_outgoing,
+            self.max_established_total,
+            self.max_established_per_peer,
+            self.dial_concurrency_factor,
         )
     }
 
@@ -176,5 +223,24 @@ impl NetworkConfig {
     pub(crate) fn validate_request_rate_limits(&self) {
         debug_assert!(self.request_window > Duration::ZERO, "request_window must be > 0");
         debug_assert!(self.max_requests_per_window > 0, "max_requests_per_window must be > 0");
+    }
+}
+
+/// Rate limit configuration for req/resp protocols.
+///
+/// This struct defines the parameters for a fixed (tumbling) window rate limiter
+/// that restricts the number of requests a peer can make within a given time window.
+#[derive(Debug, Clone, Copy)]
+pub struct RateLimitConfig {
+    /// The duration of the rate limiting window.
+    pub window: Duration,
+    /// Maximum number of requests allowed per peer within the window.
+    pub max_requests: u32,
+}
+
+impl Default for RateLimitConfig {
+    /// Provides default rate limit settings: 10s window, 8 requests.
+    fn default() -> Self {
+        Self { window: Duration::from_secs(10), max_requests: 8 }
     }
 }

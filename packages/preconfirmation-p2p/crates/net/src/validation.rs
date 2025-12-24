@@ -71,12 +71,26 @@ pub trait ValidationAdapter: Send + Sync {
 
 /// Default adapter that reuses the existing local validators.
 pub struct LocalValidationAdapter {
+    /// Optional slasher address to enforce on inbound commitments.
     expected_slasher: Option<Bytes20>,
 }
 
 impl LocalValidationAdapter {
+    /// Construct a local validator that optionally enforces a specific slasher address.
     pub fn new(expected_slasher: Option<Bytes20>) -> Self {
         Self { expected_slasher }
+    }
+
+    /// Validate slasher address and basic preconfirmation invariants.
+    fn validate_commitment_fields(&self, msg: &SignedCommitment) -> Result<(), String> {
+        if self
+            .expected_slasher
+            .as_ref()
+            .is_some_and(|expected| &msg.commitment.slasher_address != expected)
+        {
+            return Err("slasher_address mismatch".to_string());
+        }
+        validate_preconfirmation_basic(&msg.commitment.preconf).map_err(|e| e.to_string())
     }
 }
 
@@ -87,16 +101,8 @@ impl ValidationAdapter for LocalValidationAdapter {
         _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        verify_signed_commitment(msg).map_err(|e| e.to_string()).and_then(|_| {
-            if self
-                .expected_slasher
-                .as_ref()
-                .is_some_and(|expected| &msg.commitment.slasher_address != expected)
-            {
-                return Err("slasher_address mismatch".to_string());
-            }
-            validate_preconfirmation_basic(&msg.commitment.preconf).map_err(|e| e.to_string())
-        })
+        verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        self.validate_commitment_fields(msg)
     }
 
     /// Validate a raw txlist gossip message using local SSZ/size rules.
@@ -111,10 +117,14 @@ impl ValidationAdapter for LocalValidationAdapter {
     /// Validate an inbound commitments response (SSZ + size caps).
     fn validate_commitments_response(
         &self,
-        _from: &PeerId,
+        from: &PeerId,
         resp: &GetCommitmentsByNumberResponse,
     ) -> Result<(), String> {
-        validate_commitments_response(resp).map_err(|e| e.to_string())
+        validate_commitments_response(resp).map_err(|e| e.to_string())?;
+        for commitment in resp.commitments.iter() {
+            self.validate_gossip_commitment(from, commitment)?;
+        }
+        Ok(())
     }
 
     /// Validate an inbound raw txlist response (hash match + size caps).
@@ -138,25 +148,28 @@ impl ValidationAdapter for LocalValidationAdapter {
 
 /// Validation adapter that calls into an external lookahead resolver after basic checks.
 pub struct LookaheadValidationAdapter {
+    /// Local validator used for basic SSZ/hash/signature checks.
     local: LocalValidationAdapter,
+    /// External resolver providing expected signer/slot for commitments.
     resolver: Arc<dyn LookaheadResolver>,
 }
 
 impl LookaheadValidationAdapter {
+    /// Construct a lookahead validator wrapping the local validator and an external resolver.
     pub fn new(expected_slasher: Option<Bytes20>, resolver: Arc<dyn LookaheadResolver>) -> Self {
         Self { local: LocalValidationAdapter::new(expected_slasher), resolver }
     }
 }
 
 impl ValidationAdapter for LookaheadValidationAdapter {
+    /// Validate a signed commitment gossip message using local checks plus lookahead rules.
     fn validate_gossip_commitment(
         &self,
-        from: &PeerId,
+        _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        self.local.validate_gossip_commitment(from, msg)?;
-
         let recovered = verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        self.local.validate_commitment_fields(msg)?;
         let slot_end = &msg.commitment.preconf.submission_window_end;
         let expected_signer = self.resolver.signer_for_timestamp(slot_end)?;
         if recovered != expected_signer {
@@ -170,6 +183,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         Ok(())
     }
 
+    /// Validate a raw txlist gossip message using the local validator.
     fn validate_gossip_raw_txlist(
         &self,
         from: &PeerId,
@@ -178,14 +192,20 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         self.local.validate_gossip_raw_txlist(from, msg)
     }
 
+    /// Validate an inbound commitments response using the local validator.
     fn validate_commitments_response(
         &self,
         from: &PeerId,
         resp: &GetCommitmentsByNumberResponse,
     ) -> Result<(), String> {
-        self.local.validate_commitments_response(from, resp)
+        validate_commitments_response(resp).map_err(|e| e.to_string())?;
+        for commitment in resp.commitments.iter() {
+            self.validate_gossip_commitment(from, commitment)?;
+        }
+        Ok(())
     }
 
+    /// Validate an inbound raw txlist response using the local validator.
     fn validate_raw_txlist_response(
         &self,
         from: &PeerId,
@@ -194,6 +214,7 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         self.local.validate_raw_txlist_response(from, resp)
     }
 
+    /// Validate an inbound head response using the local validator.
     fn validate_head_response(
         &self,
         from: &PeerId,
@@ -212,6 +233,7 @@ mod tests {
     use secp256k1::SecretKey;
     use ssz_rs::Vector;
 
+    /// Helper to create a deterministic signed commitment for testing.
     fn sample_signed_commitment(slasher: Bytes20) -> SignedCommitment {
         let preconf = Preconfirmation {
             eop: false,
@@ -232,6 +254,7 @@ mod tests {
         SignedCommitment { commitment, signature: sig }
     }
 
+    /// Accepts commitments when the slasher address matches expectation.
     #[test]
     fn slasher_address_enforced_when_expected() {
         let expected = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -240,6 +263,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
     }
 
+    /// Rejects commitments when the slasher address mismatches expectation.
     #[test]
     fn slasher_mismatch_rejected() {
         let expected = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -249,8 +273,11 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 
+    /// Resolver that always returns a configured signer and slot end.
     struct AcceptResolver {
+        /// Signer to return for all timestamps.
         signer: Address,
+        /// Slot end to return for all timestamps.
         slot_end: Uint256,
     }
     impl LookaheadResolver for AcceptResolver {
@@ -265,6 +292,7 @@ mod tests {
         }
     }
 
+    /// Resolver that rejects all lookups.
     struct RejectResolver;
     impl LookaheadResolver for RejectResolver {
         fn signer_for_timestamp(
@@ -278,6 +306,7 @@ mod tests {
         }
     }
 
+    /// Lookahead adapter accepts when resolver agrees with signer and slot.
     #[test]
     fn lookahead_adapter_delegates_ok() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -297,6 +326,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
     }
 
+    /// Lookahead adapter propagates resolver errors.
     #[test]
     fn lookahead_adapter_propagates_error() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -305,6 +335,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 
+    /// Lookahead adapter rejects commitments signed by an unexpected signer.
     #[test]
     fn lookahead_rejects_wrong_signer() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();
@@ -320,6 +351,7 @@ mod tests {
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
     }
 
+    /// Lookahead adapter rejects when slot end differs from resolver expectation.
     #[test]
     fn lookahead_rejects_slot_end_mismatch() {
         let slasher = Vector::try_from(vec![7u8; 20]).unwrap();

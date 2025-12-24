@@ -140,22 +140,22 @@ func (s *State) eventLoop(ctx context.Context) {
 		case e := <-batchesProvedPacayaCh:
 			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
 		case e := <-provedShastaCh:
-			payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
+			coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 			if err != nil {
-				log.Error("Failed to decode Proved payload", "err", err)
+				log.Error("Failed to get Shasta core state", "err", err)
 				continue
 			}
-			if len(payload.Input.Commitment.Transitions) == 0 {
-				log.Error("No transition in Proved payload")
+			header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
+			if err != nil {
+				log.Error("Failed to get Shasta finalized block header", "err", err)
 				continue
 			}
-
-			lastTransition := payload.Input.Commitment.Transitions[len(payload.Input.Commitment.Transitions)-1]
 			log.Info(
 				"📈 Shasta batches proven and verified",
-				"firstBatchID", payload.Input.Commitment.FirstProposalId,
-				"checkpointNumber", payload.Input.Commitment.EndBlockNumber,
-				"checkpointHash", common.Hash(lastTransition.BlockHash),
+				"firstBatchID", e.FirstNewProposalId,
+				"lastBatchID", e.LastProposalId,
+				"checkpointNumber", header.Number,
+				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
 			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(

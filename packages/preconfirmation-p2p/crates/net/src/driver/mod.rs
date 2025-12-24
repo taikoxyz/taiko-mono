@@ -11,42 +11,31 @@ mod reqresp;
 #[cfg(test)]
 mod tests;
 
-use std::{
-    collections::{HashMap, VecDeque},
-    num::NonZeroU8,
-    str::FromStr,
-    sync::Arc,
-};
+use std::{collections::HashMap, num::NonZeroU8, str::FromStr, sync::Arc};
 
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
-use tokio::{
-    sync::mpsc::{self, Receiver, Sender, error::TrySendError},
-    task::JoinHandle,
-};
+use tokio::sync::mpsc::{self, Receiver, Sender, error::TrySendError};
 
 use crate::{
     behaviour::NetBehaviourEvent,
     builder::build_transport_and_behaviour,
     command::NetworkCommand,
     config::NetworkConfig,
-    discovery::{DiscoveryConfig, DiscoveryEvent, spawn_discovery},
+    discovery::spawn_discovery,
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
     reputation::{
-        PeerAction, ReputationBackend, ReputationConfig, ReqRespKind, RequestRateLimiter,
-        reth_adapter::RethReputationAdapter,
+        PeerAction, PeerReputationStore, ReputationConfig, ReqRespKind, RequestRateLimiter,
     },
     storage::{PreconfStorage, default_storage},
-    validation::{
-        LocalValidationAdapter, LookaheadResolver, LookaheadValidationAdapter, ValidationAdapter,
-    },
+    validation::ValidationAdapter,
 };
 use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig as KonaGaterConfig};
-use preconfirmation_types::{PreconfHead, address_to_bytes20};
+use preconfirmation_types::PreconfHead;
 use ssz_rs::Deserialize;
 
 /// Handle returned to the service layer; exposes the event receiver and command sender endpoints.
 #[derive(Debug)]
-pub struct NetworkHandle {
+pub(crate) struct NetworkHandle {
     /// Receiver for network events emitted by the driver.
     pub events: Receiver<NetworkEvent>,
     /// Sender for commands targeting the driver.
@@ -54,7 +43,7 @@ pub struct NetworkHandle {
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
-pub struct NetworkDriver {
+pub(crate) struct NetworkDriver {
     /// The underlying libp2p swarm that manages connections, protocols, and events.
     swarm: Swarm<crate::behaviour::NetBehaviour>,
     /// Sender for network events to be consumed by the service layer.
@@ -64,19 +53,18 @@ pub struct NetworkDriver {
     /// Gossip topics for commitments and raw transaction lists.
     topics: (gossipsub::IdentTopic, gossipsub::IdentTopic),
     /// Backend for managing peer reputation.
-    reputation: Box<dyn ReputationBackend>,
+    reputation: PeerReputationStore,
     /// Rate limiter for incoming requests.
     request_limiter: RequestRateLimiter,
-    /// Pending outbound req/resp timestamps for latency metrics.
-    commitments_out: VecDeque<tokio::time::Instant>,
-    raw_txlists_out: VecDeque<tokio::time::Instant>,
-    head_out: VecDeque<tokio::time::Instant>,
+    /// Pending outbound req/resp requests keyed by (protocol kind, request id).
+    pending_requests: HashMap<
+        (ReqRespKind, libp2p::request_response::OutboundRequestId),
+        reqresp::PendingRequest,
+    >,
     /// Validator adapter (swap in upstream implementation here).
     validator: Box<dyn ValidationAdapter>,
-    /// Optional receiver for discovery events.
-    discovery_rx: Option<Receiver<DiscoveryEvent>>,
-    /// Handle to the spawned discovery task.
-    _discovery_task: Option<JoinHandle<()>>,
+    /// Optional receiver for discovery-surfaced multiaddrs.
+    discovery_rx: Option<Receiver<Multiaddr>>,
     /// Counter for currently connected peers.
     connected_peers: i64,
     /// The current local preconfirmation head, served to peers on request.
@@ -84,19 +72,7 @@ pub struct NetworkDriver {
     /// Kona connection gater for managing inbound and outbound connections.
     kona_gater: kona_gossip::ConnectionGater,
     /// Storage backend for commitments/txlists (in-memory by default).
-    storage: std::sync::Arc<dyn PreconfStorage>,
-    /// Correlation IDs for outbound commitments requests.
-    commitments_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
-    /// Correlation IDs for outbound raw-txlist requests.
-    raw_txlists_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
-    /// Correlation IDs for outbound head requests.
-    head_req_ids: HashMap<libp2p::request_response::OutboundRequestId, u64>,
-}
-
-/// Constructs the reputation backend adapter. At runtime this delegates to the reth-backed
-/// implementation so we reuse upstream scoring/ban logic instead of duplicating it here.
-fn build_reputation_backend(cfg: ReputationConfig) -> Box<dyn ReputationBackend> {
-    Box::new(RethReputationAdapter::new(cfg))
+    storage: Arc<dyn PreconfStorage>,
 }
 
 /// Builds a `ConnectionGater` instance based on the provided `NetworkConfig`.
@@ -121,24 +97,19 @@ fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
 }
 
 impl NetworkDriver {
-    /// Constructs a new `NetworkDriver` and its associated `NetworkHandle`.
-    pub fn new(cfg: NetworkConfig) -> anyhow::Result<(Self, NetworkHandle)> {
-        Self::new_with_lookahead_and_storage(cfg, None, None)
-    }
-
-    /// Constructs a new `NetworkDriver` with an optional lookahead resolver for validation.
-    pub fn new_with_lookahead(
+    /// Constructs a new `NetworkDriver` with a provided validation adapter.
+    pub(crate) fn new_with_validator(
         cfg: NetworkConfig,
-        lookahead: Option<Arc<dyn LookaheadResolver>>,
+        validator: Box<dyn ValidationAdapter>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
-        Self::new_with_lookahead_and_storage(cfg, lookahead, None)
+        Self::new_with_validator_and_storage(cfg, validator, None)
     }
 
-    /// Constructs a new `NetworkDriver` with optional lookahead resolver and storage backend.
-    pub fn new_with_lookahead_and_storage(
+    /// Constructs a new `NetworkDriver` with custom validation and optional storage backend.
+    pub(crate) fn new_with_validator_and_storage(
         cfg: NetworkConfig,
-        lookahead: Option<Arc<dyn LookaheadResolver>>,
-        storage: Option<std::sync::Arc<dyn PreconfStorage>>,
+        validator: Box<dyn ValidationAdapter>,
+        storage: Option<Arc<dyn PreconfStorage>>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
         let dial_factor = {
             let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();
@@ -180,18 +151,8 @@ impl NetworkDriver {
         cfg.validate_request_rate_limits();
 
         let mut discovery_rx = None;
-        let mut discovery_task = None;
         if cfg.enable_discovery {
-            let disc_cfg = DiscoveryConfig {
-                listen: cfg.discv5_listen,
-                bootnodes: cfg.bootnodes.clone(),
-                enr_udp_port: None,
-                enr_tcp_port: None,
-            };
-            if let Ok((rx, task)) = spawn_discovery(disc_cfg, cfg.discovery_preset) {
-                discovery_rx = Some(rx);
-                discovery_task = Some(task);
-            }
+            discovery_rx = spawn_discovery(cfg.discv5_listen, cfg.bootnodes.clone()).ok();
         }
 
         Ok((
@@ -200,38 +161,22 @@ impl NetworkDriver {
                 events_tx: events_tx.clone(),
                 commands_rx: cmd_rx,
                 topics: parts.topics,
-                reputation: build_reputation_backend(ReputationConfig {
+                reputation: PeerReputationStore::new(ReputationConfig {
                     greylist_threshold: cfg.reputation_greylist,
                     ban_threshold: cfg.reputation_ban,
                     halflife: cfg.reputation_halflife,
-                    weights:
-                        reth_network_types::peers::reputation::ReputationChangeWeights::default(),
                 }),
                 request_limiter: RequestRateLimiter::new(
                     cfg.request_window,
                     cfg.max_requests_per_window,
                 ),
-                commitments_out: VecDeque::new(),
-                raw_txlists_out: VecDeque::new(),
-                head_out: VecDeque::new(),
-                validator: match lookahead {
-                    Some(resolver) => Box::new(LookaheadValidationAdapter::new(
-                        cfg.slasher_address.map(address_to_bytes20),
-                        resolver,
-                    )) as Box<dyn ValidationAdapter>,
-                    None => Box::new(LocalValidationAdapter::new(
-                        cfg.slasher_address.map(address_to_bytes20),
-                    )),
-                },
+                pending_requests: HashMap::new(),
+                validator,
                 discovery_rx,
-                _discovery_task: discovery_task,
                 connected_peers: 0,
                 head: PreconfHead::default(),
                 kona_gater: build_kona_gater(&cfg),
                 storage: storage.unwrap_or_else(default_storage),
-                commitments_req_ids: HashMap::new(),
-                raw_txlists_req_ids: HashMap::new(),
-                head_req_ids: HashMap::new(),
             },
             NetworkHandle { events: events_rx, commands: cmd_tx },
         ))
@@ -240,17 +185,7 @@ impl NetworkDriver {
     /// Best-effort error emission; drops silently if the event channel is full/closed while still
     /// recording drop metrics.
     fn emit_error(&mut self, kind: NetworkErrorKind, detail: impl Into<String>) {
-        self.emit_error_with_request(kind, detail, None);
-    }
-
-    /// Emits an error optionally correlated to a request id.
-    fn emit_error_with_request(
-        &mut self,
-        kind: NetworkErrorKind,
-        detail: impl Into<String>,
-        request_id: Option<u64>,
-    ) {
-        let err = NetworkError::new(kind, detail).with_request_id(request_id);
+        let err = NetworkError::new(kind, detail);
         match self.events_tx.try_send(NetworkEvent::Error(err.clone())) {
             Ok(()) => {}
             Err(TrySendError::Full(_)) => {
