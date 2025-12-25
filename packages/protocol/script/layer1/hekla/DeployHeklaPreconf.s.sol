@@ -8,6 +8,7 @@ import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/hekla/HeklaInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
+import {DevnetInbox} from "../../../contracts/layer1/devnet/DevnetInbox.sol";
 
 contract DeployHeklaPreconf is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -20,37 +21,62 @@ contract DeployHeklaPreconf is DeployCapability {
     }
 
     function run() external broadcast {
-        address taikoWrapper = 0x8698690dEeDB923fA0A674D3f65896B0031BF7c9;
-        address rollupResolver = 0x3C82907B5895DB9713A0BB874379eF8A37aA2A68;
-        address taikoInbox = 0x79C9109b764609df928d16fC4a91e9081F7e87DB;
-        address store = 0x54231533B8d8Ac2f4F9B05377B617EFA9be080Fd;
-        address fallbackPreconfProposer = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
-        address proofVerifier = 0x9A919115127ed338C3bFBcdfBE72D4F167Fa9E1D;
-        address taikoToken = 0x6490E12d480549D333499236fF2Ba6676C296011;
-        address signalService = 0x6Fc2fe9D9dd0251ec5E0727e826Afbb0Db2CBe0D;
-        address oldFork = 0x6e15d2049480C7E339C6B398774166e1ddbCd43e;
+        address rollupResolver = 0x058810c7e843cbe7F94fF2edCa1941E226e3DF72;
+        address taikoInbox = 0xeAd9c57ce675464AD9E7F60432DA65b84323a3A2;
+        address fallbackPreconfProposer = 0x32C6404F14cafC89363801a8efEb697410a7F516;
+        address proofVerifier = 0xa0e64157038e89432017227743C552E0192FfF85;
+        address taikoToken = 0xB3c5453C1c77D0d68487E9d34eeEC85fE13EEeeb;
+        address signalService = 0xE4154D229b8185AF0604D06522dF1107395A13E9;
+        address oldFork = 0x0883396A11a8c94Da64c39Eb3E61A2BCCccD2e1a;
+        address whitelist=0x82792d9106b247a94D8a2591D515C1900c405b98;
 
-        //        address whitelist = deployProxy({
-        //            name: "preconf_whitelist",
-        //            impl: address(new PreconfWhitelist()),
-        //            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2)),
-        //            registerTo: rollupResolver
-        //        });
-        //
-        //        address router = deployProxy({
-        //            name: "preconf_router",
-        //            impl: address(
-        //                new PreconfRouter(
-        //                    taikoWrapper, whitelist, fallbackPreconfProposer, type(uint64).max
-        //                )
-        //            ),
-        //            data: abi.encodeCall(PreconfRouter.init, (address(0))),
-        //            registerTo: rollupResolver
-        //        });
-        //        address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
-        //        console2.log("taikoWrapper: ", wrapper);
+        address store = deployProxy({
+            name: "forced_inclusion_store",
+            impl: address(
+                new ForcedInclusionStore(
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    address(1)
+                )
+            ),
+            data: abi.encodeCall(ForcedInclusionStore.init, (address(0))),
+            registerTo: rollupResolver
+        });
+        address taikoWrapper = deployProxy({
+            name: "taiko_wrapper",
+            impl: address(new TaikoWrapper(taikoInbox, store, address(0))),
+            data: abi.encodeCall(TaikoWrapper.init, (msg.sender)),
+            registerTo: rollupResolver
+        });
+
+                address router = deployProxy({
+                    name: "preconf_router",
+                    impl: address(
+                        new PreconfRouter(
+                            taikoWrapper, whitelist, fallbackPreconfProposer, 0
+                        )
+                    ),
+                    data: abi.encodeCall(PreconfRouter.init, (address(0))),
+                    registerTo: rollupResolver
+                });
+
+        UUPSUpgradeable(taikoWrapper).upgradeTo(
+        address(new TaikoWrapper(taikoInbox, store, router))
+        );
+
+        UUPSUpgradeable(store).upgradeTo(
+            address(
+                new ForcedInclusionStore(
+                    uint8(vm.envUint("INCLUSION_WINDOW")),
+                    uint64(vm.envUint("INCLUSION_FEE_IN_GWEI")),
+                    taikoInbox,
+                    taikoWrapper
+                )
+            )
+        );
         address newFork =
-            address(new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+            address(new DevnetInbox(167011,2 hours,taikoWrapper, proofVerifier, taikoToken, signalService));
         address newRouter = address(new PacayaForkRouter(oldFork, newFork));
         UUPSUpgradeable(taikoInbox).upgradeTo(newRouter);
     }
