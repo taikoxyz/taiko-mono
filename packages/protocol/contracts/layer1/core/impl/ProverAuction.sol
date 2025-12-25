@@ -64,6 +64,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Initial maximum fee for first-ever bid (in Gwei)
     uint32 public immutable initialMaxFee;
 
+    /// @notice Pre-computed required bond amount (livenessBond * bondMultiplier * 2)
+    uint128 public immutable requiredBond;
+
+    /// @notice Pre-computed force-exit threshold (livenessBond * bondMultiplier / 2)
+    uint128 public immutable forceExitThreshold;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -128,6 +134,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
         feeDoublingPeriod = _feeDoublingPeriod;
         maxFeeDoublings = _maxFeeDoublings;
         initialMaxFee = _initialMaxFee;
+
+        // Pre-compute bond thresholds to save gas on every bid/slash
+        unchecked {
+            uint128 bondBase = uint128(_livenessBond) * _bondMultiplier;
+            requiredBond = bondBase * 2;
+            forceExitThreshold = bondBase / 2;
+        }
     }
 
     // ---------------------------------------------------------------
@@ -156,17 +169,17 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function withdraw(uint128 _amount) external nonReentrant {
-        // Active (non-exited) current prover cannot withdraw
-        Prover memory p = _prover;
-        require(p.addr != msg.sender || p.exitTimestamp > 0, CurrentProverCannotWithdraw());
-
         BondInfo storage info = _bonds[msg.sender];
 
         // Check withdrawal delay if set
-        require(
-            info.withdrawableAt == 0 || block.timestamp >= info.withdrawableAt,
-            WithdrawalDelayNotPassed()
-        );
+        if (info.withdrawableAt == 0) {
+            // No delay set - must check if caller is active prover (only SLOAD when needed)
+            Prover memory p = _prover;
+            require(p.addr != msg.sender || p.exitTimestamp > 0, CurrentProverCannotWithdraw());
+        } else {
+            // Delay is set - caller was outbid/exited, just check timing
+            require(block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
+        }
 
         // Check sufficient balance
         require(info.balance >= _amount, InsufficientBond());
@@ -209,8 +222,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
             require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         }
 
-        // 4. Clear bidder's exit status if re-entering
-        bidderBond.withdrawableAt = 0;
+        // 4. Clear bidder's exit status if re-entering (conditional to save gas)
+        if (bidderBond.withdrawableAt != 0) {
+            bidderBond.withdrawableAt = 0;
+        }
 
         // 5. Handle outbid prover (only if different address)
         if (current.addr != address(0) && current.addr != msg.sender) {
@@ -367,19 +382,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    /// @dev Safe: uint96 * uint16 * 2 fits in uint128
     function getRequiredBond() public view returns (uint128 requiredBond_) {
-        unchecked {
-            return uint128(livenessBond) * bondMultiplier * 2;
-        }
+        return requiredBond;
     }
 
     /// @inheritdoc IProverAuction
-    /// @dev Safe: uint96 * uint16 / 2 fits in uint128
     function getForceExitThreshold() public view returns (uint128 threshold_) {
-        unchecked {
-            return uint128(livenessBond) * bondMultiplier / 2;
-        }
+        return forceExitThreshold;
     }
 
     /// @inheritdoc IProverAuction
