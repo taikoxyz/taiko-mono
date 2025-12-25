@@ -253,6 +253,60 @@ contract ProverAuctionTest is CommonTest {
         assertEq(info.balance, 5 ether);
     }
 
+    function test_withdraw_exitedProverCanWithdrawAfterDelay() public {
+        // Prover becomes active then exits
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+
+        vm.prank(prover1);
+        auction.requestExit();
+
+        // Verify prover is exited but still in _prover.addr
+        (address currentProver,) = auction.getCurrentProver();
+        assertEq(currentProver, address(0)); // getCurrentProver returns 0 for exited
+
+        // Cannot withdraw immediately (delay not passed)
+        vm.prank(prover1);
+        vm.expectRevert(ProverAuction.WithdrawalDelayNotPassed.selector);
+        auction.withdraw(1 ether);
+
+        // Warp past withdrawal delay
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
+
+        // Now exited prover can withdraw
+        vm.prank(prover1);
+        auction.withdraw(REQUIRED_BOND);
+
+        IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
+        assertEq(info.balance, 0);
+    }
+
+    function test_withdraw_forcedOutProverCanWithdrawAfterDelay() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+
+        // Force out prover by slashing below threshold
+        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
+        vm.prank(inbox);
+        auction.slashBond(prover1, slashAmount, address(0), 0);
+
+        // Verify prover was forced out
+        (address currentProver,) = auction.getCurrentProver();
+        assertEq(currentProver, address(0));
+
+        // Warp past withdrawal delay
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
+
+        // Forced-out prover can withdraw remaining balance
+        IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        uint128 remainingBalance = infoBefore.balance;
+        assertGt(remainingBalance, 0);
+
+        vm.prank(prover1);
+        auction.withdraw(remainingBalance);
+
+        IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        assertEq(infoAfter.balance, 0);
+    }
+
     // ---------------------------------------------------------------
     // getCurrentProver tests
     // ---------------------------------------------------------------

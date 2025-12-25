@@ -150,8 +150,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function withdraw(uint128 _amount) external nonReentrant {
-        // Current prover cannot withdraw
-        require(_prover.addr != msg.sender, CurrentProverCannotWithdraw());
+        // Active (non-exited) current prover cannot withdraw
+        Prover memory p = _prover;
+        require(p.addr != msg.sender || p.exitTimestamp > 0, CurrentProverCannotWithdraw());
 
         BondInfo storage info = _bonds[msg.sender];
 
