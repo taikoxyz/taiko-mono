@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { ProverAuction } from "src/layer1/core/impl/ProverAuction.sol";
 import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
+import { ProverAuction } from "src/layer1/core/impl/ProverAuction.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -35,7 +35,9 @@ contract ProverAuctionTest is CommonTest {
     event Withdrawn(address indexed account, uint128 amount);
     event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
     event ExitRequested(address indexed prover, uint48 withdrawableAt);
-    event BondSlashed(address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded);
+    event BondSlashed(
+        address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded
+    );
     event ProverForcedOut(address indexed prover);
 
     function setUp() public virtual override {
@@ -902,7 +904,9 @@ contract ProverAuctionTest is CommonTest {
         // Step 3: Prover1 should have withdrawableAt set
         IProverAuction.BondInfo memory info1 = auction.getBondInfo(prover1);
         uint48 originalWithdrawableAt = info1.withdrawableAt;
-        assertGt(originalWithdrawableAt, 0, "prover1 should have withdrawableAt set after being outbid");
+        assertGt(
+            originalWithdrawableAt, 0, "prover1 should have withdrawableAt set after being outbid"
+        );
 
         // Step 4: Prover1 re-enters immediately (bypasses delay by bidding)
         vm.prank(prover1);
@@ -922,7 +926,11 @@ contract ProverAuctionTest is CommonTest {
 
         // Step 8: Prover1 should have a NEW withdrawableAt set
         IProverAuction.BondInfo memory info3 = auction.getBondInfo(prover1);
-        assertGt(info3.withdrawableAt, 0, "prover1 should have new withdrawableAt after being outbid again");
+        assertGt(
+            info3.withdrawableAt,
+            0,
+            "prover1 should have new withdrawableAt after being outbid again"
+        );
 
         // Step 9: Prover1 cannot withdraw before delay passes
         vm.prank(prover1);
@@ -976,7 +984,9 @@ contract ProverAuctionTest is CommonTest {
 
         // The second withdrawableAt is LATER than the first would have been
         // This means re-entry actually EXTENDS the wait time, not bypasses it
-        assertGt(secondWithdrawableAt, firstWithdrawableAt, "second delay should be later than first");
+        assertGt(
+            secondWithdrawableAt, firstWithdrawableAt, "second delay should be later than first"
+        );
     }
 
     /// @notice Issue 2.6: Test that initialMaxFee = 0 is now rejected (FIXED)
@@ -1043,7 +1053,11 @@ contract ProverAuctionTest is CommonTest {
         // After optimization: force-exit logic is skipped for already-exited provers
         // So withdrawableAt should remain unchanged (the original exit time)
         IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
-        assertEq(infoAfter.withdrawableAt, exitWithdrawableAt, "withdrawableAt should not change for already-exited");
+        assertEq(
+            infoAfter.withdrawableAt,
+            exitWithdrawableAt,
+            "withdrawableAt should not change for already-exited"
+        );
     }
 
     /// @notice Issue 4.3: Test slash when balance exactly equals threshold
