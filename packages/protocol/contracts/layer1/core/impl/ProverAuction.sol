@@ -8,6 +8,8 @@ import { IProverAuction } from "../iface/IProverAuction.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
+import "./ProverAuction_Layout.sol"; // DO NOT DELETE
+
 /// @title ProverAuction
 /// @notice A continuous reverse auction contract for prover services in the Taiko protocol.
 /// Provers compete by offering the lowest proving fee per proposal. The winner becomes the
