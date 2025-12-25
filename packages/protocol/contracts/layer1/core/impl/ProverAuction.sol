@@ -385,7 +385,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             }
         }
 
-        // Safe: baseFee (uint32) << periods (max 255) fits in uint256
+        // Safe: baseFee (uint32) << periods (capped at maxFeeDoublings, a uint8) fits in uint256
         uint256 maxFee = uint256(baseFee) << periods;
 
         if (maxFee > type(uint32).max) {
