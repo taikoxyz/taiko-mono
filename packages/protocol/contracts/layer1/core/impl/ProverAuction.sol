@@ -6,6 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 import { IProverAuction } from "../iface/IProverAuction.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title ProverAuction
 /// @notice A continuous reverse auction contract for prover services in the Taiko protocol.
@@ -28,7 +29,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @dev Packed into 32 bytes (1 storage slot) for gas-efficient getCurrentProver()
     struct Prover {
         address addr; // 20 bytes - prover address
-        uint48 feeInGwei; // 6 bytes - fee per proposal in Gwei
+        uint32 feeInGwei; // 4 bytes - fee per proposal in Gwei (max ~4.29 ETH)
         uint48 exitTimestamp; // 6 bytes - when exit was triggered (0 = active)
     }
 
@@ -45,8 +46,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Bond amount slashed per failed proof
     uint96 public immutable livenessBond;
 
-    /// @notice Maximum number of unproven proposals at any time
-    uint16 public immutable maxPendingProposals;
+    /// @notice Multiplier for livenessBond to calculate required/threshold bond amounts
+    uint16 public immutable bondMultiplier;
 
     /// @notice Minimum fee reduction in basis points to outbid (e.g., 500 = 5%)
     uint16 public immutable minFeeReductionBps;
@@ -61,7 +62,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     uint8 public immutable maxFeeDoublings;
 
     /// @notice Initial maximum fee for first-ever bid (in Gwei)
-    uint48 public immutable initialMaxFee;
+    uint32 public immutable initialMaxFee;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -74,10 +75,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     mapping(address account => BondInfo info) internal _bonds;
 
     /// @dev Exponential moving average of winning fees (in Gwei)
-    uint48 internal _movingAverageFee;
+    uint32 internal _movingAverageFee;
 
     /// @dev Total accumulated (slashed - rewarded), locked forever in contract
-    uint128 internal _totalSlashDiff;
+    uint128 internal _totalSlashedAmount;
 
     /// @dev Contract creation timestamp for initial fee timing
     uint48 internal _contractCreationTime;
@@ -93,7 +94,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @param _inbox The Inbox contract address
     /// @param _bondToken The ERC20 token used for bonds
     /// @param _livenessBond Bond amount slashed per failed proof
-    /// @param _maxPendingProposals Maximum unproven proposals at any time
+    /// @param _bondMultiplier Multiplier for livenessBond to calculate bond requirements
     /// @param _minFeeReductionBps Minimum fee reduction to outbid (basis points)
     /// @param _bondWithdrawalDelay Time after exit before withdrawal allowed
     /// @param _feeDoublingPeriod Time period for fee doubling when vacant
@@ -103,19 +104,19 @@ contract ProverAuction is EssentialContract, IProverAuction {
         address _inbox,
         address _bondToken,
         uint96 _livenessBond,
-        uint16 _maxPendingProposals,
+        uint16 _bondMultiplier,
         uint16 _minFeeReductionBps,
         uint48 _bondWithdrawalDelay,
         uint48 _feeDoublingPeriod,
         uint8 _maxFeeDoublings,
-        uint48 _initialMaxFee
+        uint32 _initialMaxFee
     ) {
         require(_initialMaxFee > 0, InitialMaxFeeCannotBeZero());
 
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
         livenessBond = _livenessBond;
-        maxPendingProposals = _maxPendingProposals;
+        bondMultiplier = _bondMultiplier;
         minFeeReductionBps = _minFeeReductionBps;
         bondWithdrawalDelay = _bondWithdrawalDelay;
         feeDoublingPeriod = _feeDoublingPeriod;
@@ -135,7 +136,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     // ---------------------------------------------------------------
-    // Bond Management
+    // External Transactional Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc IProverAuction
@@ -170,72 +171,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit Withdrawn(msg.sender, _amount);
     }
 
-    // ---------------------------------------------------------------
-    // Auction Functions
-    // ---------------------------------------------------------------
-
     /// @inheritdoc IProverAuction
-    function getCurrentProver() external view returns (address prover_, uint48 feeInGwei_) {
-        Prover memory p = _prover; // 1 SLOAD
-
-        // Return empty if no prover or prover has exited
-        if (p.addr == address(0) || p.exitTimestamp > 0) {
-            return (address(0), 0);
-        }
-
-        return (p.addr, p.feeInGwei);
-    }
-
-    /// @inheritdoc IProverAuction
-    function getMaxBidFee() public view returns (uint48 maxFee_) {
-        Prover memory current = _prover;
-
-        // Active prover: must undercut by minFeeReductionBps
-        if (current.addr != address(0) && current.exitTimestamp == 0) {
-            unchecked {
-                // Safe: uint48 * uint16 / 10000 fits in uint48
-                return uint48(uint256(current.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
-            }
-        }
-
-        // Vacant slot: time-based doubling
-        uint48 baseFee;
-        uint48 startTime;
-
-        if (current.addr == address(0)) {
-            // Never had a prover
-            baseFee = initialMaxFee;
-            startTime = _contractCreationTime;
-        } else {
-            // Previous prover exited - use their fee, but fall back to initialMaxFee if 0
-            // This prevents the slot from being permanently stuck at 0 fee
-            baseFee = current.feeInGwei > 0 ? current.feeInGwei : initialMaxFee;
-            startTime = current.exitTimestamp;
-        }
-
-        uint256 elapsed;
-        uint256 periods;
-        unchecked {
-            // Safe: block.timestamp >= startTime always
-            elapsed = block.timestamp - startTime;
-            periods = elapsed / feeDoublingPeriod;
-
-            if (periods > maxFeeDoublings) {
-                periods = maxFeeDoublings;
-            }
-        }
-
-        uint256 maxFee = uint256(baseFee) << periods; // baseFee * 2^periods
-
-        if (maxFee > type(uint48).max) {
-            return type(uint48).max;
-        }
-
-        return uint48(maxFee);
-    }
-
-    /// @inheritdoc IProverAuction
-    function bid(uint48 _feeInGwei) external nonReentrant {
+    function bid(uint32 _feeInGwei) external nonReentrant {
         BondInfo storage bidderBond = _bonds[msg.sender];
 
         // 1. Validate bond
@@ -256,11 +193,11 @@ contract ProverAuction is EssentialContract, IProverAuction {
             require(_feeInGwei <= getMaxBidFee(), FeeTooHigh());
         } else {
             // Outbidding another prover: reduction required
-            uint48 maxAllowedFee;
+            uint32 maxAllowedFee;
             unchecked {
-                // Safe: uint48 * uint16 / 10000 fits in uint48
+                // Safe: uint32 * uint16 / 10000 fits in uint32
                 maxAllowedFee =
-                    uint48(uint256(current.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
+                    uint32(uint256(current.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
             }
             require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         }
@@ -306,10 +243,6 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit ExitRequested(msg.sender, withdrawableAt);
     }
 
-    // ---------------------------------------------------------------
-    // Slashing (Inbox Only)
-    // ---------------------------------------------------------------
-
     /// @inheritdoc IProverAuction
     function slashBond(
         address _proverAddr,
@@ -325,15 +258,15 @@ contract ProverAuction is EssentialContract, IProverAuction {
         BondInfo storage bond = _bonds[_proverAddr];
 
         // Best-effort slash
-        uint128 actualSlash = _slashAmount > bond.balance ? bond.balance : _slashAmount;
+        uint128 actualSlash = uint128(LibMath.min(_slashAmount, bond.balance));
         // Reward recipient (capped by what was actually slashed)
-        uint128 actualReward = _rewardAmount > actualSlash ? actualSlash : _rewardAmount;
+        uint128 actualReward = uint128(LibMath.min(_rewardAmount, actualSlash));
 
         unchecked {
             // Safe: actualSlash <= bond.balance by construction above
             bond.balance -= actualSlash;
             // Safe: actualReward <= actualSlash by construction above
-            _totalSlashDiff += actualSlash - actualReward;
+            _totalSlashedAmount += actualSlash - actualReward;
         }
 
         if (actualReward > 0 && _recipient != address(0)) {
@@ -343,12 +276,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit BondSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
         // Force out if below threshold AND is current prover AND not already exited
-        Prover storage currentProver = _prover;
+        Prover storage current = _prover;
         if (
-            _proverAddr == currentProver.addr && currentProver.exitTimestamp == 0
+            _proverAddr == current.addr && current.exitTimestamp == 0
                 && bond.balance < getForceExitThreshold()
         ) {
-            currentProver.exitTimestamp = uint48(block.timestamp);
+            current.exitTimestamp = uint48(block.timestamp);
             unchecked {
                 // Safe: uint48 + uint48 won't overflow for ~8900 years
                 bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
@@ -358,8 +291,68 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     // ---------------------------------------------------------------
-    // View Functions
+    // External View Functions
     // ---------------------------------------------------------------
+
+    /// @inheritdoc IProverAuction
+    function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_) {
+        Prover memory p = _prover; // 1 SLOAD
+
+        // Return empty if no prover or prover has exited
+        if (p.addr == address(0) || p.exitTimestamp > 0) {
+            return (address(0), 0);
+        }
+
+        return (p.addr, p.feeInGwei);
+    }
+
+    /// @inheritdoc IProverAuction
+    function getMaxBidFee() public view returns (uint32 maxFee_) {
+        Prover memory current = _prover;
+
+        // Active prover: must undercut by minFeeReductionBps
+        if (current.addr != address(0) && current.exitTimestamp == 0) {
+            unchecked {
+                // Safe: uint32 * uint16 / 10000 fits in uint32
+                return uint32(uint256(current.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
+            }
+        }
+
+        // Vacant slot: time-based doubling
+        uint32 baseFee;
+        uint48 startTime;
+
+        if (current.addr == address(0)) {
+            // Never had a prover
+            baseFee = initialMaxFee;
+            startTime = _contractCreationTime;
+        } else {
+            // Previous prover exited - use their fee, but fall back to initialMaxFee if 0
+            // This prevents the slot from being permanently stuck at 0 fee
+            baseFee = current.feeInGwei > 0 ? current.feeInGwei : initialMaxFee;
+            startTime = current.exitTimestamp;
+        }
+
+        uint256 elapsed;
+        uint256 periods;
+        unchecked {
+            // Safe: block.timestamp >= startTime always
+            elapsed = block.timestamp - startTime;
+            periods = elapsed / feeDoublingPeriod;
+
+            if (periods > maxFeeDoublings) {
+                periods = maxFeeDoublings;
+            }
+        }
+
+        uint256 maxFee = uint256(baseFee) << periods; // baseFee * 2^periods
+
+        if (maxFee > type(uint32).max) {
+            return type(uint32).max;
+        }
+
+        return uint32(maxFee);
+    }
 
     /// @inheritdoc IProverAuction
     function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_) {
@@ -367,47 +360,45 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
+    /// @dev Safe: uint96 * uint16 * 2 fits in uint128
     function getRequiredBond() public view returns (uint128 requiredBond_) {
         unchecked {
-            // Safe: uint96 * uint16 * 2 fits in uint128
-            return uint128(livenessBond) * maxPendingProposals * 2;
+            return uint128(livenessBond) * bondMultiplier * 2;
         }
     }
 
     /// @inheritdoc IProverAuction
+    /// @dev Safe: uint96 * uint16 / 2 fits in uint128
     function getForceExitThreshold() public view returns (uint128 threshold_) {
         unchecked {
-            // Safe: uint96 * uint16 / 2 fits in uint128
-            return uint128(livenessBond) * maxPendingProposals / 2;
+            return uint128(livenessBond) * bondMultiplier / 2;
         }
     }
 
     /// @inheritdoc IProverAuction
-    function getMovingAverageFee() external view returns (uint48 avgFee_) {
+    function getMovingAverageFee() external view returns (uint32 avgFee_) {
         return _movingAverageFee;
     }
 
     /// @inheritdoc IProverAuction
-    function getTotalSlashDiff() external view returns (uint128 totalSlashDiff_) {
-        return _totalSlashDiff;
+    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
+        return _totalSlashedAmount;
     }
 
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Updates the exponential moving average of fees
+    /// @dev Updates the exponential moving average of fees.
+    ///      Safe: uint32 * 9 + uint32 fits in uint256, result / 10 fits in uint32
     /// @param _newFee The new fee to incorporate into the average
-    function _updateMovingAverage(uint48 _newFee) internal {
-        uint48 currentAvg = _movingAverageFee;
-
-        if (currentAvg == 0) {
-            // First bid sets the baseline
-            _movingAverageFee = _newFee;
-        } else {
-            unchecked {
-                // Safe: uint48 * 9 + uint48 fits in uint256, result / 10 fits in uint48
-                _movingAverageFee = uint48((uint256(currentAvg) * 9 + uint256(_newFee)) / 10);
+    function _updateMovingAverage(uint32 _newFee) internal {
+        unchecked {
+            uint32 currentAvg = _movingAverageFee;
+            if (currentAvg == 0) {
+                _movingAverageFee = _newFee;
+            } else {
+                _movingAverageFee = uint32((uint256(currentAvg) * 9 + uint256(_newFee)) / 10);
             }
         }
     }

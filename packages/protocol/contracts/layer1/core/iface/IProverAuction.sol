@@ -18,7 +18,8 @@ interface IProverAuction {
 
     /// @notice Bond information for an account
     /// @param balance The current bond token balance
-    /// @param withdrawableAt Timestamp when withdrawal is allowed (0 = no delay if not current prover)
+    /// @param withdrawableAt Timestamp when withdrawal is allowed
+    /// (0 = no delay if not current prover)
     struct BondInfo {
         uint128 balance;
         uint48 withdrawableAt;
@@ -42,7 +43,7 @@ interface IProverAuction {
     /// @param newProver The address of the new prover
     /// @param feeInGwei The new fee per proposal in Gwei
     /// @param oldProver The address of the previous prover (address(0) if none)
-    event BidPlaced(address indexed newProver, uint48 feeInGwei, address indexed oldProver);
+    event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
 
     /// @notice Emitted when the current prover requests to exit
     /// @param prover The prover that requested exit
@@ -63,7 +64,7 @@ interface IProverAuction {
     event ProverForcedOut(address indexed prover);
 
     // ---------------------------------------------------------------
-    // Bond Management
+    // External Transactional Functions
     // ---------------------------------------------------------------
 
     /// @notice Deposit bond tokens to caller's balance
@@ -78,22 +79,6 @@ interface IProverAuction {
     /// @dev Reverts if withdrawal delay has not passed (when withdrawableAt > 0)
     function withdraw(uint128 _amount) external;
 
-    // ---------------------------------------------------------------
-    // Auction Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Get the current active prover and their fee
-    /// @return prover_ Current prover address (address(0) if none)
-    /// @return feeInGwei_ Fee per proposal in Gwei (0 if no prover)
-    /// @dev Optimized for 1 SLOAD - called on every proposal by Inbox
-    function getCurrentProver() external view returns (address prover_, uint48 feeInGwei_);
-
-    /// @notice Get the maximum allowed bid fee at the current time
-    /// @return maxFee_ Maximum fee in Gwei that a bid can specify
-    /// @dev If active prover exists: returns fee * (10000 - minFeeReductionBps) / 10000
-    /// @dev If slot is vacant: returns time-based cap (doubles every feeDoublingPeriod)
-    function getMaxBidFee() external view returns (uint48 maxFee_);
-
     /// @notice Submit a bid to become prover, or lower fee if already current prover
     /// @param _feeInGwei Fee per proposal in Gwei
     /// @dev Requirements:
@@ -104,17 +89,13 @@ interface IProverAuction {
     ///      - If outbidding another prover, their withdrawableAt is set
     ///      - Moving average is updated with new fee
     ///      - Caller becomes the current prover
-    function bid(uint48 _feeInGwei) external;
+    function bid(uint32 _feeInGwei) external;
 
     /// @notice Request to exit as the current prover
     /// @dev Only callable by current prover
     /// @dev Sets exitTimestamp and starts withdrawal delay timer
     /// @dev After exit, slot becomes vacant and time-based fee cap applies
     function requestExit() external;
-
-    // ---------------------------------------------------------------
-    // Slashing (Inbox Only)
-    // ---------------------------------------------------------------
 
     /// @notice Slash a prover's bond for failing to prove within the time window
     /// @param _prover Address of the prover to slash
@@ -134,8 +115,20 @@ interface IProverAuction {
         external;
 
     // ---------------------------------------------------------------
-    // View Functions
+    // External View Functions
     // ---------------------------------------------------------------
+
+    /// @notice Get the current active prover and their fee
+    /// @return prover_ Current prover address (address(0) if none)
+    /// @return feeInGwei_ Fee per proposal in Gwei (0 if no prover)
+    /// @dev Optimized for 1 SLOAD - called on every proposal by Inbox
+    function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_);
+
+    /// @notice Get the maximum allowed bid fee at the current time
+    /// @return maxFee_ Maximum fee in Gwei that a bid can specify
+    /// @dev If active prover exists: returns fee * (10000 - minFeeReductionBps) / 10000
+    /// @dev If slot is vacant: returns time-based cap (doubles every feeDoublingPeriod)
+    function getMaxBidFee() external view returns (uint32 maxFee_);
 
     /// @notice Get bond information for an account
     /// @param _account The account to query
@@ -143,18 +136,18 @@ interface IProverAuction {
     function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_);
 
     /// @notice Get the required bond amount to become prover
-    /// @return requiredBond_ The minimum bond required (livenessBond * maxPendingProposals * 2)
+    /// @return requiredBond_ The minimum bond required (livenessBond * bondMultiplier * 2)
     function getRequiredBond() external view returns (uint128 requiredBond_);
 
     /// @notice Get the bond threshold that triggers forced exit
-    /// @return threshold_ The force-exit threshold (livenessBond * maxPendingProposals / 2)
+    /// @return threshold_ The force-exit threshold (livenessBond * bondMultiplier / 2)
     function getForceExitThreshold() external view returns (uint128 threshold_);
 
     /// @notice Get the current moving average fee
     /// @return avgFee_ The exponential moving average of winning fees in Gwei
-    function getMovingAverageFee() external view returns (uint48 avgFee_);
+    function getMovingAverageFee() external view returns (uint32 avgFee_);
 
-    /// @notice Get the total accumulated slash difference (slashed - rewarded)
-    /// @return totalSlashDiff_ The total amount locked forever in the contract
-    function getTotalSlashDiff() external view returns (uint128 totalSlashDiff_);
+    /// @notice Get the total accumulated slashed amount (slashed - rewarded)
+    /// @return totalSlashedAmount_ The total amount locked forever in the contract
+    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_);
 }
