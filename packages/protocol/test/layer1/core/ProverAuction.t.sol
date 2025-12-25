@@ -992,7 +992,7 @@ contract ProverAuctionTest is CommonTest {
     /// @notice Issue 2.6: Test that initialMaxFee = 0 is now rejected (FIXED)
     function test_bug_getMaxBidFeeWithZeroBaseFee() public {
         // Deploy auction with initialMaxFee = 0 should now revert
-        vm.expectRevert(ProverAuction.InitialMaxFeeCannotBeZero.selector);
+        vm.expectRevert(ProverAuction.ZeroValue.selector);
         new ProverAuction(
             inbox,
             address(bondToken),

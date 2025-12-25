@@ -111,7 +111,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint8 _maxFeeDoublings,
         uint32 _initialMaxFee
     ) {
-        require(_initialMaxFee > 0, InitialMaxFeeCannotBeZero());
+        require(_inbox != address(0), ZeroAddress());
+        require(_bondToken != address(0), ZeroAddress());
+        require(_livenessBond > 0, ZeroValue());
+        require(_bondMultiplier > 0, ZeroValue());
+        require(_minFeeReductionBps <= 10_000, InvalidBps());
+        require(_feeDoublingPeriod > 0, ZeroValue());
+        require(_initialMaxFee > 0, ZeroValue());
 
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
@@ -277,17 +283,17 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit BondSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
         // Force out if below threshold AND is current prover AND not already exited
-        Prover storage current = _prover;
-        if (
-            _proverAddr == current.addr && current.exitTimestamp == 0
-                && bond.balance < getForceExitThreshold()
-        ) {
-            current.exitTimestamp = uint48(block.timestamp);
-            unchecked {
-                // Safe: uint48 + uint48 won't overflow for ~8900 years
-                bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+        // Check balance threshold first to avoid SLOAD when not needed
+        if (bond.balance < getForceExitThreshold()) {
+            Prover storage current = _prover;
+            if (_proverAddr == current.addr && current.exitTimestamp == 0) {
+                current.exitTimestamp = uint48(block.timestamp);
+                unchecked {
+                    // Safe: uint48 + uint48 won't overflow for ~8900 years
+                    bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+                }
+                emit ProverForcedOut(_proverAddr);
             }
-            emit ProverForcedOut(_proverAddr);
         }
     }
 
@@ -412,9 +418,11 @@ contract ProverAuction is EssentialContract, IProverAuction {
     error CurrentProverCannotWithdraw();
     error FeeMustBeLower();
     error FeeTooHigh();
-    error InitialMaxFeeCannotBeZero();
     error InsufficientBond();
+    error InvalidBps();
     error NotCurrentProver();
     error OnlyInbox();
     error WithdrawalDelayNotPassed();
+    error ZeroAddress();
+    error ZeroValue();
 }
