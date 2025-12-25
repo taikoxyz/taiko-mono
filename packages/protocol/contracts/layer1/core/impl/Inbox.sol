@@ -8,7 +8,7 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonding } from "../libs/LibBonding.sol";
+import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
@@ -128,7 +128,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
     /// @notice Storage for bond balances.
-    LibBonding.Storage private _bondingStorage;
+    LibBonds.Storage private _bondingStorage;
 
     uint256[43] private __gap;
 
@@ -206,7 +206,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
             uint256 bondAmount = livenessBond;
-            if (bondAmount > 0) LibBonding.debitBond(_bondingStorage, msg.sender, bondAmount);
+            if (bondAmount > 0) LibBonds.debitBond(_bondingStorage, msg.sender, bondAmount);
 
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
@@ -413,22 +413,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @inheritdoc IBondManager
     function deposit(uint256 _amount) external nonReentrant {
-        LibBonding.deposit(_bondingStorage, bondToken, msg.sender, msg.sender, _amount);
+        LibBonds.deposit(_bondingStorage, bondToken, msg.sender, msg.sender, _amount);
     }
 
     /// @inheritdoc IBondManager
     function depositTo(address _recipient, uint256 _amount) external nonReentrant {
-        LibBonding.deposit(_bondingStorage, bondToken, msg.sender, _recipient, _amount);
+        LibBonds.deposit(_bondingStorage, bondToken, msg.sender, _recipient, _amount);
     }
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint256 _amount) external nonReentrant {
-        LibBonding.withdraw(_bondingStorage, bondToken, msg.sender, _to, _amount);
+        LibBonds.withdraw(_bondingStorage, bondToken, msg.sender, _to, _amount);
     }
 
     /// @inheritdoc IBondManager
     function getBondBalance(address _address) external view returns (uint256) {
-        return LibBonding.getBondBalance(_bondingStorage, _address);
+        return LibBonds.getBondBalance(_bondingStorage, _address);
     }
 
     /// @inheritdoc IBondManager
@@ -440,7 +440,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         view
         returns (bool)
     {
-        return LibBonding.hasSufficientBond(_bondingStorage, livenessBond, _address, _additionalBond);
+        return LibBonds.hasSufficientBond(_bondingStorage, livenessBond, _address, _additionalBond);
     }
 
     // ---------------------------------------------------------------
@@ -697,7 +697,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
                 if (block.timestamp > livenessWindowDeadline) {
                     start = _offset + 1;
-                    LibBonding.processLivenessBond(
+                    LibBonds.processLivenessBond(
                         _bondingStorage,
                         bondAmount,
                         _commitment.transitions[_offset].proposer,
@@ -708,7 +708,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             for (uint256 i = start; i < _numProposals; ++i) {
-                LibBonding.creditBond(
+                LibBonds.creditBond(
                     _bondingStorage, _commitment.transitions[i].proposer, bondAmount
                 );
             }

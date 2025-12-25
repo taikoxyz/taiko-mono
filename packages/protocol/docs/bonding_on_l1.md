@@ -2,7 +2,10 @@
 
 ## Summary
 
-Move bond accounting and liveness slashing back to L1. The Inbox enforces a proposer bond check before accepting proposals and performs liveness slashing directly on L1 for late proofs. This removes L2 bond signals, low-bond proposal handling, and prover delegation/auth for now while keeping propose/prove efficient.
+Move bond accounting and liveness slashing back to L1. The Inbox enforces a proposer bond check
+before accepting proposals and performs liveness slashing directly on L1 for late proofs. This
+removes L2 bond signals, low-bond proposal handling, and prover delegation/auth for now while
+keeping propose/prove efficient.
 
 ## Goals
 
@@ -22,15 +25,17 @@ Move bond accounting and liveness slashing back to L1. The Inbox enforces a prop
 - Bonds live on L2 in `layer2/core/BondManager`.
 - L2 `Anchor` validates prover auth, handles proving fee transfers, and marks `isLowBondProposal`.
 - L1 `Inbox.prove` emits `BondInstructionCreated` for late proofs and sends signals to L2.
-- L2 `BondManager.processBondInstruction` consumes those signals and applies best-effort debits/credits.
+- L2 `BondManager.processBondInstruction` consumes those signals and applies best-effort
+  debits/credits.
 
-This creates low-bond proposal handling, signal proofs, and extra complexity around L1/L2 coordination.
+This creates low-bond proposal handling, signal proofs, and extra complexity around L1/L2
+coordination.
 
 ## Proposed Design
 
 ### L1 Bonding In Inbox
 
-Move bond accounting into the Inbox via a small library (`LibBonding`) to keep the Inbox readable:
+Move bond accounting into the Inbox via a small library (`LibBonds`) to keep the Inbox readable:
 
 - Tracks per-account balances.
 - Uses `livenessBond` as the per-proposal bond amount.

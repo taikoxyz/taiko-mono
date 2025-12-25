@@ -7,7 +7,7 @@ import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibBonding } from "src/layer1/core/libs/LibBonding.sol";
+import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
 
 contract InboxProposeTest is InboxTestBase {
     function test_propose() public {
@@ -65,7 +65,7 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
-        vm.expectRevert(LibBonding.InsufficientBondBalance.selector);
+        vm.expectRevert(LibBonds.InsufficientBondBalance.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
     }
@@ -80,7 +80,7 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
-        vm.expectRevert(LibBonding.InsufficientBondBalance.selector);
+        vm.expectRevert(LibBonds.InsufficientBondBalance.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
     }

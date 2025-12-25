@@ -137,7 +137,9 @@ struct SignedTransaction {
 
 ### Proposer Bond Validation
 
-The proposer must have sufficient balance in the L1 [`BondManager`](../contracts/layer1/core/impl/BondManager.sol) contract before `Inbox.propose` accepts the proposal. Low-bond proposals are no longer accepted, so derivation never replaces the proposer source due to bond insufficiency.
+The proposer must have sufficient bond balance tracked by the L1 `Inbox` (which implements
+`IBondManager`) before `Inbox.propose` accepts the proposal. Low-bond proposals are no longer
+accepted, so derivation never replaces the proposer source due to bond insufficiency.
 
 ### Manifest Extraction
 
@@ -257,7 +259,9 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 #### Liveness Bond Processing
 
-Late-proof handling on L1 applies liveness slashing directly via the L1 BondManager. When a proof is late, the Inbox calls `BondManager.processLivenessBond` for the first proven proposal in the batch. There are no bond signals sent to L2.
+Late-proof handling on L1 applies liveness slashing directly in the Inbox. When a proof is late,
+the Inbox processes the liveness bond for the first proven proposal in the batch. There are no
+bond signals sent to L2.
 
 ### Designated Prover System
 

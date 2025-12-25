@@ -2,13 +2,9 @@
 pragma solidity ^0.8.24;
 
 /// @title IBondManager
-/// @notice Interface for managing bonds on L1 in the Taiko protocol.
+/// @notice Interface for managing bonds in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
-    // ---------------------------------------------------------------
-    // Structs
-    // ---------------------------------------------------------------
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------

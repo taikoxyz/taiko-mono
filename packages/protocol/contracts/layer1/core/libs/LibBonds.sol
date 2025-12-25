@@ -5,10 +5,10 @@ import { IBondManager } from "../iface/IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title LibBonding
+/// @title LibBonds
 /// @notice Library for L1 bond accounting and liveness slashing in the Inbox.
 /// @custom:security-contact security@taiko.xyz
-library LibBonding {
+library LibBonds {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -128,7 +128,9 @@ library LibBonding {
             if (payeeAmount > 0) creditBond($, _payee, payeeAmount);
         }
 
-        emit IBondManager.LivenessBondProcessed(_payer, _payee, _caller, debited, payeeAmount, callerAmount);
+        emit IBondManager.LivenessBondProcessed(
+            _payer, _payee, _caller, debited, payeeAmount, callerAmount
+        );
         return debited;
     }
 
