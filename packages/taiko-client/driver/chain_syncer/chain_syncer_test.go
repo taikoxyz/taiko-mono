@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -225,93 +224,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.NotZero(l1Height2)
 	s.Less(l1Height, l1Height2)
-	s.Zero(parentGasUsed)
-}
-
-func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
-	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	l1StateRoot, l1Height, _, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
-	s.Nil(err)
-	s.NotEqual(common.Hash{}, l1StateRoot)
-
-	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
-	s.Nil(err)
-
-	proposalId := coreState.NextProposalId
-	proposer := crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey)
-	provingFeeGwei := new(big.Int).SetUint64(281474976710655)
-
-	uint48Type, _ := abi.NewType("uint48", "", nil)
-	addressType, _ := abi.NewType("address", "", nil)
-	args := abi.Arguments{
-		{Name: "proposalId", Type: uint48Type},
-		{Name: "proposer", Type: addressType},
-		{Name: "provingFeeGwei", Type: uint48Type},
-	}
-
-	data, err := args.Pack(proposalId, proposer, provingFeeGwei)
-	s.Nil(err)
-
-	// Sign the message with L1_PROVER_PRIVATE_KEY
-	signature, err := crypto.Sign(crypto.Keccak256Hash(data).Bytes(), s.KeyFromEnv("L1_PROVER_PRIVATE_KEY"))
-	s.Nil(err)
-
-	auth := &encoding.ProverAuth{
-		ProposalId:     proposalId,
-		Proposer:       proposer,
-		ProvingFeeGwei: provingFeeGwei,
-		Signature:      signature,
-	}
-	s.NotNil(auth)
-
-	encodedAuth, err := encoding.EncodeProverAuth(auth)
-	s.Nil(err)
-
-	proposalState, err := s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
-	s.Nil(err)
-	info, err := s.RPCClient.ShastaClients.Anchor.GetDesignatedProver(
-		nil,
-		proposalId,
-		proposer,
-		encodedAuth,
-		proposalState.DesignatedProver,
-	)
-	s.Nil(err)
-	s.True(info.IsLowBondProposal)
-
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
-		context.Background(),
-		[]types.Transactions{{}},
-		common.Big1,
-		common.Address{},
-		encodedAuth,
-	)
-	s.Nil(err)
-	s.Nil(s.p.SendTx(context.Background(), txCandidate))
-	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
-
-	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(head.NumberU64()+1, head2.NumberU64())
-	s.Equal(1, len(head2.Transactions()))
-	s.Equal(head.GasLimit(), head2.GasLimit())
-	s.Less(head.Time(), head2.Time())
-	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
-	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
-	s.Equal(uint8(75), basefeeSharingPctg)
-	s.GreaterOrEqual(len(head2.Header().Extra), 2)
-	isLowBondProposal := head2.Header().Extra[1]&0x01 == 0x01
-	s.True(isLowBondProposal)
-
-	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
-	s.Nil(err)
-	s.NotEqual(common.Hash{}, l1StateRoot2)
-	s.NotZero(l1Height2)
-	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed)
 }
 

@@ -322,7 +322,6 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
-				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to assemble Shasta execution payload creation metadata: %w", err)
@@ -605,7 +604,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
-	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
 		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
@@ -671,8 +669,8 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
-	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
-	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, isLowBondProposal)
+	// Encode extraData with basefeeSharingPctg.
+	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -825,23 +823,15 @@ func updateL1OriginForBatchShasta(
 	)
 }
 
-// encodeShastaExtraData encodes the basefeeSharingPctg and isLowBondProposal into extraData field.
+// encodeShastaExtraData encodes the basefeeSharingPctg into extraData field.
 func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
-	isLowBondProposal bool,
 ) ([]byte, error) {
-	// Create a 2-byte array for extraData
-	extraData := make([]byte, 2)
+	// Create a 1-byte array for extraData
+	extraData := make([]byte, 1)
 
 	// First byte: basefeeSharingPctg
 	extraData[0] = basefeeSharingPctg
-
-	// Second byte: isLowBondProposal in the lowest bit
-	if isLowBondProposal {
-		extraData[1] = 0x01
-	} else {
-		extraData[1] = 0x00
-	}
 
 	return extraData, nil
 }

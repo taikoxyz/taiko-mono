@@ -29,11 +29,10 @@ type ShastaBlockPayload struct {
 
 // ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
 type ShastaDerivationSourcePayload struct {
-	ProverAuthBytes   []byte
-	BlockPayloads     []*ShastaBlockPayload
-	Default           bool
-	ParentBlock       *types.Block
-	IsLowBondProposal bool
+	ProverAuthBytes []byte
+	BlockPayloads   []*ShastaBlockPayload
+	Default         bool
+	ParentBlock     *types.Block
 }
 
 // ShastaDerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.

@@ -164,17 +164,9 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				input.Commitment.EndStateRoot = lastHeader.Root
 			}
 
-			// Fetch anchor proposal state, which contains the designated prover for the proposal.
-			_, anchorProposalState, err := a.rpc.GetShastaAnchorState(
-				&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()},
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch anchor proposal state: %w", err)
-			}
-
 			input.Commitment.Transitions = append(input.Commitment.Transitions, shastaBindings.IInboxTransition{
 				Proposer:         proposals[i].Proposer,
-				DesignatedProver: anchorProposalState.DesignatedProver,
+				DesignatedProver: proposals[i].Proposer,
 				Timestamp:        new(big.Int).SetUint64(proofResponse.Meta.Shasta().GetTimestamp()),
 				BlockHash:        lastHeader.Hash(),
 			})

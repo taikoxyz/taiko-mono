@@ -187,7 +187,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 			sourcePayload,
 			parent,
 			j,
-			sourcePayload.IsLowBondProposal,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
