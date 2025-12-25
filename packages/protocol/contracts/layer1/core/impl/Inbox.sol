@@ -71,10 +71,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ISignalService internal immutable _signalService;
 
     /// @notice ERC20 token used for proposer bonds.
-    IERC20 public immutable bondToken;
+    IERC20 internal immutable _bondToken;
 
     /// @notice Bond amount (Wei) for liveness guarantees.
-    uint256 public immutable livenessBond;
+    uint256 internal immutable _livenessBond;
 
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
@@ -145,8 +145,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
-        bondToken = IERC20(_config.bondToken);
-        livenessBond = _config.livenessBond;
+        _bondToken = IERC20(_config.bondToken);
+        _livenessBond = _config.livenessBond;
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
@@ -193,7 +193,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      1. Validates proposer authorization via `IProposerChecker`
     ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
-    ///      3. Updates core state and emits `Proposed` event
+    ///         Proposing becomes permisionless if forced inclusions are old enough, and have not been processed.
+    ///      3. Debits the proposer bond from the caller's balance.
+    ///      4. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
@@ -205,7 +207,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
-            uint256 bondAmount = livenessBond;
+            
+            uint256 bondAmount = _livenessBond;
+            // During permisionless proving we can set the bond to 0, avoiding the cost of this check
             if (bondAmount > 0) LibBonds.debitBond(_bondingStorage, msg.sender, bondAmount);
 
             Proposal memory proposal = _buildProposal(
@@ -413,34 +417,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @inheritdoc IBondManager
     function deposit(uint256 _amount) external nonReentrant {
-        LibBonds.deposit(_bondingStorage, bondToken, msg.sender, msg.sender, _amount);
+        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, msg.sender, _amount);
     }
 
     /// @inheritdoc IBondManager
     function depositTo(address _recipient, uint256 _amount) external nonReentrant {
-        LibBonds.deposit(_bondingStorage, bondToken, msg.sender, _recipient, _amount);
+        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, _recipient, _amount);
     }
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint256 _amount) external nonReentrant {
-        LibBonds.withdraw(_bondingStorage, bondToken, msg.sender, _to, _amount);
+        LibBonds.withdraw(_bondingStorage, _bondToken, msg.sender, _to, _amount);
     }
 
     /// @inheritdoc IBondManager
     function getBondBalance(address _address) external view returns (uint256) {
         return LibBonds.getBondBalance(_bondingStorage, _address);
-    }
-
-    /// @inheritdoc IBondManager
-    function hasSufficientBond(
-        address _address,
-        uint256 _additionalBond
-    )
-        external
-        view
-        returns (bool)
-    {
-        return LibBonds.hasSufficientBond(_bondingStorage, livenessBond, _address, _additionalBond);
     }
 
     // ---------------------------------------------------------------
@@ -477,8 +469,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             proposerChecker: address(_proposerChecker),
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
-            bondToken: address(bondToken),
-            livenessBond: livenessBond,
+            bondToken: address(_bondToken),
+            livenessBond: _livenessBond,
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
@@ -685,7 +677,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     )
         private
     {
-        uint256 bondAmount = livenessBond;
+        uint256 bondAmount = _livenessBond;
         if (bondAmount == 0) return;
 
         unchecked {

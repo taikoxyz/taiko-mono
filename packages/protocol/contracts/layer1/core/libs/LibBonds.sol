@@ -6,7 +6,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title LibBonds
-/// @notice Library for L1 bond accounting and liveness slashing in the Inbox.
+/// @notice Library for bond accounting and liveness slashing.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
     using SafeERC20 for IERC20;
@@ -38,8 +38,6 @@ library LibBonds {
     /// @param _account The account to debit.
     /// @param _amount The amount to debit.
     function debitBond(Storage storage $, address _account, uint256 _amount) internal {
-        if (_amount == 0) return;
-
         uint256 balance = $.bondBalance[_account];
         if (balance < _amount) revert InsufficientBondBalance();
         unchecked {
@@ -66,8 +64,8 @@ library LibBonds {
     {
         if (_recipient == address(0)) revert InvalidRecipient();
 
-        _bondToken.safeTransferFrom(_depositor, address(this), _amount);
         creditBond($, _recipient, _amount);
+        _bondToken.safeTransferFrom(_depositor, address(this), _amount);
         emit IBondManager.BondDeposited(_depositor, _recipient, _amount);
     }
 
@@ -139,24 +137,6 @@ library LibBonds {
     /// @param _account The account to query.
     function getBondBalance(Storage storage $, address _account) internal view returns (uint256) {
         return $.bondBalance[_account];
-    }
-
-    /// @dev Returns true if the account has sufficient bond for a proposal.
-    /// @param $ Storage reference.
-    /// @param _livenessBond The liveness bond amount.
-    /// @param _account The account to query.
-    /// @param _additionalBond Additional bond required on top of liveness bond.
-    function hasSufficientBond(
-        Storage storage $,
-        uint256 _livenessBond,
-        address _account,
-        uint256 _additionalBond
-    )
-        internal
-        view
-        returns (bool)
-    {
-        return $.bondBalance[_account] >= _livenessBond + _additionalBond;
     }
 
     // ---------------------------------------------------------------

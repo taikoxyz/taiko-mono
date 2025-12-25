@@ -82,7 +82,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
         uint256 proverBalanceBefore = bondManager.getBondBalance(whitelistedProver);
-        uint256 livenessBond = bondManager.livenessBond();
+        uint256 livenessBond = inbox.getConfig().livenessBond;
 
         _proveAs(whitelistedProver, input);
 

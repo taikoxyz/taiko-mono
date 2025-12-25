@@ -65,10 +65,6 @@ interface IBondManager {
     /// @param _amount The amount to withdraw.
     function withdraw(address _to, uint256 _amount) external;
 
-    /// @notice Returns the liveness bond amount.
-    /// @return livenessBond_ The liveness bond amount.
-    function livenessBond() external view returns (uint256 livenessBond_);
-
     // ---------------------------------------------------------------
     // View Functions
     // ---------------------------------------------------------------
@@ -78,16 +74,4 @@ interface IBondManager {
     /// @return bondBalance_ The bond balance of the address.
     function getBondBalance(address _address) external view returns (uint256 bondBalance_);
 
-    /// @notice Checks if an account has sufficient bond to cover the liveness bond.
-    /// @param _address The address to check.
-    /// @param _additionalBond The additional bond required the account has to have on top of the
-    /// liveness bond.
-    /// @return hasBond_ True if the account has sufficient bond for a proposal.
-    function hasSufficientBond(
-        address _address,
-        uint256 _additionalBond
-    )
-        external
-        view
-        returns (bool hasBond_);
 }
