@@ -30,6 +30,8 @@ library LibBonds {
     /// @param _amount The amount to credit.
     function creditBond(Storage storage $, address _account, uint256 _amount) internal {
         $.bondBalance[_account] = $.bondBalance[_account] + _amount;
+
+        // TODO: remove event and rely on the caller's to emit an event?
         emit IBondManager.BondCredited(_account, _amount);
     }
 
@@ -106,16 +108,11 @@ library LibBonds {
         internal
         returns (uint256 debitedAmount_)
     {
-        uint256 debited = _livenessBond;
-        if (debited == 0) {
-            emit IBondManager.LivenessBondProcessed(_payer, _payee, _caller, 0, 0, 0);
-            return 0;
-        }
-
         uint256 payeeAmount;
         uint256 callerAmount;
 
         if (_payer == _payee) {
+            // TODO: do we need math with better precision?
             payeeAmount = (debited * 4) / 10; // 40%
             callerAmount = debited / 10; // 10%
 

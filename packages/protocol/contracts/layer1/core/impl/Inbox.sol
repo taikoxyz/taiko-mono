@@ -412,30 +412,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     // ---------------------------------------------------------------
-    // Bond Manager Functions
-    // ---------------------------------------------------------------
-
-    /// @inheritdoc IBondManager
-    function deposit(uint256 _amount) external nonReentrant {
-        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, msg.sender, _amount);
-    }
-
-    /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
-        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, _recipient, _amount);
-    }
-
-    /// @inheritdoc IBondManager
-    function withdraw(address _to, uint256 _amount) external nonReentrant {
-        LibBonds.withdraw(_bondingStorage, _bondToken, msg.sender, _to, _amount);
-    }
-
-    /// @inheritdoc IBondManager
-    function getBondBalance(address _address) external view returns (uint256) {
-        return LibBonds.getBondBalance(_bondingStorage, _address);
-    }
-
-    // ---------------------------------------------------------------
     // External and Public View Functions
     // ---------------------------------------------------------------
     /// @inheritdoc IForcedInclusionStore
@@ -495,6 +471,30 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// expected proposal.
     function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
         return _proposalHashes[_proposalId % _ringBufferSize];
+    }
+
+    // ---------------------------------------------------------------
+    // Bond Manager Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc IBondManager
+    function deposit(uint256 _amount) external nonReentrant {
+        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, msg.sender, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
+        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, _recipient, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function withdraw(address _to, uint256 _amount) external nonReentrant {
+        LibBonds.withdraw(_bondingStorage, _bondToken, msg.sender, _to, _amount);
+    }
+
+    /// @inheritdoc IBondManager
+    function getBondBalance(address _address) external view returns (uint256) {
+        return LibBonds.getBondBalance(_bondingStorage, _address);
     }
 
     // ---------------------------------------------------------------
@@ -661,8 +661,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      - The proposer bond is reserved at propose time.
     ///      - On-time: refund the reserved bond to the proposer.
     ///      - Late: apply liveness slashing for the first unfinalized proposal only.
-    ///      - All additional proposals in the batch are refunded (they are younger than the
-    ///        first unfinalized proposal).
+    ///      - All additional proposals in the batch are refunded (by definition, they
+    ///        cannot be late).
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
     /// @param _numProposals The number of proposals in the batch.
@@ -677,12 +677,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     )
         private
     {
+        // TODO: The bond amount can change between proposal and proving time, decide how to handle this.
         uint256 bondAmount = _livenessBond;
         if (bondAmount == 0) return;
 
         unchecked {
             uint256 start = _offset;
             if (!_isWhitelistEnabled) {
+                // The deadline is calculated taking into account when the proposal becomes provable
                 uint256 livenessWindowDeadline =
                     (_commitment.transitions[_offset].timestamp + _provingWindow)
                         .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
@@ -699,7 +701,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
+            // Refund the proposer for all the other bonds
             for (uint256 i = start; i < _numProposals; ++i) {
+                // TODO: This can probably be optimized instead of calling creditBond for each proposal
+                // and emitting an event for each one.
                 LibBonds.creditBond(
                     _bondingStorage, _commitment.transitions[i].proposer, bondAmount
                 );
