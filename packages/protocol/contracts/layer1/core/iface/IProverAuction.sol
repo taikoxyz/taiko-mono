@@ -119,8 +119,9 @@ interface IProverAuction {
     // ---------------------------------------------------------------
 
     /// @notice Get the current active prover and their fee
-    /// @return prover_ Current prover address (address(0) if none)
-    /// @return feeInGwei_ Fee per proposal in Gwei (0 if no prover)
+    /// @return prover_ Current prover address (address(0) if none or exited)
+    /// @return feeInGwei_ Fee per proposal in Gwei. Can be 0 for active provers.
+    ///         Guaranteed to be 0 when prover_ is address(0).
     /// @dev Optimized for 1 SLOAD - called on every proposal by Inbox
     function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_);
 

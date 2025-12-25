@@ -66,6 +66,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Initial maximum fee for first-ever bid (in Gwei)
     uint32 public immutable initialMaxFee;
 
+    /// @notice Multiplier for moving average fee to calculate floor (e.g., 2 = 2x moving average)
+    uint8 public immutable movingAverageMultiplier;
+
     /// @notice Pre-computed required bond amount (livenessBond * bondMultiplier * 2)
     uint128 public immutable requiredBond;
 
@@ -108,6 +111,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @param _feeDoublingPeriod Time period for fee doubling when vacant
     /// @param _maxFeeDoublings Maximum number of fee doublings
     /// @param _initialMaxFee Initial maximum fee for first-ever bid (in Gwei)
+    /// @param _movingAverageMultiplier Multiplier for moving average fee floor
     constructor(
         address _inbox,
         address _bondToken,
@@ -117,7 +121,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint48 _bondWithdrawalDelay,
         uint48 _feeDoublingPeriod,
         uint8 _maxFeeDoublings,
-        uint32 _initialMaxFee
+        uint32 _initialMaxFee,
+        uint8 _movingAverageMultiplier
     ) {
         require(_inbox != address(0), ZeroAddress());
         require(_bondToken != address(0), ZeroAddress());
@@ -126,6 +131,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(_minFeeReductionBps <= 10_000, InvalidBps());
         require(_feeDoublingPeriod > 0, ZeroValue());
         require(_initialMaxFee > 0, ZeroValue());
+        require(_movingAverageMultiplier > 0, ZeroValue());
 
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
@@ -136,6 +142,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         feeDoublingPeriod = _feeDoublingPeriod;
         maxFeeDoublings = _maxFeeDoublings;
         initialMaxFee = _initialMaxFee;
+        movingAverageMultiplier = _movingAverageMultiplier;
 
         // Pre-compute bond thresholds to save gas on every bid/slash
         unchecked {
@@ -343,17 +350,26 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         // Vacant slot: time-based doubling
+        // Use max of initialMaxFee and movingAverage * multiplier to prevent manipulation
+        uint32 feeFloor;
+        unchecked {
+            // Safe: uint32 * uint8 fits in uint256, result capped to uint32.max
+            uint256 movingAvgFee = uint256(_movingAverageFee) * movingAverageMultiplier;
+            feeFloor = movingAvgFee > type(uint32).max
+                ? type(uint32).max
+                : uint32(LibMath.max(initialMaxFee, movingAvgFee));
+        }
+
         uint32 baseFee;
         uint48 startTime;
 
         if (current.addr == address(0)) {
-            // Never had a prover
-            baseFee = initialMaxFee;
+            // Never had a prover - use fee floor
+            baseFee = feeFloor;
             startTime = _contractCreationTime;
         } else {
-            // Previous prover exited - use their fee, but fall back to initialMaxFee if 0
-            // This prevents the slot from being permanently stuck at 0 fee
-            baseFee = current.feeInGwei > 0 ? current.feeInGwei : initialMaxFee;
+            // Previous prover exited - use max of their fee and fee floor
+            baseFee = uint32(LibMath.max(current.feeInGwei, feeFloor));
             startTime = current.exitTimestamp;
         }
 

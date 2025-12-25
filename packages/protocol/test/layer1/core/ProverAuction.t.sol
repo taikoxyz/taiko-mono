@@ -25,6 +25,7 @@ contract ProverAuctionTest is CommonTest {
     uint48 internal constant FEE_DOUBLING_PERIOD = 15 minutes;
     uint8 internal constant MAX_FEE_DOUBLINGS = 8;
     uint32 internal constant INITIAL_MAX_FEE = 1000;
+    uint8 internal constant MOVING_AVG_MULTIPLIER = 2;
 
     // Derived values
     uint128 internal REQUIRED_BOND;
@@ -60,7 +61,8 @@ contract ProverAuctionTest is CommonTest {
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
-            INITIAL_MAX_FEE
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
         );
 
         auction = ProverAuction(
@@ -123,6 +125,7 @@ contract ProverAuctionTest is CommonTest {
         assertEq(auction.feeDoublingPeriod(), FEE_DOUBLING_PERIOD);
         assertEq(auction.maxFeeDoublings(), MAX_FEE_DOUBLINGS);
         assertEq(auction.initialMaxFee(), INITIAL_MAX_FEE);
+        assertEq(auction.movingAverageMultiplier(), MOVING_AVG_MULTIPLIER);
     }
 
     // ---------------------------------------------------------------
@@ -384,12 +387,15 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        // At exit time, max fee should be the prover's fee
-        assertEq(auction.getMaxBidFee(), 1000);
+        // At exit time, max fee should be max of:
+        // - exited fee (1000)
+        // - fee floor = max(initialMaxFee=1000, movingAvg=1000 * multiplier=2) = 2000
+        // So baseFee = max(1000, 2000) = 2000
+        assertEq(auction.getMaxBidFee(), 2000);
 
         // After one period, should double
         vm.warp(block.timestamp + FEE_DOUBLING_PERIOD);
-        assertEq(auction.getMaxBidFee(), 2000);
+        assertEq(auction.getMaxBidFee(), 4000);
     }
 
     function test_getMaxBidFee_capsAtUint48Max() public {
@@ -403,7 +409,8 @@ contract ProverAuctionTest is CommonTest {
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
-            type(uint32).max / 2 // High initial fee
+            type(uint32).max / 2, // High initial fee
+            MOVING_AVG_MULTIPLIER
         );
 
         ProverAuction highFeeAuction = ProverAuction(
@@ -1002,7 +1009,8 @@ contract ProverAuctionTest is CommonTest {
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
-            0 // initialMaxFee = 0 - now rejected
+            0, // initialMaxFee = 0 - now rejected
+            MOVING_AVG_MULTIPLIER
         );
 
         // FIXED: Constructor now validates that initialMaxFee > 0
@@ -1103,7 +1111,8 @@ contract ProverAuctionTest is CommonTest {
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
-            INITIAL_MAX_FEE
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
         );
 
         ProverAuction maxReductionAuction = ProverAuction(
@@ -1150,7 +1159,8 @@ contract ProverAuctionTest is CommonTest {
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
-            INITIAL_MAX_FEE
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
         );
 
         ProverAuction noReductionAuction = ProverAuction(
@@ -1183,5 +1193,85 @@ contract ProverAuctionTest is CommonTest {
 
         (address prover,) = noReductionAuction.getCurrentProver();
         assertEq(prover, prover2, "prover2 should be able to outbid with same fee");
+    }
+
+    /// @notice Test that movingAverageMultiplier = 0 is rejected
+    function test_constructor_RevertWhen_MovingAverageMultiplierZero() public {
+        vm.expectRevert(ProverAuction.ZeroValue.selector);
+        new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            BOND_WITHDRAWAL_DELAY,
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE,
+            0 // movingAverageMultiplier = 0 - should be rejected
+        );
+    }
+
+    /// @notice Test that max bid fee uses moving average floor when it's higher than initial
+    function test_getMaxBidFee_usesMovingAverageFloor() public {
+        // First bid at the max allowed fee (initialMaxFee = 1000)
+        _depositAndBid(prover1, REQUIRED_BOND, 1000);
+        assertEq(auction.getMovingAverageFee(), 1000);
+
+        // Exit prover
+        vm.prank(prover1);
+        auction.requestExit();
+
+        // Max bid fee should be max of:
+        // - exited fee (1000)
+        // - fee floor = max(initialMaxFee=1000, movingAvg=1000 * multiplier=2) = 2000
+        // So baseFee = max(1000, 2000) = 2000
+        assertEq(auction.getMaxBidFee(), 2000, "should use moving average floor");
+    }
+
+    /// @notice Test that max bid fee uses initial max fee when moving average is low
+    function test_getMaxBidFee_usesInitialMaxFeeWhenMovingAverageLow() public {
+        // Bid with a very low fee (100 Gwei)
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+
+        // Moving average should be 100
+        assertEq(auction.getMovingAverageFee(), 100);
+
+        // Exit prover
+        vm.prank(prover1);
+        auction.requestExit();
+
+        // Max bid fee should be max of:
+        // - exited fee (100)
+        // - fee floor = max(initialMaxFee=1000, movingAvg=100 * multiplier=2) = max(1000, 200) = 1000
+        // So baseFee = max(100, 1000) = 1000
+        assertEq(auction.getMaxBidFee(), 1000, "should use initialMaxFee");
+    }
+
+    /// @notice Test moving average floor prevents manipulation with zero fee exit
+    function test_getMaxBidFee_movingAverageFloorPreventsManipulation() public {
+        // First, bid at max allowed fee (initialMaxFee = 1000)
+        _depositAndBid(prover1, REQUIRED_BOND, 1000);
+        assertEq(auction.getMovingAverageFee(), 1000);
+
+        // Exit and wait for new prover
+        vm.prank(prover1);
+        auction.requestExit();
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
+
+        // Bid with zero fee to lower moving average (need to bid within max allowed)
+        // Max bid after exit = max(exitedFee=1000, feeFloor=max(1000, 1000*2)) = 2000
+        _depositAndBid(prover2, REQUIRED_BOND, 0);
+        // Moving average: (1000 * 9 + 0) / 10 = 900
+        assertEq(auction.getMovingAverageFee(), 900);
+
+        // Exit with zero fee
+        vm.prank(prover2);
+        auction.requestExit();
+
+        // Despite exiting with zero fee, max bid should be based on moving average floor
+        // feeFloor = max(initialMaxFee=1000, movingAvg=900 * multiplier=2) = max(1000, 1800) = 1800
+        // baseFee = max(exitedFee=0, feeFloor=1800) = 1800
+        assertEq(auction.getMaxBidFee(), 1800, "moving average floor should prevent manipulation");
     }
 }
