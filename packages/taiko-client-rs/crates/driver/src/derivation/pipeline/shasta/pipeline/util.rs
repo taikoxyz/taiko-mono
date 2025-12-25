@@ -67,7 +67,6 @@ pub(super) fn compute_build_payload_args_id(
 }
 
 /// Encode the extra data field for a Shasta block header.
-pub(super) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
-    let data = vec![basefee_sharing_pctg, u8::from(is_low_bond_proposal)];
-    Bytes::from(data)
+pub(super) fn encode_extra_data(basefee_sharing_pctg: u8) -> Bytes {
+    Bytes::from(vec![basefee_sharing_pctg])
 }

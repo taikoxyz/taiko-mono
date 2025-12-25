@@ -36,8 +36,6 @@ pub enum AnchorTxConstructorError {
 #[derive(Debug)]
 pub struct AnchorV4Input {
     pub proposal_id: u64,
-    pub proposer: Address,
-    pub prover_auth: Vec<u8>,
     pub anchor_block_number: u64,
     pub anchor_block_hash: B256,
     pub anchor_state_root: B256,
@@ -83,8 +81,6 @@ where
     ) -> Result<TxEnvelope, AnchorTxConstructorError> {
         let AnchorV4Input {
             proposal_id,
-            proposer,
-            prover_auth,
             anchor_block_number,
             anchor_block_hash,
             anchor_state_root,
@@ -125,7 +121,6 @@ where
         info!(
             l2_height,
             proposal_id,
-            ?prover_auth,
             ?anchor_block_number,
             ?anchor_block_hash,
             ?anchor_state_root,
@@ -135,11 +130,7 @@ where
             "assembling shasta anchor anchorV4 transaction",
         );
 
-        let proposal_params = ProposalParams {
-            proposalId: U48::from(proposal_id),
-            proposer,
-            proverAuth: prover_auth.into(),
-        };
+        let proposal_params = ProposalParams { proposalId: U48::from(proposal_id) };
 
         let checkpoint = Checkpoint {
             blockNumber: U48::from(anchor_block_number),

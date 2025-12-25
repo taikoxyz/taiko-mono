@@ -38,8 +38,6 @@ pub struct ShastaProtocolInstance<P: Provider + Clone> {
 /// Snapshot of anchor contract state at a given L2 block.
 #[derive(Clone, Debug)]
 pub struct AnchorState {
-    /// Prover designated by the anchor contract for the proposal.
-    pub designated_prover: Address,
     /// Anchor block number advertised by the anchor contract.
     pub anchor_block_number: u64,
 }
@@ -130,13 +128,9 @@ impl<P: Provider + Clone> Client<P> {
     pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
         let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
 
-        let proposal_state = self.shasta.anchor.getProposalState().block(block_id).call().await?;
         let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
 
-        Ok(AnchorState {
-            designated_prover: Address::from_slice(proposal_state.designatedProver.as_slice()),
-            anchor_block_number: block_state.anchorBlockNumber.to::<u64>(),
-        })
+        Ok(AnchorState { anchor_block_number: block_state.anchorBlockNumber.to::<u64>() })
     }
 }
 
