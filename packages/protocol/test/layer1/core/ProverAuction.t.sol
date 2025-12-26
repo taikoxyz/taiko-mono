@@ -285,6 +285,25 @@ contract ProverAuctionTest is CommonTest {
         assertEq(info.balance, 0);
     }
 
+    function test_withdraw_exitedProverWithdrawableAtNotExtendedByNewBid() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 1000);
+
+        vm.prank(prover1);
+        auction.requestExit();
+
+        IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        uint48 firstWithdrawableAt = infoBefore.withdrawableAt;
+        assertGt(firstWithdrawableAt, 0);
+
+        // Wait some time, then a new prover bids into the vacant slot
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY / 2);
+        _depositAndBid(prover2, REQUIRED_BOND, 1000);
+
+        // Exited prover's withdrawableAt should NOT be extended - they already exited
+        IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        assertEq(infoAfter.withdrawableAt, firstWithdrawableAt, "exited prover delay should not extend");
+    }
+
     function test_withdraw_forcedOutProverCanWithdrawAfterDelay() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
@@ -508,6 +527,15 @@ contract ProverAuctionTest is CommonTest {
 
         (address prover,) = auction.getCurrentProver();
         assertEq(prover, prover2);
+    }
+
+    function test_bid_outbid_RevertWhen_CurrentFeeZero() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 0);
+        _depositBond(prover2, REQUIRED_BOND);
+
+        vm.prank(prover2);
+        vm.expectRevert(ProverAuction.FeeMustBeLower.selector);
+        auction.bid(0);
     }
 
     // ---------------------------------------------------------------
@@ -894,6 +922,288 @@ contract ProverAuctionTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
+    // Pause behavior tests
+    // ---------------------------------------------------------------
+    // NOTE: These tests document CURRENT behavior where entrypoints DO NOT have
+    // whenNotPaused modifiers and can still be called when paused.
+
+    function test_pause_deposit_worksWhenPaused() public {
+        // Pause the contract
+        auction.pause();
+        assertTrue(auction.paused());
+
+        // Deposit should still work (no whenNotPaused modifier)
+        vm.prank(prover1);
+        auction.deposit(10 ether);
+
+        IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
+        assertEq(info.balance, 10 ether, "deposit should work when paused");
+    }
+
+    function test_pause_withdraw_worksWhenPaused() public {
+        // Setup: deposit first
+        _depositBond(prover1, 10 ether);
+
+        // Pause the contract
+        auction.pause();
+        assertTrue(auction.paused());
+
+        // Withdraw should still work (no whenNotPaused modifier)
+        vm.prank(prover1);
+        auction.withdraw(5 ether);
+
+        IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
+        assertEq(info.balance, 5 ether, "withdraw should work when paused");
+    }
+
+    function test_pause_bid_worksWhenPaused() public {
+        // Setup: deposit bond
+        _depositBond(prover1, REQUIRED_BOND);
+
+        // Pause the contract
+        auction.pause();
+        assertTrue(auction.paused());
+
+        // Bid should still work (no whenNotPaused modifier)
+        vm.prank(prover1);
+        auction.bid(500);
+
+        (address prover, uint32 fee) = auction.getCurrentProver();
+        assertEq(prover, prover1, "bid should work when paused");
+        assertEq(fee, 500);
+    }
+
+    function test_pause_requestExit_worksWhenPaused() public {
+        // Setup: become active prover
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+
+        // Pause the contract
+        auction.pause();
+        assertTrue(auction.paused());
+
+        // requestExit should still work (no whenNotPaused modifier)
+        vm.prank(prover1);
+        auction.requestExit();
+
+        (address prover,) = auction.getCurrentProver();
+        assertEq(prover, address(0), "requestExit should work when paused");
+    }
+
+    function test_pause_slashBond_worksWhenPaused() public {
+        // Setup: become active prover
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+
+        // Pause the contract
+        auction.pause();
+        assertTrue(auction.paused());
+
+        // slashBond should still work (no whenNotPaused modifier)
+        vm.prank(inbox);
+        auction.slashBond(prover1, 1 ether, prover2, 0.5 ether);
+
+        IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
+        assertEq(info.balance, REQUIRED_BOND - 1 ether, "slashBond should work when paused");
+    }
+
+    function test_pause_unpause_allowsOperations() public {
+        // Pause
+        auction.pause();
+        assertTrue(auction.paused());
+
+        // Unpause
+        auction.unpause();
+        assertFalse(auction.paused());
+
+        // Verify operations work after unpause
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+        (address prover,) = auction.getCurrentProver();
+        assertEq(prover, prover1, "operations should work after unpause");
+    }
+
+    // ---------------------------------------------------------------
+    // bondWithdrawalDelay == 0 configuration tests
+    // ---------------------------------------------------------------
+    // NOTE: These tests document behavior when bondWithdrawalDelay is set to 0
+
+    function test_zeroWithdrawalDelay_outbidProverWithdrawsImmediately() public {
+        // Deploy auction with 0 withdrawal delay
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            0, // bondWithdrawalDelay = 0
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
+        );
+
+        ProverAuction zeroDelayAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        // Setup approvals
+        vm.prank(prover1);
+        bondToken.approve(address(zeroDelayAuction), type(uint256).max);
+        vm.prank(prover2);
+        bondToken.approve(address(zeroDelayAuction), type(uint256).max);
+
+        // Prover1 bids
+        vm.startPrank(prover1);
+        zeroDelayAuction.deposit(REQUIRED_BOND);
+        zeroDelayAuction.bid(1000);
+        vm.stopPrank();
+
+        // Prover2 outbids prover1
+        vm.startPrank(prover2);
+        zeroDelayAuction.deposit(REQUIRED_BOND);
+        zeroDelayAuction.bid(950);
+        vm.stopPrank();
+
+        // Check prover1's withdrawableAt is set to current timestamp (0 + 0)
+        IProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(
+            info.withdrawableAt, uint48(block.timestamp), "withdrawableAt should be block.timestamp"
+        );
+
+        // Prover1 can withdraw immediately (no need to warp time)
+        vm.prank(prover1);
+        zeroDelayAuction.withdraw(REQUIRED_BOND);
+
+        IProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(infoAfter.balance, 0, "prover1 should be able to withdraw immediately");
+    }
+
+    function test_zeroWithdrawalDelay_exitedProverWithdrawsImmediately() public {
+        // Deploy auction with 0 withdrawal delay
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            0, // bondWithdrawalDelay = 0
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
+        );
+
+        ProverAuction zeroDelayAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        // Setup approvals and deposit
+        vm.prank(prover1);
+        bondToken.approve(address(zeroDelayAuction), type(uint256).max);
+        vm.startPrank(prover1);
+        zeroDelayAuction.deposit(REQUIRED_BOND);
+        zeroDelayAuction.bid(1000);
+        vm.stopPrank();
+
+        // Request exit
+        vm.prank(prover1);
+        zeroDelayAuction.requestExit();
+
+        // Check withdrawableAt is set to current timestamp
+        IProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(
+            info.withdrawableAt, uint48(block.timestamp), "withdrawableAt should be block.timestamp"
+        );
+
+        // Can withdraw immediately
+        vm.prank(prover1);
+        zeroDelayAuction.withdraw(REQUIRED_BOND);
+
+        IProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(infoAfter.balance, 0, "exited prover should withdraw immediately with zero delay");
+    }
+
+    function test_zeroWithdrawalDelay_forcedOutProverWithdrawsImmediately() public {
+        // Deploy auction with 0 withdrawal delay
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            0, // bondWithdrawalDelay = 0
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
+        );
+
+        ProverAuction zeroDelayAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        // Setup approvals and deposit
+        vm.prank(prover1);
+        bondToken.approve(address(zeroDelayAuction), type(uint256).max);
+        vm.startPrank(prover1);
+        zeroDelayAuction.deposit(REQUIRED_BOND);
+        zeroDelayAuction.bid(1000);
+        vm.stopPrank();
+
+        // Force out by slashing below threshold
+        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
+        vm.prank(inbox);
+        zeroDelayAuction.slashBond(prover1, slashAmount, address(0), 0);
+
+        // Verify forced out
+        (address prover,) = zeroDelayAuction.getCurrentProver();
+        assertEq(prover, address(0), "prover should be forced out");
+
+        // Check withdrawableAt is set to current timestamp
+        IProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(
+            info.withdrawableAt, uint48(block.timestamp), "withdrawableAt should be block.timestamp"
+        );
+
+        // Can withdraw immediately
+        uint128 remainingBalance = info.balance;
+        vm.prank(prover1);
+        zeroDelayAuction.withdraw(remainingBalance);
+
+        IProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(
+            infoAfter.balance, 0, "forced-out prover should withdraw immediately with zero delay"
+        );
+    }
+
+    function test_zeroWithdrawalDelay_getterReturnsZero() public view {
+        // Using default auction which has BOND_WITHDRAWAL_DELAY set to 48 hours
+        assertEq(auction.bondWithdrawalDelay(), BOND_WITHDRAWAL_DELAY);
+    }
+
+    function test_zeroWithdrawalDelay_immutableSetCorrectly() public {
+        // Deploy with zero delay and verify it's set correctly
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            0, // bondWithdrawalDelay = 0
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
+        );
+
+        assertEq(impl.bondWithdrawalDelay(), 0, "bondWithdrawalDelay should be 0");
+    }
+
+    // ---------------------------------------------------------------
     // Bug verification tests (from REVIEW_ProverAuction.md)
     // ---------------------------------------------------------------
 
@@ -1187,12 +1497,17 @@ contract ProverAuctionTest is CommonTest {
         // getMaxBidFee should be 1000 (no reduction)
         assertEq(noReductionAuction.getMaxBidFee(), 1000);
 
-        // Second prover can bid the same fee
+        // Second prover cannot bid the same fee (must be strictly lower)
         vm.prank(prover2);
+        vm.expectRevert(ProverAuction.FeeMustBeLower.selector);
         noReductionAuction.bid(1000);
 
+        // Second prover can bid a lower fee
+        vm.prank(prover2);
+        noReductionAuction.bid(999);
+
         (address prover,) = noReductionAuction.getCurrentProver();
-        assertEq(prover, prover2, "prover2 should be able to outbid with same fee");
+        assertEq(prover, prover2, "prover2 should be able to outbid with lower fee");
     }
 
     /// @notice Test that movingAverageMultiplier = 0 is rejected
@@ -1273,5 +1588,64 @@ contract ProverAuctionTest is CommonTest {
         // feeFloor = max(initialMaxFee=1000, movingAvg=900 * multiplier=2) = max(1000, 1800) = 1800
         // baseFee = max(exitedFee=0, feeFloor=1800) = 1800
         assertEq(auction.getMaxBidFee(), 1800, "moving average floor should prevent manipulation");
+    }
+
+    function test_pause_doesNotBlockEntryPoints() public {
+        auction.pause();
+
+        _depositBond(prover1, REQUIRED_BOND);
+
+        vm.prank(prover1);
+        auction.bid(500);
+
+        vm.prank(prover1);
+        auction.requestExit();
+
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
+
+        vm.prank(prover1);
+        auction.withdraw(1 ether);
+    }
+
+    function test_bondWithdrawalDelayZero_allowsImmediateWithdrawAfterOutbid() public {
+        ProverAuction impl = new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            0, // bondWithdrawalDelay
+            FEE_DOUBLING_PERIOD,
+            MAX_FEE_DOUBLINGS,
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
+        );
+
+        ProverAuction zeroDelayAuction = ProverAuction(
+            address(
+                new ERC1967Proxy(address(impl), abi.encodeCall(ProverAuction.init, (address(this))))
+            )
+        );
+
+        vm.prank(prover1);
+        bondToken.approve(address(zeroDelayAuction), type(uint256).max);
+        vm.prank(prover2);
+        bondToken.approve(address(zeroDelayAuction), type(uint256).max);
+
+        vm.prank(prover1);
+        zeroDelayAuction.deposit(REQUIRED_BOND);
+        vm.prank(prover1);
+        zeroDelayAuction.bid(1000);
+
+        vm.prank(prover2);
+        zeroDelayAuction.deposit(REQUIRED_BOND);
+        vm.prank(prover2);
+        zeroDelayAuction.bid(950);
+
+        IProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        assertEq(info.withdrawableAt, uint48(block.timestamp));
+
+        vm.prank(prover1);
+        zeroDelayAuction.withdraw(1 ether);
     }
 }

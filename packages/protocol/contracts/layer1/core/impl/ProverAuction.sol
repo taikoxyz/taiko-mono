@@ -222,6 +222,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             require(_feeInGwei <= getMaxBidFee(), FeeTooHigh());
         } else {
             // Outbidding another prover: reduction required
+            require(_feeInGwei < current.feeInGwei, FeeMustBeLower());
             uint32 maxAllowedFee;
             unchecked {
                 // Safe: uint32 * uint16 / 10000 fits in uint32
@@ -237,7 +238,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         // 5. Handle outbid prover (only if different address)
-        if (current.addr != address(0) && current.addr != msg.sender) {
+        if (current.addr != address(0) && current.addr != msg.sender && current.exitTimestamp == 0) {
             unchecked {
                 // Safe: uint48 + uint48 won't overflow for ~8900 years
                 _bonds[current.addr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
