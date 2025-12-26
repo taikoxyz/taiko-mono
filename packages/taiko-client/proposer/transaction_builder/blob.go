@@ -258,7 +258,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, err
 	}
 
-	log.Info("Calldata is", "calldata", hex.EncodeToString(data))
+	log.Info("Calldata is",
+		"calldata", hex.EncodeToString(data),
+		"to", to.String(),
+	)
 
 	return &txmgr.TxCandidate{
 		TxData:   data,
