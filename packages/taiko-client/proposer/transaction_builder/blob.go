@@ -215,6 +215,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit,
 		)
+		
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
