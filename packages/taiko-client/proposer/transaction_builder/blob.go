@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -233,6 +234,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if blobs, err = SplitToBlobs(sourceManifestBytes); err != nil {
 		return nil, err
 	}
+	hexBlob := hex.EncodeToString(blobs[0][:])
+	log.Info("blob dump",
+		"hex", hexBlob,
+	)
 
 	// ABI encode the ShastaInbox.propose parameters.
 	inputData, err := b.rpc.EncodeProposeInput(
@@ -254,6 +259,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if data, err = encoding.ShastaInboxABI.Pack("propose", []byte{}, inputData); err != nil {
 		return nil, err
 	}
+
+	log.Info("Calldata is", "calldata", data)
 
 	return &txmgr.TxCandidate{
 		TxData:   data,
