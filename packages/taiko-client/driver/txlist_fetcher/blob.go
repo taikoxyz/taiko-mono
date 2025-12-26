@@ -2,13 +2,11 @@ package txlistfetcher
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -55,29 +53,14 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))
 
 	var b []byte
-	for _, blobHash := range meta.GetBlobHashes() {
-		// Compare the blob hash with the sidecar's kzg commitment.
-		for j, sidecar := range sidecars {
-			log.Debug(
-				"Block sidecar",
-				"index", j,
-				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", blobHash,
-			)
 
-			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
-				blob := eth.Blob(common.FromHex(sidecar.Blob))
-				bytes, err := blob.ToData()
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert blob to data: %w", err)
-				}
-
-				b = append(b, bytes...)
-				// Exit the loop as the matching sidecar has been found and processed.
-				break
-			}
+	for _, sidecar := range sidecars {
+		blob := eth.Blob(common.FromHex(sidecar.Blob))
+		bytes, err := blob.ToData()
+		if err != nil {
+			return nil, err
 		}
+		b = append(b, bytes...)
 	}
 	if len(b) == 0 {
 		return nil, pkg.ErrSidecarNotFound

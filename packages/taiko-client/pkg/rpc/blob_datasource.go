@@ -2,12 +2,14 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
@@ -76,13 +78,32 @@ func (ds *BlobDataSource) GetBlobs(
 	blobHashes []common.Hash,
 ) ([]*structs.Sidecar, error) {
 	var (
-		sidecars []*structs.Sidecar
-		err      error
+		sidecars    []*structs.Sidecar
+		allSidecars []*structs.Sidecar
+		err         error
 	)
 	if ds.client.L1Beacon == nil {
 		sidecars, err = nil, pkg.ErrBeaconNotFound
 	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+		if allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp); err == nil {
+			for _, blobHash := range blobHashes {
+				// Compare the blob hash with the sidecar's kzg commitment.
+				for j, sidecar := range allSidecars {
+					log.Debug(
+						"Block sidecar",
+						"index", j,
+						"KzgCommitment", sidecar.KzgCommitment,
+						"blobHash", blobHash,
+					)
+
+					commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+					if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
+						sidecars = append(sidecars, sidecar)
+						break
+					}
+				}
+			}
+		}
 	}
 	if err != nil {
 		if !errors.Is(err, pkg.ErrBeaconNotFound) {

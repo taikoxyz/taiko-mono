@@ -193,13 +193,7 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 	)
 	// Build a map of blobHash -> blobBytes for O(1) lookup.
 	blobMap := make(map[common.Hash][]byte, len(sidecars))
-	for j, sidecar := range sidecars {
-		log.Debug(
-			"Block sidecar",
-			"index", j,
-			"KzgCommitment", sidecar.KzgCommitment,
-		)
-
+	for _, sidecar := range sidecars {
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
 		hash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
 
