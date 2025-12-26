@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
+
+var ErrEmptyBlock = errors.New("should produce empty block")
 
 type BlobDataSource struct {
 	ctx                context.Context
@@ -71,8 +74,33 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetBlobs get blob sidecar by meta
-func (ds *BlobDataSource) GetBlobs(
+// GetBlobBytes get the bytes of required blobs
+func (ds *BlobDataSource) GetBlobBytes(
+	ctx context.Context,
+	timestamp uint64,
+	blobHashes []common.Hash,
+) ([]byte, error) {
+	sidecars, err := ds.GetSidecars(ctx, timestamp, blobHashes)
+	if err != nil {
+		return nil, err
+	}
+	var b []byte
+	for _, sidecar := range sidecars {
+		blob := eth.Blob(common.FromHex(sidecar.Blob))
+		bytes, err := blob.ToData()
+		if err != nil {
+			return nil, errors.Join(ErrEmptyBlock, err)
+		}
+		b = append(b, bytes...)
+	}
+	if len(b) == 0 {
+		return nil, pkg.ErrSidecarNotFound
+	}
+	return b, nil
+}
+
+// GetSidecars get blob sidecar by meta
+func (ds *BlobDataSource) GetSidecars(
 	ctx context.Context,
 	timestamp uint64,
 	blobHashes []common.Hash,
@@ -124,6 +152,9 @@ func (ds *BlobDataSource) GetBlobs(
 				Blob:          value.Blob,
 			}
 		}
+	}
+	if len(sidecars) != len(blobHashes) {
+		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
 	}
 	return sidecars, nil
 }
