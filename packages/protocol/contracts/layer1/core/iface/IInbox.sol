@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
+
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
 /// @custom:security-contact security@taiko.xyz

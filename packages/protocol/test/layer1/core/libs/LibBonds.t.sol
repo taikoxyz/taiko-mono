@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Test } from "forge-std/src/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/src/Test.sol";
 import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
 import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
@@ -21,7 +21,12 @@ contract LibBondsHarness {
         _bonds.creditBond(_account, _amount);
     }
 
-    function creditSameAmount(address[] memory _accounts, uint256 _amountPerOccurrence) external {
+    function creditSameAmount(
+        address[] memory _accounts,
+        uint256 _amountPerOccurrence
+    )
+        external
+    {
         _bonds.creditBondsSameAmount(_accounts, _amountPerOccurrence);
     }
 
@@ -164,9 +169,7 @@ contract LibBondsTest is Test {
         emit IBondManager.LivenessBondProcessed(
             _alice, _bob, _carol, livenessBond, livenessBond / 2, 0
         );
-        uint256 debited = _harness.processLivenessBond(
-            livenessBond, _alice, _bob, _carol
-        );
+        uint256 debited = _harness.processLivenessBond(livenessBond, _alice, _bob, _carol);
 
         assertEq(debited, livenessBond, "debited");
         assertEq(_harness.balanceOf(_alice), livenessBond, "payer balance");

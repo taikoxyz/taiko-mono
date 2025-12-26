@@ -478,11 +478,7 @@ contract InboxProveTest is InboxTestBase {
 
         _prove(input);
 
-        assertEq(
-            bondManager.getBondBalance(proposer),
-            proposerBalanceBefore,
-            "payer unchanged"
-        );
+        assertEq(bondManager.getBondBalance(proposer), proposerBalanceBefore, "payer unchanged");
         assertEq(
             bondManager.getBondBalance(prover),
             proverBalanceBefore + livenessBond / 2,

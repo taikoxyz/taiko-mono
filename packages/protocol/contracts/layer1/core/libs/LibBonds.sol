@@ -170,7 +170,14 @@ library LibBonds {
     /// @dev Returns the bond balance of an account.
     /// @param $ Storage reference.
     /// @param _account The account to query.
-    function getBondBalance(Storage storage $, address _account) internal view returns (uint256) {
+    function getBondBalance(
+        Storage storage $,
+        address _account
+    )
+        internal
+        view
+        returns (uint256)
+    {
         return $.bondBalance[_account];
     }
 

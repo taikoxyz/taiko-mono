@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
+
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
 /// @dev Input validation assumptions:
