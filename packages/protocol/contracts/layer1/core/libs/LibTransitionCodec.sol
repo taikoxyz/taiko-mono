@@ -8,7 +8,7 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @notice Shared transition encode/decode helpers to avoid duplication across codecs.
 /// @custom:security-contact security@taiko.xyz
 library LibTransitionCodec {
-    uint256 internal constant TRANSITION_SIZE = 78;
+    uint256 internal constant TRANSITION_SIZE = 110;
 
     function encodeTransition(
         uint256 _ptr,
@@ -21,6 +21,7 @@ library LibTransitionCodec {
         newPtr_ = P.packAddress(_ptr, _transition.proposer);
         newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
         newPtr_ = P.packUint48(newPtr_, _transition.timestamp);
+        newPtr_ = P.packUint256(newPtr_, _transition.livenessBond);
         newPtr_ = P.packBytes32(newPtr_, _transition.blockHash);
     }
 
@@ -32,6 +33,7 @@ library LibTransitionCodec {
         (transition_.proposer, newPtr_) = P.unpackAddress(_ptr);
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (transition_.livenessBond, newPtr_) = P.unpackUint256(newPtr_);
         (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 }

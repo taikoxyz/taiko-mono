@@ -1,6 +1,6 @@
 {
-  "propose_after_ring_buffer_wrap": "44648",
-  "propose_forced_inclusion": "58460",
-  "propose_single": "73748",
-  "propose_single_zero_bond": "66486"
+  "propose_after_ring_buffer_wrap": "44743",
+  "propose_forced_inclusion": "58556",
+  "propose_single": "73843",
+  "propose_single_zero_bond": "66581"
 }

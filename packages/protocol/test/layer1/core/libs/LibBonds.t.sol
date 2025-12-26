@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 
@@ -21,8 +22,8 @@ contract LibBondsHarness {
         _bonds.creditBond(_account, _amount);
     }
 
-    function creditSameAmount(address[] memory _accounts, uint256 _amountPerOccurrence) external {
-        _bonds.creditBondsSameAmount(_accounts, _amountPerOccurrence);
+    function creditBonds(IInbox.Transition[] memory _transitions, uint256 _start) external {
+        _bonds.creditBonds(_transitions, _start);
     }
 
     function debit(address _account, uint256 _amount) external {
@@ -83,37 +84,39 @@ contract LibBondsTest is Test {
         assertEq(_harness.balanceOf(_alice), 13, "balance");
     }
 
-    function test_creditBondsSameAmount_aggregatesNonConsecutive() public {
-        address[] memory accounts = new address[](6);
-        accounts[0] = _alice;
-        accounts[1] = _bob;
-        accounts[2] = _alice;
-        accounts[3] = _carol;
-        accounts[4] = _alice;
-        accounts[5] = _bob;
+    function test_creditBonds_aggregatesNonConsecutive() public {
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](6);
+        transitions[0] = _transition(_alice, 3);
+        transitions[1] = _transition(_bob, 3);
+        transitions[2] = _transition(_alice, 5);
+        transitions[3] = _transition(_carol, 3);
+        transitions[4] = _transition(_alice, 1);
+        transitions[5] = _transition(_bob, 7);
 
-        _harness.creditSameAmount(accounts, 3);
+        _harness.creditBonds(transitions, 0);
 
         assertEq(_harness.balanceOf(_alice), 9, "alice balance");
-        assertEq(_harness.balanceOf(_bob), 6, "bob balance");
+        assertEq(_harness.balanceOf(_bob), 10, "bob balance");
         assertEq(_harness.balanceOf(_carol), 3, "carol balance");
     }
 
-    function test_creditBondsSameAmount_noopOnEmptyList() public {
+    function test_creditBonds_noopOnEmptyList() public {
         _harness.credit(_alice, 5);
-        address[] memory accounts = new address[](0);
-        _harness.creditSameAmount(accounts, 7);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](0);
+        _harness.creditBonds(transitions, 0);
         assertEq(_harness.balanceOf(_alice), 5, "balance");
     }
 
-    function test_creditBondsSameAmount_noopOnZeroAmount() public {
+    function test_creditBonds_noopOnZeroAmounts() public {
         _harness.credit(_alice, 5);
-        address[] memory accounts = new address[](2);
-        accounts[0] = _alice;
-        accounts[1] = _bob;
-        _harness.creditSameAmount(accounts, 0);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](3);
+        transitions[0] = _transition(_alice, 0);
+        transitions[1] = _transition(_bob, 3);
+        transitions[2] = _transition(_alice, 0);
+
+        _harness.creditBonds(transitions, 0);
         assertEq(_harness.balanceOf(_alice), 5, "alice balance");
-        assertEq(_harness.balanceOf(_bob), 0, "bob balance");
+        assertEq(_harness.balanceOf(_bob), 3, "bob balance");
     }
 
     function test_deposit_creditsAndTransfers() public {
@@ -190,5 +193,19 @@ contract LibBondsTest is Test {
         _token.mint(_owner, _amount);
         vm.prank(_owner);
         _token.approve(address(_harness), _amount);
+    }
+
+    function _transition(address _proposer, uint256 _livenessBond)
+        private
+        pure
+        returns (IInbox.Transition memory)
+    {
+        return IInbox.Transition({
+            proposer: _proposer,
+            designatedProver: address(0),
+            timestamp: 0,
+            livenessBond: _livenessBond,
+            blockHash: bytes32(0)
+        });
     }
 }

@@ -68,11 +68,13 @@ contract InboxWhitelistProverTest is InboxTestBase {
         // Warp past proving window to ensure bond would normally be emitted
         vm.warp(block.timestamp + config.provingWindow + 1);
 
+        uint256 livenessBond = inbox.getConfig().livenessBond;
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: p1.proposer,
             designatedProver: proposer, // Different from actual to trigger bond
             timestamp: p1Timestamp,
+            livenessBond: livenessBond,
             blockHash: keccak256("checkpoint1")
         });
 
@@ -82,7 +84,6 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         uint256 proposerBalanceBefore = bondManager.getBondBalance(proposer);
         uint256 proverBalanceBefore = bondManager.getBondBalance(whitelistedProver);
-        uint256 livenessBond = inbox.getConfig().livenessBond;
 
         _proveAs(whitelistedProver, input);
 
@@ -127,6 +128,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_count);
 
         uint48 firstProposalId;
+        uint256 livenessBond = inbox.getConfig().livenessBond;
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
@@ -142,6 +144,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 proposer: payload.proposer,
                 designatedProver: _actualProver,
                 timestamp: proposalTimestamp,
+                livenessBond: livenessBond,
                 blockHash: blockHash
             });
         }

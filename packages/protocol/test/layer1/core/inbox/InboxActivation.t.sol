@@ -40,6 +40,7 @@ contract InboxActivationTest is InboxTestBase {
             proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
+            livenessBond: 0,
             blockHash: keccak256("checkpoint")
         });
 

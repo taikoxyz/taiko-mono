@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IInbox } from "../iface/IInbox.sol";
 import { IBondManager } from "../iface/IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -32,39 +33,44 @@ library LibBonds {
         $.bondBalance[_account] = $.bondBalance[_account] + _amount;
     }
 
-    /// @dev Credits a fixed amount per occurrence for each account, aggregated by account.
+    /// @dev Credits liveness bonds to proposers from `_start` to the end of the transitions array,
+    ///      aggregated by proposer.
     ///      Uses a unique list + linear scan (O(n^2) comparisons) to avoid hashing/memory overhead;
     ///      this is chosen because expected batch sizes are small enough (~10) to justify a memory
-    //       hash map.
+    ///      hash map.
     /// @param $ Storage reference.
-    /// @param _accounts The accounts to credit.
-    /// @param _amountPerOccurrence The amount to credit per occurrence.
-    function creditBondsSameAmount(
+    /// @param _transitions The transition array.
+    /// @param _start The start index within `_transitions` (inclusive).
+    function creditBonds(
         Storage storage $,
-        address[] memory _accounts,
-        uint256 _amountPerOccurrence
+        IInbox.Transition[] memory _transitions,
+        uint256 _start
     )
         internal
     {
-        uint256 n = _accounts.length;
+        uint256 n = _transitions.length - _start;
 
         address[] memory uniq = new address[](n);
         uint256[] memory totals = new uint256[](n);
         uint256 u;
 
-        for (uint256 i; i < n; ++i) {
-            address account = _accounts[i];
+        for (uint256 i = _start; i < _transitions.length; ++i) {
+            uint256 amount = _transitions[i].livenessBond;
+            if (amount == 0) continue;
+
+            address proposer = _transitions[i].proposer;
             for (uint256 j;; ++j) {
                 if (j == u) {
-                    uniq[u] = account;
-                    totals[u] = _amountPerOccurrence;
+                    uniq[u] = proposer;
+                    totals[u] = amount;
                     unchecked {
                         ++u;
                     }
                     break;
                 }
-                if (uniq[j] == account) {
-                    totals[j] += _amountPerOccurrence;
+
+                if (uniq[j] == proposer) {
+                    totals[j] += amount;
                     break;
                 }
             }

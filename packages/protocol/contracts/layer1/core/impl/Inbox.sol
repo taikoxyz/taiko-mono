@@ -553,6 +553,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
+                livenessBond: _livenessBond,
                 sources: result.sources
             });
         }
@@ -679,27 +680,26 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     )
         private
     {
-        // TODO: The bond amount can change between proposal and proving time, decide how to handle this.
-        uint256 bondAmount = _livenessBond;
-        if (bondAmount == 0) return;
-
         unchecked {
             uint256 start = _offset;
+            Transition[] memory transitions = _commitment.transitions;
             if (!_isWhitelistEnabled) {
                 // The deadline is calculated taking into account when the proposal becomes provable
                 uint256 livenessWindowDeadline =
-                    (_commitment.transitions[_offset].timestamp + _provingWindow)
+                    (transitions[_offset].timestamp + _provingWindow)
                         .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
                 if (block.timestamp > livenessWindowDeadline) {
                     start = _offset + 1;
-                    LibBonds.processLivenessBond(
-                        _bondingStorage,
-                        bondAmount,
-                        _commitment.transitions[_offset].proposer,
-                        _commitment.actualProver,
-                        msg.sender
-                    );
+                    if (transitions[_offset].livenessBond > 0) {
+                        LibBonds.processLivenessBond(
+                            _bondingStorage,
+                            transitions[_offset].livenessBond,
+                            transitions[_offset].proposer,
+                            _commitment.actualProver,
+                            msg.sender
+                        );
+                    }
                 }
             }
 
@@ -707,13 +707,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // we don't have anything else to refund.
             if (start >= _numProposals) return;
 
-            uint256 refunds = _numProposals - start;
-            address[] memory proposers = new address[](refunds);
-            for (uint256 i; i < refunds; ++i) {
-                proposers[i] = _commitment.transitions[start + i].proposer;
-            }
-
-            LibBonds.creditBondsSameAmount(_bondingStorage, proposers, bondAmount);
+            LibBonds.creditBonds(_bondingStorage, transitions, start);
         }
     }
 

@@ -91,12 +91,14 @@ contract LibCodecTest is Test {
             proposer: address(0x1111),
             designatedProver: address(0x2222),
             timestamp: 100,
+            livenessBond: 1 ether,
             blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
             proposer: address(0x3333),
             designatedProver: address(0x4444),
             timestamp: 200,
+            livenessBond: 2 ether,
             blockHash: bytes32(uint256(2))
         });
 
@@ -146,6 +148,11 @@ contract LibCodecTest is Test {
             "transitions[0] timestamp"
         );
         assertEq(
+            decoded.commitment.transitions[0].livenessBond,
+            transitions[0].livenessBond,
+            "transitions[0] livenessBond"
+        );
+        assertEq(
             decoded.commitment.transitions[0].blockHash,
             transitions[0].blockHash,
             "transitions[0] blockHash"
@@ -154,6 +161,11 @@ contract LibCodecTest is Test {
             decoded.commitment.transitions[1].proposer,
             transitions[1].proposer,
             "transitions[1] proposer"
+        );
+        assertEq(
+            decoded.commitment.transitions[1].livenessBond,
+            transitions[1].livenessBond,
+            "transitions[1] livenessBond"
         );
         assertEq(
             decoded.commitment.transitions[1].blockHash,
@@ -174,6 +186,7 @@ contract LibCodecTest is Test {
             proposer: address(0x5555),
             designatedProver: address(0x6666),
             timestamp: 500,
+            livenessBond: 4 ether,
             blockHash: bytes32(uint256(55))
         });
 
@@ -196,6 +209,7 @@ contract LibCodecTest is Test {
         assertEq(decoded.commitment.firstProposalId, 1, "firstProposalId");
         assertEq(decoded.commitment.transitions.length, 1, "transitions length");
         assertEq(decoded.commitment.transitions[0].proposer, address(0x5555), "proposer");
+        assertEq(decoded.commitment.transitions[0].livenessBond, 4 ether, "livenessBond");
         assertEq(decoded.commitment.actualProver, address(0xBBBB), "actualProver");
         assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
@@ -231,6 +245,7 @@ contract LibCodecTest is Test {
             proposer: address(0x1234),
             designatedProver: address(0x5678),
             timestamp: 12_345,
+            livenessBond: 3 ether,
             blockHash: bytes32(uint256(9999))
         });
 
@@ -270,6 +285,7 @@ contract LibCodecTest is Test {
                 proposer: _addr(seed, "proposer", i),
                 designatedProver: _addr(seed, "designatedProver", i),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
+                livenessBond: uint256(keccak256(abi.encode(seed, "livenessBond", i))),
                 blockHash: keccak256(abi.encode(seed, "blockHash", i))
             });
         }
@@ -328,6 +344,11 @@ contract LibCodecTest is Test {
                 "transition timestamp"
             );
             assertEq(
+                decoded.commitment.transitions[i].livenessBond,
+                input.commitment.transitions[i].livenessBond,
+                "transition livenessBond"
+            );
+            assertEq(
                 decoded.commitment.transitions[i].blockHash,
                 input.commitment.transitions[i].blockHash,
                 "transition blockHash"
@@ -349,4 +370,3 @@ contract LibCodecTest is Test {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }
-

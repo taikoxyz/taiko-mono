@@ -72,6 +72,8 @@ interface IInbox {
         bytes32 originBlockHash;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
+        /// @notice The liveness bond amount reserved for this proposal at propose time.
+        uint256 livenessBond;
         /// @notice Array of derivation sources, where each can be regular or forced inclusion.
         DerivationSource[] sources;
     }
@@ -114,6 +116,8 @@ interface IInbox {
         address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
+        /// @notice The liveness bond amount reserved for this proposal at propose time.
+        uint256 livenessBond;
         /// @notice end block hash for the proposal.
         bytes32 blockHash;
     }

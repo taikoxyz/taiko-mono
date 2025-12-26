@@ -21,6 +21,7 @@ contract LibHashOptimizedTest is Test {
                 proposer: _addr(seed, "proposer", i),
                 designatedProver: _addr(seed, "designatedProver", i),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
+                livenessBond: uint256(keccak256(abi.encode(seed, "livenessBond", i))),
                 blockHash: keccak256(abi.encode(seed, "blockHash", i))
             });
         }

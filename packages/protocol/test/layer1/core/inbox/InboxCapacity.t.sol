@@ -87,8 +87,10 @@ contract InboxRingBufferTest is InboxTestBase {
 
         // Prove p1 and p2 using prove
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] = _transitionFor(p1, p1Timestamp, prover, keccak256("checkpoint1"));
-        transitions[1] = _transitionFor(p2, p2Timestamp, prover, checkpoint2Hash);
+        uint256 livenessBond = inbox.getConfig().livenessBond;
+        transitions[0] =
+            _transitionFor(p1, p1Timestamp, prover, livenessBond, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(p2, p2Timestamp, prover, livenessBond, checkpoint2Hash);
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             commitment: IInbox.Commitment({

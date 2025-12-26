@@ -284,6 +284,7 @@ abstract contract InboxTestBase is CommonTest {
 
         uint48 firstProposalId;
         uint48 proposalTimestamp;
+        uint256 livenessBond = inbox.getConfig().livenessBond;
 
         for (uint256 i; i < _count; ++i) {
             if (i != 0) _advanceBlock();
@@ -301,7 +302,8 @@ abstract contract InboxTestBase is CommonTest {
                 stateRoot: keccak256(abi.encode("stateRoot", i + 1))
             });
             bytes32 blockHash = keccak256(abi.encode(checkpoint));
-            transitions[i] = _transitionFor(payload, proposalTimestamp, prover, blockHash);
+            transitions[i] =
+                _transitionFor(payload, proposalTimestamp, prover, livenessBond, blockHash);
         }
 
         // Get the last proposal hash from the ring buffer
@@ -361,6 +363,7 @@ abstract contract InboxTestBase is CommonTest {
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,
             basefeeSharingPctg: _payload.basefeeSharingPctg,
+            livenessBond: inbox.getConfig().livenessBond,
             sources: _payload.sources
         });
     }
@@ -369,6 +372,7 @@ abstract contract InboxTestBase is CommonTest {
         ProposedEvent memory _payload,
         uint48 _proposalTimestamp,
         address _designatedProver,
+        uint256 _livenessBond,
         bytes32 _blockHash
     )
         internal
@@ -379,6 +383,7 @@ abstract contract InboxTestBase is CommonTest {
             proposer: _payload.proposer,
             designatedProver: _designatedProver,
             timestamp: _proposalTimestamp,
+            livenessBond: _livenessBond,
             blockHash: _blockHash
         });
     }
