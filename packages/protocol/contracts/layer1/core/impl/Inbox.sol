@@ -198,6 +198,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      4. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
+    /// If `_livenessBond` is set to 0(e.g. during proving whitelist), no bonds are debited, making
+    /// this function more gas efficient.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);

@@ -9,7 +9,62 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
 
-contract InboxProposeTest is InboxTestBase {
+abstract contract InboxProposeTestBase is InboxTestBase {
+    function _assertPayloadEqual(
+        ProposedEvent memory _actual,
+        IInbox.Proposal memory _expected
+    )
+        internal
+        pure
+    {
+        assertEq(_actual.id, _expected.id, "proposal id");
+        assertEq(_actual.proposer, _expected.proposer, "proposal proposer");
+        assertEq(
+            _actual.endOfSubmissionWindowTimestamp,
+            _expected.endOfSubmissionWindowTimestamp,
+            "submission window"
+        );
+        assertEq(_actual.basefeeSharingPctg, _expected.basefeeSharingPctg, "basefee sharing");
+        assertEq(_actual.sources.length, _expected.sources.length, "sources length");
+        if (_actual.sources.length != 0) {
+            assertEq(
+                _actual.sources[0].isForcedInclusion,
+                _expected.sources[0].isForcedInclusion,
+                "source forced"
+            );
+            assertEq(
+                _actual.sources[0].blobSlice.blobHashes,
+                _expected.sources[0].blobSlice.blobHashes,
+                "blob hashes"
+            );
+            assertEq(
+                _actual.sources[0].blobSlice.offset,
+                _expected.sources[0].blobSlice.offset,
+                "blob offset"
+            );
+            assertEq(
+                _actual.sources[0].blobSlice.timestamp,
+                _expected.sources[0].blobSlice.timestamp,
+                "blob timestamp"
+            );
+        }
+    }
+
+    function _expectedStateAfterProposal(IInbox.CoreState memory _stateBefore)
+        internal
+        view
+        returns (IInbox.CoreState memory state_)
+    {
+        state_.nextProposalId = _stateBefore.nextProposalId + 1;
+        state_.lastProposalBlockId = uint48(block.number);
+        state_.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
+        state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
+        state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
+        state_.lastFinalizedBlockHash = _stateBefore.lastFinalizedBlockHash;
+    }
+}
+
+contract InboxProposeTest is InboxProposeTestBase {
     function test_propose() public {
         _setBlobHashes(1);
 
@@ -215,59 +270,6 @@ contract InboxProposeTest is InboxTestBase {
     // Helpers
     // ---------------------------------------------------------------------
 
-    function _assertPayloadEqual(
-        ProposedEvent memory _actual,
-        IInbox.Proposal memory _expected
-    )
-        internal
-        pure
-    {
-        assertEq(_actual.id, _expected.id, "proposal id");
-        assertEq(_actual.proposer, _expected.proposer, "proposal proposer");
-        assertEq(
-            _actual.endOfSubmissionWindowTimestamp,
-            _expected.endOfSubmissionWindowTimestamp,
-            "submission window"
-        );
-        assertEq(_actual.basefeeSharingPctg, _expected.basefeeSharingPctg, "basefee sharing");
-        assertEq(_actual.sources.length, _expected.sources.length, "sources length");
-        if (_actual.sources.length != 0) {
-            assertEq(
-                _actual.sources[0].isForcedInclusion,
-                _expected.sources[0].isForcedInclusion,
-                "source forced"
-            );
-            assertEq(
-                _actual.sources[0].blobSlice.blobHashes,
-                _expected.sources[0].blobSlice.blobHashes,
-                "blob hashes"
-            );
-            assertEq(
-                _actual.sources[0].blobSlice.offset,
-                _expected.sources[0].blobSlice.offset,
-                "blob offset"
-            );
-            assertEq(
-                _actual.sources[0].blobSlice.timestamp,
-                _expected.sources[0].blobSlice.timestamp,
-                "blob timestamp"
-            );
-        }
-    }
-
-    function _expectedStateAfterProposal(IInbox.CoreState memory _stateBefore)
-        internal
-        view
-        returns (IInbox.CoreState memory state_)
-    {
-        state_.nextProposalId = _stateBefore.nextProposalId + 1;
-        state_.lastProposalBlockId = uint48(block.number);
-        state_.lastFinalizedProposalId = _stateBefore.lastFinalizedProposalId;
-        state_.lastFinalizedTimestamp = _stateBefore.lastFinalizedTimestamp;
-        state_.lastCheckpointTimestamp = _stateBefore.lastCheckpointTimestamp;
-        state_.lastFinalizedBlockHash = _stateBefore.lastFinalizedBlockHash;
-    }
-
     function _saveForcedInclusion(LibBlobs.BlobReference memory _ref) private {
         uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
         vm.prank(proposer);
@@ -369,5 +371,47 @@ contract InboxProposeTest is InboxTestBase {
         vm.expectRevert(); // Will revert due to proposer check
         vm.prank(David);
         inbox.propose(bytes(""), encodedInput);
+    }
+}
+
+contract InboxProposeZeroBondTest is InboxProposeTestBase {
+    function _buildConfig() internal override returns (IInbox.Config memory cfg) {
+        cfg = super._buildConfig();
+        cfg.livenessBond = 0;
+        return cfg;
+    }
+
+    function test_propose_succeedsWhen_LivenessBondZero() public {
+        _setBlobHashes(1);
+
+        uint256 balance = bondManager.getBondBalance(proposer);
+        if (balance > 0) {
+            vm.prank(proposer);
+            bondManager.withdraw(proposer, balance);
+        }
+        assertEq(bondManager.getBondBalance(proposer), 0, "bond balance");
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        IInbox.CoreState memory stateBefore = inbox.getCoreState();
+
+        ProposedEvent memory payload =
+            _proposeAndDecodeWithGas(input, "propose_single_zero_bond");
+        uint48 proposalTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number - 1);
+        bytes32 originBlockHash = blockhash(block.number - 1);
+
+        IInbox.Proposal memory expectedProposal =
+            _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
+        _assertPayloadEqual(payload, expectedProposal);
+
+        IInbox.CoreState memory stateAfter = inbox.getCoreState();
+        assertEq(stateAfter.nextProposalId, stateBefore.nextProposalId + 1, "next id");
+        _assertStateEqual(stateAfter, _expectedStateAfterProposal(stateBefore));
+        assertEq(
+            inbox.getProposalHash(expectedProposal.id),
+            codec.hashProposal(expectedProposal),
+            "proposal hash"
+        );
+        assertEq(bondManager.getBondBalance(proposer), 0, "bond balance after");
     }
 }
