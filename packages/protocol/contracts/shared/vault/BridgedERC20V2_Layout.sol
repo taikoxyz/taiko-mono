@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title BridgedERC20V2Layout
 /// @notice Storage layout documentation for BridgedERC20V2
