@@ -394,8 +394,7 @@ contract InboxProposeZeroBondTest is InboxProposeTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         IInbox.CoreState memory stateBefore = inbox.getCoreState();
 
-        ProposedEvent memory payload =
-            _proposeAndDecodeWithGas(input, "propose_single_zero_bond");
+        ProposedEvent memory payload = _proposeAndDecodeWithGas(input, "propose_single_zero_bond");
         uint48 proposalTimestamp = uint48(block.timestamp);
         uint48 originBlockNumber = uint48(block.number - 1);
         bytes32 originBlockHash = blockhash(block.number - 1);

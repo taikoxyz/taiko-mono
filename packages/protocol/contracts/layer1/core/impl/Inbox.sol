@@ -209,7 +209,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
-            
+
             uint256 bondAmount = _livenessBond;
             // During permisionless proving we can set the bond to 0, avoiding the cost of this check
             if (bondAmount > 0) LibBonds.debitBond(_bondingStorage, msg.sender, bondAmount);
@@ -685,9 +685,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             Transition[] memory transitions = _commitment.transitions;
             if (!_isWhitelistEnabled) {
                 // The deadline is calculated taking into account when the proposal becomes provable
-                uint256 livenessWindowDeadline =
-                    (transitions[_offset].timestamp + _provingWindow)
-                        .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+                uint256 livenessWindowDeadline = (transitions[_offset].timestamp + _provingWindow)
+                .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
                 if (block.timestamp > livenessWindowDeadline) {
                     start = _offset + 1;

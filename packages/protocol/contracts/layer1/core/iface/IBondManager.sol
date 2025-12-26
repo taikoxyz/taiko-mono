@@ -73,5 +73,4 @@ interface IBondManager {
     /// @param _address The address to get the bond balance for.
     /// @return bondBalance_ The bond balance of the address.
     function getBondBalance(address _address) external view returns (uint256 bondBalance_);
-
 }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Test } from "forge-std/src/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/src/Test.sol";
 import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
@@ -167,9 +167,7 @@ contract LibBondsTest is Test {
         emit IBondManager.LivenessBondProcessed(
             _alice, _bob, _carol, livenessBond, livenessBond / 2, 0
         );
-        uint256 debited = _harness.processLivenessBond(
-            livenessBond, _alice, _bob, _carol
-        );
+        uint256 debited = _harness.processLivenessBond(livenessBond, _alice, _bob, _carol);
 
         assertEq(debited, livenessBond, "debited");
         assertEq(_harness.balanceOf(_alice), livenessBond, "payer balance");
@@ -195,7 +193,10 @@ contract LibBondsTest is Test {
         _token.approve(address(_harness), _amount);
     }
 
-    function _transition(address _proposer, uint256 _livenessBond)
+    function _transition(
+        address _proposer,
+        uint256 _livenessBond
+    )
         private
         pure
         returns (IInbox.Transition memory)

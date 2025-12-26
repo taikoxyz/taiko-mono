@@ -33,7 +33,6 @@ contract AnchorTest is Test {
         );
 
         signalService.upgradeTo(address(new SignalService(address(anchor), address(0x1234))));
-
     }
 
     function test_anchorV4_processesFirstBlock() external {
@@ -113,7 +112,11 @@ contract AnchorTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _proposalParams(uint48 _proposalId) internal pure returns (Anchor.ProposalParams memory) {
+    function _proposalParams(uint48 _proposalId)
+        internal
+        pure
+        returns (Anchor.ProposalParams memory)
+    {
         return Anchor.ProposalParams({ proposalId: _proposalId });
     }
 

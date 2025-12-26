@@ -93,9 +93,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
             "payer refunded"
         );
         assertEq(
-            bondManager.getBondBalance(whitelistedProver),
-            proverBalanceBefore,
-            "payee unchanged"
+            bondManager.getBondBalance(whitelistedProver), proverBalanceBefore, "payee unchanged"
         );
     }
 

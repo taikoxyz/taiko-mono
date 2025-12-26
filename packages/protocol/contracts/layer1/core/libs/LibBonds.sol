@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IInbox } from "../iface/IInbox.sol";
 import { IBondManager } from "../iface/IBondManager.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -176,7 +176,14 @@ library LibBonds {
     /// @dev Returns the bond balance of an account.
     /// @param $ Storage reference.
     /// @param _account The account to query.
-    function getBondBalance(Storage storage $, address _account) internal view returns (uint256) {
+    function getBondBalance(
+        Storage storage $,
+        address _account
+    )
+        internal
+        view
+        returns (uint256)
+    {
         return $.bondBalance[_account];
     }
 
