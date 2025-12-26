@@ -2,11 +2,10 @@ package txlistfetcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -45,26 +44,14 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, l1Header.Time, meta.GetBlobHashes())
+	b, err := d.dataSource.GetBlobBytes(ctx, l1Header.Time, meta.GetBlobHashes())
 	if err != nil {
+		if errors.Is(err, rpc.ErrEmptyBlock) {
+			return []byte{}, nil
+		}
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))
-
-	var b []byte
-
-	for _, sidecar := range sidecars {
-		blob := eth.Blob(common.FromHex(sidecar.Blob))
-		bytes, err := blob.ToData()
-		if err != nil {
-			return nil, err
-		}
-		b = append(b, bytes...)
-	}
-	if len(b) == 0 {
-		return nil, pkg.ErrSidecarNotFound
-	}
-
+	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(meta.GetBlobHashes()))
 	return sliceTxList(meta.GetBatchID(), b, meta.GetTxListOffset(), meta.GetTxListSize())
 }
