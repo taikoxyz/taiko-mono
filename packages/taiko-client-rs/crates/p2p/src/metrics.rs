@@ -10,7 +10,12 @@
 //! - Cache: dedupe hits, pending buffer size
 //! - Head sync: current head gauge, sync status
 
+use std::sync::Once;
+
 use metrics::Unit;
+
+/// Guard to ensure metrics are initialized only once.
+static INIT_ONCE: Once = Once::new();
 
 /// Metric namespace for the P2P SDK.
 pub struct P2pMetrics;
@@ -80,7 +85,14 @@ impl P2pMetrics {
     /// Initialize all metric descriptors.
     ///
     /// Call this once at startup to register metric descriptions and units.
+    /// This function is idempotent - multiple calls are safe and only the
+    /// first call will actually register the metrics.
     pub fn init() {
+        INIT_ONCE.call_once(Self::init_inner);
+    }
+
+    /// Internal initialization logic, called at most once.
+    fn init_inner() {
         // Gossip metrics
         metrics::describe_counter!(
             Self::GOSSIP_RECEIVED_TOTAL,
@@ -337,6 +349,17 @@ mod tests {
     fn metrics_init_does_not_panic() {
         // Just ensure init() doesn't panic
         P2pMetrics::init();
+    }
+
+    #[test]
+    fn metrics_init_only_once() {
+        // Calling init() multiple times should be safe and idempotent.
+        // This test verifies that multiple calls don't panic or cause issues.
+        P2pMetrics::init();
+        P2pMetrics::init();
+        P2pMetrics::init();
+        // If we got here without panic, the test passes.
+        // The Once guard ensures only the first call registers metrics.
     }
 
     #[test]

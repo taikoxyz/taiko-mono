@@ -13,18 +13,21 @@ use preconfirmation_net::{
 };
 use preconfirmation_types::{
     Bytes20, Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, Uint256,
-    topic_preconfirmation_commitments, topic_raw_txlists,
 };
 use tokio::sync::{broadcast, mpsc};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     catchup::{CatchupAction, CatchupConfig, CatchupPipeline, CatchupState},
     config::P2pClientConfig,
     error::{P2pClientError, P2pResult},
-    storage::{CommitmentDedupeKey, InMemoryStorage, SdkStorage, compute_message_id},
+    handlers::EventHandler,
+    metrics::P2pMetrics,
+    storage::{InMemoryStorage, SdkStorage},
     types::{SdkCommand, SdkEvent},
-    validation::{CommitmentValidator, ValidationStatus},
+    validation::{
+        CommitmentValidator, validate_eop_rule, validate_txlist_hash, validate_txlist_size,
+    },
 };
 
 /// High-level P2P SDK client that wraps the network layer and provides
@@ -68,8 +71,8 @@ pub struct P2pClient {
     node: Option<P2pNode>,
     /// Storage for commitments, txlists, and deduplication.
     storage: Arc<InMemoryStorage>,
-    /// SDK-level commitment validator.
-    validator: CommitmentValidator,
+    /// Event handler for gossip/reqresp processing.
+    event_handler: EventHandler<InMemoryStorage>,
     /// Channel for sending SDK events to subscribers.
     event_tx: broadcast::Sender<SdkEvent>,
     /// Channel for receiving SDK commands.
@@ -223,6 +226,11 @@ impl P2pClient {
         validator: Option<Box<dyn ValidationAdapter>>,
         lookahead: Option<Arc<dyn LookaheadResolver>>,
     ) -> P2pResult<(Self, broadcast::Receiver<SdkEvent>)> {
+        // Initialize metrics if enabled (idempotent - safe to call multiple times)
+        if config.enable_metrics {
+            P2pMetrics::init();
+        }
+
         // Build the validation adapter
         let expected_slasher = config
             .expected_slasher
@@ -250,7 +258,12 @@ impl P2pClient {
             config.dedupe_ttl,
             config.dedupe_ttl, // Use same TTL for pending buffer
         ));
-        let sdk_validator = CommitmentValidator::new();
+        let event_handler = EventHandler::with_validator_and_max_txlist_bytes(
+            storage.clone(),
+            config.chain_id,
+            CommitmentValidator::without_parent_validation(),
+            config.max_txlist_bytes,
+        );
 
         // Create catch-up pipeline
         let catchup_config = CatchupConfig {
@@ -265,7 +278,7 @@ impl P2pClient {
             handle,
             node: Some(node),
             storage,
-            validator: sdk_validator,
+            event_handler,
             event_tx,
             command_rx: Some(command_rx),
             command_tx,
@@ -369,165 +382,9 @@ impl P2pClient {
 
     /// Handle a network event from the underlying P2P layer.
     async fn handle_network_event(&mut self, event: NetworkEvent) {
-        match event {
-            NetworkEvent::PeerConnected(peer) => {
-                debug!("Peer connected: {peer}");
-                let _ = self.event_tx.send(SdkEvent::PeerConnected { peer });
-            }
-
-            NetworkEvent::PeerDisconnected(peer) => {
-                debug!("Peer disconnected: {peer}");
-                let _ = self.event_tx.send(SdkEvent::PeerDisconnected { peer });
-            }
-
-            NetworkEvent::GossipSignedCommitment { from, msg } => {
-                self.handle_commitment_gossip(from, *msg).await;
-            }
-
-            NetworkEvent::GossipRawTxList { from, msg } => {
-                self.handle_txlist_gossip(from, *msg).await;
-            }
-
-            NetworkEvent::ReqRespCommitments { from, msg } => {
-                debug!("Received commitments response from {from}");
-                let _ = self.event_tx.send(SdkEvent::ReqRespCommitments { from, msg });
-            }
-
-            NetworkEvent::ReqRespRawTxList { from, msg } => {
-                debug!("Received raw txlist response from {from}");
-                let _ = self.event_tx.send(SdkEvent::ReqRespRawTxList { from, msg });
-            }
-
-            NetworkEvent::ReqRespHead { from, head } => {
-                debug!("Received head response from {from}");
-                let _ = self.event_tx.send(SdkEvent::ReqRespHead { from, head });
-            }
-
-            NetworkEvent::InboundCommitmentsRequest { from } => {
-                trace!("Inbound commitments request from {from}");
-                // Request handling is done by the network layer
-            }
-
-            NetworkEvent::InboundRawTxListRequest { from } => {
-                trace!("Inbound raw txlist request from {from}");
-            }
-
-            NetworkEvent::InboundHeadRequest { from } => {
-                trace!("Inbound head request from {from}");
-            }
-
-            NetworkEvent::Started => {
-                info!("Network started");
-            }
-
-            NetworkEvent::Stopped => {
-                info!("Network stopped");
-            }
-
-            NetworkEvent::Error(err) => {
-                warn!("Network error: {err}");
-                let _ = self.event_tx.send(SdkEvent::Error { detail: format!("network: {err}") });
-            }
+        for sdk_event in self.event_handler.handle_event(event) {
+            let _ = self.event_tx.send(sdk_event);
         }
-    }
-
-    /// Handle a signed commitment gossip message.
-    async fn handle_commitment_gossip(&mut self, from: libp2p::PeerId, msg: SignedCommitment) {
-        // Compute message ID for deduplication using chain-specific topic
-        let payload = ssz_encode_commitment(&msg);
-        let topic = topic_preconfirmation_commitments(self.config.chain_id);
-        let msg_id = compute_message_id(&topic, &payload);
-
-        // Check message-level dedupe
-        if self.storage.is_duplicate_message(&msg_id) {
-            trace!("Duplicate commitment message from {from}");
-            return;
-        }
-        self.storage.mark_message_seen(msg_id);
-
-        // Extract block number and check commitment-level dedupe
-        let block_number = uint256_to_u256(&msg.commitment.preconf.block_number);
-
-        // Try to recover signer for dedupe key
-        if let Ok(signer) = preconfirmation_types::verify_signed_commitment(&msg) {
-            let dedupe_key = CommitmentDedupeKey { block_number, signer };
-            if self.storage.is_duplicate_commitment(&dedupe_key) {
-                trace!("Duplicate commitment for block {block_number} from signer {signer}");
-                return;
-            }
-            self.storage.mark_commitment_seen(dedupe_key);
-        }
-
-        // Validate the commitment
-        // TODO: Look up parent from storage for full validation
-        let result = self.validator.validate(&msg, None);
-
-        match result.outcome.status {
-            ValidationStatus::Valid => {
-                debug!("Valid commitment from {from} for block {block_number}");
-                self.storage.insert_commitment(block_number, msg.clone());
-
-                // Check if any pending commitments can now be released
-                let commitment_hash =
-                    match preconfirmation_types::preconfirmation_hash(&msg.commitment.preconf) {
-                        Ok(h) => B256::from_slice(h.as_ref()),
-                        Err(_) => return,
-                    };
-                let released = self.storage.release_pending(&commitment_hash);
-                for pending in released {
-                    debug!(
-                        "Released pending commitment for block {:?}",
-                        uint256_to_u256(&pending.commitment.preconf.block_number)
-                    );
-                    let pending_block = uint256_to_u256(&pending.commitment.preconf.block_number);
-                    self.storage.insert_commitment(pending_block, pending.clone());
-                    let _ = self
-                        .event_tx
-                        .send(SdkEvent::CommitmentGossip { from, commitment: Box::new(pending) });
-                }
-
-                let _ = self
-                    .event_tx
-                    .send(SdkEvent::CommitmentGossip { from, commitment: Box::new(msg) });
-            }
-            ValidationStatus::Pending => {
-                debug!(
-                    "Commitment from {from} is pending (awaiting parent): {:?}",
-                    result.outcome.reason
-                );
-                // Buffer the commitment, waiting for its parent
-                let parent_hash =
-                    B256::from_slice(msg.commitment.preconf.parent_preconfirmation_hash.as_ref());
-                self.storage.add_pending(parent_hash, msg);
-            }
-            ValidationStatus::Invalid => {
-                warn!("Invalid commitment from {from}: {:?}", result.outcome.reason);
-                // Invalid commitments are dropped; network layer handles penalization
-            }
-        }
-    }
-
-    /// Handle a raw txlist gossip message.
-    async fn handle_txlist_gossip(&mut self, from: libp2p::PeerId, msg: RawTxListGossip) {
-        // Compute message ID for deduplication using chain-specific topic
-        let payload = ssz_encode_txlist(&msg);
-        let topic = topic_raw_txlists(self.config.chain_id);
-        let msg_id = compute_message_id(&topic, &payload);
-
-        // Check message-level dedupe
-        if self.storage.is_duplicate_message(&msg_id) {
-            trace!("Duplicate txlist message from {from}");
-            return;
-        }
-        self.storage.mark_message_seen(msg_id);
-
-        // Extract hash for storage
-        let hash = B256::from_slice(msg.raw_tx_list_hash.as_ref());
-
-        debug!("Received raw txlist from {from} with hash {hash}");
-        self.storage.insert_txlist(hash, msg.clone());
-
-        let _ = self.event_tx.send(SdkEvent::RawTxListGossip { from, msg: Box::new(msg) });
     }
 
     /// Handle an SDK command.
@@ -687,8 +544,28 @@ impl P2pClient {
                             // Find highest block and missing txlists
                             let mut highest_block = start_block;
                             let mut missing_hashes = Vec::new();
+                            let mut saw_valid = false;
 
                             for commitment in resp.commitments.iter() {
+                                // Basic validation: signature + EOP rule (parent checks deferred)
+                                let sig_outcome = crate::validation::validate_signature(commitment);
+                                if !sig_outcome.status.is_valid() {
+                                    warn!(
+                                        "Catch-up: invalid commitment signature: {:?}",
+                                        sig_outcome.reason
+                                    );
+                                    P2pMetrics::record_validation_result("invalid");
+                                    continue;
+                                }
+
+                                let eop_outcome = validate_eop_rule(&commitment.commitment.preconf);
+                                if !eop_outcome.status.is_valid() {
+                                    warn!("Catch-up: invalid EOP rule: {:?}", eop_outcome.reason);
+                                    P2pMetrics::record_validation_result("invalid");
+                                    continue;
+                                }
+
+                                saw_valid = true;
                                 let block =
                                     uint256_to_u256(&commitment.commitment.preconf.block_number);
                                 let block_u64 = block.to::<u64>();
@@ -708,6 +585,13 @@ impl P2pClient {
 
                                 // Store the commitment
                                 self.storage.insert_commitment(block, commitment.clone());
+                                P2pMetrics::record_validation_result("valid");
+                            }
+
+                            if !resp.commitments.is_empty() && !saw_valid {
+                                warn!("Catch-up: all commitments in response were invalid");
+                                self.catchup.on_request_failed();
+                                break;
                             }
 
                             self.catchup.on_commitments_received(highest_block, missing_hashes);
@@ -730,13 +614,41 @@ impl P2pClient {
                     };
                     match self.handle.request_raw_txlist(hash_bytes, None).await {
                         Ok(resp) => {
+                            let txlist_bytes = resp.txlist.as_ref();
+                            let stored_hash = B256::from_slice(resp.raw_tx_list_hash.as_ref());
+
+                            // Validate txlist size
+                            let size_outcome =
+                                validate_txlist_size(txlist_bytes, self.config.max_txlist_bytes);
+                            if !size_outcome.status.is_valid() {
+                                warn!(
+                                    "Catch-up: txlist size invalid for {stored_hash}: {:?}",
+                                    size_outcome.reason
+                                );
+                                P2pMetrics::record_validation_result("invalid");
+                                self.catchup.on_request_failed();
+                                break;
+                            }
+
+                            // Validate txlist hash
+                            let hash_outcome = validate_txlist_hash(&stored_hash, txlist_bytes);
+                            if !hash_outcome.status.is_valid() {
+                                warn!(
+                                    "Catch-up: txlist hash mismatch for {stored_hash}: {:?}",
+                                    hash_outcome.reason
+                                );
+                                P2pMetrics::record_validation_result("invalid");
+                                self.catchup.on_request_failed();
+                                break;
+                            }
+
                             // Store the txlist - construct RawTxListGossip from response
                             let txlist_gossip = RawTxListGossip {
                                 raw_tx_list_hash: resp.raw_tx_list_hash.clone(),
                                 txlist: resp.txlist,
                             };
-                            let stored_hash = B256::from_slice(resp.raw_tx_list_hash.as_ref());
                             self.storage.insert_txlist(stored_hash, txlist_gossip);
+                            P2pMetrics::record_validation_result("valid");
                             self.catchup.on_txlist_received(&hash);
                         }
                         Err(e) => {
@@ -760,19 +672,27 @@ fn uint256_to_u256(v: &Uint256) -> U256 {
 }
 
 /// SSZ-encode a signed commitment for message ID computation.
-fn ssz_encode_commitment(msg: &SignedCommitment) -> Vec<u8> {
+///
+/// Returns an error if serialization fails, allowing callers to handle the failure
+/// appropriately (e.g., reject the message and record metrics).
+#[cfg(test)]
+fn ssz_encode_commitment(msg: &SignedCommitment) -> Result<Vec<u8>, ssz_rs::SerializeError> {
     use ssz_rs::Serialize;
     let mut buf = Vec::new();
-    msg.serialize(&mut buf).unwrap_or_default();
-    buf
+    msg.serialize(&mut buf)?;
+    Ok(buf)
 }
 
 /// SSZ-encode a raw txlist gossip for message ID computation.
-fn ssz_encode_txlist(msg: &RawTxListGossip) -> Vec<u8> {
+///
+/// Returns an error if serialization fails, allowing callers to handle the failure
+/// appropriately (e.g., reject the message and record metrics).
+#[cfg(test)]
+fn ssz_encode_txlist(msg: &RawTxListGossip) -> Result<Vec<u8>, ssz_rs::SerializeError> {
     use ssz_rs::Serialize;
     let mut buf = Vec::new();
-    msg.serialize(&mut buf).unwrap_or_default();
-    buf
+    msg.serialize(&mut buf)?;
+    Ok(buf)
 }
 
 #[cfg(test)]
@@ -848,5 +768,53 @@ mod tests {
         let v = Uint256::from(42u64);
         let u = uint256_to_u256(&v);
         assert_eq!(u, U256::from(42));
+    }
+
+    #[test]
+    fn ssz_encode_commitment_returns_result() {
+        // Test that SSZ encoding returns a Result type, not silently swallowing errors.
+        // Valid commitments should encode successfully.
+        use preconfirmation_types::{
+            Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
+            Uint256,
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment {
+                preconf: Preconfirmation {
+                    eop: false,
+                    block_number: Uint256::from(100u64),
+                    timestamp: Uint256::from(1000u64),
+                    gas_limit: Uint256::from(30_000_000u64),
+                    coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+                    anchor_block_number: Uint256::from(99u64),
+                    raw_tx_list_hash: Bytes32::try_from(vec![1u8; 32]).unwrap(),
+                    parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+                    submission_window_end: Uint256::from(2000u64),
+                    prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+                    proposal_id: Uint256::from(1u64),
+                },
+                slasher_address: Bytes20::try_from(vec![0xAA; 20]).unwrap(),
+            },
+            signature: Bytes65::try_from(vec![0xBB; 65]).unwrap(),
+        };
+
+        let result = ssz_encode_commitment(&commitment);
+        assert!(result.is_ok(), "SSZ encoding should succeed for valid commitment");
+        assert!(!result.unwrap().is_empty(), "Encoded buffer should not be empty");
+    }
+
+    #[test]
+    fn ssz_encode_txlist_succeeds() {
+        use preconfirmation_types::{Bytes32, RawTxListGossip, TxListBytes};
+
+        let txlist = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(vec![0xAB; 32]).unwrap(),
+            txlist: TxListBytes::try_from(vec![0xCC; 100]).unwrap(),
+        };
+
+        let result = ssz_encode_txlist(&txlist);
+        assert!(result.is_ok(), "SSZ encoding should succeed for valid txlist");
+        assert!(!result.unwrap().is_empty(), "Encoded buffer should not be empty");
     }
 }

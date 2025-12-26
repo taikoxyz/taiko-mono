@@ -259,7 +259,8 @@ pub use handlers::EventHandler;
 pub use metrics::P2pMetrics;
 pub use validation::{
     BlockParamsValidator, CommitmentValidator, DefaultBlockParamsValidator, ValidationOutcome,
-    ValidationResult, ValidationStatus, validate_block_params_progression,
+    ValidationResult, ValidationStatus, validate_block_params_progression, validate_eop_rule,
+    validate_signature, validate_txlist_hash, validate_txlist_size,
 };
 // Re-export key network types so consumers can depend on this crate alone.
 pub use preconfirmation_net::{

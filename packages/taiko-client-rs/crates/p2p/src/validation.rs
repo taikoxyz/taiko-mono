@@ -76,21 +76,23 @@ impl ValidationOutcome {
 
 /// Validate EOP (End-of-Proposal) invariant per spec §3.1.
 ///
-/// - If `eop=true`, the `raw_tx_list_hash` MUST be zero (0x00...)
+/// The relaxed rule is:
 /// - If `eop=false`, the `raw_tx_list_hash` MUST be non-zero
+/// - If `eop=true`, the `raw_tx_list_hash` can be zero or non-zero
+///
+/// An EOP commitment marks the end of a proposal but may still reference a txlist.
+/// The key constraint is that non-EOP commitments MUST have a txlist (non-zero hash).
 ///
 /// Violations are penalized as they indicate malformed commitments.
 pub fn validate_eop_rule(preconf: &Preconfirmation) -> ValidationOutcome {
     let is_zero_hash = preconf.raw_tx_list_hash.iter().all(|b| *b == 0);
 
     match (preconf.eop, is_zero_hash) {
-        // EOP=true with zero hash: valid
+        // EOP=true with zero hash: valid (end-of-proposal with no txlist)
         (true, true) => ValidationOutcome::valid(),
-        // EOP=true with non-zero hash: invalid (should have no txlist)
-        (true, false) => {
-            ValidationOutcome::invalid("EOP preconfirmation must have zero raw_tx_list_hash", true)
-        }
-        // EOP=false with non-zero hash: valid
+        // EOP=true with non-zero hash: valid (end-of-proposal with txlist)
+        (true, false) => ValidationOutcome::valid(),
+        // EOP=false with non-zero hash: valid (normal commitment with txlist)
         (false, false) => ValidationOutcome::valid(),
         // EOP=false with zero hash: invalid (must have txlist)
         (false, true) => ValidationOutcome::invalid(
@@ -190,6 +192,22 @@ pub fn validate_txlist_hash(expected_hash: &B256, txlist: &[u8]) -> ValidationOu
     }
 }
 
+/// Validate that a txlist's size does not exceed the configured maximum.
+///
+/// Per spec, txlists exceeding `max_txlist_bytes` should be rejected to prevent
+/// DoS attacks and ensure network bandwidth is used efficiently.
+/// Violations are penalized as they indicate malformed or malicious data.
+pub fn validate_txlist_size(txlist: &[u8], max_size: usize) -> ValidationOutcome {
+    if txlist.len() <= max_size {
+        ValidationOutcome::valid()
+    } else {
+        ValidationOutcome::invalid(
+            format!("txlist size {} exceeds maximum {}", txlist.len(), max_size),
+            true,
+        )
+    }
+}
+
 /// Validate a signature on a signed commitment.
 ///
 /// Attempts to recover the signer address from the signature. If recovery fails,
@@ -271,11 +289,16 @@ pub struct ValidationResult {
 pub struct CommitmentValidator {
     /// Optional hook for custom block parameter validation.
     block_params_hook: Option<Box<dyn BlockParamsValidator>>,
+    /// Whether to enforce parent linkage validation.
+    require_parent: bool,
 }
 
 impl Default for CommitmentValidator {
     fn default() -> Self {
-        Self { block_params_hook: Some(Box::new(DefaultBlockParamsValidator)) }
+        Self {
+            block_params_hook: Some(Box::new(DefaultBlockParamsValidator)),
+            require_parent: true,
+        }
     }
 }
 
@@ -290,14 +313,25 @@ impl CommitmentValidator {
     /// The hook will be called after standard validations (signature, EOP, parent linkage,
     /// block number progression) to perform chain-specific parameter checks.
     pub fn with_hook(hook: Box<dyn BlockParamsValidator>) -> Self {
-        Self { block_params_hook: Some(hook) }
+        Self { block_params_hook: Some(hook), require_parent: true }
     }
 
     /// Create a new validator without any block params validation hook.
     ///
     /// This disables the default timestamp and anchor_block_number progression checks.
     pub fn without_hook() -> Self {
-        Self { block_params_hook: None }
+        Self { block_params_hook: None, require_parent: true }
+    }
+
+    /// Create a validator that skips parent linkage validation entirely.
+    ///
+    /// This is useful during early integration when parent lookup is not yet
+    /// implemented. Signature and EOP checks still run.
+    pub fn without_parent_validation() -> Self {
+        Self {
+            block_params_hook: Some(Box::new(DefaultBlockParamsValidator)),
+            require_parent: false,
+        }
     }
 
     /// Validate a signed commitment with optional parent context.
@@ -322,24 +356,26 @@ impl CommitmentValidator {
             return ValidationResult { outcome: eop_outcome, signer };
         }
 
-        // 3. Validate parent linkage
-        let linkage_outcome = validate_parent_linkage(preconf, parent);
-        if !linkage_outcome.status.is_valid() {
-            return ValidationResult { outcome: linkage_outcome, signer };
-        }
-
-        // 4. Validate block progression (only if parent is present)
-        if let Some(parent_preconf) = parent {
-            let prog_outcome = validate_block_progression(preconf, parent_preconf);
-            if !prog_outcome.status.is_valid() {
-                return ValidationResult { outcome: prog_outcome, signer };
+        // 3. Validate parent linkage (optional)
+        if self.require_parent {
+            let linkage_outcome = validate_parent_linkage(preconf, parent);
+            if !linkage_outcome.status.is_valid() {
+                return ValidationResult { outcome: linkage_outcome, signer };
             }
 
-            // 5. Validate block parameters via hook (if configured)
-            if let Some(hook) = &self.block_params_hook {
-                let params_outcome = hook.validate_params(preconf, parent_preconf);
-                if !params_outcome.status.is_valid() {
-                    return ValidationResult { outcome: params_outcome, signer };
+            // 4. Validate block progression (only if parent is present)
+            if let Some(parent_preconf) = parent {
+                let prog_outcome = validate_block_progression(preconf, parent_preconf);
+                if !prog_outcome.status.is_valid() {
+                    return ValidationResult { outcome: prog_outcome, signer };
+                }
+
+                // 5. Validate block parameters via hook (if configured)
+                if let Some(hook) = &self.block_params_hook {
+                    let params_outcome = hook.validate_params(preconf, parent_preconf);
+                    if !params_outcome.status.is_valid() {
+                        return ValidationResult { outcome: params_outcome, signer };
+                    }
                 }
             }
         }
@@ -442,12 +478,12 @@ mod tests {
     }
 
     #[test]
-    fn eop_true_with_nonzero_hash_is_invalid() {
-        // EOP=true with non-zero hash violates spec §3.1
+    fn eop_true_with_nonzero_hash_is_valid() {
+        // EOP=true with non-zero hash is valid per relaxed spec §3.1.
+        // An EOP commitment can still reference a txlist.
         let preconf = sample_preconfirmation(true, false);
         let outcome = validate_eop_rule(&preconf);
-        assert!(outcome.status.is_invalid());
-        assert!(outcome.penalize);
+        assert!(outcome.status.is_valid());
     }
 
     #[test]

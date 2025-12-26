@@ -54,11 +54,15 @@ fn sample_commitment(block_num: u64, sig_byte: u8) -> SignedCommitment {
     }
 }
 
-/// Creates a sample raw txlist with the given hash byte.
-fn sample_txlist(hash_byte: u8) -> RawTxListGossip {
+/// Creates a sample raw txlist with the given content byte.
+///
+/// The hash is computed from the content to ensure consistency.
+fn sample_txlist(content_byte: u8) -> RawTxListGossip {
+    let txlist_data = vec![content_byte; 100];
+    let hash = preconfirmation_types::keccak256_bytes(&txlist_data);
     RawTxListGossip {
-        raw_tx_list_hash: Bytes32::try_from(vec![hash_byte; 32]).unwrap(),
-        txlist: TxListBytes::try_from(vec![hash_byte; 100]).unwrap(),
+        raw_tx_list_hash: Bytes32::try_from(hash.as_slice().to_vec()).unwrap(),
+        txlist: TxListBytes::try_from(txlist_data).unwrap(),
     }
 }
 
@@ -110,11 +114,11 @@ async fn smoke_message_id_deduplication() {
 
     // First gossip - may return None due to validation (invalid signature),
     // but should mark message as seen
-    let _result1 = handler.handle_commitment_gossip(peer, commitment.clone());
+    let _events1 = handler.handle_commitment_gossip(peer, commitment.clone());
 
     // Second gossip with same commitment - should be deduplicated at message level
-    let result2 = handler.handle_commitment_gossip(peer, commitment.clone());
-    assert!(result2.is_none(), "duplicate commitment should be deduplicated at message level");
+    let events2 = handler.handle_commitment_gossip(peer, commitment.clone());
+    assert!(events2.is_empty(), "duplicate commitment should be deduplicated at message level");
 }
 
 #[tokio::test]
@@ -290,12 +294,22 @@ async fn smoke_handler_peer_events() {
     let peer = libp2p::PeerId::random();
 
     // Peer connected
-    let result = handler.handle_event(NetworkEvent::PeerConnected(peer));
-    assert!(matches!(result, Some(SdkEvent::PeerConnected { peer: p }) if p == peer));
+    let events = handler.handle_event(NetworkEvent::PeerConnected(peer));
+    assert_eq!(events.len(), 1);
+    if let SdkEvent::PeerConnected { peer: event_peer } = &events[0] {
+        assert_eq!(event_peer, &peer);
+    } else {
+        panic!("expected PeerConnected event");
+    }
 
     // Peer disconnected
-    let result = handler.handle_event(NetworkEvent::PeerDisconnected(peer));
-    assert!(matches!(result, Some(SdkEvent::PeerDisconnected { peer: p }) if p == peer));
+    let events = handler.handle_event(NetworkEvent::PeerDisconnected(peer));
+    assert_eq!(events.len(), 1);
+    if let SdkEvent::PeerDisconnected { peer: event_peer } = &events[0] {
+        assert_eq!(event_peer, &peer);
+    } else {
+        panic!("expected PeerDisconnected event");
+    }
 }
 
 #[tokio::test]
@@ -304,8 +318,13 @@ async fn smoke_handler_network_error() {
     let storage = Arc::new(InMemoryStorage::default());
     let handler = EventHandler::new(storage, TEST_CHAIN_ID);
 
-    let result = handler.handle_event(NetworkEvent::Error("test network error".into()));
-    assert!(matches!(result, Some(SdkEvent::Error { detail }) if detail.contains("network")));
+    let events = handler.handle_event(NetworkEvent::Error("test network error".into()));
+    assert_eq!(events.len(), 1);
+    if let SdkEvent::Error { detail } = &events[0] {
+        assert!(detail.contains("network"));
+    } else {
+        panic!("expected Error event");
+    }
 }
 
 #[tokio::test]
@@ -375,4 +394,107 @@ async fn smoke_message_id_computation() {
 
     let id4 = compute_message_id(topic, b"different payload");
     assert_ne!(id1, id4, "different payload should produce different ID");
+}
+
+// ============================================================================
+// Spec Blocker Tests (Task 1)
+// ============================================================================
+
+/// Creates a preconfirmation with specific EOP and hash values for testing.
+fn sample_preconfirmation_with_eop(block_num: u64, eop: bool, zero_hash: bool) -> Preconfirmation {
+    let hash = if zero_hash { [0u8; 32] } else { [1u8; 32] };
+    Preconfirmation {
+        eop,
+        block_number: Uint256::from(block_num),
+        timestamp: Uint256::from(1000u64 + block_num),
+        gas_limit: Uint256::from(30_000_000u64),
+        coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+        anchor_block_number: Uint256::from(block_num.saturating_sub(1)),
+        raw_tx_list_hash: Bytes32::try_from(hash.to_vec()).unwrap(),
+        parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).unwrap(),
+        submission_window_end: Uint256::from(2000u64 + block_num),
+        prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+        proposal_id: Uint256::from(block_num),
+    }
+}
+
+#[test]
+fn eop_true_allows_nonzero_hash() {
+    use p2p::validation::validate_eop_rule;
+
+    // EOP=true with non-zero hash should be VALID per relaxed spec.
+    // An EOP commitment can still reference a txlist - EOP just means
+    // "end of proposal" marker, not "must have no txlist".
+    let preconf = sample_preconfirmation_with_eop(100, true, false); // eop=true, nonzero hash
+    let outcome = validate_eop_rule(&preconf);
+    assert!(
+        outcome.status.is_valid(),
+        "EOP=true with nonzero hash should be valid; got: {:?}",
+        outcome.reason
+    );
+}
+
+#[tokio::test]
+async fn handler_rejects_txlist_with_hash_mismatch() {
+    use preconfirmation_types::keccak256_bytes;
+
+    let storage = Arc::new(InMemoryStorage::default());
+    let handler = EventHandler::new(storage.clone(), TEST_CHAIN_ID);
+
+    let peer = libp2p::PeerId::random();
+
+    // Create a txlist with a hash that doesn't match the declared hash
+    let txlist_data = vec![0xCC; 100];
+    let _actual_hash = keccak256_bytes(&txlist_data);
+    let wrong_hash = Bytes32::try_from(vec![0xDE; 32]).unwrap(); // Deliberately wrong
+
+    let msg = RawTxListGossip {
+        raw_tx_list_hash: wrong_hash.clone(),
+        txlist: TxListBytes::try_from(txlist_data).unwrap(),
+    };
+
+    // Should reject due to hash mismatch
+    let result = handler.handle_txlist_gossip(peer, msg);
+    assert!(result.is_none(), "txlist with mismatched hash should be rejected");
+
+    // Verify it was NOT stored
+    let hash = B256::from_slice(wrong_hash.as_ref());
+    assert!(
+        storage.get_txlist(&hash).is_none(),
+        "txlist with mismatched hash should not be stored"
+    );
+}
+
+#[tokio::test]
+async fn handler_rejects_oversized_txlist() {
+    use p2p::P2pClientConfig;
+
+    let storage = Arc::new(InMemoryStorage::default());
+
+    // Get the default max size from config
+    let config = P2pClientConfig::default();
+    let max_size = config.max_txlist_bytes;
+
+    // Create handler with the max size limit
+    let handler = EventHandler::with_max_txlist_bytes(storage.clone(), TEST_CHAIN_ID, max_size);
+
+    let peer = libp2p::PeerId::random();
+
+    // Create an oversized txlist (exceeds max_txlist_bytes)
+    let oversized_data = vec![0xDD; max_size + 1];
+    let hash = preconfirmation_types::keccak256_bytes(&oversized_data);
+    let hash_bytes = Bytes32::try_from(hash.as_slice().to_vec()).unwrap();
+
+    let msg = RawTxListGossip {
+        raw_tx_list_hash: hash_bytes.clone(),
+        txlist: TxListBytes::try_from(oversized_data).unwrap(),
+    };
+
+    // Should reject due to size limit
+    let result = handler.handle_txlist_gossip(peer, msg);
+    assert!(result.is_none(), "oversized txlist should be rejected");
+
+    // Verify it was NOT stored
+    let stored_hash = B256::from_slice(hash_bytes.as_ref());
+    assert!(storage.get_txlist(&stored_hash).is_none(), "oversized txlist should not be stored");
 }

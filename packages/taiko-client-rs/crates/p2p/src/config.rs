@@ -8,6 +8,9 @@ use std::time::Duration;
 use alloy_primitives::Address;
 use preconfirmation_net::P2pConfig;
 
+/// Default maximum txlist size (128 KiB).
+pub const DEFAULT_MAX_TXLIST_BYTES: usize = 131_072;
+
 /// Configuration for the P2P SDK client.
 ///
 /// This configuration embeds the network-level [`P2pConfig`] and adds
@@ -53,7 +56,7 @@ impl Default for P2pClientConfig {
             dedupe_cache_cap: 10_000,
             dedupe_ttl: Duration::from_secs(300), // 5 minutes
             max_commitments_per_page: 100,
-            max_txlist_bytes: 131_072, // 128 KiB
+            max_txlist_bytes: DEFAULT_MAX_TXLIST_BYTES,
             catchup_initial_backoff: Duration::from_millis(500),
             catchup_max_backoff: Duration::from_secs(30),
             catchup_max_retries: 10,
