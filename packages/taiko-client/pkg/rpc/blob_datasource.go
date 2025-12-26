@@ -111,27 +111,9 @@ func (ds *BlobDataSource) GetSidecars(
 		err         error
 	)
 	if ds.client.L1Beacon == nil {
-		sidecars, err = nil, pkg.ErrBeaconNotFound
+		allSidecars, err = nil, pkg.ErrBeaconNotFound
 	} else {
-		if allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp); err == nil {
-			for _, blobHash := range blobHashes {
-				// Compare the blob hash with the sidecar's kzg commitment.
-				for j, sidecar := range allSidecars {
-					log.Debug(
-						"Block sidecar",
-						"index", j,
-						"KzgCommitment", sidecar.KzgCommitment,
-						"blobHash", blobHash,
-					)
-
-					commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-					if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
-						sidecars = append(sidecars, sidecar)
-						break
-					}
-				}
-			}
-		}
+		allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
 	if err != nil {
 		if !errors.Is(err, pkg.ErrBeaconNotFound) {
@@ -145,14 +127,32 @@ func (ds *BlobDataSource) GetSidecars(
 		if err != nil {
 			return nil, err
 		}
-		sidecars = make([]*structs.Sidecar, len(blobs.Data))
+		allSidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			sidecars[index] = &structs.Sidecar{
+			allSidecars[index] = &structs.Sidecar{
 				KzgCommitment: value.KzgCommitment,
 				Blob:          value.Blob,
 			}
 		}
 	}
+	for _, blobHash := range blobHashes {
+		// Compare the blob hash with the sidecar's kzg commitment.
+		for j, sidecar := range allSidecars {
+			log.Debug(
+				"Block sidecar",
+				"index", j,
+				"KzgCommitment", sidecar.KzgCommitment,
+				"blobHash", blobHash,
+			)
+
+			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
+				sidecars = append(sidecars, sidecar)
+				break
+			}
+		}
+	}
+
 	if len(sidecars) != len(blobHashes) {
 		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
 	}
