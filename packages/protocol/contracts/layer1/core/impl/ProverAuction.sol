@@ -238,7 +238,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         // 5. Handle outbid prover (only if different address)
-        if (current.addr != address(0) && current.addr != msg.sender && current.exitTimestamp == 0) {
+        if (current.addr != address(0) && current.addr != msg.sender && current.exitTimestamp == 0)
+        {
             unchecked {
                 // Safe: uint48 + uint48 won't overflow for ~8900 years
                 _bonds[current.addr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;

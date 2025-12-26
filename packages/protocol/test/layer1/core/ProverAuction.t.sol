@@ -301,7 +301,9 @@ contract ProverAuctionTest is CommonTest {
 
         // Exited prover's withdrawableAt should NOT be extended - they already exited
         IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
-        assertEq(infoAfter.withdrawableAt, firstWithdrawableAt, "exited prover delay should not extend");
+        assertEq(
+            infoAfter.withdrawableAt, firstWithdrawableAt, "exited prover delay should not extend"
+        );
     }
 
     function test_withdraw_forcedOutProverCanWithdrawAfterDelay() public {
