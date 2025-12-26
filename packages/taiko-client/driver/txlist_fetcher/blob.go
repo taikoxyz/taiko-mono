@@ -46,7 +46,7 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 	// Fetch the L1 block sidecars.
 	b, err := d.dataSource.GetBlobBytes(ctx, l1Header.Time, meta.GetBlobHashes())
 	if err != nil {
-		if errors.Is(err, rpc.ErrEmptyBlock) {
+		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
 			return []byte{}, nil
 		}
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)

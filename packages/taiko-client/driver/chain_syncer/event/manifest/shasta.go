@@ -63,7 +63,7 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 
 	blobBytes, err := f.fetchBlobs(ctx, meta, derivationIdx)
 	if err != nil {
-		if errors.Is(err, rpc.ErrEmptyBlock) {
+		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
 			return &ShastaDerivationSourcePayload{Default: true}, nil
 		}
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
