@@ -701,14 +701,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            // Refund the proposer for all the other bonds
-            for (uint256 i = start; i < _numProposals; ++i) {
-                // TODO: This can probably be optimized instead of calling creditBond for each proposal
-                // and emitting an event for each one.
-                LibBonds.creditBond(
-                    _bondingStorage, _commitment.transitions[i].proposer, bondAmount
-                );
+            // If there was only one proposal processed and it was late,
+            // we don't have anything else to refund.
+            if (start >= _numProposals) return;
+
+            uint256 refunds = _numProposals - start;
+            address[] memory proposers = new address[](refunds);
+            for (uint256 i; i < refunds; ++i) {
+                proposers[i] = _commitment.transitions[start + i].proposer;
             }
+
+            LibBonds.creditBondsSameAmount(_bondingStorage, proposers, bondAmount);
         }
     }
 

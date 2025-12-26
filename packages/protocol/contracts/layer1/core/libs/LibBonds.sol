@@ -32,6 +32,49 @@ library LibBonds {
         $.bondBalance[_account] = $.bondBalance[_account] + _amount;
     }
 
+    /// @dev Credits a fixed amount per occurrence for each account, aggregated by account.
+    ///      Uses a unique list + linear scan (O(n^2) comparisons) to avoid hashing/memory overhead;
+    ///      this is chosen because expected batch sizes are small enough (~10) to justify a memory
+    //       hash map.
+    /// @param $ Storage reference.
+    /// @param _accounts The accounts to credit.
+    /// @param _amountPerOccurrence The amount to credit per occurrence.
+    function creditBondsSameAmount(
+        Storage storage $,
+        address[] memory _accounts,
+        uint256 _amountPerOccurrence
+    )
+        internal
+    {
+        uint256 n = _accounts.length;
+
+        address[] memory uniq = new address[](n);
+        uint256[] memory totals = new uint256[](n);
+        uint256 u;
+
+        for (uint256 i; i < n; ++i) {
+            address account = _accounts[i];
+            for (uint256 j;; ++j) {
+                if (j == u) {
+                    uniq[u] = account;
+                    totals[u] = _amountPerOccurrence;
+                    unchecked {
+                        ++u;
+                    }
+                    break;
+                }
+                if (uniq[j] == account) {
+                    totals[j] += _amountPerOccurrence;
+                    break;
+                }
+            }
+        }
+
+        for (uint256 i; i < u; ++i) {
+            creditBond($, uniq[i], totals[i]);
+        }
+    }
+
     /// @dev Debits a bond from an address.
     /// @param $ Storage reference.
     /// @param _account The account to debit.
@@ -103,6 +146,7 @@ library LibBonds {
         internal
         returns (uint256 debitedAmount_)
     {
+        uint256 debited = _livenessBond;
         uint256 payeeAmount;
         uint256 callerAmount;
 
