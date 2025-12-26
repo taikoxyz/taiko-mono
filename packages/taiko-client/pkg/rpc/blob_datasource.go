@@ -18,7 +18,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
 
-var ErrEmptyBlock = errors.New("should produce empty block")
+var ErrInvalidBlobBytes = errors.New("invalid blob bytes")
 
 type BlobDataSource struct {
 	ctx                context.Context
@@ -89,7 +89,7 @@ func (ds *BlobDataSource) GetBlobBytes(
 		blob := eth.Blob(common.FromHex(sidecar.Blob))
 		bytes, err := blob.ToData()
 		if err != nil {
-			return nil, errors.Join(ErrEmptyBlock, err)
+			return nil, errors.Join(ErrInvalidBlobBytes, err)
 		}
 		b = append(b, bytes...)
 	}
