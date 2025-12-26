@@ -111,7 +111,7 @@ func (ds *BlobDataSource) GetSidecars(
 		err         error
 	)
 	if ds.client.L1Beacon == nil {
-		allSidecars, err = nil, pkg.ErrBeaconNotFound
+		err = pkg.ErrBeaconNotFound
 	} else {
 		allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
