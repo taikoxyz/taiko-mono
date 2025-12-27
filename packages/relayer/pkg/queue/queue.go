@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	shasta "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 var (
@@ -31,13 +30,6 @@ type Queue interface {
 
 type QueueMessageSentBody struct {
 	Event        *bridge.BridgeMessageSent
-	ID           int
-	TimesRetried uint64
-}
-
-type QueueBondInstructionCreatedBody struct {
-	Event        *shasta.ShastaInboxClientBondInstructionCreated
-	Signal       string
 	ID           int
 	TimesRetried uint64
 }

@@ -40,13 +40,6 @@ var (
 		Required: true,
 		EnvVars:  []string{"DEST_ERC721_VAULT_ADDRESS"},
 	}
-	DestBondManagerAddress = &cli.StringFlag{
-		Name:     "destBondManagerAddress",
-		Usage:    "BondManager address for the destination chain",
-		Category: processorCategory,
-		Required: false,
-		EnvVars:  []string{"DEST_BOND_MANAGER_ADDRESS"},
-	}
 )
 
 // optional
@@ -171,7 +164,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	DestERC1155VaultAddress,
 	DestERC20VaultAddress,
 	DestTaikoAddress,
-	DestBondManagerAddress,
 	ProcessorPrivateKey,
 	// optional
 	HeaderSyncInterval,
@@ -184,7 +176,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	HopSignalServiceAddresses,
 	HopTaikoAddresses,
 	DestBridgeAddress,
-	EventName,
 	TargetTxHash,
 	CacheOption,
 	UnprofitableMessageQueueExpiration,
