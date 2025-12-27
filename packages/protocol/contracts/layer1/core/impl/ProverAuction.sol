@@ -219,6 +219,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         // 3. Validate fee based on caller
         bool isVacant = current.addr == address(0) || current.exitTimestamp > 0;
+        // Must be active current prover (not exited) to apply self-bid rules.
         bool isSelfBid = current.addr == msg.sender && !isVacant;
 
         if (isSelfBid) {
@@ -378,9 +379,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         unchecked {
             // Safe: uint32 * uint8 fits in uint256, result capped to uint32.max
             uint256 movingAvgFee = uint256(_movingAverageFee) * movingAverageMultiplier;
-            feeFloor = movingAvgFee > type(uint32).max
-                ? type(uint32).max
-                : uint32(LibMath.max(initialMaxFee, movingAvgFee));
+            uint256 cappedMovingAvg = LibMath.min(movingAvgFee, type(uint32).max);
+            feeFloor = uint32(LibMath.max(initialMaxFee, cappedMovingAvg));
         }
 
         uint32 baseFee;
@@ -411,11 +411,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         // Safe: baseFee (uint32) << periods (capped at maxFeeDoublings, a uint8) fits in uint256
         uint256 maxFee = uint256(baseFee) << periods;
 
-        if (maxFee > type(uint32).max) {
-            return type(uint32).max;
-        }
-
-        return uint32(maxFee);
+        return uint32(LibMath.min(maxFee, type(uint32).max));
     }
 
     /// @inheritdoc IProverAuction
@@ -453,6 +449,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
 
     /// @dev Updates the exponential moving average of fees.
+    ///      Uses a 90/10 weight (90% old, 10% new) to resist manipulation.
     ///      Safe: uint32 * 9 + uint32 fits in uint256, result / 10 fits in uint32
     /// @param _newFee The new fee to incorporate into the average
     function _updateMovingAverage(uint32 _newFee) internal {

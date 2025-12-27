@@ -70,7 +70,7 @@ interface IProverAuction {
     /// @notice Deposit bond tokens to caller's balance
     /// @param _amount Amount of bond tokens to deposit
     /// @dev Tokens are transferred from msg.sender to this contract
-    /// @dev Can be called anytime, including when prover is being slashed (for top-up)
+    /// @dev Can be called anytime, including after slashing to top up bond
     function deposit(uint128 _amount) external;
 
     /// @notice Withdraw bond tokens from caller's balance
