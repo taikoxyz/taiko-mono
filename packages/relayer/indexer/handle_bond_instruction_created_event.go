@@ -52,14 +52,7 @@ func (i *Indexer) handleBondInstructionCreatedEvent(
 		Context: ctx,
 	}, event.BondInstruction)
 	if err != nil {
-		return errors.Wrapf(
-			err,
-			"i.shastaInbox.HashBondInstruction proposalId=%s payer=%s payee=%s txHash=%s",
-			event.ProposalId.String(),
-			event.BondInstruction.Payer.Hex(),
-			event.BondInstruction.Payee.Hex(),
-			event.Raw.TxHash.Hex(),
-		)
+		return errors.Wrap(err, "i.shastaInbox.HashBondInstruction")
 	}
 
 	signalHex := common.Hash(signal).Hex()

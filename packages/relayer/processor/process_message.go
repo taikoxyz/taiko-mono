@@ -33,11 +33,6 @@ var (
 	errAlreadyProcessing = errors.New("already processing txHash")
 )
 
-const (
-	gasLimitPaddingContractPercent = 10
-	gasLimitPaddingEOAPercent      = 5
-)
-
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
 // get its on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
@@ -516,7 +511,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	gasLimit := uint64(event.Message.GasLimit)
+	gasLimit := uint64(float64(event.Message.GasLimit))
 
 	// if destination address is a contract, add padding. check message.to
 	// to see if it is a contract address.
@@ -526,9 +521,9 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	if len(code) != 0 {
-		gasLimit += (gasLimit * gasLimitPaddingContractPercent) / 100
+		gasLimit = uint64(float64(gasLimit) * 1.1)
 	} else {
-		gasLimit += (gasLimit * gasLimitPaddingEOAPercent) / 100
+		gasLimit = uint64(float64(gasLimit) * 1.05)
 	}
 
 	var estimatedMaxCost uint64

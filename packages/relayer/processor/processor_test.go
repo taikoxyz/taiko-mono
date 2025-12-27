@@ -20,15 +20,11 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		encoding.CACHE_NOTHING,
 	)
 
-	srcEthClient := &mock.EthClient{}
-	destEthClient := &mock.EthClient{}
-
 	return &Processor{
 		eventRepo:                 &mock.EventRepository{},
 		destBridge:                &mock.Bridge{},
-		srcEthClient:              srcEthClient,
-		destEthClient:             destEthClient,
-		srcContractCaller:         srcEthClient,
+		srcEthClient:              &mock.EthClient{},
+		destEthClient:             &mock.EthClient{},
 		destERC20Vault:            &mock.TokenVault{},
 		srcSignalService:          &mock.SignalService{},
 		ecdsaKey:                  privateKey,
@@ -51,6 +47,5 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		maxMessageRetries:  5,
 		destQuotaManager:   &mock.QuotaManager{},
 		processingTxHashes: make(map[common.Hash]bool, 0),
-		processingSignals:  make(map[common.Hash]bool, 0),
 	}
 }

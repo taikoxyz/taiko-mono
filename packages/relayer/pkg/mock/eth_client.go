@@ -117,10 +117,6 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 	return 1, nil
 }
 
-func (c *EthClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return []byte{0x1}, nil
-}
-
 func (c *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
 	go func() {
 		t := time.NewTicker(time.Second * 1)
