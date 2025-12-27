@@ -101,7 +101,11 @@ contract ProverAuctionTest is CommonTest {
         auction.deposit(amount);
     }
 
-    function _timeWeightedAvg(uint32 oldFee, uint32 newFee, uint48 elapsed)
+    function _timeWeightedAvg(
+        uint32 oldFee,
+        uint32 newFee,
+        uint48 elapsed
+    )
         internal
         pure
         returns (uint32)
