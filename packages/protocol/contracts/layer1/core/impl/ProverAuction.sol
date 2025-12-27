@@ -332,7 +332,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    function requestStay(address _proverAddr) external returns (bool success_) {
+    function deferWithdrawal(address _proverAddr) external returns (bool success_) {
         require(msg.sender == inbox, OnlyInbox());
 
         BondInfo storage bond = _bonds[_proverAddr];

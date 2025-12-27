@@ -822,10 +822,10 @@ contract ProverAuctionTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // requestStay tests
+    // deferWithdrawal tests
     // ---------------------------------------------------------------
 
-    function test_requestStay_updatesWithdrawableAtWhenSet() public {
+    function test_deferWithdrawal_updatesWithdrawableAtWhenSet() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
         _depositAndBid(prover2, REQUIRED_BOND, 450);
 
@@ -836,7 +836,7 @@ contract ProverAuctionTest is CommonTest {
         vm.warp(block.timestamp + 1 hours);
 
         vm.prank(inbox);
-        bool success = auction.requestStay(prover1);
+        bool success = auction.deferWithdrawal(prover1);
         assertTrue(success);
 
         IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
@@ -844,20 +844,20 @@ contract ProverAuctionTest is CommonTest {
         assertGt(infoAfter.withdrawableAt, withdrawableAtBefore);
     }
 
-    function test_requestStay_returnsFalseWhen_BelowThreshold() public {
+    function test_deferWithdrawal_returnsFalseWhen_BelowThreshold() public {
         _depositBond(prover1, uint128(LIVENESS_BOND));
 
         vm.prank(inbox);
-        bool success = auction.requestStay(prover1);
+        bool success = auction.deferWithdrawal(prover1);
         assertFalse(success);
     }
 
-    function test_requestStay_RevertWhen_NotInbox() public {
+    function test_deferWithdrawal_RevertWhen_NotInbox() public {
         _depositBond(prover1, REQUIRED_BOND);
 
         vm.prank(prover1);
         vm.expectRevert(ProverAuction.OnlyInbox.selector);
-        auction.requestStay(prover1);
+        auction.deferWithdrawal(prover1);
     }
 
     // ---------------------------------------------------------------

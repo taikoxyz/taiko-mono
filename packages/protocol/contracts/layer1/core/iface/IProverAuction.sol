@@ -116,10 +116,12 @@ interface IProverAuction {
     /// @param _prover Address of the prover to check
     /// @return success_ True if the prover has sufficient bond, false otherwise
     /// @dev Only callable by the Inbox contract
+    /// @dev Used by Inbox to enable self-proving proposals even when an auction
+    ///      prover exists; proposers may still choose to prove their own blocks.
     /// @dev Returns false if bond balance is below the ejection threshold
     /// @dev Updates withdrawableAt to block.timestamp + bondWithdrawalDelay only
     ///      if withdrawableAt is already non-zero
-    function requestStay(address _prover) external returns (bool success_);
+    function deferWithdrawal(address _prover) external returns (bool success_);
 
     // ---------------------------------------------------------------
     // External View Functions
