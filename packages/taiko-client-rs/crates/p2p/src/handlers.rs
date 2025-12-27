@@ -46,9 +46,9 @@ use crate::{
 /// - SDK-level validation (EOP rules, parent linkage, block progression)
 /// - TxList hash and size validation
 /// - Metrics recording for all operations
-pub struct EventHandler<S: SdkStorage> {
+pub struct EventHandler {
     /// Storage for commitments, txlists, and deduplication.
-    storage: Arc<S>,
+    storage: Arc<dyn SdkStorage>,
     /// Chain ID for topic generation.
     chain_id: u64,
     /// SDK-level commitment validator.
@@ -57,11 +57,12 @@ pub struct EventHandler<S: SdkStorage> {
     max_txlist_bytes: usize,
 }
 
-impl<S: SdkStorage> EventHandler<S> {
+/// Event handling and validation pipeline.
+impl EventHandler {
     /// Create a new event handler with the given storage and chain ID.
     ///
     /// Uses the default maximum txlist size of 128 KiB.
-    pub fn new(storage: Arc<S>, chain_id: u64) -> Self {
+    pub fn new(storage: Arc<dyn SdkStorage>, chain_id: u64) -> Self {
         Self {
             storage,
             chain_id,
@@ -71,13 +72,17 @@ impl<S: SdkStorage> EventHandler<S> {
     }
 
     /// Create a new event handler with a custom commitment validator.
-    pub fn with_validator(storage: Arc<S>, chain_id: u64, validator: CommitmentValidator) -> Self {
+    pub fn with_validator(
+        storage: Arc<dyn SdkStorage>,
+        chain_id: u64,
+        validator: CommitmentValidator,
+    ) -> Self {
         Self { storage, chain_id, validator, max_txlist_bytes: DEFAULT_MAX_TXLIST_BYTES }
     }
 
     /// Create a new event handler with a custom validator and txlist size limit.
     pub fn with_validator_and_max_txlist_bytes(
-        storage: Arc<S>,
+        storage: Arc<dyn SdkStorage>,
         chain_id: u64,
         validator: CommitmentValidator,
         max_txlist_bytes: usize,
@@ -88,7 +93,11 @@ impl<S: SdkStorage> EventHandler<S> {
     /// Create a new event handler with a custom maximum txlist size.
     ///
     /// This is useful for testing or for deployments with different txlist size limits.
-    pub fn with_max_txlist_bytes(storage: Arc<S>, chain_id: u64, max_txlist_bytes: usize) -> Self {
+    pub fn with_max_txlist_bytes(
+        storage: Arc<dyn SdkStorage>,
+        chain_id: u64,
+        max_txlist_bytes: usize,
+    ) -> Self {
         Self { storage, chain_id, validator: CommitmentValidator::new(), max_txlist_bytes }
     }
 
@@ -213,9 +222,9 @@ impl<S: SdkStorage> EventHandler<S> {
             self.storage.mark_commitment_seen(dedupe_key);
         }
 
-        // Validate the commitment (without parent for now)
-        // TODO: Look up parent from storage for full validation
-        let result = self.validator.validate(&msg, None);
+        // Validate the commitment with parent context when available.
+        let parent = parent_preconfirmation_from_storage(self.storage.as_ref(), &msg);
+        let result = self.validator.validate(&msg, parent.as_ref());
 
         match result.outcome.status {
             ValidationStatus::Valid => {
@@ -382,7 +391,7 @@ impl<S: SdkStorage> EventHandler<S> {
     }
 
     /// Get a reference to the underlying storage.
-    pub fn storage(&self) -> &Arc<S> {
+    pub fn storage(&self) -> &Arc<dyn SdkStorage> {
         &self.storage
     }
 }
@@ -391,6 +400,20 @@ impl<S: SdkStorage> EventHandler<S> {
 fn uint256_to_u256(v: &preconfirmation_types::Uint256) -> U256 {
     let bytes = v.to_bytes_le();
     U256::from_le_slice(&bytes)
+}
+
+/// Look up the parent preconfirmation from storage using the child's block number.
+///
+/// This derives the parent block number as `child.block_number - 1` and attempts
+/// to fetch the corresponding commitment from storage. If found, the parent
+/// preconfirmation is returned for linkage validation.
+fn parent_preconfirmation_from_storage(
+    storage: &dyn SdkStorage,
+    msg: &SignedCommitment,
+) -> Option<preconfirmation_types::Preconfirmation> {
+    let child_block = uint256_to_u256(&msg.commitment.preconf.block_number);
+    let parent_block = child_block.saturating_sub(U256::from(1u64));
+    storage.get_commitment(parent_block).map(|commitment| commitment.commitment.preconf)
 }
 
 /// SSZ-encode a signed commitment for message ID computation.
@@ -517,6 +540,46 @@ mod tests {
         // Second call with same txlist should be deduplicated
         let result2 = handler.handle_txlist_gossip(peer, txlist.clone());
         assert!(result2.is_none(), "duplicate txlist should be deduplicated");
+    }
+
+    #[test]
+    fn handler_rejects_child_with_mismatched_parent_hash() {
+        use preconfirmation_types::preconfirmation_hash;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let handler = EventHandler::new(storage.clone(), 167000);
+
+        let parent = make_signed_commitment(100, [0u8; 32]);
+        let parent_hash = preconfirmation_hash(&parent.commitment.preconf).unwrap();
+
+        // Seed the parent so parent linkage validation can run.
+        storage.insert_commitment(U256::from(100), parent);
+
+        // Forge a child with an incorrect parent hash.
+        let mut wrong_hash = parent_hash.0;
+        wrong_hash[0] ^= 0xFF;
+        let child = make_signed_commitment(101, wrong_hash);
+
+        let peer = libp2p::PeerId::random();
+        let events = handler.handle_commitment_gossip(peer, child);
+
+        assert!(events.is_empty(), "invalid parent hash should be rejected");
+        assert!(storage.get_commitment(U256::from(101)).is_none());
+    }
+
+    #[test]
+    fn handler_accepts_genesis_without_parent() {
+        let storage = Arc::new(InMemoryStorage::default());
+        let handler = EventHandler::new(storage.clone(), 167000);
+
+        let peer = libp2p::PeerId::random();
+        let genesis = make_signed_commitment(0, [0u8; 32]);
+
+        let events = handler.handle_commitment_gossip(peer, genesis);
+
+        assert_eq!(events.len(), 1, "genesis commitment should be accepted immediately");
+        assert!(storage.get_commitment(U256::from(0)).is_some());
+        assert_eq!(storage.pending_count(), 0);
     }
 
     #[test]

@@ -45,6 +45,7 @@ pub struct P2pClientConfig {
     pub enable_metrics: bool,
 }
 
+/// Default SDK configuration values.
 impl Default for P2pClientConfig {
     fn default() -> Self {
         Self {
@@ -65,11 +66,26 @@ impl Default for P2pClientConfig {
     }
 }
 
+/// P2P client configuration helpers.
 impl P2pClientConfig {
     /// Create a new configuration with the specified chain ID.
     pub fn with_chain_id(chain_id: u64) -> Self {
         let network = P2pConfig { chain_id, ..Default::default() };
         Self { chain_id, network, ..Default::default() }
+    }
+
+    /// Validate configuration invariants before constructing the client.
+    ///
+    /// This ensures SDK-level `chain_id` and network `chain_id` remain consistent,
+    /// preventing mismatched topics and protocol IDs.
+    pub fn validate(&self) -> crate::P2pResult<()> {
+        if self.chain_id != self.network.chain_id {
+            return Err(crate::P2pClientError::Config(format!(
+                "chain_id mismatch: sdk={} network={}",
+                self.chain_id, self.network.chain_id
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -109,5 +125,15 @@ mod tests {
 
         // Network config should be accessible and have sensible defaults
         assert!(config.network.request_timeout > Duration::ZERO);
+    }
+
+    #[test]
+    fn config_rejects_chain_id_mismatch() {
+        let mut config = P2pClientConfig::default();
+        config.chain_id = 1;
+        config.network.chain_id = 2;
+
+        let result = config.validate();
+        assert!(result.is_err());
     }
 }

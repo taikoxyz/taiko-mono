@@ -15,6 +15,11 @@
 //! - **Catch-up sync**: Syncing from local head to network head on startup or reconnect
 //! - **Metrics**: Prometheus-compatible metrics for all operations
 //!
+//! **Pending/no-penalty limitation:** The SDK can buffer pending commitments locally,
+//! but it does not control gossipsub scoring in `preconfirmation-net`. Peers may still
+//! be penalized by the network layer when a message fails network-level validation,
+//! even if the SDK treats it as pending.
+//!
 //! Network-level validation is provided by `preconfirmation-net` adapters; this SDK
 //! adds spec-required invariants (parent linkage, pending buffering, EOP rules,
 //! block parameter progression) before surfacing events or storing locally.
@@ -47,12 +52,15 @@
 //! ## Quick Start
 //!
 //! ```no_run
+//! use alloy_primitives::Address;
 //! use p2p::{P2pClient, P2pClientConfig, SdkEvent};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Create SDK configuration
-//!     let config = P2pClientConfig::with_chain_id(167000);
+//!     let mut config = P2pClientConfig::with_chain_id(167000);
+//!     // Configure the expected slasher address for validation (chain parameter).
+//!     config.expected_slasher = Some(Address::ZERO);
 //!
 //!     // Create client and event receiver
 //!     let (client, mut events) = P2pClient::new(config)?;

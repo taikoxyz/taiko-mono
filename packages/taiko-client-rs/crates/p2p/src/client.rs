@@ -26,7 +26,7 @@ use crate::{
     storage::{InMemoryStorage, SdkStorage},
     types::{SdkCommand, SdkEvent},
     validation::{
-        CommitmentValidator, validate_eop_rule, validate_txlist_hash, validate_txlist_size,
+        CommitmentValidator, ValidationStatus, validate_txlist_hash, validate_txlist_size,
     },
 };
 
@@ -70,9 +70,11 @@ pub struct P2pClient {
     /// The underlying P2P node (consumed when `run()` is called).
     node: Option<P2pNode>,
     /// Storage for commitments, txlists, and deduplication.
-    storage: Arc<InMemoryStorage>,
+    storage: Arc<dyn SdkStorage>,
+    /// Commitment validator shared with catch-up processing.
+    commitment_validator: CommitmentValidator,
     /// Event handler for gossip/reqresp processing.
-    event_handler: EventHandler<InMemoryStorage>,
+    event_handler: EventHandler,
     /// Channel for sending SDK events to subscribers.
     event_tx: broadcast::Sender<SdkEvent>,
     /// Channel for receiving SDK commands.
@@ -99,6 +101,7 @@ pub struct P2pClientHandle {
     event_tx: broadcast::Sender<SdkEvent>,
 }
 
+/// Command + event helpers for interacting with a running client.
 impl P2pClientHandle {
     /// Subscribe to SDK events.
     ///
@@ -194,6 +197,7 @@ impl P2pClientHandle {
     }
 }
 
+/// Core client lifecycle and orchestration methods.
 impl P2pClient {
     /// Create a new P2P client with the given configuration.
     ///
@@ -226,6 +230,31 @@ impl P2pClient {
         validator: Option<Box<dyn ValidationAdapter>>,
         lookahead: Option<Arc<dyn LookaheadResolver>>,
     ) -> P2pResult<(Self, broadcast::Receiver<SdkEvent>)> {
+        let storage: Arc<dyn SdkStorage> = Arc::new(InMemoryStorage::new(
+            config.dedupe_cache_cap as u64,
+            config.dedupe_ttl,
+            config.dedupe_ttl, // Use same TTL for pending buffer
+        ));
+        let commitment_validator = CommitmentValidator::new();
+        Self::with_components(config, storage, commitment_validator, validator, lookahead)
+    }
+
+    /// Create a new P2P client with custom storage and commitment validation.
+    ///
+    /// This allows SDK consumers to swap storage backends and provide a
+    /// chain-specific commitment validator while still reusing the network
+    /// validation adapter for gossip and req/resp payloads.
+    ///
+    /// If no custom network validator is provided, `config.expected_slasher`
+    /// must be set so the default adapter can enforce slasher authorization.
+    pub fn with_components(
+        config: P2pClientConfig,
+        storage: Arc<dyn SdkStorage>,
+        commitment_validator: CommitmentValidator,
+        validator: Option<Box<dyn ValidationAdapter>>,
+        lookahead: Option<Arc<dyn LookaheadResolver>>,
+    ) -> P2pResult<(Self, broadcast::Receiver<SdkEvent>)> {
+        config.validate()?;
         // Initialize metrics if enabled (idempotent - safe to call multiple times)
         if config.enable_metrics {
             P2pMetrics::init();
@@ -235,6 +264,12 @@ impl P2pClient {
         let expected_slasher = config
             .expected_slasher
             .map(|addr| Bytes20::try_from(addr.as_slice().to_vec()).unwrap());
+
+        if validator.is_none() && expected_slasher.is_none() {
+            return Err(P2pClientError::Config(
+                "expected_slasher is required when no custom validator is provided".to_string(),
+            ));
+        }
 
         let validation_adapter: Box<dyn ValidationAdapter> = match (validator, lookahead) {
             (Some(v), _) => v,
@@ -252,16 +287,10 @@ impl P2pClient {
         let (event_tx, event_rx) = broadcast::channel(config.event_channel_size);
         let (command_tx, command_rx) = mpsc::channel(config.command_channel_size);
 
-        // Create storage and validator
-        let storage = Arc::new(InMemoryStorage::new(
-            config.dedupe_cache_cap as u64,
-            config.dedupe_ttl,
-            config.dedupe_ttl, // Use same TTL for pending buffer
-        ));
         let event_handler = EventHandler::with_validator_and_max_txlist_bytes(
             storage.clone(),
             config.chain_id,
-            CommitmentValidator::without_parent_validation(),
+            commitment_validator.clone(),
             config.max_txlist_bytes,
         );
 
@@ -278,6 +307,7 @@ impl P2pClient {
             handle,
             node: Some(node),
             storage,
+            commitment_validator,
             event_handler,
             event_tx,
             command_rx: Some(command_rx),
@@ -413,11 +443,10 @@ impl P2pClient {
                 let start = Uint256::from(start_block);
                 // Request from any peer (None)
                 match self.handle.request_commitments(start, max_count, None).await {
-                    Ok(resp) => {
-                        let _ = self.event_tx.send(SdkEvent::ReqRespCommitments {
-                            from: libp2p::PeerId::random(), // TODO: Track actual peer
-                            msg: resp,
-                        });
+                    Ok(_resp) => {
+                        debug!(
+                            "RequestCommitments completed; response will arrive via network event"
+                        );
                     }
                     Err(e) => {
                         warn!("Failed to request commitments: {e}");
@@ -430,11 +459,10 @@ impl P2pClient {
                 let hash_bytes = Bytes32::try_from(hash.as_slice().to_vec())
                     .map_err(|_| P2pClientError::Decode("invalid hash".to_string()))?;
                 match self.handle.request_raw_txlist(hash_bytes, None).await {
-                    Ok(resp) => {
-                        let _ = self.event_tx.send(SdkEvent::ReqRespRawTxList {
-                            from: libp2p::PeerId::random(),
-                            msg: resp,
-                        });
+                    Ok(_resp) => {
+                        debug!(
+                            "RequestRawTxList completed; response will arrive via network event"
+                        );
                     }
                     Err(e) => {
                         warn!("Failed to request raw txlist: {e}");
@@ -445,10 +473,8 @@ impl P2pClient {
             SdkCommand::RequestHead => {
                 debug!("Requesting head");
                 match self.handle.request_head(None).await {
-                    Ok(head) => {
-                        let _ = self
-                            .event_tx
-                            .send(SdkEvent::ReqRespHead { from: libp2p::PeerId::random(), head });
+                    Ok(_head) => {
+                        debug!("RequestHead completed; response will arrive via network event");
                     }
                     Err(e) => {
                         warn!("Failed to request head: {e}");
@@ -522,12 +548,6 @@ impl P2pClient {
                             let network_head = uint256_to_u256(&head.block_number).to::<u64>();
                             debug!("Catch-up: received network head at block {network_head}");
                             self.catchup.on_head_received(network_head);
-
-                            // Emit the head response event
-                            let _ = self.event_tx.send(SdkEvent::ReqRespHead {
-                                from: libp2p::PeerId::random(),
-                                head,
-                            });
                         }
                         Err(e) => {
                             warn!("Catch-up: failed to request network head: {e}");
@@ -542,50 +562,107 @@ impl P2pClient {
                     match self.handle.request_commitments(start, max_count, None).await {
                         Ok(resp) => {
                             // Find highest block and missing txlists
-                            let mut highest_block = start_block;
+                            let mut highest_block = start_block.saturating_sub(1);
                             let mut missing_hashes = Vec::new();
                             let mut saw_valid = false;
 
                             for commitment in resp.commitments.iter() {
-                                // Basic validation: signature + EOP rule (parent checks deferred)
-                                let sig_outcome = crate::validation::validate_signature(commitment);
-                                if !sig_outcome.status.is_valid() {
-                                    warn!(
-                                        "Catch-up: invalid commitment signature: {:?}",
-                                        sig_outcome.reason
-                                    );
-                                    P2pMetrics::record_validation_result("invalid");
-                                    continue;
-                                }
-
-                                let eop_outcome = validate_eop_rule(&commitment.commitment.preconf);
-                                if !eop_outcome.status.is_valid() {
-                                    warn!("Catch-up: invalid EOP rule: {:?}", eop_outcome.reason);
-                                    P2pMetrics::record_validation_result("invalid");
-                                    continue;
-                                }
-
-                                saw_valid = true;
-                                let block =
-                                    uint256_to_u256(&commitment.commitment.preconf.block_number);
-                                let block_u64 = block.to::<u64>();
-                                if block_u64 > highest_block {
-                                    highest_block = block_u64;
-                                }
-
-                                // Check if we have the txlist
-                                let txlist_hash = B256::from_slice(
-                                    commitment.commitment.preconf.raw_tx_list_hash.as_ref(),
+                                let parent = parent_preconfirmation_from_storage(
+                                    self.storage.as_ref(),
+                                    commitment,
                                 );
-                                if !txlist_hash.is_zero() &&
-                                    self.storage.get_txlist(&txlist_hash).is_none()
-                                {
-                                    missing_hashes.push(txlist_hash);
-                                }
+                                let result =
+                                    self.commitment_validator.validate(commitment, parent.as_ref());
 
-                                // Store the commitment
-                                self.storage.insert_commitment(block, commitment.clone());
-                                P2pMetrics::record_validation_result("valid");
+                                match result.outcome.status {
+                                    ValidationStatus::Valid => {
+                                        saw_valid = true;
+                                        store_commitment_for_catchup(
+                                            self.storage.as_ref(),
+                                            commitment,
+                                            &mut highest_block,
+                                            &mut missing_hashes,
+                                        );
+
+                                        if let Ok(commitment_hash) =
+                                            preconfirmation_types::preconfirmation_hash(
+                                                &commitment.commitment.preconf,
+                                            )
+                                        {
+                                            let released = self.storage.release_pending(
+                                                &B256::from_slice(commitment_hash.as_ref()),
+                                            );
+                                            P2pMetrics::record_pending_released(released.len());
+                                            P2pMetrics::set_pending_buffer_size(
+                                                self.storage.pending_count(),
+                                            );
+
+                                            for pending in released {
+                                                let pending_result =
+                                                    self.commitment_validator.validate(
+                                                        &pending,
+                                                        Some(&commitment.commitment.preconf),
+                                                    );
+                                                match pending_result.outcome.status {
+                                                    ValidationStatus::Valid => {
+                                                        saw_valid = true;
+                                                        store_commitment_for_catchup(
+                                                            self.storage.as_ref(),
+                                                            &pending,
+                                                            &mut highest_block,
+                                                            &mut missing_hashes,
+                                                        );
+                                                    }
+                                                    ValidationStatus::Pending => {
+                                                        let parent_hash = B256::from_slice(
+                                                            pending
+                                                                .commitment
+                                                                .preconf
+                                                                .parent_preconfirmation_hash
+                                                                .as_ref(),
+                                                        );
+                                                        self.storage
+                                                            .add_pending(parent_hash, pending);
+                                                        P2pMetrics::set_pending_buffer_size(
+                                                            self.storage.pending_count(),
+                                                        );
+                                                    }
+                                                    ValidationStatus::Invalid => {
+                                                        warn!(
+                                                            "Catch-up: released pending commitment invalid: {:?}",
+                                                            pending_result.outcome.reason
+                                                        );
+                                                        P2pMetrics::record_validation_result(
+                                                            "invalid",
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    ValidationStatus::Pending => {
+                                        P2pMetrics::record_validation_result("pending");
+                                        let parent_hash = B256::from_slice(
+                                            commitment
+                                                .commitment
+                                                .preconf
+                                                .parent_preconfirmation_hash
+                                                .as_ref(),
+                                        );
+                                        self.storage.add_pending(parent_hash, commitment.clone());
+                                        P2pMetrics::record_pending_buffered();
+                                        P2pMetrics::set_pending_buffer_size(
+                                            self.storage.pending_count(),
+                                        );
+                                    }
+                                    ValidationStatus::Invalid => {
+                                        warn!(
+                                            "Catch-up: invalid commitment: {:?}",
+                                            result.outcome.reason
+                                        );
+                                        P2pMetrics::record_validation_result("invalid");
+                                    }
+                                }
                             }
 
                             if !resp.commitments.is_empty() && !saw_valid {
@@ -671,6 +748,45 @@ fn uint256_to_u256(v: &Uint256) -> U256 {
     U256::from_le_slice(&bytes)
 }
 
+/// Look up a parent preconfirmation for catch-up validation.
+///
+/// This derives the parent block number as `child.block_number - 1` and attempts
+/// to fetch the corresponding commitment from storage. If found, the parent
+/// preconfirmation is returned for linkage validation.
+fn parent_preconfirmation_from_storage(
+    storage: &dyn SdkStorage,
+    commitment: &SignedCommitment,
+) -> Option<preconfirmation_types::Preconfirmation> {
+    let child_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+    let parent_block = child_block.saturating_sub(U256::from(1u64));
+    storage.get_commitment(parent_block).map(|stored| stored.commitment.preconf)
+}
+
+/// Store a validated commitment and record catch-up bookkeeping.
+///
+/// This updates the highest seen block number, queues any missing txlists for
+/// retrieval, and persists the commitment in storage.
+fn store_commitment_for_catchup(
+    storage: &dyn SdkStorage,
+    commitment: &SignedCommitment,
+    highest_block: &mut u64,
+    missing_hashes: &mut Vec<B256>,
+) {
+    let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+    let block_u64 = block.to::<u64>();
+    if block_u64 > *highest_block {
+        *highest_block = block_u64;
+    }
+
+    let txlist_hash = B256::from_slice(commitment.commitment.preconf.raw_tx_list_hash.as_ref());
+    if !txlist_hash.is_zero() && storage.get_txlist(&txlist_hash).is_none() {
+        missing_hashes.push(txlist_hash);
+    }
+
+    storage.insert_commitment(block, commitment.clone());
+    P2pMetrics::record_validation_result("valid");
+}
+
 /// SSZ-encode a signed commitment for message ID computation.
 ///
 /// Returns an error if serialization fails, allowing callers to handle the failure
@@ -741,11 +857,10 @@ mod tests {
                 client_handle.abort();
             }
             Err(e) => {
-                // Network setup failures are expected in unit tests
-                // Just verify it's a network error, not a logic error
+                // Network setup failures or missing config are expected in unit tests.
                 assert!(
-                    matches!(e, P2pClientError::Network(_)),
-                    "expected network error, got: {:?}",
+                    matches!(e, P2pClientError::Network(_) | P2pClientError::Config(_)),
+                    "expected network or config error, got: {:?}",
                     e
                 );
             }

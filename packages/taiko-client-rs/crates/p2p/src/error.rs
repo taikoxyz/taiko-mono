@@ -37,6 +37,10 @@ pub enum P2pClientError {
     #[error("decode error: {0}")]
     Decode(String),
 
+    /// Invalid SDK configuration.
+    #[error("config error: {0}")]
+    Config(String),
+
     /// The SDK has been shut down.
     #[error("sdk shutdown")]
     Shutdown,
@@ -131,6 +135,7 @@ mod tests {
         let _ = P2pClientError::Timeout("operation timed out".to_string());
         let _ = P2pClientError::Backpressure("channel full".to_string());
         let _ = P2pClientError::Decode("decode failure".to_string());
+        let _ = P2pClientError::Config("bad config".to_string());
         let _ = P2pClientError::Shutdown;
         let _ = P2pClientError::MissingData("data not found".to_string());
         let _ = P2pClientError::Join("task panicked".to_string());

@@ -8,9 +8,9 @@
 //! - Individual validation rules for EOP, parent linkage, block progression, signatures
 //! - `CommitmentValidator`: aggregates all rules for incoming commitments
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, U256};
 use preconfirmation_types::{
-    Preconfirmation, SignedCommitment, keccak256_bytes, preconfirmation_hash,
+    Preconfirmation, SignedCommitment, keccak256_bytes, preconfirmation_hash, uint256_to_u256,
     verify_signed_commitment,
 };
 
@@ -26,6 +26,7 @@ pub enum ValidationStatus {
     Invalid,
 }
 
+/// Convenience helpers for validation status.
 impl ValidationStatus {
     /// Returns true if the status is Valid.
     pub fn is_valid(&self) -> bool {
@@ -55,6 +56,7 @@ pub struct ValidationOutcome {
     pub reason: Option<String>,
 }
 
+/// Convenience constructors for validation outcomes.
 impl ValidationOutcome {
     /// Create a valid outcome (no penalty, no reason needed).
     pub fn valid() -> Self {
@@ -114,6 +116,11 @@ pub fn validate_parent_linkage(
     child: &Preconfirmation,
     parent: Option<&Preconfirmation>,
 ) -> ValidationOutcome {
+    let is_zero_parent = child.parent_preconfirmation_hash.iter().all(|b| *b == 0);
+    if parent.is_none() && is_zero_parent && uint256_to_u256(&child.block_number).is_zero() {
+        return ValidationOutcome::valid();
+    }
+
     match parent {
         None => ValidationOutcome::pending("awaiting parent preconfirmation"),
         Some(parent_preconf) => {
@@ -135,20 +142,27 @@ pub fn validate_parent_linkage(
     }
 }
 
-/// Validate block number monotonicity: child's block_number must be >= parent's.
+/// Validate block number progression: child's block_number must be parent + 1.
 ///
-/// This enforces strict progression in the commitment chain.
+/// This enforces strict progression in the commitment chain per spec §5.
 /// Violations are penalized as they indicate an invalid commitment ordering.
 pub fn validate_block_progression(
     child: &Preconfirmation,
     parent: &Preconfirmation,
 ) -> ValidationOutcome {
-    // Compare block numbers (Uint256 supports ordering)
-    if child.block_number >= parent.block_number {
-        ValidationOutcome::valid()
-    } else {
-        ValidationOutcome::invalid("child block_number must be >= parent block_number", true)
+    let child_block = uint256_to_u256(&child.block_number);
+    let parent_block = uint256_to_u256(&parent.block_number);
+    let expected = parent_block.saturating_add(U256::from(1u64));
+    if child_block == expected {
+        return ValidationOutcome::valid();
     }
+
+    ValidationOutcome::invalid(
+        format!(
+            "child block_number must equal parent + 1 (expected {expected}, got {child_block})"
+        ),
+        true,
+    )
 }
 
 /// Validate block parameter progression: timestamp and anchor_block_number.
@@ -255,6 +269,7 @@ pub trait BlockParamsValidator: Send + Sync {
 #[derive(Debug, Clone, Default)]
 pub struct DefaultBlockParamsValidator;
 
+/// Default block-params validation behavior.
 impl BlockParamsValidator for DefaultBlockParamsValidator {
     fn validate_params(
         &self,
@@ -286,22 +301,25 @@ pub struct ValidationResult {
 /// 5. Block parameter progression via hook (requires parent)
 ///
 /// The validator short-circuits on the first failure or pending result.
+#[derive(Clone)]
 pub struct CommitmentValidator {
     /// Optional hook for custom block parameter validation.
-    block_params_hook: Option<Box<dyn BlockParamsValidator>>,
+    block_params_hook: Option<std::sync::Arc<dyn BlockParamsValidator>>,
     /// Whether to enforce parent linkage validation.
     require_parent: bool,
 }
 
+/// Default validator configuration (strict parent + block params).
 impl Default for CommitmentValidator {
     fn default() -> Self {
         Self {
-            block_params_hook: Some(Box::new(DefaultBlockParamsValidator)),
+            block_params_hook: Some(std::sync::Arc::new(DefaultBlockParamsValidator)),
             require_parent: true,
         }
     }
 }
 
+/// Commitment validation behavior and configuration helpers.
 impl CommitmentValidator {
     /// Create a new validator with default settings (includes default block params validation).
     pub fn new() -> Self {
@@ -312,7 +330,7 @@ impl CommitmentValidator {
     ///
     /// The hook will be called after standard validations (signature, EOP, parent linkage,
     /// block number progression) to perform chain-specific parameter checks.
-    pub fn with_hook(hook: Box<dyn BlockParamsValidator>) -> Self {
+    pub fn with_hook(hook: std::sync::Arc<dyn BlockParamsValidator>) -> Self {
         Self { block_params_hook: Some(hook), require_parent: true }
     }
 
@@ -329,7 +347,7 @@ impl CommitmentValidator {
     /// implemented. Signature and EOP checks still run.
     pub fn without_parent_validation() -> Self {
         Self {
-            block_params_hook: Some(Box::new(DefaultBlockParamsValidator)),
+            block_params_hook: Some(std::sync::Arc::new(DefaultBlockParamsValidator)),
             require_parent: false,
         }
     }
@@ -583,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn block_number_valid_when_child_greater_than_parent() {
+    fn block_number_valid_when_child_is_parent_plus_one() {
         let parent = sample_preconf_with_block_number(99);
         let child = sample_preconf_with_block_number(100);
 
@@ -592,13 +610,24 @@ mod tests {
     }
 
     #[test]
-    fn block_number_valid_when_child_equals_parent() {
-        // Same block number is allowed (multiple commitments in same block)
+    fn block_number_invalid_when_child_equals_parent() {
+        // Same block number should be rejected; spec expects parent + 1.
         let parent = sample_preconf_with_block_number(100);
         let child = sample_preconf_with_block_number(100);
 
         let outcome = validate_block_progression(&child, &parent);
-        assert!(outcome.status.is_valid());
+        assert!(outcome.status.is_invalid());
+        assert!(outcome.penalize);
+    }
+
+    #[test]
+    fn block_number_invalid_when_child_skips_parent() {
+        let parent = sample_preconf_with_block_number(100);
+        let child = sample_preconf_with_block_number(102);
+
+        let outcome = validate_block_progression(&child, &parent);
+        assert!(outcome.status.is_invalid());
+        assert!(outcome.penalize);
     }
 
     #[test]
@@ -778,6 +807,16 @@ mod tests {
     }
 
     #[test]
+    fn genesis_commitment_valid_without_parent() {
+        let genesis = make_signed_commitment_for_validation(0, [0u8; 32], false, false);
+
+        let result = CommitmentValidator::new().validate(&genesis, None);
+
+        assert!(result.outcome.status.is_valid());
+        assert!(!result.outcome.penalize);
+    }
+
+    #[test]
     fn commitment_validator_fails_on_eop_violation() {
         use preconfirmation_types::preconfirmation_hash;
 
@@ -929,13 +968,13 @@ mod tests {
         let child = make_signed_commitment_for_validation(100, parent_hash.0, false, false);
 
         // With RejectAllValidator, should fail
-        let validator = CommitmentValidator::with_hook(Box::new(RejectAllValidator));
+        let validator = CommitmentValidator::with_hook(std::sync::Arc::new(RejectAllValidator));
         let result = validator.validate(&child, Some(&parent.commitment.preconf));
         assert!(result.outcome.status.is_invalid());
         assert_eq!(result.outcome.reason, Some("rejected by custom validator".to_string()));
 
         // With AcceptAllValidator, should pass
-        let validator = CommitmentValidator::with_hook(Box::new(AcceptAllValidator));
+        let validator = CommitmentValidator::with_hook(std::sync::Arc::new(AcceptAllValidator));
         let result = validator.validate(&child, Some(&parent.commitment.preconf));
         assert!(result.outcome.status.is_valid());
     }
