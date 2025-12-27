@@ -284,13 +284,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    function slashProver(
-        address _proverAddr,
-        address _recipient
-    )
-        external
-        nonReentrant
-    {
+    function slashProver(address _proverAddr, address _recipient) external nonReentrant {
         require(msg.sender == inbox, OnlyInbox());
 
         BondInfo storage bond = _bonds[_proverAddr];

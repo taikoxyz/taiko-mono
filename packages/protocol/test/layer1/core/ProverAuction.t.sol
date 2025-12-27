@@ -116,7 +116,11 @@ contract ProverAuctionTest is CommonTest {
         vm.stopPrank();
     }
 
-    function _slashUntilEjected(IProverAuction target, address prover, address recipient)
+    function _slashUntilEjected(
+        IProverAuction target,
+        address prover,
+        address recipient
+    )
         internal
     {
         uint128 threshold = target.getEjectionThreshold();
@@ -1248,9 +1252,7 @@ contract ProverAuctionTest is CommonTest {
         zeroDelayAuction.withdraw(remainingBalance);
 
         IProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
-        assertEq(
-            infoAfter.balance, 0, "ejected prover should withdraw immediately with zero delay"
-        );
+        assertEq(infoAfter.balance, 0, "ejected prover should withdraw immediately with zero delay");
     }
 
     function test_zeroWithdrawalDelay_getterReturnsZero() public view {

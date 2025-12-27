@@ -106,11 +106,7 @@ interface IProverAuction {
     /// @dev Reward amount is computed from the actual slashed amount using a
     ///      contract-configured percentage. The difference (slashed - rewarded)
     ///      is tracked and locked forever in contract.
-    function slashProver(
-        address _prover,
-        address _recipient
-    )
-        external;
+    function slashProver(address _prover, address _recipient) external;
 
     /// @notice Refresh the withdrawal delay timer for a prover with sufficient bond
     /// @param _prover Address of the prover to check
