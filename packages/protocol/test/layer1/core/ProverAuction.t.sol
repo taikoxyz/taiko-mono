@@ -21,6 +21,7 @@ contract ProverAuctionTest is CommonTest {
     uint96 internal constant LIVENESS_BOND = 1 ether;
     uint16 internal constant BOND_MULTIPLIER = 10;
     uint16 internal constant MIN_FEE_REDUCTION_BPS = 500; // 5%
+    uint16 internal constant REWARD_BPS = 6000; // 60%
     uint48 internal constant BOND_WITHDRAWAL_DELAY = 48 hours;
     uint48 internal constant FEE_DOUBLING_PERIOD = 15 minutes;
     uint8 internal constant MAX_FEE_DOUBLINGS = 8;
@@ -29,17 +30,16 @@ contract ProverAuctionTest is CommonTest {
 
     // Derived values
     uint128 internal REQUIRED_BOND;
-    uint128 internal FORCE_EXIT_THRESHOLD;
 
     // Events from IProverAuction
     event Deposited(address indexed account, uint128 amount);
     event Withdrawn(address indexed account, uint128 amount);
     event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
     event ExitRequested(address indexed prover, uint48 withdrawableAt);
-    event BondSlashed(
+    event ProverSlashed(
         address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded
     );
-    event ProverForcedOut(address indexed prover);
+    event ProverEjected(address indexed prover);
 
     function setUp() public virtual override {
         super.setUp();
@@ -49,7 +49,6 @@ contract ProverAuctionTest is CommonTest {
 
         // Calculate derived values
         REQUIRED_BOND = uint128(LIVENESS_BOND) * BOND_MULTIPLIER * 2;
-        FORCE_EXIT_THRESHOLD = uint128(LIVENESS_BOND) * BOND_MULTIPLIER / 2;
 
         // Deploy ProverAuction
         ProverAuction impl = new ProverAuction(
@@ -58,6 +57,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -101,6 +101,33 @@ contract ProverAuctionTest is CommonTest {
         auction.deposit(amount);
     }
 
+    function _slashTimes(
+        IProverAuction target,
+        address prover,
+        address recipient,
+        uint256 times
+    )
+        internal
+    {
+        vm.startPrank(inbox);
+        for (uint256 i = 0; i < times; i++) {
+            target.slashProver(prover, recipient);
+        }
+        vm.stopPrank();
+    }
+
+    function _slashUntilEjected(IProverAuction target, address prover, address recipient)
+        internal
+    {
+        uint128 threshold = target.getEjectionThreshold();
+        uint96 liveness = target.getLivenessBond();
+        uint128 balance = target.getBondInfo(prover).balance;
+        if (balance < threshold) return;
+
+        uint256 slashesNeeded = (uint256(balance - threshold) / liveness) + 1;
+        _slashTimes(target, prover, recipient, slashesNeeded);
+    }
+
     // ---------------------------------------------------------------
     // init tests
     // ---------------------------------------------------------------
@@ -118,9 +145,10 @@ contract ProverAuctionTest is CommonTest {
     function test_init_immutablesSetCorrectly() public view {
         assertEq(auction.inbox(), inbox);
         assertEq(address(auction.bondToken()), address(bondToken));
-        assertEq(auction.livenessBond(), LIVENESS_BOND);
+        assertEq(auction.getLivenessBond(), LIVENESS_BOND);
         assertEq(auction.bondMultiplier(), BOND_MULTIPLIER);
         assertEq(auction.minFeeReductionBps(), MIN_FEE_REDUCTION_BPS);
+        assertEq(auction.rewardBps(), REWARD_BPS);
         assertEq(auction.bondWithdrawalDelay(), BOND_WITHDRAWAL_DELAY);
         assertEq(auction.feeDoublingPeriod(), FEE_DOUBLING_PERIOD);
         assertEq(auction.maxFeeDoublings(), MAX_FEE_DOUBLINGS);
@@ -306,22 +334,20 @@ contract ProverAuctionTest is CommonTest {
         );
     }
 
-    function test_withdraw_forcedOutProverCanWithdrawAfterDelay() public {
+    function test_withdraw_ejectedProverCanWithdrawAfterDelay() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        // Force out prover by slashing below threshold
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
-        vm.prank(inbox);
-        auction.slashBond(prover1, slashAmount, address(0), 0);
+        // Eject prover by slashing below threshold
+        _slashUntilEjected(auction, prover1, address(0));
 
-        // Verify prover was forced out
+        // Verify prover was ejected
         (address currentProver,) = auction.getCurrentProver();
         assertEq(currentProver, address(0));
 
         // Warp past withdrawal delay
         vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
 
-        // Forced-out prover can withdraw remaining balance
+        // Ejected prover can withdraw remaining balance
         IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         uint128 remainingBalance = infoBefore.balance;
         assertGt(remainingBalance, 0);
@@ -427,6 +453,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -668,133 +695,169 @@ contract ProverAuctionTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // slashBond tests
+    // slashProver tests
     // ---------------------------------------------------------------
 
-    function test_slashBond_success() public {
+    function test_slashProver_success() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
+
+        uint128 expectedSlash = uint128(LIVENESS_BOND);
+        uint128 expectedReward = uint128(uint256(expectedSlash) * REWARD_BPS / 10_000);
+        uint128 expectedSlashedTotal = expectedSlash - expectedReward;
 
         vm.prank(inbox);
         vm.expectEmit(true, true, false, true);
-        emit BondSlashed(prover1, 1 ether, prover2, 0.5 ether);
-        auction.slashBond(prover1, 1 ether, prover2, 0.5 ether);
+        emit ProverSlashed(prover1, expectedSlash, prover2, expectedReward);
+        auction.slashProver(prover1, prover2);
 
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
-        assertEq(info.balance, REQUIRED_BOND - 1 ether);
+        assertEq(info.balance, REQUIRED_BOND - expectedSlash);
 
         // Reward sent to recipient
-        assertEq(bondToken.balanceOf(prover2), 1000 ether + 0.5 ether);
+        assertEq(bondToken.balanceOf(prover2), 1000 ether + expectedReward);
 
         // Slash diff tracked
-        assertEq(auction.getTotalSlashedAmount(), 0.5 ether);
+        assertEq(auction.getTotalSlashedAmount(), expectedSlashedTotal);
     }
 
-    function test_slashBond_RevertWhen_NotInbox() public {
+    function test_slashProver_RevertWhen_NotInbox() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
         vm.prank(prover2);
         vm.expectRevert(ProverAuction.OnlyInbox.selector);
-        auction.slashBond(prover1, 1 ether, prover2, 0.5 ether);
+        auction.slashProver(prover1, prover2);
     }
 
-    function test_slashBond_bestEffortSlash() public {
-        _depositBond(prover1, 1 ether);
+    function test_slashProver_bestEffortSlash() public {
+        uint128 depositAmount = 0.5 ether;
+        _depositBond(prover1, depositAmount);
 
-        // Try to slash more than balance
         vm.prank(inbox);
-        auction.slashBond(prover1, 10 ether, prover2, 5 ether);
+        auction.slashProver(prover1, prover2);
 
         // Only slashes available balance
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 0);
 
-        // Reward capped by actual slash
-        assertEq(bondToken.balanceOf(prover2), 1000 ether + 1 ether);
+        // Reward uses actual slashed amount
+        uint128 expectedReward = uint128(uint256(depositAmount) * REWARD_BPS / 10_000);
+        assertEq(bondToken.balanceOf(prover2), 1000 ether + expectedReward);
     }
 
-    function test_slashBond_rewardCappedBySlash() public {
-        _depositBond(prover1, 1 ether);
+    function test_slashProver_rewardUsesPercent() public {
+        _depositBond(prover1, 2 ether);
+
+        uint128 expectedSlash = uint128(LIVENESS_BOND);
+        uint128 expectedReward = uint128(uint256(expectedSlash) * REWARD_BPS / 10_000);
 
         vm.prank(inbox);
-        auction.slashBond(prover1, 0.5 ether, prover2, 1 ether);
+        auction.slashProver(prover1, prover2);
 
-        // Reward is capped at actualSlash (0.5 ether)
-        assertEq(bondToken.balanceOf(prover2), 1000 ether + 0.5 ether);
+        assertEq(bondToken.balanceOf(prover2), 1000 ether + expectedReward);
     }
 
-    function test_slashBond_noRewardWhenZero() public {
+    function test_slashProver_noRewardWhenRecipientZero() public {
         _depositBond(prover1, 1 ether);
 
         uint256 recipientBalanceBefore = bondToken.balanceOf(prover2);
 
         vm.prank(inbox);
-        auction.slashBond(prover1, 0.5 ether, prover2, 0);
-
-        assertEq(bondToken.balanceOf(prover2), recipientBalanceBefore);
-    }
-
-    function test_slashBond_noRewardWhenRecipientZero() public {
-        _depositBond(prover1, 1 ether);
-
-        vm.prank(inbox);
-        auction.slashBond(prover1, 0.5 ether, address(0), 0.5 ether);
+        auction.slashProver(prover1, address(0));
 
         // No transfer to zero address
+        assertEq(bondToken.balanceOf(prover2), recipientBalanceBefore);
+
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
-        assertEq(info.balance, 0.5 ether);
+        assertEq(info.balance, 0);
+        assertEq(auction.getTotalSlashedAmount(), uint128(LIVENESS_BOND));
     }
 
-    function test_slashBond_forceExitWhenBelowThreshold() public {
+    function test_slashProver_ejectionWhenBelowThreshold() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        // Slash enough to go below force exit threshold
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
+        uint128 threshold = auction.getEjectionThreshold();
+        uint128 balance = auction.getBondInfo(prover1).balance;
+        uint96 liveness = auction.getLivenessBond();
+        uint256 slashesToThreshold = uint256(balance - threshold) / liveness;
+        _slashTimes(auction, prover1, prover2, slashesToThreshold);
 
         vm.prank(inbox);
         vm.expectEmit(true, false, false, false);
-        emit ProverForcedOut(prover1);
-        auction.slashBond(prover1, slashAmount, prover2, 0);
+        emit ProverEjected(prover1);
+        auction.slashProver(prover1, prover2);
 
         (address prover,) = auction.getCurrentProver();
-        assertEq(prover, address(0)); // Forced out
+        assertEq(prover, address(0)); // Ejected
     }
 
-    function test_slashBond_noForceExitWhenAboveThreshold() public {
+    function test_slashProver_noEjectionWhenAboveThreshold() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        // Slash but stay above threshold
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD - 1;
-
         vm.prank(inbox);
-        auction.slashBond(prover1, slashAmount, prover2, 0);
+        auction.slashProver(prover1, prover2);
 
         (address prover,) = auction.getCurrentProver();
         assertEq(prover, prover1); // Still active
     }
 
-    function test_slashBond_noForceExitWhenNotCurrentProver() public {
+    function test_slashProver_noEjectionWhenNotCurrentProver() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
         _depositBond(prover2, 1 ether);
 
-        // Slash prover2 (not current prover) to zero
         vm.prank(inbox);
-        auction.slashBond(prover2, 1 ether, prover3, 0);
+        auction.slashProver(prover2, prover3);
 
         // prover1 still active (not affected)
         (address prover,) = auction.getCurrentProver();
         assertEq(prover, prover1);
     }
 
-    function test_slashBond_forceExitSetsWithdrawableAt() public {
+    function test_slashProver_ejectionSetsWithdrawableAt() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
-
-        vm.prank(inbox);
-        auction.slashBond(prover1, slashAmount, prover2, 0);
+        _slashUntilEjected(auction, prover1, prover2);
 
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
+    }
+
+    // ---------------------------------------------------------------
+    // requestStay tests
+    // ---------------------------------------------------------------
+
+    function test_requestStay_updatesWithdrawableAtWhenSet() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+        _depositAndBid(prover2, REQUIRED_BOND, 450);
+
+        IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        uint48 withdrawableAtBefore = infoBefore.withdrawableAt;
+        assertGt(withdrawableAtBefore, 0);
+
+        vm.warp(block.timestamp + 1 hours);
+
+        vm.prank(inbox);
+        bool success = auction.requestStay(prover1);
+        assertTrue(success);
+
+        IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        assertEq(infoAfter.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
+        assertGt(infoAfter.withdrawableAt, withdrawableAtBefore);
+    }
+
+    function test_requestStay_returnsFalseWhen_BelowThreshold() public {
+        _depositBond(prover1, uint128(LIVENESS_BOND));
+
+        vm.prank(inbox);
+        bool success = auction.requestStay(prover1);
+        assertFalse(success);
+    }
+
+    function test_requestStay_RevertWhen_NotInbox() public {
+        _depositBond(prover1, REQUIRED_BOND);
+
+        vm.prank(prover1);
+        vm.expectRevert(ProverAuction.OnlyInbox.selector);
+        auction.requestStay(prover1);
     }
 
     // ---------------------------------------------------------------
@@ -805,8 +868,8 @@ contract ProverAuctionTest is CommonTest {
         assertEq(auction.getRequiredBond(), uint128(LIVENESS_BOND) * BOND_MULTIPLIER * 2);
     }
 
-    function test_getForceExitThreshold() public view {
-        assertEq(auction.getForceExitThreshold(), uint128(LIVENESS_BOND) * BOND_MULTIPLIER / 2);
+    function test_getEjectionThreshold() public view {
+        assertEq(auction.getEjectionThreshold(), uint128(LIVENESS_BOND) * BOND_MULTIPLIER);
     }
 
     function test_getMovingAverageFee_initial() public view {
@@ -830,10 +893,13 @@ contract ProverAuctionTest is CommonTest {
     function test_getTotalSlashedAmount_afterSlash() public {
         _depositBond(prover1, 10 ether);
 
-        vm.prank(inbox);
-        auction.slashBond(prover1, 5 ether, prover2, 2 ether);
+        uint128 expectedSlash = uint128(LIVENESS_BOND);
+        uint128 expectedReward = uint128(uint256(expectedSlash) * REWARD_BPS / 10_000);
 
-        assertEq(auction.getTotalSlashedAmount(), 3 ether); // 5 - 2 = 3
+        vm.prank(inbox);
+        auction.slashProver(prover1, prover2);
+
+        assertEq(auction.getTotalSlashedAmount(), expectedSlash - expectedReward);
     }
 
     function test_getBondInfo() public {
@@ -991,7 +1057,7 @@ contract ProverAuctionTest is CommonTest {
         assertEq(prover, address(0), "requestExit should work when paused");
     }
 
-    function test_pause_slashBond_worksWhenPaused() public {
+    function test_pause_slashProver_worksWhenPaused() public {
         // Setup: become active prover
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
@@ -999,12 +1065,16 @@ contract ProverAuctionTest is CommonTest {
         auction.pause();
         assertTrue(auction.paused());
 
-        // slashBond should still work (no whenNotPaused modifier)
+        // slashProver should still work (no whenNotPaused modifier)
         vm.prank(inbox);
-        auction.slashBond(prover1, 1 ether, prover2, 0.5 ether);
+        auction.slashProver(prover1, prover2);
 
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
-        assertEq(info.balance, REQUIRED_BOND - 1 ether, "slashBond should work when paused");
+        assertEq(
+            info.balance,
+            REQUIRED_BOND - uint128(LIVENESS_BOND),
+            "slashProver should work when paused"
+        );
     }
 
     function test_pause_unpause_allowsOperations() public {
@@ -1035,6 +1105,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1088,6 +1159,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1127,7 +1199,7 @@ contract ProverAuctionTest is CommonTest {
         assertEq(infoAfter.balance, 0, "exited prover should withdraw immediately with zero delay");
     }
 
-    function test_zeroWithdrawalDelay_forcedOutProverWithdrawsImmediately() public {
+    function test_zeroWithdrawalDelay_ejectedProverWithdrawsImmediately() public {
         // Deploy auction with 0 withdrawal delay
         ProverAuction impl = new ProverAuction(
             inbox,
@@ -1135,6 +1207,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1156,14 +1229,12 @@ contract ProverAuctionTest is CommonTest {
         zeroDelayAuction.bid(1000);
         vm.stopPrank();
 
-        // Force out by slashing below threshold
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
-        vm.prank(inbox);
-        zeroDelayAuction.slashBond(prover1, slashAmount, address(0), 0);
+        // Eject by slashing below threshold
+        _slashUntilEjected(zeroDelayAuction, prover1, address(0));
 
-        // Verify forced out
+        // Verify ejected
         (address prover,) = zeroDelayAuction.getCurrentProver();
-        assertEq(prover, address(0), "prover should be forced out");
+        assertEq(prover, address(0), "prover should be ejected");
 
         // Check withdrawableAt is set to current timestamp
         IProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
@@ -1178,7 +1249,7 @@ contract ProverAuctionTest is CommonTest {
 
         IProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
         assertEq(
-            infoAfter.balance, 0, "forced-out prover should withdraw immediately with zero delay"
+            infoAfter.balance, 0, "ejected prover should withdraw immediately with zero delay"
         );
     }
 
@@ -1195,6 +1266,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1318,6 +1390,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1351,8 +1424,8 @@ contract ProverAuctionTest is CommonTest {
         // instead of being permanently stuck at 0
     }
 
-    /// @notice Issue 2.7: Test that force exit is skipped for already-exited prover (FIXED)
-    function test_bug_forceExitOnAlreadyExitedProver() public {
+    /// @notice Issue 2.7: Test that ejection is skipped for already-exited prover (FIXED)
+    function test_bug_ejectionOnAlreadyExitedProver() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
         // Prover exits voluntarily
@@ -1366,11 +1439,9 @@ contract ProverAuctionTest is CommonTest {
         vm.warp(block.timestamp + 1 hours);
 
         // Slash the already-exited prover below threshold
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
-        vm.prank(inbox);
-        auction.slashBond(prover1, slashAmount, prover2, 0);
+        _slashUntilEjected(auction, prover1, prover2);
 
-        // After optimization: force-exit logic is skipped for already-exited provers
+        // After optimization: ejection logic is skipped for already-exited provers
         // So withdrawableAt should remain unchanged (the original exit time)
         IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(
@@ -1384,31 +1455,33 @@ contract ProverAuctionTest is CommonTest {
     function test_bug_slashAtExactThreshold() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        // Slash to exactly the threshold (not below)
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD;
-        vm.prank(inbox);
-        auction.slashBond(prover1, slashAmount, prover2, 0);
+        uint128 threshold = auction.getEjectionThreshold();
+        uint128 balance = auction.getBondInfo(prover1).balance;
+        uint96 liveness = auction.getLivenessBond();
+        uint256 slashesToThreshold = uint256(balance - threshold) / liveness;
+        _slashTimes(auction, prover1, prover2, slashesToThreshold);
 
-        // Should NOT be force-exited (balance == threshold, not < threshold)
+        // Should NOT be ejected (balance == threshold, not < threshold)
         (address prover,) = auction.getCurrentProver();
-        assertEq(prover, prover1, "prover should not be force-exited at exact threshold");
+        assertEq(prover, prover1, "prover should not be ejected at exact threshold");
 
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
-        assertEq(info.balance, FORCE_EXIT_THRESHOLD);
+        assertEq(info.balance, threshold);
     }
 
     /// @notice Issue 4.3 variant: Test slash to just below threshold
     function test_bug_slashJustBelowThreshold() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        // Slash to 1 wei below threshold
-        uint128 slashAmount = REQUIRED_BOND - FORCE_EXIT_THRESHOLD + 1;
-        vm.prank(inbox);
-        auction.slashBond(prover1, slashAmount, prover2, 0);
+        uint128 threshold = auction.getEjectionThreshold();
+        uint128 balance = auction.getBondInfo(prover1).balance;
+        uint96 liveness = auction.getLivenessBond();
+        uint256 slashesToBelow = uint256(balance - threshold) / liveness + 1;
+        _slashTimes(auction, prover1, prover2, slashesToBelow);
 
-        // Should be force-exited
+        // Should be ejected
         (address prover,) = auction.getCurrentProver();
-        assertEq(prover, address(0), "prover should be force-exited below threshold");
+        assertEq(prover, address(0), "prover should be ejected below threshold");
     }
 
     /// @notice Issue 2.3: Test minFeeReductionBps at boundary values
@@ -1420,6 +1493,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             10_000, // 100% reduction required
+            REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1468,6 +1542,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             0, // 0% reduction required
+            REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1521,6 +1596,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,
@@ -1616,6 +1692,7 @@ contract ProverAuctionTest is CommonTest {
             LIVENESS_BOND,
             BOND_MULTIPLIER,
             MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
             0, // bondWithdrawalDelay
             FEE_DOUBLING_PERIOD,
             MAX_FEE_DOUBLINGS,

@@ -13,12 +13,12 @@ import "./ProverAuction_Layout.sol"; // DO NOT DELETE
 /// @title ProverAuction
 /// @notice A continuous reverse auction contract for prover services in the Taiko protocol.
 /// Provers compete by offering the lowest proving fee per proposal. The winner becomes the
-/// designated prover for all proposals until outbid, exited, or forced out due to low bond.
+/// designated prover for all proposals until outbid, exited, or ejected due to low bond.
 /// @dev Key features:
 ///      - Single prover slot with 1 SLOAD for getCurrentProver()
 ///      - Time-based fee cap when slot is vacant (doubles every feeDoublingPeriod)
 ///      - Decoupled bond management (deposit/withdraw separate from bidding)
-///      - Best-effort slashing with automatic force-exit on low bond
+///      - Best-effort slashing with automatic ejection on low bond
 ///      - Moving average fee tracking to prevent manipulation
 /// @custom:security-contact security@taiko.xyz
 contract ProverAuction is EssentialContract, IProverAuction {
@@ -39,20 +39,20 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice The Inbox contract address (only caller for slashBond)
+    /// @notice The Inbox contract address (only caller for slashProver)
     address public immutable inbox;
 
     /// @notice The ERC20 token used for bonds (TAIKO token)
     IERC20 public immutable bondToken;
-
-    /// @notice Bond amount slashed per failed proof
-    uint96 public immutable livenessBond;
 
     /// @notice Multiplier for livenessBond to calculate required/threshold bond amounts
     uint16 public immutable bondMultiplier;
 
     /// @notice Minimum fee reduction in basis points to outbid (e.g., 500 = 5%)
     uint16 public immutable minFeeReductionBps;
+
+    /// @notice Reward percentage in basis points for slashing (e.g., 6000 = 60%)
+    uint16 public immutable rewardBps;
 
     /// @notice Time after exit before bond withdrawal is allowed
     uint48 public immutable bondWithdrawalDelay;
@@ -69,11 +69,14 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Multiplier for moving average fee to calculate floor (e.g., 2 = 2x moving average)
     uint8 public immutable movingAverageMultiplier;
 
-    /// @notice Pre-computed required bond amount (livenessBond * bondMultiplier * 2)
-    uint128 public immutable requiredBond;
+    /// @notice Bond amount slashed per failed proof
+    uint96 private immutable _livenessBond;
 
-    /// @notice Pre-computed force-exit threshold (livenessBond * bondMultiplier / 2)
-    uint128 public immutable forceExitThreshold;
+    /// @notice Pre-computed required bond amount (livenessBond * bondMultiplier * 2)
+    uint128 private immutable _requiredBond;
+
+    /// @notice Pre-computed ejection threshold (livenessBond * bondMultiplier)
+    uint128 private immutable _ejectionThreshold;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -104,9 +107,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Initializes the ProverAuction contract with immutable parameters
     /// @param _inbox The Inbox contract address
     /// @param _bondToken The ERC20 token used for bonds
-    /// @param _livenessBond Bond amount slashed per failed proof
+    /// @param _livenessBondAmount Bond amount slashed per failed proof
     /// @param _bondMultiplier Multiplier for livenessBond to calculate bond requirements
     /// @param _minFeeReductionBps Minimum fee reduction to outbid (basis points)
+    /// @param _rewardBps Reward percentage in basis points for slashing
     /// @param _bondWithdrawalDelay Time after exit before withdrawal allowed
     /// @param _feeDoublingPeriod Time period for fee doubling when vacant
     /// @param _maxFeeDoublings Maximum number of fee doublings
@@ -115,9 +119,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     constructor(
         address _inbox,
         address _bondToken,
-        uint96 _livenessBond,
+        uint96 _livenessBondAmount,
         uint16 _bondMultiplier,
         uint16 _minFeeReductionBps,
+        uint16 _rewardBps,
         uint48 _bondWithdrawalDelay,
         uint48 _feeDoublingPeriod,
         uint8 _maxFeeDoublings,
@@ -126,18 +131,20 @@ contract ProverAuction is EssentialContract, IProverAuction {
     ) {
         require(_inbox != address(0), ZeroAddress());
         require(_bondToken != address(0), ZeroAddress());
-        require(_livenessBond > 0, ZeroValue());
+        require(_livenessBondAmount > 0, ZeroValue());
         require(_bondMultiplier > 0, ZeroValue());
         require(_minFeeReductionBps <= 10_000, InvalidBps());
+        require(_rewardBps <= 10_000, InvalidBps());
         require(_feeDoublingPeriod > 0, ZeroValue());
         require(_initialMaxFee > 0, ZeroValue());
         require(_movingAverageMultiplier > 0, ZeroValue());
 
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
-        livenessBond = _livenessBond;
+        _livenessBond = _livenessBondAmount;
         bondMultiplier = _bondMultiplier;
         minFeeReductionBps = _minFeeReductionBps;
+        rewardBps = _rewardBps;
         bondWithdrawalDelay = _bondWithdrawalDelay;
         feeDoublingPeriod = _feeDoublingPeriod;
         maxFeeDoublings = _maxFeeDoublings;
@@ -146,9 +153,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         // Pre-compute bond thresholds to save gas on every bid/slash
         unchecked {
-            uint128 bondBase = uint128(_livenessBond) * _bondMultiplier;
-            requiredBond = bondBase * 2;
-            forceExitThreshold = bondBase / 2;
+            uint128 ejectionThreshold = uint128(_livenessBondAmount) * _bondMultiplier;
+            _ejectionThreshold = ejectionThreshold;
+            _requiredBond = ejectionThreshold * 2;
         }
     }
 
@@ -277,11 +284,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    function slashBond(
+    function slashProver(
         address _proverAddr,
-        uint128 _slashAmount,
-        address _recipient,
-        uint128 _rewardAmount
+        address _recipient
     )
         external
         nonReentrant
@@ -290,10 +295,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         BondInfo storage bond = _bonds[_proverAddr];
 
-        // Best-effort slash
-        uint128 actualSlash = uint128(LibMath.min(_slashAmount, bond.balance));
-        // Reward recipient (capped by what was actually slashed)
-        uint128 actualReward = uint128(LibMath.min(_rewardAmount, actualSlash));
+        // Best-effort slash using the configured liveness bond
+        uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
+        // Reward recipient based on the actual slashed amount
+        uint128 actualReward = 0;
+        if (_recipient != address(0)) {
+            actualReward = uint128(uint256(actualSlash) * rewardBps / 10_000);
+        }
 
         unchecked {
             // Safe: actualSlash <= bond.balance by construction above
@@ -302,15 +310,15 @@ contract ProverAuction is EssentialContract, IProverAuction {
             _totalSlashedAmount += actualSlash - actualReward;
         }
 
-        if (actualReward > 0 && _recipient != address(0)) {
+        if (actualReward > 0) {
             bondToken.safeTransfer(_recipient, actualReward);
         }
 
-        emit BondSlashed(_proverAddr, actualSlash, _recipient, actualReward);
+        emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
-        // Force out if below threshold AND is current prover AND not already exited
+        // Eject if below threshold AND is current prover AND not already exited
         // Check balance threshold first to avoid SLOAD when not needed
-        if (bond.balance < getForceExitThreshold()) {
+        if (bond.balance < _ejectionThreshold) {
             Prover storage current = _prover;
             if (_proverAddr == current.addr && current.exitTimestamp == 0) {
                 current.exitTimestamp = uint48(block.timestamp);
@@ -318,9 +326,28 @@ contract ProverAuction is EssentialContract, IProverAuction {
                     // Safe: uint48 + uint48 won't overflow for ~8900 years
                     bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
                 }
-                emit ProverForcedOut(_proverAddr);
+                emit ProverEjected(_proverAddr);
             }
         }
+    }
+
+    /// @inheritdoc IProverAuction
+    function requestStay(address _proverAddr) external returns (bool success_) {
+        require(msg.sender == inbox, OnlyInbox());
+
+        BondInfo storage bond = _bonds[_proverAddr];
+        if (bond.balance < _ejectionThreshold) {
+            return false;
+        }
+
+        if (bond.withdrawableAt != 0) {
+            unchecked {
+                // Safe: uint48 + uint48 won't overflow for ~8900 years
+                bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+            }
+        }
+
+        return true;
     }
 
     // ---------------------------------------------------------------
@@ -404,12 +431,17 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function getRequiredBond() public view returns (uint128 requiredBond_) {
-        return requiredBond;
+        return _requiredBond;
     }
 
     /// @inheritdoc IProverAuction
-    function getForceExitThreshold() public view returns (uint128 threshold_) {
-        return forceExitThreshold;
+    function getLivenessBond() external view returns (uint96 livenessBond_) {
+        return _livenessBond;
+    }
+
+    /// @inheritdoc IProverAuction
+    function getEjectionThreshold() public view returns (uint128 threshold_) {
+        return _ejectionThreshold;
     }
 
     /// @inheritdoc IProverAuction

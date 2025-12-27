@@ -6,10 +6,10 @@ pragma solidity ^0.8.26;
 /// for prover services. Provers compete by offering the lowest proving fee per proposal.
 /// @dev The auction follows these key rules:
 ///      - The prover offering the lowest fee wins immediately (no delay)
-///      - Winner remains prover indefinitely until outbid, exited, or forced out
+///      - Winner remains prover indefinitely until outbid, exited, or ejected
 ///      - Outbidding requires at least `minFeeReductionBps` lower fee (e.g., 5%)
 ///      - Current prover can lower their own fee without the reduction requirement
-///      - Bond is required to participate; insufficient bond triggers forced exit
+///      - Bond is required to participate; insufficient bond triggers ejection
 /// @custom:security-contact security@taiko.xyz
 interface IProverAuction {
     // ---------------------------------------------------------------
@@ -55,13 +55,13 @@ interface IProverAuction {
     /// @param slashed The amount slashed
     /// @param recipient The recipient of the reward
     /// @param rewarded The amount rewarded to recipient
-    event BondSlashed(
+    event ProverSlashed(
         address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded
     );
 
-    /// @notice Emitted when a prover is forced out due to insufficient bond
-    /// @param prover The prover that was forced out
-    event ProverForcedOut(address indexed prover);
+    /// @notice Emitted when a prover is ejected due to insufficient bond
+    /// @param prover The prover that was ejected
+    event ProverEjected(address indexed prover);
 
     // ---------------------------------------------------------------
     // External Transactional Functions
@@ -99,20 +99,27 @@ interface IProverAuction {
 
     /// @notice Slash a prover's bond for failing to prove within the time window
     /// @param _prover Address of the prover to slash
-    /// @param _slashAmount Amount to slash from prover's bond
     /// @param _recipient Address to receive the reward (typically the actual prover)
-    /// @param _rewardAmount Amount to reward the recipient
     /// @dev Only callable by the Inbox contract
-    /// @dev Best-effort slash: if balance < _slashAmount, slashes entire balance
-    /// @dev If bond falls below force-exit threshold, prover is automatically removed
-    /// @dev The difference (slashed - rewarded) is tracked and locked forever in contract
-    function slashBond(
+    /// @dev Best-effort slash: if balance < livenessBond, slashes entire balance
+    /// @dev If bond falls below the ejection threshold, prover is automatically removed
+    /// @dev Reward amount is computed from the actual slashed amount using a
+    ///      contract-configured percentage. The difference (slashed - rewarded)
+    ///      is tracked and locked forever in contract.
+    function slashProver(
         address _prover,
-        uint128 _slashAmount,
-        address _recipient,
-        uint128 _rewardAmount
+        address _recipient
     )
         external;
+
+    /// @notice Refresh the withdrawal delay timer for a prover with sufficient bond
+    /// @param _prover Address of the prover to check
+    /// @return success_ True if the prover has sufficient bond, false otherwise
+    /// @dev Only callable by the Inbox contract
+    /// @dev Returns false if bond balance is below the ejection threshold
+    /// @dev Updates withdrawableAt to block.timestamp + bondWithdrawalDelay only
+    ///      if withdrawableAt is already non-zero
+    function requestStay(address _prover) external returns (bool success_);
 
     // ---------------------------------------------------------------
     // External View Functions
@@ -137,12 +144,16 @@ interface IProverAuction {
     function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_);
 
     /// @notice Get the required bond amount to become prover
-    /// @return requiredBond_ The minimum bond required (livenessBond * bondMultiplier * 2)
+    /// @return requiredBond_ The minimum bond required (ejectionThreshold * 2)
     function getRequiredBond() external view returns (uint128 requiredBond_);
 
-    /// @notice Get the bond threshold that triggers forced exit
-    /// @return threshold_ The force-exit threshold (livenessBond * bondMultiplier / 2)
-    function getForceExitThreshold() external view returns (uint128 threshold_);
+    /// @notice Get the liveness bond amount slashed per failed proof
+    /// @return livenessBond_ The liveness bond amount
+    function getLivenessBond() external view returns (uint96 livenessBond_);
+
+    /// @notice Get the bond threshold that triggers ejection
+    /// @return threshold_ The ejection threshold (livenessBond * bondMultiplier)
+    function getEjectionThreshold() external view returns (uint128 threshold_);
 
     /// @notice Get the current moving average fee
     /// @return avgFee_ The exponential moving average of winning fees in Gwei
