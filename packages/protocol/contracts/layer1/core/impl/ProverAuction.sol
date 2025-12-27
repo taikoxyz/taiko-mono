@@ -403,9 +403,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             elapsed = block.timestamp - startTime;
             periods = elapsed / feeDoublingPeriod;
 
-            if (periods > maxFeeDoublings) {
-                periods = maxFeeDoublings;
-            }
+            periods = LibMath.min(periods, uint256(maxFeeDoublings));
         }
 
         // Safe: baseFee (uint32) << periods (capped at maxFeeDoublings, a uint8) fits in uint256
