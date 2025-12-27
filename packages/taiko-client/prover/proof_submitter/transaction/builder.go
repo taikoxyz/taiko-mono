@@ -169,6 +169,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				DesignatedProver: proposals[i].Proposer,
 				Timestamp:        new(big.Int).SetUint64(proofResponse.Meta.Shasta().GetTimestamp()),
 				BlockHash:        lastHeader.Hash(),
+				LivenessBond:     common.Big0, // TODO: set liveness bond from the event payload
 			})
 
 			log.Info(
