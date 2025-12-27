@@ -195,7 +195,6 @@ func (p *Prover) Start() error {
 
 	// 2. Start the main event loop of the prover.
 	go p.eventLoop()
-
 	return nil
 }
 
