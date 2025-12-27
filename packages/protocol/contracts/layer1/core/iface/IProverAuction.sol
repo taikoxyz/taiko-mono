@@ -115,8 +115,8 @@ interface IProverAuction {
     /// @dev Used by Inbox to enable self-proving proposals even when an auction
     ///      prover exists; proposers may still choose to prove their own blocks.
     /// @dev Returns false if bond balance is below the ejection threshold
-    /// @dev Updates withdrawableAt to block.timestamp + bondWithdrawalDelay only
-    ///      if withdrawableAt is already non-zero
+    /// @dev If prover is current, updates withdrawableAt only when already non-zero.
+    /// @dev If prover is not current, always updates withdrawableAt.
     function deferWithdrawal(address _prover) external returns (bool success_);
 
     // ---------------------------------------------------------------

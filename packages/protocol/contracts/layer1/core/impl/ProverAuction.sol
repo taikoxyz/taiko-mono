@@ -97,6 +97,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @dev Contract creation timestamp for initial fee timing
     uint48 internal _contractCreationTime;
 
+    /// @dev Timestamp of the last moving average update
+    uint48 internal _lastAvgUpdate;
+
     /// @dev Reserved storage gap for future upgrades
     uint256[45] private __gap;
 
@@ -136,6 +139,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(_minFeeReductionBps <= 10_000, InvalidBps());
         require(_rewardBps <= 10_000, InvalidBps());
         require(_feeDoublingPeriod > 0, ZeroValue());
+        require(_maxFeeDoublings <= 64, InvalidMaxFeeDoublings());
         require(_initialMaxFee > 0, ZeroValue());
         require(_movingAverageMultiplier > 0, ZeroValue());
 
@@ -335,7 +339,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
             return false;
         }
 
-        if (bond.withdrawableAt != 0) {
+        Prover memory current = _prover;
+        bool isCurrent = _proverAddr == current.addr && current.exitTimestamp == 0;
+
+        if (!isCurrent || bond.withdrawableAt != 0) {
             unchecked {
                 // Safe: uint48 + uint48 won't overflow for ~8900 years
                 bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
@@ -446,18 +453,36 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Updates the exponential moving average of fees.
-    ///      Uses a 90/10 weight (90% old, 10% new) to resist manipulation.
-    ///      Safe: uint32 * 9 + uint32 fits in uint256, result / 10 fits in uint32
+    /// @dev Updates the time-weighted moving average of fees.
+    ///      The weight of the new fee increases linearly with elapsed time since
+    ///      the last update, capped at feeDoublingPeriod.
     /// @param _newFee The new fee to incorporate into the average
     function _updateMovingAverage(uint32 _newFee) internal {
+        uint48 nowTs = uint48(block.timestamp);
+        uint32 currentAvg = _movingAverageFee;
+
+        if (currentAvg == 0) {
+            _movingAverageFee = _newFee;
+            _lastAvgUpdate = nowTs;
+            return;
+        }
+
+        uint48 lastUpdate = _lastAvgUpdate;
+        if (lastUpdate == 0) {
+            _lastAvgUpdate = nowTs;
+            return;
+        }
+
         unchecked {
-            uint32 currentAvg = _movingAverageFee;
-            if (currentAvg == 0) {
-                _movingAverageFee = _newFee;
-            } else {
-                _movingAverageFee = uint32((uint256(currentAvg) * 9 + uint256(_newFee)) / 10);
-            }
+            uint48 elapsed = nowTs - lastUpdate;
+            uint48 window = feeDoublingPeriod;
+            uint256 weightNew = elapsed >= window ? window : elapsed;
+            uint256 weightOld = window - weightNew;
+
+            uint256 weightedAvg =
+                (uint256(currentAvg) * weightOld + uint256(_newFee) * weightNew) / window;
+            _movingAverageFee = uint32(weightedAvg);
+            _lastAvgUpdate = nowTs;
         }
     }
 
@@ -470,6 +495,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     error FeeMustBeLower();
     error FeeTooHigh();
     error InsufficientBond();
+    error InvalidMaxFeeDoublings();
     error InvalidBps();
     error NotCurrentProver();
     error OnlyInbox();

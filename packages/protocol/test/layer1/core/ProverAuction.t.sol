@@ -101,6 +101,17 @@ contract ProverAuctionTest is CommonTest {
         auction.deposit(amount);
     }
 
+    function _timeWeightedAvg(uint32 oldFee, uint32 newFee, uint48 elapsed)
+        internal
+        pure
+        returns (uint32)
+    {
+        uint48 window = FEE_DOUBLING_PERIOD;
+        uint256 weightNew = elapsed >= window ? window : elapsed;
+        uint256 weightOld = window - weightNew;
+        return uint32((uint256(oldFee) * weightOld + uint256(newFee) * weightNew) / window);
+    }
+
     function _slashTimes(
         IProverAuction target,
         address prover,
@@ -619,11 +630,13 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
         assertEq(auction.getMovingAverageFee(), 1000);
 
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
+
         vm.prank(prover1);
         auction.bid(100);
 
-        // EMA: (1000 * 9 + 100) / 10 = 910
-        assertEq(auction.getMovingAverageFee(), 910);
+        uint32 expected = _timeWeightedAvg(1000, 100, FEE_DOUBLING_PERIOD / 10);
+        assertEq(auction.getMovingAverageFee(), expected);
     }
 
     // ---------------------------------------------------------------
@@ -848,6 +861,31 @@ contract ProverAuctionTest is CommonTest {
         assertGt(infoAfter.withdrawableAt, withdrawableAtBefore);
     }
 
+    function test_deferWithdrawal_updatesWithdrawableAtWhenNotCurrent() public {
+        _depositBond(prover1, REQUIRED_BOND);
+
+        vm.prank(inbox);
+        bool success = auction.deferWithdrawal(prover1);
+        assertTrue(success);
+
+        IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
+        assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
+    }
+
+    function test_deferWithdrawal_noopForCurrentWithZeroWithdrawableAt() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 500);
+
+        IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        assertEq(infoBefore.withdrawableAt, 0);
+
+        vm.prank(inbox);
+        bool success = auction.deferWithdrawal(prover1);
+        assertTrue(success);
+
+        IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        assertEq(infoAfter.withdrawableAt, 0);
+    }
+
     function test_deferWithdrawal_returnsFalseWhen_BelowThreshold() public {
         _depositBond(prover1, uint128(LIVENESS_BOND));
 
@@ -885,9 +923,10 @@ contract ProverAuctionTest is CommonTest {
         assertEq(auction.getMovingAverageFee(), 1000);
 
         // Outbid with lower fee
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
         _depositAndBid(prover2, REQUIRED_BOND, 900);
-        // EMA: (1000 * 9 + 900) / 10 = 990
-        assertEq(auction.getMovingAverageFee(), 990);
+        uint32 expected = _timeWeightedAvg(1000, 900, FEE_DOUBLING_PERIOD / 10);
+        assertEq(auction.getMovingAverageFee(), expected);
     }
 
     function test_getTotalSlashedAmount_initial() public view {
@@ -923,19 +962,21 @@ contract ProverAuctionTest is CommonTest {
         assertEq(auction.getMovingAverageFee(), 500);
     }
 
-    function test_movingAverage_subsequentBidsUseEMA() public {
+    function test_movingAverage_subsequentBidsUseTimeWeightedAverage() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
 
         // Self-bid to lower fee multiple times
         vm.startPrank(prover1);
 
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
         auction.bid(100);
-        // EMA: (1000 * 9 + 100) / 10 = 910
-        assertEq(auction.getMovingAverageFee(), 910);
+        uint32 expectedFirst = _timeWeightedAvg(1000, 100, FEE_DOUBLING_PERIOD / 10);
+        assertEq(auction.getMovingAverageFee(), expectedFirst);
 
+        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
         auction.bid(99);
-        // EMA: (910 * 9 + 99) / 10 = 828.9 -> truncated to 828
-        assertEq(auction.getMovingAverageFee(), 828); // 828.9 gwei
+        uint32 expectedSecond = _timeWeightedAvg(expectedFirst, 99, FEE_DOUBLING_PERIOD / 10);
+        assertEq(auction.getMovingAverageFee(), expectedSecond);
 
         vm.stopPrank();
     }
@@ -1657,17 +1698,17 @@ contract ProverAuctionTest is CommonTest {
         // Bid with zero fee to lower moving average (need to bid within max allowed)
         // Max bid after exit = max(exitedFee=1000, feeFloor=max(1000, 1000*2)) = 2000
         _depositAndBid(prover2, REQUIRED_BOND, 0);
-        // Moving average: (1000 * 9 + 0) / 10 = 900
-        assertEq(auction.getMovingAverageFee(), 900);
+        // Moving average decays to the new fee after a long delay
+        assertEq(auction.getMovingAverageFee(), 0);
 
         // Exit with zero fee
         vm.prank(prover2);
         auction.requestExit();
 
         // Despite exiting with zero fee, max bid should be based on moving average floor
-        // feeFloor = max(initialMaxFee=1000, movingAvg=900 * multiplier=2) = max(1000, 1800) = 1800
-        // baseFee = max(exitedFee=0, feeFloor=1800) = 1800
-        assertEq(auction.getMaxBidFee(), 1800, "moving average floor should prevent manipulation");
+        // feeFloor = max(initialMaxFee=1000, movingAvg=0 * multiplier=2) = 1000
+        // baseFee = max(exitedFee=0, feeFloor=1000) = 1000
+        assertEq(auction.getMaxBidFee(), 1000, "moving average floor should prevent manipulation");
     }
 
     function test_pause_doesNotBlockEntryPoints() public {
