@@ -134,7 +134,7 @@ contract ProverAuctionTest is CommonTest {
         vm.stopPrank();
     }
 
-    function _slashUntilEjected(
+    function _slashBelowThreshold(
         IProverAuction target,
         address prover,
         address recipient
@@ -360,7 +360,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
         // Eject prover by slashing below threshold
-        _slashUntilEjected(auction, prover1, address(0));
+        _slashBelowThreshold(auction, prover1, address(0));
 
         // Verify prover was ejected
         (address currentProver,) = auction.getCurrentProver();
@@ -839,7 +839,7 @@ contract ProverAuctionTest is CommonTest {
     function test_slashProver_ejectionSetsWithdrawableAt() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        _slashUntilEjected(auction, prover1, prover2);
+        _slashBelowThreshold(auction, prover1, prover2);
 
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
@@ -1292,7 +1292,7 @@ contract ProverAuctionTest is CommonTest {
         vm.stopPrank();
 
         // Eject by slashing below threshold
-        _slashUntilEjected(zeroDelayAuction, prover1, address(0));
+        _slashBelowThreshold(zeroDelayAuction, prover1, address(0));
 
         // Verify ejected
         (address prover,) = zeroDelayAuction.getCurrentProver();
@@ -1499,7 +1499,7 @@ contract ProverAuctionTest is CommonTest {
         vm.warp(block.timestamp + 1 hours);
 
         // Slash the already-exited prover below threshold
-        _slashUntilEjected(auction, prover1, prover2);
+        _slashBelowThreshold(auction, prover1, prover2);
 
         // After optimization: ejection logic is skipped for already-exited provers
         // So withdrawableAt should remain unchanged (the original exit time)

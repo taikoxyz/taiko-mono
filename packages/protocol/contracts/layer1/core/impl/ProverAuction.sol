@@ -20,6 +20,7 @@ import "./ProverAuction_Layout.sol"; // DO NOT DELETE
 ///      - Decoupled bond management (deposit/withdraw separate from bidding)
 ///      - Best-effort slashing with automatic ejection on low bond
 ///      - Moving average fee tracking to prevent manipulation
+///      - Entry points remain callable while paused (see tests for rationale)
 /// @custom:security-contact security@taiko.xyz
 contract ProverAuction is EssentialContract, IProverAuction {
     using SafeERC20 for IERC20;
@@ -39,7 +40,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice The Inbox contract address (only caller for slashProver)
+    /// @notice The Inbox contract address (only caller for slashProver/deferWithdrawal)
     address public immutable inbox;
 
     /// @notice The ERC20 token used for bonds (TAIKO token)

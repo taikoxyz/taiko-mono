@@ -151,6 +151,7 @@ interface IProverAuction {
 
     /// @notice Get the bond threshold that triggers ejection
     /// @return threshold_ The ejection threshold (livenessBond * bondMultiplier)
+    /// @dev Required bond = ejectionThreshold * 2
     function getEjectionThreshold() external view returns (uint128 threshold_);
 
     /// @notice Get the current moving average fee
