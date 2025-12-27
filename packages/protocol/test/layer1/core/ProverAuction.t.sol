@@ -112,6 +112,9 @@ contract ProverAuctionTest is CommonTest {
     {
         uint48 window = FEE_DOUBLING_PERIOD;
         uint256 weightNew = elapsed >= window ? window : elapsed;
+        if (weightNew == 0) {
+            weightNew = 1;
+        }
         uint256 weightOld = window - weightNew;
         return uint32((uint256(oldFee) * weightOld + uint256(newFee) * weightNew) / window);
     }
@@ -964,6 +967,16 @@ contract ProverAuctionTest is CommonTest {
     function test_movingAverage_firstBidSetsBaseline() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
         assertEq(auction.getMovingAverageFee(), 500);
+    }
+
+    function test_movingAverage_sameBlockUsesMinWeight() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 1000);
+
+        vm.prank(prover1);
+        auction.bid(900);
+
+        uint32 expected = _timeWeightedAvg(1000, 900, 0);
+        assertEq(auction.getMovingAverageFee(), expected);
     }
 
     function test_movingAverage_subsequentBidsUseTimeWeightedAverage() public {

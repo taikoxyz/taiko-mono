@@ -455,7 +455,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @dev Updates the time-weighted moving average of fees.
     ///      The weight of the new fee increases linearly with elapsed time since
-    ///      the last update, capped at feeDoublingPeriod.
+    ///      the last update, capped at feeDoublingPeriod. A minimum weight of 1
+    ///      is applied to avoid no-op updates in the same block.
     /// @param _newFee The new fee to incorporate into the average
     function _updateMovingAverage(uint32 _newFee) internal {
         uint48 nowTs = uint48(block.timestamp);
@@ -467,16 +468,15 @@ contract ProverAuction is EssentialContract, IProverAuction {
             return;
         }
 
-        uint48 lastUpdate = _lastAvgUpdate;
-        if (lastUpdate == 0) {
-            _lastAvgUpdate = nowTs;
-            return;
-        }
+        uint48 lastUpdate = _lastAvgUpdate == 0 ? nowTs : _lastAvgUpdate;
 
         unchecked {
             uint48 elapsed = nowTs - lastUpdate;
             uint48 window = feeDoublingPeriod;
             uint256 weightNew = elapsed >= window ? window : elapsed;
+            if (weightNew == 0) {
+                weightNew = 1;
+            }
             uint256 weightOld = window - weightNew;
 
             uint256 weightedAvg =
