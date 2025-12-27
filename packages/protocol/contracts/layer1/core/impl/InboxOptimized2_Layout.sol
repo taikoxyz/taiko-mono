@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title InboxOptimized2Layout
 /// @notice Storage layout documentation for InboxOptimized2
