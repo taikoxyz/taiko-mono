@@ -235,9 +235,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         if (isSelfBid) {
             // Current prover lowering their own fee - just needs to be lower
             // Enforce minimum interval between self-bids to prevent MA manipulation
-            require(
-                block.timestamp >= _lastAvgUpdate + MIN_SELF_BID_INTERVAL, SelfBidTooFrequent()
-            );
+            require(block.timestamp >= _lastAvgUpdate + MIN_SELF_BID_INTERVAL, SelfBidTooFrequent());
             require(_feeInGwei < current.feeInGwei, FeeMustBeLower());
         } else if (isVacant) {
             // Vacant slot: time-based cap
