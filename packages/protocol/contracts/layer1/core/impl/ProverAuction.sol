@@ -26,6 +26,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Minimum time between self-bids to prevent moving average manipulation
+    uint48 public constant MIN_SELF_BID_INTERVAL = 2 minutes;
+
+    // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
@@ -182,9 +189,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @inheritdoc IProverAuction
     function deposit(uint128 _amount) external nonReentrant {
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
-        unchecked {
-            _bonds[msg.sender].balance += _amount;
-        }
+        _bonds[msg.sender].balance += _amount;
         emit Deposited(msg.sender, _amount);
     }
 
@@ -229,6 +234,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         if (isSelfBid) {
             // Current prover lowering their own fee - just needs to be lower
+            // Enforce minimum interval between self-bids to prevent MA manipulation
+            require(
+                block.timestamp >= _lastAvgUpdate + MIN_SELF_BID_INTERVAL, SelfBidTooFrequent()
+            );
             require(_feeInGwei < current.feeInGwei, FeeMustBeLower());
         } else if (isVacant) {
             // Vacant slot: time-based cap
@@ -495,6 +504,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     error CurrentProverCannotWithdraw();
     error FeeMustBeLower();
     error FeeTooHigh();
+    error SelfBidTooFrequent();
     error InsufficientBond();
     error InvalidMaxFeeDoublings();
     error InvalidBps();

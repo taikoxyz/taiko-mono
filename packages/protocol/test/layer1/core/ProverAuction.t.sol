@@ -596,6 +596,9 @@ contract ProverAuctionTest is CommonTest {
     function test_bid_selfBid_lowersFee() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
 
+        // Wait for minimum self-bid interval
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
+
         vm.prank(prover1);
         vm.expectEmit(true, true, false, true);
         emit BidPlaced(prover1, 900, prover1);
@@ -609,6 +612,9 @@ contract ProverAuctionTest is CommonTest {
     function test_bid_selfBid_noMinReductionRequired() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
 
+        // Wait for minimum self-bid interval
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
+
         // Can lower by just 1 gwei
         vm.prank(prover1);
         auction.bid(999);
@@ -620,6 +626,9 @@ contract ProverAuctionTest is CommonTest {
     function test_bid_selfBid_RevertWhen_FeeNotLower() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
 
+        // Wait for minimum self-bid interval
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
+
         vm.prank(prover1);
         vm.expectRevert(ProverAuction.FeeMustBeLower.selector);
         auction.bid(1000);
@@ -627,6 +636,9 @@ contract ProverAuctionTest is CommonTest {
 
     function test_bid_selfBid_RevertWhen_FeeHigher() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
+
+        // Wait for minimum self-bid interval
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
 
         vm.prank(prover1);
         vm.expectRevert(ProverAuction.FeeMustBeLower.selector);
@@ -637,13 +649,24 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
         assertEq(auction.getMovingAverageFee(), 1000);
 
-        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
+        // Wait for minimum self-bid interval
+        uint48 waitTime = auction.MIN_SELF_BID_INTERVAL();
+        vm.warp(block.timestamp + waitTime);
 
         vm.prank(prover1);
         auction.bid(100);
 
-        uint32 expected = _timeWeightedAvg(1000, 100, FEE_DOUBLING_PERIOD / 10);
+        uint32 expected = _timeWeightedAvg(1000, 100, waitTime);
         assertEq(auction.getMovingAverageFee(), expected);
+    }
+
+    function test_bid_selfBid_RevertWhen_TooFrequent() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 1000);
+
+        // Try to self-bid immediately without waiting
+        vm.prank(prover1);
+        vm.expectRevert(ProverAuction.SelfBidTooFrequent.selector);
+        auction.bid(900);
     }
 
     // ---------------------------------------------------------------
@@ -969,30 +992,29 @@ contract ProverAuctionTest is CommonTest {
         assertEq(auction.getMovingAverageFee(), 500);
     }
 
-    function test_movingAverage_sameBlockUsesMinWeight() public {
+    function test_movingAverage_sameBlockSelfBidReverts() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
 
+        // Same-block self-bids are disallowed to prevent MA manipulation
         vm.prank(prover1);
+        vm.expectRevert(ProverAuction.SelfBidTooFrequent.selector);
         auction.bid(900);
-
-        uint32 expected = _timeWeightedAvg(1000, 900, 0);
-        assertEq(auction.getMovingAverageFee(), expected);
     }
 
     function test_movingAverage_subsequentBidsUseTimeWeightedAverage() public {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
 
-        // Self-bid to lower fee multiple times
+        // Self-bid to lower fee multiple times (must wait MIN_SELF_BID_INTERVAL between each)
         vm.startPrank(prover1);
 
-        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
         auction.bid(100);
-        uint32 expectedFirst = _timeWeightedAvg(1000, 100, FEE_DOUBLING_PERIOD / 10);
+        uint32 expectedFirst = _timeWeightedAvg(1000, 100, auction.MIN_SELF_BID_INTERVAL());
         assertEq(auction.getMovingAverageFee(), expectedFirst);
 
-        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
         auction.bid(99);
-        uint32 expectedSecond = _timeWeightedAvg(expectedFirst, 99, FEE_DOUBLING_PERIOD / 10);
+        uint32 expectedSecond = _timeWeightedAvg(expectedFirst, 99, auction.MIN_SELF_BID_INTERVAL());
         assertEq(auction.getMovingAverageFee(), expectedSecond);
 
         vm.stopPrank();
