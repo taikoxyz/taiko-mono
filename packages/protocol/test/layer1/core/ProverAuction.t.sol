@@ -24,6 +24,7 @@ contract ProverAuctionTest is CommonTest {
     uint16 internal constant REWARD_BPS = 6000; // 60%
     uint48 internal constant BOND_WITHDRAWAL_DELAY = 48 hours;
     uint48 internal constant FEE_DOUBLING_PERIOD = 15 minutes;
+    uint48 internal constant MOVING_AVG_WINDOW = 30 minutes;
     uint8 internal constant MAX_FEE_DOUBLINGS = 8;
     uint32 internal constant INITIAL_MAX_FEE = 1000;
     uint8 internal constant MOVING_AVG_MULTIPLIER = 2;
@@ -60,6 +61,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -110,7 +112,7 @@ contract ProverAuctionTest is CommonTest {
         pure
         returns (uint32)
     {
-        uint48 window = FEE_DOUBLING_PERIOD;
+        uint48 window = MOVING_AVG_WINDOW;
         uint256 weightNew = elapsed >= window ? window : elapsed;
         if (weightNew == 0) {
             weightNew = 1;
@@ -478,6 +480,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             type(uint32).max / 2, // High initial fee
             MOVING_AVG_MULTIPLIER
@@ -869,10 +872,10 @@ contract ProverAuctionTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // deferWithdrawal tests
+    // checkBondDeferWithdrawal tests
     // ---------------------------------------------------------------
 
-    function test_deferWithdrawal_updatesWithdrawableAtWhenSet() public {
+    function test_checkBondDeferWithdrawal_updatesWithdrawableAtWhenSet() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
         _depositAndBid(prover2, REQUIRED_BOND, 450);
 
@@ -883,7 +886,7 @@ contract ProverAuctionTest is CommonTest {
         vm.warp(block.timestamp + 1 hours);
 
         vm.prank(inbox);
-        bool success = auction.deferWithdrawal(prover1);
+        bool success = auction.checkBondDeferWithdrawal(prover1);
         assertTrue(success);
 
         IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
@@ -891,45 +894,45 @@ contract ProverAuctionTest is CommonTest {
         assertGt(infoAfter.withdrawableAt, withdrawableAtBefore);
     }
 
-    function test_deferWithdrawal_updatesWithdrawableAtWhenNotCurrent() public {
+    function test_checkBondDeferWithdrawal_updatesWithdrawableAtWhenNotCurrent() public {
         _depositBond(prover1, REQUIRED_BOND);
 
         vm.prank(inbox);
-        bool success = auction.deferWithdrawal(prover1);
+        bool success = auction.checkBondDeferWithdrawal(prover1);
         assertTrue(success);
 
         IProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
     }
 
-    function test_deferWithdrawal_noopForCurrentWithZeroWithdrawableAt() public {
+    function test_checkBondDeferWithdrawal_noopForCurrentWithZeroWithdrawableAt() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
         IProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         assertEq(infoBefore.withdrawableAt, 0);
 
         vm.prank(inbox);
-        bool success = auction.deferWithdrawal(prover1);
+        bool success = auction.checkBondDeferWithdrawal(prover1);
         assertTrue(success);
 
         IProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(infoAfter.withdrawableAt, 0);
     }
 
-    function test_deferWithdrawal_returnsFalseWhen_BelowThreshold() public {
+    function test_checkBondDeferWithdrawal_returnsFalseWhen_BelowThreshold() public {
         _depositBond(prover1, uint128(LIVENESS_BOND));
 
         vm.prank(inbox);
-        bool success = auction.deferWithdrawal(prover1);
+        bool success = auction.checkBondDeferWithdrawal(prover1);
         assertFalse(success);
     }
 
-    function test_deferWithdrawal_RevertWhen_NotInbox() public {
+    function test_checkBondDeferWithdrawal_RevertWhen_NotInbox() public {
         _depositBond(prover1, REQUIRED_BOND);
 
         vm.prank(prover1);
         vm.expectRevert(ProverAuction.OnlyInbox.selector);
-        auction.deferWithdrawal(prover1);
+        auction.checkBondDeferWithdrawal(prover1);
     }
 
     // ---------------------------------------------------------------
@@ -953,9 +956,9 @@ contract ProverAuctionTest is CommonTest {
         assertEq(auction.getMovingAverageFee(), 1000);
 
         // Outbid with lower fee
-        vm.warp(block.timestamp + FEE_DOUBLING_PERIOD / 10);
+        vm.warp(block.timestamp + MOVING_AVG_WINDOW / 10);
         _depositAndBid(prover2, REQUIRED_BOND, 900);
-        uint32 expected = _timeWeightedAvg(1000, 900, FEE_DOUBLING_PERIOD / 10);
+        uint32 expected = _timeWeightedAvg(1000, 900, MOVING_AVG_WINDOW / 10);
         assertEq(auction.getMovingAverageFee(), expected);
     }
 
@@ -1192,6 +1195,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -1246,6 +1250,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -1294,6 +1299,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -1351,6 +1357,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             0, // bondWithdrawalDelay = 0
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -1475,6 +1482,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             0, // initialMaxFee = 0 - now rejected
             MOVING_AVG_MULTIPLIER
@@ -1578,6 +1586,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -1627,6 +1636,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER
@@ -1681,9 +1691,28 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             BOND_WITHDRAWAL_DELAY,
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             0 // movingAverageMultiplier = 0 - should be rejected
+        );
+    }
+
+    function test_constructor_RevertWhen_MaxFeeDoublingsTooHigh() public {
+        vm.expectRevert(ProverAuction.InvalidMaxFeeDoublings.selector);
+        new ProverAuction(
+            inbox,
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            MIN_FEE_REDUCTION_BPS,
+            REWARD_BPS,
+            BOND_WITHDRAWAL_DELAY,
+            FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
+            65, // maxFeeDoublings too high
+            INITIAL_MAX_FEE,
+            MOVING_AVG_MULTIPLIER
         );
     }
 
@@ -1777,6 +1806,7 @@ contract ProverAuctionTest is CommonTest {
             REWARD_BPS,
             0, // bondWithdrawalDelay
             FEE_DOUBLING_PERIOD,
+            MOVING_AVG_WINDOW,
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER

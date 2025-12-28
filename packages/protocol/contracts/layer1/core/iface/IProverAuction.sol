@@ -117,7 +117,7 @@ interface IProverAuction {
     /// @dev Returns false if bond balance is below the ejection threshold
     /// @dev If prover is current, updates withdrawableAt only when already non-zero.
     /// @dev If prover is not current, always updates withdrawableAt.
-    function deferWithdrawal(address _prover) external returns (bool success_);
+    function checkBondDeferWithdrawal(address _prover) external returns (bool success_);
 
     // ---------------------------------------------------------------
     // External View Functions

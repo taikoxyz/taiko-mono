@@ -47,7 +47,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice The Inbox contract address (only caller for slashProver/deferWithdrawal)
+    /// @notice The Inbox contract address (only caller for slashProver/checkBondDeferWithdrawal)
     address public immutable inbox;
 
     /// @notice The ERC20 token used for bonds (TAIKO token)
@@ -67,6 +67,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @notice Time period for fee doubling when slot is vacant
     uint48 public immutable feeDoublingPeriod;
+
+    /// @notice Time window for moving average smoothing
+    uint48 public immutable movingAverageWindow;
 
     /// @notice Maximum number of fee doublings allowed (e.g., 8 = 256x cap)
     uint8 public immutable maxFeeDoublings;
@@ -124,6 +127,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @param _rewardBps Reward percentage in basis points for slashing
     /// @param _bondWithdrawalDelay Time after exit before withdrawal allowed
     /// @param _feeDoublingPeriod Time period for fee doubling when vacant
+    /// @param _movingAverageWindow Time window for moving average smoothing
     /// @param _maxFeeDoublings Maximum number of fee doublings
     /// @param _initialMaxFee Initial maximum fee for first-ever bid (in Gwei)
     /// @param _movingAverageMultiplier Multiplier for moving average fee floor
@@ -136,6 +140,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint16 _rewardBps,
         uint48 _bondWithdrawalDelay,
         uint48 _feeDoublingPeriod,
+        uint48 _movingAverageWindow,
         uint8 _maxFeeDoublings,
         uint32 _initialMaxFee,
         uint8 _movingAverageMultiplier
@@ -147,6 +152,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(_minFeeReductionBps <= 10_000, InvalidBps());
         require(_rewardBps <= 10_000, InvalidBps());
         require(_feeDoublingPeriod > 0, ZeroValue());
+        require(_movingAverageWindow > 0, ZeroValue());
         require(_maxFeeDoublings <= 64, InvalidMaxFeeDoublings());
         require(_initialMaxFee > 0, ZeroValue());
         require(_movingAverageMultiplier > 0, ZeroValue());
@@ -159,6 +165,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         rewardBps = _rewardBps;
         bondWithdrawalDelay = _bondWithdrawalDelay;
         feeDoublingPeriod = _feeDoublingPeriod;
+        movingAverageWindow = _movingAverageWindow;
         maxFeeDoublings = _maxFeeDoublings;
         initialMaxFee = _initialMaxFee;
         movingAverageMultiplier = _movingAverageMultiplier;
@@ -339,7 +346,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    function deferWithdrawal(address _proverAddr) external returns (bool success_) {
+    function checkBondDeferWithdrawal(address _proverAddr) external returns (bool success_) {
         require(msg.sender == inbox, OnlyInbox());
 
         BondInfo storage bond = _bonds[_proverAddr];
@@ -480,7 +487,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         unchecked {
             uint48 elapsed = nowTs - lastUpdate;
-            uint48 window = feeDoublingPeriod;
+        uint48 window = movingAverageWindow;
             uint256 weightNew = elapsed >= window ? window : elapsed;
             if (weightNew == 0) {
                 weightNew = 1;
