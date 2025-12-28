@@ -487,7 +487,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         unchecked {
             uint48 elapsed = nowTs - lastUpdate;
-        uint48 window = movingAverageWindow;
+            uint48 window = movingAverageWindow;
             uint256 weightNew = elapsed >= window ? window : elapsed;
             if (weightNew == 0) {
                 weightNew = 1;
