@@ -212,8 +212,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("SignalService deployed:", signalService);
         }
 
-        address bondToken =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", true);
+        address taikoToken =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "taiko_token", true);
 
         // Deploy inbox
         shastaInbox = deployProxy({
@@ -224,7 +224,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     whitelist,
                     proverWhitelist,
                     signalService,
-                    bondToken,
+                    taikoToken,
                     config.minBond,
                     config.livenessBond,
                     config.withdrawalDelay
@@ -305,8 +305,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             register(sharedResolver, "taiko_token", taikoToken);
         }
 
-        // Register as bond token as well
-        register(sharedResolver, "bond_token", taikoToken);
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {
