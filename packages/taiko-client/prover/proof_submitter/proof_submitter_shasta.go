@@ -82,16 +82,16 @@ func NewProofSubmitterShasta(
 		proofCacheMaps:            proofCacheMaps,
 	}
 
-	proofSubmitter.startProofBufferMonitors(ctx)
+	proofSubmitter.startBackgroundWorkers(ctx)
 	return proofSubmitter, nil
 }
 
-// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation,
-// only be called once during initialization.
-func (s *ProofSubmitterShasta) startProofBufferMonitors(ctx context.Context) {
-	log.Info("Starting proof buffers monitors for Shasta", "forceBatchProvingInterval", s.forceBatchProvingInterval)
-	startProofBufferMonitors(ctx, s.forceBatchProvingInterval, s.proofBuffers, s.TryAggregate)
-	//cleanUpStaleCache()
+// startBackgroundWorkers launches goroutines that monitor proof buffers and
+// prune cached proofs; should only run once during initialization.
+func (s *ProofSubmitterShasta) startBackgroundWorkers(ctx context.Context) {
+	log.Info("Starting background workers for Shasta", "interval", monitorInterval)
+	startProofBufferMonitors(ctx, s.proofBuffers, s.TryAggregate)
+	startCacheCleanUp(ctx, s.rpc, s.proofCacheMaps)
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -242,8 +242,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			}
 		} else {
 			cacheMap[toID] = proofResponse
-			if s.ProofRangeCached(fromID, toID, cacheMap) {
-				if err := s.flushProofCacheRange(fromID, toID, proofBuffer, cacheMap); err != nil {
+			if proofRangeCached(fromID, toID, cacheMap) {
+				if err := flushProofCacheRange(fromID, toID, proofBuffer, cacheMap, s.TryAggregate); err != nil {
 					return err
 				}
 			}
@@ -508,56 +508,6 @@ func (s *ProofSubmitterShasta) ValidateProof(
 	return true, nil
 }
 
-// ProofRangeCached reports whether every ID in [fromID, toID] exists in the proof cache.
-func (s *ProofSubmitterShasta) ProofRangeCached(
-	fromID, toID *big.Int,
-	cacheMap map[*big.Int]*proofProducer.ProofResponse,
-) bool {
-	if s == nil || cacheMap == nil || fromID == nil || toID == nil {
-		return false
-	}
-	if fromID.Cmp(toID) > 0 {
-		return false
-	}
-	currentID := new(big.Int).Set(fromID)
-	for currentID.Cmp(toID) <= 0 {
-		if _, ok := cacheMap[currentID]; !ok {
-			return false
-		}
-		currentID.Add(currentID, common.Big1)
-	}
-	return true
-}
-
-// flushProofCacheRange drains cached proofs from fromID through toID into the proof buffer.
-func (s *ProofSubmitterShasta) flushProofCacheRange(
-	fromID, toID *big.Int,
-	proofBuffer *proofProducer.ProofBuffer,
-	cacheMap map[*big.Int]*proofProducer.ProofResponse,
-) error {
-	if proofBuffer == nil {
-		return fmt.Errorf("invalid arguments when flushing proof cache range")
-	}
-	currentID := new(big.Int).Set(fromID)
-	for currentID.Cmp(toID) <= 0 {
-		cachedProof, ok := cacheMap[currentID]
-		if !ok {
-			return fmt.Errorf("cached proof not found for proposal %s", currentID.String())
-		}
-		if _, err := proofBuffer.Write(cachedProof); err != nil {
-			if errors.Is(err, proofProducer.ErrBufferOverflow) {
-				log.Info("")
-				s.TryAggregate(proofBuffer, cachedProof.ProofType)
-				return nil
-			}
-			return err
-		}
-		delete(cacheMap, currentID)
-		currentID.Add(currentID, common.Big1)
-	}
-	return nil
-}
-
 // WaitTransitionVerified waits until the given transition ID is verified on L1.
 func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, transitionID *big.Int) error {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, rpc.DefaultRpcTimeout)
@@ -585,39 +535,3 @@ func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, trans
 		return fmt.Errorf("transition %d not verified yet", transitionID.Uint64())
 	}, backoff.WithContext(backoff.NewConstantBackOff(chainiterator.DefaultRetryInterval), ctx))
 }
-
-//// startProofBufferMonitors launches a monitor goroutine per proof type so we can
-//// enforce forced aggregation deadlines in the background.
-//func (s *ProofSubmitterShasta) cleanUpStaleCache(
-//	ctx context.Context,
-//) {
-//	for proofType, buffer := range s.proofCacheMaps {
-//		go monitorProofBuffer(ctx, proofType, buffer, forceBatchProvingInterval, tryAggregate)
-//	}
-//}
-//
-//// monitorProofBuffer periodically attempts aggregation for a single proof
-//// buffer until the context is canceled.
-//func (s *ProofSubmitterShasta) monitorProofBuffer(
-//	ctx context.Context,
-//	proofType proofProducer.ProofType,
-//	buffer *proofProducer.ProofBuffer,
-//	forceBatchProvingInterval time.Duration,
-//	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
-//) {
-//	if tryAggregate == nil {
-//		return
-//	}
-//	ticker := time.NewTicker(forceBatchProvingInterval)
-//	defer ticker.Stop()
-//
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			log.Debug("context of proof buffer monitor is done")
-//			return
-//		case <-ticker.C:
-//			tryAggregate(buffer, proofType)
-//		}
-//	}
-//}
