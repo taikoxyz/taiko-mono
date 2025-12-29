@@ -62,6 +62,10 @@ type ethClient interface {
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
+type bondManager interface {
+	ProcessedSignals(opts *bind.CallOpts, signal [32]byte) (bool, error)
+}
+
 // hop is a struct which needs to be created based on the config parameters
 // for a hop. Each hop is an intermediary hop - if we are just processing
 // srcChain to destChain, we should have no hops.
@@ -85,9 +89,10 @@ type Processor struct {
 
 	hops []hop
 
-	srcEthClient  ethClient
-	destEthClient ethClient
-	srcCaller     relayer.Caller
+	srcEthClient      ethClient
+	destEthClient     ethClient
+	srcContractCaller bind.ContractCaller
+	srcCaller         relayer.Caller
 
 	ecdsaKey *ecdsa.PrivateKey
 
@@ -98,7 +103,7 @@ type Processor struct {
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
 	destQuotaManager relayer.QuotaManager
-	bondManager      *shasta.BondManager
+	bondManager      bondManager
 
 	prover *proof.Prover
 
@@ -193,6 +198,11 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
 	if err != nil {
 		return err
+	}
+
+	srcContractCaller, ok := interface{}(srcEthClient).(bind.ContractCaller)
+	if !ok {
+		return errors.New("srcEthClient does not implement bind.ContractCaller")
 	}
 
 	hops := []hop{}
@@ -346,7 +356,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	var bondManager *shasta.BondManager
+	var bondManager bondManager
 	if cfg.DestBondManagerAddress != relayer.ZeroAddress {
 		bondManager, err = shasta.NewBondManager(cfg.DestBondManagerAddress, destEthClient)
 		if err != nil {
@@ -411,6 +421,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcEthClient = srcEthClient
 	p.destEthClient = destEthClient
+	p.srcContractCaller = srcContractCaller
 
 	p.srcSignalService = srcSignalService
 

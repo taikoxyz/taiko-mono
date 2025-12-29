@@ -16,6 +16,8 @@ import (
 	shasta "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
+const bondInstructionGasLimitOverheadPercent = 10
+
 func (p *Processor) processBondInstruction(
 	ctx context.Context,
 	msg queue.Message,
@@ -31,7 +33,7 @@ func (p *Processor) processBondInstruction(
 	}
 
 	if p.bondManager == nil || p.cfg.DestBondManagerAddress == relayer.ZeroAddress {
-		return true, msgBody.TimesRetried, errors.New("bond manager not configured")
+		return false, msgBody.TimesRetried, errors.New("bond manager not configured")
 	}
 
 	signal, signalHex, err := p.resolveBondInstructionSignal(ctx, msgBody)
@@ -40,10 +42,6 @@ func (p *Processor) processBondInstruction(
 	}
 
 	signalHash := common.Hash(signal)
-
-	if p.processingSignals == nil {
-		p.processingSignals = make(map[common.Hash]bool, 0)
-	}
 
 	checkSignal := func(hash common.Hash) error {
 		p.processingSignalMu.Lock()
@@ -71,7 +69,14 @@ func (p *Processor) processBondInstruction(
 
 	if msgBody.TimesRetried >= p.maxMessageRetries {
 		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)
-		return false, msgBody.TimesRetried, nil
+
+		if msg.Internal != nil {
+			if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatusFailed); err != nil {
+				return false, msgBody.TimesRetried, err
+			}
+		}
+
+		return false, msgBody.TimesRetried, errUnprocessable
 	}
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash); err != nil {
@@ -125,7 +130,7 @@ func (p *Processor) processBondInstruction(
 		return false, msgBody.TimesRetried, err
 	}
 
-	gasLimit := uint64(float64(gasUsed) * 1.1)
+	gasLimit := gasUsed + (gasUsed*bondInstructionGasLimitOverheadPercent)/100
 
 	candidate := txmgr.TxCandidate{
 		TxData:   data,
@@ -168,12 +173,11 @@ func (p *Processor) resolveBondInstructionSignal(
 		return [32]byte(hash), hash.Hex(), nil
 	}
 
-	contractCaller, ok := p.srcEthClient.(bind.ContractCaller)
-	if !ok {
-		return [32]byte{}, "", errors.New("src eth client does not implement bind.ContractCaller")
+	if p.srcContractCaller == nil {
+		return [32]byte{}, "", errors.New("src contract caller not configured")
 	}
 
-	inbox, err := shasta.NewShastaInboxClientCaller(msgBody.Event.Raw.Address, contractCaller)
+	inbox, err := shasta.NewShastaInboxClientCaller(msgBody.Event.Raw.Address, p.srcContractCaller)
 	if err != nil {
 		return [32]byte{}, "", err
 	}
