@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -18,6 +17,14 @@ interface IInbox {
         address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
+        /// @notice The ERC20 bond token address
+        address bondToken;
+        /// @notice The minimum bond a proposer is required to have in gwei
+        uint64 minBond;
+        /// @notice The liveness bond amount in gwei
+        uint64 livenessBond;
+        /// @notice The withdrawal delay in seconds
+        uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
@@ -199,13 +206,6 @@ interface IInbox {
         uint48 lastProposalId,
         address indexed actualProver,
         bool checkpointSynced
-    );
-
-    /// @notice Emitted when a bond instruction is signaled to L2
-    /// @param proposalId The proposal ID that triggered the bond instruction
-    /// @param bondInstruction The encoded bond instruction
-    event BondInstructionCreated(
-        uint48 indexed proposalId, LibBonds.BondInstruction bondInstruction
     );
 
     // ---------------------------------------------------------------

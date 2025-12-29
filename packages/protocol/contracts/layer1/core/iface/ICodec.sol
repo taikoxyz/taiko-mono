@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "./IInbox.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 /// @title ICodec
 /// @notice Interface for Inbox encoder/decoder and hashing functions
@@ -68,14 +67,6 @@ interface ICodec {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32);
-
-    /// @notice Hashing for BondInstruction structs
-    /// @param _bondInstruction The bond instruction to hash
-    /// @return The hash of the bond instruction
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
-        external
-        pure
-        returns (bytes32);
 
     /// @notice Hashing for commitment data
     /// @param _commitment The commitment data to hash

@@ -1,0 +1,199 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { IBondManager } from "../iface/IBondManager.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+/// @title LibBonds
+/// @notice Library for L1 bond ledger operations and settlement.
+/// @custom:security-contact security@taiko.xyz
+library LibBonds {
+    using SafeERC20 for IERC20;
+
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    uint256 internal constant GWEI_UNIT = 1 gwei;
+
+    /// @dev Storage layout for bond balances. Each bond packs into one slot.
+    struct Storage {
+        mapping(address account => IBondManager.Bond bond) bonds;
+    }
+
+    // ---------------------------------------------------------------
+    // Bond Ledger
+    // ---------------------------------------------------------------
+
+    /// @dev Deposits bond tokens in gwei units and credits the recipient.
+    function deposit(
+        Storage storage $,
+        IERC20 _bondToken,
+        address _depositor,
+        address _recipient,
+        uint64 _amount
+    )
+        internal
+    {
+        if (_recipient == address(0)) revert InvalidAddress();
+
+        _bondToken.safeTransferFrom(_depositor, address(this), _toTokenAmount(_amount));
+        _creditBond($, _recipient, _amount);
+        emit IBondManager.BondDeposited(_depositor, _recipient, _amount);
+    }
+
+    /// @dev Withdraws bond tokens in gwei units to a recipient.
+    function withdraw(
+        Storage storage $,
+        IERC20 _bondToken,
+        address _from,
+        address _to,
+        uint64 _amount,
+        uint64 _minBond,
+        uint48 _withdrawalDelay
+    )
+        internal
+        returns (uint64 debited_)
+    {
+        if (_to == address(0)) revert InvalidAddress();
+
+        IBondManager.Bond storage bond_ = $.bonds[_from];
+        uint64 balance = bond_.balance;
+        uint64 amount = _amount > balance ? balance : _amount;
+
+        if (
+            bond_.withdrawalRequestedAt == 0
+                || block.timestamp < bond_.withdrawalRequestedAt + _withdrawalDelay
+        ) {
+            if (balance - amount < _minBond) revert MustMaintainMinBond();
+        }
+
+        debited_ = _debitBond($, _from, amount);
+        _bondToken.safeTransfer(_to, _toTokenAmount(debited_));
+        emit IBondManager.BondWithdrawn(_from, debited_);
+    }
+
+    /// @dev Requests a withdrawal. Withdrawals are unrestricted after the delay.
+    function requestWithdrawal(
+        Storage storage $,
+        address _account,
+        uint48 _withdrawalDelay
+    )
+        internal
+    {
+        IBondManager.Bond storage bond_ = $.bonds[_account];
+        if (bond_.balance == 0) revert NoBondToWithdraw();
+        if (bond_.withdrawalRequestedAt != 0) revert WithdrawalAlreadyRequested();
+
+        bond_.withdrawalRequestedAt = uint48(block.timestamp);
+        emit IBondManager.WithdrawalRequested(_account, uint48(block.timestamp + _withdrawalDelay));
+    }
+
+    /// @dev Cancels a pending withdrawal request.
+    function cancelWithdrawal(Storage storage $, address _account) internal {
+        IBondManager.Bond storage bond_ = $.bonds[_account];
+        if (bond_.withdrawalRequestedAt == 0) revert NoWithdrawalRequested();
+
+        bond_.withdrawalRequestedAt = 0;
+        emit IBondManager.WithdrawalCancelled(_account);
+    }
+
+    /// @dev Returns the bond state for an account.
+    function getBond(Storage storage $, address _account)
+        internal
+        view
+        returns (IBondManager.Bond memory)
+    {
+        return $.bonds[_account];
+    }
+
+    /// @dev Checks if an account has sufficient bond and is active.
+    function hasSufficientBond(
+        Storage storage $,
+        address _account,
+        uint64 _minBond
+    )
+        internal
+        view
+        returns (bool)
+    {
+        IBondManager.Bond storage bond_ = $.bonds[_account];
+        return bond_.balance >= _minBond && bond_.withdrawalRequestedAt == 0;
+    }
+
+    // ---------------------------------------------------------------
+    // Bond Settlement
+    // ---------------------------------------------------------------
+
+    /// @dev Applies a liveness bond slash with a 50/50 split (payee/burn).
+    /// @param $ Storage reference.
+    /// @param _payer Account whose bond is debited.
+    /// @param _payee Account credited with half of the debited bond.
+    /// @param _livenessBond Liveness bond amount in gwei.
+    function settleLivenessBond(
+        Storage storage $,
+        address _payer,
+        address _payee,
+        uint64 _livenessBond
+    )
+        internal
+    {
+        if (_livenessBond == 0) return;
+
+        // TODO: we should probably burn the 50% first, and only return if there's enough left
+        uint64 debited = _debitBond($, _payer, _livenessBond);
+        if (debited == 0) return;
+
+        uint64 payeeAmount = debited / 2;
+        if (payeeAmount > 0) {
+            _creditBond($, _payee, payeeAmount);
+        }
+    }
+
+    /// @dev Debits a bond with best effort.
+    function _debitBond(
+        Storage storage $,
+        address _account,
+        uint64 _amount
+    )
+        internal
+        returns (uint64 debited_)
+    {
+        IBondManager.Bond storage bond_ = $.bonds[_account];
+
+        if (bond_.balance <= _amount) {
+            debited_ = bond_.balance;
+            bond_.balance = 0;
+        } else {
+            debited_ = _amount;
+            bond_.balance = bond_.balance - _amount;
+        }
+
+        if (debited_ > 0) {
+            emit IBondManager.BondDebited(_account, debited_);
+        }
+    }
+
+    /// @dev Credits a bond balance.
+    function _creditBond(Storage storage $, address _account, uint64 _amount) internal {
+        IBondManager.Bond storage bond_ = $.bonds[_account];
+        bond_.balance = bond_.balance + _amount;
+        emit IBondManager.BondCredited(_account, _amount);
+    }
+
+    /// @dev Converts bond amounts in gwei to token units (18 decimals).
+    function _toTokenAmount(uint64 _amount) private pure returns (uint256) {
+        return uint256(_amount) * GWEI_UNIT;
+    }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidAddress();
+    error MustMaintainMinBond();
+    error NoBondToWithdraw();
+    error NoWithdrawalRequested();
+    error WithdrawalAlreadyRequested();
+}

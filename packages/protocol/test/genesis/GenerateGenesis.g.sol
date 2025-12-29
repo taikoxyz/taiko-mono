@@ -7,7 +7,6 @@ import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 import "src/layer2/core/Anchor.sol";
 import "src/layer2/core/AnchorForkRouter.sol";
-import "src/layer2/core/BondManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/signal/ICheckpointStore.sol";
@@ -28,10 +27,6 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
-    uint256 private livenessBond = configJSON.readUint(".livenessBond");
-    address private bondToken = configJSON.readAddress(".bondToken");
-    uint256 private minBond = configJSON.readUint(".minBond");
-    uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -114,35 +109,6 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function testBondManager() public {
-        address bondManagerAddress = getPredeployedContractAddress("BondManager");
-        EssentialContract bondManagerProxy = EssentialContract(bondManagerAddress);
-
-        assertEq(contractOwner, bondManagerProxy.owner());
-        assertEq(bondToken, address(BondManager(bondManagerAddress).bondToken()));
-        assertEq(minBond, BondManager(bondManagerAddress).minBond());
-        assertEq(withdrawalDelay, BondManager(bondManagerAddress).withdrawalDelay());
-
-        vm.startPrank(bondManagerProxy.owner());
-
-        bondManagerProxy.upgradeTo(
-            address(
-                new BondManager(
-                    getPredeployedContractAddress("RegularERC20"),
-                    1 ether,
-                    7 days,
-                    getPredeployedContractAddress("TaikoAnchor"),
-                    SignalService(getPredeployedContractAddress("SignalService")),
-                    contractOwner,
-                    uint64(l1ChainId),
-                    livenessBond
-                )
-            )
-        );
-
-        vm.stopPrank();
-    }
-
     function testTaikoAnchor() public {
         Anchor taikoAnchorProxy = Anchor(getPredeployedContractAddress("TaikoAnchor"));
 
@@ -152,10 +118,6 @@ contract TestGenerateGenesis is Test {
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.checkpointStore())
         );
-        assertEq(
-            getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
-        );
-        assertEq(livenessBond, taikoAnchorProxy.livenessBond());
 
         vm.startPrank(taikoAnchorProxy.owner());
 

@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+/// @title IBondManager
+/// @notice Interface for managing bonds on L1 in the Taiko protocol.
+/// @custom:security-contact security@taiko.xyz
+interface IBondManager {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @notice Represents a bond for a given address.
+    struct Bond {
+        /// @notice The bond balance in gwei.   
+        uint64 balance;
+        /// @notice The timestamp when the withdrawal was requested.
+        /// @dev 0 = active, >0 = withdrawal requested timestamp
+        uint48 withdrawalRequestedAt;
+    }
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when a bond is debited from an address.
+    /// @param account The account from which the bond was debited.
+    /// @param amount The amount debited in gwei.
+    event BondDebited(address indexed account, uint64 amount);
+
+    /// @notice Emitted when a bond is credited to an address.
+    /// @param account The account to which the bond was credited.
+    /// @param amount The amount credited in gwei.
+    event BondCredited(address indexed account, uint64 amount);
+
+    /// @notice Emitted when a bond is deposited into the manager.
+    /// @param depositor The account that made the deposit.
+    /// @param recipient The account that received the bond credit.
+    /// @param amount The amount deposited in gwei.
+    event BondDeposited(address indexed depositor, address indexed recipient, uint64 amount);
+
+    /// @notice Emitted when a bond is withdrawn from the manager.
+    /// @param account The account that withdrew the bond.
+    /// @param amount The amount withdrawn in gwei.
+    event BondWithdrawn(address indexed account, uint64 amount);
+
+    /// @notice Emitted when a withdrawal is requested.
+    /// @param account The account requesting withdrawal.
+    /// @param withdrawableAt The timestamp when withdrawal becomes unrestricted.
+    event WithdrawalRequested(address indexed account, uint48 withdrawableAt);
+
+    /// @notice Emitted when a withdrawal request is cancelled.
+    /// @param account The account cancelling the withdrawal request.
+    event WithdrawalCancelled(address indexed account);
+
+    // ---------------------------------------------------------------
+    // Transactional Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Deposits bond tokens for the caller.
+    /// @dev Does not cancel the caller's pending withdrawal; call `cancelWithdrawal` to reactivate.
+    /// @param _amount The amount to deposit in gwei.
+    function deposit(uint64 _amount) external;
+
+    /// @notice Deposits bond tokens for a recipient.
+    /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal.
+    /// @param _recipient The address to credit the bond to.
+    /// @param _amount The amount to deposit in gwei.
+    function depositTo(address _recipient, uint64 _amount) external;
+
+    /// @notice Withdraws bond to a recipient.
+    /// @dev Withdrawals are subject to a delay so bond operations can be resolved properly.
+    /// @param _to The recipient of withdrawn funds.
+    /// @param _amount The amount to withdraw in gwei.
+    function withdraw(address _to, uint64 _amount) external;
+
+    /// @notice Requests to start the withdrawal process.
+    /// @dev Account cannot perform bond-restricted actions after requesting withdrawal.
+    function requestWithdrawal() external;
+
+    /// @notice Cancels withdrawal request to reactivate the account.
+    /// @dev Can be called during or after the withdrawal delay period.
+    function cancelWithdrawal() external;
+
+    // ---------------------------------------------------------------
+    // View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Gets the bond state of an address.
+    /// @param _address The address to get the bond state for.
+    /// @return bond_ The bond struct for the address.
+    function getBond(address _address) external view returns (Bond memory bond_);
+
+    /// @notice Checks if an account meets the minimum bond and hasn't requested withdrawal.
+    /// @param _address The address to check.
+    /// @return True if the account has sufficient bond and is active.
+    function hasSufficientBond(address _address) external view returns (bool);
+}

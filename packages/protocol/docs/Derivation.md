@@ -25,7 +25,6 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | ---------------------- | ----------------------------------------------------------------------- |
 | **id**                 | A unique, sequential identifier for the proposal                        |
 | **proposer**           | The address that proposed the proposal                                  |
-| **isLowBondProposal**  | Indicates if the proposer has insufficient bond or is exiting           |
 | **designatedProver**   | The prover responsible for proving the proposal                         |
 | **timestamp**          | The timestamp when the proposal was accepted on L1                      |
 | **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
@@ -143,9 +142,10 @@ struct SignedTransaction {
 }
 ```
 
-### Proposer and `isLowBondProposal` Validation
+### Proposer Bond Validation
 
-The proposer must have sufficient balance in the L2 [`BondManager`](../contracts/layer2/core/BondManager.sol) contract. If the `anchorV4` transaction flags `isLowBondProposal = true`, the proposer’s derivation source is replaced with the default source manifest.
+The proposer must maintain at least the minimum bond on L1 in the `Inbox` bond ledger. Proposals
+from accounts below the minimum (or in withdrawal) are rejected. Bonds remain optimistic: proposing only checks balances and does not debit them.
 
 ### Manifest Extraction
 
@@ -264,11 +264,9 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
-#### Bond instruction signaling
+#### Bond instruction processing
 
-Late-proof handling on L1 may emit at most one bond instruction for the first proven proposal. When triggered, the Inbox emits `BondInstructionCreated` and forwards the hash via `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
-
-Bond instruction settlement is **entirely on L2** and not part of the derivation process. [`BondManager.processBondInstruction`](../contracts/layer2/core/BondManager.sol#L180-L219) consumes the signals emitted on the L1 and can be called by anyone. It has its own incentive system to incentivize slashing faulty provers.
+Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder. There is no L2 signal or external settlement step.
 
 ### Designated Prover System
 
@@ -294,15 +292,8 @@ The canonical implementation lives in
 
 - If `proverAuth` is invalid, fall back to the proposer with zero proving fee. Invalid prover auth does not
   trigger default manifest replacement.
-- If the proposer lacks sufficient bond for the proving fee, flag `isLowBondProposal = true` and inherit the
-  previous `designatedProver` (falling back to the proposer if unset).
-- Otherwise, designate the authenticated prover (or the proposer) and transfer the proving fee when
-  applicable.
-
-#### Low-Bond Proposal Handling
-
-When `isLowBondProposal = true`, off-chain derivation replaces only the proposer's derivation source with the
-default source manifest; forced inclusion sources are still processed.
+- Otherwise, designate the authenticated prover (or the proposer) and carry the proving fee in metadata.
+  Proving fees are not transferred on-chain during proposal.
 
 ### Additional Metadata Fields
 
@@ -349,14 +340,13 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field                              |
-| -------------------- | ------- | ----------------------------------------- |
-| `number`             | uint256 | `number`                                  |
-| `timestamp`          | uint256 | `timestamp`                               |
-| `difficulty`         | uint256 | `difficulty`                              |
-| `gasLimit`           | uint256 | `gasLimit`                                |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`                 |
-| `isLowBondProposal`  | bool    | Lowest bit in the 2nd byte in `extraData` |
+| Metadata Component   | Type    | Header Field              |
+| -------------------- | ------- | ------------------------- |
+| `number`             | uint256 | `number`                  |
+| `timestamp`          | uint256 | `timestamp`               |
+| `difficulty`         | uint256 | `difficulty`              |
+| `gasLimit`           | uint256 | `gasLimit`                |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData` |
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -393,11 +383,10 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 2. **Proposal initialization** (first block with a higher `proposalId`)
    - Designates the prover for the proposal
-   - Sets `isLowBondProposal` flag based on bond sufficiency
-   - Stores designated prover and low-bond status in contract state
+   - Stores designated prover in contract state
 
 3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
-   - Persists L1 block data via `checkpointManager.saveCheckpoint`
+   - Persists L1 block data via `checkpointStore.saveCheckpoint`
    - Updates anchor state atomically with the latest anchor block metadata
 
 **Execution constraints**:

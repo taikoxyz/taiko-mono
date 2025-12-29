@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -46,7 +45,6 @@ contract Anchor is EssentialContract {
     /// @notice Stored proposal-level state for the ongoing batch.
     struct ProposalState {
         address designatedProver;
-        bool isLowBondProposal;
         uint48 proposalId;
     }
 
@@ -88,14 +86,8 @@ contract Anchor is EssentialContract {
     // Immutables
     // ---------------------------------------------------------------
 
-    /// @notice Contract managing bond deposits, withdrawals, and transfers.
-    IBondManager public immutable bondManager;
-
     /// @notice Checkpoint store for storing L1 block data.
     ICheckpointStore public immutable checkpointStore;
-
-    /// @notice Bond amount in Wei for liveness guarantees.
-    uint256 public immutable livenessBond;
 
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
@@ -129,7 +121,6 @@ contract Anchor is EssentialContract {
     event Anchored(
         uint48 indexed proposalId,
         bool indexed isNewProposal,
-        bool indexed isLowBondProposal,
         address designatedProver,
         uint48 prevAnchorBlockNumber,
         uint48 anchorBlockNumber,
@@ -153,18 +144,10 @@ contract Anchor is EssentialContract {
 
     /// @notice Initializes the Anchor contract.
     /// @param _checkpointStore The address of the checkpoint store.
-    /// @param _bondManager The address of the bond manager.
-    /// @param _livenessBond The liveness bond amount in Wei.
     /// @param _l1ChainId The L1 chain ID.
-    constructor(
-        ICheckpointStore _checkpointStore,
-        IBondManager _bondManager,
-        uint256 _livenessBond,
-        uint64 _l1ChainId
-    ) {
+    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
-        require(address(_bondManager) != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -172,8 +155,6 @@ contract Anchor is EssentialContract {
 
         // Assign immutables
         checkpointStore = _checkpointStore;
-        bondManager = _bondManager;
-        livenessBond = _livenessBond;
         l1ChainId = _l1ChainId;
     }
 
@@ -222,7 +203,6 @@ contract Anchor is EssentialContract {
         emit Anchored(
             _proposalState.proposalId,
             isNewProposal,
-            _proposalState.isLowBondProposal,
             _proposalState.designatedProver,
             prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
@@ -256,43 +236,25 @@ contract Anchor is EssentialContract {
     /// @param _proposalId The proposal ID.
     /// @param _proposer The proposer address.
     /// @param _proverAuth Encoded prover authentication data.
-    /// @param _currentDesignatedProver The current designated prover from state.
-    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    /// @return provingFeeToTransfer_ The proving fee (Wei) to transfer from the proposer to the
-    /// designated prover.
+    /// @return provingFee_ The proving fee (Wei) agreed in prover auth (0 if proposer self-proves).
     function getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
-        bytes calldata _proverAuth,
-        address _currentDesignatedProver
+        bytes calldata _proverAuth
     )
         public
         view
-        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
+        returns (address designatedProver_, uint256 provingFee_)
     {
         (address candidate, uint256 provingFee) =
             validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        bool proposerHasBond = bondManager.hasSufficientBond(_proposer, provingFee);
-
-        if (!proposerHasBond) {
-            // Low-bond proposals inherit the last designated prover; if unset (i.e., first ever
-            // proposal), fall back to the proposer to avoid returning address(0).
-            address designatedProver =
-                _currentDesignatedProver == address(0) ? _proposer : _currentDesignatedProver;
-            return (true, designatedProver, 0);
-        }
-
         if (candidate == _proposer) {
-            return (false, _proposer, 0);
+            return (_proposer, 0);
         }
 
-        if (!bondManager.hasSufficientBond(candidate, 0)) {
-            return (false, _proposer, 0);
-        }
-
-        return (false, candidate, provingFee);
+        return (candidate, provingFee);
     }
 
     /// @notice Returns the current proposal-level state snapshot.
@@ -376,19 +338,9 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes proposal-level data on the first block.
     /// @param _proposalParams Proposal-level parameters containing all proposal data.
     function _validateProposal(ProposalParams calldata _proposalParams) private {
-        uint256 proverFee;
-        (_proposalState.isLowBondProposal, _proposalState.designatedProver, proverFee) =
-            getDesignatedProver(
-                _proposalParams.proposalId,
-                _proposalParams.proposer,
-                _proposalParams.proverAuth,
-                _proposalState.designatedProver
-            );
-
-        if (proverFee > 0) {
-            bondManager.debitBond(_proposalParams.proposer, proverFee);
-            bondManager.creditBond(_proposalState.designatedProver, proverFee);
-        }
+        (_proposalState.designatedProver,) = getDesignatedProver(
+            _proposalParams.proposalId, _proposalParams.proposer, _proposalParams.proverAuth
+        );
 
         _proposalState.proposalId = _proposalParams.proposalId;
     }

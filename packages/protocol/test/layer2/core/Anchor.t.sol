@@ -4,19 +4,13 @@ pragma solidity ^0.8.24;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
-import { BondManager } from "src/layer2/core/BondManager.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { TestERC20 } from "test/mocks/TestERC20.sol";
 
 contract AnchorTest is Test {
-    uint256 private constant LIVENESS_BOND = 5 ether;
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
-    address private constant L1_INBOX = address(0xBEEF);
     address private constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 private constant INITIAL_PROPOSER_BOND = 100 ether;
-    uint256 private constant INITIAL_PROVER_BOND = 50 ether;
 
     bytes32 private constant PROVER_AUTH_DOMAIN_TYPEHASH = keccak256(
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -27,17 +21,13 @@ contract AnchorTest is Test {
     bytes32 private constant PROVER_AUTH_DOMAIN_VERSION_HASH = keccak256("1");
 
     Anchor internal anchor;
-    BondManager internal bondManager;
     SignalService internal signalService;
-    TestERC20 internal token;
 
     address internal proposer;
     address internal proverCandidate;
     uint256 internal proverKey;
 
     function setUp() external {
-        token = new TestERC20("Mock", "MOCK");
-
         SignalService signalServiceImpl = new SignalService(address(this), address(0x1234));
         signalService = SignalService(
             address(
@@ -47,35 +37,12 @@ contract AnchorTest is Test {
             )
         );
 
-        BondManager bondManagerImpl = new BondManager(
-            address(token), 0, 0, address(this), signalService, L1_INBOX, L1_CHAIN_ID, LIVENESS_BOND
-        );
-        bondManager = BondManager(
-            address(
-                new ERC1967Proxy(
-                    address(bondManagerImpl), abi.encodeCall(BondManager.init, (address(this)))
-                )
-            )
-        );
-
-        Anchor anchorImpl = new Anchor(signalService, bondManager, LIVENESS_BOND, L1_CHAIN_ID);
+        Anchor anchorImpl = new Anchor(signalService, L1_CHAIN_ID);
         anchor = Anchor(
             address(
                 new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
             )
         );
-
-        BondManager anchorBondManagerImpl = new BondManager(
-            address(token),
-            0,
-            0,
-            address(anchor),
-            signalService,
-            L1_INBOX,
-            L1_CHAIN_ID,
-            LIVENESS_BOND
-        );
-        bondManager.upgradeTo(address(anchorBondManagerImpl));
 
         SignalService anchorSignalServiceImpl = new SignalService(address(anchor), address(0x1234));
         signalService.upgradeTo(address(anchorSignalServiceImpl));
@@ -83,18 +50,6 @@ contract AnchorTest is Test {
         proposer = address(0xA11CE);
         proverKey = 0xBEEF;
         proverCandidate = vm.addr(proverKey);
-
-        token.mint(proposer, INITIAL_PROPOSER_BOND);
-        vm.startPrank(proposer);
-        token.approve(address(bondManager), type(uint256).max);
-        bondManager.deposit(INITIAL_PROPOSER_BOND);
-        vm.stopPrank();
-
-        token.mint(proverCandidate, INITIAL_PROVER_BOND);
-        vm.startPrank(proverCandidate);
-        token.approve(address(bondManager), type(uint256).max);
-        bondManager.deposit(INITIAL_PROVER_BOND);
-        vm.stopPrank();
     }
 
     function test_anchorV4_processesFirstBlock() external {
@@ -109,13 +64,9 @@ contract AnchorTest is Test {
         Anchor.BlockState memory blockState = anchor.getBlockState();
 
         assertEq(proposalState.designatedProver, proverCandidate);
-        assertFalse(proposalState.isLowBondProposal);
         assertEq(proposalState.proposalId, proposalParams.proposalId);
         assertEq(blockState.anchorBlockNumber, blockParams.blockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
-
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 1 ether);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 1 ether);
 
         ICheckpointStore.Checkpoint memory saved =
             signalService.getCheckpoint(blockParams.blockNumber);
@@ -132,17 +83,12 @@ contract AnchorTest is Test {
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
-        uint256 proposerBalanceAfterFirst = bondManager.getBondBalance(proposer);
-        uint256 proverBalanceAfterFirst = bondManager.getBondBalance(proverCandidate);
-
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
         anchor.anchorV4(proposalParams, blockParams);
 
         Anchor.ProposalState memory proposalState = anchor.getProposalState();
         assertEq(proposalState.proposalId, proposalParams.proposalId);
-        assertEq(bondManager.getBondBalance(proposer), proposerBalanceAfterFirst);
-        assertEq(bondManager.getBondBalance(proverCandidate), proverBalanceAfterFirst);
     }
 
     function test_anchorV4_rejectsBackwardProposalId() external {
@@ -181,8 +127,6 @@ contract AnchorTest is Test {
         assertEq(proposalState.proposalId, 2);
         assertEq(proposalState.designatedProver, proverCandidate);
         assertEq(blockState.anchorBlockNumber, blockParams2.blockNumber);
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND - 3 ether);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND + 3 ether);
     }
 
     function test_anchorV4_fallsBackToProposerWhenAuthInvalid() external {
@@ -203,40 +147,6 @@ contract AnchorTest is Test {
 
         Anchor.ProposalState memory proposalState = anchor.getProposalState();
         assertEq(proposalState.designatedProver, proposer);
-        assertEq(bondManager.getBondBalance(proposer), INITIAL_PROPOSER_BOND);
-        assertEq(bondManager.getBondBalance(proverCandidate), INITIAL_PROVER_BOND);
-    }
-
-    function test_getDesignatedProver_ReturnsLowBondWhenInsufficient() external {
-        bytes memory auth = _buildProverAuth(1, 5 ether);
-
-        vm.prank(address(anchor));
-        bondManager.debitBond(proposer, type(uint256).max);
-        vm.prank(address(anchor));
-        bondManager.creditBond(proposer, 1 ether);
-
-        (bool isLowBond, address designated, uint256 provingFee) =
-            anchor.getDesignatedProver(1, proposer, auth, proverCandidate);
-
-        assertTrue(isLowBond);
-        assertEq(designated, proverCandidate);
-        assertEq(provingFee, 0);
-    }
-
-    function test_getDesignatedProver_FallsBackToProposerWhenLowBondAndCurrentUnset() external {
-        bytes memory auth = _buildProverAuth(1, 5 ether);
-
-        vm.prank(address(anchor));
-        bondManager.debitBond(proposer, type(uint256).max);
-        vm.prank(address(anchor));
-        bondManager.creditBond(proposer, 1 ether);
-
-        (bool isLowBond, address designated, uint256 provingFee) =
-            anchor.getDesignatedProver(1, proposer, auth, address(0));
-
-        assertTrue(isLowBond);
-        assertEq(designated, proposer);
-        assertEq(provingFee, 0);
     }
 
     function test_validateProverAuth_ReturnsProposerWhenSignatureInvalid() external view {
