@@ -39,7 +39,7 @@ type ProofSubmitterShasta struct {
 	proverAddress common.Address
 	// Batch proof related
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
-	proofCacheMaps map[proofProducer.ProofType]map[*big.Int]*proofProducer.ProofResponse
+	proofCacheMaps map[proofProducer.ProofType]map[uint64]*proofProducer.ProofResponse
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
@@ -58,7 +58,7 @@ func NewProofSubmitterShasta(
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
-	proofCacheMaps map[proofProducer.ProofType]map[*big.Int]*proofProducer.ProofResponse,
+	proofCacheMaps map[proofProducer.ProofType]map[uint64]*proofProducer.ProofResponse,
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
@@ -166,9 +166,9 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
-		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
-		toID := meta.GetProposalID()
-		if fromID.Cmp(toID) > 0 {
+		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1).Uint64()
+		toID := meta.GetProposalID().Uint64()
+		if fromID > toID {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
 				"proposalID", toID,
@@ -229,8 +229,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
 		}
 
-		if toID.Cmp(fromID) == 0 ||
-			toID.Cmp(new(big.Int).SetUint64(proofBuffer.LastInsertID()+1)) == 0 {
+		if toID == fromID ||
+			toID == proofBuffer.LastInsertID()+1 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(

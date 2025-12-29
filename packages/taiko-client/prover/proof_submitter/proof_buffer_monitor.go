@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -61,7 +60,7 @@ func monitorProofBuffer(
 func startCacheCleanUp(
 	ctx context.Context,
 	rpc *rpc.Client,
-	proofCacheMaps map[proofProducer.ProofType]map[*big.Int]*proofProducer.ProofResponse,
+	proofCacheMaps map[proofProducer.ProofType]map[uint64]*proofProducer.ProofResponse,
 ) {
 	log.Info("Starting proof cache cleanup monitors", "monitorInterval", monitorInterval)
 	for _, cacheMap := range proofCacheMaps {
@@ -74,7 +73,7 @@ func startCacheCleanUp(
 func cleanUpStaleCache(
 	ctx context.Context,
 	rpc *rpc.Client,
-	cacheMap map[*big.Int]*proofProducer.ProofResponse,
+	cacheMap map[uint64]*proofProducer.ProofResponse,
 	cleanUpInterval time.Duration,
 ) {
 	ticker := time.NewTicker(cleanUpInterval)
@@ -99,17 +98,14 @@ func cleanUpStaleCache(
 
 // removeFinalizedProofsFromCache deletes cached proofs whose IDs are finalized already.
 func removeFinalizedProofsFromCache(
-	cacheMap map[*big.Int]*proofProducer.ProofResponse,
+	cacheMap map[uint64]*proofProducer.ProofResponse,
 	lastFinalizedProposalID *big.Int,
 ) {
 	if cacheMap == nil || lastFinalizedProposalID == nil {
 		return
 	}
 	for proposalID := range cacheMap {
-		if proposalID == nil {
-			continue
-		}
-		if proposalID.Cmp(lastFinalizedProposalID) < 0 {
+		if proposalID < lastFinalizedProposalID.Uint64() {
 			delete(cacheMap, proposalID)
 		}
 	}
@@ -117,40 +113,37 @@ func removeFinalizedProofsFromCache(
 
 // proofRangeCached reports whether every ID in [fromID, toID] exists in the proof cache.
 func proofRangeCached(
-	fromID, toID *big.Int,
-	cacheMap map[*big.Int]*proofProducer.ProofResponse,
+	fromID, toID uint64,
+	cacheMap map[uint64]*proofProducer.ProofResponse,
 ) bool {
-	if cacheMap == nil || fromID == nil || toID == nil {
+	if cacheMap == nil || fromID > toID {
 		return false
 	}
-	if fromID.Cmp(toID) > 0 {
-		return false
-	}
-	currentID := new(big.Int).Set(fromID)
-	for currentID.Cmp(toID) <= 0 {
+	currentID := fromID
+	for currentID <= toID {
 		if _, ok := cacheMap[currentID]; !ok {
 			return false
 		}
-		currentID.Add(currentID, common.Big1)
+		currentID++
 	}
 	return true
 }
 
 // flushProofCacheRange drains cached proofs from fromID through toID into the proof buffer.
 func flushProofCacheRange(
-	fromID, toID *big.Int,
+	fromID, toID uint64,
 	proofBuffer *proofProducer.ProofBuffer,
-	cacheMap map[*big.Int]*proofProducer.ProofResponse,
+	cacheMap map[uint64]*proofProducer.ProofResponse,
 	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
 ) error {
 	if proofBuffer == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
-	currentID := new(big.Int).Set(fromID)
-	for currentID.Cmp(toID) <= 0 {
+	currentID := fromID
+	for currentID <= toID {
 		cachedProof, ok := cacheMap[currentID]
 		if !ok {
-			return fmt.Errorf("cached proof not found for proposal %s", currentID.String())
+			return fmt.Errorf("cached proof not found for proposal %d", currentID)
 		}
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
 			if errors.Is(err, proofProducer.ErrBufferOverflow) {
@@ -161,7 +154,7 @@ func flushProofCacheRange(
 			return err
 		}
 		delete(cacheMap, currentID)
-		currentID.Add(currentID, common.Big1)
+		currentID++
 	}
 	return nil
 }
