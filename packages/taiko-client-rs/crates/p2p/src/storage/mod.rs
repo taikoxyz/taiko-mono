@@ -90,6 +90,34 @@ pub trait SdkStorage: Send + Sync {
     /// Get the number of pending commitments (for metrics/debugging).
     fn pending_count(&self) -> usize;
 
+    /// Clear all pending commitments awaiting parent linkage.
+    ///
+    /// Returns the number of commitments removed from the pending buffer.
+    fn clear_pending(&self) -> usize;
+
+    // --- Pending buffer (txlist availability) ---
+
+    /// Add a commitment to the pending txlist buffer, awaiting its txlist by hash.
+    ///
+    /// Returns `true` if this is the first pending entry for the txlist hash.
+    fn add_pending_txlist(&self, txlist_hash: B256, commitment: SignedCommitment) -> bool;
+
+    /// Release all commitments waiting on the given txlist hash.
+    ///
+    /// Returns the released commitments and removes them from the pending buffer.
+    fn release_pending_txlist(&self, txlist_hash: &B256) -> Vec<SignedCommitment>;
+
+    /// Check whether any commitments are pending for the given txlist hash.
+    fn has_pending_txlist(&self, txlist_hash: &B256) -> bool;
+
+    /// Get the number of commitments waiting on txlist data.
+    fn pending_txlist_count(&self) -> usize;
+
+    /// Clear all commitments waiting on txlist data.
+    ///
+    /// Returns the number of commitments removed from the txlist pending buffer.
+    fn clear_pending_txlists(&self) -> usize;
+
     // --- Cleanup ---
 
     /// Remove expired entries from caches (called periodically).

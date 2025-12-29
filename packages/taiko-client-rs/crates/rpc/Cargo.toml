@@ -41,7 +41,11 @@ protocol = { path = "../protocol" }
 
 # types
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 thiserror = { workspace = true }
+
+# p2p types
+preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 
 # serialization
 serde = { workspace = true }

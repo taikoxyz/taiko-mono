@@ -35,6 +35,19 @@ impl P2pMetrics {
     /// Counter: validation outcomes by result (valid, pending, invalid).
     pub const VALIDATION_RESULTS_TOTAL: &'static str = "p2p_validation_results_total";
 
+    // --- Execution metrics ---
+
+    /// Counter: commitments successfully applied to the execution engine.
+    pub const EXECUTION_APPLIED_TOTAL: &'static str = "p2p_execution_applied_total";
+    /// Counter: commitments pending due to missing parents.
+    pub const EXECUTION_PENDING_PARENT_TOTAL: &'static str = "p2p_execution_pending_parent_total";
+    /// Counter: commitments pending due to missing txlists.
+    pub const EXECUTION_PENDING_TXLIST_TOTAL: &'static str = "p2p_execution_pending_txlist_total";
+    /// Counter: execution engine errors while applying commitments.
+    pub const EXECUTION_ERRORS_TOTAL: &'static str = "p2p_execution_errors_total";
+    /// Gauge: current number of commitments waiting on txlist data.
+    pub const PENDING_TXLIST_BUFFER_SIZE: &'static str = "p2p_pending_txlist_buffer_size";
+
     // --- Dedupe/cache metrics ---
 
     /// Counter: dedupe cache hits by type (message, commitment, txlist).
@@ -115,6 +128,33 @@ impl P2pMetrics {
             Self::VALIDATION_RESULTS_TOTAL,
             Unit::Count,
             "Validation outcomes by result type"
+        );
+
+        // Execution metrics
+        metrics::describe_counter!(
+            Self::EXECUTION_APPLIED_TOTAL,
+            Unit::Count,
+            "Commitments applied to the execution engine"
+        );
+        metrics::describe_counter!(
+            Self::EXECUTION_PENDING_PARENT_TOTAL,
+            Unit::Count,
+            "Commitments pending parent availability"
+        );
+        metrics::describe_counter!(
+            Self::EXECUTION_PENDING_TXLIST_TOTAL,
+            Unit::Count,
+            "Commitments pending txlist availability"
+        );
+        metrics::describe_counter!(
+            Self::EXECUTION_ERRORS_TOTAL,
+            Unit::Count,
+            "Execution engine errors while applying commitments"
+        );
+        metrics::describe_gauge!(
+            Self::PENDING_TXLIST_BUFFER_SIZE,
+            Unit::Count,
+            "Current commitments awaiting txlist data"
         );
 
         // Dedupe/cache metrics
@@ -215,6 +255,10 @@ impl P2pMetrics {
         metrics::counter!(Self::VALIDATION_RESULTS_TOTAL, "result" => "valid").absolute(0);
         metrics::counter!(Self::VALIDATION_RESULTS_TOTAL, "result" => "pending").absolute(0);
         metrics::counter!(Self::VALIDATION_RESULTS_TOTAL, "result" => "invalid").absolute(0);
+        metrics::counter!(Self::EXECUTION_APPLIED_TOTAL).absolute(0);
+        metrics::counter!(Self::EXECUTION_PENDING_PARENT_TOTAL).absolute(0);
+        metrics::counter!(Self::EXECUTION_PENDING_TXLIST_TOTAL).absolute(0);
+        metrics::counter!(Self::EXECUTION_ERRORS_TOTAL).absolute(0);
         metrics::counter!(Self::DEDUPE_HITS_TOTAL, "type" => "message").absolute(0);
         metrics::counter!(Self::DEDUPE_HITS_TOTAL, "type" => "commitment").absolute(0);
         metrics::counter!(Self::DEDUPE_HITS_TOTAL, "type" => "txlist").absolute(0);
@@ -222,6 +266,7 @@ impl P2pMetrics {
         metrics::counter!(Self::PEERS_DISCONNECTED_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_ERRORS_TOTAL).absolute(0);
         metrics::gauge!(Self::PENDING_BUFFER_SIZE).set(0.0);
+        metrics::gauge!(Self::PENDING_TXLIST_BUFFER_SIZE).set(0.0);
         metrics::gauge!(Self::PEERS_CONNECTED_CURRENT).set(0.0);
         metrics::gauge!(Self::HEAD_SYNC_STATUS).set(0.0);
     }
@@ -250,6 +295,26 @@ impl P2pMetrics {
             .increment(1);
     }
 
+    /// Record a commitment applied to the execution engine.
+    pub fn record_execution_applied() {
+        metrics::counter!(Self::EXECUTION_APPLIED_TOTAL).increment(1);
+    }
+
+    /// Record a commitment pending due to missing parent.
+    pub fn record_execution_pending_parent() {
+        metrics::counter!(Self::EXECUTION_PENDING_PARENT_TOTAL).increment(1);
+    }
+
+    /// Record a commitment pending due to missing txlist.
+    pub fn record_execution_pending_txlist() {
+        metrics::counter!(Self::EXECUTION_PENDING_TXLIST_TOTAL).increment(1);
+    }
+
+    /// Record an execution engine error.
+    pub fn record_execution_error() {
+        metrics::counter!(Self::EXECUTION_ERRORS_TOTAL).increment(1);
+    }
+
     /// Record a dedupe cache hit.
     pub fn record_dedupe_hit(cache_type: &str) {
         metrics::counter!(Self::DEDUPE_HITS_TOTAL, "type" => cache_type.to_string()).increment(1);
@@ -258,6 +323,11 @@ impl P2pMetrics {
     /// Update the pending buffer size gauge.
     pub fn set_pending_buffer_size(size: usize) {
         metrics::gauge!(Self::PENDING_BUFFER_SIZE).set(size as f64);
+    }
+
+    /// Update the pending txlist buffer size gauge.
+    pub fn set_pending_txlist_buffer_size(size: usize) {
+        metrics::gauge!(Self::PENDING_TXLIST_BUFFER_SIZE).set(size as f64);
     }
 
     /// Record commitments released from pending buffer.
@@ -371,10 +441,15 @@ mod tests {
         P2pMetrics::record_validation_result("valid");
         P2pMetrics::record_validation_result("pending");
         P2pMetrics::record_validation_result("invalid");
+        P2pMetrics::record_execution_applied();
+        P2pMetrics::record_execution_pending_parent();
+        P2pMetrics::record_execution_pending_txlist();
+        P2pMetrics::record_execution_error();
         P2pMetrics::record_dedupe_hit("message");
         P2pMetrics::record_dedupe_hit("commitment");
         P2pMetrics::record_dedupe_hit("txlist");
         P2pMetrics::set_pending_buffer_size(10);
+        P2pMetrics::set_pending_txlist_buffer_size(5);
         P2pMetrics::record_pending_released(5);
         P2pMetrics::record_pending_buffered();
         P2pMetrics::record_reqresp_received("commitments");
@@ -398,6 +473,11 @@ mod tests {
         assert!(P2pMetrics::GOSSIP_RECEIVED_TOTAL.starts_with("p2p_"));
         assert!(P2pMetrics::GOSSIP_PUBLISHED_TOTAL.starts_with("p2p_"));
         assert!(P2pMetrics::VALIDATION_RESULTS_TOTAL.starts_with("p2p_"));
+        assert!(P2pMetrics::EXECUTION_APPLIED_TOTAL.starts_with("p2p_"));
+        assert!(P2pMetrics::EXECUTION_PENDING_PARENT_TOTAL.starts_with("p2p_"));
+        assert!(P2pMetrics::EXECUTION_PENDING_TXLIST_TOTAL.starts_with("p2p_"));
+        assert!(P2pMetrics::EXECUTION_ERRORS_TOTAL.starts_with("p2p_"));
+        assert!(P2pMetrics::PENDING_TXLIST_BUFFER_SIZE.starts_with("p2p_"));
         assert!(P2pMetrics::DEDUPE_HITS_TOTAL.starts_with("p2p_"));
         assert!(P2pMetrics::PENDING_BUFFER_SIZE.starts_with("p2p_"));
         assert!(P2pMetrics::REQRESP_RECEIVED_TOTAL.starts_with("p2p_"));
@@ -414,10 +494,15 @@ mod tests {
             P2pMetrics::GOSSIP_PUBLISHED_TOTAL,
             P2pMetrics::GOSSIP_STORED_TOTAL,
             P2pMetrics::VALIDATION_RESULTS_TOTAL,
+            P2pMetrics::EXECUTION_APPLIED_TOTAL,
+            P2pMetrics::EXECUTION_PENDING_PARENT_TOTAL,
+            P2pMetrics::EXECUTION_PENDING_TXLIST_TOTAL,
+            P2pMetrics::EXECUTION_ERRORS_TOTAL,
             P2pMetrics::DEDUPE_HITS_TOTAL,
             P2pMetrics::PENDING_BUFFER_SIZE,
             P2pMetrics::PENDING_RELEASED_TOTAL,
             P2pMetrics::PENDING_BUFFERED_TOTAL,
+            P2pMetrics::PENDING_TXLIST_BUFFER_SIZE,
             P2pMetrics::REQRESP_RECEIVED_TOTAL,
             P2pMetrics::REQRESP_SENT_TOTAL,
             P2pMetrics::INBOUND_REQUESTS_TOTAL,

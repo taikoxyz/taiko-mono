@@ -24,6 +24,7 @@ use preconfirmation_net::NetworkEvent;
 use preconfirmation_types::{
     RawTxListGossip, SignedCommitment, topic_preconfirmation_commitments, topic_raw_txlists,
 };
+use rpc::PreconfEngine;
 use ssz_rs::Serialize;
 use tracing::{debug, trace, warn};
 
@@ -55,6 +56,14 @@ pub struct EventHandler {
     validator: CommitmentValidator,
     /// Maximum allowed txlist size in bytes.
     max_txlist_bytes: usize,
+}
+
+/// Execution dispatch results returned by handler methods that interact with the engine.
+pub struct ExecutionDispatch {
+    /// SDK events produced from the processed network message.
+    pub events: Vec<SdkEvent>,
+    /// Txlist hashes that should be requested from peers.
+    pub missing_txlist_hashes: Vec<B256>,
 }
 
 /// Event handling and validation pipeline.
@@ -298,6 +307,7 @@ impl EventHandler {
                     result.outcome.reason
                 );
                 P2pMetrics::record_validation_result("pending");
+                P2pMetrics::record_execution_pending_parent();
 
                 // Buffer the commitment, waiting for its parent
                 let parent_hash =
@@ -394,6 +404,106 @@ impl EventHandler {
     pub fn storage(&self) -> &Arc<dyn SdkStorage> {
         &self.storage
     }
+
+    /// Handle a signed commitment gossip message and apply it via the execution engine.
+    pub async fn handle_commitment_gossip_with_engine(
+        &self,
+        from: libp2p::PeerId,
+        msg: SignedCommitment,
+        engine: &dyn PreconfEngine,
+    ) -> ExecutionDispatch {
+        let events = self.handle_commitment_gossip(from, msg);
+        let mut missing_txlist_hashes = Vec::new();
+
+        for event in &events {
+            let SdkEvent::CommitmentGossip { commitment, .. } = event else {
+                continue;
+            };
+
+            let preconf = &commitment.commitment.preconf;
+            let txlist_hash = B256::from_slice(preconf.raw_tx_list_hash.as_ref());
+
+            if preconf.eop && txlist_hash.is_zero() {
+                self.apply_commitment_with_engine(commitment, engine, None).await;
+                continue;
+            }
+
+            if txlist_hash.is_zero() {
+                warn!(
+                    "Skipping execution for commitment with zero txlist hash (block {:?})",
+                    preconf.block_number
+                );
+                P2pMetrics::record_execution_error();
+                continue;
+            }
+
+            if let Some(txlist) = self.storage.get_txlist(&txlist_hash) {
+                self.apply_commitment_with_engine(commitment, engine, Some(txlist.txlist.as_ref()))
+                    .await;
+            } else {
+                let is_new =
+                    self.storage.add_pending_txlist(txlist_hash, commitment.as_ref().clone());
+                P2pMetrics::record_execution_pending_txlist();
+                P2pMetrics::set_pending_txlist_buffer_size(self.storage.pending_txlist_count());
+                if is_new {
+                    missing_txlist_hashes.push(txlist_hash);
+                }
+            }
+        }
+
+        ExecutionDispatch { events, missing_txlist_hashes }
+    }
+
+    /// Handle a raw txlist gossip message and apply any pending commitments via the engine.
+    pub async fn handle_txlist_gossip_with_engine(
+        &self,
+        from: libp2p::PeerId,
+        msg: RawTxListGossip,
+        engine: &dyn PreconfEngine,
+    ) -> ExecutionDispatch {
+        let event = self.handle_txlist_gossip(from, msg.clone());
+        let mut events = Vec::new();
+
+        if let Some(event) = event {
+            let txlist_hash = B256::from_slice(msg.raw_tx_list_hash.as_ref());
+            let pending = self.storage.release_pending_txlist(&txlist_hash);
+            if !pending.is_empty() {
+                P2pMetrics::set_pending_txlist_buffer_size(self.storage.pending_txlist_count());
+            }
+
+            for commitment in pending {
+                self.apply_commitment_with_engine(&commitment, engine, Some(msg.txlist.as_ref()))
+                    .await;
+                events.push(SdkEvent::CommitmentGossip { from, commitment: Box::new(commitment) });
+            }
+
+            events.push(event);
+        }
+
+        ExecutionDispatch { events, missing_txlist_hashes: Vec::new() }
+    }
+
+    /// Apply a commitment via the execution engine and record metrics.
+    async fn apply_commitment_with_engine(
+        &self,
+        commitment: &SignedCommitment,
+        engine: &dyn PreconfEngine,
+        txlist: Option<&[u8]>,
+    ) {
+        match engine.apply_commitment(commitment, txlist).await {
+            Ok(outcome) => {
+                P2pMetrics::record_execution_applied();
+                debug!(
+                    "Executed commitment for block {} with hash {:?}",
+                    outcome.block_number, outcome.block_hash
+                );
+            }
+            Err(err) => {
+                P2pMetrics::record_execution_error();
+                warn!("Execution engine rejected commitment: {err}");
+            }
+        }
+    }
 }
 
 /// Convert Uint256 to alloy U256.
@@ -456,6 +566,44 @@ mod tests {
             coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
             anchor_block_number: Uint256::from(block_num.saturating_sub(1)),
             raw_tx_list_hash: Bytes32::try_from(vec![1u8; 32]).unwrap(),
+            parent_preconfirmation_hash: Bytes32::try_from(parent_hash.to_vec()).unwrap(),
+            submission_window_end: Uint256::from(2000u64 + block_num),
+            prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+            proposal_id: Uint256::from(1u64),
+        };
+
+        let commitment = PreconfCommitment {
+            preconf,
+            slasher_address: Bytes20::try_from(vec![0xAA; 20]).unwrap(),
+        };
+
+        let sk = SecretKey::from_slice(&[42u8; 32]).unwrap();
+        let sig = sign_commitment(&commitment, &sk).unwrap();
+
+        SignedCommitment { commitment, signature: sig }
+    }
+
+    /// Build a signed commitment with a custom txlist hash and EOP flag.
+    fn make_signed_commitment_with_txlist(
+        block_num: u64,
+        parent_hash: [u8; 32],
+        raw_tx_list_hash: [u8; 32],
+        eop: bool,
+    ) -> SignedCommitment {
+        use preconfirmation_types::{
+            Bytes20, Bytes32, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
+            sign_commitment,
+        };
+        use secp256k1::SecretKey;
+
+        let preconf = Preconfirmation {
+            eop,
+            block_number: Uint256::from(block_num),
+            timestamp: Uint256::from(1000u64 + block_num),
+            gas_limit: Uint256::from(30_000_000u64),
+            coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+            anchor_block_number: Uint256::from(block_num.saturating_sub(1)),
+            raw_tx_list_hash: Bytes32::try_from(raw_tx_list_hash.to_vec()).unwrap(),
             parent_preconfirmation_hash: Bytes32::try_from(parent_hash.to_vec()).unwrap(),
             submission_window_end: Uint256::from(2000u64 + block_num),
             prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
@@ -789,5 +937,159 @@ mod tests {
         let result = ssz_encode_txlist(&txlist);
         assert!(result.is_ok(), "SSZ encoding should succeed for valid txlist");
         assert!(!result.unwrap().is_empty(), "Encoded buffer should not be empty");
+    }
+
+    /// Ensure a valid commitment triggers engine execution when txlist is present.
+    #[tokio::test]
+    async fn handler_executes_valid_commitment_when_txlist_present() {
+        use preconfirmation_types::{Bytes32, RawTxListGossip, TxListBytes, keccak256_bytes};
+        use rpc::MockPreconfEngine;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let validator = CommitmentValidator::without_parent_validation();
+        let handler = EventHandler::with_validator(storage.clone(), 167000, validator);
+        let engine = MockPreconfEngine::default();
+
+        let txlist_data = vec![0xCC; 100];
+        let txlist_hash = keccak256_bytes(&txlist_data);
+        let txlist = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(txlist_hash.as_slice().to_vec()).unwrap(),
+            txlist: TxListBytes::try_from(txlist_data.clone()).unwrap(),
+        };
+        storage.insert_txlist(B256::from_slice(txlist_hash.as_ref()), txlist);
+
+        let commitment = make_signed_commitment_with_txlist(1, [0u8; 32], txlist_hash.0, false);
+
+        let peer = libp2p::PeerId::random();
+        let dispatch =
+            handler.handle_commitment_gossip_with_engine(peer, commitment, &engine).await;
+
+        assert!(dispatch.missing_txlist_hashes.is_empty());
+        assert_eq!(engine.calls().len(), 1, "engine should be invoked once");
+        assert_eq!(
+            engine.calls()[0].txlist.as_deref(),
+            Some(txlist_data.as_slice()),
+            "engine should receive raw txlist bytes"
+        );
+    }
+
+    /// Ensure we request missing txlists and avoid execution until bytes arrive.
+    #[tokio::test]
+    async fn handler_requests_missing_txlist_before_execution() {
+        use preconfirmation_types::keccak256_bytes;
+        use rpc::MockPreconfEngine;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let validator = CommitmentValidator::without_parent_validation();
+        let handler = EventHandler::with_validator(storage.clone(), 167000, validator);
+        let engine = MockPreconfEngine::default();
+
+        let txlist_data = vec![0xDD; 64];
+        let txlist_hash = keccak256_bytes(&txlist_data);
+        let commitment = make_signed_commitment_with_txlist(3, [0u8; 32], txlist_hash.0, false);
+
+        let peer = libp2p::PeerId::random();
+        let dispatch =
+            handler.handle_commitment_gossip_with_engine(peer, commitment.clone(), &engine).await;
+
+        assert_eq!(dispatch.missing_txlist_hashes, vec![txlist_hash], "txlist should be requested");
+        assert_eq!(engine.calls().len(), 0, "engine must not run without txlist data");
+        assert_eq!(storage.pending_txlist_count(), 1, "commitment should be buffered for txlist");
+        assert!(
+            matches!(
+                dispatch.events.as_slice(),
+                [SdkEvent::CommitmentGossip { commitment: boxed, .. }] if boxed.commitment.preconf.block_number == commitment.commitment.preconf.block_number
+            ),
+            "commitment gossip should still be emitted"
+        );
+    }
+
+    /// Ensure txlist arrival executes any buffered commitments.
+    #[tokio::test]
+    async fn handler_executes_buffered_commitment_on_txlist_arrival() {
+        use preconfirmation_types::{Bytes32, RawTxListGossip, TxListBytes, keccak256_bytes};
+        use rpc::MockPreconfEngine;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let validator = CommitmentValidator::without_parent_validation();
+        let handler = EventHandler::with_validator(storage.clone(), 167000, validator);
+        let engine = MockPreconfEngine::default();
+
+        let txlist_data = vec![0xEE; 80];
+        let txlist_hash = keccak256_bytes(&txlist_data);
+        let commitment = make_signed_commitment_with_txlist(4, [0u8; 32], txlist_hash.0, false);
+
+        let peer = libp2p::PeerId::random();
+        let dispatch =
+            handler.handle_commitment_gossip_with_engine(peer, commitment.clone(), &engine).await;
+
+        assert_eq!(dispatch.missing_txlist_hashes, vec![txlist_hash]);
+        assert_eq!(engine.calls().len(), 0);
+        assert_eq!(storage.pending_txlist_count(), 1);
+
+        let txlist = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(txlist_hash.as_slice().to_vec()).unwrap(),
+            txlist: TxListBytes::try_from(txlist_data.clone()).unwrap(),
+        };
+
+        let txlist_dispatch = handler.handle_txlist_gossip_with_engine(peer, txlist, &engine).await;
+
+        assert!(txlist_dispatch.missing_txlist_hashes.is_empty());
+        assert_eq!(engine.calls().len(), 1, "engine should execute buffered commitment");
+        assert_eq!(
+            engine.calls()[0].txlist.as_deref(),
+            Some(txlist_data.as_slice()),
+            "engine should receive the stored txlist bytes"
+        );
+        assert_eq!(storage.pending_txlist_count(), 0, "pending txlist buffer should drain");
+        assert!(
+            txlist_dispatch
+                .events
+                .iter()
+                .any(|event| matches!(event, SdkEvent::CommitmentGossip { .. })),
+            "released commitment should emit gossip event"
+        );
+    }
+
+    /// Ensure commitments with missing parents are buffered and not executed.
+    #[tokio::test]
+    async fn handler_buffers_commitment_when_parent_missing() {
+        use rpc::MockPreconfEngine;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let handler = EventHandler::new(storage.clone(), 167000);
+        let engine = MockPreconfEngine::default();
+
+        let commitment = make_signed_commitment_with_txlist(2, [0x11; 32], [0x22; 32], false);
+
+        let peer = libp2p::PeerId::random();
+        let dispatch =
+            handler.handle_commitment_gossip_with_engine(peer, commitment, &engine).await;
+
+        assert!(dispatch.events.is_empty(), "pending parent should emit no events");
+        assert!(dispatch.missing_txlist_hashes.is_empty(), "no txlist request for pending parent");
+        assert_eq!(storage.pending_count(), 1, "commitment should be buffered for parent");
+        assert_eq!(engine.calls().len(), 0, "engine should not be invoked");
+    }
+
+    /// Ensure EOP commitments without txlists are executed with no txlist payload.
+    #[tokio::test]
+    async fn handler_executes_eop_without_txlist() {
+        use rpc::MockPreconfEngine;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let validator = CommitmentValidator::without_parent_validation();
+        let handler = EventHandler::with_validator(storage, 167000, validator);
+        let engine = MockPreconfEngine::default();
+
+        let commitment = make_signed_commitment_with_txlist(0, [0u8; 32], [0u8; 32], true);
+
+        let peer = libp2p::PeerId::random();
+        let dispatch =
+            handler.handle_commitment_gossip_with_engine(peer, commitment, &engine).await;
+
+        assert!(dispatch.missing_txlist_hashes.is_empty());
+        assert_eq!(engine.calls().len(), 1, "engine should be invoked once");
+        assert!(engine.calls()[0].txlist.is_none(), "EOP should not pass a txlist");
     }
 }

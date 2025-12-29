@@ -19,30 +19,21 @@ Pending/no-penalty limitation: the SDK can buffer pending commitments locally,
 but gossipsub scoring is enforced by `preconfirmation-net`. Peers may still be
 penalized by the network layer for messages that the SDK treats as pending.
 
-## Installation
-
-This crate is workspace-only (`publish = false`). In this repo, add a path
-dependency:
-
-```toml
-[dependencies]
-p2p = { path = "crates/p2p" }
-```
-
-It depends on `preconfirmation-net` and `preconfirmation-types` from
-`../preconfirmation-p2p`.
-
 ## Quick Start
 
 ```rust
+use std::sync::Arc;
+
 use alloy_primitives::Address;
 use p2p::{P2pClient, P2pClientConfig, SdkEvent};
+use rpc::MockPreconfEngine;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1) Configure the SDK.
     let mut config = P2pClientConfig::with_chain_id(167_000);
     config.expected_slasher = Some(Address::ZERO);
+    config.engine = Some(Arc::new(MockPreconfEngine::default()));
 
     // 2) Create the client and event receiver.
     let (client, mut events) = P2pClient::new(config)?;
@@ -96,6 +87,7 @@ Key fields:
 - `network: P2pConfig` (from `preconfirmation-net`)
 - `chain_id`: must match `network.chain_id`
 - `expected_slasher`: required when no custom network validator is provided
+- `engine`: required for execution and applying commitments
 - `max_txlist_bytes`, `dedupe_cache_cap`, `max_commitments_per_page`
 - `catchup_initial_backoff`, `catchup_max_backoff`, `catchup_max_retries`
 - `enable_metrics`
@@ -107,6 +99,7 @@ use std::time::Duration;
 
 let mut config = p2p::P2pClientConfig::with_chain_id(167_000);
 config.expected_slasher = Some(alloy_primitives::Address::ZERO);
+config.engine = Some(std::sync::Arc::new(rpc::MockPreconfEngine::default()));
 
 // Network settings (preconfirmation-net)
 config.network.listen_addr = "0.0.0.0:9000".parse().unwrap();
@@ -130,6 +123,7 @@ use p2p::{
 
 let mut config = P2pClientConfig::with_chain_id(167_000);
 config.expected_slasher = Some(Address::ZERO);
+config.engine = Some(Arc::new(rpc::MockPreconfEngine::default()));
 let storage: Arc<dyn SdkStorage> = Arc::new(p2p::storage::InMemoryStorage::default());
 let validator = CommitmentValidator::new();
 

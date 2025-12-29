@@ -6,11 +6,16 @@
 //! The tests use synthetic `NetworkEvent` inputs rather than real network connections,
 //! allowing deterministic testing of SDK logic.
 
-use std::sync::Arc;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{Address, B256, U256};
 use p2p::{
-    CatchupAction, CatchupConfig, CatchupPipeline, CatchupState, EventHandler, SdkEvent,
+    CatchupAction, CatchupConfig, CatchupPipeline, CatchupState, EventHandler, P2pClient,
+    P2pClientConfig, SdkEvent,
     storage::{InMemoryStorage, SdkStorage, compute_message_id},
 };
 use preconfirmation_net::NetworkEvent;
@@ -18,6 +23,7 @@ use preconfirmation_types::{
     Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, RawTxListGossip,
     SignedCommitment, TxListBytes, Uint256,
 };
+use rpc::MockPreconfEngine;
 
 /// Test chain ID for Taiko.
 const TEST_CHAIN_ID: u64 = 167000;
@@ -226,6 +232,44 @@ async fn smoke_catchup_backoff_on_failure() {
     catchup.on_request_failed(); // retry 3 - exceeds max
 
     assert!(matches!(catchup.state(), CatchupState::Idle));
+}
+
+/// Ensure reorg notifications are forwarded to the execution engine.
+#[tokio::test]
+async fn smoke_reorg_notifies_engine() {
+    let engine = Arc::new(MockPreconfEngine::default());
+    let mut config = P2pClientConfig::with_chain_id(TEST_CHAIN_ID);
+    config.expected_slasher = Some(Address::from([0x11; 20]));
+    config.engine = Some(engine.clone());
+    config.enable_metrics = false;
+    config.network.listen_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+    config.network.discovery_listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+    config.network.enable_discovery = false;
+    config.network.enable_quic = false;
+
+    let (client, mut events) = P2pClient::new(config).expect("client should start");
+    let handle = client.handle();
+    let client_task = tokio::spawn(async move { client.run().await });
+
+    handle.notify_reorg(42, "test reorg".to_string()).await.expect("reorg notify should send");
+
+    let mut saw_reorg = false;
+    let recv_result = tokio::time::timeout(Duration::from_millis(500), async {
+        while let Ok(event) = events.recv().await {
+            if let SdkEvent::Reorg { anchor_block_number, .. } = event {
+                saw_reorg = anchor_block_number == 42;
+                break;
+            }
+        }
+    })
+    .await;
+
+    assert!(recv_result.is_ok(), "expected to receive a reorg event");
+    assert!(saw_reorg, "expected reorg event for anchor block 42");
+    assert_eq!(engine.reorgs(), vec![42], "engine should record reorg");
+
+    handle.shutdown().await.expect("shutdown should send");
+    client_task.abort();
 }
 
 #[tokio::test]

@@ -3,7 +3,7 @@ use alloy::{
     sol_types::{SolValue, sol},
 };
 use alloy_consensus::TxEnvelope;
-use alloy_rlp::{BytesMut, encode_list};
+use alloy_rlp::{BytesMut, Decodable, Header, encode_list};
 use alloy_rpc_types::eth::Withdrawal;
 use sha2::{Digest, Sha256};
 
@@ -16,7 +16,7 @@ sol! {
 
 /// Calculate the Shasta difficulty for a new block based on the parent difficulty (randao digest)
 /// and block number.
-pub(super) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
+pub(crate) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
     let params = ShastaDifficultyInput {
         parentDifficulty: parent_difficulty,
         blockNumber: U256::from(block_number),
@@ -25,10 +25,23 @@ pub(super) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number:
 }
 
 /// Encode a list of transactions into the format expected by the execution engine.
-pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
+pub(crate) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     let mut buf = BytesMut::new();
     encode_list(transactions, &mut buf);
     Bytes::from(buf.freeze())
+}
+
+/// Decode an RLP-encoded transaction list into individual transaction envelopes.
+pub(crate) fn decode_transactions(tx_list: &[u8]) -> alloy_rlp::Result<Vec<TxEnvelope>> {
+    let mut buf = tx_list;
+    let payload = Header::decode_bytes(&mut buf, true)?;
+    let mut list = payload;
+    let mut out = Vec::new();
+    while !list.is_empty() {
+        let tx = TxEnvelope::decode(&mut list)?;
+        out.push(tx);
+    }
+    Ok(out)
 }
 
 /// Engine API `engine_getPayloadV2` discriminator.
@@ -37,7 +50,7 @@ pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
 const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 /// Compute the payload identifier used when interacting with the execution engine.
-pub(super) fn compute_build_payload_args_id(
+pub(crate) fn compute_build_payload_args_id(
     parent_hash: B256,
     timestamp: u64,
     random: B256,
@@ -67,7 +80,7 @@ pub(super) fn compute_build_payload_args_id(
 }
 
 /// Encode the extra data field for a Shasta block header.
-pub(super) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
+pub(crate) fn encode_extra_data(basefee_sharing_pctg: u8, is_low_bond_proposal: bool) -> Bytes {
     let data = vec![basefee_sharing_pctg, u8::from(is_low_bond_proposal)];
     Bytes::from(data)
 }

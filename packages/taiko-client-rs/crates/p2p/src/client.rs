@@ -4,7 +4,7 @@
 //! networking layer. It manages the lifecycle of a P2P node, processes network events,
 //! applies SDK-level validation and deduplication, and emits [`SdkEvent`]s to subscribers.
 
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::{
@@ -14,6 +14,7 @@ use preconfirmation_net::{
 use preconfirmation_types::{
     Bytes20, Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, Uint256,
 };
+use rpc::PreconfEngine;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
 
@@ -42,9 +43,13 @@ use crate::{
 /// # Example
 ///
 /// ```ignore
-/// use p2p::{P2pClient, P2pClientConfig, SdkEvent};
+/// use std::sync::Arc;
 ///
-/// let config = P2pClientConfig::default();
+/// use p2p::{P2pClient, P2pClientConfig, SdkEvent};
+/// use rpc::MockPreconfEngine;
+///
+/// let mut config = P2pClientConfig::default();
+/// config.engine = Some(Arc::new(MockPreconfEngine::default()));
 /// let (client, mut events) = P2pClient::new(config)?;
 ///
 /// // Spawn the client
@@ -83,6 +88,8 @@ pub struct P2pClient {
     command_tx: mpsc::Sender<SdkCommand>,
     /// Configuration.
     config: P2pClientConfig,
+    /// Execution engine for applying preconfirmations (validated at construction).
+    engine: Option<Arc<dyn PreconfEngine>>,
     /// Current local head block number.
     local_head: U256,
     /// Catch-up pipeline for syncing with network head.
@@ -303,6 +310,7 @@ impl P2pClient {
         };
         let catchup = CatchupPipeline::new(catchup_config);
 
+        let engine = config.engine.clone();
         let client = Self {
             handle,
             node: Some(node),
@@ -313,6 +321,7 @@ impl P2pClient {
             command_rx: Some(command_rx),
             command_tx,
             config,
+            engine,
             local_head: U256::ZERO,
             catchup,
         };
@@ -357,6 +366,8 @@ impl P2pClient {
         });
 
         info!("P2pClient started");
+
+        debug!(engine_present = self.engine.is_some(), "preconfirmation execution configured");
 
         // Emit initial sync status
         let _ = self.event_tx.send(SdkEvent::HeadSyncStatus { synced: false });
@@ -412,8 +423,59 @@ impl P2pClient {
 
     /// Handle a network event from the underlying P2P layer.
     async fn handle_network_event(&mut self, event: NetworkEvent) {
+        if let Some(engine) = self.engine.as_deref() {
+            match event {
+                NetworkEvent::GossipSignedCommitment { from, msg } => {
+                    let dispatch = self
+                        .event_handler
+                        .handle_commitment_gossip_with_engine(from, *msg, engine)
+                        .await;
+                    for sdk_event in dispatch.events {
+                        let _ = self.event_tx.send(sdk_event);
+                    }
+                    self.request_missing_txlists(dispatch.missing_txlist_hashes).await;
+                    return;
+                }
+                NetworkEvent::GossipRawTxList { from, msg } => {
+                    let dispatch = self
+                        .event_handler
+                        .handle_txlist_gossip_with_engine(from, *msg, engine)
+                        .await;
+                    for sdk_event in dispatch.events {
+                        let _ = self.event_tx.send(sdk_event);
+                    }
+                    return;
+                }
+                other => {
+                    for sdk_event in self.event_handler.handle_event(other) {
+                        let _ = self.event_tx.send(sdk_event);
+                    }
+                    return;
+                }
+            }
+        } else {
+            warn!("Execution engine missing; falling back to non-execution path");
+        }
+
         for sdk_event in self.event_handler.handle_event(event) {
             let _ = self.event_tx.send(sdk_event);
+        }
+    }
+
+    /// Request raw txlists for the given hashes from peers.
+    async fn request_missing_txlists(&mut self, hashes: Vec<B256>) {
+        for hash in hashes {
+            let hash_bytes = match Bytes32::try_from(hash.as_slice().to_vec()) {
+                Ok(bytes) => bytes,
+                Err(_) => {
+                    warn!("Skipping txlist request for invalid hash");
+                    continue;
+                }
+            };
+            P2pMetrics::record_reqresp_sent("raw_txlist");
+            if let Err(err) = self.handle.request_raw_txlist(hash_bytes, None).await {
+                warn!("Failed to request raw txlist {hash}: {err}");
+            }
         }
     }
 
@@ -518,6 +580,24 @@ impl P2pClient {
 
             SdkCommand::NotifyReorg { anchor_block_number, reason } => {
                 warn!("L1 reorg detected at anchor block {anchor_block_number}: {reason}");
+                if let Some(engine) = self.engine.as_deref() &&
+                    let Err(err) = engine.handle_reorg(anchor_block_number).await
+                {
+                    P2pMetrics::record_execution_error();
+                    warn!("Failed to notify execution engine about reorg: {err}");
+                }
+                // Clear pending buffers because anchor-related commitments may no longer be valid.
+                let cleared_pending = self.storage.clear_pending();
+                let cleared_txlists = self.storage.clear_pending_txlists();
+                if cleared_pending > 0 || cleared_txlists > 0 {
+                    info!(
+                        "Cleared {cleared_pending} pending commitments and {cleared_txlists} txlist pendings due to reorg"
+                    );
+                }
+                P2pMetrics::set_pending_buffer_size(self.storage.pending_count());
+                P2pMetrics::set_pending_txlist_buffer_size(self.storage.pending_txlist_count());
+                // Reset catch-up state so a fresh sync can be initiated after reorg.
+                self.catchup.reset();
                 // Emit reorg event for downstream consumers per spec §6.3
                 // This signals that commitments from the affected anchor block
                 // need to be re-executed
@@ -565,6 +645,8 @@ impl P2pClient {
                             let mut highest_block = start_block.saturating_sub(1);
                             let mut missing_hashes = Vec::new();
                             let mut saw_valid = false;
+                            let mut executable_commitments = Vec::new();
+                            let engine_available = self.engine.is_some();
 
                             for commitment in resp.commitments.iter() {
                                 let parent = parent_preconfirmation_from_storage(
@@ -583,6 +665,7 @@ impl P2pClient {
                                             &mut highest_block,
                                             &mut missing_hashes,
                                         );
+                                        executable_commitments.push(commitment.clone());
 
                                         if let Ok(commitment_hash) =
                                             preconfirmation_types::preconfirmation_hash(
@@ -612,6 +695,7 @@ impl P2pClient {
                                                             &mut highest_block,
                                                             &mut missing_hashes,
                                                         );
+                                                        executable_commitments.push(pending);
                                                     }
                                                     ValidationStatus::Pending => {
                                                         let parent_hash = B256::from_slice(
@@ -621,6 +705,9 @@ impl P2pClient {
                                                                 .parent_preconfirmation_hash
                                                                 .as_ref(),
                                                         );
+                                                        if engine_available {
+                                                            P2pMetrics::record_execution_pending_parent();
+                                                        }
                                                         self.storage
                                                             .add_pending(parent_hash, pending);
                                                         P2pMetrics::set_pending_buffer_size(
@@ -642,6 +729,9 @@ impl P2pClient {
                                     }
                                     ValidationStatus::Pending => {
                                         P2pMetrics::record_validation_result("pending");
+                                        if engine_available {
+                                            P2pMetrics::record_execution_pending_parent();
+                                        }
                                         let parent_hash = B256::from_slice(
                                             commitment
                                                 .commitment
@@ -669,6 +759,31 @@ impl P2pClient {
                                 warn!("Catch-up: all commitments in response were invalid");
                                 self.catchup.on_request_failed();
                                 break;
+                            }
+
+                            missing_hashes = collect_missing_txlists_for_commitments(
+                                self.storage.as_ref(),
+                                &executable_commitments,
+                            );
+
+                            if let Some(engine) = self.engine.as_deref() {
+                                match engine.is_synced().await {
+                                    Ok(true) => {
+                                        execute_catchup_commitments(
+                                            self.storage.as_ref(),
+                                            engine,
+                                            executable_commitments,
+                                        )
+                                        .await;
+                                    }
+                                    Ok(false) => {
+                                        debug!("Catch-up: execution engine not synced yet");
+                                    }
+                                    Err(err) => {
+                                        P2pMetrics::record_execution_error();
+                                        warn!("Catch-up: failed to check engine sync: {err}");
+                                    }
+                                }
                             }
 
                             self.catchup.on_commitments_received(highest_block, missing_hashes);
@@ -727,6 +842,29 @@ impl P2pClient {
                             self.storage.insert_txlist(stored_hash, txlist_gossip);
                             P2pMetrics::record_validation_result("valid");
                             self.catchup.on_txlist_received(&hash);
+
+                            if let Some(engine) = self.engine.as_deref() {
+                                match engine.is_synced().await {
+                                    Ok(true) => {
+                                        if let Some(txlist) = self.storage.get_txlist(&stored_hash)
+                                        {
+                                            execute_catchup_txlist(
+                                                self.storage.as_ref(),
+                                                engine,
+                                                &txlist,
+                                            )
+                                            .await;
+                                        }
+                                    }
+                                    Ok(false) => {
+                                        debug!("Catch-up: execution engine not synced yet");
+                                    }
+                                    Err(err) => {
+                                        P2pMetrics::record_execution_error();
+                                        warn!("Catch-up: failed to check engine sync: {err}");
+                                    }
+                                }
+                            }
                         }
                         Err(e) => {
                             warn!("Catch-up: failed to request txlist: {e}");
@@ -787,6 +925,119 @@ fn store_commitment_for_catchup(
     P2pMetrics::record_validation_result("valid");
 }
 
+/// Collect missing txlist hashes for a set of commitments.
+///
+/// This skips zero hashes and de-duplicates entries to avoid redundant requests.
+fn collect_missing_txlists_for_commitments(
+    storage: &dyn SdkStorage,
+    commitments: &[SignedCommitment],
+) -> Vec<B256> {
+    let mut missing = Vec::new();
+    let mut seen = HashSet::new();
+
+    for commitment in commitments {
+        let txlist_hash = B256::from_slice(commitment.commitment.preconf.raw_tx_list_hash.as_ref());
+        if txlist_hash.is_zero() {
+            continue;
+        }
+
+        if storage.get_txlist(&txlist_hash).is_none() && seen.insert(txlist_hash) {
+            missing.push(txlist_hash);
+        }
+    }
+
+    missing
+}
+
+/// Execute a batch of catch-up commitments in ascending block order.
+///
+/// This applies commitments via the execution engine, buffers any that are
+/// missing txlists, and updates execution metrics.
+async fn execute_catchup_commitments(
+    storage: &dyn SdkStorage,
+    engine: &dyn PreconfEngine,
+    commitments: Vec<SignedCommitment>,
+) {
+    let mut ordered = commitments;
+    ordered.sort_by_key(commitment_block_number_u64);
+
+    for commitment in ordered {
+        let preconf = &commitment.commitment.preconf;
+        let txlist_hash = B256::from_slice(preconf.raw_tx_list_hash.as_ref());
+
+        if preconf.eop && txlist_hash.is_zero() {
+            apply_commitment_with_engine(engine, &commitment, None).await;
+            continue;
+        }
+
+        if txlist_hash.is_zero() {
+            warn!(
+                "Catch-up: skipping execution for commitment with zero txlist hash (block {:?})",
+                preconf.block_number
+            );
+            P2pMetrics::record_execution_error();
+            continue;
+        }
+
+        if let Some(txlist) = storage.get_txlist(&txlist_hash) {
+            apply_commitment_with_engine(engine, &commitment, Some(txlist.txlist.as_ref())).await;
+        } else {
+            let _ = storage.add_pending_txlist(txlist_hash, commitment);
+            P2pMetrics::record_execution_pending_txlist();
+            P2pMetrics::set_pending_txlist_buffer_size(storage.pending_txlist_count());
+        }
+    }
+}
+
+/// Execute any pending commitments released by an arriving txlist.
+///
+/// This drains the pending txlist buffer for the given hash and applies the
+/// commitments in block order using the supplied txlist bytes.
+async fn execute_catchup_txlist(
+    storage: &dyn SdkStorage,
+    engine: &dyn PreconfEngine,
+    txlist: &RawTxListGossip,
+) {
+    let txlist_hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
+    let mut pending = storage.release_pending_txlist(&txlist_hash);
+
+    if !pending.is_empty() {
+        P2pMetrics::set_pending_txlist_buffer_size(storage.pending_txlist_count());
+    }
+
+    pending.sort_by_key(commitment_block_number_u64);
+    for commitment in pending {
+        apply_commitment_with_engine(engine, &commitment, Some(txlist.txlist.as_ref())).await;
+    }
+}
+
+/// Apply a commitment through the execution engine and record metrics.
+async fn apply_commitment_with_engine(
+    engine: &dyn PreconfEngine,
+    commitment: &SignedCommitment,
+    txlist: Option<&[u8]>,
+) {
+    match engine.apply_commitment(commitment, txlist).await {
+        Ok(outcome) => {
+            P2pMetrics::record_execution_applied();
+            debug!(
+                "Catch-up: executed commitment for block {} with hash {:?}",
+                outcome.block_number, outcome.block_hash
+            );
+        }
+        Err(err) => {
+            P2pMetrics::record_execution_error();
+            warn!("Catch-up: execution engine rejected commitment: {err}");
+        }
+    }
+}
+
+/// Extract the commitment block number as a `u64` for ordering.
+fn commitment_block_number_u64(commitment: &SignedCommitment) -> u64 {
+    let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+    block.to::<u64>()
+}
+
 /// SSZ-encode a signed commitment for message ID computation.
 ///
 /// Returns an error if serialization fails, allowing callers to handle the failure
@@ -814,12 +1065,19 @@ fn ssz_encode_txlist(msg: &RawTxListGossip) -> Result<Vec<u8>, ssz_rs::Serialize
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::InMemoryStorage;
+    use alloy_primitives::Address;
+    use preconfirmation_types::keccak256_bytes;
+    use rpc::MockPreconfEngine;
+    use secp256k1::SecretKey;
 
     #[tokio::test]
     async fn client_starts_and_emits_started_event() {
         // This test requires a running network, which we can't easily set up in unit tests.
         // Instead, we'll test the client creation and basic structure.
-        let config = P2pClientConfig::default();
+        let mut config = P2pClientConfig::default();
+        config.expected_slasher = Some(Address::ZERO);
+        config.engine = Some(Arc::new(MockPreconfEngine::default()));
 
         // The network layer requires bootnodes or will fail to dial.
         // For unit testing, we verify the client can be created and the handle works.
@@ -931,5 +1189,202 @@ mod tests {
         let result = ssz_encode_txlist(&txlist);
         assert!(result.is_ok(), "SSZ encoding should succeed for valid txlist");
         assert!(!result.unwrap().is_empty(), "Encoded buffer should not be empty");
+    }
+
+    /// Ensure that creating a P2P client without an engine fails.
+    #[test]
+    fn p2p_client_requires_engine() {
+        let cfg = P2pClientConfig::with_chain_id(167000);
+        let result = P2pClient::new(cfg);
+        assert!(result.is_err(), "P2pClient::new should fail when engine is None");
+    }
+
+    /// Build a signed commitment with the given txlist hash and parent hash.
+    fn make_signed_commitment_with_txlist(
+        block_num: u64,
+        parent_hash: [u8; 32],
+        raw_tx_list_hash: [u8; 32],
+        eop: bool,
+    ) -> SignedCommitment {
+        use preconfirmation_types::{
+            Bytes20, Bytes32, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
+            sign_commitment,
+        };
+
+        let preconf = Preconfirmation {
+            eop,
+            block_number: Uint256::from(block_num),
+            timestamp: Uint256::from(1000u64 + block_num),
+            gas_limit: Uint256::from(30_000_000u64),
+            coinbase: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+            anchor_block_number: Uint256::from(block_num.saturating_sub(1)),
+            raw_tx_list_hash: Bytes32::try_from(raw_tx_list_hash.to_vec()).unwrap(),
+            parent_preconfirmation_hash: Bytes32::try_from(parent_hash.to_vec()).unwrap(),
+            submission_window_end: Uint256::from(2000u64 + block_num),
+            prover_auth: Bytes20::try_from(vec![0u8; 20]).unwrap(),
+            proposal_id: Uint256::from(1u64),
+        };
+
+        let commitment = PreconfCommitment {
+            preconf,
+            slasher_address: Bytes20::try_from(vec![0xAA; 20]).unwrap(),
+        };
+
+        let sk = SecretKey::from_slice(&[42u8; 32]).unwrap();
+        let sig = sign_commitment(&commitment, &sk).unwrap();
+
+        SignedCommitment { commitment, signature: sig }
+    }
+
+    /// Extract a commitment block number for assertions.
+    fn commitment_block_number(commitment: &SignedCommitment) -> u64 {
+        let le_bytes = commitment.commitment.preconf.block_number.to_bytes_le();
+        U256::from_le_slice(&le_bytes).to::<u64>()
+    }
+
+    /// Ensure catch-up execution applies commitments in block order.
+    #[tokio::test]
+    async fn catchup_executes_commitments_in_order() {
+        use preconfirmation_types::{Bytes32, RawTxListGossip, TxListBytes};
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let engine = MockPreconfEngine::default();
+
+        let txlist_a = vec![0xAA; 16];
+        let txlist_b = vec![0xBB; 16];
+        let hash_a = keccak256_bytes(&txlist_a);
+        let hash_b = keccak256_bytes(&txlist_b);
+
+        let txlist_a_msg = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(hash_a.as_slice().to_vec()).unwrap(),
+            txlist: TxListBytes::try_from(txlist_a.clone()).unwrap(),
+        };
+        let txlist_b_msg = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(hash_b.as_slice().to_vec()).unwrap(),
+            txlist: TxListBytes::try_from(txlist_b.clone()).unwrap(),
+        };
+
+        storage.insert_txlist(B256::from_slice(hash_a.as_ref()), txlist_a_msg);
+        storage.insert_txlist(B256::from_slice(hash_b.as_ref()), txlist_b_msg);
+
+        let commitment_one = make_signed_commitment_with_txlist(1, [0u8; 32], hash_a.0, false);
+        let commitment_two = make_signed_commitment_with_txlist(2, [0u8; 32], hash_b.0, false);
+
+        let missing = collect_missing_txlists_for_commitments(
+            storage.as_ref(),
+            &[commitment_two.clone(), commitment_one.clone()],
+        );
+        assert!(missing.is_empty(), "expected no missing txlists");
+
+        execute_catchup_commitments(
+            storage.as_ref(),
+            &engine,
+            vec![commitment_two.clone(), commitment_one.clone()],
+        )
+        .await;
+
+        let calls = engine.calls();
+        assert_eq!(calls.len(), 2, "engine should execute both commitments");
+        let first = commitment_block_number(&calls[0].commitment);
+        let second = commitment_block_number(&calls[1].commitment);
+        assert!(first < second, "commitments should execute in block order");
+    }
+
+    /// Ensure catch-up waits for missing txlists and executes after arrival.
+    #[tokio::test]
+    async fn catchup_waits_for_missing_txlist() {
+        use preconfirmation_types::{Bytes32, RawTxListGossip, TxListBytes};
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let engine = MockPreconfEngine::default();
+
+        let txlist_data = vec![0xCC; 24];
+        let txlist_hash = keccak256_bytes(&txlist_data);
+        let commitment = make_signed_commitment_with_txlist(3, [0u8; 32], txlist_hash.0, false);
+
+        let missing =
+            collect_missing_txlists_for_commitments(storage.as_ref(), &[commitment.clone()]);
+        assert_eq!(missing, vec![txlist_hash], "missing txlist should be reported");
+
+        execute_catchup_commitments(storage.as_ref(), &engine, vec![commitment]).await;
+        assert_eq!(engine.calls().len(), 0, "engine should wait for txlist");
+        assert_eq!(storage.pending_txlist_count(), 1, "commitment should be buffered for txlist");
+
+        let txlist_msg = RawTxListGossip {
+            raw_tx_list_hash: Bytes32::try_from(txlist_hash.as_slice().to_vec()).unwrap(),
+            txlist: TxListBytes::try_from(txlist_data.clone()).unwrap(),
+        };
+        storage.insert_txlist(B256::from_slice(txlist_hash.as_ref()), txlist_msg.clone());
+
+        execute_catchup_txlist(storage.as_ref(), &engine, &txlist_msg).await;
+
+        assert_eq!(engine.calls().len(), 1, "engine should execute after txlist arrival");
+        assert_eq!(storage.pending_txlist_count(), 0, "pending txlist buffer should drain");
+        assert_eq!(
+            engine.calls()[0].txlist.as_deref(),
+            Some(txlist_data.as_slice()),
+            "engine should receive txlist bytes"
+        );
+    }
+
+    /// Ensure reorg notifications clear pending buffers and reset catch-up state.
+    #[tokio::test]
+    async fn notify_reorg_clears_pending_buffers_and_resets_catchup() {
+        use alloy_primitives::Address;
+
+        let storage = Arc::new(InMemoryStorage::default());
+        let mut config = P2pClientConfig::with_chain_id(167000);
+        config.expected_slasher = Some(Address::from([0x11; 20]));
+        config.engine = Some(Arc::new(MockPreconfEngine::default()));
+        config.enable_metrics = false;
+        config.network.listen_addr =
+            std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 0);
+        config.network.discovery_listen =
+            std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 0);
+        config.network.enable_discovery = false;
+        config.network.enable_quic = false;
+
+        let (mut client, _events) = P2pClient::with_components(
+            config,
+            storage.clone(),
+            CommitmentValidator::new(),
+            None,
+            None,
+        )
+        .expect("client should initialize");
+
+        let parent_hash = [0xAA; 32];
+        let pending_parent_commitment =
+            make_signed_commitment_with_txlist(2, parent_hash, [0xBB; 32], false);
+        storage.add_pending(B256::from_slice(&parent_hash), pending_parent_commitment);
+
+        let txlist_bytes = vec![0xCC; 8];
+        let txlist_hash = keccak256_bytes(&txlist_bytes);
+        let pending_txlist_commitment =
+            make_signed_commitment_with_txlist(3, [0u8; 32], txlist_hash.0, false);
+        storage
+            .add_pending_txlist(B256::from_slice(txlist_hash.as_ref()), pending_txlist_commitment);
+
+        assert_eq!(storage.pending_count(), 1, "expected pending parent entry");
+        assert_eq!(storage.pending_txlist_count(), 1, "expected pending txlist entry");
+
+        client.catchup.start_sync(0, 10);
+        assert!(client.catchup.is_syncing(), "catch-up should be syncing before reorg");
+
+        let shutdown = client
+            .handle_command(SdkCommand::NotifyReorg {
+                anchor_block_number: 1,
+                reason: "test reorg".to_string(),
+            })
+            .await
+            .expect("notify reorg should succeed");
+        assert!(!shutdown, "reorg should not trigger shutdown");
+
+        assert_eq!(storage.pending_count(), 0, "pending parent buffer should clear");
+        assert_eq!(storage.pending_txlist_count(), 0, "pending txlist buffer should clear");
+        assert!(
+            matches!(client.catchup.state(), CatchupState::Idle),
+            "catch-up should reset to idle"
+        );
     }
 }

@@ -52,8 +52,11 @@
 //! ## Quick Start
 //!
 //! ```no_run
+//! use std::sync::Arc;
+//!
 //! use alloy_primitives::Address;
 //! use p2p::{P2pClient, P2pClientConfig, SdkEvent};
+//! use rpc::MockPreconfEngine;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -61,6 +64,8 @@
 //!     let mut config = P2pClientConfig::with_chain_id(167000);
 //!     // Configure the expected slasher address for validation (chain parameter).
 //!     config.expected_slasher = Some(Address::ZERO);
+//!     // Provide an execution engine implementation for applying commitments.
+//!     config.engine = Some(Arc::new(MockPreconfEngine::default()));
 //!
 //!     // Create client and event receiver
 //!     let (client, mut events) = P2pClient::new(config)?;
@@ -276,4 +281,8 @@ pub use preconfirmation_net::{
     P2pHandle, P2pNode, PreconfStorage,
 };
 pub use preconfirmation_types;
+// Re-export execution engine types for consumers enabling execution mode.
+pub use rpc::{
+    EngineApplyOutcome, EngineError, EngineHead, MockApplyCall, MockPreconfEngine, PreconfEngine,
+};
 pub use types::{SdkCommand, SdkEvent};

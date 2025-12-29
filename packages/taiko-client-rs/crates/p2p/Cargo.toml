@@ -17,6 +17,7 @@ moka = { version = "0.12", features = ["sync"] }
 parking_lot = "0.12"
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
+rpc = { path = "../rpc" }
 serde = { workspace = true, features = ["derive"] }
 sha3 = "0.10"
 ssz_rs = { version = "0.9", default-features = false, features = ["std"] }

@@ -6,15 +6,19 @@
 //! To actually run the networked example, set `P2P_EXAMPLE_RUN=1` and configure
 //! the network settings (listen addresses, bootnodes, keys) as needed.
 
+use std::sync::Arc;
+
 use alloy_primitives::Address;
 use p2p::{P2pClient, P2pClientConfig, P2pResult, SdkEvent};
 use preconfirmation_types::RawTxListGossip;
+use rpc::MockPreconfEngine;
 
 #[tokio::main]
 async fn main() -> P2pResult<()> {
     // 1) Configure the SDK. Customize `config.network` for real deployments.
     let mut config = P2pClientConfig::with_chain_id(167_000);
     config.expected_slasher = Some(Address::ZERO);
+    config.engine = Some(Arc::new(MockPreconfEngine::default()));
 
     // 2) Create the client and a handle for commands.
     let (client, _events) = P2pClient::new(config)?;

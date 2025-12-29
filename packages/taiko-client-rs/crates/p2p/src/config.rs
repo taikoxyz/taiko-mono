@@ -3,10 +3,11 @@
 //! This module provides [`P2pClientConfig`] which embeds the network-level
 //! [`P2pConfig`](preconfirmation_net::P2pConfig) and adds SDK-specific knobs.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::Address;
 use preconfirmation_net::P2pConfig;
+use rpc::PreconfEngine;
 
 /// Default maximum txlist size (128 KiB).
 pub const DEFAULT_MAX_TXLIST_BYTES: usize = 131_072;
@@ -15,7 +16,7 @@ pub const DEFAULT_MAX_TXLIST_BYTES: usize = 131_072;
 ///
 /// This configuration embeds the network-level [`P2pConfig`] and adds
 /// SDK-specific options like dedupe settings, catch-up backoff, and channel sizes.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct P2pClientConfig {
     /// Network-level P2P configuration.
     pub network: P2pConfig,
@@ -43,6 +44,31 @@ pub struct P2pClientConfig {
     pub catchup_max_retries: u32,
     /// Enable Prometheus metrics for the SDK.
     pub enable_metrics: bool,
+    /// Optional preconfirmation execution engine.
+    ///
+    /// Required for applying validated commitments to the L2 execution layer.
+    pub engine: Option<Arc<dyn PreconfEngine>>,
+}
+
+impl std::fmt::Debug for P2pClientConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("P2pClientConfig")
+            .field("network", &self.network)
+            .field("expected_slasher", &self.expected_slasher)
+            .field("chain_id", &self.chain_id)
+            .field("event_channel_size", &self.event_channel_size)
+            .field("command_channel_size", &self.command_channel_size)
+            .field("dedupe_cache_cap", &self.dedupe_cache_cap)
+            .field("dedupe_ttl", &self.dedupe_ttl)
+            .field("max_commitments_per_page", &self.max_commitments_per_page)
+            .field("max_txlist_bytes", &self.max_txlist_bytes)
+            .field("catchup_initial_backoff", &self.catchup_initial_backoff)
+            .field("catchup_max_backoff", &self.catchup_max_backoff)
+            .field("catchup_max_retries", &self.catchup_max_retries)
+            .field("enable_metrics", &self.enable_metrics)
+            .field("engine", &self.engine.as_ref().map(|_| "<PreconfEngine>"))
+            .finish()
+    }
 }
 
 /// Default SDK configuration values.
@@ -62,6 +88,7 @@ impl Default for P2pClientConfig {
             catchup_max_backoff: Duration::from_secs(30),
             catchup_max_retries: 10,
             enable_metrics: true,
+            engine: None,
         }
     }
 }
@@ -76,14 +103,21 @@ impl P2pClientConfig {
 
     /// Validate configuration invariants before constructing the client.
     ///
-    /// This ensures SDK-level `chain_id` and network `chain_id` remain consistent,
-    /// preventing mismatched topics and protocol IDs.
+    /// This ensures:
+    /// - SDK-level `chain_id` and network `chain_id` remain consistent, preventing mismatched
+    ///   topics and protocol IDs.
+    /// - An `engine` is provided.
     pub fn validate(&self) -> crate::P2pResult<()> {
         if self.chain_id != self.network.chain_id {
             return Err(crate::P2pClientError::Config(format!(
                 "chain_id mismatch: sdk={} network={}",
                 self.chain_id, self.network.chain_id
             )));
+        }
+        if self.engine.is_none() {
+            return Err(crate::P2pClientError::Config(
+                "no execution engine is provided".to_string(),
+            ));
         }
         Ok(())
     }
@@ -132,6 +166,14 @@ mod tests {
         let mut config = P2pClientConfig::default();
         config.chain_id = 1;
         config.network.chain_id = 2;
+
+        let result = config.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn config_requires_engine() {
+        let config = P2pClientConfig::default();
 
         let result = config.validate();
         assert!(result.is_err());

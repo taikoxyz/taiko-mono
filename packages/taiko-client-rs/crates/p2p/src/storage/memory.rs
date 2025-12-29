@@ -44,10 +44,15 @@ pub struct InMemoryStorage {
     /// Pending commitments awaiting parent arrival.
     /// Map from parent_hash -> Vec<(commitment, inserted_at)>.
     pending: RwLock<DashMap<B256, Vec<(SignedCommitment, Instant)>>>,
+    /// Pending commitments awaiting txlist data by hash.
+    /// Map from txlist_hash -> Vec<(commitment, inserted_at)>.
+    pending_txlists: RwLock<DashMap<B256, Vec<(SignedCommitment, Instant)>>>,
     /// TTL for pending buffer entries.
     pending_ttl: Duration,
     /// Atomic counter for pending items (for fast pending_count).
     pending_count: AtomicUsize,
+    /// Atomic counter for pending txlist items (for fast pending_txlist_count).
+    pending_txlist_count: AtomicUsize,
 }
 
 impl Default for InMemoryStorage {
@@ -81,8 +86,10 @@ impl InMemoryStorage {
                 .time_to_live(dedupe_ttl)
                 .build(),
             pending: RwLock::new(DashMap::new()),
+            pending_txlists: RwLock::new(DashMap::new()),
             pending_ttl,
             pending_count: AtomicUsize::new(0),
+            pending_txlist_count: AtomicUsize::new(0),
         }
     }
 
@@ -158,9 +165,59 @@ impl SdkStorage for InMemoryStorage {
         self.pending_count.load(Ordering::SeqCst)
     }
 
+    /// Clear all pending commitments awaiting parent linkage.
+    fn clear_pending(&self) -> usize {
+        let pending = self.pending.write();
+        let count = self.pending_count.swap(0, Ordering::SeqCst);
+        pending.clear();
+        count
+    }
+
+    /// Add a commitment to the pending txlist buffer, returning whether this is a new hash.
+    fn add_pending_txlist(&self, txlist_hash: B256, commitment: SignedCommitment) -> bool {
+        let pending = self.pending_txlists.read();
+        let mut entry = pending.entry(txlist_hash).or_default();
+        let is_new = entry.is_empty();
+        entry.push((commitment, Instant::now()));
+        self.pending_txlist_count.fetch_add(1, Ordering::SeqCst);
+        is_new
+    }
+
+    /// Release commitments waiting for the given txlist hash.
+    fn release_pending_txlist(&self, txlist_hash: &B256) -> Vec<SignedCommitment> {
+        let pending = self.pending_txlists.read();
+        if let Some((_, entries)) = pending.remove(txlist_hash) {
+            let count = entries.len();
+            self.pending_txlist_count.fetch_sub(count, Ordering::SeqCst);
+            entries.into_iter().map(|(c, _)| c).collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Return whether any commitments are pending for the txlist hash.
+    fn has_pending_txlist(&self, txlist_hash: &B256) -> bool {
+        let pending = self.pending_txlists.read();
+        pending.contains_key(txlist_hash)
+    }
+
+    /// Return the count of commitments pending on txlist data.
+    fn pending_txlist_count(&self) -> usize {
+        self.pending_txlist_count.load(Ordering::SeqCst)
+    }
+
+    /// Clear all commitments waiting on txlist data.
+    fn clear_pending_txlists(&self) -> usize {
+        let pending = self.pending_txlists.write();
+        let count = self.pending_txlist_count.swap(0, Ordering::SeqCst);
+        pending.clear();
+        count
+    }
+
     fn cleanup_expired(&self) {
         let now = Instant::now();
         let pending = self.pending.read();
+        let pending_txlists = self.pending_txlists.read();
 
         // Collect keys with expired entries
         let mut expired_count = 0;
@@ -171,8 +228,20 @@ impl SdkStorage for InMemoryStorage {
             !entries.is_empty()
         });
 
+        let mut txlist_expired_count = 0;
+        pending_txlists.retain(|_, entries| {
+            let before_len = entries.len();
+            entries.retain(|(_, inserted_at)| now.duration_since(*inserted_at) < self.pending_ttl);
+            txlist_expired_count += before_len - entries.len();
+            !entries.is_empty()
+        });
+
         if expired_count > 0 {
             self.pending_count.fetch_sub(expired_count, Ordering::SeqCst);
+        }
+
+        if txlist_expired_count > 0 {
+            self.pending_txlist_count.fetch_sub(txlist_expired_count, Ordering::SeqCst);
         }
 
         // Moka caches auto-expire, but we can force a cleanup
