@@ -137,8 +137,8 @@ struct SignedTransaction {
 
 ### Proposer Bond Validation
 
-The proposer must maintain at least the minimum bond on L1 in the `Inbox` bond ledger. Proposals
-from accounts below the minimum (or in withdrawal) are rejected. Bonds remain optimistic: proposing only checks balances and does not debit them.
+The proposer must maintain at least the minimum bond on L1 in the `Inbox` contract. This minimum bond should be enough to cover the range of proposals from the proposer during a given period, ensuring enough bond is at stake.
+Proposals from accounts below the minimum (or that have requested withdrawal) are rejected by the contract. Bonds remain optimistic: proposing only checks balances and does not debit them. Balances only change when slashing occurs.
 
 ### Manifest Extraction
 
@@ -258,7 +258,7 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 #### Bond instruction processing
 
-Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder. There is no L2 signal or external settlement step.
+Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
 
 ### Proposal Identifier Monotonicity
 
@@ -334,13 +334,13 @@ The anchor transaction serves as a privileged system transaction responsible for
 
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
-1. **Proposal monotonicity**
+1. **Fork validation and duplicate prevention**
+   - Verifies the current block number is at or after the Shasta fork height
+   - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
+
+2. **Proposal monotonicity**
    - Rejects calls where `proposalId` goes backward
    - Updates the latest proposal ID when a new proposal begins
-
-2. **Ancestor hash tracking**
-   - Computes and verifies the ancestor hash ring buffer for chain continuity
-   - Stores the parent block hash for external verification
 
 3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointStore.saveCheckpoint`
