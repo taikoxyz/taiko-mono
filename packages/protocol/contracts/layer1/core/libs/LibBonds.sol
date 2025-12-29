@@ -17,13 +17,17 @@ library LibBonds {
 
     uint256 internal constant GWEI_UNIT = 1 gwei;
 
+    // ---------------------------------------------------------------
+    // Storage
+    // ---------------------------------------------------------------
+
     /// @dev Storage layout for bond balances. Each bond packs into one slot.
     struct Storage {
         mapping(address account => IBondManager.Bond bond) bonds;
     }
 
     // ---------------------------------------------------------------
-    // Bond Ledger
+    // Internal Functions meant to be called by contracts that use this library
     // ---------------------------------------------------------------
 
     /// @dev Deposits bond tokens in gwei units and credits the recipient.
@@ -122,10 +126,6 @@ library LibBonds {
         return bond_.balance >= _minBond && bond_.withdrawalRequestedAt == 0;
     }
 
-    // ---------------------------------------------------------------
-    // Bond Settlement
-    // ---------------------------------------------------------------
-
     /// @dev Applies a liveness bond slash with a 50/50 split (payee/burn).
     /// @param $ Storage reference.
     /// @param _payer Account whose bond is debited.
@@ -139,17 +139,30 @@ library LibBonds {
     )
         internal
     {
-        if (_livenessBond == 0) return;
-
-        // TODO: we should probably burn the 50% first, and only return if there's enough left
+        // We try to debit the full liveness bond, but since it is best effort
+        // the amount may be lower.
         uint64 debited = _debitBond($, _payer, _livenessBond);
         if (debited == 0) return;
 
-        uint64 payeeAmount = debited / 2;
-        if (payeeAmount > 0) {
+        uint64 amountToSlash = _livenessBond / 2;
+        uint64 payeeAmount;
+        uint64 slashedAmount;
+        if (debited > amountToSlash) {
+            payeeAmount = debited - amountToSlash;
+            slashedAmount = amountToSlash;
             _creditBond($, _payee, payeeAmount);
         }
+        else {
+            slashedAmount = debited;
+            payeeAmount = 0;
+        }
+
+        emit IBondManager.LivenessBondSettled(_payer, _payee, _livenessBond, payeeAmount, slashedAmount);
     }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
 
     /// @dev Debits a bond with best effort.
     function _debitBond(
@@ -157,7 +170,7 @@ library LibBonds {
         address _account,
         uint64 _amount
     )
-        internal
+        private
         returns (uint64 debited_)
     {
         IBondManager.Bond storage bond_ = $.bonds[_account];
@@ -169,17 +182,12 @@ library LibBonds {
             debited_ = _amount;
             bond_.balance = bond_.balance - _amount;
         }
-
-        if (debited_ > 0) {
-            emit IBondManager.BondDebited(_account, debited_);
-        }
     }
 
     /// @dev Credits a bond balance.
-    function _creditBond(Storage storage $, address _account, uint64 _amount) internal {
+    function _creditBond(Storage storage $, address _account, uint64 _amount) private {
         IBondManager.Bond storage bond_ = $.bonds[_account];
         bond_.balance = bond_.balance + _amount;
-        emit IBondManager.BondCredited(_account, _amount);
     }
 
     /// @dev Converts bond amounts in gwei to token units (18 decimals).

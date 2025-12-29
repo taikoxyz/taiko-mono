@@ -22,16 +22,6 @@ interface IBondManager {
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when a bond is debited from an address.
-    /// @param account The account from which the bond was debited.
-    /// @param amount The amount debited in gwei.
-    event BondDebited(address indexed account, uint64 amount);
-
-    /// @notice Emitted when a bond is credited to an address.
-    /// @param account The account to which the bond was credited.
-    /// @param amount The amount credited in gwei.
-    event BondCredited(address indexed account, uint64 amount);
-
     /// @notice Emitted when a bond is deposited into the manager.
     /// @param depositor The account that made the deposit.
     /// @param recipient The account that received the bond credit.
@@ -51,6 +41,14 @@ interface IBondManager {
     /// @notice Emitted when a withdrawal request is cancelled.
     /// @param account The account cancelling the withdrawal request.
     event WithdrawalCancelled(address indexed account);
+
+    /// @notice Emitted when a liveness bond is settled.
+    /// @param payer The account that paid the liveness bond.
+    /// @param payee The account that received the liveness bond.
+    /// @param livenessBond The value of the liveness bond in gwei.
+    /// @param credited The amount of the liveness bond that was credited to the payee in gwei.
+    /// @param slashed The amount of the liveness bond that was slashed in gwei.
+    event LivenessBondSettled(address indexed payer, address indexed payee, uint64 livenessBond, uint64 credited, uint64 slashed);
 
     // ---------------------------------------------------------------
     // Transactional Functions

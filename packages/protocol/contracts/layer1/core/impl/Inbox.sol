@@ -521,7 +521,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Private State-Changing Functions
     // ---------------------------------------------------------------
 
-    /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
+    /// @dev Builds proposal and derivation data. 
+    /// This function also checks: 
+    /// - If `msg.sender` can propose.
+    /// - If `msg.sender` has sufficient bond.
     /// @param _input The propose input data.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _nextProposalId The proposal ID to assign.
@@ -558,8 +561,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
-                require(LibBonds.hasSufficientBond(_bondingStorage, msg.sender, _minBond), InsufficientBond());
                 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender, _lookahead);
+                require(LibBonds.hasSufficientBond(_bondingStorage, msg.sender, _minBond), InsufficientBond());
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -692,15 +695,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+                    + _provingWindow).max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
             // On-time proof - no bond transfer needed.
             if (block.timestamp <= livenessWindowDeadline) {
                 return;
             }
 
-            // TODO: should we emit some event?
             LibBonds.settleLivenessBond(
                 _bondingStorage,
                 _commitment.transitions[_offset].designatedProver,
