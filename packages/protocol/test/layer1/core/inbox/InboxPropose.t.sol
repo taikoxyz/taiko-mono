@@ -335,6 +335,31 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    function test_propose_permissionless_AllowsCallerWithoutBond() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        uint256 waitTime = uint256(config.forcedInclusionDelay)
+            * uint256(config.permissionlessInclusionMultiplier);
+        vm.warp(block.timestamp + waitTime + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+
+        assertEq(inbox.getBond(Emma).balance, 0, "emma has no bond");
+
+        ProposedEvent memory payload = _proposeWithCaller(Emma, input);
+        assertEq(payload.id, 2, "permissionless proposal accepted");
+        assertEq(payload.proposer, Emma, "permissionless proposer");
+    }
+
     /// @notice Test permissionless proposal at exact boundary
     /// (timestamp == permissionlessTimestamp)
     function test_propose_notPermissionlessWhen_AtExactPermissionlessTimestamp() public {

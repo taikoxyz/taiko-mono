@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
+import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
 import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
 
 contract InboxBondManagerTest is InboxTestBase {
@@ -25,6 +26,24 @@ contract InboxBondManagerTest is InboxTestBase {
             inboxBalanceBefore + _toTokenAmount(amount),
             "inbox token balance"
         );
+    }
+
+    function test_depositTo_RevertWhen_RecipientZero() public {
+        uint64 amount = 1_000_000_000;
+
+        bondToken.mint(Emma, _toTokenAmount(amount));
+
+        vm.startPrank(Emma);
+        bondToken.approve(address(inbox), type(uint256).max);
+        vm.expectRevert(LibBonds.InvalidAddress.selector);
+        inbox.depositTo(address(0), amount);
+        vm.stopPrank();
+    }
+
+    function test_withdraw_RevertWhen_ToZero() public {
+        vm.expectRevert(LibBonds.InvalidAddress.selector);
+        vm.prank(proposer);
+        inbox.withdraw(address(0), 1);
     }
 
     function test_withdraw_RevertWhen_DropsBelowMinBond() public {
@@ -62,6 +81,27 @@ contract InboxBondManagerTest is InboxTestBase {
         );
     }
 
+    function test_requestWithdrawal_RevertWhen_NoBond() public {
+        vm.expectRevert(LibBonds.NoBondToWithdraw.selector);
+        vm.prank(Emma);
+        inbox.requestWithdrawal();
+    }
+
+    function test_requestWithdrawal_RevertWhen_AlreadyRequested() public {
+        vm.prank(proposer);
+        inbox.requestWithdrawal();
+
+        vm.expectRevert(LibBonds.WithdrawalAlreadyRequested.selector);
+        vm.prank(proposer);
+        inbox.requestWithdrawal();
+    }
+
+    function test_cancelWithdrawal_RevertWhen_NoneRequested() public {
+        vm.expectRevert(LibBonds.NoWithdrawalRequested.selector);
+        vm.prank(proposer);
+        inbox.cancelWithdrawal();
+    }
+
     function test_requestWithdrawal_TogglesBondAvailability() public {
         vm.prank(proposer);
         inbox.requestWithdrawal();
@@ -70,5 +110,25 @@ contract InboxBondManagerTest is InboxTestBase {
         vm.prank(proposer);
         inbox.cancelWithdrawal();
         assertEq(inbox.getBond(proposer).withdrawalRequestedAt, 0, "bond re-enabled after cancel");
+    }
+
+    function test_deposit_DoesNotCancelWithdrawal() public {
+        uint64 amount = 1_000_000_000;
+
+        vm.prank(proposer);
+        inbox.requestWithdrawal();
+        uint48 requestedAt = inbox.getBond(proposer).withdrawalRequestedAt;
+        uint64 balanceBefore = inbox.getBond(proposer).balance;
+
+        bondToken.mint(proposer, _toTokenAmount(amount));
+
+        vm.startPrank(proposer);
+        bondToken.approve(address(inbox), type(uint256).max);
+        inbox.deposit(amount);
+        vm.stopPrank();
+
+        IBondManager.Bond memory bond = inbox.getBond(proposer);
+        assertEq(bond.withdrawalRequestedAt, requestedAt, "withdrawal still pending");
+        assertEq(bond.balance, balanceBefore + amount, "bond balance increased");
     }
 }
