@@ -42,8 +42,9 @@ library LibBonds {
     {
         if (_recipient == address(0)) revert InvalidAddress();
 
-        _bondToken.safeTransferFrom(_depositor, address(this), _toTokenAmount(_amount));
         _creditBond($, _recipient, _amount);
+        _bondToken.safeTransferFrom(_depositor, address(this), _toTokenAmount(_amount));
+
         emit IBondManager.BondDeposited(_depositor, _recipient, _amount);
     }
 
@@ -62,7 +63,7 @@ library LibBonds {
     {
         if (_to == address(0)) revert InvalidAddress();
 
-        IBondManager.Bond storage bond_ = $.bonds[_from];
+        IBondManager.Bond memory bond_ = $.bonds[_from];
         uint64 balance = bond_.balance;
         uint64 amount = _amount > balance ? balance : _amount;
 
@@ -70,7 +71,7 @@ library LibBonds {
             bond_.withdrawalRequestedAt == 0
                 || block.timestamp < bond_.withdrawalRequestedAt + _withdrawalDelay
         ) {
-            if (balance - amount < _minBond) revert MustMaintainMinBond();
+            require(balance - amount >= _minBond, MustMaintainMinBond());
         }
 
         debited_ = _debitBond($, _from, amount);
@@ -86,11 +87,12 @@ library LibBonds {
     )
         internal
     {
-        IBondManager.Bond storage bond_ = $.bonds[_account];
+        IBondManager.Bond memory bond_ = $.bonds[_account];
         if (bond_.balance == 0) revert NoBondToWithdraw();
         if (bond_.withdrawalRequestedAt != 0) revert WithdrawalAlreadyRequested();
 
         bond_.withdrawalRequestedAt = uint48(block.timestamp);
+        $.bonds[_account] = bond_;
         emit IBondManager.WithdrawalRequested(_account, uint48(block.timestamp + _withdrawalDelay));
     }
 

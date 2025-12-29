@@ -451,11 +451,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         return LibBonds.getBond(_bondStorage, _address);
     }
 
-    /// @inheritdoc IBondManager
-    function hasSufficientBond(address _address) external view returns (bool) {
-        return LibBonds.hasSufficientBond(_bondStorage, _address, _minBond);
-    }
-
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
         return LibForcedInclusion.getCurrentForcedInclusionFee(

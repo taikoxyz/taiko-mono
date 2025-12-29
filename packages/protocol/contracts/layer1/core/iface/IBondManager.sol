@@ -67,6 +67,7 @@ interface IBondManager {
 
     /// @notice Withdraws bond to a recipient.
     /// @dev Withdrawals are subject to a delay so bond operations can be resolved properly.
+    /// The user can always withdraw any excess amount without delays.
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw in gwei.
     function withdraw(address _to, uint64 _amount) external;
@@ -87,9 +88,4 @@ interface IBondManager {
     /// @param _address The address to get the bond state for.
     /// @return bond_ The bond struct for the address.
     function getBond(address _address) external view returns (Bond memory bond_);
-
-    /// @notice Checks if an account meets the minimum bond and hasn't requested withdrawal.
-    /// @param _address The address to check.
-    /// @return True if the account has sufficient bond and is active.
-    function hasSufficientBond(address _address) external view returns (bool);
 }
