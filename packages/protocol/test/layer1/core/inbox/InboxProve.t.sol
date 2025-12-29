@@ -298,8 +298,8 @@ contract InboxProveTest is InboxTestBase {
         uint64 proverBalanceBefore = inbox.getBond(prover).balance;
 
         uint64 debited = config.livenessBond;
-        uint64 amountToSlash = debited / 2;
-        uint64 payeeAmount = debited - amountToSlash;
+        uint64 payeeAmount = debited / 2;
+        uint64 amountToSlash = debited - payeeAmount;
 
         vm.expectEmit();
         emit IBondManager.LivenessBondSettled(
@@ -355,8 +355,8 @@ contract InboxProveTest is InboxTestBase {
         _prove(input);
 
         uint64 debited = config.livenessBond;
-        uint64 amountToSlash = debited / 2;
-        uint64 payeeAmount = debited - amountToSlash;
+        uint64 payeeAmount = debited / 2;
+        uint64 amountToSlash = debited - payeeAmount;
         uint64 expectedBalance = proverBalanceBefore - debited + payeeAmount;
 
         assertEq(
@@ -367,9 +367,9 @@ contract InboxProveTest is InboxTestBase {
     }
 
     function test_prove_processesBond_whenLate_withPartialBondBelowSlash() public {
-        uint64 amountToSlash = config.livenessBond / 2;
+        uint64 partialBond = config.livenessBond / 2;
         address payer = Emma;
-        _depositBond(payer, amountToSlash);
+        _depositBond(payer, partialBond);
 
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
@@ -390,9 +390,12 @@ contract InboxProveTest is InboxTestBase {
         uint64 payerBalanceBefore = inbox.getBond(payer).balance;
         uint64 proverBalanceBefore = inbox.getBond(prover).balance;
 
+        uint64 payeeAmount = payerBalanceBefore / 2;
+        uint64 slashedAmount = payerBalanceBefore - payeeAmount;
+
         vm.expectEmit();
         emit IBondManager.LivenessBondSettled(
-            payer, prover, config.livenessBond, 0, payerBalanceBefore
+            payer, prover, config.livenessBond, payeeAmount, slashedAmount
         );
 
         _prove(input);
@@ -400,14 +403,13 @@ contract InboxProveTest is InboxTestBase {
         assertEq(uint256(inbox.getBond(payer).balance), 0, "payer debited");
         assertEq(
             uint256(inbox.getBond(prover).balance),
-            uint256(proverBalanceBefore),
-            "payee unchanged"
+            uint256(proverBalanceBefore + payeeAmount),
+            "payee credited"
         );
     }
 
     function test_prove_processesBond_whenLate_withPartialBondAboveSlash() public {
-        uint64 amountToSlash = config.livenessBond / 2;
-        uint64 payerBond = amountToSlash + 1;
+        uint64 payerBond = (config.livenessBond / 2) + 1;
         address payer = Alice;
         _depositBond(payer, payerBond);
 
@@ -429,11 +431,12 @@ contract InboxProveTest is InboxTestBase {
 
         uint64 payerBalanceBefore = inbox.getBond(payer).balance;
         uint64 proverBalanceBefore = inbox.getBond(prover).balance;
-        uint64 payeeAmount = payerBalanceBefore - amountToSlash;
+        uint64 payeeAmount = payerBalanceBefore / 2;
+        uint64 slashedAmount = payerBalanceBefore - payeeAmount;
 
         vm.expectEmit();
         emit IBondManager.LivenessBondSettled(
-            payer, prover, config.livenessBond, payeeAmount, amountToSlash
+            payer, prover, config.livenessBond, payeeAmount, slashedAmount
         );
 
         _prove(input);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title IBondManager
 /// @notice Interface for managing bonds on L1 in the Taiko protocol.
@@ -22,13 +22,13 @@ interface IBondManager {
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when a bond is deposited into the manager.
+    /// @notice Emitted when a bond is deposited.
     /// @param depositor The account that made the deposit.
     /// @param recipient The account that received the bond credit.
     /// @param amount The amount deposited in gwei.
     event BondDeposited(address indexed depositor, address indexed recipient, uint64 amount);
 
-    /// @notice Emitted when a bond is withdrawn from the manager.
+    /// @notice Emitted when a bond is withdrawn.
     /// @param account The account that withdrew the bond.
     /// @param amount The amount withdrawn in gwei.
     event BondWithdrawn(address indexed account, uint64 amount);

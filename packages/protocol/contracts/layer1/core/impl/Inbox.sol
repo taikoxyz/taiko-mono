@@ -134,7 +134,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
     /// @dev Storage for bond balances.
-    LibBonds.Storage private _bondingStorage;
+    LibBonds.Storage private _bondStorage;
 
     uint256[43] private __gap;
 
@@ -347,29 +347,29 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @inheritdoc IBondManager
     function deposit(uint64 _amount) external nonReentrant {
-        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, msg.sender, _amount);
+        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, msg.sender, _amount);
     }
 
     /// @inheritdoc IBondManager
     function depositTo(address _recipient, uint64 _amount) external nonReentrant {
-        LibBonds.deposit(_bondingStorage, _bondToken, msg.sender, _recipient, _amount);
+        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, _recipient, _amount);
     }
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint64 _amount) external nonReentrant {
         LibBonds.withdraw(
-            _bondingStorage, _bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay
+            _bondStorage, _bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay
         );
     }
 
     /// @inheritdoc IBondManager
     function requestWithdrawal() external nonReentrant {
-        LibBonds.requestWithdrawal(_bondingStorage, msg.sender, _withdrawalDelay);
+        LibBonds.requestWithdrawal(_bondStorage, msg.sender, _withdrawalDelay);
     }
 
     /// @inheritdoc IBondManager
     function cancelWithdrawal() external nonReentrant {
-        LibBonds.cancelWithdrawal(_bondingStorage, msg.sender);
+        LibBonds.cancelWithdrawal(_bondStorage, msg.sender);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -448,12 +448,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     /// @inheritdoc IBondManager
     function getBond(address _address) external view returns (Bond memory bond_) {
-        return LibBonds.getBond(_bondingStorage, _address);
+        return LibBonds.getBond(_bondStorage, _address);
     }
 
     /// @inheritdoc IBondManager
     function hasSufficientBond(address _address) external view returns (bool) {
-        return LibBonds.hasSufficientBond(_bondingStorage, _address, _minBond);
+        return LibBonds.hasSufficientBond(_bondStorage, _address, _minBond);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -562,7 +562,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
                 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender, _lookahead);
-                require(LibBonds.hasSufficientBond(_bondingStorage, msg.sender, _minBond), InsufficientBond());
+                require(LibBonds.hasSufficientBond(_bondStorage, msg.sender, _minBond), InsufficientBond());
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -703,7 +703,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             LibBonds.settleLivenessBond(
-                _bondingStorage,
+                _bondStorage,
                 _commitment.transitions[_offset].designatedProver,
                 _commitment.actualProver,
                 _livenessBond

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { IBondManager } from "../iface/IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title LibBonds
-/// @notice Library for L1 bond ledger operations and settlement.
+/// @notice Library for bond ledger operations and settlement.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
     using SafeERC20 for IERC20;
@@ -144,17 +144,10 @@ library LibBonds {
         uint64 debited = _debitBond($, _payer, _livenessBond);
         if (debited == 0) return;
 
-        uint64 amountToSlash = _livenessBond / 2;
-        uint64 payeeAmount;
-        uint64 slashedAmount;
-        if (debited > amountToSlash) {
-            payeeAmount = debited - amountToSlash;
-            slashedAmount = amountToSlash;
+        uint64 payeeAmount = debited / 2;
+        uint64 slashedAmount = debited - payeeAmount;
+        if (payeeAmount > 0) {
             _creditBond($, _payee, payeeAmount);
-        }
-        else {
-            slashedAmount = debited;
-            payeeAmount = 0;
         }
 
         emit IBondManager.LivenessBondSettled(_payer, _payee, _livenessBond, payeeAmount, slashedAmount);
