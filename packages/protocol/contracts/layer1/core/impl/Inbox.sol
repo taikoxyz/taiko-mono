@@ -8,11 +8,11 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
-import { LibBonds } from "../libs/LibBonds.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -516,8 +516,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Private State-Changing Functions
     // ---------------------------------------------------------------
 
-    /// @dev Builds proposal and derivation data. 
-    /// This function also checks: 
+    /// @dev Builds proposal and derivation data.
+    /// This function also checks:
     /// - If `msg.sender` can propose.
     /// - If `msg.sender` has sufficient bond.
     /// @param _input The propose input data.
@@ -556,8 +556,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
-                endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender, _lookahead);
-                require(LibBonds.hasSufficientBond(_bondStorage, msg.sender, _minBond), InsufficientBond());
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+                require(
+                    LibBonds.hasSufficientBond(_bondStorage, msg.sender, _minBond),
+                    InsufficientBond()
+                );
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -682,15 +686,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      - Late: Liveness bond slash with 50% credited to the actual prover and 50% burned.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processLivenessBond(
-        Commitment memory _commitment,
-        uint48 _offset
-    )
-        private
-    {
+    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow).max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+                    + _provingWindow)
+            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
             // On-time proof - no bond transfer needed.
             if (block.timestamp <= livenessWindowDeadline) {

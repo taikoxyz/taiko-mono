@@ -65,9 +65,7 @@ contract InboxBondManagerTest is InboxTestBase {
     function test_requestWithdrawal_TogglesBondAvailability() public {
         vm.prank(proposer);
         inbox.requestWithdrawal();
-        assertGt(
-            inbox.getBond(proposer).withdrawalRequestedAt, 0, "bond disabled after request"
-        );
+        assertGt(inbox.getBond(proposer).withdrawalRequestedAt, 0, "bond disabled after request");
 
         vm.prank(proposer);
         inbox.cancelWithdrawal();

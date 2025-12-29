@@ -11,7 +11,7 @@ interface IBondManager {
 
     /// @notice Represents a bond for a given address.
     struct Bond {
-        /// @notice The bond balance in gwei.   
+        /// @notice The bond balance in gwei.
         uint64 balance;
         /// @notice The timestamp when the withdrawal was requested.
         /// @dev 0 = active, >0 = withdrawal requested timestamp
@@ -48,7 +48,13 @@ interface IBondManager {
     /// @param livenessBond The value of the liveness bond in gwei.
     /// @param credited The amount of the liveness bond that was credited to the payee in gwei.
     /// @param slashed The amount of the liveness bond that was slashed in gwei.
-    event LivenessBondSettled(address indexed payer, address indexed payee, uint64 livenessBond, uint64 credited, uint64 slashed);
+    event LivenessBondSettled(
+        address indexed payer,
+        address indexed payee,
+        uint64 livenessBond,
+        uint64 credited,
+        uint64 slashed
+    );
 
     // ---------------------------------------------------------------
     // Transactional Functions

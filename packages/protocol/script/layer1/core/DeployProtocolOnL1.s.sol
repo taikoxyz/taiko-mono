@@ -304,7 +304,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             register(sharedResolver, "taiko_token", taikoToken);
         }
-
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {

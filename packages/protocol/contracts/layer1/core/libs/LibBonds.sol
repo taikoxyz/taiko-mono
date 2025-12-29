@@ -106,7 +106,10 @@ library LibBonds {
     }
 
     /// @dev Returns the bond state for an account.
-    function getBond(Storage storage $, address _account)
+    function getBond(
+        Storage storage $,
+        address _account
+    )
         internal
         view
         returns (IBondManager.Bond memory)
@@ -152,7 +155,9 @@ library LibBonds {
             _creditBond($, _payee, payeeAmount);
         }
 
-        emit IBondManager.LivenessBondSettled(_payer, _payee, _livenessBond, payeeAmount, slashedAmount);
+        emit IBondManager.LivenessBondSettled(
+            _payer, _payee, _livenessBond, payeeAmount, slashedAmount
+        );
     }
 
     // ---------------------------------------------------------------

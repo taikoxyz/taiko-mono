@@ -13,12 +13,7 @@ contract MockCheckpointStore is ICheckpointStore {
         _checkpoints[_checkpoint.blockNumber] = _checkpoint;
     }
 
-    function getCheckpoint(uint48 _blockNumber)
-        external
-        view
-        override
-        returns (Checkpoint memory)
-    {
+    function getCheckpoint(uint48 _blockNumber) external view override returns (Checkpoint memory) {
         return _checkpoints[_blockNumber];
     }
 }

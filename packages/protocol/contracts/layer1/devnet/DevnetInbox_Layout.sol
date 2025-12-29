@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title DevnetInboxLayout
 /// @notice Storage layout documentation for DevnetInbox
@@ -22,4 +22,5 @@ pragma solidity ^0.8.24;
 //   _coreState                     | struct IInbox.CoreState                            | Slot: 252  | Offset: 0    | Bytes: 64  
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32  
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
+//   _bondStorage                   | struct LibBonds.Storage                            | Slot: 257  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[43]                                        | Slot: 258  | Offset: 0    | Bytes: 1376
