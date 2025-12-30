@@ -569,10 +569,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Collects the prover fee in ETH (Gwei units) and refunds any excess.
+    /// @dev Fee payment is best-effort: proposal should not revert if the prover rejects ETH.
     /// @param _designatedProver The designated prover for this proposal.
     /// @param _feeInGwei The prover fee in Gwei.
     function _collectProverFee(address _designatedProver, uint32 _feeInGwei) private {
         unchecked {
+            // Safe math: feeWei is bounded by uint32 * 1 gwei, and msg.value >= feeWei
+            // is enforced before subtracting.
             uint256 refund = msg.value;
 
             if (_feeInGwei > 0 && msg.sender != _designatedProver) {
@@ -580,12 +583,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 require(msg.value >= feeWei, ProverFeeNotPaid());
 
                 (bool paid,) = payable(_designatedProver).call{ value: feeWei }("");
+                // If prover refuses payment, refund full msg.value to proposer.
                 if (paid) {
                     refund = msg.value - feeWei;
                 }
             }
 
             if (refund > 0) {
+                // Best-effort refund: do not revert if proposer rejects ETH.
                 (bool refunded,) = payable(msg.sender).call{ value: refund }("");
                 refunded;
             }
@@ -603,20 +608,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-        unchecked{
-        uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
-            + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
-        bool isOnTime = block.timestamp <= livenessWindowDeadline;
+        unchecked {
+            uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
+                + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+            bool isOnTime = block.timestamp <= livenessWindowDeadline;
 
-        if (isOnTime) {
-            return;
+            if (isOnTime) {
+                return;
+            }
+
+            address designatedProver = _commitment.transitions[_offset].designatedProver;
+            address actualProver = _commitment.actualProver;
+
+            // Slash designated prover even if they submit late themselves;
+            // they receive the reward but still incur net penalty.
+            _proverAuction.slashProver(designatedProver, actualProver);
         }
-
-        address designatedProver = _commitment.transitions[_offset].designatedProver;
-        address actualProver = _commitment.actualProver;
-
-        _proverAuction.slashProver(designatedProver, actualProver);
-    }
     }
 
 
