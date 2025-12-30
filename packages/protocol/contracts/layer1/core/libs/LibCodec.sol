@@ -9,6 +9,9 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
     uint256 internal constant TRANSITION_SIZE = 78;
+    // DerivationSource: isForcedInclusion (1) + offset (3) + timestamp (6) + blobHashes length (2)
+    // + blobHashes (32 * n)
+    uint256 internal constant DERIVATION_SOURCE_BASE_SIZE = 12;
     // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
@@ -44,6 +47,83 @@ library LibCodec {
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
         (isSelfProving,) = P.unpackUint8(ptr);
         input_.isSelfProving = isSelfProving != 0;
+    }
+
+    // ---------------------------------------------------------------
+    // ProposalCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes proposal data using compact packing.
+    /// @dev Note: The proposal ID is NOT encoded; caller must track it separately.
+    function encodeProposal(IInbox.Proposal memory _proposal)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        uint256 bufferSize = _calculateProposalSize(_proposal.sources);
+        encoded_ = new bytes(bufferSize);
+
+        uint256 ptr = P.dataPtr(encoded_);
+
+        // Fixed fields (127 bytes):
+        //   timestamp: 6 bytes
+        //   endOfSubmissionWindowTimestamp: 6 bytes
+        //   proposer: 20 bytes
+        //   designatedProver: 20 bytes
+        //   feeInGwei: 4 bytes
+        //   parentProposalHash: 32 bytes
+        //   originBlockNumber: 6 bytes
+        //   originBlockHash: 32 bytes
+        //   basefeeSharingPctg: 1 byte
+        ptr = P.packUint48(ptr, _proposal.timestamp);
+        ptr = P.packUint48(ptr, _proposal.endOfSubmissionWindowTimestamp);
+        ptr = P.packAddress(ptr, _proposal.proposer);
+        ptr = P.packAddress(ptr, _proposal.designatedProver);
+        ptr = P.packUint32(ptr, _proposal.feeInGwei);
+        ptr = P.packBytes32(ptr, _proposal.parentProposalHash);
+        ptr = P.packUint48(ptr, _proposal.originBlockNumber);
+        ptr = P.packBytes32(ptr, _proposal.originBlockHash);
+        ptr = P.packUint8(ptr, _proposal.basefeeSharingPctg);
+
+        // Encode sources array
+        P.checkArrayLength(_proposal.sources.length);
+        ptr = P.packUint16(ptr, uint16(_proposal.sources.length));
+        for (uint256 i; i < _proposal.sources.length; ++i) {
+            ptr = _encodeDerivationSource(ptr, _proposal.sources[i]);
+        }
+    }
+
+    /// @dev Decodes proposal data using compact packing.
+    /// @param _proposalId The proposal ID (not encoded in the data).
+    /// @param _data The encoded proposal data.
+    /// @return proposal_ The decoded Proposal struct.
+    function decodeProposal(
+        uint48 _proposalId,
+        bytes memory _data
+    )
+        internal
+        pure
+        returns (IInbox.Proposal memory proposal_)
+    {
+        uint256 ptr = P.dataPtr(_data);
+
+        proposal_.id = _proposalId;
+        (proposal_.timestamp, ptr) = P.unpackUint48(ptr);
+        (proposal_.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
+        (proposal_.proposer, ptr) = P.unpackAddress(ptr);
+        (proposal_.designatedProver, ptr) = P.unpackAddress(ptr);
+        (proposal_.feeInGwei, ptr) = P.unpackUint32(ptr);
+        (proposal_.parentProposalHash, ptr) = P.unpackBytes32(ptr);
+        (proposal_.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (proposal_.originBlockHash, ptr) = P.unpackBytes32(ptr);
+        (proposal_.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+
+        uint16 sourcesLength;
+        (sourcesLength, ptr) = P.unpackUint16(ptr);
+        proposal_.sources = new IInbox.DerivationSource[](sourcesLength);
+        for (uint256 i; i < sourcesLength; ++i) {
+            (proposal_.sources[i], ptr) = _decodeDerivationSource(ptr);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -159,5 +239,77 @@ library LibCodec {
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
         (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
+    }
+
+    /// @dev Calculates the size needed for Proposal encoding.
+    /// @param _sources The derivation sources array.
+    /// @return size_ Total byte size needed.
+    function _calculateProposalSize(IInbox.DerivationSource[] memory _sources)
+        private
+        pure
+        returns (uint256 size_)
+    {
+        unchecked {
+            // Fixed fields:
+            //   timestamp: 6 bytes
+            //   endOfSubmissionWindowTimestamp: 6 bytes
+            //   proposer: 20 bytes
+            //   designatedProver: 20 bytes
+            //   feeInGwei: 4 bytes
+            //   parentProposalHash: 32 bytes
+            //   originBlockNumber: 6 bytes
+            //   originBlockHash: 32 bytes
+            //   basefeeSharingPctg: 1 byte
+            //   sources array length: 2 bytes
+            // Total fixed: 129 bytes
+            size_ = 129;
+
+            for (uint256 i; i < _sources.length; ++i) {
+                // Each DerivationSource: isForcedInclusion (1) + offset (3) + timestamp (6)
+                // + blobHashes length (2) + blobHashes (32 * n)
+                size_ += DERIVATION_SOURCE_BASE_SIZE
+                    + (_sources[i].blobSlice.blobHashes.length * 32);
+            }
+        }
+    }
+
+    /// @dev Encodes a single DerivationSource struct.
+    function _encodeDerivationSource(
+        uint256 _ptr,
+        IInbox.DerivationSource memory _source
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        newPtr_ = P.packUint8(_ptr, _source.isForcedInclusion ? 1 : 0);
+        newPtr_ = P.packUint24(newPtr_, _source.blobSlice.offset);
+        newPtr_ = P.packUint48(newPtr_, _source.blobSlice.timestamp);
+
+        P.checkArrayLength(_source.blobSlice.blobHashes.length);
+        newPtr_ = P.packUint16(newPtr_, uint16(_source.blobSlice.blobHashes.length));
+        for (uint256 i; i < _source.blobSlice.blobHashes.length; ++i) {
+            newPtr_ = P.packBytes32(newPtr_, _source.blobSlice.blobHashes[i]);
+        }
+    }
+
+    /// @dev Decodes a single DerivationSource struct.
+    function _decodeDerivationSource(uint256 _ptr)
+        private
+        pure
+        returns (IInbox.DerivationSource memory source_, uint256 newPtr_)
+    {
+        uint8 isForcedInclusion;
+        (isForcedInclusion, newPtr_) = P.unpackUint8(_ptr);
+        source_.isForcedInclusion = isForcedInclusion != 0;
+        (source_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
+        (source_.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+
+        uint16 blobHashesLength;
+        (blobHashesLength, newPtr_) = P.unpackUint16(newPtr_);
+        source_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
+        for (uint256 i; i < blobHashesLength; ++i) {
+            (source_.blobSlice.blobHashes[i], newPtr_) = P.unpackBytes32(newPtr_);
+        }
     }
 }

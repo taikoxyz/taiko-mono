@@ -208,9 +208,14 @@ abstract contract InboxTestBase is CommonTest {
         require(logs.length > 0, "Proposed event not found");
         Vm.Log memory log = logs[logs.length - 1];
 
-        IInbox.Proposal memory proposal = abi.decode(log.data, (IInbox.Proposal));
+        // Extract proposal ID from indexed topic
+        uint48 proposalId = uint48(uint256(log.topics[1]));
 
-        payload_.id = uint48(uint256(log.topics[1]));
+        // Decode encoded proposal bytes using codec
+        bytes memory encodedProposal = abi.decode(log.data, (bytes));
+        IInbox.Proposal memory proposal = codec.decodeProposal(proposalId, encodedProposal);
+
+        payload_.id = proposalId;
         payload_.proposer = proposal.proposer;
         payload_.designatedProver = proposal.designatedProver;
         payload_.feeInGwei = proposal.feeInGwei;

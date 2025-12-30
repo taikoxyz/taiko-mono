@@ -168,7 +168,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
-        emit Proposed(proposal.id, proposal);
+        emit Proposed(proposal.id, LibCodec.encodeProposal(proposal));
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -217,7 +217,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
-            emit Proposed(proposal.id, proposal);
+            emit Proposed(proposal.id, LibCodec.encodeProposal(proposal));
         }
     }
 
@@ -372,6 +372,27 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         returns (IInbox.ProposeInput memory input_)
     {
         return LibCodec.decodeProposeInput(_data);
+    }
+
+    /// @inheritdoc ICodec
+    function encodeProposal(IInbox.Proposal calldata _proposal)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibCodec.encodeProposal(_proposal);
+    }
+
+    /// @inheritdoc ICodec
+    function decodeProposal(
+        uint48 _proposalId,
+        bytes calldata _data
+    )
+        external
+        pure
+        returns (IInbox.Proposal memory proposal_)
+    {
+        return LibCodec.decodeProposal(_proposalId, _data);
     }
 
     /// @inheritdoc ICodec

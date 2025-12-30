@@ -181,8 +181,8 @@ interface IInbox {
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param id Unique identifier for the proposal.
-    /// @param proposal The proposal data.
-    event Proposed(uint48 indexed id, Proposal proposal);
+    /// @param proposalData The encoded proposal data (excludes proposal ID).
+    event Proposed(uint48 indexed id, bytes proposalData);
 
     /// @notice Emitted when a proof is submitted
     /// @param lastProposalId The last proposal ID covered by the proof

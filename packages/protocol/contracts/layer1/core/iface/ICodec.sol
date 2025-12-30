@@ -39,6 +39,31 @@ interface ICodec {
         returns (IInbox.ProposeInput memory input_);
 
     // ---------------------------------------------------------------
+    // ProposalCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Encodes proposal data
+    /// @param _proposal The Proposal to encode
+    /// @return encoded_ The encoded data (excludes proposal ID)
+    function encodeProposal(IInbox.Proposal calldata _proposal)
+        external
+        pure
+        returns (bytes memory encoded_);
+
+    /// @notice Decodes proposal data
+    /// @param _proposalId The proposal ID (not included in encoded data)
+    /// @param _data The encoded data
+    /// @return proposal_ The decoded Proposal
+    /// @dev Reverts on malformed or truncated input data
+    function decodeProposal(
+        uint48 _proposalId,
+        bytes calldata _data
+    )
+        external
+        pure
+        returns (IInbox.Proposal memory proposal_);
+
+    // ---------------------------------------------------------------
     // ProveInputCodec Functions
     // ---------------------------------------------------------------
 
