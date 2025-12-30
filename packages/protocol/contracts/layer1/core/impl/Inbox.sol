@@ -168,7 +168,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
-        _emitProposedEvent(proposal);
+        emit Proposed(proposal.id, proposal);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -200,6 +200,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
             (address designatedProver, uint32 feeInGwei) =
                 _resolveDesignatedProver(input.isSelfProving);
+
             _collectProverFee(designatedProver, feeInGwei);
 
             Proposal memory proposal = _buildProposal(
@@ -208,14 +209,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 nextProposalId,
                 lastProposalBlockId,
                 lastFinalizedProposalId,
-                designatedProver
+                designatedProver,
+                feeInGwei
             );
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
-            _emitProposedEvent(proposal);
+            emit Proposed(proposal.id, proposal);
         }
     }
 
@@ -278,7 +280,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // 3. Slash late proofs (auction-based)
             // ---------------------------------------------------------
-            _maybeSlashLateProof(state, commitment, offset);
+            _maybeSlashLateProof(commitment, offset, state.lastFinalizedTimestamp);
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -317,9 +319,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _coreState = state;
 
             emit Proved(
+                uint48(lastProposalId),
                 commitment.firstProposalId,
                 commitment.firstProposalId + offset,
-                uint48(lastProposalId),
                 commitment.actualProver,
                 checkpointSynced
             );
@@ -481,7 +483,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         uint48 _nextProposalId,
         uint48 _lastProposalBlockId,
         uint48 _lastFinalizedProposalId,
-        address _designatedProver
+        address _designatedProver,
+        uint32 _feeInGwei
     )
         private
         returns (Proposal memory proposal_)
@@ -516,6 +519,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 designatedProver: _designatedProver,
+                feeInGwei: _feeInGwei,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
@@ -560,6 +564,37 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             msg.sender.sendEtherAndVerify(refund);
         }
     }
+
+    /// @dev Applies late-proof slashing using the prover auction.
+    /// @param _commitment The commitment data.
+    /// @param _offset The offset to the first unfinalized proposal.
+    /// @param _lastFinalizedTimestamp The last finalized proposal timestamp.
+    function _maybeSlashLateProof(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
+        unchecked{
+        uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
+            + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+        bool isOnTime = block.timestamp <= livenessWindowDeadline;
+
+        if (isOnTime) {
+            return;
+        }
+
+        address designatedProver = _commitment.transitions[_offset].designatedProver;
+        address actualProver = _commitment.actualProver;
+
+        // Only slash when a late proof is submitted by someone other than the designated prover.
+        if (actualProver != designatedProver) {
+            _proverAuction.slashProver(designatedProver, actualProver);
+        }
+    }
+    }
+
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
@@ -661,46 +696,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Applies late-proof slashing using the prover auction.
-    /// @param _state The current core state snapshot.
-    /// @param _commitment The commitment data.
-    /// @param _offset The offset to the first unfinalized proposal.
-    function _maybeSlashLateProof(
-        CoreState memory _state,
-        Commitment memory _commitment,
-        uint48 _offset
-    )
-        private
-    {
-        unchecked {
-            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow).max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
-
-            if (block.timestamp <= livenessWindowDeadline) {
-                return;
-            }
-
-            address designatedProver = _commitment.transitions[_offset].designatedProver;
-            address actualProver = _commitment.actualProver;
-
-            // Only slash when a late proof is submitted by someone other than the designated prover.
-            if (actualProver != designatedProver) {
-                _proverAuction.slashProver(designatedProver, actualProver);
-            }
-        }
-    }
-
-    /// @dev Emits the Proposed event
-    function _emitProposedEvent(Proposal memory _proposal) private {
-        emit Proposed(
-            _proposal.id,
-            _proposal.proposer,
-            _proposal.parentProposalHash,
-            _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
-            _proposal.sources
-        );
-    }
 
     // ---------------------------------------------------------------
     // Private View/Pure Functions

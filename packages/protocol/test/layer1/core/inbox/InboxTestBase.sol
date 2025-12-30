@@ -21,6 +21,11 @@ abstract contract InboxTestBase is CommonTest {
     struct ProposedEvent {
         uint48 id;
         address proposer;
+        address designatedProver;
+        uint32 feeInGwei;
+        uint48 timestamp;
+        uint48 originBlockNumber;
+        bytes32 originBlockHash;
         bytes32 parentProposalHash;
         uint48 endOfSubmissionWindowTimestamp;
         uint8 basefeeSharingPctg;
@@ -203,14 +208,19 @@ abstract contract InboxTestBase is CommonTest {
         require(logs.length > 0, "Proposed event not found");
         Vm.Log memory log = logs[logs.length - 1];
 
+        IInbox.Proposal memory proposal = abi.decode(log.data, (IInbox.Proposal));
+
         payload_.id = uint48(uint256(log.topics[1]));
-        payload_.proposer = address(uint160(uint256(log.topics[2])));
-        (
-            payload_.parentProposalHash,
-            payload_.endOfSubmissionWindowTimestamp,
-            payload_.basefeeSharingPctg,
-            payload_.sources
-        ) = abi.decode(log.data, (bytes32, uint48, uint8, IInbox.DerivationSource[]));
+        payload_.proposer = proposal.proposer;
+        payload_.designatedProver = proposal.designatedProver;
+        payload_.feeInGwei = proposal.feeInGwei;
+        payload_.timestamp = proposal.timestamp;
+        payload_.originBlockNumber = proposal.originBlockNumber;
+        payload_.originBlockHash = proposal.originBlockHash;
+        payload_.parentProposalHash = proposal.parentProposalHash;
+        payload_.endOfSubmissionWindowTimestamp = proposal.endOfSubmissionWindowTimestamp;
+        payload_.basefeeSharingPctg = proposal.basefeeSharingPctg;
+        payload_.sources = proposal.sources;
     }
 
     function _mockBeaconBlockRoot() internal {
@@ -323,7 +333,8 @@ abstract contract InboxTestBase is CommonTest {
             timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: _payload.endOfSubmissionWindowTimestamp,
             proposer: _payload.proposer,
-            designatedProver: proverAuction.currentProver(),
+            designatedProver: _payload.designatedProver,
+            feeInGwei: _payload.feeInGwei,
             parentProposalHash: parentProposalHash,
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,
