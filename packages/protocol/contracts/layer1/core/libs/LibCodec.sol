@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
-import { LibTransitionCodec } from "./LibTransitionCodec.sol";
 
 /// @title LibCodec
 /// @notice Compact encoder/decoder for Inbox inputs using LibPackUnpack.
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
+    uint256 internal constant TRANSITION_SIZE = 78;
     // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
@@ -72,7 +72,7 @@ library LibCodec {
         P.checkArrayLength(c.transitions.length);
         ptr = P.packUint16(ptr, uint16(c.transitions.length));
         for (uint256 i; i < c.transitions.length; ++i) {
-            ptr = LibTransitionCodec.encodeTransition(ptr, c.transitions[i]);
+            ptr = _encodeTransition(ptr, c.transitions[i]);
         }
 
         // Encode forceCheckpointSync
@@ -98,7 +98,7 @@ library LibCodec {
         (transitionsLength, ptr) = P.unpackUint16(ptr);
         input_.commitment.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
-            (input_.commitment.transitions[i], ptr) = LibTransitionCodec.decodeTransition(ptr);
+            (input_.commitment.transitions[i], ptr) = _decodeTransition(ptr);
         }
 
         // Decode forceCheckpointSync
@@ -130,7 +130,34 @@ library LibCodec {
             //   transitions array length: 2 bytes
             //   forceCheckpointSync: 1 byte
             // Total fixed: 131 bytes
-            size_ = 131 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
+            size_ = 131 + (_numTransitions * TRANSITION_SIZE);
         }
+    }
+
+    /// @dev Encodes a single transition struct.
+    function _encodeTransition(
+        uint256 _ptr,
+        IInbox.Transition memory _transition
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        newPtr_ = P.packAddress(_ptr, _transition.proposer);
+        newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
+        newPtr_ = P.packUint48(newPtr_, _transition.timestamp);
+        newPtr_ = P.packBytes32(newPtr_, _transition.blockHash);
+    }
+
+    /// @dev Decodes a single transition struct.
+    function _decodeTransition(uint256 _ptr)
+        private
+        pure
+        returns (IInbox.Transition memory transition_, uint256 newPtr_)
+    {
+        (transition_.proposer, newPtr_) = P.unpackAddress(_ptr);
+        (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (transition_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (transition_.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 }
