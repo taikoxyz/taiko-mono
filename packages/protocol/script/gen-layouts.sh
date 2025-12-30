@@ -96,7 +96,7 @@ update_contract_layout() {
     # Create/overwrite the layout file
     cat > "$layout_file_path" << EOF
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title ${contract_name}Layout
 /// @notice Storage layout documentation for ${contract_name}
