@@ -237,20 +237,14 @@ contract LibCodecTest is Test {
         bytes32[] memory hashes0 = new bytes32[](2);
         hashes0[0] = bytes32(uint256(1));
         hashes0[1] = bytes32(uint256(2));
-        LibBlobs.BlobSlice memory slice0 = LibBlobs.BlobSlice({
-            blobHashes: hashes0,
-            offset: 7,
-            timestamp: 123
-        });
+        LibBlobs.BlobSlice memory slice0 =
+            LibBlobs.BlobSlice({ blobHashes: hashes0, offset: 7, timestamp: 123 });
         sources[0] = IInbox.DerivationSource(true, slice0);
 
         bytes32[] memory hashes1 = new bytes32[](1);
         hashes1[0] = bytes32(uint256(3));
-        LibBlobs.BlobSlice memory slice1 = LibBlobs.BlobSlice({
-            blobHashes: hashes1,
-            offset: 0,
-            timestamp: 456
-        });
+        LibBlobs.BlobSlice memory slice1 =
+            LibBlobs.BlobSlice({ blobHashes: hashes1, offset: 0, timestamp: 456 });
         sources[1] = IInbox.DerivationSource(false, slice1);
 
         IInbox.Proposal memory proposal = IInbox.Proposal({
@@ -304,9 +298,7 @@ contract LibCodecTest is Test {
         hashes0[0] = bytes32(uint256(9));
         hashes0[1] = bytes32(uint256(10));
         LibBlobs.BlobSlice memory slice0 = LibBlobs.BlobSlice({
-            blobHashes: hashes0,
-            offset: type(uint24).max,
-            timestamp: type(uint48).max
+            blobHashes: hashes0, offset: type(uint24).max, timestamp: type(uint48).max
         });
         sources[0] = IInbox.DerivationSource(true, slice0);
 
@@ -455,7 +447,10 @@ contract LibCodecTest is Test {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 
-    function _assertProposalEq(IInbox.Proposal memory expected, IInbox.Proposal memory actual)
+    function _assertProposalEq(
+        IInbox.Proposal memory expected,
+        IInbox.Proposal memory actual
+    )
         private
     {
         assertEq(actual.id, expected.id, "id");
