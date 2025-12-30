@@ -167,7 +167,7 @@ ProverAuctionTest:test_getCurrentProver_returnsZeroWhenProverExited() (gas: 1237
 ProverAuctionTest:test_getEjectionThreshold() (gas: 13681)
 ProverAuctionTest:test_getMaxBidFee_activeProverRequiresReduction() (gas: 119211)
 ProverAuctionTest:test_getMaxBidFee_afterProverExits() (gas: 127172)
-ProverAuctionTest:test_getMaxBidFee_capsAtMaxDoublings() (gas: 19389)
+ProverAuctionTest:test_getMaxBidFee_capsAtMaxDoublings() (gas: 19614)
 ProverAuctionTest:test_getMaxBidFee_capsAtUint48Max() (gas: 2439318)
 ProverAuctionTest:test_getMaxBidFee_initialVacantSlot() (gas: 18628)
 ProverAuctionTest:test_getMaxBidFee_movingAverageFloorPreventsManipulation() (gas: 180360)
