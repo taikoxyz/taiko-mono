@@ -4,10 +4,21 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 
 contract RejectingReceiver {
     receive() external payable {
         revert("nope");
+    }
+}
+
+contract CountingReceiver {
+    uint256 public count;
+    uint256 public totalReceived;
+
+    receive() external payable {
+        count += 1;
+        totalReceived += msg.value;
     }
 }
 
@@ -207,6 +218,55 @@ contract InboxProverAuctionTest is InboxTestBase {
         inbox.propose{ value: feeWei }(bytes(""), encodedInput);
 
         assertEq(proposer.balance, proposerBalanceBefore, "fee refunded on reject");
+    }
+
+    function test_propose_paysProposerOnce_withFeeRefundAndForcedInclusionFees() public {
+        uint32 feeInGwei = 1_000_000; // 0.001 ETH
+        RejectingReceiver rejector = new RejectingReceiver();
+
+        CountingReceiver receiver = new CountingReceiver();
+        vm.deal(address(receiver), 100 ether);
+
+        _proposeOne();
+        _advanceBlock();
+
+        proverAuction.setCurrentProver(address(rejector));
+        proverAuction.setCurrentFeeInGwei(feeInGwei);
+
+        uint256 feeWei = uint256(feeInGwei) * 1 gwei;
+
+        // Queue a forced inclusion so proposer is paid its fee during propose
+        uint256 forcedFee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
+        _setBlobHashes(1);
+        inbox.saveForcedInclusion{ value: forcedFee }(
+            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 })
+        );
+        _advanceBlock();
+
+        vm.warp(
+            block.timestamp
+                + uint256(config.forcedInclusionDelay)
+                    * uint256(config.permissionlessInclusionMultiplier)
+                + 1
+        );
+        _advanceBlock();
+
+        _setBlobHashes(3);
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.isSelfProving = false;
+        input.numForcedInclusions = 1;
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(address(receiver));
+        inbox.propose{ value: feeWei }(bytes(""), encodedInput);
+
+        assertEq(receiver.count(), 1, "single payout to proposer");
+        assertEq(
+            receiver.totalReceived(),
+            feeWei + forcedFee,
+            "payout aggregates fees"
+        );
     }
 
     // ---------------------------------------------------------------
