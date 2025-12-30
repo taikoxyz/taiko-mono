@@ -201,9 +201,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             (address designatedProver, uint32 feeInGwei) =
                 _resolveDesignatedProver(input.isSelfProving);
 
-            _collectProverFee(designatedProver, feeInGwei);
+            uint256 feeRefund = _collectProverFee(designatedProver, feeInGwei);
 
-            Proposal memory proposal = _buildProposal(
+            (Proposal memory proposal, uint256 forcedFees) = _buildProposal(
                 input,
                 _lookahead,
                 nextProposalId,
@@ -212,6 +212,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 designatedProver,
                 feeInGwei
             );
+
+            // Single payout to proposer for fee refund + forced inclusion fees.
+            uint256 payout = feeRefund + forcedFees;
+            if (payout > 0) {
+                msg.sender.sendEtherAndVerify(payout);
+            }
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
@@ -498,6 +504,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _lastProposalBlockId The last block number where a proposal was made.
     /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
     /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
+    /// @return forcedFees_ Total forced inclusion fees in wei to pay the proposer.
     function _buildProposal(
         ProposeInput memory _input,
         bytes calldata _lookahead,
@@ -508,7 +515,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         uint32 _feeInGwei
     )
         private
-        returns (Proposal memory proposal_)
+        returns (Proposal memory proposal_, uint256 forcedFees_)
     {
         unchecked {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
@@ -519,8 +526,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 NotEnoughCapacity()
             );
 
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            ConsumptionResult memory result;
+            (result, forcedFees_) =
+                _consumeForcedInclusions(_input.numForcedInclusions);
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
@@ -568,21 +576,30 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         return (currentProver, feeInGwei);
     }
 
-    /// @dev Collects the prover fee in ETH (Gwei units) and refunds any excess.
+    /// @dev Collects the prover fee in ETH (Gwei units) and returns refund in wei.
+    /// @dev Fee payment is best-effort: proposal should not revert if the prover rejects ETH.
+    /// The refund is paid once by the caller, alongside forced inclusion fees.
     /// @param _designatedProver The designated prover for this proposal.
     /// @param _feeInGwei The prover fee in Gwei.
-    function _collectProverFee(address _designatedProver, uint32 _feeInGwei) private {
-        uint256 refund = msg.value;
+    function _collectProverFee(address _designatedProver, uint32 _feeInGwei)
+        private
+        returns (uint256 refund_)
+    {
+        unchecked {
+            // Safe math: feeWei is bounded by uint32 * 1 gwei, and msg.value >= feeWei
+            // is enforced before subtracting.
+            refund_ = msg.value;
 
-        if (_feeInGwei > 0 && msg.sender != _designatedProver) {
-            uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
-            require(msg.value >= feeWei, ProverFeeNotPaid());
-            _designatedProver.sendEtherAndVerify(feeWei);
-            refund = msg.value - feeWei;
-        }
+            if (_feeInGwei > 0 && msg.sender != _designatedProver) {
+                uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
+                require(msg.value >= feeWei, ProverFeeNotPaid());
 
-        if (refund > 0) {
-            msg.sender.sendEtherAndVerify(refund);
+                (bool paid,) = payable(_designatedProver).call{ value: feeWei }("");
+                // If prover refuses payment, refund full msg.value to proposer.
+                if (paid) {
+                    refund_ = msg.value - feeWei;
+                }
+            }
         }
     }
 
@@ -597,23 +614,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     )
         private
     {
-        unchecked{
-        uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
-            + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
-        bool isOnTime = block.timestamp <= livenessWindowDeadline;
+        unchecked {
+            uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
+                + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+            bool isOnTime = block.timestamp <= livenessWindowDeadline;
 
-        if (isOnTime) {
-            return;
-        }
+            if (isOnTime) {
+                return;
+            }
 
-        address designatedProver = _commitment.transitions[_offset].designatedProver;
-        address actualProver = _commitment.actualProver;
+            address designatedProver = _commitment.transitions[_offset].designatedProver;
+            address actualProver = _commitment.actualProver;
 
-        // Only slash when a late proof is submitted by someone other than the designated prover.
-        if (actualProver != designatedProver) {
+            // Slash designated prover even if they submit late themselves;
+            // they receive the reward but still incur net penalty.
             _proverAuction.slashProver(designatedProver, actualProver);
         }
-    }
     }
 
 
@@ -625,16 +641,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
-    /// @param _feeRecipient Address to receive accumulated fees
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
     /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
     /// and whether permissionless proposals are allowed
-    function _consumeForcedInclusions(
-        address _feeRecipient,
-        uint256 _numForcedInclusionsRequested
-    )
+    /// @return totalFees_ Total forced inclusion fees in wei
+    function _consumeForcedInclusions(uint256 _numForcedInclusionsRequested)
         private
-        returns (ConsumptionResult memory result_)
+        returns (ConsumptionResult memory result_, uint256 totalFees_)
     {
         unchecked {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
@@ -650,9 +663,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, toProcess
-            );
+            (oldestTimestamp, head, totalFees_) =
+                _dequeueAndProcessForcedInclusions($, result_.sources, head, toProcess);
 
             // We check the following conditions are met:
             // 1. Proposer is willing to include at least the minimum required
@@ -673,38 +685,35 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
     /// @dev Dequeues and processes forced inclusions from the queue without checking if they exist
     /// @param $ Storage reference
-    /// @param _feeRecipient Address to receive fees
     /// @param _sources Array to populate with derivation sources
     /// @param _head Current queue head position
     /// @param _toProcess Number of inclusions to process
     /// @return oldestTimestamp_ Oldest timestamp from processed inclusions.
     /// `type(uint48).max` if no inclusions were processed
     /// @return head_ Updated head position
+    /// @return totalFees_ Total forced inclusion fees in wei
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
-        address _feeRecipient,
         DerivationSource[] memory _sources,
         uint48 _head,
         uint256 _toProcess
     )
         private
-        returns (uint48 oldestTimestamp_, uint48 head_)
+        returns (uint48 oldestTimestamp_, uint48 head_, uint256 totalFees_)
     {
         unchecked {
             if (_toProcess == 0) {
-                return (type(uint48).max, _head);
+                return (type(uint48).max, _head, 0);
             }
 
-            // Process inclusions and accumulate fees
-            uint256 totalFees;
+            // Process inclusions and accumulate fees in gwei
             for (uint256 i; i < _toProcess; ++i) {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                 _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
-                totalFees += inclusion.feeInGwei;
+                totalFees_ += inclusion.feeInGwei;
             }
 
-            // Transfer accumulated fees
-            _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            totalFees_ *= 1 gwei;
 
             // Oldest timestamp is the timestamp of the first inclusion
             oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
