@@ -50,6 +50,7 @@ async fn eject_operator_internal(
         return Ok(());
     }
 
+    //since this pulls from active_operator_count which pulls from operatorMapping, operator_hex == proposer_hex
     let operator_hex = format!("{operator:#x}");
     metrics::ensure_eject_metric_labels(&operator_hex);
 
@@ -149,8 +150,8 @@ where
             if let Some(set) = seen.as_deref_mut() {
                 let inserted = set.insert((addr, info.sequencerAddress));
                 if inserted {
-                    let sequencer_addr = info.sequencerAddress.to_string();
-                    metrics::ensure_eject_metric_labels(&sequencer_addr);
+                    let proposer_addr = addr.to_string();
+                    metrics::ensure_eject_metric_labels(&proposer_addr);
                 }
             }
             count += 1;
