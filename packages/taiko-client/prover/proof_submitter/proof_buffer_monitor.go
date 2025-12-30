@@ -60,7 +60,7 @@ func monitorProofBuffer(
 func startCacheCleanUp(
 	ctx context.Context,
 	rpc *rpc.Client,
-	proofCacheMaps map[proofProducer.ProofType]map[uint64]*proofProducer.ProofResponse,
+	proofCacheMaps map[proofProducer.ProofType]*ProofCache,
 ) {
 	log.Info("Starting proof cache cleanup monitors", "monitorInterval", monitorInterval)
 	for _, cacheMap := range proofCacheMaps {
@@ -73,7 +73,7 @@ func startCacheCleanUp(
 func cleanUpStaleCache(
 	ctx context.Context,
 	rpc *rpc.Client,
-	cacheMap map[uint64]*proofProducer.ProofResponse,
+	cacheMap *ProofCache,
 	cleanUpInterval time.Duration,
 ) {
 	ticker := time.NewTicker(cleanUpInterval)
@@ -98,15 +98,17 @@ func cleanUpStaleCache(
 
 // removeFinalizedProofsFromCache deletes cached proofs whose IDs are finalized already.
 func removeFinalizedProofsFromCache(
-	cacheMap map[uint64]*proofProducer.ProofResponse,
+	cacheMap *ProofCache,
 	lastFinalizedProposalID *big.Int,
 ) {
 	if cacheMap == nil || lastFinalizedProposalID == nil {
 		return
 	}
-	for proposalID := range cacheMap {
+	cacheMap.mu.Lock()
+	defer cacheMap.mu.Unlock()
+	for proposalID := range cacheMap.cache {
 		if proposalID < lastFinalizedProposalID.Uint64() {
-			delete(cacheMap, proposalID)
+			delete(cacheMap.cache, proposalID)
 		}
 	}
 }
@@ -114,14 +116,16 @@ func removeFinalizedProofsFromCache(
 // proofRangeCached reports whether every ID in [fromID, toID] exists in the proof cache.
 func proofRangeCached(
 	fromID, toID uint64,
-	cacheMap map[uint64]*proofProducer.ProofResponse,
+	cacheMap *ProofCache,
 ) bool {
 	if cacheMap == nil || fromID > toID {
 		return false
 	}
+	cacheMap.mu.RLock()
+	defer cacheMap.mu.RUnlock()
 	currentID := fromID
 	for currentID <= toID {
-		if _, ok := cacheMap[currentID]; !ok {
+		if _, ok := cacheMap.cache[currentID]; !ok {
 			return false
 		}
 		currentID++
@@ -133,15 +137,17 @@ func proofRangeCached(
 func flushProofCacheRange(
 	fromID, toID uint64,
 	proofBuffer *proofProducer.ProofBuffer,
-	cacheMap map[uint64]*proofProducer.ProofResponse,
+	cacheMap *ProofCache,
 	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
 ) error {
-	if proofBuffer == nil {
+	if proofBuffer == nil || cacheMap == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
 	currentID := fromID
 	for currentID <= toID {
-		cachedProof, ok := cacheMap[currentID]
+		cacheMap.mu.RLock()
+		cachedProof, ok := cacheMap.cache[currentID]
+		cacheMap.mu.RUnlock()
 		if !ok {
 			return fmt.Errorf("cached proof not found for proposal %d", currentID)
 		}
@@ -153,7 +159,9 @@ func flushProofCacheRange(
 			}
 			return err
 		}
-		delete(cacheMap, currentID)
+		cacheMap.mu.Lock()
+		delete(cacheMap.cache, currentID)
+		cacheMap.mu.Unlock()
 		currentID++
 	}
 	return nil

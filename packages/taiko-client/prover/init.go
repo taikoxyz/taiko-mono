@@ -142,14 +142,14 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 	var (
 		proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
 		cacheMaps    = make(
-			map[producer.ProofType]map[uint64]*producer.ProofResponse,
+			map[producer.ProofType]*proofSubmitter.ProofCache,
 			proofSubmitter.MaxNumSupportedProofTypes,
 		)
 	)
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	for _, proofType := range proofTypes {
-		cacheMaps[proofType] = make(map[uint64]*producer.ProofResponse, proofSubmitter.MaxNumSupportedProofTypes)
+		cacheMaps[proofType] = proofSubmitter.NewProofCache(proofSubmitter.MaxNumSupportedProofTypes)
 		switch proofType {
 		case producer.ProofTypeOp, producer.ProofTypeSgx:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)

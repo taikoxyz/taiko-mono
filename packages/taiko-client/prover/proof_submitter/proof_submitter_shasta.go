@@ -39,7 +39,7 @@ type ProofSubmitterShasta struct {
 	proverAddress common.Address
 	// Batch proof related
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
-	proofCacheMaps map[proofProducer.ProofType]map[uint64]*proofProducer.ProofResponse
+	proofCacheMaps map[proofProducer.ProofType]*ProofCache
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
@@ -58,7 +58,7 @@ func NewProofSubmitterShasta(
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
-	proofCacheMaps map[proofProducer.ProofType]map[uint64]*proofProducer.ProofResponse,
+	proofCacheMaps map[proofProducer.ProofType]*ProofCache,
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
@@ -241,7 +241,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				)
 			}
 		} else {
-			cacheMap[toID] = proofResponse
+			cacheMap.set(toID, proofResponse)
 			if proofRangeCached(fromID, toID, cacheMap) {
 				if err := flushProofCacheRange(fromID, toID, proofBuffer, cacheMap, s.TryAggregate); err != nil {
 					return err
