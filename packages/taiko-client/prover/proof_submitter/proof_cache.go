@@ -9,7 +9,18 @@ import (
 
 var ErrCacheNotFound = errors.New("cache not found")
 
-// ProofCache wraps a proof response map with a mutex to allow safe concurrent access.
+// ProofCache stores out-of-order proofs temporarily until they can be written
+// to the ProofBuffer sequentially. This is necessary because proofs may arrive
+// out of order (e.g., proof 5 before proof 3), but the buffer requires sequential
+// insertion starting from lastFinalizedProposalID + 1.
+//
+// Thread-safety: All operations are protected by a RWMutex to allow concurrent
+// reads and exclusive writes.
+//
+// Lifecycle:
+// - Proofs are cached when they arrive out of order (not sequential with buffer)
+// - Cached proofs are flushed to buffer when the gap is filled
+// - Finalized proofs are cleaned up periodically by the background monitor
 type ProofCache struct {
 	mu    sync.RWMutex
 	cache map[uint64]*proofProducer.ProofResponse
