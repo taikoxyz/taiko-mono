@@ -609,10 +609,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         address designatedProver = _commitment.transitions[_offset].designatedProver;
         address actualProver = _commitment.actualProver;
 
-        // Only slash when a late proof is submitted by someone other than the designated prover.
-        if (actualProver != designatedProver) {
-            _proverAuction.slashProver(designatedProver, actualProver);
-        }
+        _proverAuction.slashProver(designatedProver, actualProver);
     }
     }
 

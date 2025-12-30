@@ -236,11 +236,10 @@ contract InboxProverAuctionTest is InboxTestBase {
         assertEq(proverAuction.lastSlashRecipient(), address(0), "no reward");
     }
 
-    function test_prove_doesNotSlash_whenLateButSameProver() public {
+    function test_prove_slashes_whenLateAndSameProver() public {
         ProposedEvent memory p1 = _proposeOne();
         uint48 p1Timestamp = uint48(block.timestamp);
 
-        // Warp past the proving window + maxProofSubmissionDelay
         vm.warp(block.timestamp + config.provingWindow + config.maxProofSubmissionDelay + 1);
 
         address designatedProver = proverAuction.currentProver();
@@ -260,8 +259,8 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _proveAs(designatedProver, input);
 
-        assertEq(proverAuction.lastSlashedProver(), address(0), "not slashed when same prover");
-        assertEq(proverAuction.lastSlashRecipient(), address(0), "no reward when same prover");
+        assertEq(proverAuction.lastSlashedProver(), designatedProver, "slashed even when same prover");
+        assertEq(proverAuction.lastSlashRecipient(), designatedProver, "rewarded same prover");
     }
 
     function test_prove_doesNotSlash_whenAtExactDeadline() public {
