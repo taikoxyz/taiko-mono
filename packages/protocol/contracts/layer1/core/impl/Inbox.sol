@@ -156,10 +156,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
     /// @notice Activates the inbox so that it can start accepting proposals.
     /// @dev Can be called multiple times within the activation window to handle reorgs. When
-    /// reactivated, proposal history is cleared while the forced inclusion queue is preserved.
+    /// reactivated, proposal history is invalidated via core state reset while the forced
+    /// inclusion queue is preserved. Ring buffer storage is not cleared.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
-        bool wasActivated = activationTimestamp != 0;
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
@@ -169,7 +169,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
-        if (wasActivated) _clearProposalHashes();
         _setProposalHash(0, genesisProposalHash);
         emit Proposed(proposal.id, LibCodec.encodeProposal(proposal));
         emit InboxActivated(_lastPacayaBlockHash);
@@ -236,6 +235,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
     /// proposals get finalized between proof generation and submission.
+    /// @dev All fields in the ProveInput (including Transition metadata) are verified by the
+    /// proof system. Onchain checks assume the proof binds transition metadata to the L1 proposal
+    /// data, so values such as timestamps and designated prover are trusted only if the proof is
+    /// valid.
     ///
     /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
     ///
@@ -640,15 +643,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) private {
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
-    }
-
-    /// @dev Clears the proposal hash ring buffer.
-    function _clearProposalHashes() private {
-        unchecked {
-            for (uint256 i; i < _ringBufferSize; ++i) {
-                _proposalHashes[i] = bytes32(0);
-            }
-        }
     }
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
