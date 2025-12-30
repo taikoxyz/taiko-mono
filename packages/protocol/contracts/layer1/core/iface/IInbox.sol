@@ -214,7 +214,7 @@ interface IInbox {
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external;
+    function propose(bytes calldata _lookahead, bytes calldata _data) external payable;
 
     /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     /// @param _data The encoded ProveInput struct.

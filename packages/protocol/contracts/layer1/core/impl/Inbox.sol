@@ -181,7 +181,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external payable nonReentrant {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -191,8 +191,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
+            (address designatedProver, uint32 feeInGwei) =
+                _resolveDesignatedProver(input.isSelfProving);
+            _collectProverFee(designatedProver, feeInGwei);
+
             Proposal memory proposal = _buildProposal(
-                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+                input,
+                _lookahead,
+                nextProposalId,
+                lastProposalBlockId,
+                lastFinalizedProposalId,
+                designatedProver
             );
 
             _coreState.nextProposalId = nextProposalId + 1;
@@ -464,7 +473,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         bytes calldata _lookahead,
         uint48 _nextProposalId,
         uint48 _lastProposalBlockId,
-        uint48 _lastFinalizedProposalId
+        uint48 _lastFinalizedProposalId,
+        address _designatedProver
     )
         private
         returns (Proposal memory proposal_)
@@ -491,8 +501,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 ? 0
                 : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
-            address designatedProver = _resolveDesignatedProver(_input.isSelfProving);
-
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
             proposal_ = Proposal({
@@ -500,7 +508,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                designatedProver: designatedProver,
+                designatedProver: _designatedProver,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
@@ -515,17 +523,45 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @return designatedProver_ The designated prover address.
     function _resolveDesignatedProver(bool _isSelfProving)
         private
-        returns (address designatedProver_)
+        returns (address designatedProver_, uint32 feeInGwei_)
     {
         if (_isSelfProving) {
             bool ok = _proverAuction.checkBondDeferWithdrawal(msg.sender);
             require(ok, InsufficientBondForSelfProving());
-            return msg.sender;
+            return (msg.sender, 0);
         }
 
-        (address currentProver,) = _proverAuction.getCurrentProver();
+        (address currentProver, uint32 feeInGwei) = _proverAuction.getCurrentProver();
         require(currentProver != address(0), NoActiveAuctionProver());
-        return currentProver;
+        return (currentProver, feeInGwei);
+    }
+
+    /// @dev Collects the prover fee in ETH (Gwei units) and refunds any excess.
+    /// @param _designatedProver The designated prover for this proposal.
+    /// @param _feeInGwei The prover fee in Gwei.
+    function _collectProverFee(address _designatedProver, uint32 _feeInGwei) private {
+        if (_feeInGwei == 0) {
+            if (msg.value > 0) {
+                msg.sender.sendEtherAndVerify(msg.value);
+            }
+            return;
+        }
+
+        uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
+
+        if (msg.sender != _designatedProver) {
+            require(msg.value >= feeWei, ProverFeeNotPaid());
+            _designatedProver.sendEtherAndVerify(feeWei);
+            uint256 refund = msg.value - feeWei;
+            if (refund > 0) {
+                msg.sender.sendEtherAndVerify(refund);
+            }
+            return;
+        }
+
+        if (msg.value > 0) {
+            msg.sender.sendEtherAndVerify(msg.value);
+        }
     }
 
     /// @dev Stores a proposal hash in the ring buffer
@@ -748,6 +784,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error NoActiveAuctionProver();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
+    error ProverFeeNotPaid();
     error InsufficientBondForSelfProving();
     error UnprocessedForcedInclusionIsDue();
 }
