@@ -231,7 +231,7 @@ contract LibCodecTest is Test {
         assertEq(decoded.commitment.transitions.length, 0, "empty transitions");
     }
 
-    function test_encode_decode_proposal_roundtrip() public {
+    function test_encode_decode_proposal_roundtrip() public pure {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](2);
 
         bytes32[] memory hashes0 = new bytes32[](2);
@@ -273,7 +273,7 @@ contract LibCodecTest is Test {
         _assertProposalEq(proposal, decoded);
     }
 
-    function test_encode_decode_proposal_boundaryValues() public {
+    function test_encode_decode_proposal_boundaryValues() public pure {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](0);
 
         IInbox.Proposal memory proposal = IInbox.Proposal({
@@ -297,7 +297,7 @@ contract LibCodecTest is Test {
         assertEq(decoded.sources.length, 0, "empty sources");
     }
 
-    function test_encode_proposal_deterministic() public {
+    function test_encode_proposal_deterministic() public pure {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
 
         bytes32[] memory hashes0 = new bytes32[](2);
@@ -457,6 +457,7 @@ contract LibCodecTest is Test {
 
     function _assertProposalEq(IInbox.Proposal memory expected, IInbox.Proposal memory actual)
         private
+        pure
     {
         assertEq(actual.id, expected.id, "id");
         assertEq(actual.timestamp, expected.timestamp, "timestamp");

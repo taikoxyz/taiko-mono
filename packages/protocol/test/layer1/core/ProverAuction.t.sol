@@ -441,7 +441,7 @@ contract ProverAuctionTest is CommonTest {
         vm.warp(block.timestamp + FEE_DOUBLING_PERIOD * (MAX_FEE_DOUBLINGS + 5));
 
         uint32 maxFee = auction.getMaxBidFee();
-        assertEq(maxFee, INITIAL_MAX_FEE * (1 << MAX_FEE_DOUBLINGS)); // 256x
+        assertEq(maxFee, INITIAL_MAX_FEE * (2 ** MAX_FEE_DOUBLINGS)); // 256x
     }
 
     function test_getMaxBidFee_activeProverRequiresReduction() public {

@@ -121,7 +121,7 @@ contract MockProverAuction {
         bondOk = _ok;
     }
 
-    function checkBondDeferWithdrawal(address) external returns (bool success_) {
+    function checkBondDeferWithdrawal(address) external view returns (bool success_) {
         return bondOk;
     }
 
