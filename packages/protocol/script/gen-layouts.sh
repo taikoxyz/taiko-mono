@@ -30,6 +30,7 @@ contracts_shared=(
 
 # Layer 1 contracts
 contracts_layer1=(
+"contracts/layer1/core/impl/ProverAuction.sol:ProverAuction"
 "contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
@@ -50,7 +51,6 @@ contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
-"contracts/layer2/core/BondManager.sol:BondManager"
 "contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
 )
 

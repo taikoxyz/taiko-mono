@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title AnchorLayout
 /// @notice Storage layout documentation for Anchor
@@ -20,6 +20,5 @@ pragma solidity ^0.8.24;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   blockHashes                    | mapping(uint256 => bytes32)                        | Slot: 251  | Offset: 0    | Bytes: 32  
 //   _pacayaSlots                   | uint256[3]                                         | Slot: 252  | Offset: 0    | Bytes: 96  
-//   _proposalState                 | struct Anchor.ProposalState                        | Slot: 255  | Offset: 0    | Bytes: 32  
-//   _blockState                    | struct Anchor.BlockState                           | Slot: 256  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[41]                                        | Slot: 258  | Offset: 0    | Bytes: 1312
+//   _state                         | struct Anchor.AnchorState                          | Slot: 255  | Offset: 0    | Bytes: 64  
+//   __gap                          | uint256[42]                                        | Slot: 257  | Offset: 0    | Bytes: 1344

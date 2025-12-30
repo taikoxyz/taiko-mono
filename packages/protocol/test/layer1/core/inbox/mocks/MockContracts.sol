@@ -101,3 +101,38 @@ contract MockSignalService is ISignalService {
         return checkpoints[_blockNumber];
     }
 }
+
+contract MockProverAuction {
+    address public currentProver;
+    uint32 public currentFeeInGwei;
+    bool public bondOk = true;
+    address public lastSlashedProver;
+    address public lastSlashRecipient;
+
+    function setCurrentProver(address _prover) external {
+        currentProver = _prover;
+    }
+
+    function setCurrentFeeInGwei(uint32 _fee) external {
+        currentFeeInGwei = _fee;
+    }
+
+    function setBondOk(bool _ok) external {
+        bondOk = _ok;
+    }
+
+    function checkBondDeferWithdrawal(address) external view returns (bool success_) {
+        return bondOk;
+    }
+
+    function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_) {
+        return (currentProver, currentFeeInGwei);
+    }
+
+    function slashProver(address _prover, address _recipient) external {
+        lastSlashedProver = _prover;
+        lastSlashRecipient = _recipient;
+    }
+
+    receive() external payable { }
+}

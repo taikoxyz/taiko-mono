@@ -135,3 +135,6 @@ target
 
 #Env
 **/*.env
+
+# Worktrees
+.worktrees/

@@ -5,7 +5,7 @@ import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
+import { IProverAuction } from "../iface/IProverAuction.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -14,7 +14,6 @@ import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
@@ -28,7 +27,6 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Proposal submission with forced inclusion support
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
-///      - Bond instruction calculation(but actual funds are managed on L2)
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
@@ -62,10 +60,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
-    /// @notice The prover whitelist contract (address(0) means no whitelist)
-    IProverWhitelist internal immutable _proverWhitelist;
+    /// @notice The prover auction contract.
+    IProverAuction internal immutable _proverAuction;
 
-    /// @notice Signal service responsible for checkpoints and bond signals.
+    /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
 
     /// @notice The proving window in seconds.
@@ -132,7 +130,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
+        _proverAuction = IProverAuction(_config.proverAuction);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
@@ -157,7 +155,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @notice Activates the inbox so that it can start accepting proposals.
-    /// @dev Can be called multiple times within the activation window to handle reorgs.
+    /// @dev Can be called multiple times within the activation window to handle reorgs. When
+    /// reactivated, proposal history is invalidated via core state reset while the forced
+    /// inclusion queue is preserved. Ring buffer storage is not cleared.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         (
@@ -170,7 +170,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
-        _emitProposedEvent(proposal);
+        emit Proposed(proposal.id, LibCodec.encodeProposal(proposal));
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -183,7 +183,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(
+        bytes calldata _lookahead,
+        bytes calldata _data
+    )
+        external
+        payable
+        nonReentrant
+    {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -193,15 +200,32 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
-            Proposal memory proposal = _buildProposal(
-                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+            (address designatedProver, uint32 feeInGwei) =
+                _resolveDesignatedProver(input.isSelfProving);
+
+            uint256 feeRefund = _collectProverFee(designatedProver, feeInGwei);
+
+            (Proposal memory proposal, uint256 forcedFees) = _buildProposal(
+                input,
+                _lookahead,
+                nextProposalId,
+                lastProposalBlockId,
+                lastFinalizedProposalId,
+                designatedProver,
+                feeInGwei
             );
+
+            // Single payout to proposer for fee refund + forced inclusion fees.
+            uint256 payout = feeRefund + forcedFees;
+            if (payout > 0) {
+                msg.sender.sendEtherAndVerify(payout);
+            }
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
-            _emitProposedEvent(proposal);
+            emit Proposed(proposal.id, LibCodec.encodeProposal(proposal));
         }
     }
 
@@ -211,6 +235,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
     /// proposals get finalized between proof generation and submission.
+    /// @dev All fields in the ProveInput (including Transition metadata) are verified by the
+    /// proof system. Onchain checks assume the proof binds transition metadata to the L1 proposal
+    /// data, so values such as timestamps and designated prover are trusted only if the proof is
+    /// valid.
     ///
     /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
     ///
@@ -233,10 +261,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(bytes calldata _data, bytes calldata _proof) external {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-
-            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
@@ -264,12 +290,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Process bond instruction
+            // 3. Slash late proofs (auction-based)
             // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
-            if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset);
-            }
+            _maybeSlashLateProof(commitment, offset, state.lastFinalizedTimestamp);
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -308,9 +331,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _coreState = state;
 
             emit Proved(
+                uint48(lastProposalId),
                 commitment.firstProposalId,
                 commitment.firstProposalId + offset,
-                uint48(lastProposalId),
                 commitment.actualProver,
                 checkpointSynced
             );
@@ -364,6 +387,27 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc ICodec
+    function encodeProposal(IInbox.Proposal calldata _proposal)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibCodec.encodeProposal(_proposal);
+    }
+
+    /// @inheritdoc ICodec
+    function decodeProposal(
+        uint48 _proposalId,
+        bytes calldata _data
+    )
+        external
+        pure
+        returns (IInbox.Proposal memory proposal_)
+    {
+        return LibCodec.decodeProposal(_proposalId, _data);
+    }
+
+    /// @inheritdoc ICodec
     function encodeProveInput(IInbox.ProveInput calldata _input)
         external
         pure
@@ -384,15 +428,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc ICodec
     function hashProposal(IInbox.Proposal calldata _proposal) external pure returns (bytes32) {
         return LibHashOptimized.hashProposal(_proposal);
-    }
-
-    /// @inheritdoc ICodec
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibBonds.hashBondInstruction(_bondInstruction);
     }
 
     /// @inheritdoc ICodec
@@ -436,7 +471,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         config_ = Config({
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
-            proverWhitelist: address(_proverWhitelist),
+            proverAuction: address(_proverAuction),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
@@ -475,15 +510,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _lastProposalBlockId The last block number where a proposal was made.
     /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
     /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
+    /// @return forcedFees_ Total forced inclusion fees in wei to pay the proposer.
     function _buildProposal(
         ProposeInput memory _input,
         bytes calldata _lookahead,
         uint48 _nextProposalId,
         uint48 _lastProposalBlockId,
-        uint48 _lastFinalizedProposalId
+        uint48 _lastFinalizedProposalId,
+        address _designatedProver,
+        uint32 _feeInGwei
     )
         private
-        returns (Proposal memory proposal_)
+        returns (Proposal memory proposal_, uint256 forcedFees_)
     {
         unchecked {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
@@ -494,8 +532,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 NotEnoughCapacity()
             );
 
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            ConsumptionResult memory result;
+            (result, forcedFees_) = _consumeForcedInclusions(_input.numForcedInclusions);
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
@@ -514,12 +552,88 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
+                designatedProver: _designatedProver,
+                feeInGwei: _feeInGwei,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
                 sources: result.sources
             });
+        }
+    }
+
+    /// @dev Resolves and validates the designated prover for the proposal.
+    /// @param _isSelfProving True if the proposer intends to self-prove.
+    /// @return designatedProver_ The designated prover address.
+    function _resolveDesignatedProver(bool _isSelfProving)
+        private
+        returns (address designatedProver_, uint32 feeInGwei_)
+    {
+        if (_isSelfProving) {
+            bool ok = _proverAuction.checkBondDeferWithdrawal(msg.sender);
+            require(ok, InsufficientBondForSelfProving());
+            return (msg.sender, 0);
+        }
+
+        (address currentProver, uint32 feeInGwei) = _proverAuction.getCurrentProver();
+        require(currentProver != address(0), NoActiveAuctionProver());
+        return (currentProver, feeInGwei);
+    }
+
+    /// @dev Collects the prover fee in ETH (Gwei units) and returns refund in wei.
+    /// @dev Fee payment is best-effort: proposal should not revert if the prover rejects ETH.
+    /// The refund is paid once by the caller, alongside forced inclusion fees.
+    /// @param _designatedProver The designated prover for this proposal.
+    /// @param _feeInGwei The prover fee in Gwei.
+    function _collectProverFee(
+        address _designatedProver,
+        uint32 _feeInGwei
+    )
+        private
+        returns (uint256 refund_)
+    {
+        unchecked {
+            // Safe math: feeWei is bounded by uint32 * 1 gwei, and msg.value >= feeWei
+            // is enforced before subtracting.
+            refund_ = msg.value;
+
+            if (_feeInGwei > 0 && msg.sender != _designatedProver) {
+                uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
+                require(msg.value >= feeWei, ProverFeeNotPaid());
+
+                (bool paid,) = payable(_designatedProver).call{ value: feeWei }("");
+                // If prover refuses payment, refund full msg.value to proposer.
+                if (paid) {
+                    refund_ = msg.value - feeWei;
+                }
+            }
+        }
+    }
+
+    /// @dev Applies late-proof slashing using the prover auction.
+    /// @param _commitment The commitment data.
+    /// @param _offset The offset to the first unfinalized proposal.
+    /// @param _lastFinalizedTimestamp The last finalized proposal timestamp.
+    function _maybeSlashLateProof(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
+        unchecked {
+            uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
+                    + _provingWindow)
+            .max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+
+            if (block.timestamp <= livenessWindowDeadline) return;
+
+            // Slash designated prover even if they submit late themselves;
+            // they receive the reward but still incur net penalty.
+            _proverAuction.slashProver(
+                _commitment.transitions[_offset].designatedProver, _commitment.actualProver
+            );
         }
     }
 
@@ -531,16 +645,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
-    /// @param _feeRecipient Address to receive accumulated fees
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
     /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
     /// and whether permissionless proposals are allowed
-    function _consumeForcedInclusions(
-        address _feeRecipient,
-        uint256 _numForcedInclusionsRequested
-    )
+    /// @return totalFees_ Total forced inclusion fees in wei
+    function _consumeForcedInclusions(uint256 _numForcedInclusionsRequested)
         private
-        returns (ConsumptionResult memory result_)
+        returns (ConsumptionResult memory result_, uint256 totalFees_)
     {
         unchecked {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
@@ -556,9 +667,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, toProcess
-            );
+            (oldestTimestamp, head, totalFees_) =
+                _dequeueAndProcessForcedInclusions($, result_.sources, head, toProcess);
 
             // We check the following conditions are met:
             // 1. Proposer is willing to include at least the minimum required
@@ -579,38 +689,35 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
     /// @dev Dequeues and processes forced inclusions from the queue without checking if they exist
     /// @param $ Storage reference
-    /// @param _feeRecipient Address to receive fees
     /// @param _sources Array to populate with derivation sources
     /// @param _head Current queue head position
     /// @param _toProcess Number of inclusions to process
     /// @return oldestTimestamp_ Oldest timestamp from processed inclusions.
     /// `type(uint48).max` if no inclusions were processed
     /// @return head_ Updated head position
+    /// @return totalFees_ Total forced inclusion fees in wei
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
-        address _feeRecipient,
         DerivationSource[] memory _sources,
         uint48 _head,
         uint256 _toProcess
     )
         private
-        returns (uint48 oldestTimestamp_, uint48 head_)
+        returns (uint48 oldestTimestamp_, uint48 head_, uint256 totalFees_)
     {
         unchecked {
             if (_toProcess == 0) {
-                return (type(uint48).max, _head);
+                return (type(uint48).max, _head, 0);
             }
 
-            // Process inclusions and accumulate fees
-            uint256 totalFees;
+            // Process inclusions and accumulate fees in gwei
             for (uint256 i; i < _toProcess; ++i) {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                 _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
-                totalFees += inclusion.feeInGwei;
+                totalFees_ += inclusion.feeInGwei;
             }
 
-            // Transfer accumulated fees
-            _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            totalFees_ *= 1 gwei;
 
             // Oldest timestamp is the timestamp of the first inclusion
             oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
@@ -621,53 +728,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // Write to storage once
             $.head = head_;
         }
-    }
-
-    /// @dev Calculates and emits bond instruction if applicable.
-    /// @dev Bond instruction rules:
-    ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
-    ///        same address (L2 processing handles slashing/reward splits).
-    /// @param _commitment The commitment data.
-    /// @param _offset The offset to the first unfinalized proposal.
-    function _processBondInstruction(
-        Commitment memory _commitment,
-        uint48 _offset
-    )
-        private
-    {
-        unchecked {
-            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
-
-            // On-time proof - no bond transfer needed.
-            if (block.timestamp <= livenessWindowDeadline) {
-                return;
-            }
-
-            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
-                proposalId: _commitment.firstProposalId + _offset,
-                bondType: LibBonds.BondType.LIVENESS,
-                payer: _commitment.transitions[_offset].designatedProver,
-                payee: _commitment.actualProver
-            });
-
-            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
-        }
-    }
-
-    /// @dev Emits the Proposed event
-    function _emitProposedEvent(Proposal memory _proposal) private {
-        emit Proposed(
-            _proposal.id,
-            _proposal.proposer,
-            _proposal.parentProposalHash,
-            _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
-            _proposal.sources
-        );
     }
 
     // ---------------------------------------------------------------
@@ -688,7 +748,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         returns (uint256)
     {
         unchecked {
+            if (_nextProposalId <= _lastFinalizedProposalId) revert InvalidCoreState();
+
             uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
+            if (numUnfinalizedProposals >= _ringBufferSize) revert InvalidCoreState();
+
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
@@ -697,19 +761,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Checks if the caller is an authorized prover
-    /// @param _addr The address of the caller to check
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
-    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
-        if (address(_proverWhitelist) == address(0)) return false;
-
-        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
-        if (proverCount == 0) return false;
-
-        require(isWhitelisted, ProverNotWhitelisted());
-        return true;
     }
 
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
@@ -755,11 +806,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
+    error InsufficientBondForSelfProving();
+    error InvalidCoreState();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
+    error NoActiveAuctionProver();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
-    error ProverNotWhitelisted();
+    error ProverFeeNotPaid();
     error UnprocessedForcedInclusionIsDue();
 }

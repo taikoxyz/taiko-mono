@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { MockProofVerifier } from "./mocks/MockContracts.sol";
+import { MockProofVerifier, MockProverAuction } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -22,6 +21,11 @@ abstract contract InboxTestBase is CommonTest {
     struct ProposedEvent {
         uint48 id;
         address proposer;
+        address designatedProver;
+        uint32 feeInGwei;
+        uint48 timestamp;
+        uint48 originBlockNumber;
+        bytes32 originBlockHash;
         bytes32 parentProposalHash;
         uint48 endOfSubmissionWindowTimestamp;
         uint8 basefeeSharingPctg;
@@ -35,7 +39,7 @@ abstract contract InboxTestBase is CommonTest {
     MockProofVerifier internal verifier;
     SignalService internal signalService;
     PreconfWhitelist internal proposerChecker;
-    ProverWhitelist internal proverWhitelistContract;
+    MockProverAuction internal proverAuction;
 
     address internal proposer = Bob;
     address internal prover = Carol;
@@ -72,7 +76,7 @@ abstract contract InboxTestBase is CommonTest {
         return IInbox.Config({
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
-            proverWhitelist: address(proverWhitelistContract),
+            proverAuction: address(proverAuction),
             signalService: address(signalService),
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
@@ -99,7 +103,8 @@ abstract contract InboxTestBase is CommonTest {
     function _setupDependencies() internal virtual {
         signalService = _deploySignalService(address(this));
         proposerChecker = _deployProposerChecker();
-        proverWhitelistContract = _deployProverWhitelist();
+        proverAuction = _deployProverAuction();
+        proverAuction.setCurrentProver(prover);
         _addProposer(proposer);
     }
 
@@ -137,15 +142,8 @@ abstract contract InboxTestBase is CommonTest {
         );
     }
 
-    function _deployProverWhitelist() internal returns (ProverWhitelist) {
-        ProverWhitelist impl = new ProverWhitelist();
-        return ProverWhitelist(
-            address(
-                new ERC1967Proxy(
-                    address(impl), abi.encodeCall(ProverWhitelist.init, (address(this)))
-                )
-            )
-        );
+    function _deployProverAuction() internal returns (MockProverAuction) {
+        return new MockProverAuction();
     }
 
     function _addProposer(address _proposer) internal {
@@ -210,14 +208,24 @@ abstract contract InboxTestBase is CommonTest {
         require(logs.length > 0, "Proposed event not found");
         Vm.Log memory log = logs[logs.length - 1];
 
-        payload_.id = uint48(uint256(log.topics[1]));
-        payload_.proposer = address(uint160(uint256(log.topics[2])));
-        (
-            payload_.parentProposalHash,
-            payload_.endOfSubmissionWindowTimestamp,
-            payload_.basefeeSharingPctg,
-            payload_.sources
-        ) = abi.decode(log.data, (bytes32, uint48, uint8, IInbox.DerivationSource[]));
+        // Extract proposal ID from indexed topic
+        uint48 proposalId = uint48(uint256(log.topics[1]));
+
+        // Decode encoded proposal bytes using codec
+        bytes memory encodedProposal = abi.decode(log.data, (bytes));
+        IInbox.Proposal memory proposal = codec.decodeProposal(proposalId, encodedProposal);
+
+        payload_.id = proposalId;
+        payload_.proposer = proposal.proposer;
+        payload_.designatedProver = proposal.designatedProver;
+        payload_.feeInGwei = proposal.feeInGwei;
+        payload_.timestamp = proposal.timestamp;
+        payload_.originBlockNumber = proposal.originBlockNumber;
+        payload_.originBlockHash = proposal.originBlockHash;
+        payload_.parentProposalHash = proposal.parentProposalHash;
+        payload_.endOfSubmissionWindowTimestamp = proposal.endOfSubmissionWindowTimestamp;
+        payload_.basefeeSharingPctg = proposal.basefeeSharingPctg;
+        payload_.sources = proposal.sources;
     }
 
     function _mockBeaconBlockRoot() internal {
@@ -309,6 +317,7 @@ abstract contract InboxTestBase is CommonTest {
         input_.deadline = 0;
         input_.blobReference = LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
         input_.numForcedInclusions = 0;
+        input_.isSelfProving = false;
     }
 
     function _proposalFromPayload(
@@ -329,6 +338,8 @@ abstract contract InboxTestBase is CommonTest {
             timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: _payload.endOfSubmissionWindowTimestamp,
             proposer: _payload.proposer,
+            designatedProver: _payload.designatedProver,
+            feeInGwei: _payload.feeInGwei,
             parentProposalHash: parentProposalHash,
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,

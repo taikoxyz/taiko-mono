@@ -11,11 +11,12 @@ contract LibCodecTest is Test {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 1_234_567,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 }),
-            numForcedInclusions: 3
+            numForcedInclusions: 3,
+            isSelfProving: false
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -27,6 +28,7 @@ contract LibCodecTest is Test {
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
+        assertEq(decoded.isSelfProving, input.isSelfProving, "isSelfProving");
     }
 
     function test_encode_decode_proposeInput_boundaryValues() public pure {
@@ -37,7 +39,8 @@ contract LibCodecTest is Test {
                 numBlobs: type(uint16).max,
                 offset: type(uint24).max
             }),
-            numForcedInclusions: type(uint8).max
+            numForcedInclusions: type(uint8).max,
+            isSelfProving: true
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
@@ -50,6 +53,7 @@ contract LibCodecTest is Test {
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "max numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "max offset");
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
+        assertEq(decoded.isSelfProving, input.isSelfProving, "max selfProving");
     }
 
     function testFuzz_encodeDecodeProposeInput_PreservesFields(
@@ -67,11 +71,12 @@ contract LibCodecTest is Test {
             blobReference: LibBlobs.BlobReference({
                 blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
             }),
-            numForcedInclusions: numForcedInclusions
+            numForcedInclusions: numForcedInclusions,
+            isSelfProving: false
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -83,6 +88,7 @@ contract LibCodecTest is Test {
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
         assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
+        assertEq(decoded.isSelfProving, input.isSelfProving, "isSelfProving");
     }
 
     function test_encode_decode_proveInput_roundtrip() public pure {
@@ -225,6 +231,98 @@ contract LibCodecTest is Test {
         assertEq(decoded.commitment.transitions.length, 0, "empty transitions");
     }
 
+    function test_encode_decode_proposal_roundtrip() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](2);
+
+        bytes32[] memory hashes0 = new bytes32[](2);
+        hashes0[0] = bytes32(uint256(1));
+        hashes0[1] = bytes32(uint256(2));
+        LibBlobs.BlobSlice memory slice0 =
+            LibBlobs.BlobSlice({ blobHashes: hashes0, offset: 7, timestamp: 123 });
+        sources[0] = IInbox.DerivationSource(true, slice0);
+
+        bytes32[] memory hashes1 = new bytes32[](1);
+        hashes1[0] = bytes32(uint256(3));
+        LibBlobs.BlobSlice memory slice1 =
+            LibBlobs.BlobSlice({ blobHashes: hashes1, offset: 0, timestamp: 456 });
+        sources[1] = IInbox.DerivationSource(false, slice1);
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 42,
+            timestamp: 1000,
+            endOfSubmissionWindowTimestamp: 0,
+            proposer: address(0x1111),
+            designatedProver: address(0x2222),
+            feeInGwei: 123,
+            parentProposalHash: bytes32(uint256(1)),
+            originBlockNumber: 100,
+            originBlockHash: bytes32(uint256(2)),
+            basefeeSharingPctg: 7,
+            sources: sources
+        });
+
+        bytes memory encoded = LibCodec.encodeProposal(proposal);
+        IInbox.Proposal memory decoded = LibCodec.decodeProposal(proposal.id, encoded);
+
+        _assertProposalEq(proposal, decoded);
+    }
+
+    function test_encode_decode_proposal_boundaryValues() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](0);
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: type(uint48).max,
+            timestamp: type(uint48).max,
+            endOfSubmissionWindowTimestamp: type(uint48).max,
+            proposer: address(type(uint160).max),
+            designatedProver: address(0xBEEF),
+            feeInGwei: type(uint32).max,
+            parentProposalHash: bytes32(type(uint256).max),
+            originBlockNumber: type(uint48).max,
+            originBlockHash: bytes32(type(uint256).max - 1),
+            basefeeSharingPctg: type(uint8).max,
+            sources: sources
+        });
+
+        bytes memory encoded = LibCodec.encodeProposal(proposal);
+        IInbox.Proposal memory decoded = LibCodec.decodeProposal(proposal.id, encoded);
+
+        _assertProposalEq(proposal, decoded);
+        assertEq(decoded.sources.length, 0, "empty sources");
+    }
+
+    function test_encode_proposal_deterministic() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+
+        bytes32[] memory hashes0 = new bytes32[](2);
+        hashes0[0] = bytes32(uint256(9));
+        hashes0[1] = bytes32(uint256(10));
+        LibBlobs.BlobSlice memory slice0 = LibBlobs.BlobSlice({
+            blobHashes: hashes0, offset: type(uint24).max, timestamp: type(uint48).max
+        });
+        sources[0] = IInbox.DerivationSource(true, slice0);
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 7,
+            timestamp: 111,
+            endOfSubmissionWindowTimestamp: 222,
+            proposer: address(0xAAAA),
+            designatedProver: address(0xBBBB),
+            feeInGwei: 555,
+            parentProposalHash: bytes32(uint256(7)),
+            originBlockNumber: 999,
+            originBlockHash: bytes32(uint256(8)),
+            basefeeSharingPctg: 100,
+            sources: sources
+        });
+
+        bytes memory encoded1 = LibCodec.encodeProposal(proposal);
+        bytes memory encoded2 = LibCodec.encodeProposal(proposal);
+
+        assertEq(encoded1.length, encoded2.length, "length match");
+        assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
+    }
+
     function test_encode_proveInput_deterministic() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
@@ -348,5 +446,58 @@ contract LibCodecTest is Test {
     {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
-}
 
+    function _assertProposalEq(
+        IInbox.Proposal memory expected,
+        IInbox.Proposal memory actual
+    )
+        private
+        pure
+    {
+        assertEq(actual.id, expected.id, "id");
+        assertEq(actual.timestamp, expected.timestamp, "timestamp");
+        assertEq(
+            actual.endOfSubmissionWindowTimestamp,
+            expected.endOfSubmissionWindowTimestamp,
+            "endOfSubmissionWindowTimestamp"
+        );
+        assertEq(actual.proposer, expected.proposer, "proposer");
+        assertEq(actual.designatedProver, expected.designatedProver, "designatedProver");
+        assertEq(actual.feeInGwei, expected.feeInGwei, "feeInGwei");
+        assertEq(actual.parentProposalHash, expected.parentProposalHash, "parentProposalHash");
+        assertEq(actual.originBlockNumber, expected.originBlockNumber, "originBlockNumber");
+        assertEq(actual.originBlockHash, expected.originBlockHash, "originBlockHash");
+        assertEq(actual.basefeeSharingPctg, expected.basefeeSharingPctg, "basefeeSharingPctg");
+        assertEq(actual.sources.length, expected.sources.length, "sources length");
+
+        for (uint256 i; i < expected.sources.length; ++i) {
+            assertEq(
+                actual.sources[i].isForcedInclusion,
+                expected.sources[i].isForcedInclusion,
+                "source isForcedInclusion"
+            );
+            assertEq(
+                actual.sources[i].blobSlice.offset,
+                expected.sources[i].blobSlice.offset,
+                "source offset"
+            );
+            assertEq(
+                actual.sources[i].blobSlice.timestamp,
+                expected.sources[i].blobSlice.timestamp,
+                "source timestamp"
+            );
+            assertEq(
+                actual.sources[i].blobSlice.blobHashes.length,
+                expected.sources[i].blobSlice.blobHashes.length,
+                "blobHashes length"
+            );
+            for (uint256 j; j < expected.sources[i].blobSlice.blobHashes.length; ++j) {
+                assertEq(
+                    actual.sources[i].blobSlice.blobHashes[j],
+                    expected.sources[i].blobSlice.blobHashes[j],
+                    "blobHash"
+                );
+            }
+        }
+    }
+}

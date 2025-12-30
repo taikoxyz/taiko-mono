@@ -25,11 +25,15 @@ library LibInboxSetup {
         // Validate in the order fields are defined in Config struct.
         require(_config.proofVerifier != address(0), ProofVerifierZero());
         require(_config.proposerChecker != address(0), ProposerCheckerZero());
+        require(_config.proverAuction != address(0), ProverAuctionZero());
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
         require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
+        require(
+            _config.minForcedInclusionCount <= type(uint8).max, MinForcedInclusionCountTooLarge()
+        );
         require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeInGweiZero());
         require(
             _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
@@ -93,10 +97,12 @@ library LibInboxSetup {
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaBlockHash();
+    error MinForcedInclusionCountTooLarge();
     error MinForcedInclusionCountZero();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
+    error ProverAuctionZero();
     error ProvingWindowZero();
     error RingBufferSizeTooSmall();
     error SignalServiceZero();
