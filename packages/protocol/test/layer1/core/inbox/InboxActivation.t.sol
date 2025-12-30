@@ -107,6 +107,7 @@ contract InboxActivationTest is InboxTestBase {
         bytes memory encoded = ICodec(address(nonActivatedInbox)).encodeProposeInput(input);
         vm.prank(proposer);
         nonActivatedInbox.propose(bytes(""), encoded);
+        bytes32 proposalHashBefore = nonActivatedInbox.getProposalHash(1);
 
         // Queue a forced inclusion and record state.
         _setBlobHashes(1);
@@ -127,12 +128,19 @@ contract InboxActivationTest is InboxTestBase {
         assertEq(headAfter, headBefore, "forced inclusion head");
         assertEq(tailAfter, tailBefore, "forced inclusion tail");
 
-        // Proposal history invalidated
+        // Proposal history invalidated via core state reset
         IInbox.CoreState memory state = nonActivatedInbox.getCoreState();
         assertEq(state.nextProposalId, 1, "nextProposalId reset");
         assertEq(state.lastFinalizedProposalId, 0, "finalized reset");
         assertEq(state.lastProposalBlockId, 1, "lastProposalBlockId reset");
-        assertEq(nonActivatedInbox.getProposalHash(1), bytes32(0), "proposal hash cleared");
+
+        // Ring buffer storage is not cleared on reactivation; old entries are
+        // logically invalidated by the core state reset.
+        assertEq(
+            nonActivatedInbox.getProposalHash(1),
+            proposalHashBefore,
+            "proposal hash retained"
+        );
     }
 
     function test_getConfig_returnsImmutableConfig() public view {
