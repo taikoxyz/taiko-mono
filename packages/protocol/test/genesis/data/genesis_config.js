@@ -32,7 +32,6 @@ module.exports = {
       // Rollup Contracts
       TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
-      BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
       AnchorForkRouterImpl: getConstantAddress(`0${this.chainId}`, 10004),
       // ============ Proxies ============
       // Shared Contracts
@@ -45,7 +44,6 @@ module.exports = {
       // Rollup Contracts
       TaikoAnchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
-      BondManager: getConstantAddress(this.chainId, 10003),
     };
   },
   // L2 EIP-1559 baseFee calculation related fields.
