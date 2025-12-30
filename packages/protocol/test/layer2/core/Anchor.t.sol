@@ -38,12 +38,11 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_savesCheckpointAndUpdatesState() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1);
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, checkpoint);
+        anchor.anchorV4(checkpoint);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
@@ -58,58 +57,40 @@ contract AnchorTest is Test {
         assertEq(anchor.blockHashes(block.number - 1), blockhash(block.number - 1));
     }
 
-    function test_anchorV4_allowsSameProposalIdAcrossBlocks() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1);
+    function test_anchorV4_allowsMultipleAnchorsAcrossBlocks() external {
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, checkpoint);
+        anchor.anchorV4(checkpoint);
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, checkpoint);
+        anchor.anchorV4(checkpoint);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
     }
 
-    function test_anchorV4_rejectsBackwardProposalId() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1);
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
-
-        vm.roll(SHASTA_FORK_HEIGHT);
-        vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, checkpoint);
-
-        Anchor.ProposalParams memory backwardProposal = _proposalParams(0);
-        vm.roll(SHASTA_FORK_HEIGHT + 1);
-        vm.expectRevert(Anchor.ProposalIdMismatch.selector);
-        vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(backwardProposal, checkpoint);
-    }
-
     function test_anchorV4_rejectsInvalidSender() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1);
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.expectRevert(Anchor.InvalidSender.selector);
-        anchor.anchorV4(proposalParams, checkpoint);
+        anchor.anchorV4(checkpoint);
     }
 
     function test_anchorV4_ignoresStaleCheckpoint() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1);
         ICheckpointStore.Checkpoint memory freshCheckpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, freshCheckpoint);
+        anchor.anchorV4(freshCheckpoint);
 
         ICheckpointStore.Checkpoint memory staleCheckpoint = _checkpoint(999, 0xAAAA, 0xBBBB);
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, staleCheckpoint);
+        anchor.anchorV4(staleCheckpoint);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, freshCheckpoint.blockNumber);
@@ -119,14 +100,6 @@ contract AnchorTest is Test {
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
-
-    function _proposalParams(uint48 _proposalId)
-        internal
-        pure
-        returns (Anchor.ProposalParams memory)
-    {
-        return Anchor.ProposalParams({ proposalId: _proposalId });
-    }
 
     function _checkpoint(
         uint48 _blockNumber,

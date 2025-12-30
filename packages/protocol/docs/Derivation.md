@@ -260,12 +260,6 @@ After all calculations above, an additional `1_000_000` gas units will be added 
 
 Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
 
-### Proposal Identifier Monotonicity
-
-The `proposalId` supplied to `anchorV4` must be the same across blocks in the same proposal and strictly
-increase only when a new proposal begins. The Anchor contract enforces that `proposalId` never goes
-backward, which keeps proposal boundaries deterministic for the L2 anchor transaction.
-
 ### Additional Metadata Fields
 
 The remaining metadata fields follow straightforward assignment patterns:
@@ -321,14 +315,13 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with precisely defined parameters:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with the L1 checkpoint fields:
 
-| Parameter         | Type    | Description                                      |
-| ----------------- | ------- | ------------------------------------------------ |
-| proposalId        | uint48  | Unique identifier of the proposal being anchored |
-| anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring)  |
-| anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber               |
-| anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber               |
+| Parameter         | Type    | Description                                     |
+| ----------------- | ------- | ----------------------------------------------- |
+| anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring) |
+| anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber              |
+| anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber              |
 
 #### Transaction Execution Flow
 
@@ -338,11 +331,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
-2. **Proposal monotonicity**
-   - Rejects calls where `proposalId` goes backward
-   - Updates the latest proposal ID when a new proposal begins
-
-3. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
+2. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointStore.saveCheckpoint`
    - Updates anchor state atomically with the latest anchor block metadata
 

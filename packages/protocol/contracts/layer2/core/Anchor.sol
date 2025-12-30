@@ -10,10 +10,8 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
-/// @notice Implements the Shasta fork's anchoring mechanism with proposal tracking and checkpoint
-/// management.
+/// @notice Implements the Shasta fork's anchoring mechanism with checkpoint management.
 /// @dev This contract implements:
-///      - Proposal ID monotonicity tracking
 ///      - Anchoring of L1 checkpoints for cross-chain verification
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract {
@@ -23,11 +21,6 @@ contract Anchor is EssentialContract {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
-
-    /// @notice Proposal-level data that applies to the entire batch of blocks.
-    struct ProposalParams {
-        uint48 proposalId; // Unique identifier of the proposal
-    }
 
     /// @notice Stored block-level state for the latest anchor.
     /// @dev 2 slots
@@ -69,7 +62,7 @@ contract Anchor is EssentialContract {
     /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
-    /// @notice Latest proposal ID processed.
+    /// @dev Deprecated. Retained for storage layout compatibility.
     uint48 private _lastProposalId;
 
     /// @notice Latest block-level state, updated on every processed block.
@@ -82,12 +75,7 @@ contract Anchor is EssentialContract {
     // Events
     // ---------------------------------------------------------------
 
-    event Anchored(
-        uint48 indexed proposalId,
-        uint48 prevAnchorBlockNumber,
-        uint48 anchorBlockNumber,
-        bytes32 ancestorsHash
-    );
+    event Anchored(uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash);
 
     event Withdrawn(address token, address to, uint256 amount);
 
@@ -130,31 +118,14 @@ contract Anchor is EssentialContract {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Processes a block within a proposal and anchors L1 data.
-    /// @dev Core function that processes blocks sequentially within a proposal:
-    ///      1. Ensures proposal IDs do not go backward
-    ///      2. Anchors L1 block data for cross-chain verification
-    /// @param _proposalParams Proposal-level parameters that define the overall batch.
+    /// @notice Processes a block and anchors L1 data.
+    /// @dev Core function that anchors L1 block data for cross-chain verification.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
-    function anchorV4(
-        ProposalParams calldata _proposalParams,
-        ICheckpointStore.Checkpoint calldata _checkpoint
-    )
+    function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         onlyValidSender
         nonReentrant
     {
-        uint48 proposalId = _proposalParams.proposalId;
-        uint48 lastProposalId = _lastProposalId;
-
-        if (proposalId < lastProposalId) {
-            // Proposal ID cannot go backward
-            revert ProposalIdMismatch();
-        }
-
-        if (proposalId > lastProposalId) {
-            _lastProposalId = proposalId;
-        }
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
 
@@ -162,7 +133,6 @@ contract Anchor is EssentialContract {
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            proposalId,
             prevAnchorBlockNumber,
             _blockState.anchorBlockNumber,
             _blockState.ancestorsHash
@@ -269,5 +239,4 @@ contract Anchor is EssentialContract {
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
-    error ProposalIdMismatch();
 }
