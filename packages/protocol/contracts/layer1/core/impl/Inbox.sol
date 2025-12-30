@@ -757,7 +757,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         returns (uint256)
     {
         unchecked {
+            if (_nextProposalId <= _lastFinalizedProposalId) revert InvalidCoreState();
+
             uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
+            if (numUnfinalizedProposals >= _ringBufferSize) revert InvalidCoreState();
+
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
@@ -812,6 +816,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error InsufficientBondForSelfProving();
+    error InvalidCoreState();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
