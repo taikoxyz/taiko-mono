@@ -185,6 +185,14 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
+    function test_validateConfig_RevertWhen_MinForcedInclusionCountTooLarge() public {
+        IInbox.Config memory cfg = _buildConfig();
+        cfg.minForcedInclusionCount = uint256(type(uint8).max) + 1;
+
+        vm.expectRevert(LibInboxSetup.MinForcedInclusionCountTooLarge.selector);
+        new Inbox(cfg);
+    }
+
     function test_validateConfig_RevertWhen_ForcedInclusionFeeInGweiZero() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.forcedInclusionFeeInGwei = 0;
