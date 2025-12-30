@@ -24,7 +24,7 @@ use crate::{
     error::{P2pClientError, P2pResult},
     handlers::EventHandler,
     metrics::P2pMetrics,
-    storage::{InMemoryStorage, SdkStorage},
+    storage::InMemoryStorage,
     types::{SdkCommand, SdkEvent},
     validation::{
         CommitmentValidator, ValidationStatus, validate_txlist_hash, validate_txlist_size,
@@ -75,7 +75,7 @@ pub struct P2pClient {
     /// The underlying P2P node (consumed when `run()` is called).
     node: Option<P2pNode>,
     /// Storage for commitments, txlists, and deduplication.
-    storage: Arc<dyn SdkStorage>,
+    storage: Arc<InMemoryStorage>,
     /// Commitment validator shared with catch-up processing.
     commitment_validator: CommitmentValidator,
     /// Event handler for gossip/reqresp processing.
@@ -237,7 +237,7 @@ impl P2pClient {
         validator: Option<Box<dyn ValidationAdapter>>,
         lookahead: Option<Arc<dyn LookaheadResolver>>,
     ) -> P2pResult<(Self, broadcast::Receiver<SdkEvent>)> {
-        let storage: Arc<dyn SdkStorage> = Arc::new(InMemoryStorage::new(
+        let storage = Arc::new(InMemoryStorage::new(
             config.dedupe_cache_cap as u64,
             config.dedupe_ttl,
             config.dedupe_ttl, // Use same TTL for pending buffer
@@ -246,17 +246,13 @@ impl P2pClient {
         Self::with_components(config, storage, commitment_validator, validator, lookahead)
     }
 
-    /// Create a new P2P client with custom storage and commitment validation.
+    /// Create a new P2P client with pre-constructed components.
     ///
-    /// This allows SDK consumers to swap storage backends and provide a
-    /// chain-specific commitment validator while still reusing the network
-    /// validation adapter for gossip and req/resp payloads.
-    ///
-    /// If no custom network validator is provided, `config.expected_slasher`
-    /// must be set so the default adapter can enforce slasher authorization.
-    pub fn with_components(
+    /// This is primarily used for tests that need custom validators or
+    /// a pre-built storage instance.
+    pub(crate) fn with_components(
         config: P2pClientConfig,
-        storage: Arc<dyn SdkStorage>,
+        storage: Arc<InMemoryStorage>,
         commitment_validator: CommitmentValidator,
         validator: Option<Box<dyn ValidationAdapter>>,
         lookahead: Option<Arc<dyn LookaheadResolver>>,
@@ -892,7 +888,7 @@ fn uint256_to_u256(v: &Uint256) -> U256 {
 /// to fetch the corresponding commitment from storage. If found, the parent
 /// preconfirmation is returned for linkage validation.
 fn parent_preconfirmation_from_storage(
-    storage: &dyn SdkStorage,
+    storage: &InMemoryStorage,
     commitment: &SignedCommitment,
 ) -> Option<preconfirmation_types::Preconfirmation> {
     let child_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
@@ -905,7 +901,7 @@ fn parent_preconfirmation_from_storage(
 /// This updates the highest seen block number, queues any missing txlists for
 /// retrieval, and persists the commitment in storage.
 fn store_commitment_for_catchup(
-    storage: &dyn SdkStorage,
+    storage: &InMemoryStorage,
     commitment: &SignedCommitment,
     highest_block: &mut u64,
     missing_hashes: &mut Vec<B256>,
@@ -929,7 +925,7 @@ fn store_commitment_for_catchup(
 ///
 /// This skips zero hashes and de-duplicates entries to avoid redundant requests.
 fn collect_missing_txlists_for_commitments(
-    storage: &dyn SdkStorage,
+    storage: &InMemoryStorage,
     commitments: &[SignedCommitment],
 ) -> Vec<B256> {
     let mut missing = Vec::new();
@@ -954,7 +950,7 @@ fn collect_missing_txlists_for_commitments(
 /// This applies commitments via the execution engine, buffers any that are
 /// missing txlists, and updates execution metrics.
 async fn execute_catchup_commitments(
-    storage: &dyn SdkStorage,
+    storage: &InMemoryStorage,
     engine: &dyn PreconfEngine,
     commitments: Vec<SignedCommitment>,
 ) {
@@ -994,7 +990,7 @@ async fn execute_catchup_commitments(
 /// This drains the pending txlist buffer for the given hash and applies the
 /// commitments in block order using the supplied txlist bytes.
 async fn execute_catchup_txlist(
-    storage: &dyn SdkStorage,
+    storage: &InMemoryStorage,
     engine: &dyn PreconfEngine,
     txlist: &RawTxListGossip,
 ) {

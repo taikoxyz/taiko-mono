@@ -16,7 +16,7 @@ use alloy_primitives::{Address, B256, U256};
 use p2p::{
     CatchupAction, CatchupConfig, CatchupPipeline, CatchupState, EventHandler, P2pClient,
     P2pClientConfig, SdkEvent,
-    storage::{InMemoryStorage, SdkStorage, compute_message_id},
+    storage::{InMemoryStorage, compute_message_id},
 };
 use preconfirmation_net::NetworkEvent;
 use preconfirmation_types::{
@@ -76,10 +76,15 @@ fn sample_txlist(content_byte: u8) -> RawTxListGossip {
 // Smoke Tests
 // ============================================================================
 
+#[test]
+fn api_event_handler_accepts_in_memory_storage() {
+    let _ctor: fn(Arc<InMemoryStorage>, u64) -> EventHandler = EventHandler::new;
+}
+
 #[tokio::test]
 async fn smoke_client_roundtrip() {
     // This test simulates a gossip/reqresp roundtrip and verifies storage updates.
-    let storage = Arc::new(InMemoryStorage::default());
+    let storage: Arc<InMemoryStorage> = Arc::new(InMemoryStorage::default());
     let handler = EventHandler::new(storage.clone(), TEST_CHAIN_ID);
 
     let peer = libp2p::PeerId::random();
@@ -110,7 +115,7 @@ async fn smoke_client_roundtrip() {
 #[tokio::test]
 async fn smoke_message_id_deduplication() {
     // Test that message-level deduplication works via message ID
-    let storage = Arc::new(InMemoryStorage::default());
+    let storage: Arc<InMemoryStorage> = Arc::new(InMemoryStorage::default());
     let handler = EventHandler::new(storage.clone(), TEST_CHAIN_ID);
 
     let peer = libp2p::PeerId::random();

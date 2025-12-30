@@ -1,7 +1,7 @@
 //! SDK-level storage with dedupe, pending buffer, and TTL expiry.
 //!
 //! This module provides:
-//! - `SdkStorage` trait: storage abstraction for commitments, txlists, dedupe, and pending buffer
+//! - Internal storage abstraction for commitments, txlists, dedupe, and pending buffer
 //! - `InMemoryStorage`: in-memory implementation with LRU/TTL-based caching
 //! - Message ID helpers for deduplication
 
@@ -14,7 +14,7 @@ use preconfirmation_types::{RawTxListGossip, SignedCommitment};
 
 /// Dedupe key for commitments: (slot/block_number, signer address).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CommitmentDedupeKey {
+pub(crate) struct CommitmentDedupeKey {
     /// Block number (slot) of the commitment.
     pub block_number: U256,
     /// Signer address recovered from the commitment signature.
@@ -23,7 +23,7 @@ pub struct CommitmentDedupeKey {
 
 /// Dedupe key for raw txlists: (block_number, raw_tx_list_hash).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TxListDedupeKey {
+pub(crate) struct TxListDedupeKey {
     /// Block number associated with the txlist.
     pub block_number: U256,
     /// Hash of the raw tx list.
@@ -33,7 +33,7 @@ pub struct TxListDedupeKey {
 /// SDK-level storage trait extending basic storage with dedupe and pending buffer.
 ///
 /// Implementations must be Send+Sync for use in async contexts.
-pub trait SdkStorage: Send + Sync {
+pub(crate) trait SdkStorage: Send + Sync {
     // --- Commitment storage ---
 
     /// Insert a commitment keyed by block number.

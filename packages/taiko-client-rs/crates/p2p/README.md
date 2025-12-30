@@ -109,32 +109,6 @@ config.network.enable_discovery = true;
 config.network.request_timeout = Duration::from_secs(10);
 ```
 
-### Custom storage and validation
-
-```rust
-use std::sync::Arc;
-
-use alloy_primitives::Address;
-use p2p::{
-    P2pClient, P2pClientConfig,
-    storage::SdkStorage,
-    validation::CommitmentValidator,
-};
-
-let mut config = P2pClientConfig::with_chain_id(167_000);
-config.expected_slasher = Some(Address::ZERO);
-config.engine = Some(Arc::new(rpc::MockPreconfEngine::default()));
-let storage: Arc<dyn SdkStorage> = Arc::new(p2p::storage::InMemoryStorage::default());
-let validator = CommitmentValidator::new();
-
-let (_client, _events) =
-    P2pClient::with_components(config, storage, validator, None, None)?;
-```
-
-If you need schedule-based validation at the network layer, pass a
-`LookaheadResolver` via `P2pClient::with_validation_adapter` or
-`P2pClient::with_components`.
-
 ## Commands and Events
 
 `P2pClientHandle` provides convenience methods for commands. Internally these
@@ -185,7 +159,8 @@ parent arrives. Genesis commitments (block 0 with zero parent hash) are allowed
 without a stored parent.
 
 You can inject custom block-parameter validation with
-`CommitmentValidator::with_hook`.
+`CommitmentValidator::with_hook`. Schedule-based validation at the network
+layer is supported via `P2pClient::with_validation_adapter`.
 
 ## Catch-up Flow
 
@@ -208,16 +183,14 @@ buffered as needed.
 
 ## Storage and Deduplication
 
-`SdkStorage` abstracts persistence and caching. The default
-`InMemoryStorage` includes:
+`InMemoryStorage` provides:
 
 - Message ID dedupe (topic + payload hash)
 - Commitment dedupe (block number + signer)
 - Txlist dedupe (block number + hash)
 - Pending buffer keyed by parent hash
 
-If you need persistence, implement `SdkStorage` and inject it via
-`P2pClient::with_components`.
+Note: the SDK currently supports in-memory storage only.
 
 ## Metrics
 
@@ -272,7 +245,6 @@ TEST_CRATE=p2p just test
 
 - Pending/no-penalty semantics are enforced inside the SDK, but gossipsub
   scoring happens in `preconfirmation-net` and may still penalize peers.
-- Default storage is in-memory only; persistence requires a custom
-  `SdkStorage` implementation.
+- Storage is in-memory only; persistence hooks are not currently exposed.
 - Reorg handling emits `SdkEvent::Reorg` but application-specific re-execution
   is up to the consumer.

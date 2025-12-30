@@ -97,6 +97,107 @@ impl InMemoryStorage {
     pub fn with_dedupe_settings(capacity: u64, ttl: Duration) -> Self {
         Self::new(capacity, ttl, DEFAULT_PENDING_TTL)
     }
+
+    /// Insert a commitment keyed by block number.
+    pub fn insert_commitment(&self, block: U256, commitment: SignedCommitment) {
+        <Self as SdkStorage>::insert_commitment(self, block, commitment);
+    }
+
+    /// Return up to `max` commitments starting from `start` (inclusive).
+    pub fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
+        <Self as SdkStorage>::commitments_from(self, start, max)
+    }
+
+    /// Get a commitment by block number, if present.
+    pub fn get_commitment(&self, block: U256) -> Option<SignedCommitment> {
+        <Self as SdkStorage>::get_commitment(self, block)
+    }
+
+    /// Insert a raw txlist keyed by its hash.
+    pub fn insert_txlist(&self, hash: B256, tx: RawTxListGossip) {
+        <Self as SdkStorage>::insert_txlist(self, hash, tx);
+    }
+
+    /// Fetch a raw txlist by hash, if present.
+    pub fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
+        <Self as SdkStorage>::get_txlist(self, hash)
+    }
+
+    /// Check if a message ID has been seen recently.
+    pub fn is_duplicate_message(&self, message_id: &B256) -> bool {
+        <Self as SdkStorage>::is_duplicate_message(self, message_id)
+    }
+
+    /// Mark a message ID as seen.
+    pub fn mark_message_seen(&self, message_id: B256) {
+        <Self as SdkStorage>::mark_message_seen(self, message_id);
+    }
+
+    pub(crate) fn is_duplicate_commitment(&self, key: &CommitmentDedupeKey) -> bool {
+        <Self as SdkStorage>::is_duplicate_commitment(self, key)
+    }
+
+    pub(crate) fn mark_commitment_seen(&self, key: CommitmentDedupeKey) {
+        <Self as SdkStorage>::mark_commitment_seen(self, key);
+    }
+
+    pub(crate) fn is_duplicate_txlist(&self, key: &TxListDedupeKey) -> bool {
+        <Self as SdkStorage>::is_duplicate_txlist(self, key)
+    }
+
+    pub(crate) fn mark_txlist_seen(&self, key: TxListDedupeKey) {
+        <Self as SdkStorage>::mark_txlist_seen(self, key);
+    }
+
+    /// Add a commitment to the pending buffer, awaiting its parent.
+    pub fn add_pending(&self, parent_hash: B256, commitment: SignedCommitment) {
+        <Self as SdkStorage>::add_pending(self, parent_hash, commitment);
+    }
+
+    /// Release all commitments waiting on the given parent hash.
+    pub fn release_pending(&self, parent_hash: &B256) -> Vec<SignedCommitment> {
+        <Self as SdkStorage>::release_pending(self, parent_hash)
+    }
+
+    /// Get the number of pending commitments.
+    pub fn pending_count(&self) -> usize {
+        <Self as SdkStorage>::pending_count(self)
+    }
+
+    /// Clear all pending commitments awaiting parent linkage.
+    pub fn clear_pending(&self) -> usize {
+        <Self as SdkStorage>::clear_pending(self)
+    }
+
+    /// Add a commitment to the pending txlist buffer, awaiting its txlist by hash.
+    pub fn add_pending_txlist(&self, txlist_hash: B256, commitment: SignedCommitment) -> bool {
+        <Self as SdkStorage>::add_pending_txlist(self, txlist_hash, commitment)
+    }
+
+    /// Release all commitments waiting on the given txlist hash.
+    pub fn release_pending_txlist(&self, txlist_hash: &B256) -> Vec<SignedCommitment> {
+        <Self as SdkStorage>::release_pending_txlist(self, txlist_hash)
+    }
+
+    /// Check whether any commitments are pending for the given txlist hash.
+    pub fn has_pending_txlist(&self, txlist_hash: &B256) -> bool {
+        <Self as SdkStorage>::has_pending_txlist(self, txlist_hash)
+    }
+
+    /// Get the number of commitments waiting on txlist data.
+    pub fn pending_txlist_count(&self) -> usize {
+        <Self as SdkStorage>::pending_txlist_count(self)
+    }
+
+    /// Clear all commitments waiting on txlist data.
+    pub fn clear_pending_txlists(&self) -> usize {
+        <Self as SdkStorage>::clear_pending_txlists(self)
+    }
+
+    /// Remove expired entries from caches.
+    pub fn cleanup_expired(&self) {
+        <Self as SdkStorage>::cleanup_expired(self);
+    }
 }
 
 impl SdkStorage for InMemoryStorage {

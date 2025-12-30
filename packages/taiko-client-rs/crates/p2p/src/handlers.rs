@@ -31,7 +31,7 @@ use tracing::{debug, trace, warn};
 use crate::{
     config::DEFAULT_MAX_TXLIST_BYTES,
     metrics::P2pMetrics,
-    storage::{CommitmentDedupeKey, SdkStorage, TxListDedupeKey, compute_message_id},
+    storage::{CommitmentDedupeKey, InMemoryStorage, TxListDedupeKey, compute_message_id},
     types::SdkEvent,
     validation::{
         CommitmentValidator, ValidationStatus, validate_txlist_hash, validate_txlist_size,
@@ -49,7 +49,7 @@ use crate::{
 /// - Metrics recording for all operations
 pub struct EventHandler {
     /// Storage for commitments, txlists, and deduplication.
-    storage: Arc<dyn SdkStorage>,
+    storage: Arc<InMemoryStorage>,
     /// Chain ID for topic generation.
     chain_id: u64,
     /// SDK-level commitment validator.
@@ -71,7 +71,7 @@ impl EventHandler {
     /// Create a new event handler with the given storage and chain ID.
     ///
     /// Uses the default maximum txlist size of 128 KiB.
-    pub fn new(storage: Arc<dyn SdkStorage>, chain_id: u64) -> Self {
+    pub fn new(storage: Arc<InMemoryStorage>, chain_id: u64) -> Self {
         Self {
             storage,
             chain_id,
@@ -82,7 +82,7 @@ impl EventHandler {
 
     /// Create a new event handler with a custom commitment validator.
     pub fn with_validator(
-        storage: Arc<dyn SdkStorage>,
+        storage: Arc<InMemoryStorage>,
         chain_id: u64,
         validator: CommitmentValidator,
     ) -> Self {
@@ -91,7 +91,7 @@ impl EventHandler {
 
     /// Create a new event handler with a custom validator and txlist size limit.
     pub fn with_validator_and_max_txlist_bytes(
-        storage: Arc<dyn SdkStorage>,
+        storage: Arc<InMemoryStorage>,
         chain_id: u64,
         validator: CommitmentValidator,
         max_txlist_bytes: usize,
@@ -103,7 +103,7 @@ impl EventHandler {
     ///
     /// This is useful for testing or for deployments with different txlist size limits.
     pub fn with_max_txlist_bytes(
-        storage: Arc<dyn SdkStorage>,
+        storage: Arc<InMemoryStorage>,
         chain_id: u64,
         max_txlist_bytes: usize,
     ) -> Self {
@@ -401,7 +401,7 @@ impl EventHandler {
     }
 
     /// Get a reference to the underlying storage.
-    pub fn storage(&self) -> &Arc<dyn SdkStorage> {
+    pub fn storage(&self) -> &Arc<InMemoryStorage> {
         &self.storage
     }
 
@@ -518,7 +518,7 @@ fn uint256_to_u256(v: &preconfirmation_types::Uint256) -> U256 {
 /// to fetch the corresponding commitment from storage. If found, the parent
 /// preconfirmation is returned for linkage validation.
 fn parent_preconfirmation_from_storage(
-    storage: &dyn SdkStorage,
+    storage: &InMemoryStorage,
     msg: &SignedCommitment,
 ) -> Option<preconfirmation_types::Preconfirmation> {
     let child_block = uint256_to_u256(&msg.commitment.preconf.block_number);
