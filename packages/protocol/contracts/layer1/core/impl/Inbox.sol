@@ -624,7 +624,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     {
         unchecked {
             uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
-                + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+                    + _provingWindow)
+            .max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
 
             if (block.timestamp <= livenessWindowDeadline) return;
 

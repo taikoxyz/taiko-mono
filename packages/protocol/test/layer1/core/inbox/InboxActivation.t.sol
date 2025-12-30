@@ -8,8 +8,8 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
+import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
 
 /// @notice Tests for Inbox activation and pre-activation behavior
 contract InboxActivationTest is InboxTestBase {
@@ -136,11 +136,7 @@ contract InboxActivationTest is InboxTestBase {
 
         // Ring buffer storage is not cleared on reactivation; old entries are
         // logically invalidated by the core state reset.
-        assertEq(
-            nonActivatedInbox.getProposalHash(1),
-            proposalHashBefore,
-            "proposal hash retained"
-        );
+        assertEq(nonActivatedInbox.getProposalHash(1), proposalHashBefore, "proposal hash retained");
     }
 
     function test_getConfig_returnsImmutableConfig() public view {

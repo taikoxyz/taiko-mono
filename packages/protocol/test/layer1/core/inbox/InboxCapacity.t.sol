@@ -17,10 +17,8 @@ contract InboxCapacityTest is InboxTestBase {
         uint48 lastFinalizedTimestamp = uint48(block.timestamp);
         uint48 lastCheckpointTimestamp = 0;
 
-        uint256 packed = uint256(nextProposalId)
-            | (uint256(lastProposalBlockId) << 48)
-            | (uint256(lastFinalizedProposalId) << 96)
-            | (uint256(lastFinalizedTimestamp) << 144)
+        uint256 packed = uint256(nextProposalId) | (uint256(lastProposalBlockId) << 48)
+            | (uint256(lastFinalizedProposalId) << 96) | (uint256(lastFinalizedTimestamp) << 144)
             | (uint256(lastCheckpointTimestamp) << 192);
 
         // CoreState slot is 252 (see MainnetInbox_Layout.sol)
