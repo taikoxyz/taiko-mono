@@ -238,16 +238,14 @@ contract InboxProverAuctionTest is InboxTestBase {
         // Queue a forced inclusion so proposer is paid its fee during propose
         uint256 forcedFee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
         _setBlobHashes(1);
-        inbox.saveForcedInclusion{ value: forcedFee }(
-            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 })
-        );
+        inbox.saveForcedInclusion{
+            value: forcedFee
+        }(LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 }));
         _advanceBlock();
 
         vm.warp(
-            block.timestamp
-                + uint256(config.forcedInclusionDelay)
-                    * uint256(config.permissionlessInclusionMultiplier)
-                + 1
+            block.timestamp + uint256(config.forcedInclusionDelay)
+                * uint256(config.permissionlessInclusionMultiplier) + 1
         );
         _advanceBlock();
 
@@ -262,11 +260,7 @@ contract InboxProverAuctionTest is InboxTestBase {
         inbox.propose{ value: feeWei }(bytes(""), encodedInput);
 
         assertEq(receiver.count(), 1, "single payout to proposer");
-        assertEq(
-            receiver.totalReceived(),
-            feeWei + forcedFee,
-            "payout aggregates fees"
-        );
+        assertEq(receiver.totalReceived(), feeWei + forcedFee, "payout aggregates fees");
     }
 
     // ---------------------------------------------------------------
@@ -345,7 +339,9 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _proveAs(designatedProver, input);
 
-        assertEq(proverAuction.lastSlashedProver(), designatedProver, "slashed even when same prover");
+        assertEq(
+            proverAuction.lastSlashedProver(), designatedProver, "slashed even when same prover"
+        );
         assertEq(proverAuction.lastSlashRecipient(), designatedProver, "rewarded same prover");
     }
 

@@ -12,6 +12,7 @@ library LibCodec {
     // DerivationSource: isForcedInclusion (1) + offset (3) + timestamp (6) + blobHashes length (2)
     // + blobHashes (32 * n)
     uint256 internal constant DERIVATION_SOURCE_BASE_SIZE = 12;
+
     // ---------------------------------------------------------------
     // ProposeInputCodec Functions
     // ---------------------------------------------------------------
