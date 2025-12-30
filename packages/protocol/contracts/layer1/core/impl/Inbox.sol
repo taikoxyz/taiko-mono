@@ -155,7 +155,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @notice Activates the inbox so that it can start accepting proposals.
-    /// @dev Can be called multiple times within the activation window to handle reorgs.
+    /// @dev Can be called multiple times within the activation window to handle reorgs. When
+    /// reactivated, proposal history is invalidated via core state reset while the forced
+    /// inclusion queue is preserved. Ring buffer storage is not cleared.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         (
@@ -233,6 +235,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
     /// proposals get finalized between proof generation and submission.
+    /// @dev All fields in the ProveInput (including Transition metadata) are verified by the
+    /// proof system. Onchain checks assume the proof binds transition metadata to the L1 proposal
+    /// data, so values such as timestamps and designated prover are trusted only if the proof is
+    /// valid.
     ///
     /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
     ///
@@ -618,8 +624,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     {
         unchecked {
             uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
-                    + _provingWindow)
-            .max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+                + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
 
             if (block.timestamp <= livenessWindowDeadline) return;
 
@@ -742,7 +747,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         returns (uint256)
     {
         unchecked {
+            if (_nextProposalId <= _lastFinalizedProposalId) revert InvalidCoreState();
+
             uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
+            if (numUnfinalizedProposals >= _ringBufferSize) revert InvalidCoreState();
+
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
@@ -797,6 +806,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error InsufficientBondForSelfProving();
+    error InvalidCoreState();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
