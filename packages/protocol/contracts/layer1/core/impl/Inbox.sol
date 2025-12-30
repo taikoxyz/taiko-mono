@@ -592,7 +592,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             if (refund > 0) {
                 // Best-effort refund: do not revert if proposer rejects ETH.
                 (bool refunded,) = payable(msg.sender).call{ value: refund }("");
-                refunded;
+                if (!refunded) {
+                    // Intentionally best-effort; refund failure should not block propose.
+                }
             }
         }
     }
