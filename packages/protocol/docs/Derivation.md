@@ -264,11 +264,12 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
 
-#### Bond instruction signaling
+#### Late-proof slashing (ProverAuction)
 
-Late-proof handling on L1 may emit at most one bond instruction for the first proven proposal. When triggered, the Inbox emits `BondInstructionCreated` and forwards the hash via `SignalService.sendSignal(keccak256(abi.encode(bondInstruction)))`.
-
-Bond instruction settlement is **entirely on L2** and not part of the derivation process. [`BondManager.processBondInstruction`](../contracts/layer2/core/BondManager.sol#L180-L219) consumes the signals emitted on the L1 and can be called by anyone. It has its own incentive system to incentivize slashing faulty provers.
+Late-proof handling on L1 no longer emits bond instructions. Instead, when a proof arrives outside the proving
+window and the actual prover differs from the designated prover, the Inbox calls
+`ProverAuction.slashProver(designatedProver, actualProver)` to slash the designated prover and reward the
+actual prover.
 
 ### Designated Prover System
 

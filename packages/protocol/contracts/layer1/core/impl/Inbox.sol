@@ -5,7 +5,7 @@ import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
+import { IProverAuction } from "../iface/IProverAuction.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -14,7 +14,6 @@ import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
@@ -28,7 +27,6 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Proposal submission with forced inclusion support
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
-///      - Bond instruction calculation(but actual funds are managed on L2)
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
@@ -62,10 +60,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
-    /// @notice The prover whitelist contract (address(0) means no whitelist)
-    IProverWhitelist internal immutable _proverWhitelist;
+    /// @notice The prover auction contract.
+    IProverAuction internal immutable _proverAuction;
 
-    /// @notice Signal service responsible for checkpoints and bond signals.
+    /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
 
     /// @notice The proving window in seconds.
@@ -132,7 +130,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
+        _proverAuction = IProverAuction(_config.proverAuction);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
@@ -235,8 +233,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _proof Validity proof for the batch of proposals
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
-
-            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
@@ -264,12 +260,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             );
 
             // ---------------------------------------------------------
-            // 3. Process bond instruction
+            // 3. Slash late proofs (auction-based)
             // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
-            if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset);
-            }
+            _maybeSlashLateProof(state, commitment, offset);
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -387,15 +380,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc ICodec
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibBonds.hashBondInstruction(_bondInstruction);
-    }
-
-    /// @inheritdoc ICodec
     function hashCommitment(IInbox.Commitment calldata _commitment)
         external
         pure
@@ -436,7 +420,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         config_ = Config({
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
-            proverWhitelist: address(_proverWhitelist),
+            proverAuction: address(_proverAuction),
             signalService: address(_signalService),
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
@@ -507,6 +491,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 ? 0
                 : _proposerChecker.checkProposer(msg.sender, _lookahead);
 
+            address designatedProver = _resolveDesignatedProver(_input.isSelfProving);
+
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
             proposal_ = Proposal({
@@ -514,6 +500,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
+                designatedProver: designatedProver,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
@@ -521,6 +508,24 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 sources: result.sources
             });
         }
+    }
+
+    /// @dev Resolves and validates the designated prover for the proposal.
+    /// @param _isSelfProving True if the proposer intends to self-prove.
+    /// @return designatedProver_ The designated prover address.
+    function _resolveDesignatedProver(bool _isSelfProving)
+        private
+        returns (address designatedProver_)
+    {
+        if (_isSelfProving) {
+            bool ok = _proverAuction.checkBondDeferWithdrawal(msg.sender);
+            require(ok, InsufficientBondForSelfProving());
+            return msg.sender;
+        }
+
+        (address currentProver,) = _proverAuction.getCurrentProver();
+        require(currentProver != address(0), NoActiveAuctionProver());
+        return currentProver;
     }
 
     /// @dev Stores a proposal hash in the ring buffer
@@ -623,14 +628,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Calculates and emits bond instruction if applicable.
-    /// @dev Bond instruction rules:
-    ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
-    ///        same address (L2 processing handles slashing/reward splits).
+    /// @dev Applies late-proof slashing using the prover auction.
+    /// @param _state The current core state snapshot.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processBondInstruction(
+    function _maybeSlashLateProof(
+        CoreState memory _state,
         Commitment memory _commitment,
         uint48 _offset
     )
@@ -639,22 +642,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
                     + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+            .max(_state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
-            // On-time proof - no bond transfer needed.
             if (block.timestamp <= livenessWindowDeadline) {
                 return;
             }
 
-            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
-                proposalId: _commitment.firstProposalId + _offset,
-                bondType: LibBonds.BondType.LIVENESS,
-                payer: _commitment.transitions[_offset].designatedProver,
-                payee: _commitment.actualProver
-            });
+            address designatedProver = _commitment.transitions[_offset].designatedProver;
+            address actualProver = _commitment.actualProver;
 
-            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            // Only slash when a late proof is submitted by someone other than the designated prover.
+            if (actualProver != designatedProver) {
+                _proverAuction.slashProver(designatedProver, actualProver);
+            }
         }
     }
 
@@ -697,19 +697,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Checks if the caller is an authorized prover
-    /// @param _addr The address of the caller to check
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
-    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
-        if (address(_proverWhitelist) == address(0)) return false;
-
-        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
-        if (proverCount == 0) return false;
-
-        require(isWhitelisted, ProverNotWhitelisted());
-        return true;
     }
 
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
@@ -758,8 +745,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
+    error NoActiveAuctionProver();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
-    error ProverNotWhitelisted();
+    error InsufficientBondForSelfProving();
     error UnprocessedForcedInclusionIsDue();
 }

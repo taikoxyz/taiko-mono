@@ -9,7 +9,6 @@ import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
 import "src/layer1/devnet/OpVerifier.sol";
@@ -52,6 +51,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address sharedResolver;
         address remoteSigSvc;
         address preconfWhitelist;
+        address proverAuction;
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
@@ -103,6 +103,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
+        config.proverAuction = vm.envAddress("PROVER_AUCTION");
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
@@ -112,6 +113,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
+        require(config.proverAuction != address(0), "PROVER_AUCTION not set");
     }
 
     function _deployAllVerifiers(DeploymentConfig memory config)
@@ -183,14 +185,6 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
-        // Deploy prover whitelist
-        address proverWhitelist = deployProxy({
-            name: "prover_whitelist",
-            impl: address(new ProverWhitelist()),
-            data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
-        });
-        console2.log("ProverWhitelist deployed:", proverWhitelist);
-
         // Get dependencies
         address signalService =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
@@ -210,7 +204,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(proofVerifier, whitelist, proverWhitelist, signalService)
+                new DevnetInbox(proofVerifier, whitelist, config.proverAuction, signalService)
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
