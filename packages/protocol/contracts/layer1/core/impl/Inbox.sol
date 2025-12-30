@@ -261,7 +261,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(bytes calldata _data, bytes calldata _proof) external {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
@@ -533,8 +533,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             );
 
             ConsumptionResult memory result;
-            (result, forcedFees_) =
-                _consumeForcedInclusions(_input.numForcedInclusions);
+            (result, forcedFees_) = _consumeForcedInclusions(_input.numForcedInclusions);
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
@@ -587,7 +586,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// The refund is paid once by the caller, alongside forced inclusion fees.
     /// @param _designatedProver The designated prover for this proposal.
     /// @param _feeInGwei The prover fee in Gwei.
-    function _collectProverFee(address _designatedProver, uint32 _feeInGwei)
+    function _collectProverFee(
+        address _designatedProver,
+        uint32 _feeInGwei
+    )
         private
         returns (uint256 refund_)
     {
@@ -623,17 +625,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         unchecked {
             uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
                 + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
-            if (block.timestamp <= livenessWindowDeadline) return;
 
-            address designatedProver = _commitment.transitions[_offset].designatedProver;
-            address actualProver = _commitment.actualProver;
+            if (block.timestamp <= livenessWindowDeadline) return;
 
             // Slash designated prover even if they submit late themselves;
             // they receive the reward but still incur net penalty.
-            _proverAuction.slashProver(designatedProver, actualProver);
+            _proverAuction.slashProver(
+                _commitment.transitions[_offset].designatedProver, _commitment.actualProver
+            );
         }
     }
-
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
@@ -727,7 +728,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             $.head = head_;
         }
     }
-
 
     // ---------------------------------------------------------------
     // Private View/Pure Functions

@@ -15,7 +15,6 @@ import "./Anchor_Layout.sol"; // DO NOT DELETE
 ///      - Anchoring of L1 checkpoints for cross-chain verification
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract {
-
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -124,7 +123,10 @@ contract Anchor is EssentialContract {
     ///      2. Anchors L1 block data for cross-chain verification
     /// @param _proposalId Proposal ID for the current batch.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
-    function anchorV4(uint48 _proposalId, ICheckpointStore.Checkpoint calldata _checkpoint)
+    function anchorV4(
+        uint48 _proposalId,
+        ICheckpointStore.Checkpoint calldata _checkpoint
+    )
         external
         onlyValidSender
         nonReentrant
