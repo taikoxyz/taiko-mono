@@ -91,7 +91,7 @@ func NewProofSubmitterShasta(
 func (s *ProofSubmitterShasta) startBackgroundWorkers(ctx context.Context) {
 	log.Info("Starting background workers for Shasta", "interval", monitorInterval)
 	startProofBufferMonitors(ctx, s.proofBuffers, s.TryAggregate)
-	startCacheCleanUp(ctx, s.rpc, s.proofCacheMaps)
+	startCacheCleanUpAndFlush(ctx, s.rpc, s.proofCacheMaps, s.proofBuffers)
 }
 
 // RequestProof requests proof for the given Taiko batch.

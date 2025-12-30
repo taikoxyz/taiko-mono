@@ -1,10 +1,13 @@
 package submitter
 
 import (
+	"errors"
 	"sync"
 
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
+
+var ErrCacheNotFound = errors.New("cache not found")
 
 // ProofCache wraps a proof response map with a mutex to allow safe concurrent access.
 type ProofCache struct {

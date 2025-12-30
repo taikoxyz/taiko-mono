@@ -55,26 +55,33 @@ func monitorProofBuffer(
 	}
 }
 
-// startCacheCleanUp launches goroutines that keep cache maps pruned from
-// already-finalized proposal IDs.
-func startCacheCleanUp(
+// startCacheCleanUpAndFlush launches goroutines that keep cache maps pruned from
+// already-finalized proposal IDs and flush cache into buffers.
+func startCacheCleanUpAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
 	proofCacheMaps map[proofProducer.ProofType]*ProofCache,
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 ) {
-	log.Info("Starting proof cache cleanup monitors", "monitorInterval", monitorInterval)
-	for _, cacheMap := range proofCacheMaps {
-		go cleanUpStaleCache(ctx, rpc, cacheMap, monitorInterval)
+	log.Info("Starting proof cache cleanup and flushing monitors", "monitorInterval", monitorInterval)
+	for proofType, cacheMap := range proofCacheMaps {
+		buffer, ok := proofBuffers[proofType]
+		if !ok {
+			log.Error("Proof buffer for proof type not found", "proofType", proofType)
+			return
+		}
+		go cleanUpStaleCacheAndFlush(ctx, rpc, cacheMap, monitorInterval, buffer)
 	}
 }
 
-// cleanUpStaleCache periodically removes cached proofs that have already been
-// finalized so stale entries do not accumulate.
-func cleanUpStaleCache(
+// cleanUpStaleCacheAndFlush periodically removes cached proofs that have already been
+// finalized so stale entries do not accumulate and flush cache into buffer.
+func cleanUpStaleCacheAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
 	cacheMap *ProofCache,
 	cleanUpInterval time.Duration,
+	buffer *proofProducer.ProofBuffer,
 ) {
 	ticker := time.NewTicker(cleanUpInterval)
 	defer ticker.Stop()
@@ -91,7 +98,19 @@ func cleanUpStaleCache(
 				continue // Skip this iteration, retry on next tick
 			}
 			lastFinalizedProposalID := coreState.LastFinalizedProposalId
+			// remove stale cache
 			removeFinalizedProofsFromCache(cacheMap, lastFinalizedProposalID)
+			// flush cached proofs
+			toID := lastFinalizedProposalID.Uint64() + buffer.MaxLength
+			if err := flushProofCacheRange(lastFinalizedProposalID.Uint64(), toID, buffer, cacheMap); err != nil {
+				if !errors.Is(err, ErrCacheNotFound) {
+					log.Error("Failed to flush proof cache range",
+						"error", err,
+						"fromID", lastFinalizedProposalID,
+						"toID", toID,
+					)
+				}
+			}
 		}
 	}
 }
@@ -148,7 +167,8 @@ func flushProofCacheRange(
 	for currentID <= toID {
 		cachedProof, ok := cacheMap.cache[currentID]
 		if !ok {
-			return fmt.Errorf("cached proof not found for proposal %d", currentID)
+			log.Error("cached proof not found for proposal", "proposalID", currentID)
+			return ErrCacheNotFound
 		}
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
 			if errors.Is(err, proofProducer.ErrBufferOverflow) {
