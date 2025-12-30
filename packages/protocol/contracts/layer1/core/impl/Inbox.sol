@@ -617,18 +617,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         unchecked {
             uint256 livenessWindowDeadline = (uint256(_commitment.transitions[_offset].timestamp)
                 + _provingWindow).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
-            bool isOnTime = block.timestamp <= livenessWindowDeadline;
+     
 
-            if (isOnTime) {
-                return;
-            }
+            if (block.timestamp <= livenessWindowDeadline)    return;
 
-            address designatedProver = _commitment.transitions[_offset].designatedProver;
-            address actualProver = _commitment.actualProver;
 
+            
             // Slash designated prover even if they submit late themselves;
             // they receive the reward but still incur net penalty.
-            _proverAuction.slashProver(designatedProver, actualProver);
+            _proverAuction.slashProver(_commitment.transitions[_offset].designatedProver, _commitment.actualProver);
         }
     }
 
