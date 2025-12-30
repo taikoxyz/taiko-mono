@@ -133,9 +133,7 @@ contract Anchor is EssentialContract {
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            prevAnchorBlockNumber,
-            _blockState.anchorBlockNumber,
-            _blockState.ancestorsHash
+            prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash
         );
     }
 
