@@ -767,6 +767,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
+    error InsufficientBondForSelfProving();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
@@ -774,6 +775,5 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
     error ProverFeeNotPaid();
-    error InsufficientBondForSelfProving();
     error UnprocessedForcedInclusionIsDue();
 }
