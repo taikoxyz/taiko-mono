@@ -229,8 +229,9 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
 		}
 
+		toBeInsertedID := proofBuffer.LastInsertID() + 1
 		if toID == fromID ||
-			toID == proofBuffer.LastInsertID()+1 {
+			toID == toBeInsertedID {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(
@@ -242,8 +243,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			}
 		} else {
 			cacheMap.set(toID, proofResponse)
-			if proofRangeCached(fromID, toID, cacheMap) {
-				if err := flushProofCacheRange(fromID, toID, proofBuffer, cacheMap, s.TryAggregate); err != nil {
+			if proofRangeCached(toBeInsertedID, toID, cacheMap) {
+				if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap, s.TryAggregate); err != nil {
 					return err
 				}
 			}

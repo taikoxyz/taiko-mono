@@ -88,7 +88,7 @@ func cleanUpStaleCache(
 			coreState, err := rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 			if err != nil {
 				log.Error("Failed to get Shasta core state", "error", err)
-				return
+				continue // Skip this iteration, retry on next tick
 			}
 			lastFinalizedProposalID := coreState.LastFinalizedProposalId
 			removeFinalizedProofsFromCache(cacheMap, lastFinalizedProposalID)
@@ -144,24 +144,25 @@ func flushProofCacheRange(
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
 	currentID := fromID
+	cacheMap.mu.Lock()
+	defer cacheMap.mu.Unlock()
 	for currentID <= toID {
-		cacheMap.mu.RLock()
 		cachedProof, ok := cacheMap.cache[currentID]
-		cacheMap.mu.RUnlock()
 		if !ok {
 			return fmt.Errorf("cached proof not found for proposal %d", currentID)
 		}
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
 			if errors.Is(err, proofProducer.ErrBufferOverflow) {
-				log.Info("")
+				log.Info("Buffer overflow during cache flush, triggering aggregation",
+					"proposalID", currentID,
+					"proofType", cachedProof.ProofType,
+				)
 				tryAggregate(proofBuffer, cachedProof.ProofType)
 				return nil
 			}
 			return err
 		}
-		cacheMap.mu.Lock()
 		delete(cacheMap.cache, currentID)
-		cacheMap.mu.Unlock()
 		currentID++
 	}
 	return nil
