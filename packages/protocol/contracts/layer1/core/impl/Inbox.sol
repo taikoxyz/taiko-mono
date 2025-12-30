@@ -572,17 +572,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _designatedProver The designated prover for this proposal.
     /// @param _feeInGwei The prover fee in Gwei.
     function _collectProverFee(address _designatedProver, uint32 _feeInGwei) private {
-        uint256 refund = msg.value;
+        unchecked {
+            uint256 refund = msg.value;
 
-        if (_feeInGwei > 0 && msg.sender != _designatedProver) {
-            uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
-            require(msg.value >= feeWei, ProverFeeNotPaid());
-            _designatedProver.sendEtherAndVerify(feeWei);
-            refund = msg.value - feeWei;
-        }
+            if (_feeInGwei > 0 && msg.sender != _designatedProver) {
+                uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
+                require(msg.value >= feeWei, ProverFeeNotPaid());
 
-        if (refund > 0) {
-            msg.sender.sendEtherAndVerify(refund);
+                (bool paid,) = payable(_designatedProver).call{ value: feeWei }("");
+                if (paid) {
+                    refund = msg.value - feeWei;
+                }
+            }
+
+            if (refund > 0) {
+                (bool refunded,) = payable(msg.sender).call{ value: refund }("");
+                refunded;
+            }
         }
     }
 

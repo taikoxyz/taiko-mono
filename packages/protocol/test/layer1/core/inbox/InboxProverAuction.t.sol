@@ -5,6 +5,12 @@ import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
+contract RejectingReceiver {
+    receive() external payable {
+        revert("nope");
+    }
+}
+
 /// @title InboxProverAuctionTest
 /// @notice Tests for ProverAuction integration with Inbox
 contract InboxProverAuctionTest is InboxTestBase {
@@ -181,6 +187,26 @@ contract InboxProverAuctionTest is InboxTestBase {
         inbox.propose{ value: 0 }(bytes(""), encodedInput);
 
         assertEq(proposer.balance, proposerBalanceBefore, "no fee when zero");
+    }
+
+    function test_propose_refundsFee_whenProverRejectsEther() public {
+        RejectingReceiver rejector = new RejectingReceiver();
+        proverAuction.setCurrentProver(address(rejector));
+        proverAuction.setCurrentFeeInGwei(1_000_000); // 0.001 ETH
+
+        uint256 feeWei = 1_000_000 * 1 gwei;
+        uint256 proposerBalanceBefore = proposer.balance;
+
+        _setBlobHashes(3);
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.isSelfProving = false;
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: feeWei }(bytes(""), encodedInput);
+
+        assertEq(proposer.balance, proposerBalanceBefore, "fee refunded on reject");
     }
 
     // ---------------------------------------------------------------
