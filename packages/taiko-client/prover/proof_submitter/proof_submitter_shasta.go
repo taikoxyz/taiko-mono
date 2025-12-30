@@ -244,7 +244,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		} else {
 			cacheMap.set(toID, proofResponse)
 			if proofRangeCached(toBeInsertedID, toID, cacheMap) {
-				if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap, s.TryAggregate); err != nil {
+				if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap); err != nil {
 					return err
 				}
 			}

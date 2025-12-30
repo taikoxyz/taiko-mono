@@ -138,7 +138,6 @@ func flushProofCacheRange(
 	fromID, toID uint64,
 	proofBuffer *proofProducer.ProofBuffer,
 	cacheMap *ProofCache,
-	tryAggregate func(*proofProducer.ProofBuffer, proofProducer.ProofType) bool,
 ) error {
 	if proofBuffer == nil || cacheMap == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
@@ -153,11 +152,10 @@ func flushProofCacheRange(
 		}
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
 			if errors.Is(err, proofProducer.ErrBufferOverflow) {
-				log.Info("Buffer overflow during cache flush, triggering aggregation",
+				log.Info("Buffer overflow during cache flush, stop flushing",
 					"proposalID", currentID,
 					"proofType", cachedProof.ProofType,
 				)
-				tryAggregate(proofBuffer, cachedProof.ProofType)
 				return nil
 			}
 			return err
