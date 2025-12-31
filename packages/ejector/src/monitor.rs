@@ -753,7 +753,7 @@ impl Monitor {
                                             cache.upsert(event.proposer, event.sequencer);
                                         }
 
-                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                        metrics::ensure_eject_metric_labels(&proposer_hex);
                                     }
                                     Err(e) => {
                                         warn!("OperatorAdded stream error: {e:?}");
