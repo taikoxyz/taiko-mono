@@ -104,7 +104,8 @@ func cleanUpStaleCacheAndFlush(
 			toID := lastFinalizedProposalID.Uint64() + buffer.MaxLength
 			if err := flushProofCacheRange(lastFinalizedProposalID.Uint64(), toID, buffer, cacheMap); err != nil {
 				if !errors.Is(err, ErrCacheNotFound) {
-					log.Error("Failed to flush proof cache range",
+					log.Error(
+					    "Failed to flush proof cache range",
 						"error", err,
 						"fromID", lastFinalizedProposalID,
 						"toID", toID,
