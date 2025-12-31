@@ -43,6 +43,41 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint48 exitTimestamp; // 6 bytes - when exit was triggered (0 = active)
     }
 
+    /// @notice Bond balance and withdrawal state for a prover
+    struct BondInfo {
+        uint128 balance; // Current bond balance
+        uint48 withdrawableAt; // Timestamp when withdrawal is allowed (0 = no delay set)
+    }
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when a prover deposits bond tokens
+    /// @param prover The prover who deposited
+    /// @param amount The amount deposited
+    event Deposited(address indexed prover, uint128 amount);
+
+    /// @notice Emitted when a prover withdraws bond tokens
+    /// @param prover The prover who withdrew
+    /// @param amount The amount withdrawn
+    event Withdrawn(address indexed prover, uint128 amount);
+
+    /// @notice Emitted when a prover places or updates a bid
+    /// @param newProver The prover placing the bid
+    /// @param feeInGwei The fee in Gwei
+    /// @param oldProver The previous prover being outbid (address(0) if none)
+    event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
+
+    /// @notice Emitted when a prover requests to exit the auction
+    /// @param prover The prover requesting exit
+    /// @param withdrawableAt Timestamp when withdrawal is allowed
+    event ExitRequested(address indexed prover, uint48 withdrawableAt);
+
+    /// @notice Emitted when a prover is ejected due to low bond
+    /// @param prover The prover ejected
+    event ProverEjected(address indexed prover);
+
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
@@ -193,14 +228,16 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IProverAuction
+    /// @notice Deposit bond tokens into the contract
+    /// @param _amount The amount of tokens to deposit
     function deposit(uint128 _amount) external nonReentrant {
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         _bonds[msg.sender].balance += _amount;
         emit Deposited(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Withdraw bond tokens from the contract
+    /// @param _amount The amount of tokens to withdraw
     function withdraw(uint128 _amount) external nonReentrant {
         BondInfo storage info = _bonds[msg.sender];
 
@@ -224,7 +261,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit Withdrawn(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Place a bid to become the prover
+    /// @param _feeInGwei The fee per proposal in Gwei
     function bid(uint32 _feeInGwei) external nonReentrant {
         BondInfo storage bidderBond = _bonds[msg.sender];
 
@@ -285,7 +323,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit BidPlaced(msg.sender, _feeInGwei, currentAddr);
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Request to exit the auction and start the withdrawal delay
     function requestExit() external {
         Prover storage p = _prover;
 
@@ -388,6 +426,20 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
+    function isCurrentProver(address _proverAddr)
+        external
+        view
+        returns (bool isActive_, uint32 feeInGwei_)
+    {
+        Prover memory p = _prover; // 1 SLOAD
+        if (p.addr == _proverAddr && p.exitTimestamp == 0) {
+            return (true, p.feeInGwei);
+        }
+        return (false, 0);
+    }
+
+    /// @notice Get the maximum fee that can be bid currently
+    /// @return maxFee_ The maximum fee in Gwei
     function getMaxBidFee() public view returns (uint32 maxFee_) {
         Prover memory current = _prover;
 
@@ -438,32 +490,39 @@ contract ProverAuction is EssentialContract, IProverAuction {
         return uint32(LibMath.min(maxFee, type(uint32).max));
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the bond information for an account
+    /// @param _account The account to query
+    /// @return bondInfo_ The bond info struct
     function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_) {
         return _bonds[_account];
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the required bond amount to participate
+    /// @return requiredBond_ The required bond in tokens
     function getRequiredBond() public view returns (uint128 requiredBond_) {
         return _requiredBond;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the liveness bond amount slashed per failed proof
+    /// @return livenessBond_ The liveness bond in tokens
     function getLivenessBond() external view returns (uint96 livenessBond_) {
         return _livenessBond;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the ejection threshold below which a prover is ejected
+    /// @return threshold_ The ejection threshold in tokens
     function getEjectionThreshold() public view returns (uint128 threshold_) {
         return _ejectionThreshold;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the current moving average fee
+    /// @return avgFee_ The moving average fee in Gwei
     function getMovingAverageFee() external view returns (uint32 avgFee_) {
         return _movingAverageFee;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the total amount slashed and locked in the contract
+    /// @return totalSlashedAmount_ The total slashed amount in tokens
     function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
         return _totalSlashedAmount;
     }

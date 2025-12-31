@@ -36,10 +36,10 @@ contract InboxProverAuctionTest is InboxTestBase {
     // Propose: Designated Prover Selection Tests
     // ---------------------------------------------------------------
 
-    function test_propose_usesAuctionProver_whenNotSelfProving() public {
+    function test_propose_usesAuctionProver_whenDesignatedProverSet() public {
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = prover;
 
         ProposedEvent memory payload = _proposeAndDecode(input);
 
@@ -50,7 +50,7 @@ contract InboxProverAuctionTest is InboxTestBase {
     function test_propose_usesProposerAsProver_whenSelfProving() public {
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = true;
+        input.designatedProver = address(0); // self-proving
 
         ProposedEvent memory payload = _proposeAndDecode(input);
 
@@ -63,7 +63,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = true;
+        input.designatedProver = address(0); // self-proving
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -73,11 +73,9 @@ contract InboxProverAuctionTest is InboxTestBase {
     }
 
     function test_propose_RevertWhen_NoActiveAuctionProver() public {
-        proverAuction.setCurrentProver(address(0));
-
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = address(0x9999); // non-existent prover
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -100,7 +98,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = prover;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -121,7 +119,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = prover;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -138,7 +136,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = prover;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -155,7 +153,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = prover;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -172,7 +170,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = true;
+        input.designatedProver = address(0); // self-proving
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -190,7 +188,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = prover;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -210,7 +208,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = address(rejector);
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
 
@@ -251,7 +249,7 @@ contract InboxProverAuctionTest is InboxTestBase {
 
         _setBlobHashes(3);
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.isSelfProving = false;
+        input.designatedProver = address(rejector);
         input.numForcedInclusions = 1;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);

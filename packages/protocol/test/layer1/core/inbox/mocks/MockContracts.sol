@@ -129,6 +129,17 @@ contract MockProverAuction {
         return (currentProver, currentFeeInGwei);
     }
 
+    function isCurrentProver(address _prover)
+        external
+        view
+        returns (bool isActive_, uint32 feeInGwei_)
+    {
+        if (_prover == currentProver && currentProver != address(0)) {
+            return (true, currentFeeInGwei);
+        }
+        return (false, 0);
+    }
+
     function slashProver(address _prover, address _recipient) external {
         lastSlashedProver = _prover;
         lastSlashRecipient = _recipient;

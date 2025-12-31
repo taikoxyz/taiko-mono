@@ -23,14 +23,14 @@ library LibCodec {
         pure
         returns (bytes memory encoded_)
     {
-        encoded_ = new bytes(15);
+        encoded_ = new bytes(34);
         uint256 ptr = P.dataPtr(encoded_);
         ptr = P.packUint48(ptr, _input.deadline);
         ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
         ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
         ptr = P.packUint24(ptr, _input.blobReference.offset);
         ptr = P.packUint8(ptr, _input.numForcedInclusions);
-        P.packUint8(ptr, _input.isSelfProving ? 1 : 0);
+        P.packAddress(ptr, _input.designatedProver);
     }
 
     /// @dev Decodes propose input data using compact packing.
@@ -44,10 +44,8 @@ library LibCodec {
         (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
-        uint8 isSelfProving;
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
-        (isSelfProving,) = P.unpackUint8(ptr);
-        input_.isSelfProving = isSelfProving != 0;
+        (input_.designatedProver,) = P.unpackAddress(ptr);
     }
 
     // ---------------------------------------------------------------

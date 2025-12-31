@@ -201,7 +201,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             require(nextProposalId > 0, ActivationRequired());
 
             (address designatedProver, uint32 feeInGwei) =
-                _resolveDesignatedProver(input.isSelfProving);
+                _resolveDesignatedProver(input.designatedProver);
 
             uint256 feeRefund = _collectProverFee(designatedProver, feeInGwei);
 
@@ -564,21 +564,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Resolves and validates the designated prover for the proposal.
-    /// @param _isSelfProving True if the proposer intends to self-prove.
-    /// @return designatedProver_ The designated prover address.
-    function _resolveDesignatedProver(bool _isSelfProving)
+    /// @param _designatedProver The prover address provided by proposer (obtained off-chain).
+    ///        If address(0), proposer intends to self-prove.
+    /// @return designatedProver_ The validated designated prover address.
+    /// @return feeInGwei_ The prover's fee in Gwei.
+    function _resolveDesignatedProver(address _designatedProver)
         private
         returns (address designatedProver_, uint32 feeInGwei_)
     {
-        if (_isSelfProving) {
+        if (_designatedProver == address(0)) {
             bool ok = _proverAuction.checkBondDeferWithdrawal(msg.sender);
             require(ok, InsufficientBondForSelfProving());
             return (msg.sender, 0);
         }
 
-        (address currentProver, uint32 feeInGwei) = _proverAuction.getCurrentProver();
-        require(currentProver != address(0), NoActiveAuctionProver());
-        return (currentProver, feeInGwei);
+        (bool isActive, uint32 feeInGwei) = _proverAuction.isCurrentProver(_designatedProver);
+        require(isActive, NoActiveAuctionProver());
+        return (_designatedProver, feeInGwei);
     }
 
     /// @dev Collects the prover fee in ETH (Gwei units) and returns refund in wei.

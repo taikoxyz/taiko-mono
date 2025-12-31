@@ -106,10 +106,10 @@ interface IInbox {
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
-        /// @notice Whether the proposer intends to self-prove this proposal.
-        /// @dev If true, the Inbox will require the proposer to have sufficient bond in the
-        /// prover auction and will set `designatedProver = proposer`.
-        bool isSelfProving;
+        /// @notice The designated prover address obtained off-chain via getCurrentProver().
+        /// @dev If address(0), proposer intends to self-prove (validated via checkBondDeferWithdrawal).
+        /// @dev If non-zero, validated on-chain via isCurrentProver().
+        address designatedProver;
     }
 
     /// @notice Transition data for a proposal used in prove

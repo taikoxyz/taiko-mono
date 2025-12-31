@@ -4,18 +4,37 @@ pragma solidity ^0.8.26;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IProverAuction2 } from "../iface/IProverAuction2.sol";
+import { IProverAuction } from "../iface/IProverAuction.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
 import "./ProverAuction2_Layout.sol"; // DO NOT DELETE
 
 /// @title ProverAuction2
-/// @notice Multi-prover reverse auction with weighted selection.
-/// @dev Active provers are stored in a bounded pool and selected per block using
-///      a fee-weighted lottery where lower fees have higher weight.
+/// @notice Multi-prover reverse auction with weighted random selection and bounded fee spread.
+///
+/// @dev Design Objectives:
+///      1. BOUNDED PROVER POOL: Maintains a small pool of active provers (maxActiveProvers).
+///         New provers must undercut the worst (highest-fee) prover to join when pool is full.
+///
+///      2. WEIGHTED RANDOM SELECTION: Provers are selected per-block using a fee-weighted lottery.
+///         Lower fees = higher selection probability. Weight = (maxFee - proverFee) + 1.
+///         This incentivizes competitive fees while avoiding winner-take-all dynamics.
+///
+///      3. FEE SPREAD CONTROL: When a new prover joins with fee X, existing provers with
+///         fee >= X * maxFeeSpreadPctg / 100 are evicted. This bounds the fee range in the
+///         pool, preventing stale high-fee provers from lingering.
+///
+///      4. ANTI-MANIPULATION: Self-bid rate limiting (MIN_SELF_BID_INTERVAL) prevents provers
+///         from gaming the moving average. Exponential fee increase when pool is empty
+///         encourages timely re-entry.
+///
+///      5. BOND-BASED ACCOUNTABILITY: Provers must maintain sufficient bond. Slashing reduces
+///         bond and triggers ejection when below threshold. Withdrawal delay prevents
+///         hit-and-run attacks.
+///
 /// @custom:security-contact security@taiko.xyz
-contract ProverAuction2 is EssentialContract, IProverAuction2 {
+contract ProverAuction2 is EssentialContract, IProverAuction {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -35,6 +54,41 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         uint16 index;
         uint8 active; // 1 = active, 0 = inactive
     }
+
+    /// @notice Bond balance and withdrawal state for a prover
+    struct BondInfo {
+        uint128 balance; // Current bond balance
+        uint48 withdrawableAt; // Timestamp when withdrawal is allowed (0 = no delay set)
+    }
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when a prover deposits bond tokens
+    /// @param prover The prover who deposited
+    /// @param amount The amount deposited
+    event Deposited(address indexed prover, uint128 amount);
+
+    /// @notice Emitted when a prover withdraws bond tokens
+    /// @param prover The prover who withdrew
+    /// @param amount The amount withdrawn
+    event Withdrawn(address indexed prover, uint128 amount);
+
+    /// @notice Emitted when a prover places or updates a bid
+    /// @param newProver The prover placing the bid
+    /// @param feeInGwei The fee in Gwei
+    /// @param oldProver The previous prover being outbid (address(0) if none)
+    event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
+
+    /// @notice Emitted when a prover requests to exit the auction
+    /// @param prover The prover requesting exit
+    /// @param withdrawableAt Timestamp when withdrawal is allowed
+    event ExitRequested(address indexed prover, uint48 withdrawableAt);
+
+    /// @notice Emitted when a prover is ejected (low bond, fee spread eviction, or pool replacement)
+    /// @param prover The prover ejected
+    event ProverEjected(address indexed prover);
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -75,6 +129,11 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
 
     /// @notice Maximum number of active provers
     uint16 public immutable maxActiveProvers;
+
+    /// @notice Maximum fee spread as percentage (e.g., 200 = new prover's fee * 2 is the max allowed)
+    /// @dev When a new prover joins with fee X, existing provers with fee >= X * maxFeeSpreadPctg / 100
+    ///      are evicted to keep the fee range bounded.
+    uint16 public immutable maxFeeSpreadPctg;
 
     /// @notice Bond amount slashed per failed proof
     uint96 private immutable _livenessBond;
@@ -137,6 +196,7 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
     /// @param _initialMaxFee Initial maximum fee for first-ever bid (in Gwei)
     /// @param _movingAverageMultiplier Multiplier for moving average fee floor
     /// @param _maxActiveProvers Maximum number of active provers
+    /// @param _maxFeeSpreadPctg Maximum fee spread percentage (e.g., 200 = 2x)
     constructor(
         address _inbox,
         address _bondToken,
@@ -150,7 +210,8 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         uint8 _maxFeeDoublings,
         uint32 _initialMaxFee,
         uint8 _movingAverageMultiplier,
-        uint16 _maxActiveProvers
+        uint16 _maxActiveProvers,
+        uint16 _maxFeeSpreadPctg
     ) {
         require(_inbox != address(0), ZeroAddress());
         require(_bondToken != address(0), ZeroAddress());
@@ -164,6 +225,7 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         require(_initialMaxFee > 0, ZeroValue());
         require(_movingAverageMultiplier > 0, ZeroValue());
         require(_maxActiveProvers > 0, ZeroValue());
+        require(_maxFeeSpreadPctg >= 100, InvalidFeeSpread());
 
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
@@ -178,6 +240,7 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         initialMaxFee = _initialMaxFee;
         movingAverageMultiplier = _movingAverageMultiplier;
         maxActiveProvers = _maxActiveProvers;
+        maxFeeSpreadPctg = _maxFeeSpreadPctg;
 
         unchecked {
             uint128 ejectionThreshold = uint128(_livenessBondAmount) * _bondMultiplier;
@@ -202,14 +265,16 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IProverAuction
+    /// @notice Deposit bond tokens into the contract
+    /// @param _amount The amount of tokens to deposit
     function deposit(uint128 _amount) external nonReentrant {
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         _bonds[msg.sender].balance += _amount;
         emit Deposited(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Withdraw bond tokens from the contract
+    /// @param _amount The amount of tokens to withdraw
     function withdraw(uint128 _amount) external nonReentrant {
         BondInfo storage info = _bonds[msg.sender];
 
@@ -230,7 +295,8 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         emit Withdrawn(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Place a bid to join the active prover pool
+    /// @param _feeInGwei The fee per proposal in Gwei
     function bid(uint32 _feeInGwei) external nonReentrant {
         BondInfo storage bidderBond = _bonds[msg.sender];
         require(bidderBond.balance >= getRequiredBond(), InsufficientBond());
@@ -280,11 +346,14 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
             _poolEmptySince = 0;
         }
 
+        // Evict provers whose fees exceed the new prover's fee * maxFeeSpreadPctg / 100
+        _evictHighFeeProvers(_feeInGwei);
+
         _updateMovingAverage(_feeInGwei);
         emit BidPlaced(msg.sender, _feeInGwei, evicted);
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Request to exit the active pool and start the withdrawal delay
     function requestExit() external {
         ProverInfo storage info = _proverInfo[msg.sender];
         require(info.active == 1, NotCurrentProver());
@@ -384,11 +453,25 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
             target -= weight;
         }
 
-        address fallback = _activeProvers[count - 1];
-        return (fallback, _proverInfo[fallback].feeInGwei);
+        address lastProver = _activeProvers[count - 1];
+        return (lastProver, _proverInfo[lastProver].feeInGwei);
     }
 
     /// @inheritdoc IProverAuction
+    function isCurrentProver(address _proverAddr)
+        external
+        view
+        returns (bool isActive_, uint32 feeInGwei_)
+    {
+        ProverInfo storage info = _proverInfo[_proverAddr];
+        if (info.active == 1) {
+            return (true, info.feeInGwei);
+        }
+        return (false, 0);
+    }
+
+    /// @notice Get the maximum fee that can be bid currently
+    /// @return maxFee_ The maximum fee in Gwei
     function getMaxBidFee() public view returns (uint32 maxFee_) {
         uint256 count = _activeProvers.length;
         if (count == 0) {
@@ -405,48 +488,60 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         }
     }
 
-    /// @inheritdoc IProverAuction2
+    /// @notice Get the active prover addresses in insertion order.
+    /// @return provers_ The active prover list.
     function getActiveProvers() external view returns (address[] memory provers_) {
         return _activeProvers;
     }
 
-    /// @inheritdoc IProverAuction2
+    /// @notice Get a prover's current fee and active status.
+    /// @param _prover The prover address to query.
+    /// @return feeInGwei_ The prover's fee in Gwei (0 if inactive).
+    /// @return active_ True if the prover is in the active pool.
     function getProverStatus(address _prover) external view returns (uint32 feeInGwei_, bool active_) {
         ProverInfo storage info = _proverInfo[_prover];
         return (info.feeInGwei, info.active == 1);
     }
 
-    /// @inheritdoc IProverAuction2
+    /// @notice Get the maximum number of active provers.
+    /// @return maxActiveProvers_ The pool capacity.
     function getMaxActiveProvers() external view returns (uint16 maxActiveProvers_) {
         return maxActiveProvers;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the bond information for an account
+    /// @param _account The account to query
+    /// @return bondInfo_ The bond info struct
     function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_) {
         return _bonds[_account];
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the required bond amount to participate
+    /// @return requiredBond_ The required bond in tokens
     function getRequiredBond() public view returns (uint128 requiredBond_) {
         return _requiredBond;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the liveness bond amount slashed per failed proof
+    /// @return livenessBond_ The liveness bond in tokens
     function getLivenessBond() external view returns (uint96 livenessBond_) {
         return _livenessBond;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the ejection threshold below which a prover is ejected
+    /// @return threshold_ The ejection threshold in tokens
     function getEjectionThreshold() public view returns (uint128 threshold_) {
         return _ejectionThreshold;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the current moving average fee
+    /// @return avgFee_ The moving average fee in Gwei
     function getMovingAverageFee() external view returns (uint32 avgFee_) {
         return _movingAverageFee;
     }
 
-    /// @inheritdoc IProverAuction
+    /// @notice Get the total amount slashed and locked in the contract
+    /// @return totalSlashedAmount_ The total slashed amount in tokens
     function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
         return _totalSlashedAmount;
     }
@@ -511,6 +606,31 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
         }
     }
 
+    /// @dev Evicts provers whose fees exceed the threshold based on the new prover's fee.
+    /// @param _newFee The fee of the newly joined prover
+    function _evictHighFeeProvers(uint32 _newFee) internal {
+        // Calculate the maximum allowed fee: newFee * maxFeeSpreadPctg / 100
+        // Provers with fee >= threshold will be evicted
+        uint256 threshold = uint256(_newFee) * maxFeeSpreadPctg / 100;
+        if (threshold > type(uint32).max) {
+            threshold = type(uint32).max;
+        }
+
+        // Iterate backwards to safely remove elements
+        // Note: _activeProvers.length changes during iteration
+        uint256 i = _activeProvers.length;
+        while (i > 0) {
+            i--;
+            address prover = _activeProvers[i];
+            uint32 fee = _proverInfo[prover].feeInGwei;
+            if (fee >= threshold) {
+                _removeActiveProver(prover, uint16(i));
+                _deferWithdraw(prover);
+                emit ProverEjected(prover);
+            }
+        }
+    }
+
     /// @dev Computes the maximum bid fee when the pool is empty.
     function _getVacantMaxBidFee() internal view returns (uint32 maxFee_) {
         uint32 feeFloor;
@@ -571,6 +691,7 @@ contract ProverAuction2 is EssentialContract, IProverAuction2 {
     error InsufficientBond();
     error InvalidMaxFeeDoublings();
     error InvalidBps();
+    error InvalidFeeSpread();
     error NotCurrentProver();
     error OnlyInbox();
     error WithdrawalDelayNotPassed();

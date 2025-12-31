@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { IProverAuction2 } from "src/layer1/core/iface/IProverAuction2.sol";
 import { ProverAuction2 } from "src/layer1/core/impl/ProverAuction2.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
@@ -29,10 +28,12 @@ contract ProverAuction2Test is CommonTest {
     uint32 internal constant INITIAL_MAX_FEE = 1000;
     uint8 internal constant MOVING_AVG_MULTIPLIER = 2;
     uint16 internal constant MAX_ACTIVE_PROVERS = 2;
+    uint16 internal constant MAX_FEE_SPREAD_PCTG = 200; // 2x
 
-    // Events from IProverAuction
+    // Events from ProverAuction2
     event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
     event ExitRequested(address indexed prover, uint48 withdrawableAt);
+    event ProverEjected(address indexed prover);
 
     function setUp() public virtual override {
         super.setUp();
@@ -52,7 +53,8 @@ contract ProverAuction2Test is CommonTest {
             MAX_FEE_DOUBLINGS,
             INITIAL_MAX_FEE,
             MOVING_AVG_MULTIPLIER,
-            MAX_ACTIVE_PROVERS
+            MAX_ACTIVE_PROVERS,
+            MAX_FEE_SPREAD_PCTG
         );
 
         auction = ProverAuction2(
@@ -179,5 +181,43 @@ contract ProverAuction2Test is CommonTest {
 
     function test_minSelfBidInterval_isOneHour() public view {
         assertEq(auction.MIN_SELF_BID_INTERVAL(), 1 hours);
+    }
+
+    function test_feeSpread_evictsHighFeeProvers() public {
+        // prover1 joins with fee 100
+        _depositAndBid(prover1, auction.getRequiredBond(), 100);
+
+        // prover2 joins with fee 50
+        // threshold = 50 * 200 / 100 = 100
+        // prover1's fee (100) >= threshold (100), so prover1 should be evicted
+        _depositAndBid(prover2, auction.getRequiredBond(), 50);
+
+        address[] memory active = auction.getActiveProvers();
+        assertEq(active.length, 1);
+        assertEq(active[0], prover2);
+
+        // prover1 should be in withdrawal state
+        (, bool active1) = auction.getProverStatus(prover1);
+        assertFalse(active1);
+        assertGt(auction.getBondInfo(prover1).withdrawableAt, 0);
+    }
+
+    function test_feeSpread_keepsProversBelowThreshold() public {
+        // prover1 joins with fee 100
+        _depositAndBid(prover1, auction.getRequiredBond(), 100);
+
+        // prover2 joins with fee 51
+        // threshold = 51 * 200 / 100 = 102
+        // prover1's fee (100) < threshold (102), so prover1 stays
+        _depositAndBid(prover2, auction.getRequiredBond(), 51);
+
+        address[] memory active = auction.getActiveProvers();
+        assertEq(active.length, 2);
+        assertTrue(active[0] == prover1 || active[1] == prover1);
+        assertTrue(active[0] == prover2 || active[1] == prover2);
+    }
+
+    function test_feeSpread_maxFeeSpreadPctgValue() public view {
+        assertEq(auction.maxFeeSpreadPctg(), MAX_FEE_SPREAD_PCTG);
     }
 }
