@@ -87,6 +87,10 @@ contract ProverAuctionTest is CommonTest {
         bondToken.approve(address(auction), type(uint256).max);
     }
 
+    function test_minSelfBidInterval_isOneHour() public {
+        assertEq(auction.MIN_SELF_BID_INTERVAL(), 1 hours);
+    }
+
     // ---------------------------------------------------------------
     // Helper functions
     // ---------------------------------------------------------------

@@ -582,10 +582,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Collects the prover fee in ETH (Gwei units) and returns refund in wei.
+    /// @dev _feeInGwei may be zero; fees are paid in ETH (wei) computed from gwei.
     /// @dev Fee payment is best-effort: proposal should not revert if the prover rejects ETH.
     /// The refund is paid once by the caller, alongside forced inclusion fees.
     /// @param _designatedProver The designated prover for this proposal.
     /// @param _feeInGwei The prover fee in Gwei.
+    /// @return refund_ The refund amount in wei.
     function _collectProverFee(
         address _designatedProver,
         uint32 _feeInGwei
@@ -602,7 +604,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 uint256 feeWei = uint256(_feeInGwei) * 1 gwei;
                 require(msg.value >= feeWei, ProverFeeNotPaid());
 
-                (bool paid,) = payable(_designatedProver).call{ value: feeWei }("");
+                bool paid = _designatedProver.sendEther(feeWei, gasleft(), "");
                 // If prover refuses payment, refund full msg.value to proposer.
                 if (paid) {
                     refund_ = msg.value - feeWei;
@@ -631,6 +633,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
             // Slash designated prover even if they submit late themselves;
             // they receive the reward but still incur net penalty.
+            // designatedProver is validated by the proof system via the commitment transitions.
             _proverAuction.slashProver(
                 _commitment.transitions[_offset].designatedProver, _commitment.actualProver
             );
@@ -748,10 +751,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         returns (uint256)
     {
         unchecked {
-            if (_nextProposalId <= _lastFinalizedProposalId) revert InvalidCoreState();
+            require(_nextProposalId > _lastFinalizedProposalId, InvalidCoreState());
 
             uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
-            if (numUnfinalizedProposals >= _ringBufferSize) revert InvalidCoreState();
+            require(numUnfinalizedProposals < _ringBufferSize, InvalidCoreState());
 
             return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
