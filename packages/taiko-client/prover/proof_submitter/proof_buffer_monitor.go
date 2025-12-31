@@ -173,7 +173,8 @@ func flushProofCacheRange(
 		}
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
 			if errors.Is(err, proofProducer.ErrBufferOverflow) {
-				log.Info("Buffer overflow during cache flush, stop flushing",
+				log.Info(
+				    "Buffer overflow during cache flush, stop flushing",
 					"proposalID", currentID,
 					"proofType", cachedProof.ProofType,
 				)
