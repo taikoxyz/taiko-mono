@@ -71,9 +71,7 @@ contract InboxBondManagerTest is InboxTestBase {
         vm.stopPrank();
 
         assertEq(inbox.getBond(account).balance, 0, "bond balance cleared");
-        assertEq(
-            inbox.getBond(account).withdrawalRequestedAt, 0, "withdrawal request cleared"
-        );
+        assertEq(inbox.getBond(account).withdrawalRequestedAt, 0, "withdrawal request cleared");
         assertEq(
             bondToken.balanceOf(account),
             accountBalanceBefore + _toTokenAmount(balance),

@@ -555,10 +555,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             if (!result.allowsPermissionless) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
-                require(
-                    _bondStorage.hasSufficientBond(msg.sender, _minBond),
-                    InsufficientBond()
-                );
+                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
