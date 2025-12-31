@@ -64,11 +64,16 @@ contract InboxBondManagerTest is InboxTestBase {
 
         vm.startPrank(account);
         inbox.requestWithdrawal();
+        uint48 requestedAt = inbox.getBond(account).withdrawalRequestedAt;
+        assertGt(requestedAt, 0, "withdrawal requested");
         vm.warp(block.timestamp + config.withdrawalDelay + 1);
         inbox.withdraw(account, balance);
         vm.stopPrank();
 
         assertEq(inbox.getBond(account).balance, 0, "bond balance cleared");
+        assertEq(
+            inbox.getBond(account).withdrawalRequestedAt, 0, "withdrawal request cleared"
+        );
         assertEq(
             bondToken.balanceOf(account),
             accountBalanceBefore + _toTokenAmount(balance),
@@ -79,6 +84,24 @@ contract InboxBondManagerTest is InboxTestBase {
             inboxBalanceBefore - _toTokenAmount(balance),
             "inbox token balance"
         );
+    }
+
+    function test_withdraw_PartialDoesNotClearWithdrawal() public {
+        address account = David;
+        uint64 balance = inbox.getBond(account).balance;
+        uint64 amount = balance / 2;
+
+        vm.startPrank(account);
+        inbox.requestWithdrawal();
+        uint48 requestedAt = inbox.getBond(account).withdrawalRequestedAt;
+        assertGt(requestedAt, 0, "withdrawal requested");
+        vm.warp(block.timestamp + config.withdrawalDelay + 1);
+        inbox.withdraw(account, amount);
+        vm.stopPrank();
+
+        IBondManager.Bond memory bond = inbox.getBond(account);
+        assertEq(bond.withdrawalRequestedAt, requestedAt, "withdrawal still pending");
+        assertEq(bond.balance, balance - amount, "bond balance reduced");
     }
 
     function test_requestWithdrawal_RevertWhen_NoBond() public {
@@ -112,12 +135,12 @@ contract InboxBondManagerTest is InboxTestBase {
         assertEq(inbox.getBond(proposer).withdrawalRequestedAt, 0, "bond re-enabled after cancel");
     }
 
-    function test_deposit_DoesNotCancelWithdrawal() public {
+    function test_deposit_CancelsWithdrawal() public {
         uint64 amount = 1_000_000_000;
 
         vm.prank(proposer);
         inbox.requestWithdrawal();
-        uint48 requestedAt = inbox.getBond(proposer).withdrawalRequestedAt;
+        assertGt(inbox.getBond(proposer).withdrawalRequestedAt, 0, "withdrawal requested");
         uint64 balanceBefore = inbox.getBond(proposer).balance;
 
         bondToken.mint(proposer, _toTokenAmount(amount));
@@ -125,6 +148,27 @@ contract InboxBondManagerTest is InboxTestBase {
         vm.startPrank(proposer);
         bondToken.approve(address(inbox), type(uint256).max);
         inbox.deposit(amount);
+        vm.stopPrank();
+
+        IBondManager.Bond memory bond = inbox.getBond(proposer);
+        assertEq(bond.withdrawalRequestedAt, 0, "withdrawal cleared");
+        assertEq(bond.balance, balanceBefore + amount, "bond balance increased");
+    }
+
+    function test_depositTo_DoesNotCancelWithdrawal() public {
+        uint64 amount = 1_000_000_000;
+
+        vm.prank(proposer);
+        inbox.requestWithdrawal();
+        uint48 requestedAt = inbox.getBond(proposer).withdrawalRequestedAt;
+        assertGt(requestedAt, 0, "withdrawal requested");
+        uint64 balanceBefore = inbox.getBond(proposer).balance;
+
+        bondToken.mint(Emma, _toTokenAmount(amount));
+
+        vm.startPrank(Emma);
+        bondToken.approve(address(inbox), type(uint256).max);
+        inbox.depositTo(proposer, amount);
         vm.stopPrank();
 
         IBondManager.Bond memory bond = inbox.getBond(proposer);

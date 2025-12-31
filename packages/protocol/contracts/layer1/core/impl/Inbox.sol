@@ -347,12 +347,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @inheritdoc IBondManager
     function deposit(uint64 _amount) external nonReentrant {
-        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, msg.sender, _amount);
+        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, msg.sender, _amount, true);
     }
 
     /// @inheritdoc IBondManager
     function depositTo(address _recipient, uint64 _amount) external nonReentrant {
-        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, _recipient, _amount);
+        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, _recipient, _amount, false);
     }
 
     /// @inheritdoc IBondManager

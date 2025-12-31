@@ -61,12 +61,13 @@ interface IBondManager {
     // ---------------------------------------------------------------
 
     /// @notice Deposits bond tokens for the caller.
-    /// @dev Does not cancel the caller's pending withdrawal; call `cancelWithdrawal` to reactivate.
+    /// @dev Clears the caller's pending withdrawal request, if any.
     /// @param _amount The amount to deposit in gwei.
     function deposit(uint64 _amount) external;
 
     /// @notice Deposits bond tokens for a recipient.
-    /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal.
+    /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal,
+    /// even if the recipient is the caller.
     /// @param _recipient The address to credit the bond to.
     /// @param _amount The amount to deposit in gwei.
     function depositTo(address _recipient, uint64 _amount) external;
@@ -74,6 +75,8 @@ interface IBondManager {
     /// @notice Withdraws bond to a recipient.
     /// @dev Withdrawals are subject to a delay so bond operations can be resolved properly.
     /// The user can always withdraw any excess amount without delays.
+    /// If this withdrawal debits the entire bond balance, any pending withdrawal request is
+    /// cleared.
     /// @param _to The recipient of withdrawn funds.
     /// @param _amount The amount to withdraw in gwei.
     function withdraw(address _to, uint64 _amount) external;
