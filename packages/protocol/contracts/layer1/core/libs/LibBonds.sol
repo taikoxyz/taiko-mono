@@ -31,24 +31,30 @@ library LibBonds {
     // ---------------------------------------------------------------
 
     /// @dev Deposits bond tokens in gwei units and credits the recipient.
+    /// If `_cancelWithdrawal` is true, the pending withdrawal request is cleared.
     function deposit(
         Storage storage $,
         IERC20 _bondToken,
         address _depositor,
         address _recipient,
-        uint64 _amount
+        uint64 _amount,
+        bool _cancelWithdrawal
     )
         internal
     {
         if (_recipient == address(0)) revert InvalidAddress();
 
         _creditBond($, _recipient, _amount);
+        if (_cancelWithdrawal && $.bonds[_recipient].withdrawalRequestedAt != 0) {
+            $.bonds[_recipient].withdrawalRequestedAt = 0;
+        }
         _bondToken.safeTransferFrom(_depositor, address(this), _toTokenAmount(_amount));
 
         emit IBondManager.BondDeposited(_depositor, _recipient, _amount);
     }
 
     /// @dev Withdraws bond tokens in gwei units to a recipient.
+    /// If the full balance is withdrawn, the pending withdrawal request is cleared.
     function withdraw(
         Storage storage $,
         IERC20 _bondToken,
@@ -63,7 +69,7 @@ library LibBonds {
     {
         if (_to == address(0)) revert InvalidAddress();
 
-        IBondManager.Bond memory bond_ = $.bonds[_from];
+        IBondManager.Bond storage bond_ = $.bonds[_from];
         uint64 balance = bond_.balance;
         uint64 amount = _amount > balance ? balance : _amount;
 
@@ -75,6 +81,9 @@ library LibBonds {
         }
 
         debited_ = _debitBond($, _from, amount);
+        if (debited_ == balance && bond_.withdrawalRequestedAt != 0) {
+            bond_.withdrawalRequestedAt = 0;
+        }
         _bondToken.safeTransfer(_to, _toTokenAmount(debited_));
         emit IBondManager.BondWithdrawn(_from, debited_);
     }
