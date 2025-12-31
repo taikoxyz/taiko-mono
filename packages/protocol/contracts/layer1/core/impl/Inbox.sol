@@ -35,6 +35,8 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
     using LibAddress for address;
+    using LibBonds for LibBonds.Storage;
+    using LibForcedInclusion for LibForcedInclusion.Storage;
     using LibMath for uint48;
     using LibMath for uint256;
 
@@ -347,29 +349,27 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @inheritdoc IBondManager
     function deposit(uint64 _amount) external nonReentrant {
-        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, msg.sender, _amount, true);
+        _bondStorage.deposit(_bondToken, msg.sender, msg.sender, _amount, true);
     }
 
     /// @inheritdoc IBondManager
     function depositTo(address _recipient, uint64 _amount) external nonReentrant {
-        LibBonds.deposit(_bondStorage, _bondToken, msg.sender, _recipient, _amount, false);
+        _bondStorage.deposit(_bondToken, msg.sender, _recipient, _amount, false);
     }
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint64 _amount) external nonReentrant {
-        LibBonds.withdraw(
-            _bondStorage, _bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay
-        );
+        _bondStorage.withdraw(_bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay);
     }
 
     /// @inheritdoc IBondManager
     function requestWithdrawal() external nonReentrant {
-        LibBonds.requestWithdrawal(_bondStorage, msg.sender, _withdrawalDelay);
+        _bondStorage.requestWithdrawal(msg.sender, _withdrawalDelay);
     }
 
     /// @inheritdoc IBondManager
     function cancelWithdrawal() external nonReentrant {
-        LibBonds.cancelWithdrawal(_bondStorage, msg.sender);
+        _bondStorage.cancelWithdrawal(msg.sender);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -380,11 +380,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
-        uint256 refund = LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionFeeInGwei,
-            _forcedInclusionFeeDoubleThreshold,
-            _blobReference
+        uint256 refund = _forcedInclusionStorage.saveForcedInclusion(
+            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold, _blobReference
         );
 
         // Refund excess payment to the sender
@@ -448,13 +445,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     /// @inheritdoc IBondManager
     function getBond(address _address) external view returns (Bond memory bond_) {
-        return LibBonds.getBond(_bondStorage, _address);
+        return _bondStorage.getBond(_address);
     }
 
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
-        return LibForcedInclusion.getCurrentForcedInclusionFee(
-            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+        return _forcedInclusionStorage.getCurrentForcedInclusionFee(
+            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
         );
     }
 
@@ -467,12 +464,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         view
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
-        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
+        return _forcedInclusionStorage.getForcedInclusions(_start, _maxCount);
     }
 
     /// @inheritdoc IForcedInclusionStore
     function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_) {
-        return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
+        return _forcedInclusionStorage.getForcedInclusionState();
     }
 
     /// @inheritdoc IInbox
@@ -559,7 +556,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
                 require(
-                    LibBonds.hasSufficientBond(_bondStorage, msg.sender, _minBond),
+                    _bondStorage.hasSufficientBond(msg.sender, _minBond),
                     InsufficientBond()
                 );
             }
@@ -622,9 +619,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // (_minForcedInclusionCount) OR
             // 2. Proposer included all available inclusions that are due
             if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
-                bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
-                    $, head, tail, _forcedInclusionDelay
-                );
+                bool isOldestInclusionDue =
+                    $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
 
@@ -697,8 +693,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 return;
             }
 
-            LibBonds.settleLivenessBond(
-                _bondStorage,
+            _bondStorage.settleLivenessBond(
                 _commitment.transitions[_offset].designatedProver,
                 _commitment.actualProver,
                 _livenessBond
