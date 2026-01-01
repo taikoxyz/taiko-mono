@@ -576,7 +576,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             return (msg.sender, 0);
         }
 
-        (address currentProver, uint32 feeInGwei) = _proverAuction.getCurrentProver();
+        (address currentProver, uint32 feeInGwei) = _proverAuction.getProver();
         require(currentProver != address(0), NoActiveAuctionProver());
         return (currentProver, feeInGwei);
     }
