@@ -22,6 +22,21 @@ interface IProverAuction {
     /// @param prover The prover that was ejected.
     event ProverEjected(address indexed prover);
 
+    /// @notice Emitted when bond tokens are deposited.
+    /// @param account The account that deposited.
+    /// @param amount The amount deposited.
+    event Deposited(address indexed account, uint128 amount);
+
+    /// @notice Emitted when bond tokens are withdrawn.
+    /// @param account The account that withdrew.
+    /// @param amount The amount withdrawn.
+    event Withdrawn(address indexed account, uint128 amount);
+
+    /// @notice Emitted when the current prover requests to exit.
+    /// @param prover The prover that requested exit.
+    /// @param withdrawableAt Timestamp when bond becomes withdrawable.
+    event ExitRequested(address indexed prover, uint48 withdrawableAt);
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
@@ -29,6 +44,14 @@ interface IProverAuction {
     /// @notice Submit a bid to become prover, or join a pool at the current fee.
     /// @param _feeInGwei Fee per proposal in Gwei.
     function bid(uint32 _feeInGwei) external;
+
+    /// @notice Deposit bond tokens to caller's balance.
+    /// @param _amount Amount of bond tokens to deposit.
+    function deposit(uint128 _amount) external;
+
+    /// @notice Withdraw bond tokens from caller's balance.
+    /// @param _amount Amount to withdraw.
+    function withdraw(uint128 _amount) external;
 
     /// @notice Request to exit as a current prover.
     function requestExit() external;

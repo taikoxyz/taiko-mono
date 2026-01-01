@@ -317,8 +317,8 @@ contract ProverAuctionTest is CommonTest {
         auction.requestExit();
 
         // Verify prover is exited but still in _prover.addr
-        (address currentProver,) = auction.getCurrentProver();
-        assertEq(currentProver, address(0)); // getCurrentProver returns 0 for exited
+        (address currentProver,) = auction.getProver();
+        assertEq(currentProver, address(0)); // getProver returns 0 for exited
 
         // Cannot withdraw immediately (delay not passed)
         vm.prank(prover1);
@@ -364,7 +364,7 @@ contract ProverAuctionTest is CommonTest {
         _slashBelowThreshold(auction, prover1, address(0));
 
         // Verify prover was ejected
-        (address currentProver,) = auction.getCurrentProver();
+        (address currentProver,) = auction.getProver();
         assertEq(currentProver, address(0));
 
         // Warp past withdrawal delay
@@ -383,37 +383,37 @@ contract ProverAuctionTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // getCurrentProver tests
+    // getProver tests
     // ---------------------------------------------------------------
 
-    function test_getCurrentProver_returnsZeroWhenNoProver() public view {
-        (address prover, uint32 fee) = auction.getCurrentProver();
+    function test_getProver_returnsZeroWhenNoProver() public view {
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, address(0));
         assertEq(fee, 0);
     }
 
     function test_getProver_matchesGetCurrentProver() public view {
-        (address currentProver, uint32 currentFee) = auction.getCurrentProver();
+        (address currentProver, uint32 currentFee) = auction.getProver();
         (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, currentProver);
         assertEq(fee, currentFee);
     }
 
-    function test_getCurrentProver_returnsActiveProver() public {
+    function test_getProver_returnsActiveProver() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, prover1);
         assertEq(fee, 500);
     }
 
-    function test_getCurrentProver_returnsZeroWhenProverExited() public {
+    function test_getProver_returnsZeroWhenProverExited() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
         vm.prank(prover1);
         auction.requestExit();
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, address(0));
         assertEq(fee, 0);
     }
@@ -516,7 +516,7 @@ contract ProverAuctionTest is CommonTest {
         emit BidPlaced(prover1, 500, address(0));
         auction.bid(500);
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, prover1);
         assertEq(fee, 500);
     }
@@ -556,7 +556,7 @@ contract ProverAuctionTest is CommonTest {
         emit BidPlaced(prover2, 950, prover1);
         auction.bid(950); // 5% reduction
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, prover2);
         assertEq(fee, 950);
     }
@@ -585,7 +585,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover2);
         auction.bid(950); // Exactly 5% reduction
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover2);
     }
 
@@ -613,7 +613,7 @@ contract ProverAuctionTest is CommonTest {
         emit BidPlaced(prover1, 900, prover1);
         auction.bid(900);
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, prover1);
         assertEq(fee, 900);
     }
@@ -628,7 +628,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.bid(999);
 
-        (, uint32 fee) = auction.getCurrentProver();
+        (, uint32 fee) = auction.getProver();
         assertEq(fee, 999);
     }
 
@@ -711,7 +711,7 @@ contract ProverAuctionTest is CommonTest {
         emit ExitRequested(prover1, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
         auction.requestExit();
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, address(0)); // No active prover
     }
 
@@ -842,7 +842,7 @@ contract ProverAuctionTest is CommonTest {
         emit ProverEjected(prover1);
         auction.slashProver(prover1, prover2);
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, address(0)); // Ejected
     }
 
@@ -852,7 +852,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(inbox);
         auction.slashProver(prover1, prover2);
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover1); // Still active
     }
 
@@ -864,7 +864,7 @@ contract ProverAuctionTest is CommonTest {
         auction.slashProver(prover2, prover3);
 
         // prover1 still active (not affected)
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover1);
     }
 
@@ -1039,7 +1039,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.bid(0);
 
-        (, uint32 fee) = auction.getCurrentProver();
+        (, uint32 fee) = auction.getProver();
         assertEq(fee, 0);
     }
 
@@ -1048,7 +1048,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover2, REQUIRED_BOND, 950);
         _depositAndBid(prover3, REQUIRED_BOND, 902);
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, prover3);
         assertEq(fee, 902);
     }
@@ -1064,7 +1064,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.bid(900);
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover1);
     }
 
@@ -1078,7 +1078,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.bid(1000);
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover1);
     }
 
@@ -1129,7 +1129,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.bid(500);
 
-        (address prover, uint32 fee) = auction.getCurrentProver();
+        (address prover, uint32 fee) = auction.getProver();
         assertEq(prover, prover1, "bid should work when paused");
         assertEq(fee, 500);
     }
@@ -1146,7 +1146,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, address(0), "requestExit should work when paused");
     }
 
@@ -1181,7 +1181,7 @@ contract ProverAuctionTest is CommonTest {
 
         // Verify operations work after unpause
         _depositAndBid(prover1, REQUIRED_BOND, 500);
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover1, "operations should work after unpause");
     }
 
@@ -1329,7 +1329,7 @@ contract ProverAuctionTest is CommonTest {
         _slashBelowThreshold(zeroDelayAuction, prover1, address(0));
 
         // Verify ejected
-        (address prover,) = zeroDelayAuction.getCurrentProver();
+        (address prover,) = zeroDelayAuction.getProver();
         assertEq(prover, address(0), "prover should be ejected");
 
         // Check withdrawableAt is set to current timestamp
@@ -1558,7 +1558,7 @@ contract ProverAuctionTest is CommonTest {
         _slashTimes(auction, prover1, prover2, slashesToThreshold);
 
         // Should NOT be ejected (balance == threshold, not < threshold)
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, prover1, "prover should not be ejected at exact threshold");
 
         ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
@@ -1576,7 +1576,7 @@ contract ProverAuctionTest is CommonTest {
         _slashTimes(auction, prover1, prover2, slashesToBelow);
 
         // Should be ejected
-        (address prover,) = auction.getCurrentProver();
+        (address prover,) = auction.getProver();
         assertEq(prover, address(0), "prover should be ejected below threshold");
     }
 
@@ -1626,7 +1626,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover2);
         maxReductionAuction.bid(0);
 
-        (, uint32 fee) = maxReductionAuction.getCurrentProver();
+        (, uint32 fee) = maxReductionAuction.getProver();
         assertEq(fee, 0);
     }
 
@@ -1681,7 +1681,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover2);
         noReductionAuction.bid(999);
 
-        (address prover,) = noReductionAuction.getCurrentProver();
+        (address prover,) = noReductionAuction.getProver();
         assertEq(prover, prover2, "prover2 should be able to outbid with lower fee");
     }
 

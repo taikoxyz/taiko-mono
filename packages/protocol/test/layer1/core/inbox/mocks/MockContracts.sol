@@ -129,10 +129,6 @@ contract MockProverAuction {
         return (currentProver, currentFeeInGwei);
     }
 
-    function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_) {
-        return (currentProver, currentFeeInGwei);
-    }
-
     function slashProver(address _prover, address _recipient) external {
         lastSlashedProver = _prover;
         lastSlashRecipient = _recipient;

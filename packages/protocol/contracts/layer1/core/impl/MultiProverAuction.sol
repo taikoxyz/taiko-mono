@@ -58,15 +58,6 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when bond tokens are deposited.
-    /// @param account The account that deposited.
-    /// @param amount The amount deposited.
-    event Deposited(address indexed account, uint128 amount);
-
-    /// @notice Emitted when bond tokens are withdrawn.
-    /// @param account The account that withdrew.
-    /// @param amount The amount withdrawn.
-    event Withdrawn(address indexed account, uint128 amount);
 
     /// @notice Emitted when a new bid is placed or pool is reset.
     /// @param newProver The address of the new leader prover.
@@ -79,10 +70,6 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
     /// @param joinOrder The join order in the pool.
     event PoolJoined(address indexed prover, uint8 joinOrder);
 
-    /// @notice Emitted when the current prover requests to exit.
-    /// @param prover The prover that requested exit.
-    /// @param withdrawableAt Timestamp when bond becomes withdrawable.
-    event ExitRequested(address indexed prover, uint48 withdrawableAt);
 
     // ---------------------------------------------------------------
     // Immutable Variables

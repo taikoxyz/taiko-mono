@@ -15,7 +15,7 @@ import "./ProverAuction_Layout.sol"; // DO NOT DELETE
 /// Provers compete by offering the lowest proving fee per proposal. The winner becomes the
 /// designated prover for all proposals until outbid, exited, or ejected due to low bond.
 /// @dev Key features:
-///      - Single prover slot with 1 SLOAD for getCurrentProver()
+///      - Single prover slot with 1 SLOAD for getProver()
 ///      - Time-based fee cap when slot is vacant (doubles every feeDoublingPeriod)
 ///      - Decoupled bond management (deposit/withdraw separate from bidding)
 ///      - Best-effort slashing with automatic ejection on low bond
@@ -36,7 +36,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @dev Packed into 32 bytes (1 storage slot) for gas-efficient getCurrentProver()
+    /// @dev Packed into 32 bytes (1 storage slot) for gas-efficient getProver()
     struct Prover {
         address addr; // 20 bytes - prover address
         uint32 feeInGwei; // 4 bytes - fee per proposal in Gwei (max ~4.29 ETH)
@@ -52,15 +52,6 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when bond tokens are deposited.
-    /// @param account The account that deposited.
-    /// @param amount The amount deposited.
-    event Deposited(address indexed account, uint128 amount);
-
-    /// @notice Emitted when bond tokens are withdrawn.
-    /// @param account The account that withdrew.
-    /// @param amount The amount withdrawn.
-    event Withdrawn(address indexed account, uint128 amount);
 
     /// @notice Emitted when a new bid is placed or current prover lowers their fee.
     /// @param newProver The address of the new prover.
@@ -68,10 +59,6 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @param oldProver The address of the previous prover (address(0) if none).
     event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
 
-    /// @notice Emitted when the current prover requests to exit.
-    /// @param prover The prover that requested exit.
-    /// @param withdrawableAt Timestamp when bond becomes withdrawable.
-    event ExitRequested(address indexed prover, uint48 withdrawableAt);
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -123,7 +110,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @dev Current prover packed into single slot for 1 SLOAD in getCurrentProver()
+    /// @dev Current prover packed into single slot for 1 SLOAD in getProver()
     Prover internal _prover;
 
     /// @dev Bond information per address
@@ -405,16 +392,11 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // External View Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IProverAuction
-    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
-        return this.getCurrentProver();
-    }
-
     /// @notice Get the current active prover and their fee.
     /// @return prover_ Current prover address (address(0) if none or exited).
     /// @return feeInGwei_ Fee per proposal in Gwei.
     /// @dev Optimized for 1 SLOAD - called on every proposal by Inbox.
-    function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_) {
+    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
         Prover memory p = _prover; // 1 SLOAD
 
         // Return empty if no prover or prover has exited
