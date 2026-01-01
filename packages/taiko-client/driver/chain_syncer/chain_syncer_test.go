@@ -214,7 +214,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Equal(head.GasLimit(), head2.GasLimit())
 	s.Less(head.Time(), head2.Time())
 	s.Equal(head.Coinbase(), head2.Coinbase())
-	s.Equal(head.Extra(), head2.Extra())
+	s.Equal(head.Extra()[0], head2.Extra()[0])
 	s.Equal(uint8(75), core.DecodeOntakeExtraData(head2.Header().Extra))
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])

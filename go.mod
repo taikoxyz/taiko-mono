@@ -142,7 +142,6 @@ require (
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.7 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/herumi/bls-eth-go-binary v1.31.0 // indirect
-	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.2.0 // indirect
@@ -263,7 +262,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/status-im/keycard-go v0.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
@@ -310,7 +308,7 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260101051156-73380adacd8e
+replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260101074341-6fdef2d3e85f
 
 replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20251229030244-37aa83d15a8f
 
