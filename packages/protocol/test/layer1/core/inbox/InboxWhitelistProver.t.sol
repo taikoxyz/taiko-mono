@@ -6,7 +6,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 
 contract InboxWhitelistProverTest is InboxTestBase {
     address internal whitelistedProver = address(0x1234);
@@ -29,22 +28,9 @@ contract InboxWhitelistProverTest is InboxTestBase {
         );
         proverWhitelist.whitelistProver(whitelistedProver, true);
 
-        return IInbox.Config({
-            proofVerifier: address(verifier),
-            proposerChecker: address(proposerChecker),
-            proverWhitelist: address(proverWhitelist),
-            signalService: address(signalService),
-            provingWindow: 2 hours,
-            maxProofSubmissionDelay: 3 minutes,
-            ringBufferSize: 100,
-            basefeeSharingPctg: 0,
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 384,
-            forcedInclusionFeeInGwei: 10_000_000,
-            forcedInclusionFeeDoubleThreshold: 50,
-            minCheckpointDelay: 60_000,
-            permissionlessInclusionMultiplier: 5
-        });
+        IInbox.Config memory cfg = super._buildConfig();
+        cfg.proverWhitelist = address(proverWhitelist);
+        return cfg;
     }
 
     // ---------------------------------------------------------------
@@ -79,19 +65,20 @@ contract InboxWhitelistProverTest is InboxTestBase {
             p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, whitelistedProver
         );
 
+        uint64 proposerBalanceBefore = inbox.getBond(proposer).balance;
+        uint64 whitelistedBalanceBefore = inbox.getBond(whitelistedProver).balance;
+
         _proveAs(whitelistedProver, input);
 
-        // Verify no bond signal was sent (whitelisted prover skips bond calculation)
-        LibBonds.BondInstruction memory instruction = LibBonds.BondInstruction({
-            proposalId: p1.id,
-            bondType: LibBonds.BondType.LIVENESS,
-            payer: proposer, // designated prover
-            payee: whitelistedProver
-        });
-        bytes32 livenessSignal = codec.hashBondInstruction(instruction);
-        assertFalse(
-            signalService.isSignalSent(address(inbox), livenessSignal),
-            "no bond signal for whitelisted prover"
+        assertEq(
+            uint256(inbox.getBond(proposer).balance),
+            uint256(proposerBalanceBefore),
+            "no bond change for proposer"
+        );
+        assertEq(
+            uint256(inbox.getBond(whitelistedProver).balance),
+            uint256(whitelistedBalanceBefore),
+            "no bond change for whitelisted prover"
         );
     }
 

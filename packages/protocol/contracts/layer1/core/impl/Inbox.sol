@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IBondManager } from "../iface/IBondManager.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
@@ -28,11 +30,13 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Proposal submission with forced inclusion support
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
-///      - Bond instruction calculation(but actual funds are managed on L2)
+///      - Bond accounting and liveness bond processing
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
+contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
     using LibAddress for address;
+    using LibBonds for LibBonds.Storage;
+    using LibForcedInclusion for LibForcedInclusion.Storage;
     using LibMath for uint48;
     using LibMath for uint256;
 
@@ -65,8 +69,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @notice The prover whitelist contract (address(0) means no whitelist)
     IProverWhitelist internal immutable _proverWhitelist;
 
-    /// @notice Signal service responsible for checkpoints and bond signals.
+    /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
+
+    /// @notice ERC20 token used as bond.
+    IERC20 internal immutable _bondToken;
+
+    /// @notice Minimum bond the proposer is required to have in gwei.
+    uint64 internal immutable _minBond;
+
+    /// @notice Liveness bond amount in gwei.
+    uint64 internal immutable _livenessBond;
+
+    /// @notice Time delay required before withdrawal after request.
+    uint48 internal immutable _withdrawalDelay;
 
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
@@ -119,7 +135,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    uint256[44] private __gap;
+    /// @dev Storage for bond balances.
+    LibBonds.Storage private _bondStorage;
+
+    uint256[43] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -134,6 +153,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
+        _bondToken = IERC20(_config.bondToken);
+        _minBond = _config.minBond;
+        _livenessBond = _config.livenessBond;
+        _withdrawalDelay = _config.withdrawalDelay;
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
@@ -268,7 +291,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // ---------------------------------------------------------
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processBondInstruction(commitment, offset);
+                _processLivenessBond(commitment, offset);
             }
 
             // -----------------------------------------------------------------------------
@@ -324,6 +347,31 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    /// @inheritdoc IBondManager
+    function deposit(uint64 _amount) external nonReentrant {
+        _bondStorage.deposit(_bondToken, msg.sender, msg.sender, _amount, true);
+    }
+
+    /// @inheritdoc IBondManager
+    function depositTo(address _recipient, uint64 _amount) external nonReentrant {
+        _bondStorage.deposit(_bondToken, msg.sender, _recipient, _amount, false);
+    }
+
+    /// @inheritdoc IBondManager
+    function withdraw(address _to, uint64 _amount) external nonReentrant {
+        _bondStorage.withdraw(_bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay);
+    }
+
+    /// @inheritdoc IBondManager
+    function requestWithdrawal() external nonReentrant {
+        _bondStorage.requestWithdrawal(msg.sender, _withdrawalDelay);
+    }
+
+    /// @inheritdoc IBondManager
+    function cancelWithdrawal() external nonReentrant {
+        _bondStorage.cancelWithdrawal(msg.sender);
+    }
+
     /// @inheritdoc IForcedInclusionStore
     /// @dev This function will revert if called before the first non-activation proposal is
     /// submitted to make sure blocks have been produced already and the derivation can use the
@@ -332,11 +380,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
-        uint256 refund = LibForcedInclusion.saveForcedInclusion(
-            _forcedInclusionStorage,
-            _forcedInclusionFeeInGwei,
-            _forcedInclusionFeeDoubleThreshold,
-            _blobReference
+        uint256 refund = _forcedInclusionStorage.saveForcedInclusion(
+            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold, _blobReference
         );
 
         // Refund excess payment to the sender
@@ -387,15 +432,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc ICodec
-    function hashBondInstruction(LibBonds.BondInstruction calldata _bondInstruction)
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibBonds.hashBondInstruction(_bondInstruction);
-    }
-
-    /// @inheritdoc ICodec
     function hashCommitment(IInbox.Commitment calldata _commitment)
         external
         pure
@@ -407,10 +443,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // External and Public View Functions
     // ---------------------------------------------------------------
+    /// @inheritdoc IBondManager
+    function getBond(address _address) external view returns (Bond memory bond_) {
+        return _bondStorage.getBond(_address);
+    }
+
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
-        return LibForcedInclusion.getCurrentForcedInclusionFee(
-            _forcedInclusionStorage, _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
+        return _forcedInclusionStorage.getCurrentForcedInclusionFee(
+            _forcedInclusionFeeInGwei, _forcedInclusionFeeDoubleThreshold
         );
     }
 
@@ -423,12 +464,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         view
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
-        return LibForcedInclusion.getForcedInclusions(_forcedInclusionStorage, _start, _maxCount);
+        return _forcedInclusionStorage.getForcedInclusions(_start, _maxCount);
     }
 
     /// @inheritdoc IForcedInclusionStore
     function getForcedInclusionState() external view returns (uint48 head_, uint48 tail_) {
-        return LibForcedInclusion.getForcedInclusionState(_forcedInclusionStorage);
+        return _forcedInclusionStorage.getForcedInclusionState();
     }
 
     /// @inheritdoc IInbox
@@ -438,6 +479,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             proposerChecker: address(_proposerChecker),
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
+            bondToken: address(_bondToken),
+            minBond: _minBond,
+            livenessBond: _livenessBond,
+            withdrawalDelay: _withdrawalDelay,
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
@@ -468,7 +513,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     // Private State-Changing Functions
     // ---------------------------------------------------------------
 
-    /// @dev Builds proposal and derivation data. It also checks if `msg.sender` can propose.
+    /// @dev Builds proposal and derivation data.
+    /// This function also checks:
+    /// - If `msg.sender` can propose.
+    /// - If `msg.sender` has sufficient bond.
     /// @param _input The propose input data.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _nextProposalId The proposal ID to assign.
@@ -501,11 +549,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
-            // and set endOfSubmissionWindowTimestamp = 0
+            // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
             // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp = result.allowsPermissionless
-                ? 0
-                : _proposerChecker.checkProposer(msg.sender, _lookahead);
+            uint48 endOfSubmissionWindowTimestamp;
+            if (!result.allowsPermissionless) {
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
+            }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
@@ -565,9 +616,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // (_minForcedInclusionCount) OR
             // 2. Proposer included all available inclusions that are due
             if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
-                bool isOldestInclusionDue = LibForcedInclusion.isOldestForcedInclusionDue(
-                    $, head, tail, _forcedInclusionDelay
-                );
+                bool isOldestInclusionDue =
+                    $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
 
@@ -623,19 +673,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Calculates and emits bond instruction if applicable.
-    /// @dev Bond instruction rules:
+    /// @dev Calculates and processes liveness bond settlement if applicable.
+    /// @dev Settlement rules:
     ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond transfer, even when the designated and actual provers are the
-    ///        same address (L2 processing handles slashing/reward splits).
+    ///      - Late: Liveness bond slash with 50% credited to the actual prover and 50% burned.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processBondInstruction(
-        Commitment memory _commitment,
-        uint48 _offset
-    )
-        private
-    {
+    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
                     + _provingWindow)
@@ -646,15 +690,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 return;
             }
 
-            LibBonds.BondInstruction memory bondInstruction = LibBonds.BondInstruction({
-                proposalId: _commitment.firstProposalId + _offset,
-                bondType: LibBonds.BondType.LIVENESS,
-                payer: _commitment.transitions[_offset].designatedProver,
-                payee: _commitment.actualProver
-            });
-
-            _signalService.sendSignal(LibBonds.hashBondInstruction(bondInstruction));
-            emit BondInstructionCreated(bondInstruction.proposalId, bondInstruction);
+            _bondStorage.settleLivenessBond(
+                _commitment.transitions[_offset].designatedProver,
+                _commitment.actualProver,
+                _livenessBond
+            );
         }
     }
 
@@ -755,6 +795,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
+    error InsufficientBond();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();

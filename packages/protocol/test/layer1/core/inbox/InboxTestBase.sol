@@ -14,6 +14,7 @@ import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
+import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxTestBase
@@ -36,6 +37,7 @@ abstract contract InboxTestBase is CommonTest {
     SignalService internal signalService;
     PreconfWhitelist internal proposerChecker;
     ProverWhitelist internal proverWhitelistContract;
+    TestERC20 internal bondToken;
 
     address internal proposer = Bob;
     address internal prover = Carol;
@@ -43,6 +45,9 @@ abstract contract InboxTestBase is CommonTest {
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
+    uint64 internal constant MIN_BOND_GWEI = 10_000_000_000;
+    uint64 internal constant LIVENESS_BOND_GWEI = 2_000_000_000;
+    uint48 internal constant WITHDRAWAL_DELAY = 7 days;
 
     function setUp() public virtual override {
         super.setUp();
@@ -54,11 +59,14 @@ abstract contract InboxTestBase is CommonTest {
         _setupMocks();
         _setupDependencies();
 
+        bondToken = new TestERC20("Bond Token", "BOND");
         config = _buildConfig();
         inbox = _deployInbox();
         codec = ICodec(address(inbox));
         _setSignalServiceSyncer(address(inbox));
         inbox.activate(bytes32(uint256(1)));
+
+        _seedBondBalances();
 
         vm.roll(INITIAL_BLOCK_NUMBER);
         vm.warp(INITIAL_BLOCK_TIMESTAMP);
@@ -74,6 +82,10 @@ abstract contract InboxTestBase is CommonTest {
             proposerChecker: address(proposerChecker),
             proverWhitelist: address(proverWhitelistContract),
             signalService: address(signalService),
+            bondToken: address(bondToken),
+            minBond: MIN_BOND_GWEI,
+            livenessBond: LIVENESS_BOND_GWEI,
+            withdrawalDelay: WITHDRAWAL_DELAY,
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
@@ -224,6 +236,33 @@ abstract contract InboxTestBase is CommonTest {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new MockBeaconBlockRoot()).code
         );
+    }
+
+    function _seedBondBalances() internal {
+        uint64 initialBond = MIN_BOND_GWEI + LIVENESS_BOND_GWEI;
+
+        bondToken.mint(proposer, _toTokenAmount(initialBond));
+        bondToken.mint(prover, _toTokenAmount(initialBond));
+        bondToken.mint(David, _toTokenAmount(initialBond));
+
+        vm.startPrank(proposer);
+        bondToken.approve(address(inbox), type(uint256).max);
+        inbox.deposit(initialBond);
+        vm.stopPrank();
+
+        vm.startPrank(prover);
+        bondToken.approve(address(inbox), type(uint256).max);
+        inbox.deposit(initialBond);
+        vm.stopPrank();
+
+        vm.startPrank(David);
+        bondToken.approve(address(inbox), type(uint256).max);
+        inbox.deposit(initialBond);
+        vm.stopPrank();
+    }
+
+    function _toTokenAmount(uint64 _amount) internal pure returns (uint256) {
+        return uint256(_amount) * 1 gwei;
     }
 
     // ---------------------------------------------------------------------
