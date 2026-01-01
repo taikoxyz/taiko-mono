@@ -369,7 +369,9 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         if (pool.poolSize == 1) {
             return (_activeProvers[0], pool.feeInGwei);
         }
-        uint8 slot = uint8(uint256(block.number) % SLOT_TABLE_SIZE);
+        // Use a hash of the block number to avoid predictable slot cycling.
+        // SLOT_TABLE_SIZE is 256 so the uint8 cast is an implicit modulo.
+        uint8 slot = uint8(uint256(keccak256(abi.encodePacked(block.number, address(this)))));
         uint8 idx = _slotTable[slot];
         return (_activeProvers[idx], pool.feeInGwei);
     }
@@ -453,6 +455,7 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
     // Internal Functions
     // ---------------------------------------------------------------
 
+    /// @dev Returns the selection weight in basis points for a given join order.
     function _weightForJoin(uint8 joinOrder) internal pure returns (uint16) {
         uint256 decay = uint256(joinOrder - 1) * WEIGHT_DECAY_BPS;
         if (decay >= 10_000) {
@@ -461,10 +464,12 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         return uint16(10_000 - decay);
     }
 
+    /// @dev Resets the pool to a single leader and rebuilds the slot table.
     function _resetPool(address leader, uint32 fee) internal {
         _pool.feeInGwei = fee;
         _pool.poolSize = 1;
         _pool.vacantSince = 0;
+        // Sticky flag: once a pool exists, we never revert to "never had pool" state.
         _pool.everHadPool = 1;
 
         _activeProvers[0] = leader;
@@ -478,6 +483,7 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         _rebuildSlotTable();
     }
 
+    /// @dev Adds a prover to the pool and rebuilds the slot table.
     function _addToPool(address prover, uint8 joinOrder) internal {
         uint8 size = _pool.poolSize;
         _activeProvers[size] = prover;
@@ -491,6 +497,7 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         _rebuildSlotTable();
     }
 
+    /// @dev Removes a prover from the pool and rebuilds the slot table.
     function _removeFromPool(address prover) internal {
         PoolMember storage member = _members[prover];
         if (!member.active) return;
@@ -512,6 +519,7 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         _rebuildSlotTable();
     }
 
+    /// @dev Clears the pool and marks members (except `skip`) as withdrawable.
     function _clearPoolMembersToWithdrawable(address skip) internal {
         uint8 size = _pool.poolSize;
         if (size == 0) return;
@@ -537,10 +545,13 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         _pool.vacantSince = uint48(block.timestamp);
     }
 
+    /// @dev Rebuilds the slot table for O(1) weighted selection.
+    /// @dev Bounded by MAX_POOL_SIZE (16) and SLOT_TABLE_SIZE (256).
     function _rebuildSlotTable() internal {
         uint8 size = _pool.poolSize;
         if (size == 0) return;
 
+        // totalWeight <= MAX_POOL_SIZE * 10_000 (<= 160_000).
         uint256 totalWeight = 0;
         for (uint8 i = 0; i < size; i++) {
             totalWeight += _members[_activeProvers[i]].weightBps;
@@ -548,25 +559,51 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
 
         uint16 assigned = 0;
         uint16[MAX_POOL_SIZE] memory slots;
+        uint256[MAX_POOL_SIZE] memory remainders;
         for (uint8 i = 0; i < size; i++) {
             uint16 weight = _members[_activeProvers[i]].weightBps;
-            uint16 slotCount = uint16(uint256(SLOT_TABLE_SIZE) * weight / totalWeight);
-            if (slotCount == 0) slotCount = 1;
+            uint256 numerator = uint256(SLOT_TABLE_SIZE) * weight;
+            uint16 slotCount = uint16(numerator / totalWeight);
+            uint256 remainder = numerator % totalWeight;
+            if (slotCount == 0) {
+                slotCount = 1;
+                remainder = 0;
+            }
             slots[i] = slotCount;
+            remainders[i] = remainder;
             assigned += slotCount;
         }
 
-        while (assigned > SLOT_TABLE_SIZE) {
-            for (uint8 i = 0; i < size && assigned > SLOT_TABLE_SIZE; i++) {
-                if (slots[i] > 1) {
-                    slots[i] -= 1;
-                    assigned -= 1;
+        if (assigned > SLOT_TABLE_SIZE) {
+            uint16 excess = assigned - SLOT_TABLE_SIZE;
+            for (uint16 e = 0; e < excess; e++) {
+                uint8 best = 0;
+                uint256 bestRem = type(uint256).max;
+                for (uint8 i = 0; i < size; i++) {
+                    if (slots[i] <= 1) continue;
+                    uint256 rem = remainders[i];
+                    if (rem < bestRem) {
+                        bestRem = rem;
+                        best = i;
+                    }
                 }
+                slots[best] -= 1;
             }
-        }
-
-        if (assigned < SLOT_TABLE_SIZE) {
-            slots[0] += uint16(SLOT_TABLE_SIZE - assigned);
+        } else if (assigned < SLOT_TABLE_SIZE) {
+            uint16 remaining = SLOT_TABLE_SIZE - assigned;
+            for (uint16 r = 0; r < remaining; r++) {
+                uint8 best = 0;
+                uint256 bestRem = 0;
+                for (uint8 i = 0; i < size; i++) {
+                    uint256 rem = remainders[i];
+                    if (rem > bestRem) {
+                        bestRem = rem;
+                        best = i;
+                    }
+                }
+                slots[best] += 1;
+                remainders[best] = 0;
+            }
         }
 
         uint16 cursor = 0;

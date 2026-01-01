@@ -87,6 +87,45 @@ contract MultiProverAuctionTest is CommonTest {
         assertTrue(sawProver2);
     }
 
+    function test_weightedDistribution_matchesWeights() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
+        _depositAndBid(prover3, REQUIRED_BOND, 100);
+
+        uint256 samples = 4096;
+        uint256 count1;
+        uint256 count2;
+        uint256 count3;
+
+        for (uint256 i = 0; i < samples; i++) {
+            vm.roll(1000 + i);
+            (address prover,) = auction.getProver();
+            if (prover == prover1) {
+                count1++;
+            } else if (prover == prover2) {
+                count2++;
+            } else if (prover == prover3) {
+                count3++;
+            } else {
+                fail();
+            }
+        }
+
+        assertEq(count1 + count2 + count3, samples);
+
+        uint256 totalWeight = 10_000 + 9_000 + 8_000;
+        uint256 expected1 = samples * 10_000 / totalWeight;
+        uint256 expected2 = samples * 9_000 / totalWeight;
+        uint256 expected3 = samples * 8_000 / totalWeight;
+        uint256 tolerance1 = expected1 / 10;
+        uint256 tolerance2 = expected2 / 10;
+        uint256 tolerance3 = expected3 / 10;
+
+        assertApproxEqAbs(count1, expected1, tolerance1);
+        assertApproxEqAbs(count2, expected2, tolerance2);
+        assertApproxEqAbs(count3, expected3, tolerance3);
+    }
+
     function test_joinUsesSameRequiredBond() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
 
