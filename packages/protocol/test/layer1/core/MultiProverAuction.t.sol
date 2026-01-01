@@ -72,7 +72,7 @@ contract MultiProverAuctionTest is CommonTest {
 
     function test_joinSameFee_addsToPool() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
-        _depositAndBid(prover2, REQUIRED_BOND * 2, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
 
         bool sawProver1;
         bool sawProver2;
@@ -87,22 +87,22 @@ contract MultiProverAuctionTest is CommonTest {
         assertTrue(sawProver2);
     }
 
-    function test_joinRequiresBondPremium() public {
+    function test_joinUsesSameRequiredBond() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
 
-        _deposit(prover2, REQUIRED_BOND);
+        _deposit(prover2, REQUIRED_BOND - 1);
         vm.prank(prover2);
         vm.expectRevert(MultiProverAuction.InsufficientBond.selector);
         auction.bid(100);
 
-        _deposit(prover2, REQUIRED_BOND);
+        _deposit(prover2, 1);
         vm.prank(prover2);
         auction.bid(100);
     }
 
     function test_outbidResetsPool() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
-        _depositAndBid(prover2, REQUIRED_BOND * 2, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
 
         _depositAndBid(prover3, REQUIRED_BOND, 95);
 
@@ -113,7 +113,7 @@ contract MultiProverAuctionTest is CommonTest {
 
     function test_requestExitRemovesFromPool() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
-        _depositAndBid(prover2, REQUIRED_BOND * 2, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
 
         vm.prank(prover2);
         auction.requestExit();

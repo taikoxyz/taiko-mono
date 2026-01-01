@@ -5,16 +5,14 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IProverAuction } from "../iface/IProverAuction.sol";
-import { IProverAuctionInbox } from "./IProverAuctionInbox.sol";
-import { ProverAuctionTypes } from "./ProverAuctionTypes.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title MultiProverAuction
 /// @notice Multi-prover auction with pooled provers at the same fee.
-/// @dev Option 1 (bond premium) + Option 3 (weighted selection) combined.
+/// @dev Option 3 (weighted selection) with a pooled prover set at the same fee.
 /// @custom:security-contact security@taiko.xyz
-contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
+contract MultiProverAuction is EssentialContract, IProverAuction {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -29,9 +27,6 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
 
     /// @notice Slot table size for O(1) weighted selection.
     uint16 public constant SLOT_TABLE_SIZE = 256;
-
-    /// @notice Bond premium per join order in basis points (5%).
-    uint16 public constant JOIN_BOND_PREMIUM_BPS = 500;
 
     /// @notice Weight decay per join order in basis points (10%).
     uint16 public constant WEIGHT_DECAY_BPS = 1000;
@@ -52,6 +47,11 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
         uint8 joinOrder;
         uint16 weightBps;
         bool active;
+    }
+
+    struct BondInfo {
+        uint128 balance;
+        uint48 withdrawableAt;
     }
 
     // ---------------------------------------------------------------
@@ -140,7 +140,7 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
     uint8[SLOT_TABLE_SIZE] internal _slotTable;
 
     mapping(address account => PoolMember member) internal _members;
-    mapping(address account => ProverAuctionTypes.BondInfo info) internal _bonds;
+    mapping(address account => BondInfo info) internal _bonds;
 
     uint32 internal _movingAverageFee;
     uint128 internal _totalSlashedAmount;
@@ -227,7 +227,7 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
     /// @param _amount Amount to withdraw.
     /// @dev Reverts if caller is active prover or withdrawal delay not passed.
     function withdraw(uint128 _amount) external nonReentrant {
-        ProverAuctionTypes.BondInfo storage info = _bonds[msg.sender];
+        BondInfo storage info = _bonds[msg.sender];
 
         if (info.withdrawableAt == 0) {
             require(!_members[msg.sender].active, CurrentProverCannotWithdraw());
@@ -245,7 +245,7 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
 
     /// @inheritdoc IProverAuction
     function bid(uint32 _feeInGwei) external nonReentrant {
-        ProverAuctionTypes.BondInfo storage bond = _bonds[msg.sender];
+        BondInfo storage bond = _bonds[msg.sender];
         PoolState memory pool = _pool;
         address oldLeader = _activeProvers[0];
 
@@ -280,8 +280,7 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
         if (_feeInGwei == pool.feeInGwei) {
             require(pool.poolSize < MAX_POOL_SIZE, PoolFull());
             uint8 joinOrder = pool.poolSize + 1;
-            uint128 requiredBond = _requiredBondForJoin(joinOrder);
-            require(bond.balance >= requiredBond, InsufficientBond());
+            require(bond.balance >= getRequiredBond(), InsufficientBond());
             if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
             _addToPool(msg.sender, joinOrder);
@@ -321,11 +320,11 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
         emit ExitRequested(msg.sender, withdrawableAt);
     }
 
-    /// @inheritdoc IProverAuctionInbox
+    /// @inheritdoc IProverAuction
     function slashProver(address _proverAddr, address _recipient) external nonReentrant {
         require(msg.sender == inbox, OnlyInbox());
 
-        ProverAuctionTypes.BondInfo storage bond = _bonds[_proverAddr];
+        BondInfo storage bond = _bonds[_proverAddr];
 
         uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
         uint128 actualReward = 0;
@@ -360,7 +359,7 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
     function checkBondDeferWithdrawal(address _proverAddr) external returns (bool success_) {
         require(msg.sender == inbox, OnlyInbox());
 
-        ProverAuctionTypes.BondInfo storage bond = _bonds[_proverAddr];
+        BondInfo storage bond = _bonds[_proverAddr];
         if (bond.balance < _ejectionThreshold) {
             return false;
         }
@@ -436,10 +435,7 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
     /// @notice Get bond information for an account.
     /// @param _account The account to query.
     /// @return bondInfo_ The bond information struct.
-    function getBondInfo(address _account)
-        external
-        view
-        returns (ProverAuctionTypes.BondInfo memory bondInfo_)
+    function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_)
     {
         return _bonds[_account];
     }
@@ -473,11 +469,6 @@ contract MultiProverAuction is EssentialContract, IProverAuctionInbox {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
-
-    function _requiredBondForJoin(uint8 joinOrder) internal view returns (uint128) {
-        uint256 bps = 10_000 + uint256(joinOrder - 1) * JOIN_BOND_PREMIUM_BPS;
-        return uint128(uint256(getRequiredBond()) * bps / 10_000);
-    }
 
     function _weightForJoin(uint8 joinOrder) internal pure returns (uint16) {
         uint256 decay = uint256(joinOrder - 1) * WEIGHT_DECAY_BPS;

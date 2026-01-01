@@ -33,6 +33,11 @@ interface IProverAuction {
     /// @notice Request to exit as a current prover.
     function requestExit() external;
 
+    /// @notice Slash a prover for liveness failure.
+    /// @param _proverAddr The prover to slash.
+    /// @param _recipient The recipient of the slashed reward.
+    function slashProver(address _proverAddr, address _recipient) external;
+
     /// @notice Refresh the withdrawal delay timer for a prover with sufficient bond.
     /// @param _prover Address of the prover to check.
     /// @return success_ True if the prover has sufficient bond, false otherwise.

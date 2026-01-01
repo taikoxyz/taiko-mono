@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { ProverAuction } from "src/layer1/core/impl/ProverAuction.sol";
-import { ProverAuctionTypes } from "src/layer1/core/impl/ProverAuctionTypes.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -192,7 +191,7 @@ contract ProverAuctionTest is CommonTest {
         emit Deposited(prover1, amount);
         auction.deposit(amount);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, amount);
     }
 
@@ -202,7 +201,7 @@ contract ProverAuctionTest is CommonTest {
         auction.deposit(5 ether);
         vm.stopPrank();
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 15 ether);
     }
 
@@ -229,7 +228,7 @@ contract ProverAuctionTest is CommonTest {
         emit Withdrawn(prover1, 5 ether);
         auction.withdraw(5 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 5 ether);
     }
 
@@ -249,7 +248,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.withdraw(10 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 0);
     }
 
@@ -275,7 +274,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover2, REQUIRED_BOND, 450); // Outbids prover1
 
         // prover1 should have withdrawableAt set
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertGt(info.withdrawableAt, 0);
 
         // Try to withdraw before delay passes
@@ -294,7 +293,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.withdraw(1 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, REQUIRED_BOND - 1 ether);
     }
 
@@ -306,7 +305,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.withdraw(5 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 5 ether);
     }
 
@@ -333,7 +332,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.withdraw(REQUIRED_BOND);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 0);
     }
 
@@ -343,7 +342,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        ProverAuctionTypes.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         uint48 firstWithdrawableAt = infoBefore.withdrawableAt;
         assertGt(firstWithdrawableAt, 0);
 
@@ -352,7 +351,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover2, REQUIRED_BOND, 1000);
 
         // Exited prover's withdrawableAt should NOT be extended - they already exited
-        ProverAuctionTypes.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(
             infoAfter.withdrawableAt, firstWithdrawableAt, "exited prover delay should not extend"
         );
@@ -372,14 +371,14 @@ contract ProverAuctionTest is CommonTest {
         vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY + 1);
 
         // Ejected prover can withdraw remaining balance
-        ProverAuctionTypes.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         uint128 remainingBalance = infoBefore.balance;
         assertGt(remainingBalance, 0);
 
         vm.prank(prover1);
         auction.withdraw(remainingBalance);
 
-        ProverAuctionTypes.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(infoAfter.balance, 0);
     }
 
@@ -566,7 +565,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover1, REQUIRED_BOND, 1000);
         _depositAndBid(prover2, REQUIRED_BOND, 950);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
     }
 
@@ -689,14 +688,14 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        ProverAuctionTypes.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         assertGt(infoBefore.withdrawableAt, 0);
 
         // Re-enter by bidding again
         vm.prank(prover1);
         auction.bid(INITIAL_MAX_FEE); // Max fee since slot is vacant
 
-        ProverAuctionTypes.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(infoAfter.withdrawableAt, 0);
     }
 
@@ -722,7 +721,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
     }
 
@@ -767,7 +766,7 @@ contract ProverAuctionTest is CommonTest {
         emit ProverSlashed(prover1, expectedSlash, prover2, expectedReward);
         auction.slashProver(prover1, prover2);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, REQUIRED_BOND - expectedSlash);
 
         // Reward sent to recipient
@@ -793,7 +792,7 @@ contract ProverAuctionTest is CommonTest {
         auction.slashProver(prover1, prover2);
 
         // Only slashes available balance
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 0);
 
         // Reward uses actual slashed amount
@@ -824,7 +823,7 @@ contract ProverAuctionTest is CommonTest {
         // No transfer to zero address
         assertEq(bondToken.balanceOf(prover2), recipientBalanceBefore);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 0);
         assertEq(auction.getTotalSlashedAmount(), uint128(LIVENESS_BOND));
     }
@@ -874,7 +873,7 @@ contract ProverAuctionTest is CommonTest {
 
         _slashBelowThreshold(auction, prover1, prover2);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
     }
 
@@ -886,7 +885,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
         _depositAndBid(prover2, REQUIRED_BOND, 450);
 
-        ProverAuctionTypes.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         uint48 withdrawableAtBefore = infoBefore.withdrawableAt;
         assertGt(withdrawableAtBefore, 0);
 
@@ -896,7 +895,7 @@ contract ProverAuctionTest is CommonTest {
         bool success = auction.checkBondDeferWithdrawal(prover1);
         assertTrue(success);
 
-        ProverAuctionTypes.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(infoAfter.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
         assertGt(infoAfter.withdrawableAt, withdrawableAtBefore);
     }
@@ -908,21 +907,21 @@ contract ProverAuctionTest is CommonTest {
         bool success = auction.checkBondDeferWithdrawal(prover1);
         assertTrue(success);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
     }
 
     function test_checkBondDeferWithdrawal_noopForCurrentWithZeroWithdrawableAt() public {
         _depositAndBid(prover1, REQUIRED_BOND, 500);
 
-        ProverAuctionTypes.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         assertEq(infoBefore.withdrawableAt, 0);
 
         vm.prank(inbox);
         bool success = auction.checkBondDeferWithdrawal(prover1);
         assertTrue(success);
 
-        ProverAuctionTypes.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(infoAfter.withdrawableAt, 0);
     }
 
@@ -988,7 +987,7 @@ contract ProverAuctionTest is CommonTest {
     function test_getBondInfo() public {
         _depositBond(prover1, 10 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 10 ether);
         assertEq(info.withdrawableAt, 0);
     }
@@ -1098,7 +1097,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.deposit(10 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 10 ether, "deposit should work when paused");
     }
 
@@ -1114,7 +1113,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.withdraw(5 ether);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, 5 ether, "withdraw should work when paused");
     }
 
@@ -1163,7 +1162,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(inbox);
         auction.slashProver(prover1, prover2);
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(
             info.balance,
             REQUIRED_BOND - uint128(LIVENESS_BOND),
@@ -1233,7 +1232,7 @@ contract ProverAuctionTest is CommonTest {
         vm.stopPrank();
 
         // Check prover1's withdrawableAt is set to current timestamp (0 + 0)
-        ProverAuctionTypes.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
         assertEq(
             info.withdrawableAt, uint48(block.timestamp), "withdrawableAt should be block.timestamp"
         );
@@ -1242,7 +1241,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         zeroDelayAuction.withdraw(REQUIRED_BOND);
 
-        ProverAuctionTypes.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
         assertEq(infoAfter.balance, 0, "prover1 should be able to withdraw immediately");
     }
 
@@ -1282,7 +1281,7 @@ contract ProverAuctionTest is CommonTest {
         zeroDelayAuction.requestExit();
 
         // Check withdrawableAt is set to current timestamp
-        ProverAuctionTypes.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
         assertEq(
             info.withdrawableAt, uint48(block.timestamp), "withdrawableAt should be block.timestamp"
         );
@@ -1291,7 +1290,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         zeroDelayAuction.withdraw(REQUIRED_BOND);
 
-        ProverAuctionTypes.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
         assertEq(infoAfter.balance, 0, "exited prover should withdraw immediately with zero delay");
     }
 
@@ -1334,7 +1333,7 @@ contract ProverAuctionTest is CommonTest {
         assertEq(prover, address(0), "prover should be ejected");
 
         // Check withdrawableAt is set to current timestamp
-        ProverAuctionTypes.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
         assertEq(
             info.withdrawableAt, uint48(block.timestamp), "withdrawableAt should be block.timestamp"
         );
@@ -1344,7 +1343,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         zeroDelayAuction.withdraw(remainingBalance);
 
-        ProverAuctionTypes.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = zeroDelayAuction.getBondInfo(prover1);
         assertEq(infoAfter.balance, 0, "ejected prover should withdraw immediately with zero delay");
     }
 
@@ -1389,7 +1388,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover2, REQUIRED_BOND, 950);
 
         // Step 3: Prover1 should have withdrawableAt set
-        ProverAuctionTypes.BondInfo memory info1 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info1 = auction.getBondInfo(prover1);
         uint48 originalWithdrawableAt = info1.withdrawableAt;
         assertGt(
             originalWithdrawableAt, 0, "prover1 should have withdrawableAt set after being outbid"
@@ -1400,7 +1399,7 @@ contract ProverAuctionTest is CommonTest {
         auction.bid(900);
 
         // Step 5: withdrawableAt should be cleared
-        ProverAuctionTypes.BondInfo memory info2 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info2 = auction.getBondInfo(prover1);
         assertEq(info2.withdrawableAt, 0, "withdrawableAt should be cleared after re-entry");
 
         // Step 6: Prover1 cannot withdraw while being current prover
@@ -1412,7 +1411,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover3, REQUIRED_BOND, 855);
 
         // Step 8: Prover1 should have a NEW withdrawableAt set
-        ProverAuctionTypes.BondInfo memory info3 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info3 = auction.getBondInfo(prover1);
         assertGt(
             info3.withdrawableAt,
             0,
@@ -1445,7 +1444,7 @@ contract ProverAuctionTest is CommonTest {
         _depositAndBid(prover2, REQUIRED_BOND, 950);
 
         // Record the first withdrawableAt
-        ProverAuctionTypes.BondInfo memory info1 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info1 = auction.getBondInfo(prover1);
         uint48 firstWithdrawableAt = info1.withdrawableAt;
         assertEq(firstWithdrawableAt, uint48(startTime) + BOND_WITHDRAWAL_DELAY);
 
@@ -1457,7 +1456,7 @@ contract ProverAuctionTest is CommonTest {
         auction.bid(900);
 
         // withdrawableAt is now 0
-        ProverAuctionTypes.BondInfo memory info2 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info2 = auction.getBondInfo(prover1);
         assertEq(info2.withdrawableAt, 0);
 
         // Prover2 outbids again
@@ -1465,7 +1464,7 @@ contract ProverAuctionTest is CommonTest {
         auction.bid(855);
 
         // NEW withdrawableAt is set based on current time
-        ProverAuctionTypes.BondInfo memory info3 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info3 = auction.getBondInfo(prover1);
         uint48 secondWithdrawableAt = info3.withdrawableAt;
         assertEq(secondWithdrawableAt, uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY);
 
@@ -1529,7 +1528,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        ProverAuctionTypes.BondInfo memory infoBefore = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoBefore = auction.getBondInfo(prover1);
         uint48 exitWithdrawableAt = infoBefore.withdrawableAt;
 
         // Advance time a bit
@@ -1540,7 +1539,7 @@ contract ProverAuctionTest is CommonTest {
 
         // After optimization: ejection logic is skipped for already-exited provers
         // So withdrawableAt should remain unchanged (the original exit time)
-        ProverAuctionTypes.BondInfo memory infoAfter = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory infoAfter = auction.getBondInfo(prover1);
         assertEq(
             infoAfter.withdrawableAt,
             exitWithdrawableAt,
@@ -1562,7 +1561,7 @@ contract ProverAuctionTest is CommonTest {
         (address prover,) = auction.getCurrentProver();
         assertEq(prover, prover1, "prover should not be ejected at exact threshold");
 
-        ProverAuctionTypes.BondInfo memory info = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = auction.getBondInfo(prover1);
         assertEq(info.balance, threshold);
     }
 
@@ -1840,7 +1839,7 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover2);
         zeroDelayAuction.bid(950);
 
-        ProverAuctionTypes.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory info = zeroDelayAuction.getBondInfo(prover1);
         assertEq(info.withdrawableAt, uint48(block.timestamp));
 
         vm.prank(prover1);

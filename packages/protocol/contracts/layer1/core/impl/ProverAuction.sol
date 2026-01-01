@@ -5,8 +5,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IProverAuction } from "../iface/IProverAuction.sol";
-import { IProverAuctionInbox } from "./IProverAuctionInbox.sol";
-import { ProverAuctionTypes } from "./ProverAuctionTypes.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
@@ -24,7 +22,7 @@ import "./ProverAuction_Layout.sol"; // DO NOT DELETE
 ///      - Moving average fee tracking to prevent manipulation
 ///      - Entry points remain callable while paused (see tests for rationale)
 /// @custom:security-contact security@taiko.xyz
-contract ProverAuction is EssentialContract, IProverAuctionInbox {
+contract ProverAuction is EssentialContract, IProverAuction {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -43,6 +41,11 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
         address addr; // 20 bytes - prover address
         uint32 feeInGwei; // 4 bytes - fee per proposal in Gwei (max ~4.29 ETH)
         uint48 exitTimestamp; // 6 bytes - when exit was triggered (0 = active)
+    }
+
+    struct BondInfo {
+        uint128 balance;
+        uint48 withdrawableAt;
     }
 
     // ---------------------------------------------------------------
@@ -124,7 +127,7 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
     Prover internal _prover;
 
     /// @dev Bond information per address
-    mapping(address account => ProverAuctionTypes.BondInfo info) internal _bonds;
+    mapping(address account => BondInfo info) internal _bonds;
 
     /// @dev Exponential moving average of winning fees (in Gwei)
     uint32 internal _movingAverageFee;
@@ -233,7 +236,7 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
     /// @param _amount Amount to withdraw.
     /// @dev Reverts if caller is active prover or withdrawal delay not passed.
     function withdraw(uint128 _amount) external nonReentrant {
-        ProverAuctionTypes.BondInfo storage info = _bonds[msg.sender];
+        BondInfo storage info = _bonds[msg.sender];
 
         // Check withdrawal delay if set
         if (info.withdrawableAt == 0) {
@@ -257,7 +260,7 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
 
     /// @inheritdoc IProverAuction
     function bid(uint32 _feeInGwei) external nonReentrant {
-        ProverAuctionTypes.BondInfo storage bidderBond = _bonds[msg.sender];
+        BondInfo storage bidderBond = _bonds[msg.sender];
 
         // 1. Validate bond
         require(bidderBond.balance >= getRequiredBond(), InsufficientBond());
@@ -334,11 +337,11 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
         emit ExitRequested(msg.sender, withdrawableAt);
     }
 
-    /// @inheritdoc IProverAuctionInbox
+    /// @inheritdoc IProverAuction
     function slashProver(address _proverAddr, address _recipient) external nonReentrant {
         require(msg.sender == inbox, OnlyInbox());
 
-        ProverAuctionTypes.BondInfo storage bond = _bonds[_proverAddr];
+        BondInfo storage bond = _bonds[_proverAddr];
 
         // Best-effort slash using the configured liveness bond
         uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
@@ -380,7 +383,7 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
     function checkBondDeferWithdrawal(address _proverAddr) external returns (bool success_) {
         require(msg.sender == inbox, OnlyInbox());
 
-        ProverAuctionTypes.BondInfo storage bond = _bonds[_proverAddr];
+        BondInfo storage bond = _bonds[_proverAddr];
         if (bond.balance < _ejectionThreshold) {
             return false;
         }
@@ -479,10 +482,7 @@ contract ProverAuction is EssentialContract, IProverAuctionInbox {
     /// @notice Get bond information for an account.
     /// @param _account The account to query.
     /// @return bondInfo_ The bond information struct.
-    function getBondInfo(address _account)
-        external
-        view
-        returns (ProverAuctionTypes.BondInfo memory bondInfo_)
+    function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_)
     {
         return _bonds[_account];
     }

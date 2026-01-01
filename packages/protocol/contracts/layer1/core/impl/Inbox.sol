@@ -5,7 +5,7 @@ import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { IProverAuctionInbox } from "./IProverAuctionInbox.sol";
+import { IProverAuction } from "../iface/IProverAuction.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
@@ -61,7 +61,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     IProposerChecker internal immutable _proposerChecker;
 
     /// @notice The prover auction contract.
-    IProverAuctionInbox internal immutable _proverAuction;
+    IProverAuction internal immutable _proverAuction;
 
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
@@ -130,7 +130,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverAuction = IProverAuctionInbox(_config.proverAuction);
+        _proverAuction = IProverAuction(_config.proverAuction);
         _signalService = ISignalService(_config.signalService);
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
