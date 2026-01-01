@@ -210,18 +210,14 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Deposit bond tokens to caller's balance.
-    /// @param _amount Amount of bond tokens to deposit.
-    /// @dev Tokens are transferred from msg.sender to this contract.
+    /// @inheritdoc IProverAuction
     function deposit(uint128 _amount) external nonReentrant {
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         _bonds[msg.sender].balance += _amount;
         emit Deposited(msg.sender, _amount);
     }
 
-    /// @notice Withdraw bond tokens from caller's balance.
-    /// @param _amount Amount to withdraw.
-    /// @dev Reverts if caller is active prover or withdrawal delay not passed.
+    /// @inheritdoc IProverAuction
     function withdraw(uint128 _amount) external nonReentrant {
         BondInfo storage info = _bonds[msg.sender];
 
