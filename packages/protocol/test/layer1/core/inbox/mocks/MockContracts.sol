@@ -125,6 +125,10 @@ contract MockProverAuction {
         return bondOk;
     }
 
+    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
+        return (currentProver, currentFeeInGwei);
+    }
+
     function getCurrentProver() external view returns (address prover_, uint32 feeInGwei_) {
         return (currentProver, currentFeeInGwei);
     }
