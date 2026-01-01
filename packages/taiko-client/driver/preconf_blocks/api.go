@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	gethEth "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
@@ -130,7 +130,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if s.latestSeenProposal != nil {
 		if s.latestSeenProposal.IsShasta() {
 			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
-				parentProposalID, err := gethEth.AnchorV4ProposalID(parent.Transactions()[0].Data())
+				parentProposalID, err := core.DecodeProposalID(parent.Extra())
 				if err != nil {
 					return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
 				}

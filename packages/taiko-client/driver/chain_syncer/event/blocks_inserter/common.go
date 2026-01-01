@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
@@ -655,7 +656,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
-		meta.GetEventData().Id,
 		meta.GetEventData().Proposer,
 		sourcePayload.ProverAuthBytes,
 		anchorBlockID,
@@ -669,8 +669,8 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
-	// Encode extraData with basefeeSharingPctg.
-	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg)
+	// Encode extraData with basefeeSharingPctg and proposal ID.
+	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -823,15 +823,30 @@ func updateL1OriginForBatchShasta(
 	)
 }
 
-// encodeShastaExtraData encodes the basefeeSharingPctg into extraData field.
+// encodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
 func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
+	proposalID *big.Int,
 ) ([]byte, error) {
-	// Create a 1-byte array for extraData
-	extraData := make([]byte, 1)
+	if proposalID == nil {
+		return nil, errors.New("proposal ID is nil")
+	}
+	if proposalID.Sign() < 0 {
+		return nil, fmt.Errorf("proposal ID is negative: %s", proposalID.String())
+	}
+	if proposalID.BitLen() > params.ExtraDataProposalIDLength*8 {
+		return nil, fmt.Errorf("proposal ID too large for extraData: %s", proposalID.String())
+	}
 
-	// First byte: basefeeSharingPctg
-	extraData[0] = basefeeSharingPctg
+	extraData := make([]byte, params.ShastaExtraDataLen)
+
+	// First byte: basefeeSharingPctg.
+	extraData[params.ExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
+
+	// Bytes 1..6: proposal ID (uint48, big-endian).
+	proposalBytes := proposalID.Bytes()
+	offset := params.ExtraDataProposalIDIndex + params.ExtraDataProposalIDLength - len(proposalBytes)
+	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
 
 	return extraData, nil
 }
