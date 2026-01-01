@@ -369,9 +369,9 @@ contract MultiProverAuction is EssentialContract, IProverAuction {
         if (pool.poolSize == 1) {
             return (_activeProvers[0], pool.feeInGwei);
         }
-        // Use a hash of the block number to avoid predictable slot cycling.
+        // Use a hash of the block prevrandao to avoid predictable slot cycling.
         // SLOT_TABLE_SIZE is 256 so the uint8 cast is an implicit modulo.
-        uint8 slot = uint8(uint256(keccak256(abi.encodePacked(block.number, address(this)))));
+        uint8 slot = uint8(uint256(keccak256(abi.encodePacked(block.prevrandao, address(this)))));
         uint8 idx = _slotTable[slot];
         return (_activeProvers[idx], pool.feeInGwei);
     }

@@ -76,8 +76,9 @@ contract MultiProverAuctionTest is CommonTest {
 
         bool sawProver1;
         bool sawProver2;
+        // Use prevrandao instead of block number since getProver() uses prevrandao for selection
         for (uint256 i = 0; i < 256; i++) {
-            vm.roll(100 + i);
+            vm.prevrandao(i);
             (address prover,) = auction.getProver();
             if (prover == prover1) sawProver1 = true;
             if (prover == prover2) sawProver2 = true;
@@ -97,8 +98,10 @@ contract MultiProverAuctionTest is CommonTest {
         uint256 count2;
         uint256 count3;
 
+        // getProver() uses block.prevrandao for selection; vm.roll does not change it.
         for (uint256 i = 0; i < samples; i++) {
             vm.roll(1000 + i);
+            vm.prevrandao(i);
             (address prover,) = auction.getProver();
             if (prover == prover1) {
                 count1++;
