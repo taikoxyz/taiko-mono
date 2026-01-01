@@ -491,7 +491,7 @@ where
         let l1_block_hash = meta.l1_block_hash;
 
         let tx_list = encode_transactions(transactions);
-        let extra_data = encode_extra_data(meta.basefee_sharing_pctg);
+        let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
 
         let mut signature = [0u8; 65];
         let prover_slice = meta.prover_auth_bytes.as_ref();
@@ -877,7 +877,6 @@ where
             .assemble_anchor_v4_tx(
                 parent_state.header.hash_slow(),
                 AnchorV4Input {
-                    proposal_id: meta.proposal_id,
                     anchor_block_number: block.anchor_block_number,
                     anchor_block_hash,
                     anchor_state_root,

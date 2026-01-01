@@ -308,7 +308,7 @@ where
             .map_transactions(|tx: RpcTransaction| tx.into());
 
         let anchor_address = *self.rpc.shasta.anchor.address();
-        let latest_proposal_id = decode_anchor_proposal_id(&latest_block, anchor_address)?;
+        let latest_proposal_id = decode_anchor_proposal_id(&latest_block)?;
 
         // Determine the target block to extract the anchor block number from.
         // Back off two epochs worth of proposals to survive L1 reorgs.
@@ -407,16 +407,22 @@ where
     }
 }
 
-/// Parse the first transaction in `block` and recover the proposal id from the `anchorV4`
-/// calldata emitted by the goldentouch transaction.
-fn decode_anchor_proposal_id(
-    block: &RpcBlock<TxEnvelope>,
-    anchor_address: Address,
-) -> Result<u64, SyncError> {
+/// Recover the proposal id from header extra data.
+/// Byte layout: basefeeSharingPctg (byte 0), proposalId uint48 (bytes 1..6, big-endian).
+fn decode_anchor_proposal_id(block: &RpcBlock<TxEnvelope>) -> Result<u64, SyncError> {
     if block.header.number == 0 {
         return Ok(0);
     }
-    Ok(decode_anchor_call(block, anchor_address)?._proposalParams.proposalId.to::<u64>())
+    let extra_data = block.header.extra_data.as_ref();
+    if extra_data.len() < 7 {
+        return Err(SyncError::MissingAnchorTransaction {
+            block_number: block.header.number,
+            reason: "extra_data too short for proposal id",
+        });
+    }
+    let mut buf = [0u8; 8];
+    buf[2..8].copy_from_slice(&extra_data[1..7]);
+    Ok(u64::from_be_bytes(buf))
 }
 
 /// Parse the first transaction in `block` and recover the `anchorV4` call data.
