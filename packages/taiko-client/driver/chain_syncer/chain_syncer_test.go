@@ -175,7 +175,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.GreaterOrEqual(len(head.Extra()), 1)
 	s.GreaterOrEqual(len(head2.Extra()), 1)
 	s.Equal(head.Extra()[0], head2.Extra()[0])
-	s.Equal(uint8(75), core.DecodeOntakeExtraData(head2.Header().Extra))
+	s.Equal(uint8(75), core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
@@ -215,7 +215,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Less(head.Time(), head2.Time())
 	s.Equal(head.Coinbase(), head2.Coinbase())
 	s.Equal(head.Extra()[0], head2.Extra()[0])
-	s.Equal(uint8(75), core.DecodeOntakeExtraData(head2.Header().Extra))
+	s.Equal(uint8(75), core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
