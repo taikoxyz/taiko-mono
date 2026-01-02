@@ -38,7 +38,8 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_savesCheckpointAndUpdatesState() external {
-        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams =
+            Anchor.ProposalParams({ submissionWindowEnd: 0 });
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -59,7 +60,8 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_allowsMultipleAnchorsAcrossBlocks() external {
-        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams =
+            Anchor.ProposalParams({ submissionWindowEnd: 0 });
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -75,7 +77,8 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_rejectsInvalidSender() external {
-        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams =
+            Anchor.ProposalParams({ submissionWindowEnd: 0 });
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -84,7 +87,8 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_ignoresStaleCheckpoint() external {
-        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams =
+            Anchor.ProposalParams({ submissionWindowEnd: 0 });
         Anchor.BlockParams memory freshBlockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);

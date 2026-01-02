@@ -22,4 +22,5 @@ pragma solidity ^0.8.26;
 //   _pacayaSlots                   | uint256[3]                                         | Slot: 252  | Offset: 0    | Bytes: 96  
 //   _lastProposalId                | uint48                                             | Slot: 255  | Offset: 0    | Bytes: 6   
 //   _blockState                    | struct Anchor.BlockState                           | Slot: 256  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[41]                                        | Slot: 258  | Offset: 0    | Bytes: 1312
+//   _preconfMetadata               | mapping(uint256 => struct Anchor.PreconfMetadata)  | Slot: 258  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[40]                                        | Slot: 259  | Offset: 0    | Bytes: 1280

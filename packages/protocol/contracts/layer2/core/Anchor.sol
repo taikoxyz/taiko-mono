@@ -151,7 +151,10 @@ contract Anchor is EssentialContract {
     /// @dev Core function that anchors L1 block data for cross-chain verification.
     /// @param _proposalParams Proposal-level parameters.
     /// @param _blockParams Block-level parameters.
-    function anchorV4(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
+    function anchorV4(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
         external
         onlyValidSender
         nonReentrant
@@ -222,11 +225,13 @@ contract Anchor is EssentialContract {
 
         // Anchor checkpoint data if a fresher L1 block is provided
         if (_blockParams.anchorBlockNumber > _blockState.anchorBlockNumber) {
-            checkpointStore.saveCheckpoint(ICheckpointStore.Checkpoint({
-                blockNumber: _blockParams.anchorBlockNumber,
-                blockHash: _blockParams.anchorBlockHash,
-                stateRoot: _blockParams.anchorStateRoot
-            }));
+            checkpointStore.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: _blockParams.anchorBlockNumber,
+                    blockHash: _blockParams.anchorBlockHash,
+                    stateRoot: _blockParams.anchorStateRoot
+                })
+            );
             _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
     }
