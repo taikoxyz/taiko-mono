@@ -88,16 +88,10 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_roundtrip() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x1111),
-            designatedProver: address(0x2222),
-            timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            designatedProver: address(0x2222), timestamp: 100, blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
-            proposer: address(0x3333),
-            designatedProver: address(0x4444),
-            timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            designatedProver: address(0x4444), timestamp: 200, blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -131,11 +125,6 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.commitment.transitions.length, 2, "transitions length");
         assertEq(
-            decoded.commitment.transitions[0].proposer,
-            transitions[0].proposer,
-            "transitions[0] proposer"
-        );
-        assertEq(
             decoded.commitment.transitions[0].designatedProver,
             transitions[0].designatedProver,
             "transitions[0] designatedProver"
@@ -151,9 +140,9 @@ contract LibCodecTest is Test {
             "transitions[0] blockHash"
         );
         assertEq(
-            decoded.commitment.transitions[1].proposer,
-            transitions[1].proposer,
-            "transitions[1] proposer"
+            decoded.commitment.transitions[1].designatedProver,
+            transitions[1].designatedProver,
+            "transitions[1] designatedProver"
         );
         assertEq(
             decoded.commitment.transitions[1].blockHash,
@@ -171,10 +160,7 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_singleProposal() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x5555),
-            designatedProver: address(0x6666),
-            timestamp: 500,
-            blockHash: bytes32(uint256(55))
+            designatedProver: address(0x6666), timestamp: 500, blockHash: bytes32(uint256(55))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -195,7 +181,9 @@ contract LibCodecTest is Test {
 
         assertEq(decoded.commitment.firstProposalId, 1, "firstProposalId");
         assertEq(decoded.commitment.transitions.length, 1, "transitions length");
-        assertEq(decoded.commitment.transitions[0].proposer, address(0x5555), "proposer");
+        assertEq(
+            decoded.commitment.transitions[0].designatedProver, address(0x6666), "designatedProver"
+        );
         assertEq(decoded.commitment.actualProver, address(0xBBBB), "actualProver");
         assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
@@ -228,10 +216,7 @@ contract LibCodecTest is Test {
     function test_encode_proveInput_deterministic() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x1234),
-            designatedProver: address(0x5678),
-            timestamp: 12_345,
-            blockHash: bytes32(uint256(9999))
+            designatedProver: address(0x5678), timestamp: 12_345, blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -267,7 +252,6 @@ contract LibCodecTest is Test {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](transitionsLen);
         for (uint256 i; i < transitionsLen; ++i) {
             transitions[i] = IInbox.Transition({
-                proposer: _addr(seed, "proposer", i),
                 designatedProver: _addr(seed, "designatedProver", i),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
                 blockHash: keccak256(abi.encode(seed, "blockHash", i))
@@ -313,11 +297,6 @@ contract LibCodecTest is Test {
 
         for (uint256 i; i < input.commitment.transitions.length; ++i) {
             assertEq(
-                decoded.commitment.transitions[i].proposer,
-                input.commitment.transitions[i].proposer,
-                "transition proposer"
-            );
-            assertEq(
                 decoded.commitment.transitions[i].designatedProver,
                 input.commitment.transitions[i].designatedProver,
                 "transition designatedProver"
@@ -347,6 +326,155 @@ contract LibCodecTest is Test {
         returns (address)
     {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
+    }
+
+    // ---------------------------------------------------------------
+    // Proposal Codec Tests
+    // ---------------------------------------------------------------
+
+    function test_encode_decode_proposal_roundtrip() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = bytes32(uint256(1));
+        blobHashes[1] = bytes32(uint256(2));
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: false,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes, offset: 100, timestamp: 12_345
+            })
+        });
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 42,
+            timestamp: 1000,
+            endOfSubmissionWindowTimestamp: 2000,
+            proposer: address(0x1111),
+            designatedProver: address(0x2222),
+            parentProposalHash: bytes32(uint256(99)),
+            originBlockNumber: 500,
+            originBlockHash: bytes32(uint256(88)),
+            basefeeSharingPctg: 75,
+            sources: sources
+        });
+
+        bytes memory encoded = LibCodec.encodeProposal(proposal);
+        IInbox.Proposal memory decoded = LibCodec.decodeProposal(encoded);
+
+        // Note: id is not encoded, so decoded.id will be 0
+        assertEq(decoded.id, 0, "id should be 0 (not encoded)");
+        assertEq(decoded.timestamp, proposal.timestamp, "timestamp");
+        assertEq(
+            decoded.endOfSubmissionWindowTimestamp,
+            proposal.endOfSubmissionWindowTimestamp,
+            "endOfSubmissionWindowTimestamp"
+        );
+        assertEq(decoded.proposer, proposal.proposer, "proposer");
+        assertEq(decoded.designatedProver, proposal.designatedProver, "designatedProver");
+        assertEq(decoded.parentProposalHash, proposal.parentProposalHash, "parentProposalHash");
+        assertEq(decoded.originBlockNumber, proposal.originBlockNumber, "originBlockNumber");
+        assertEq(decoded.originBlockHash, proposal.originBlockHash, "originBlockHash");
+        assertEq(decoded.basefeeSharingPctg, proposal.basefeeSharingPctg, "basefeeSharingPctg");
+        assertEq(decoded.sources.length, 1, "sources length");
+        assertEq(decoded.sources[0].isForcedInclusion, false, "isForcedInclusion");
+        assertEq(decoded.sources[0].blobSlice.blobHashes.length, 2, "blobHashes length");
+        assertEq(decoded.sources[0].blobSlice.blobHashes[0], blobHashes[0], "blobHashes[0]");
+        assertEq(decoded.sources[0].blobSlice.blobHashes[1], blobHashes[1], "blobHashes[1]");
+        assertEq(decoded.sources[0].blobSlice.offset, 100, "offset");
+        assertEq(decoded.sources[0].blobSlice.timestamp, 12_345, "timestamp");
+    }
+
+    function test_encode_decode_proposal_emptySources() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](0);
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 1,
+            timestamp: 100,
+            endOfSubmissionWindowTimestamp: 200,
+            proposer: address(0xAAAA),
+            designatedProver: address(0xBBBB),
+            parentProposalHash: bytes32(0),
+            originBlockNumber: 10,
+            originBlockHash: bytes32(uint256(11)),
+            basefeeSharingPctg: 0,
+            sources: sources
+        });
+
+        bytes memory encoded = LibCodec.encodeProposal(proposal);
+        IInbox.Proposal memory decoded = LibCodec.decodeProposal(encoded);
+
+        assertEq(decoded.timestamp, proposal.timestamp, "timestamp");
+        assertEq(decoded.proposer, proposal.proposer, "proposer");
+        assertEq(decoded.sources.length, 0, "empty sources");
+    }
+
+    function test_encode_decode_proposal_multipleSources() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](3);
+
+        for (uint256 i; i < 3; ++i) {
+            bytes32[] memory blobHashes = new bytes32[](i + 1);
+            for (uint256 j; j < i + 1; ++j) {
+                blobHashes[j] = keccak256(abi.encode("blob", i, j));
+            }
+            sources[i] = IInbox.DerivationSource({
+                isForcedInclusion: i % 2 == 1,
+                blobSlice: LibBlobs.BlobSlice({
+                    blobHashes: blobHashes, offset: uint24(i * 100), timestamp: uint48(i * 1000)
+                })
+            });
+        }
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 999,
+            timestamp: 5000,
+            endOfSubmissionWindowTimestamp: 6000,
+            proposer: address(0xDEAD),
+            designatedProver: address(0xBEEF),
+            parentProposalHash: bytes32(uint256(123)),
+            originBlockNumber: 999,
+            originBlockHash: bytes32(uint256(456)),
+            basefeeSharingPctg: 50,
+            sources: sources
+        });
+
+        bytes memory encoded = LibCodec.encodeProposal(proposal);
+        IInbox.Proposal memory decoded = LibCodec.decodeProposal(encoded);
+
+        assertEq(decoded.sources.length, 3, "sources length");
+        for (uint256 i; i < 3; ++i) {
+            assertEq(decoded.sources[i].isForcedInclusion, i % 2 == 1, "isForcedInclusion");
+            assertEq(decoded.sources[i].blobSlice.blobHashes.length, i + 1, "blobHashes length");
+            assertEq(decoded.sources[i].blobSlice.offset, uint24(i * 100), "offset");
+            assertEq(decoded.sources[i].blobSlice.timestamp, uint48(i * 1000), "timestamp");
+        }
+    }
+
+    function test_encode_proposal_deterministic() public pure {
+        IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = bytes32(uint256(1));
+        sources[0] = IInbox.DerivationSource({
+            isForcedInclusion: true,
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 50, timestamp: 100 })
+        });
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 10,
+            timestamp: 1000,
+            endOfSubmissionWindowTimestamp: 2000,
+            proposer: address(0x1234),
+            designatedProver: address(0x5678),
+            parentProposalHash: bytes32(uint256(99)),
+            originBlockNumber: 100,
+            originBlockHash: bytes32(uint256(200)),
+            basefeeSharingPctg: 25,
+            sources: sources
+        });
+
+        bytes memory encoded1 = LibCodec.encodeProposal(proposal);
+        bytes memory encoded2 = LibCodec.encodeProposal(proposal);
+
+        assertEq(encoded1.length, encoded2.length, "length match");
+        assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
     }
 }
 

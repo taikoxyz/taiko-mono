@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
@@ -99,5 +100,108 @@ contract MockSignalService is ISignalService {
 
     function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory) {
         return checkpoints[_blockNumber];
+    }
+}
+
+contract MockProverAuction is IProverAuction {
+    address public prover;
+    uint32 public feeInGwei;
+    uint128 public requiredBond;
+    uint96 public livenessBond;
+    uint128 public ejectionThreshold;
+    uint128 public totalSlashedAmount;
+
+    mapping(address => bool) public slashedProvers;
+    mapping(address => bool) public hasSufficientBond;
+    address public lastSlashedProver;
+    address public lastSlashRecipient;
+    bool public defaultBondCheck;
+
+    constructor(address _prover, uint32 _feeInGwei) {
+        prover = _prover;
+        feeInGwei = _feeInGwei;
+        requiredBond = 10 ether;
+        livenessBond = 1 ether;
+        ejectionThreshold = 5 ether;
+        defaultBondCheck = true;
+    }
+
+    function setProver(address _prover, uint32 _feeInGwei) external {
+        prover = _prover;
+        feeInGwei = _feeInGwei;
+    }
+
+    function setDefaultBondCheck(bool _value) external {
+        defaultBondCheck = _value;
+    }
+
+    function setHasSufficientBond(address _prover, bool _value) external {
+        hasSufficientBond[_prover] = _value;
+    }
+
+    function bid(uint32) external pure { }
+
+    function deposit(uint128) external pure { }
+
+    function withdraw(uint128) external pure { }
+
+    function requestExit() external pure { }
+
+    function slashProver(address _proverAddr, address _recipient) external {
+        slashedProvers[_proverAddr] = true;
+        lastSlashedProver = _proverAddr;
+        lastSlashRecipient = _recipient;
+        totalSlashedAmount += uint128(livenessBond);
+        emit ProverSlashed(_proverAddr, livenessBond, _recipient, uint128(livenessBond) / 2);
+    }
+
+    function checkBondDeferWithdrawal(address _prover) external view returns (bool success_) {
+        if (hasSufficientBond[_prover]) return true;
+        return defaultBondCheck;
+    }
+
+    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
+        return (prover, feeInGwei);
+    }
+
+    function getRequiredBond() external view returns (uint128 requiredBond_) {
+        return requiredBond;
+    }
+
+    function getLivenessBond() external view returns (uint96 livenessBond_) {
+        return livenessBond;
+    }
+
+    function getEjectionThreshold() external view returns (uint128 threshold_) {
+        return ejectionThreshold;
+    }
+
+    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
+        return totalSlashedAmount;
+    }
+}
+
+/// @notice Mock contract that rejects all ETH transfers (no receive/fallback)
+contract EthRejecter {
+    // No receive() or fallback() - will revert on ETH transfer
+
+    }
+
+/// @notice Mock proposer contract that can be configured to accept or reject ETH
+contract MockProposer {
+    bool public acceptEth;
+    uint256 public receivedEth;
+
+    constructor(bool _acceptEth) {
+        acceptEth = _acceptEth;
+    }
+
+    function setAcceptEth(bool _acceptEth) external {
+        acceptEth = _acceptEth;
+    }
+
+    receive() external payable {
+        require(acceptEth, "MockProposer: rejecting ETH");
+        receivedEth += msg.value;
     }
 }
