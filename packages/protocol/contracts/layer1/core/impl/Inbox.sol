@@ -218,9 +218,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _coreState.lastProposalBlockId = uint48(block.number);
 
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
-            _settleProposalPayments(proposal.designatedProver, proverFee, forcedInclusionFees);
-
             _emitProposedEvent(proposal);
+            _settleProposalPayments(proposal.designatedProver, proverFee, forcedInclusionFees);
         }
     }
 
@@ -684,6 +683,38 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         }
     }
 
+    /// @dev Settles payments for a proposal: pays the prover fee and refunds any excess to proposer.
+    ///      Payment flow:
+    ///      1. Calculate total available ETH: `_forcedInclusionFees + msg.value`
+    ///      2. Require total >= `_proverFee` (reverts with `InsufficientProverFee` otherwise)
+    ///      3. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
+    ///      4. If payment succeeds, deduct fee from total; if it fails, total remains unchanged
+    ///      5. Refund any remaining ETH to proposer via `sendEtherAndVerify` (reverts if rejected)
+    /// @param _designatedProver The address to receive the prover fee.
+    /// @param _proverFee The prover fee in wei.
+    /// @param _forcedInclusionFees The forced inclusion fees collected in wei (credited to proposer).
+    function _settleProposalPayments(
+        address _designatedProver,
+        uint256 _proverFee,
+        uint256 _forcedInclusionFees
+    )
+        private
+    {
+        uint256 ethValue = _forcedInclusionFees + msg.value;
+        require(ethValue >= _proverFee, InsufficientProverFee());
+
+        unchecked {
+            // Pay the designated prover (allow failure - prover may reject payment)
+            if (_proverFee > 0 && _designatedProver.sendEther(_proverFee, gasleft(), "")) {
+                ethValue -= _proverFee;
+            }
+
+            if (ethValue > 0) {
+                msg.sender.sendEtherAndVerify(ethValue);
+            }
+        }
+    }
+
     /// @dev Emits the Proposed event
     function _emitProposedEvent(Proposal memory _proposal) private {
         emit Proposed(_proposal.id, LibCodec.encodeProposal(_proposal));
@@ -716,38 +747,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Settles payments for a proposal: pays the prover fee and refunds any excess to proposer.
-    ///      Payment flow:
-    ///      1. Calculate total available ETH: `_forcedInclusionFees + msg.value`
-    ///      2. Require total >= `_proverFee` (reverts with `InsufficientProverFee` otherwise)
-    ///      3. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
-    ///      4. If payment succeeds, deduct fee from total; if it fails, total remains unchanged
-    ///      5. Refund any remaining ETH to proposer via `sendEtherAndVerify` (reverts if rejected)
-    /// @param _designatedProver The address to receive the prover fee.
-    /// @param _proverFee The prover fee in wei.
-    /// @param _forcedInclusionFees The forced inclusion fees collected in wei (credited to proposer).
-    function _settleProposalPayments(
-        address _designatedProver,
-        uint256 _proverFee,
-        uint256 _forcedInclusionFees
-    )
-        private
-    {
-        uint256 ethValue = _forcedInclusionFees + msg.value;
-        require(ethValue >= _proverFee, InsufficientProverFee());
-
-        unchecked {
-            // Pay the designated prover (allow failure - prover may reject payment)
-            if (_proverFee > 0 && _designatedProver.sendEther(_proverFee, gasleft(), "")) {
-                ethValue -= _proverFee;
-            }
-
-            if (ethValue > 0) {
-                msg.sender.sendEtherAndVerify(ethValue);
-            }
-        }
     }
 
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
@@ -788,7 +787,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
-    error CheckpointDelayHasPassed();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
