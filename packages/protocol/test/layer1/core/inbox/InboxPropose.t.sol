@@ -526,7 +526,7 @@ contract InboxProposeTest is InboxTestBase {
     // ETH Payment Flow Tests
     // =========================================================================
 
-    /// @notice Test propose when prover rejects payment - proposer should receive full refund
+    /// @notice Test propose when prover rejects payment - prover fee stays in contract
     function test_propose_WhenProverRejectsPayment() public {
         _setBlobHashes(1);
 
@@ -539,6 +539,7 @@ contract InboxProposeTest is InboxTestBase {
         uint256 totalSent = proverFeeWei + extraEth;
 
         uint256 proposerBalanceBefore = proposer.balance;
+        uint256 inboxBalanceBefore = address(inbox).balance;
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
@@ -546,10 +547,19 @@ contract InboxProposeTest is InboxTestBase {
         vm.prank(proposer);
         inbox.propose{ value: totalSent }(bytes(""), encodedInput);
 
-        // When prover rejects payment, proposer should get everything back
-        // (proverFee wasn't deducted since transfer failed)
+        // When prover rejects payment, proposer only gets back excess ETH (not the prover fee)
+        // The prover fee remains in the contract
         uint256 proposerBalanceAfter = proposer.balance;
-        assertEq(proposerBalanceAfter, proposerBalanceBefore, "proposer should receive full refund");
+        assertEq(
+            proposerBalanceAfter,
+            proposerBalanceBefore - proverFeeWei,
+            "proposer should only get back excess"
+        );
+        assertEq(
+            address(inbox).balance,
+            inboxBalanceBefore + proverFeeWei,
+            "prover fee should remain in contract"
+        );
     }
 
     /// @notice Test propose with exact prover fee (no excess to refund)

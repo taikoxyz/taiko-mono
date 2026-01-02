@@ -687,9 +687,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      Payment flow:
     ///      1. Calculate total available ETH: `_forcedInclusionFees + msg.value`
     ///      2. Require total >= `_proverFee` (reverts with `InsufficientProverFee` otherwise)
-    ///      3. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
-    ///      4. If payment succeeds, deduct fee from total; if it fails, total remains unchanged
+    ///      3. Deduct prover fee from total (proposer always pays, regardless of transfer outcome)
+    ///      4. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
     ///      5. Refund any remaining ETH to proposer via `sendEtherAndVerify` (reverts if rejected)
+    ///      Note: If prover rejects payment, the fee remains in the contract (not refunded).
     /// @param _designatedProver The address to receive the prover fee.
     /// @param _proverFee The prover fee in wei.
     /// @param _forcedInclusionFees The forced inclusion fees collected in wei (credited to proposer).
@@ -704,11 +705,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         require(ethValue >= _proverFee, InsufficientProverFee());
 
         unchecked {
+            // Deduct prover fee first - proposer always pays regardless of transfer outcome
+            ethValue -= _proverFee;
+
             // Pay the designated prover (allow failure - prover may reject payment)
-            if (_proverFee > 0 && _designatedProver.sendEther(_proverFee, gasleft(), "")) {
-                ethValue -= _proverFee;
+            // If rejected, the fee remains in the contract
+            if (_proverFee > 0) {
+                _designatedProver.sendEther(_proverFee, gasleft(), "");
             }
 
+            // Refund any excess to proposer
             if (ethValue > 0) {
                 msg.sender.sendEtherAndVerify(ethValue);
             }

@@ -58,7 +58,7 @@ library LibCodec {
         encoded_ = new bytes(bufferSize);
         uint256 ptr = P.dataPtr(encoded_);
 
-        // Fixed fields (excluding id): 123 bytes total
+        // Fixed fields (excluding id): 125 bytes total
         ptr = P.packUint48(ptr, _proposal.timestamp);
         ptr = P.packUint48(ptr, _proposal.endOfSubmissionWindowTimestamp);
         ptr = P.packAddress(ptr, _proposal.proposer);
