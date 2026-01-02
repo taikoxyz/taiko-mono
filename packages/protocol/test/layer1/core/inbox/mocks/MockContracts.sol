@@ -184,7 +184,8 @@ contract MockProverAuction is IProverAuction {
 /// @notice Mock contract that rejects all ETH transfers (no receive/fallback)
 contract EthRejecter {
     // No receive() or fallback() - will revert on ETH transfer
-}
+
+    }
 
 /// @notice Mock proposer contract that can be configured to accept or reject ETH
 contract MockProposer {
