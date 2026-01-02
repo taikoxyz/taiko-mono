@@ -180,3 +180,27 @@ contract MockProverAuction is IProverAuction {
         return totalSlashedAmount;
     }
 }
+
+/// @notice Mock contract that rejects all ETH transfers (no receive/fallback)
+contract EthRejecter {
+    // No receive() or fallback() - will revert on ETH transfer
+}
+
+/// @notice Mock proposer contract that can be configured to accept or reject ETH
+contract MockProposer {
+    bool public acceptEth;
+    uint256 public receivedEth;
+
+    constructor(bool _acceptEth) {
+        acceptEth = _acceptEth;
+    }
+
+    function setAcceptEth(bool _acceptEth) external {
+        acceptEth = _acceptEth;
+    }
+
+    receive() external payable {
+        require(acceptEth, "MockProposer: rejecting ETH");
+        receivedEth += msg.value;
+    }
+}

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 /// forge-config: default.isolate = true
 
 import { InboxTestBase } from "./InboxTestBase.sol";
+import { EthRejecter, MockProposer } from "./mocks/MockContracts.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
@@ -519,5 +520,266 @@ contract InboxProposeTest is InboxTestBase {
         vm.expectRevert(Inbox.InvalidSelfProverBond.selector);
         vm.prank(Emma);
         inbox.propose{ value: uint256(PROVER_FEE_GWEI) * 1 gwei }(bytes(""), encodedInput);
+    }
+
+    // =========================================================================
+    // ETH Payment Flow Tests
+    // =========================================================================
+
+    /// @notice Test propose when prover rejects payment - proposer should receive full refund
+    function test_propose_WhenProverRejectsPayment() public {
+        _setBlobHashes(1);
+
+        // Deploy a contract that rejects ETH as the prover
+        EthRejecter rejecter = new EthRejecter();
+        proverAuction.setProver(address(rejecter), PROVER_FEE_GWEI);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 extraEth = 0.5 ether;
+        uint256 totalSent = proverFeeWei + extraEth;
+
+        uint256 proposerBalanceBefore = proposer.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: totalSent }(bytes(""), encodedInput);
+
+        // When prover rejects payment, proposer should get everything back
+        // (proverFee wasn't deducted since transfer failed)
+        uint256 proposerBalanceAfter = proposer.balance;
+        assertEq(proposerBalanceAfter, proposerBalanceBefore, "proposer should receive full refund");
+    }
+
+    /// @notice Test propose with exact prover fee (no excess to refund)
+    function test_propose_WithExactProverFee() public {
+        _setBlobHashes(1);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 proposerBalanceBefore = proposer.balance;
+        uint256 proverBalanceBefore = prover.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: proverFeeWei }(bytes(""), encodedInput);
+
+        // Proposer paid exactly the prover fee, no refund
+        assertEq(proposer.balance, proposerBalanceBefore - proverFeeWei, "proposer paid exact fee");
+        assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received fee");
+    }
+
+    /// @notice Test propose with excess ETH gets refunded
+    function test_propose_WithExcessEth() public {
+        _setBlobHashes(1);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 extraEth = 2 ether;
+        uint256 totalSent = proverFeeWei + extraEth;
+
+        uint256 proposerBalanceBefore = proposer.balance;
+        uint256 proverBalanceBefore = prover.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: totalSent }(bytes(""), encodedInput);
+
+        // Proposer should get back the excess ETH
+        assertEq(proposer.balance, proposerBalanceBefore - proverFeeWei, "proposer got refund");
+        assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received fee");
+    }
+
+    /// @notice Test propose with forced inclusion fees included in refund
+    function test_propose_WithForcedInclusionFeesRefund() public {
+        _setBlobHashes(3);
+
+        // First proposal to allow forced inclusions
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        // Save forced inclusion with fee
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        uint256 forcedInclusionFeeGwei = inbox.getCurrentForcedInclusionFee();
+        uint256 forcedInclusionFeeWei = forcedInclusionFeeGwei * 1 gwei;
+
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: forcedInclusionFeeWei }(forcedRef);
+
+        // Wait for forced inclusion to become due
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 proposerBalanceBefore = proposer.balance;
+        uint256 proverBalanceBefore = prover.balance;
+
+        // Propose with forced inclusion - send only prover fee, should get forcedInclusionFee back
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        input.numForcedInclusions = 1;
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: proverFeeWei }(bytes(""), encodedInput);
+
+        // Proposer paid proverFee but receives forcedInclusionFee back
+        // Net: paid (proverFee - forcedInclusionFee) = proverFee - forcedInclusionFee
+        uint256 expectedProposerBalance = proposerBalanceBefore - proverFeeWei + forcedInclusionFeeWei;
+        assertEq(proposer.balance, expectedProposerBalance, "proposer got forced inclusion fee refund");
+        assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received fee");
+    }
+
+    /// @notice Test propose reverts when proposer rejects refund
+    function test_propose_RevertWhen_ProposerRejectsRefund() public {
+        _setBlobHashes(1);
+
+        // Deploy a MockProposer that rejects ETH
+        MockProposer mockProposer = new MockProposer(false);
+        _addProposer(address(mockProposer));
+        vm.deal(address(mockProposer), 100 ether);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 extraEth = 0.5 ether;
+        uint256 totalSent = proverFeeWei + extraEth;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        // When there's excess ETH and proposer rejects refund, transaction should revert
+        vm.expectRevert();
+        vm.prank(address(mockProposer));
+        inbox.propose{ value: totalSent }(bytes(""), encodedInput);
+    }
+
+    /// @notice Test propose succeeds when prover fee is paid exactly and there's nothing to refund
+    /// @dev This tests the edge case where ethValue == 0 after paying prover fee, so no refund call
+    function test_propose_succeedsWhen_NoRefundNeeded() public {
+        _setBlobHashes(1);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 proposerBalanceBefore = proposer.balance;
+        uint256 proverBalanceBefore = prover.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        // Proposer sends exact fee - no refund needed
+        vm.recordLogs();
+        vm.prank(proposer);
+        inbox.propose{ value: proverFeeWei }(bytes(""), encodedInput);
+
+        ProposedEvent memory payload = _readProposedEvent();
+        assertEq(payload.proposer, proposer, "proposer is correct");
+        assertEq(proposer.balance, proposerBalanceBefore - proverFeeWei, "proposer paid exact fee");
+        assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received fee");
+    }
+
+    /// @notice Test propose reverts when insufficient ETH for prover fee
+    function test_propose_RevertWhen_InsufficientProverFee() public {
+        _setBlobHashes(1);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 insufficientEth = proverFeeWei - 1;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.expectRevert(Inbox.InsufficientProverFee.selector);
+        vm.prank(proposer);
+        inbox.propose{ value: insufficientEth }(bytes(""), encodedInput);
+    }
+
+    /// @notice Test propose with zero prover fee succeeds without sending ETH
+    function test_propose_WithZeroProverFee() public {
+        _setBlobHashes(1);
+
+        // Set prover fee to 0
+        proverAuction.setProver(prover, 0);
+
+        uint256 proposerBalanceBefore = proposer.balance;
+        uint256 proverBalanceBefore = prover.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: 0 }(bytes(""), encodedInput);
+
+        // No fee paid, balances unchanged
+        assertEq(proposer.balance, proposerBalanceBefore, "proposer balance unchanged");
+        assertEq(prover.balance, proverBalanceBefore, "prover balance unchanged");
+    }
+
+    /// @notice Test that forced inclusion fees can cover prover fee partially
+    function test_propose_ForcedInclusionFeesPartiallyCoversProverFee() public {
+        _setBlobHashes(3);
+
+        // First proposal to allow forced inclusions
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        // Save forced inclusion with fee
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        uint256 forcedInclusionFeeGwei = inbox.getCurrentForcedInclusionFee();
+        uint256 forcedInclusionFeeWei = forcedInclusionFeeGwei * 1 gwei;
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: forcedInclusionFeeWei }(forcedRef);
+
+        // Wait for forced inclusion to become due
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        // Skip test if forced inclusion fee >= prover fee (test setup doesn't make sense)
+        if (forcedInclusionFeeWei >= proverFeeWei) {
+            // Test different scenario: forced inclusion fee fully covers prover fee
+            // Proposer sends 0 ETH, gets back excess
+            uint256 proposerBalanceBefore = proposer.balance;
+            uint256 proverBalanceBefore = prover.balance;
+
+            IInbox.ProposeInput memory input = _defaultProposeInput();
+            input.blobReference =
+                LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+            input.numForcedInclusions = 1;
+            bytes memory encodedInput = codec.encodeProposeInput(input);
+
+            vm.prank(proposer);
+            inbox.propose{ value: 0 }(bytes(""), encodedInput);
+
+            // Proposer sent 0, gets back (forcedInclusionFee - proverFee)
+            uint256 refund = forcedInclusionFeeWei - proverFeeWei;
+            assertEq(proposer.balance, proposerBalanceBefore + refund, "proposer got refund");
+            assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received fee");
+            return;
+        }
+
+        // Only send partial prover fee - forced inclusion fee should make up the difference
+        // Total available = msg.value + forcedInclusionFees
+        uint256 partialPayment = proverFeeWei - forcedInclusionFeeWei;
+
+        uint256 proposerBalanceBefore = proposer.balance;
+        uint256 proverBalanceBefore = prover.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        input.numForcedInclusions = 1;
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: partialPayment }(bytes(""), encodedInput);
+
+        // Proposer sent partialPayment, prover received full fee (from partialPayment + forcedInclusionFee)
+        // No excess to refund since partialPayment + forcedInclusionFee = proverFee
+        assertEq(proposer.balance, proposerBalanceBefore - partialPayment, "proposer paid partial");
+        assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received full fee");
     }
 }
