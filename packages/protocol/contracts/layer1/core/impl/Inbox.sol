@@ -722,13 +722,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         uint256 ethValue = _forcedInclusionFees + msg.value;
         require(ethValue >= _proverFee, InsufficientProverFee());
 
-        // Pay the designated prover (allow failure - prover may reject payment)
-        if (_proverFee > 0 && _designatedProver.sendEther(_proverFee, gasleft(), "")) {
-            ethValue -= _proverFee;
-        }
+        unchecked {
+            // Pay the designated prover (allow failure - prover may reject payment)
+            if (_proverFee > 0 && _designatedProver.sendEther(_proverFee, gasleft(), "")) {
+                ethValue -= _proverFee;
+            }
 
-        if (ethValue > 0) {
-            msg.sender.sendEtherAndVerify(ethValue);
+            if (ethValue > 0) {
+                msg.sender.sendEtherAndVerify(ethValue);
+            }
         }
     }
 
