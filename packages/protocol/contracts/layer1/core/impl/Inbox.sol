@@ -184,36 +184,39 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      4. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external payable nonReentrant {
+    function propose(
+        bytes calldata _lookahead,
+        bytes calldata _data
+    )
+        external
+        payable
+        nonReentrant
+    {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
 
             uint48 nextProposalId = _coreState.nextProposalId;
             require(nextProposalId > 0, ActivationRequired());
-            
+
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
 
-            (Proposal memory proposal, uint256 proverFee, uint256 forcedInclusionFees) =
-                _buildProposal(
-                    input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
-                );
+            (Proposal memory proposal, uint256 proverFee, uint256 forcedInclusionFees) = _buildProposal(
+                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+            );
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
-    
 
-    uint ethValue = forcedInclusionFees + msg.value;
-    require(ethValue >= proverFee, InsufficientProverFee());
-                // Pay the designated prover (allow failure - prover may reject payment)
-         bool success =   proposal.designatedProver.sendEther(proverFee, gasleft(), "");
-         if (success) {
+            uint256 ethValue = forcedInclusionFees + msg.value;
+            require(ethValue >= proverFee, InsufficientProverFee());
+            // Pay the designated prover (allow failure - prover may reject payment)
+            bool success = proposal.designatedProver.sendEther(proverFee, gasleft(), "");
+            if (success) {
                 ethValue -= proverFee;
             }
-
-           
 
             if (ethValue > 0) {
                 msg.sender.sendEtherAndVerify(ethValue);
@@ -662,7 +665,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                + _provingWindow).max(_lastFinalizedTimestamp + _maxProofSubmissionDelay);
+                    + _provingWindow).max(_lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
             // On-time proof - no slashing needed.
             if (block.timestamp <= livenessWindowDeadline) {

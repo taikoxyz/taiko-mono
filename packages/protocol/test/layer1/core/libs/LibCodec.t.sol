@@ -88,14 +88,10 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_roundtrip() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
-            designatedProver: address(0x2222),
-            timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            designatedProver: address(0x2222), timestamp: 100, blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
-            designatedProver: address(0x4444),
-            timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            designatedProver: address(0x4444), timestamp: 200, blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -164,9 +160,7 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_singleProposal() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            designatedProver: address(0x6666),
-            timestamp: 500,
-            blockHash: bytes32(uint256(55))
+            designatedProver: address(0x6666), timestamp: 500, blockHash: bytes32(uint256(55))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -222,9 +216,7 @@ contract LibCodecTest is Test {
     function test_encode_proveInput_deterministic() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            designatedProver: address(0x5678),
-            timestamp: 12_345,
-            blockHash: bytes32(uint256(9999))
+            designatedProver: address(0x5678), timestamp: 12_345, blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -347,7 +339,9 @@ contract LibCodecTest is Test {
         blobHashes[1] = bytes32(uint256(2));
         sources[0] = IInbox.DerivationSource({
             isForcedInclusion: false,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: blobHashes, offset: 100, timestamp: 12_345 })
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes, offset: 100, timestamp: 12_345
+            })
         });
 
         IInbox.Proposal memory proposal = IInbox.Proposal({
@@ -424,9 +418,7 @@ contract LibCodecTest is Test {
             sources[i] = IInbox.DerivationSource({
                 isForcedInclusion: i % 2 == 1,
                 blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: uint24(i * 100),
-                    timestamp: uint48(i * 1000)
+                    blobHashes: blobHashes, offset: uint24(i * 100), timestamp: uint48(i * 1000)
                 })
             });
         }

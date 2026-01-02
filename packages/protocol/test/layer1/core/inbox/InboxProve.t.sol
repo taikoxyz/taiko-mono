@@ -306,7 +306,9 @@ contract InboxProveTest is InboxTestBase {
 
         // Verify slashing was recorded in MockProverAuction
         assertTrue(proverAuction.slashedProvers(p1.designatedProver), "prover should be slashed");
-        assertEq(proverAuction.lastSlashRecipient(), prover, "slash recipient should be actual prover");
+        assertEq(
+            proverAuction.lastSlashRecipient(), prover, "slash recipient should be actual prover"
+        );
     }
 
     function test_prove_noSlashing_withinProvingWindow() public {

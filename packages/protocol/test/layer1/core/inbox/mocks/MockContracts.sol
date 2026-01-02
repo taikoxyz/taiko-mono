@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 contract MockERC20 is ERC20 {
