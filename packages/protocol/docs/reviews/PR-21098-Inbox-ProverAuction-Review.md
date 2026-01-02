@@ -96,12 +96,39 @@ Suggested test gaps
 - Transition designatedProver consistency (if intended): add a test that
   mismatched designatedProver in proof commitment is rejected.
 
-Open questions
+Resolution of previous open questions
 
-1) Does the proof circuit bind commitment.transitions[].designatedProver to
-   proposal hashes, or is this only validated off-chain? If not bound, slashing
-   could be misdirected.
-2) Is keeping unpaid prover fees in the Inbox acceptable, or should they be refundable/claimable?
+1) DesignatedProver binding in proofs:
+   - Proposal hashes include designatedProver because hashProposal() encodes the
+     full Proposal struct. The on-chain check in prove() only validates the last
+     proposal hash (commitment.lastProposalHash == stored proposal hash).
+     Earlier transitions' designatedProver values are not cross-checked on-chain.
+   - Commitment hashing includes designatedProver in each Transition (hashCommitment
+     encodes transitions as designatedProver, timestamp, blockHash), and the proof
+     verifier uses this commitment hash. However, there is no on-chain evidence
+     that transitions are bound to stored proposal hashes beyond the last one.
+   - Tests construct Transition values with arbitrary designatedProver inputs and
+     do not assert matching against stored proposals.
+   Conclusion: On-chain validation does not bind designatedProver for each proven
+   proposal. Binding for non-last proposals, if required, must be enforced by the
+   proof circuit or off-chain policy (not evidenced in this repo).
+
+   Evidence:
+   - packages/protocol/contracts/layer1/core/libs/LibHashOptimized.sol
+   - packages/protocol/contracts/layer1/core/impl/Inbox.sol
+   - packages/protocol/test/layer1/core/inbox/InboxTestBase.sol
+
+2) Intended handling of unpaid prover fees:
+   - _settleProposalPayments() explicitly notes that if the prover rejects payment,
+     the fee remains in the contract and is not refunded.
+   - A dedicated test expects the prover fee to stay in the Inbox when the prover
+     rejects ETH (test_propose_WhenProverRejectsPayment).
+   Conclusion: Intended behavior is to retain unpaid prover fees in the Inbox,
+   not refund or escrow them. The docstring should be aligned with this behavior.
+
+   Evidence:
+   - packages/protocol/contracts/layer1/core/impl/Inbox.sol
+   - packages/protocol/test/layer1/core/inbox/InboxPropose.t.sol
 
 Checks performed
 
