@@ -180,8 +180,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      1. Validates proposer authorization via `IProposerChecker`
     ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
-    ///      3. Pays the designated prover their fee and refunds excess ETH to proposer
+    ///      3. Pays the designated prover their fee via `sendEther` (allows failure if prover
+    ///         rejects). Refunds excess ETH plus any unpaid prover fee to the proposer via
+    ///         `sendEtherAndVerify` (reverts if proposer rejects).
     ///      4. Updates core state and emits `Proposed` event
+    ///
+    /// @dev Payment requirements:
+    ///      - `msg.value + forcedInclusionFees` must be >= prover fee
+    ///      - Forced inclusion fees collected from the queue are credited toward the prover fee
+    ///      - If prover rejects payment, the full amount (fee + excess) is refunded to proposer
+    ///
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(
@@ -711,9 +719,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Settles payments for a proposal: pays the prover fee and refunds any excess to proposer.
+    ///      Payment flow:
+    ///      1. Calculate total available ETH: `_forcedInclusionFees + msg.value`
+    ///      2. Require total >= `_proverFee` (reverts with `InsufficientProverFee` otherwise)
+    ///      3. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
+    ///      4. If payment succeeds, deduct fee from total; if it fails, total remains unchanged
+    ///      5. Refund any remaining ETH to proposer via `sendEtherAndVerify` (reverts if rejected)
     /// @param _designatedProver The address to receive the prover fee.
     /// @param _proverFee The prover fee in wei.
-    /// @param _forcedInclusionFees The forced inclusion fees collected in wei.
+    /// @param _forcedInclusionFees The forced inclusion fees collected in wei (credited to proposer).
     function _settleProposalPayments(
         address _designatedProver,
         uint256 _proverFee,
