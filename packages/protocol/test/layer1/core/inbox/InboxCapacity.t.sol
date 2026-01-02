@@ -9,28 +9,6 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 /// @notice Capacity-focused tests with a small ring buffer to exercise bounds.
 contract InboxCapacityTest is InboxTestBase {
-    function test_propose_RevertWhen_InvalidCoreState() public {
-        // Corrupt core state: nextProposalId == lastFinalizedProposalId
-        uint48 nextProposalId = 1;
-        uint48 lastProposalBlockId = uint48(block.number - 1);
-        uint48 lastFinalizedProposalId = 1;
-        uint48 lastFinalizedTimestamp = uint48(block.timestamp);
-        uint48 lastCheckpointTimestamp = 0;
-
-        uint256 packed = uint256(nextProposalId) | (uint256(lastProposalBlockId) << 48)
-            | (uint256(lastFinalizedProposalId) << 96) | (uint256(lastFinalizedTimestamp) << 144)
-            | (uint256(lastCheckpointTimestamp) << 192);
-
-        // CoreState slot is 252 (see MainnetInbox_Layout.sol)
-        vm.store(address(inbox), bytes32(uint256(252)), bytes32(packed));
-
-        _setBlobHashes(1);
-        bytes memory encoded = codec.encodeProposeInput(_defaultProposeInput());
-        vm.expectRevert(Inbox.InvalidCoreState.selector);
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encoded);
-    }
-
     function test_propose_RevertWhen_CapacityExceeded() public {
         _setBlobHashes(3);
         _advanceBlock();

@@ -5,10 +5,8 @@ pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
 
 /// @notice Tests for Inbox activation and pre-activation behavior
@@ -98,47 +96,6 @@ contract InboxActivationTest is InboxTestBase {
         );
     }
 
-    function test_activate_reactivation_resetsProposalHistory_keepsForcedInclusions() public {
-        nonActivatedInbox.activate(bytes32(uint256(1)));
-
-        // Propose once so proposal hash slot 1 is populated.
-        _setBlobHashes(1);
-        IInbox.ProposeInput memory input = _defaultProposeInput();
-        bytes memory encoded = ICodec(address(nonActivatedInbox)).encodeProposeInput(input);
-        vm.prank(proposer);
-        nonActivatedInbox.propose(bytes(""), encoded);
-        bytes32 proposalHashBefore = nonActivatedInbox.getProposalHash(1);
-
-        // Queue a forced inclusion and record state.
-        _setBlobHashes(1);
-        LibBlobs.BlobReference memory blobRef =
-            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
-        uint64 feeInGwei = nonActivatedInbox.getCurrentForcedInclusionFee();
-        vm.prank(proposer);
-        nonActivatedInbox.saveForcedInclusion{ value: uint256(feeInGwei) * 1 gwei }(blobRef);
-
-        (uint48 headBefore, uint48 tailBefore) = nonActivatedInbox.getForcedInclusionState();
-
-        // Reactivate within window
-        vm.warp(block.timestamp + 1 hours);
-        nonActivatedInbox.activate(bytes32(uint256(2)));
-
-        // Forced inclusions preserved
-        (uint48 headAfter, uint48 tailAfter) = nonActivatedInbox.getForcedInclusionState();
-        assertEq(headAfter, headBefore, "forced inclusion head");
-        assertEq(tailAfter, tailBefore, "forced inclusion tail");
-
-        // Proposal history invalidated via core state reset
-        IInbox.CoreState memory state = nonActivatedInbox.getCoreState();
-        assertEq(state.nextProposalId, 1, "nextProposalId reset");
-        assertEq(state.lastFinalizedProposalId, 0, "finalized reset");
-        assertEq(state.lastProposalBlockId, 1, "lastProposalBlockId reset");
-
-        // Ring buffer storage is not cleared on reactivation; old entries are
-        // logically invalidated by the core state reset.
-        assertEq(nonActivatedInbox.getProposalHash(1), proposalHashBefore, "proposal hash retained");
-    }
-
     function test_getConfig_returnsImmutableConfig() public view {
         IInbox.Config memory cfg = inbox.getConfig();
 
@@ -181,14 +138,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.proposerChecker = address(0);
 
         vm.expectRevert(LibInboxSetup.ProposerCheckerZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_ProverAuctionZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.proverAuction = address(0);
-
-        vm.expectRevert(LibInboxSetup.ProverAuctionZero.selector);
         new Inbox(cfg);
     }
 
@@ -237,14 +186,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.minForcedInclusionCount = 0;
 
         vm.expectRevert(LibInboxSetup.MinForcedInclusionCountZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinForcedInclusionCountTooLarge() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.minForcedInclusionCount = uint256(type(uint8).max) + 1;
-
-        vm.expectRevert(LibInboxSetup.MinForcedInclusionCountTooLarge.selector);
         new Inbox(cfg);
     }
 

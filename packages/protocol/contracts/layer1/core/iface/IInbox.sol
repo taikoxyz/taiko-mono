@@ -13,9 +13,8 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
-        /// @notice The prover auction contract
-        /// @dev Must be non-zero.
-        address proverAuction;
+        /// @notice The prover whitelist contract (address(0) means no whitelist)
+        address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The ERC20 bond token address
@@ -70,10 +69,6 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice Address of the designated prover for this proposal.
-        address designatedProver;
-        /// @notice Prover fee in Gwei (0 for self-proving).
-        uint32 feeInGwei;
         /// @notice Hash of the parent proposal (zero for genesis).
         bytes32 parentProposalHash;
         /// @notice The L1 block number when the proposal was accepted.
@@ -114,10 +109,6 @@ interface IInbox {
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
-        /// @notice Whether the proposer intends to self-prove this proposal.
-        /// @dev If true, the Inbox will require the proposer to have sufficient bond in the
-        /// prover auction and will set `designatedProver = proposer`.
-        bool isSelfProving;
     }
 
     /// @notice Transition data for a proposal used in prove
@@ -189,20 +180,31 @@ interface IInbox {
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param id Unique identifier for the proposal.
-    /// @param proposalData The encoded proposal data (excludes proposal ID).
-    event Proposed(uint48 indexed id, bytes proposalData);
+    /// @param proposer Address of the proposer.
+    /// @param parentProposalHash The hash of the parent proposal (zero for genesis).
+    /// @param endOfSubmissionWindowTimestamp Last slot timestamp where the preconfer can propose.
+    /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
+    /// @param sources Array of derivation sources for this proposal.
+    event Proposed(
+        uint48 indexed id,
+        address indexed proposer,
+        bytes32 parentProposalHash,
+        uint48 endOfSubmissionWindowTimestamp,
+        uint8 basefeeSharingPctg,
+        DerivationSource[] sources
+    );
 
     /// @notice Emitted when a proof is submitted
-    /// @param lastProposalId The last proposal ID covered by the proof
     /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)
     /// @param firstNewProposalId The first proposal ID that was newly proven by this proof
+    /// @param lastProposalId The last proposal ID covered by the proof
     /// @param actualProver The prover that submitted the proof
     /// @param checkpointSynced Whether a checkpoint was synced as part of this proof
     event Proved(
-        uint48 indexed lastProposalId,
         uint48 firstProposalId,
         uint48 firstNewProposalId,
-        address actualProver,
+        uint48 lastProposalId,
+        address indexed actualProver,
         bool checkpointSynced
     );
 
@@ -213,7 +215,7 @@ interface IInbox {
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external payable;
+    function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     /// @param _data The encoded ProveInput struct.
