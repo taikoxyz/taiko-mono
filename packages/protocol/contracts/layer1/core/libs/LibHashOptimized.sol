@@ -48,8 +48,8 @@ library LibHashOptimized {
             //
             // Transitions array (starts at word 8):
             // [8] length
-            // [9...] transition elements (4 words each)
-            uint256 totalWords = 9 + transitionsLength * 4;
+            // [9...] transition elements (3 words each: designatedProver, timestamp, blockHash)
+            uint256 totalWords = 9 + transitionsLength * 3;
 
             bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
@@ -71,13 +71,12 @@ library LibHashOptimized {
             uint256 base = 9;
             for (uint256 i; i < transitionsLength; ++i) {
                 IInbox.Transition memory transition = transitions[i];
-                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(transition.proposer))));
                 EfficientHashLib.set(
-                    buffer, base + 1, bytes32(uint256(uint160(transition.designatedProver)))
+                    buffer, base, bytes32(uint256(uint160(transition.designatedProver)))
                 );
-                EfficientHashLib.set(buffer, base + 2, bytes32(uint256(transition.timestamp)));
-                EfficientHashLib.set(buffer, base + 3, transition.blockHash);
-                base += 4;
+                EfficientHashLib.set(buffer, base + 1, bytes32(uint256(transition.timestamp)));
+                EfficientHashLib.set(buffer, base + 2, transition.blockHash);
+                base += 3;
             }
 
             bytes32 result = EfficientHashLib.hash(buffer);

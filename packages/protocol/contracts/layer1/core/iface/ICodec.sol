@@ -39,6 +39,27 @@ interface ICodec {
         returns (IInbox.ProposeInput memory input_);
 
     // ---------------------------------------------------------------
+    // ProposalCodec Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Encodes a proposal (without the id field) for event emission
+    /// @param _proposal The Proposal to encode
+    /// @return encoded_ The encoded data (excludes proposal id)
+    function encodeProposal(IInbox.Proposal calldata _proposal)
+        external
+        pure
+        returns (bytes memory encoded_);
+
+    /// @notice Decodes proposal data (without the id field)
+    /// @param _data The encoded data
+    /// @return proposal_ The decoded Proposal (id will be 0, should be set separately)
+    /// @dev Reverts on malformed or truncated input data
+    function decodeProposal(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.Proposal memory proposal_);
+
+    // ---------------------------------------------------------------
     // ProveInputCodec Functions
     // ---------------------------------------------------------------
 

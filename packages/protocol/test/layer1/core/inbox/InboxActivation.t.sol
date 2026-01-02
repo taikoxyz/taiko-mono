@@ -37,7 +37,6 @@ contract InboxActivationTest is InboxTestBase {
     function test_prove_RevertWhen_NotActivated() public {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: proposer,
             designatedProver: prover,
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("checkpoint")
@@ -116,10 +115,7 @@ contract InboxActivationTest is InboxTestBase {
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
         assertEq(cfg.signalService, config.signalService, "signalService mismatch");
-        assertEq(cfg.bondToken, config.bondToken, "bondToken mismatch");
-        assertEq(cfg.minBond, config.minBond, "minBond mismatch");
-        assertEq(cfg.livenessBond, config.livenessBond, "livenessBond mismatch");
-        assertEq(cfg.withdrawalDelay, config.withdrawalDelay, "withdrawalDelay mismatch");
+        assertEq(cfg.proverAuction, config.proverAuction, "proverAuction mismatch");
     }
 }
 
@@ -149,11 +145,11 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
-    function test_validateConfig_RevertWhen_BondTokenZero() public {
+    function test_validateConfig_RevertWhen_ProverAuctionZero() public {
         IInbox.Config memory cfg = _buildConfig();
-        cfg.bondToken = address(0);
+        cfg.proverAuction = address(0);
 
-        vm.expectRevert(LibInboxSetup.BondTokenZero.selector);
+        vm.expectRevert(LibInboxSetup.ProverAuctionZero.selector);
         new Inbox(cfg);
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 contract MockERC20 is ERC20 {
@@ -99,5 +100,71 @@ contract MockSignalService is ISignalService {
 
     function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory) {
         return checkpoints[_blockNumber];
+    }
+}
+
+contract MockProverAuction is IProverAuction {
+    address public prover;
+    uint32 public feeInGwei;
+    uint128 public requiredBond;
+    uint96 public livenessBond;
+    uint128 public ejectionThreshold;
+    uint128 public totalSlashedAmount;
+
+    mapping(address => bool) public slashedProvers;
+    address public lastSlashedProver;
+    address public lastSlashRecipient;
+
+    constructor(address _prover, uint32 _feeInGwei) {
+        prover = _prover;
+        feeInGwei = _feeInGwei;
+        requiredBond = 10 ether;
+        livenessBond = 1 ether;
+        ejectionThreshold = 5 ether;
+    }
+
+    function setProver(address _prover, uint32 _feeInGwei) external {
+        prover = _prover;
+        feeInGwei = _feeInGwei;
+    }
+
+    function bid(uint32) external pure { }
+
+    function deposit(uint128) external pure { }
+
+    function withdraw(uint128) external pure { }
+
+    function requestExit() external pure { }
+
+    function slashProver(address _proverAddr, address _recipient) external {
+        slashedProvers[_proverAddr] = true;
+        lastSlashedProver = _proverAddr;
+        lastSlashRecipient = _recipient;
+        totalSlashedAmount += uint128(livenessBond);
+        emit ProverSlashed(_proverAddr, livenessBond, _recipient, uint128(livenessBond) / 2);
+    }
+
+    function checkBondDeferWithdrawal(address) external pure returns (bool success_) {
+        return true;
+    }
+
+    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
+        return (prover, feeInGwei);
+    }
+
+    function getRequiredBond() external view returns (uint128 requiredBond_) {
+        return requiredBond;
+    }
+
+    function getLivenessBond() external view returns (uint96 livenessBond_) {
+        return livenessBond;
+    }
+
+    function getEjectionThreshold() external view returns (uint128 threshold_) {
+        return ejectionThreshold;
+    }
+
+    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
+        return totalSlashedAmount;
     }
 }

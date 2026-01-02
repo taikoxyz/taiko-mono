@@ -44,35 +44,6 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
-    function test_propose_RevertWhen_InsufficientBond() public {
-        _setBlobHashes(1);
-
-        vm.startPrank(proposer);
-        inbox.requestWithdrawal();
-        vm.warp(block.timestamp + config.withdrawalDelay + 1);
-        inbox.withdraw(proposer, inbox.getBond(proposer).balance);
-        vm.stopPrank();
-
-        IInbox.ProposeInput memory input = _defaultProposeInput();
-        bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert(Inbox.InsufficientBond.selector);
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
-    }
-
-    function test_propose_RevertWhen_WithdrawalRequested() public {
-        _setBlobHashes(1);
-
-        vm.prank(proposer);
-        inbox.requestWithdrawal();
-
-        IInbox.ProposeInput memory input = _defaultProposeInput();
-        bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert(Inbox.InsufficientBond.selector);
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
-    }
-
     function test_propose_RevertWhen_NotActivated() public {
         Inbox unactivated = _deployInbox();
 
@@ -88,13 +59,14 @@ contract InboxProposeTest is InboxTestBase {
         _setBlobHashes(2);
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
 
         vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
+        inbox.propose{ value: proverFeeWei }(bytes(""), encodedInput);
 
         vm.prank(proposer);
         vm.expectRevert(Inbox.CannotProposeInCurrentBlock.selector);
-        inbox.propose(bytes(""), encodedInput);
+        inbox.propose{ value: proverFeeWei }(bytes(""), encodedInput);
     }
 
     function test_saveForcedInclusion_RevertWhen_NoProposalYet() public {
@@ -352,8 +324,6 @@ contract InboxProposeTest is InboxTestBase {
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
-
-        assertEq(inbox.getBond(Emma).balance, 0, "emma has no bond");
 
         ProposedEvent memory payload = _proposeWithCaller(Emma, input);
         assertEq(payload.id, 2, "permissionless proposal accepted");
