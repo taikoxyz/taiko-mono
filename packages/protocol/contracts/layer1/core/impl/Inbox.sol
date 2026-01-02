@@ -208,19 +208,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
+
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
-
-            uint256 ethValue = forcedInclusionFees + msg.value;
-            require(ethValue >= proverFee, InsufficientProverFee());
-            // Pay the designated prover (allow failure - prover may reject payment)
-            bool success = proposal.designatedProver.sendEther(proverFee, gasleft(), "");
-            if (success) {
-                ethValue -= proverFee;
-            }
-
-            if (ethValue > 0) {
-                msg.sender.sendEtherAndVerify(ethValue);
-            }
+            _settleProposalPayments(proposal.designatedProver, proverFee, forcedInclusionFees);
 
             _emitProposedEvent(proposal);
         }
@@ -538,8 +528,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
 
-            // Get designated prover and fee from auction (always returns non-zero address)
+            // Get designated prover and fee from auction
             (address designatedProver, uint32 feeInGwei) = _proverAuction.getProver();
+            if (designatedProver == address(0)) {
+                // No auction winner - proposer becomes the prover but must have sufficient bond
+                designatedProver = msg.sender;
+                require(_proverAuction.checkBondDeferWithdrawal(msg.sender), InvalidSelfProverBond());
+            }
             proverFee_ = uint256(feeInGwei) * 1 gwei;
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -713,6 +708,30 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
+    /// @dev Settles payments for a proposal: pays the prover fee and refunds any excess to proposer.
+    /// @param _designatedProver The address to receive the prover fee.
+    /// @param _proverFee The prover fee in wei.
+    /// @param _forcedInclusionFees The forced inclusion fees collected in wei.
+    function _settleProposalPayments(
+        address _designatedProver,
+        uint256 _proverFee,
+        uint256 _forcedInclusionFees
+    )
+        private
+    {
+        uint256 ethValue = _forcedInclusionFees + msg.value;
+        require(ethValue >= _proverFee, InsufficientProverFee());
+
+        // Pay the designated prover (allow failure - prover may reject payment)
+        if (_proverFee > 0 && _designatedProver.sendEther(_proverFee, gasleft(), "")) {
+            ethValue -= _proverFee;
+        }
+
+        if (ethValue > 0) {
+            msg.sender.sendEtherAndVerify(ethValue);
+        }
+    }
+
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
     ///      to the first unfinalized proposal.
     /// @param _state The core state.
@@ -757,6 +776,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error InsufficientProverFee();
+    error InvalidSelfProverBond();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();

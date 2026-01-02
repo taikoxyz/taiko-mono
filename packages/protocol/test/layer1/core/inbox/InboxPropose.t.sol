@@ -362,4 +362,162 @@ contract InboxProposeTest is InboxTestBase {
         vm.prank(David);
         inbox.propose(bytes(""), encodedInput);
     }
+
+    // =========================================================================
+    // Self-Prover Tests - when getProver() returns address(0)
+    // =========================================================================
+
+    /// @notice Test propose succeeds when no auction winner and proposer has sufficient bond
+    function test_propose_succeedsWhen_NoAuctionWinner_ProposerHasBond() public {
+        _setBlobHashes(1);
+
+        // Set prover to address(0) - no auction winner
+        proverAuction.setProver(address(0), PROVER_FEE_GWEI);
+        // Proposer has sufficient bond (defaultBondCheck = true)
+        proverAuction.setHasSufficientBond(proposer, true);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        ProposedEvent memory payload = _proposeAndDecode(input);
+
+        // Proposer becomes the designated prover
+        assertEq(payload.designatedProver, proposer, "proposer should be designated prover");
+        assertEq(payload.id, 1, "proposal id");
+    }
+
+    /// @notice Test propose reverts when no auction winner and proposer lacks sufficient bond
+    function test_propose_RevertWhen_NoAuctionWinner_ProposerLacksBond() public {
+        _setBlobHashes(1);
+
+        // Set prover to address(0) - no auction winner
+        proverAuction.setProver(address(0), PROVER_FEE_GWEI);
+        // Proposer does NOT have sufficient bond
+        proverAuction.setDefaultBondCheck(false);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+
+        vm.expectRevert(Inbox.InvalidSelfProverBond.selector);
+        vm.prank(proposer);
+        inbox.propose{ value: proverFeeWei }(bytes(""), encodedInput);
+    }
+
+    /// @notice Test propose with self-prover receives correct ETH refund
+    function test_propose_selfProver_ReceivesRefund() public {
+        _setBlobHashes(1);
+
+        // Set prover to address(0) - no auction winner
+        proverAuction.setProver(address(0), PROVER_FEE_GWEI);
+        proverAuction.setHasSufficientBond(proposer, true);
+
+        uint256 proverFeeWei = uint256(PROVER_FEE_GWEI) * 1 gwei;
+        uint256 extraEth = 0.5 ether;
+        uint256 totalSent = proverFeeWei + extraEth;
+
+        uint256 proposerBalanceBefore = proposer.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: totalSent }(bytes(""), encodedInput);
+
+        // When proposer is designated prover, the prover fee is sent to themselves
+        // So proposer pays proverFee but receives it back, net cost should be 0
+        // They also get back the extraEth
+        uint256 proposerBalanceAfter = proposer.balance;
+
+        // The proposer sent totalSent, received proverFee (as designated prover) + extraEth (refund)
+        // Net balance change should be 0 (totalSent - proverFee - extraEth = 0)
+        assertEq(proposerBalanceAfter, proposerBalanceBefore, "proposer balance unchanged");
+    }
+
+    /// @notice Test propose with self-prover and zero fee
+    function test_propose_selfProver_ZeroFee() public {
+        _setBlobHashes(1);
+
+        // Set prover to address(0) with zero fee
+        proverAuction.setProver(address(0), 0);
+        proverAuction.setHasSufficientBond(proposer, true);
+
+        uint256 proposerBalanceBefore = proposer.balance;
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.prank(proposer);
+        inbox.propose{ value: 0 }(bytes(""), encodedInput);
+
+        // No fee required, balance should be unchanged
+        assertEq(proposer.balance, proposerBalanceBefore, "proposer balance unchanged");
+    }
+
+    /// @notice Test permissionless propose with self-prover
+    function test_propose_permissionless_SelfProver() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        uint256 waitTime = uint256(config.forcedInclusionDelay)
+            * uint256(config.permissionlessInclusionMultiplier);
+        vm.warp(block.timestamp + waitTime + 1);
+        vm.roll(block.number + 1);
+
+        // Set prover to address(0) - no auction winner
+        proverAuction.setProver(address(0), PROVER_FEE_GWEI);
+        proverAuction.setHasSufficientBond(Emma, true);
+
+        // Fund Emma
+        vm.deal(Emma, 100 ether);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.recordLogs();
+        vm.prank(Emma);
+        inbox.propose{ value: uint256(PROVER_FEE_GWEI) * 1 gwei }(bytes(""), encodedInput);
+        ProposedEvent memory payload = _readProposedEvent();
+
+        assertEq(payload.proposer, Emma, "permissionless proposer");
+        assertEq(payload.designatedProver, Emma, "Emma should be designated prover");
+    }
+
+    /// @notice Test permissionless propose fails when caller lacks bond
+    function test_propose_permissionless_RevertWhen_CallerLacksBond() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        uint256 waitTime = uint256(config.forcedInclusionDelay)
+            * uint256(config.permissionlessInclusionMultiplier);
+        vm.warp(block.timestamp + waitTime + 1);
+        vm.roll(block.number + 1);
+
+        // Set prover to address(0) - no auction winner
+        proverAuction.setProver(address(0), PROVER_FEE_GWEI);
+        // Emma does NOT have sufficient bond
+        proverAuction.setDefaultBondCheck(false);
+
+        // Fund Emma
+        vm.deal(Emma, 100 ether);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+
+        vm.expectRevert(Inbox.InvalidSelfProverBond.selector);
+        vm.prank(Emma);
+        inbox.propose{ value: uint256(PROVER_FEE_GWEI) * 1 gwei }(bytes(""), encodedInput);
+    }
 }

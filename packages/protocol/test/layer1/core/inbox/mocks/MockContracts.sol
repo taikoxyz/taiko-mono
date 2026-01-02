@@ -112,8 +112,10 @@ contract MockProverAuction is IProverAuction {
     uint128 public totalSlashedAmount;
 
     mapping(address => bool) public slashedProvers;
+    mapping(address => bool) public hasSufficientBond;
     address public lastSlashedProver;
     address public lastSlashRecipient;
+    bool public defaultBondCheck;
 
     constructor(address _prover, uint32 _feeInGwei) {
         prover = _prover;
@@ -121,11 +123,20 @@ contract MockProverAuction is IProverAuction {
         requiredBond = 10 ether;
         livenessBond = 1 ether;
         ejectionThreshold = 5 ether;
+        defaultBondCheck = true;
     }
 
     function setProver(address _prover, uint32 _feeInGwei) external {
         prover = _prover;
         feeInGwei = _feeInGwei;
+    }
+
+    function setDefaultBondCheck(bool _value) external {
+        defaultBondCheck = _value;
+    }
+
+    function setHasSufficientBond(address _prover, bool _value) external {
+        hasSufficientBond[_prover] = _value;
     }
 
     function bid(uint32) external pure { }
@@ -144,8 +155,9 @@ contract MockProverAuction is IProverAuction {
         emit ProverSlashed(_proverAddr, livenessBond, _recipient, uint128(livenessBond) / 2);
     }
 
-    function checkBondDeferWithdrawal(address) external pure returns (bool success_) {
-        return true;
+    function checkBondDeferWithdrawal(address _prover) external view returns (bool success_) {
+        if (hasSufficientBond[_prover]) return true;
+        return defaultBondCheck;
     }
 
     function getProver() external view returns (address prover_, uint32 feeInGwei_) {
