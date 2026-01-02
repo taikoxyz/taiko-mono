@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main, move-bond-l1-client]
+    branches: [main]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
