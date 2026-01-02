@@ -1,9 +1,9 @@
 {
   "packages/blobindexer-rs": "0.2.0",
   "packages/bridge-ui": "2.15.0",
-  "packages/docs-site": "1.32.3",
+  "packages/docs-site": "1.32.6",
   "packages/eventindexer": "0.13.0",
-  "packages/ejector": "0.1.0",
+  "packages/ejector": "0.4.0",
   "packages/fork-diff": "0.7.0",
   "packages/protocol": "2.3.0",
   "packages/relayer": "0.12.0",

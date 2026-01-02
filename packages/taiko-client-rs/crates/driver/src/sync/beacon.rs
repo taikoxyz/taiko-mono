@@ -12,7 +12,7 @@ use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
 use anyhow::anyhow;
-use metrics::gauge;
+use metrics::{counter, gauge};
 use rpc::{client::Client, error::RpcClientError, l1_origin::L1Origin};
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, info, instrument, warn};
@@ -151,6 +151,7 @@ where
             return Err(SyncError::CheckpointNoOrigin);
         };
 
+        gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
         info!(?checkpoint_head, "initial checkpoint head");
         debug!(?checkpoint_head, "fetched initial checkpoint head");
 
@@ -174,7 +175,7 @@ where
             let local_head =
                 match self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from) {
                     Ok(block_id) => {
-                        gauge!(DriverMetrics::BEACON_HEAD_BLOCK_ID).set(block_id as f64);
+                        gauge!(DriverMetrics::BEACON_SYNC_LOCAL_HEAD_BLOCK).set(block_id as f64);
                         block_id
                     }
                     Err(err) => {
@@ -188,6 +189,9 @@ where
                 .await
                 .map_err(SyncError::CheckpointQuery)?
                 .ok_or(SyncError::CheckpointNoOrigin)?;
+            gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
+            gauge!(DriverMetrics::BEACON_SYNC_HEAD_LAG_BLOCKS)
+                .set(checkpoint_head.saturating_sub(local_head) as f64);
 
             if checkpoint_head > local_head {
                 info!(
@@ -219,6 +223,7 @@ where
                         error: err.into(),
                     }
                 })?;
+                counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
             } else {
                 info!(
                     checkpoint_head,

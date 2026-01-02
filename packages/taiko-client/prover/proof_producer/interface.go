@@ -30,84 +30,143 @@ type ProofRequestOptions interface {
 	ShastaOptions() *ProofRequestOptionsShasta
 	GetProverAddress() common.Address
 	GetRawBlockHash() common.Hash
+	IsGethProofGenerated() bool
+	IsGethProofAggregationGenerated() bool
+	IsRethProofGenerated() bool
+	IsRethProofAggregationGenerated() bool
 }
 
 // ProofRequestOptionsPacaya contains all options that need to be passed to a backend proof producer service.
 type ProofRequestOptionsPacaya struct {
-	BatchID                         *big.Int
-	Headers                         []*types.Header
-	ProverAddress                   common.Address
-	EventL1Hash                     common.Hash
-	IsGethProofGenerated            bool
-	IsGethProofAggregationGenerated bool
-	IsRethProofGenerated            bool
-	IsRethProofAggregationGenerated bool
+	BatchID                       *big.Int
+	Headers                       []*types.Header
+	ProverAddress                 common.Address
+	EventL1Hash                   common.Hash
+	GethProofGenerated            bool
+	GethProofAggregationGenerated bool
+	RethProofGenerated            bool
+	RethProofAggregationGenerated bool
+}
+
+// Checkpoint represents a checkpoint for the proposal in protocol.
+type Checkpoint struct {
+	BlockNumber *big.Int
+	BlockHash   common.Hash
+	StateRoot   common.Hash
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.
-func (o *ProofRequestOptionsPacaya) IsPacaya() bool {
+func (p *ProofRequestOptionsPacaya) IsPacaya() bool {
 	return true
 }
 
 // IsShasta implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsPacaya) IsShasta() bool {
+func (p *ProofRequestOptionsPacaya) IsShasta() bool {
 	return false
 }
 
 // PacayaOptions implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsPacaya) PacayaOptions() *ProofRequestOptionsPacaya {
-	return o
+func (p *ProofRequestOptionsPacaya) PacayaOptions() *ProofRequestOptionsPacaya {
+	return p
 }
 
 // ShastaOptions implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsPacaya) ShastaOptions() *ProofRequestOptionsShasta {
+func (p *ProofRequestOptionsPacaya) ShastaOptions() *ProofRequestOptionsShasta {
 	return nil
 }
 
 // GetProverAddress implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsPacaya) GetProverAddress() common.Address {
-	return o.ProverAddress
+func (p *ProofRequestOptionsPacaya) GetProverAddress() common.Address {
+	return p.ProverAddress
 }
 
 // GetRawBlockHash implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsPacaya) GetRawBlockHash() common.Hash {
-	return o.EventL1Hash
+func (p *ProofRequestOptionsPacaya) GetRawBlockHash() common.Hash {
+	return p.EventL1Hash
 }
 
-// ProofRequestOptionsPacaya contains all options that need to be passed to a backend proof producer service.
+// IsGethProofGenerated implements the ProofRequestOptions interface.
+func (p *ProofRequestOptionsPacaya) IsGethProofGenerated() bool {
+	return p.GethProofGenerated
+}
+
+// IsGethProofAggregationGenerated implements the ProofRequestOptions interface.
+func (p *ProofRequestOptionsPacaya) IsGethProofAggregationGenerated() bool {
+	return p.GethProofAggregationGenerated
+}
+
+// IsRethProofGenerated implements the ProofRequestOptions interface.
+func (p *ProofRequestOptionsPacaya) IsRethProofGenerated() bool {
+	return p.RethProofGenerated
+}
+
+// IsRethProofAggregationGenerated implements the ProofRequestOptions interface.
+func (p *ProofRequestOptionsPacaya) IsRethProofAggregationGenerated() bool {
+	return p.RethProofAggregationGenerated
+}
+
+// ProofRequestOptionsShasta contains all options that need to be passed to a backend proof producer service.
 type ProofRequestOptionsShasta struct {
-	BatchID       *big.Int
-	Headers       []*types.Header
-	ProverAddress common.Address
-	EventL1Hash   common.Hash
+	ProposalID                    *big.Int
+	Headers                       []*types.Header
+	ProverAddress                 common.Address
+	EventL1Hash                   common.Hash
+	GethProofGenerated            bool
+	GethProofAggregationGenerated bool
+	RethProofGenerated            bool
+	RethProofAggregationGenerated bool
+	L2BlockNums                   []*big.Int
+	DesignatedProver              common.Address
+	Checkpoint                    *Checkpoint
+	LastAnchorBlockNumber         *big.Int
 }
 
 // IsPacaya implemenwts the ProofRequestOptions interface.
-func (o *ProofRequestOptionsShasta) IsPacaya() bool {
+func (s *ProofRequestOptionsShasta) IsPacaya() bool {
 	return false
 }
 
 // IsShasta implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsShasta) IsShasta() bool {
+func (s *ProofRequestOptionsShasta) IsShasta() bool {
 	return true
 }
 
 // PacayaOptions implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsShasta) PacayaOptions() *ProofRequestOptionsPacaya {
+func (s *ProofRequestOptionsShasta) PacayaOptions() *ProofRequestOptionsPacaya {
 	return nil
 }
 
 // ShastaOptions implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsShasta) ShastaOptions() *ProofRequestOptionsShasta {
-	return o
+func (s *ProofRequestOptionsShasta) ShastaOptions() *ProofRequestOptionsShasta {
+	return s
 }
 
 // GetProverAddress implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsShasta) GetProverAddress() common.Address {
-	return o.ProverAddress
+func (s *ProofRequestOptionsShasta) GetProverAddress() common.Address {
+	return s.ProverAddress
 }
 
 // GetRawBlockHash implements the ProofRequestOptions interface.
-func (o *ProofRequestOptionsShasta) GetRawBlockHash() common.Hash {
-	return o.EventL1Hash
+func (s *ProofRequestOptionsShasta) GetRawBlockHash() common.Hash {
+	return s.EventL1Hash
+}
+
+// IsGethProofGenerated implements the ProofRequestOptions interface.
+func (s *ProofRequestOptionsShasta) IsGethProofGenerated() bool {
+	return s.GethProofGenerated
+}
+
+// IsGethProofAggregationGenerated implements the ProofRequestOptions interface.
+func (s *ProofRequestOptionsShasta) IsGethProofAggregationGenerated() bool {
+	return s.GethProofAggregationGenerated
+}
+
+// IsRethProofGenerated implements the ProofRequestOptions interface.
+func (s *ProofRequestOptionsShasta) IsRethProofGenerated() bool {
+	return s.RethProofGenerated
+}
+
+// IsRethProofAggregationGenerated implements the ProofRequestOptions interface.
+func (s *ProofRequestOptionsShasta) IsRethProofAggregationGenerated() bool {
+	return s.RethProofAggregationGenerated
 }

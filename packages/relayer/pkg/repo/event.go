@@ -262,6 +262,54 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	return uint64(blockID), nil
 }
 
+func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
+	ctx context.Context,
+	chainId uint64,
+	syncedChainId uint64,
+	blockNumber uint64,
+) (*relayer.Event, error) {
+	e := &relayer.Event{}
+
+	if err := r.db.GormDB().WithContext(ctx).Where("name = ?", relayer.EventNameCheckpointSaved).
+		Where("chain_id = ?", chainId).
+		Where("synced_chain_id = ?", syncedChainId).
+		Where("block_id >= ?", blockNumber).
+		Order("block_id DESC").
+		Limit(1).
+		First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "r.db.First")
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) LatestCheckpointSyncedEvent(
+	ctx context.Context,
+	chainId uint64,
+	syncedChainId uint64,
+) (uint64, error) {
+	blockID := 0
+
+	if err := r.db.GormDB().WithContext(ctx).Table("events").
+		Where("name = ?", relayer.EventNameCheckpointSaved).
+		Where("chain_id = ?", chainId).
+		Where("synced_chain_id = ?", syncedChainId).
+		Select("COALESCE(MAX(block_id), 0)").
+		Scan(&blockID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return 0, nil
+		}
+
+		return 0, errors.Wrap(err, "r.db.First")
+	}
+
+	return uint64(blockID), nil
+}
+
 // DeleteAllAfterBlockID is used when a reorg is detected
 func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error {
 	query := `

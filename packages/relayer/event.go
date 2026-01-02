@@ -12,10 +12,12 @@ import (
 )
 
 var (
-	EventNameMessageSent          = "MessageSent"
-	EventNameMessageStatusChanged = "MessageStatusChanged"
-	EventNameMessageProcessed     = "MessageProcessed"
-	EventNameChainDataSynced      = "ChainDataSynced"
+	EventNameMessageSent            = "MessageSent"
+	EventNameMessageStatusChanged   = "MessageStatusChanged"
+	EventNameMessageProcessed       = "MessageProcessed"
+	EventNameChainDataSynced        = "ChainDataSynced"
+	EventNameCheckpointSaved        = "CheckpointSaved"
+	EventNameBondInstructionCreated = "BondInstructionCreated"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -37,6 +39,7 @@ const (
 	EventTypeSendERC20
 	EventTypeSendERC721
 	EventTypeSendERC1155
+	EventTypeBondInstruction
 )
 
 // String returns string representation of an event status for logging
@@ -45,7 +48,7 @@ func (e EventStatus) String() string {
 }
 
 func (e EventType) String() string {
-	return [...]string{"sendETH", "sendERC20", "sendERC721", "sendERC1155"}[e]
+	return [...]string{"sendETH", "sendERC20", "sendERC721", "sendERC1155", "bondInstruction"}[e]
 }
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -156,6 +159,17 @@ type EventRepository interface {
 	LatestChainDataSyncedEvent(
 		ctx context.Context,
 		srcChainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
+	CheckpointSyncedEventByBlockNumberOrGreater(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*Event, error)
+	LatestCheckpointSyncedEvent(
+		ctx context.Context,
+		chainId uint64,
 		syncedChainId uint64,
 	) (uint64, error)
 	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error

@@ -35,17 +35,25 @@ type IForcedInclusionStoreForcedInclusion struct {
 	BlobSlice LibBlobsBlobSlice
 }
 
+// IInboxCommitment is an auto generated low-level Go binding around an user-defined struct.
+type IInboxCommitment struct {
+	FirstProposalId              *big.Int
+	FirstProposalParentBlockHash [32]byte
+	LastProposalHash             [32]byte
+	ActualProver                 common.Address
+	EndBlockNumber               *big.Int
+	EndStateRoot                 [32]byte
+	Transitions                  []IInboxTransition
+}
+
 // IInboxConfig is an auto generated low-level Go binding around an user-defined struct.
 type IInboxConfig struct {
-	Codec                             common.Address
-	BondToken                         common.Address
-	CheckpointStore                   common.Address
 	ProofVerifier                     common.Address
 	ProposerChecker                   common.Address
+	ProverWhitelist                   common.Address
+	SignalService                     common.Address
 	ProvingWindow                     *big.Int
-	ExtendedProvingWindow             *big.Int
-	MaxFinalizationCount              *big.Int
-	FinalizationGracePeriod           *big.Int
+	MaxProofSubmissionDelay           *big.Int
 	RingBufferSize                    *big.Int
 	BasefeeSharingPctg                uint8
 	MinForcedInclusionCount           *big.Int
@@ -54,7 +62,56 @@ type IInboxConfig struct {
 	ForcedInclusionFeeDoubleThreshold uint64
 	MinCheckpointDelay                uint16
 	PermissionlessInclusionMultiplier uint8
-	CompositeKeyVersion               uint16
+}
+
+// IInboxCoreState is an auto generated low-level Go binding around an user-defined struct.
+type IInboxCoreState struct {
+	NextProposalId          *big.Int
+	LastProposalBlockId     *big.Int
+	LastFinalizedProposalId *big.Int
+	LastFinalizedTimestamp  *big.Int
+	LastCheckpointTimestamp *big.Int
+	LastFinalizedBlockHash  [32]byte
+}
+
+// IInboxDerivationSource is an auto generated low-level Go binding around an user-defined struct.
+type IInboxDerivationSource struct {
+	IsForcedInclusion bool
+	BlobSlice         LibBlobsBlobSlice
+}
+
+// IInboxProposal is an auto generated low-level Go binding around an user-defined struct.
+type IInboxProposal struct {
+	Id                             *big.Int
+	Timestamp                      *big.Int
+	EndOfSubmissionWindowTimestamp *big.Int
+	Proposer                       common.Address
+	ParentProposalHash             [32]byte
+	OriginBlockNumber              *big.Int
+	OriginBlockHash                [32]byte
+	BasefeeSharingPctg             uint8
+	Sources                        []IInboxDerivationSource
+}
+
+// IInboxProposeInput is an auto generated low-level Go binding around an user-defined struct.
+type IInboxProposeInput struct {
+	Deadline            *big.Int
+	BlobReference       LibBlobsBlobReference
+	NumForcedInclusions uint8
+}
+
+// IInboxProveInput is an auto generated low-level Go binding around an user-defined struct.
+type IInboxProveInput struct {
+	Commitment          IInboxCommitment
+	ForceCheckpointSync bool
+}
+
+// IInboxTransition is an auto generated low-level Go binding around an user-defined struct.
+type IInboxTransition struct {
+	Proposer         common.Address
+	DesignatedProver common.Address
+	Timestamp        *big.Int
+	BlockHash        [32]byte
 }
 
 // LibBlobsBlobReference is an auto generated low-level Go binding around an user-defined struct.
@@ -71,9 +128,17 @@ type LibBlobsBlobSlice struct {
 	Timestamp  *big.Int
 }
 
+// LibBondsBondInstruction is an auto generated low-level Go binding around an user-defined struct.
+type LibBondsBondInstruction struct {
+	ProposalId *big.Int
+	BondType   uint8
+	Payer      common.Address
+	Payee      common.Address
+}
+
 // ShastaInboxClientMetaData contains all meta data concerning the ShastaInboxClient contract.
 var ShastaInboxClientMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_codec\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_proofVerifier\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_proposerChecker\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activate\",\"inputs\":[{\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"conflictingTransitionDetected\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"config_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Config\",\"components\":[{\"name\":\"codec\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bondToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"checkpointStore\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofVerifier\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposerChecker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"extendedProvingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"maxFinalizationCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"finalizationGracePeriod\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"ringBufferSize\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"minForcedInclusionCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"forcedInclusionDelay\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"forcedInclusionFeeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"forcedInclusionFeeDoubleThreshold\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minCheckpointDelay\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"permissionlessInclusionMultiplier\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"compositeKeyVersion\",\"type\":\"uint16\",\"internalType\":\"uint16\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentForcedInclusionFee\",\"inputs\":[],\"outputs\":[{\"name\":\"feeInGwei_\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getForcedInclusionState\",\"inputs\":[],\"outputs\":[{\"name\":\"head_\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"tail_\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProcessedAt_\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getForcedInclusions\",\"inputs\":[{\"name\":\"_start\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_maxCount\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"outputs\":[{\"name\":\"inclusions_\",\"type\":\"tuple[]\",\"internalType\":\"structIForcedInclusionStore.ForcedInclusion[]\",\"components\":[{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposalHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"outputs\":[{\"name\":\"proposalHash_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTransitionRecordHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"finalizationDeadline_\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"recordHash_\",\"type\":\"bytes26\",\"internalType\":\"bytes26\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"shastaInitializer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"propose\",\"inputs\":[{\"name\":\"_lookahead\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"prove\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"saveForcedInclusion\",\"inputs\":[{\"name\":\"_blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionSaved\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proposed\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proved\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransitionConflictDetected\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransitionDuplicateDetected\",\"inputs\":[],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CannotProposeInCurrentBlock\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CheckpointMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CheckpointNotProvided\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"DeadlineExceeded\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyProposals\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InconsistentLengths\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InconsistentParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectProposalCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCoreState\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidLastProposalProof\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSpan\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidState\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint16\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NextProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlobs\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBondToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotEnoughCapacity\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalHashMismatchWithTransition\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalTransitionLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RingBufferSizeZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SpanOutOfBounds\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionRecordHashMismatchWithStorage\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionRecordNotProvided\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UnprocessedForcedInclusionIsDue\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_proofVerifier\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_proposerChecker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_proverWhitelist\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activate\",\"inputs\":[{\"name\":\"_lastPacayaBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activationTimestamp\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"input_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"commitment\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Commitment\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"endBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"forceCheckpointSync\",\"type\":\"bool\",\"internalType\":\"bool\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"commitment\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Commitment\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"endBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]},{\"name\":\"forceCheckpointSync\",\"type\":\"bool\",\"internalType\":\"bool\"}]}],\"outputs\":[{\"name\":\"encoded_\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"config_\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Config\",\"components\":[{\"name\":\"proofVerifier\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposerChecker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proverWhitelist\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"signalService\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"maxProofSubmissionDelay\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"ringBufferSize\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"minForcedInclusionCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"forcedInclusionDelay\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"forcedInclusionFeeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"forcedInclusionFeeDoubleThreshold\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minCheckpointDelay\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"permissionlessInclusionMultiplier\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCoreState\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastProposalBlockId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastCheckpointTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentForcedInclusionFee\",\"inputs\":[],\"outputs\":[{\"name\":\"feeInGwei_\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getForcedInclusionState\",\"inputs\":[],\"outputs\":[{\"name\":\"head_\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"tail_\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getForcedInclusions\",\"inputs\":[{\"name\":\"_start\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_maxCount\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"outputs\":[{\"name\":\"inclusions_\",\"type\":\"tuple[]\",\"internalType\":\"structIForcedInclusionStore.ForcedInclusion[]\",\"components\":[{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposalHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"hashBondInstruction\",\"inputs\":[{\"name\":\"_bondInstruction\",\"type\":\"tuple\",\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashCommitment\",\"inputs\":[{\"name\":\"_commitment\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Commitment\",\"components\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"firstProposalParentBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"lastProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"endBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"hashProposal\",\"inputs\":[{\"name\":\"_proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"parentProposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"propose\",\"inputs\":[{\"name\":\"_lookahead\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"prove\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"saveForcedInclusion\",\"inputs\":[{\"name\":\"_blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondInstructionCreated\",\"inputs\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"indexed\":true,\"internalType\":\"uint48\"},{\"name\":\"bondInstruction\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structLibBonds.BondInstruction\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"payee\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionSaved\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"InboxActivated\",\"inputs\":[{\"name\":\"lastPacayaBlockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proposed\",\"inputs\":[{\"name\":\"id\",\"type\":\"uint48\",\"indexed\":true,\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"parentProposalHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"endOfSubmissionWindowTimestamp\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"sources\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structIInbox.DerivationSource[]\",\"components\":[{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proved\",\"inputs\":[{\"name\":\"firstProposalId\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"firstNewProposalId\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"lastProposalId\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"actualProver\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"checkpointSynced\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ActivationRequired\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CannotProposeInCurrentBlock\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CheckpointDelayHasPassed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"DeadlineExceeded\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyBatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FirstProposalIdTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectProposalCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LastProposalAlreadyFinalized\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LastProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LastProposalIdTooLarge\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint16\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlobs\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotEnoughCapacity\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ParentBlockHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProverNotWhitelisted\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UnprocessedForcedInclusionIsDue\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ShastaInboxClientABI is the input ABI used to generate the binding from.
@@ -222,40 +287,164 @@ func (_ShastaInboxClient *ShastaInboxClientTransactorRaw) Transact(opts *bind.Tr
 	return _ShastaInboxClient.Contract.contract.Transact(opts, method, params...)
 }
 
-// ConflictingTransitionDetected is a free data retrieval call binding the contract method 0x1ad4dd62.
+// ActivationTimestamp is a free data retrieval call binding the contract method 0x0423c7de.
 //
-// Solidity: function conflictingTransitionDetected() view returns(bool)
-func (_ShastaInboxClient *ShastaInboxClientCaller) ConflictingTransitionDetected(opts *bind.CallOpts) (bool, error) {
+// Solidity: function activationTimestamp() view returns(uint48)
+func (_ShastaInboxClient *ShastaInboxClientCaller) ActivationTimestamp(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _ShastaInboxClient.contract.Call(opts, &out, "conflictingTransitionDetected")
+	err := _ShastaInboxClient.contract.Call(opts, &out, "activationTimestamp")
 
 	if err != nil {
-		return *new(bool), err
+		return *new(*big.Int), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
 
 }
 
-// ConflictingTransitionDetected is a free data retrieval call binding the contract method 0x1ad4dd62.
+// ActivationTimestamp is a free data retrieval call binding the contract method 0x0423c7de.
 //
-// Solidity: function conflictingTransitionDetected() view returns(bool)
-func (_ShastaInboxClient *ShastaInboxClientSession) ConflictingTransitionDetected() (bool, error) {
-	return _ShastaInboxClient.Contract.ConflictingTransitionDetected(&_ShastaInboxClient.CallOpts)
+// Solidity: function activationTimestamp() view returns(uint48)
+func (_ShastaInboxClient *ShastaInboxClientSession) ActivationTimestamp() (*big.Int, error) {
+	return _ShastaInboxClient.Contract.ActivationTimestamp(&_ShastaInboxClient.CallOpts)
 }
 
-// ConflictingTransitionDetected is a free data retrieval call binding the contract method 0x1ad4dd62.
+// ActivationTimestamp is a free data retrieval call binding the contract method 0x0423c7de.
 //
-// Solidity: function conflictingTransitionDetected() view returns(bool)
-func (_ShastaInboxClient *ShastaInboxClientCallerSession) ConflictingTransitionDetected() (bool, error) {
-	return _ShastaInboxClient.Contract.ConflictingTransitionDetected(&_ShastaInboxClient.CallOpts)
+// Solidity: function activationTimestamp() view returns(uint48)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) ActivationTimestamp() (*big.Int, error) {
+	return _ShastaInboxClient.Contract.ActivationTimestamp(&_ShastaInboxClient.CallOpts)
+}
+
+// DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
+//
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
+func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProposeInput(opts *bind.CallOpts, _data []byte) (IInboxProposeInput, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "decodeProposeInput", _data)
+
+	if err != nil {
+		return *new(IInboxProposeInput), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(IInboxProposeInput)).(*IInboxProposeInput)
+
+	return out0, err
+
+}
+
+// DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
+//
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
+func (_ShastaInboxClient *ShastaInboxClientSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
+	return _ShastaInboxClient.Contract.DecodeProposeInput(&_ShastaInboxClient.CallOpts, _data)
+}
+
+// DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
+//
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint16,uint16,uint24),uint8) input_)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
+	return _ShastaInboxClient.Contract.DecodeProposeInput(&_ShastaInboxClient.CallOpts, _data)
+}
+
+// DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
+//
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool) input_)
+func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProveInput(opts *bind.CallOpts, _data []byte) (IInboxProveInput, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "decodeProveInput", _data)
+
+	if err != nil {
+		return *new(IInboxProveInput), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(IInboxProveInput)).(*IInboxProveInput)
+
+	return out0, err
+
+}
+
+// DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
+//
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool) input_)
+func (_ShastaInboxClient *ShastaInboxClientSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
+	return _ShastaInboxClient.Contract.DecodeProveInput(&_ShastaInboxClient.CallOpts, _data)
+}
+
+// DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
+//
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool) input_)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
+	return _ShastaInboxClient.Contract.DecodeProveInput(&_ShastaInboxClient.CallOpts, _data)
+}
+
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
+//
+// Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
+func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposeInput(opts *bind.CallOpts, _input IInboxProposeInput) ([]byte, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "encodeProposeInput", _input)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
+//
+// Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
+func (_ShastaInboxClient *ShastaInboxClientSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
+	return _ShastaInboxClient.Contract.EncodeProposeInput(&_ShastaInboxClient.CallOpts, _input)
+}
+
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x2f1969b0.
+//
+// Solidity: function encodeProposeInput((uint48,(uint16,uint16,uint24),uint8) _input) pure returns(bytes encoded_)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
+	return _ShastaInboxClient.Contract.EncodeProposeInput(&_ShastaInboxClient.CallOpts, _input)
+}
+
+// EncodeProveInput is a free data retrieval call binding the contract method 0xc3d3e2f4.
+//
+// Solidity: function encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool) _input) pure returns(bytes encoded_)
+func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProveInput(opts *bind.CallOpts, _input IInboxProveInput) ([]byte, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "encodeProveInput", _input)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+// EncodeProveInput is a free data retrieval call binding the contract method 0xc3d3e2f4.
+//
+// Solidity: function encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool) _input) pure returns(bytes encoded_)
+func (_ShastaInboxClient *ShastaInboxClientSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
+	return _ShastaInboxClient.Contract.EncodeProveInput(&_ShastaInboxClient.CallOpts, _input)
+}
+
+// EncodeProveInput is a free data retrieval call binding the contract method 0xc3d3e2f4.
+//
+// Solidity: function encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool) _input) pure returns(bytes encoded_)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
+	return _ShastaInboxClient.Contract.EncodeProveInput(&_ShastaInboxClient.CallOpts, _input)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() view returns((address,address,address,address,address,uint48,uint48,uint256,uint48,uint256,uint8,uint256,uint16,uint64,uint64,uint16,uint8,uint16) config_)
+// Solidity: function getConfig() view returns((address,address,address,address,uint48,uint48,uint256,uint8,uint256,uint16,uint64,uint64,uint16,uint8) config_)
 func (_ShastaInboxClient *ShastaInboxClientCaller) GetConfig(opts *bind.CallOpts) (IInboxConfig, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "getConfig")
@@ -272,16 +461,47 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) GetConfig(opts *bind.CallOpts
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() view returns((address,address,address,address,address,uint48,uint48,uint256,uint48,uint256,uint8,uint256,uint16,uint64,uint64,uint16,uint8,uint16) config_)
+// Solidity: function getConfig() view returns((address,address,address,address,uint48,uint48,uint256,uint8,uint256,uint16,uint64,uint64,uint16,uint8) config_)
 func (_ShastaInboxClient *ShastaInboxClientSession) GetConfig() (IInboxConfig, error) {
 	return _ShastaInboxClient.Contract.GetConfig(&_ShastaInboxClient.CallOpts)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() view returns((address,address,address,address,address,uint48,uint48,uint256,uint48,uint256,uint8,uint256,uint16,uint64,uint64,uint16,uint8,uint16) config_)
+// Solidity: function getConfig() view returns((address,address,address,address,uint48,uint48,uint256,uint8,uint256,uint16,uint64,uint64,uint16,uint8) config_)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetConfig() (IInboxConfig, error) {
 	return _ShastaInboxClient.Contract.GetConfig(&_ShastaInboxClient.CallOpts)
+}
+
+// GetCoreState is a free data retrieval call binding the contract method 0x6aa6a01a.
+//
+// Solidity: function getCoreState() view returns((uint48,uint48,uint48,uint48,uint48,bytes32))
+func (_ShastaInboxClient *ShastaInboxClientCaller) GetCoreState(opts *bind.CallOpts) (IInboxCoreState, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "getCoreState")
+
+	if err != nil {
+		return *new(IInboxCoreState), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(IInboxCoreState)).(*IInboxCoreState)
+
+	return out0, err
+
+}
+
+// GetCoreState is a free data retrieval call binding the contract method 0x6aa6a01a.
+//
+// Solidity: function getCoreState() view returns((uint48,uint48,uint48,uint48,uint48,bytes32))
+func (_ShastaInboxClient *ShastaInboxClientSession) GetCoreState() (IInboxCoreState, error) {
+	return _ShastaInboxClient.Contract.GetCoreState(&_ShastaInboxClient.CallOpts)
+}
+
+// GetCoreState is a free data retrieval call binding the contract method 0x6aa6a01a.
+//
+// Solidity: function getCoreState() view returns((uint48,uint48,uint48,uint48,uint48,bytes32))
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetCoreState() (IInboxCoreState, error) {
+	return _ShastaInboxClient.Contract.GetCoreState(&_ShastaInboxClient.CallOpts)
 }
 
 // GetCurrentForcedInclusionFee is a free data retrieval call binding the contract method 0xe3053335.
@@ -317,19 +537,17 @@ func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetCurrentForcedInclus
 
 // GetForcedInclusionState is a free data retrieval call binding the contract method 0x5ccc1718.
 //
-// Solidity: function getForcedInclusionState() view returns(uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+// Solidity: function getForcedInclusionState() view returns(uint48 head_, uint48 tail_)
 func (_ShastaInboxClient *ShastaInboxClientCaller) GetForcedInclusionState(opts *bind.CallOpts) (struct {
-	Head            *big.Int
-	Tail            *big.Int
-	LastProcessedAt *big.Int
+	Head *big.Int
+	Tail *big.Int
 }, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "getForcedInclusionState")
 
 	outstruct := new(struct {
-		Head            *big.Int
-		Tail            *big.Int
-		LastProcessedAt *big.Int
+		Head *big.Int
+		Tail *big.Int
 	})
 	if err != nil {
 		return *outstruct, err
@@ -337,7 +555,6 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) GetForcedInclusionState(opts 
 
 	outstruct.Head = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	outstruct.Tail = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-	outstruct.LastProcessedAt = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -345,22 +562,20 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) GetForcedInclusionState(opts 
 
 // GetForcedInclusionState is a free data retrieval call binding the contract method 0x5ccc1718.
 //
-// Solidity: function getForcedInclusionState() view returns(uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+// Solidity: function getForcedInclusionState() view returns(uint48 head_, uint48 tail_)
 func (_ShastaInboxClient *ShastaInboxClientSession) GetForcedInclusionState() (struct {
-	Head            *big.Int
-	Tail            *big.Int
-	LastProcessedAt *big.Int
+	Head *big.Int
+	Tail *big.Int
 }, error) {
 	return _ShastaInboxClient.Contract.GetForcedInclusionState(&_ShastaInboxClient.CallOpts)
 }
 
 // GetForcedInclusionState is a free data retrieval call binding the contract method 0x5ccc1718.
 //
-// Solidity: function getForcedInclusionState() view returns(uint48 head_, uint48 tail_, uint48 lastProcessedAt_)
+// Solidity: function getForcedInclusionState() view returns(uint48 head_, uint48 tail_)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetForcedInclusionState() (struct {
-	Head            *big.Int
-	Tail            *big.Int
-	LastProcessedAt *big.Int
+	Head *big.Int
+	Tail *big.Int
 }, error) {
 	return _ShastaInboxClient.Contract.GetForcedInclusionState(&_ShastaInboxClient.CallOpts)
 }
@@ -396,9 +611,9 @@ func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetForcedInclusions(_s
 	return _ShastaInboxClient.Contract.GetForcedInclusions(&_ShastaInboxClient.CallOpts, _start, _maxCount)
 }
 
-// GetProposalHash is a free data retrieval call binding the contract method 0x0bb54ffd.
+// GetProposalHash is a free data retrieval call binding the contract method 0xa834725a.
 //
-// Solidity: function getProposalHash(uint48 _proposalId) view returns(bytes32 proposalHash_)
+// Solidity: function getProposalHash(uint256 _proposalId) view returns(bytes32)
 func (_ShastaInboxClient *ShastaInboxClientCaller) GetProposalHash(opts *bind.CallOpts, _proposalId *big.Int) ([32]byte, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "getProposalHash", _proposalId)
@@ -413,63 +628,111 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) GetProposalHash(opts *bind.Ca
 
 }
 
-// GetProposalHash is a free data retrieval call binding the contract method 0x0bb54ffd.
+// GetProposalHash is a free data retrieval call binding the contract method 0xa834725a.
 //
-// Solidity: function getProposalHash(uint48 _proposalId) view returns(bytes32 proposalHash_)
+// Solidity: function getProposalHash(uint256 _proposalId) view returns(bytes32)
 func (_ShastaInboxClient *ShastaInboxClientSession) GetProposalHash(_proposalId *big.Int) ([32]byte, error) {
 	return _ShastaInboxClient.Contract.GetProposalHash(&_ShastaInboxClient.CallOpts, _proposalId)
 }
 
-// GetProposalHash is a free data retrieval call binding the contract method 0x0bb54ffd.
+// GetProposalHash is a free data retrieval call binding the contract method 0xa834725a.
 //
-// Solidity: function getProposalHash(uint48 _proposalId) view returns(bytes32 proposalHash_)
+// Solidity: function getProposalHash(uint256 _proposalId) view returns(bytes32)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetProposalHash(_proposalId *big.Int) ([32]byte, error) {
 	return _ShastaInboxClient.Contract.GetProposalHash(&_ShastaInboxClient.CallOpts, _proposalId)
 }
 
-// GetTransitionRecordHash is a free data retrieval call binding the contract method 0xba2850bf.
+// HashBondInstruction is a free data retrieval call binding the contract method 0x5a213615.
 //
-// Solidity: function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash) view returns(uint48 finalizationDeadline_, bytes26 recordHash_)
-func (_ShastaInboxClient *ShastaInboxClientCaller) GetTransitionRecordHash(opts *bind.CallOpts, _proposalId *big.Int, _parentTransitionHash [32]byte) (struct {
-	FinalizationDeadline *big.Int
-	RecordHash           [26]byte
-}, error) {
+// Solidity: function hashBondInstruction((uint48,uint8,address,address) _bondInstruction) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientCaller) HashBondInstruction(opts *bind.CallOpts, _bondInstruction LibBondsBondInstruction) ([32]byte, error) {
 	var out []interface{}
-	err := _ShastaInboxClient.contract.Call(opts, &out, "getTransitionRecordHash", _proposalId, _parentTransitionHash)
+	err := _ShastaInboxClient.contract.Call(opts, &out, "hashBondInstruction", _bondInstruction)
 
-	outstruct := new(struct {
-		FinalizationDeadline *big.Int
-		RecordHash           [26]byte
-	})
 	if err != nil {
-		return *outstruct, err
+		return *new([32]byte), err
 	}
 
-	outstruct.FinalizationDeadline = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.RecordHash = *abi.ConvertType(out[1], new([26]byte)).(*[26]byte)
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
 
-	return *outstruct, err
+	return out0, err
 
 }
 
-// GetTransitionRecordHash is a free data retrieval call binding the contract method 0xba2850bf.
+// HashBondInstruction is a free data retrieval call binding the contract method 0x5a213615.
 //
-// Solidity: function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash) view returns(uint48 finalizationDeadline_, bytes26 recordHash_)
-func (_ShastaInboxClient *ShastaInboxClientSession) GetTransitionRecordHash(_proposalId *big.Int, _parentTransitionHash [32]byte) (struct {
-	FinalizationDeadline *big.Int
-	RecordHash           [26]byte
-}, error) {
-	return _ShastaInboxClient.Contract.GetTransitionRecordHash(&_ShastaInboxClient.CallOpts, _proposalId, _parentTransitionHash)
+// Solidity: function hashBondInstruction((uint48,uint8,address,address) _bondInstruction) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientSession) HashBondInstruction(_bondInstruction LibBondsBondInstruction) ([32]byte, error) {
+	return _ShastaInboxClient.Contract.HashBondInstruction(&_ShastaInboxClient.CallOpts, _bondInstruction)
 }
 
-// GetTransitionRecordHash is a free data retrieval call binding the contract method 0xba2850bf.
+// HashBondInstruction is a free data retrieval call binding the contract method 0x5a213615.
 //
-// Solidity: function getTransitionRecordHash(uint48 _proposalId, bytes32 _parentTransitionHash) view returns(uint48 finalizationDeadline_, bytes26 recordHash_)
-func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetTransitionRecordHash(_proposalId *big.Int, _parentTransitionHash [32]byte) (struct {
-	FinalizationDeadline *big.Int
-	RecordHash           [26]byte
-}, error) {
-	return _ShastaInboxClient.Contract.GetTransitionRecordHash(&_ShastaInboxClient.CallOpts, _proposalId, _parentTransitionHash)
+// Solidity: function hashBondInstruction((uint48,uint8,address,address) _bondInstruction) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) HashBondInstruction(_bondInstruction LibBondsBondInstruction) ([32]byte, error) {
+	return _ShastaInboxClient.Contract.HashBondInstruction(&_ShastaInboxClient.CallOpts, _bondInstruction)
+}
+
+// HashCommitment is a free data retrieval call binding the contract method 0xcbc148c3.
+//
+// Solidity: function hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]) _commitment) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientCaller) HashCommitment(opts *bind.CallOpts, _commitment IInboxCommitment) ([32]byte, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "hashCommitment", _commitment)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// HashCommitment is a free data retrieval call binding the contract method 0xcbc148c3.
+//
+// Solidity: function hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]) _commitment) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientSession) HashCommitment(_commitment IInboxCommitment) ([32]byte, error) {
+	return _ShastaInboxClient.Contract.HashCommitment(&_ShastaInboxClient.CallOpts, _commitment)
+}
+
+// HashCommitment is a free data retrieval call binding the contract method 0xcbc148c3.
+//
+// Solidity: function hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]) _commitment) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) HashCommitment(_commitment IInboxCommitment) ([32]byte, error) {
+	return _ShastaInboxClient.Contract.HashCommitment(&_ShastaInboxClient.CallOpts, _commitment)
+}
+
+// HashProposal is a free data retrieval call binding the contract method 0xb28e824e.
+//
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]) _proposal) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientCaller) HashProposal(opts *bind.CallOpts, _proposal IInboxProposal) ([32]byte, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "hashProposal", _proposal)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// HashProposal is a free data retrieval call binding the contract method 0xb28e824e.
+//
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]) _proposal) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
+	return _ShastaInboxClient.Contract.HashProposal(&_ShastaInboxClient.CallOpts, _proposal)
+}
+
+// HashProposal is a free data retrieval call binding the contract method 0xb28e824e.
+//
+// Solidity: function hashProposal((uint48,uint48,uint48,address,bytes32,uint48,bytes32,uint8,(bool,(bytes32[],uint24,uint48))[]) _proposal) pure returns(bytes32)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) HashProposal(_proposal IInboxProposal) ([32]byte, error) {
+	return _ShastaInboxClient.Contract.HashProposal(&_ShastaInboxClient.CallOpts, _proposal)
 }
 
 // Impl is a free data retrieval call binding the contract method 0x8abf6077.
@@ -712,44 +975,44 @@ func (_ShastaInboxClient *ShastaInboxClientTransactorSession) AcceptOwnership() 
 
 // Activate is a paid mutator transaction binding the contract method 0x59db6e85.
 //
-// Solidity: function activate(bytes32 _genesisBlockHash) returns()
-func (_ShastaInboxClient *ShastaInboxClientTransactor) Activate(opts *bind.TransactOpts, _genesisBlockHash [32]byte) (*types.Transaction, error) {
-	return _ShastaInboxClient.contract.Transact(opts, "activate", _genesisBlockHash)
+// Solidity: function activate(bytes32 _lastPacayaBlockHash) returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactor) Activate(opts *bind.TransactOpts, _lastPacayaBlockHash [32]byte) (*types.Transaction, error) {
+	return _ShastaInboxClient.contract.Transact(opts, "activate", _lastPacayaBlockHash)
 }
 
 // Activate is a paid mutator transaction binding the contract method 0x59db6e85.
 //
-// Solidity: function activate(bytes32 _genesisBlockHash) returns()
-func (_ShastaInboxClient *ShastaInboxClientSession) Activate(_genesisBlockHash [32]byte) (*types.Transaction, error) {
-	return _ShastaInboxClient.Contract.Activate(&_ShastaInboxClient.TransactOpts, _genesisBlockHash)
+// Solidity: function activate(bytes32 _lastPacayaBlockHash) returns()
+func (_ShastaInboxClient *ShastaInboxClientSession) Activate(_lastPacayaBlockHash [32]byte) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.Activate(&_ShastaInboxClient.TransactOpts, _lastPacayaBlockHash)
 }
 
 // Activate is a paid mutator transaction binding the contract method 0x59db6e85.
 //
-// Solidity: function activate(bytes32 _genesisBlockHash) returns()
-func (_ShastaInboxClient *ShastaInboxClientTransactorSession) Activate(_genesisBlockHash [32]byte) (*types.Transaction, error) {
-	return _ShastaInboxClient.Contract.Activate(&_ShastaInboxClient.TransactOpts, _genesisBlockHash)
+// Solidity: function activate(bytes32 _lastPacayaBlockHash) returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactorSession) Activate(_lastPacayaBlockHash [32]byte) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.Activate(&_ShastaInboxClient.TransactOpts, _lastPacayaBlockHash)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address shastaInitializer) returns()
-func (_ShastaInboxClient *ShastaInboxClientTransactor) Init(opts *bind.TransactOpts, _owner common.Address, shastaInitializer common.Address) (*types.Transaction, error) {
-	return _ShastaInboxClient.contract.Transact(opts, "init", _owner, shastaInitializer)
+// Solidity: function init(address _owner) returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactor) Init(opts *bind.TransactOpts, _owner common.Address) (*types.Transaction, error) {
+	return _ShastaInboxClient.contract.Transact(opts, "init", _owner)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address shastaInitializer) returns()
-func (_ShastaInboxClient *ShastaInboxClientSession) Init(_owner common.Address, shastaInitializer common.Address) (*types.Transaction, error) {
-	return _ShastaInboxClient.Contract.Init(&_ShastaInboxClient.TransactOpts, _owner, shastaInitializer)
+// Solidity: function init(address _owner) returns()
+func (_ShastaInboxClient *ShastaInboxClientSession) Init(_owner common.Address) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.Init(&_ShastaInboxClient.TransactOpts, _owner)
 }
 
-// Init is a paid mutator transaction binding the contract method 0xf09a4016.
+// Init is a paid mutator transaction binding the contract method 0x19ab453c.
 //
-// Solidity: function init(address _owner, address shastaInitializer) returns()
-func (_ShastaInboxClient *ShastaInboxClientTransactorSession) Init(_owner common.Address, shastaInitializer common.Address) (*types.Transaction, error) {
-	return _ShastaInboxClient.Contract.Init(&_ShastaInboxClient.TransactOpts, _owner, shastaInitializer)
+// Solidity: function init(address _owner) returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactorSession) Init(_owner common.Address) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.Init(&_ShastaInboxClient.TransactOpts, _owner)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1220,6 +1483,151 @@ func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseBeaconUpgraded(log typ
 	return event, nil
 }
 
+// ShastaInboxClientBondInstructionCreatedIterator is returned from FilterBondInstructionCreated and is used to iterate over the raw logs and unpacked data for BondInstructionCreated events raised by the ShastaInboxClient contract.
+type ShastaInboxClientBondInstructionCreatedIterator struct {
+	Event *ShastaInboxClientBondInstructionCreated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ShastaInboxClientBondInstructionCreatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ShastaInboxClientBondInstructionCreated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ShastaInboxClientBondInstructionCreated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ShastaInboxClientBondInstructionCreatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ShastaInboxClientBondInstructionCreatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ShastaInboxClientBondInstructionCreated represents a BondInstructionCreated event raised by the ShastaInboxClient contract.
+type ShastaInboxClientBondInstructionCreated struct {
+	ProposalId      *big.Int
+	BondInstruction LibBondsBondInstruction
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterBondInstructionCreated is a free log retrieval operation binding the contract event 0x8796b99bbf275a983988181e85b42502d9347327f4dde674320bec3879bcc5e1.
+//
+// Solidity: event BondInstructionCreated(uint48 indexed proposalId, (uint48,uint8,address,address) bondInstruction)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterBondInstructionCreated(opts *bind.FilterOpts, proposalId []*big.Int) (*ShastaInboxClientBondInstructionCreatedIterator, error) {
+
+	var proposalIdRule []interface{}
+	for _, proposalIdItem := range proposalId {
+		proposalIdRule = append(proposalIdRule, proposalIdItem)
+	}
+
+	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "BondInstructionCreated", proposalIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ShastaInboxClientBondInstructionCreatedIterator{contract: _ShastaInboxClient.contract, event: "BondInstructionCreated", logs: logs, sub: sub}, nil
+}
+
+// WatchBondInstructionCreated is a free log subscription operation binding the contract event 0x8796b99bbf275a983988181e85b42502d9347327f4dde674320bec3879bcc5e1.
+//
+// Solidity: event BondInstructionCreated(uint48 indexed proposalId, (uint48,uint8,address,address) bondInstruction)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchBondInstructionCreated(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientBondInstructionCreated, proposalId []*big.Int) (event.Subscription, error) {
+
+	var proposalIdRule []interface{}
+	for _, proposalIdItem := range proposalId {
+		proposalIdRule = append(proposalIdRule, proposalIdItem)
+	}
+
+	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "BondInstructionCreated", proposalIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ShastaInboxClientBondInstructionCreated)
+				if err := _ShastaInboxClient.contract.UnpackLog(event, "BondInstructionCreated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBondInstructionCreated is a log parse operation binding the contract event 0x8796b99bbf275a983988181e85b42502d9347327f4dde674320bec3879bcc5e1.
+//
+// Solidity: event BondInstructionCreated(uint48 indexed proposalId, (uint48,uint8,address,address) bondInstruction)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseBondInstructionCreated(log types.Log) (*ShastaInboxClientBondInstructionCreated, error) {
+	event := new(ShastaInboxClientBondInstructionCreated)
+	if err := _ShastaInboxClient.contract.UnpackLog(event, "BondInstructionCreated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // ShastaInboxClientForcedInclusionSavedIterator is returned from FilterForcedInclusionSaved and is used to iterate over the raw logs and unpacked data for ForcedInclusionSaved events raised by the ShastaInboxClient contract.
 type ShastaInboxClientForcedInclusionSavedIterator struct {
 	Event *ShastaInboxClientForcedInclusionSaved // Event containing the contract specifics and raw log
@@ -1348,6 +1756,140 @@ func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchForcedInclusionSaved(o
 func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseForcedInclusionSaved(log types.Log) (*ShastaInboxClientForcedInclusionSaved, error) {
 	event := new(ShastaInboxClientForcedInclusionSaved)
 	if err := _ShastaInboxClient.contract.UnpackLog(event, "ForcedInclusionSaved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ShastaInboxClientInboxActivatedIterator is returned from FilterInboxActivated and is used to iterate over the raw logs and unpacked data for InboxActivated events raised by the ShastaInboxClient contract.
+type ShastaInboxClientInboxActivatedIterator struct {
+	Event *ShastaInboxClientInboxActivated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ShastaInboxClientInboxActivatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ShastaInboxClientInboxActivated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ShastaInboxClientInboxActivated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ShastaInboxClientInboxActivatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ShastaInboxClientInboxActivatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ShastaInboxClientInboxActivated represents a InboxActivated event raised by the ShastaInboxClient contract.
+type ShastaInboxClientInboxActivated struct {
+	LastPacayaBlockHash [32]byte
+	Raw                 types.Log // Blockchain specific contextual infos
+}
+
+// FilterInboxActivated is a free log retrieval operation binding the contract event 0xe4356761c97932c05c3ee0859fb1a5e4f91f7a1d7a3752c7d5a72d5cc6ecb2d2.
+//
+// Solidity: event InboxActivated(bytes32 lastPacayaBlockHash)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterInboxActivated(opts *bind.FilterOpts) (*ShastaInboxClientInboxActivatedIterator, error) {
+
+	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "InboxActivated")
+	if err != nil {
+		return nil, err
+	}
+	return &ShastaInboxClientInboxActivatedIterator{contract: _ShastaInboxClient.contract, event: "InboxActivated", logs: logs, sub: sub}, nil
+}
+
+// WatchInboxActivated is a free log subscription operation binding the contract event 0xe4356761c97932c05c3ee0859fb1a5e4f91f7a1d7a3752c7d5a72d5cc6ecb2d2.
+//
+// Solidity: event InboxActivated(bytes32 lastPacayaBlockHash)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchInboxActivated(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientInboxActivated) (event.Subscription, error) {
+
+	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "InboxActivated")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ShastaInboxClientInboxActivated)
+				if err := _ShastaInboxClient.contract.UnpackLog(event, "InboxActivated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseInboxActivated is a log parse operation binding the contract event 0xe4356761c97932c05c3ee0859fb1a5e4f91f7a1d7a3752c7d5a72d5cc6ecb2d2.
+//
+// Solidity: event InboxActivated(bytes32 lastPacayaBlockHash)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseInboxActivated(log types.Log) (*ShastaInboxClientInboxActivated, error) {
+	event := new(ShastaInboxClientInboxActivated)
+	if err := _ShastaInboxClient.contract.UnpackLog(event, "InboxActivated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1997,28 +2539,51 @@ func (it *ShastaInboxClientProposedIterator) Close() error {
 
 // ShastaInboxClientProposed represents a Proposed event raised by the ShastaInboxClient contract.
 type ShastaInboxClientProposed struct {
-	Data []byte
-	Raw  types.Log // Blockchain specific contextual infos
+	Id                             *big.Int
+	Proposer                       common.Address
+	ParentProposalHash             [32]byte
+	EndOfSubmissionWindowTimestamp *big.Int
+	BasefeeSharingPctg             uint8
+	Sources                        []IInboxDerivationSource
+	Raw                            types.Log // Blockchain specific contextual infos
 }
 
-// FilterProposed is a free log retrieval operation binding the contract event 0x10b2060c55406ea48522476f67fd813d4984b12078555d3e2a377e35839d7d01.
+// FilterProposed is a free log retrieval operation binding the contract event 0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213.
 //
-// Solidity: event Proposed(bytes data)
-func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterProposed(opts *bind.FilterOpts) (*ShastaInboxClientProposedIterator, error) {
+// Solidity: event Proposed(uint48 indexed id, address indexed proposer, bytes32 parentProposalHash, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, (bool,(bytes32[],uint24,uint48))[] sources)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterProposed(opts *bind.FilterOpts, id []*big.Int, proposer []common.Address) (*ShastaInboxClientProposedIterator, error) {
 
-	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "Proposed")
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+
+	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "Proposed", idRule, proposerRule)
 	if err != nil {
 		return nil, err
 	}
 	return &ShastaInboxClientProposedIterator{contract: _ShastaInboxClient.contract, event: "Proposed", logs: logs, sub: sub}, nil
 }
 
-// WatchProposed is a free log subscription operation binding the contract event 0x10b2060c55406ea48522476f67fd813d4984b12078555d3e2a377e35839d7d01.
+// WatchProposed is a free log subscription operation binding the contract event 0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213.
 //
-// Solidity: event Proposed(bytes data)
-func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchProposed(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientProposed) (event.Subscription, error) {
+// Solidity: event Proposed(uint48 indexed id, address indexed proposer, bytes32 parentProposalHash, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, (bool,(bytes32[],uint24,uint48))[] sources)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchProposed(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientProposed, id []*big.Int, proposer []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "Proposed")
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+
+	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "Proposed", idRule, proposerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2050,9 +2615,9 @@ func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchProposed(opts *bind.Wa
 	}), nil
 }
 
-// ParseProposed is a log parse operation binding the contract event 0x10b2060c55406ea48522476f67fd813d4984b12078555d3e2a377e35839d7d01.
+// ParseProposed is a log parse operation binding the contract event 0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213.
 //
-// Solidity: event Proposed(bytes data)
+// Solidity: event Proposed(uint48 indexed id, address indexed proposer, bytes32 parentProposalHash, uint48 endOfSubmissionWindowTimestamp, uint8 basefeeSharingPctg, (bool,(bytes32[],uint24,uint48))[] sources)
 func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseProposed(log types.Log) (*ShastaInboxClientProposed, error) {
 	event := new(ShastaInboxClientProposed)
 	if err := _ShastaInboxClient.contract.UnpackLog(event, "Proposed", log); err != nil {
@@ -2131,28 +2696,42 @@ func (it *ShastaInboxClientProvedIterator) Close() error {
 
 // ShastaInboxClientProved represents a Proved event raised by the ShastaInboxClient contract.
 type ShastaInboxClientProved struct {
-	Data []byte
-	Raw  types.Log // Blockchain specific contextual infos
+	FirstProposalId    *big.Int
+	FirstNewProposalId *big.Int
+	LastProposalId     *big.Int
+	ActualProver       common.Address
+	CheckpointSynced   bool
+	Raw                types.Log // Blockchain specific contextual infos
 }
 
-// FilterProved is a free log retrieval operation binding the contract event 0xb2d5049ba96efb9e1fee66a51e4e6cbdfa2949627891ee29c6e4281abb8da03c.
+// FilterProved is a free log retrieval operation binding the contract event 0x7ca0f1e30099488c4ee24e86a6b2c6802e9add6d530919af7aa17db3bcc1cff1.
 //
-// Solidity: event Proved(bytes data)
-func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterProved(opts *bind.FilterOpts) (*ShastaInboxClientProvedIterator, error) {
+// Solidity: event Proved(uint48 firstProposalId, uint48 firstNewProposalId, uint48 lastProposalId, address indexed actualProver, bool checkpointSynced)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterProved(opts *bind.FilterOpts, actualProver []common.Address) (*ShastaInboxClientProvedIterator, error) {
 
-	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "Proved")
+	var actualProverRule []interface{}
+	for _, actualProverItem := range actualProver {
+		actualProverRule = append(actualProverRule, actualProverItem)
+	}
+
+	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "Proved", actualProverRule)
 	if err != nil {
 		return nil, err
 	}
 	return &ShastaInboxClientProvedIterator{contract: _ShastaInboxClient.contract, event: "Proved", logs: logs, sub: sub}, nil
 }
 
-// WatchProved is a free log subscription operation binding the contract event 0xb2d5049ba96efb9e1fee66a51e4e6cbdfa2949627891ee29c6e4281abb8da03c.
+// WatchProved is a free log subscription operation binding the contract event 0x7ca0f1e30099488c4ee24e86a6b2c6802e9add6d530919af7aa17db3bcc1cff1.
 //
-// Solidity: event Proved(bytes data)
-func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchProved(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientProved) (event.Subscription, error) {
+// Solidity: event Proved(uint48 firstProposalId, uint48 firstNewProposalId, uint48 lastProposalId, address indexed actualProver, bool checkpointSynced)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchProved(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientProved, actualProver []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "Proved")
+	var actualProverRule []interface{}
+	for _, actualProverItem := range actualProver {
+		actualProverRule = append(actualProverRule, actualProverItem)
+	}
+
+	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "Proved", actualProverRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2184,278 +2763,12 @@ func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchProved(opts *bind.Watc
 	}), nil
 }
 
-// ParseProved is a log parse operation binding the contract event 0xb2d5049ba96efb9e1fee66a51e4e6cbdfa2949627891ee29c6e4281abb8da03c.
+// ParseProved is a log parse operation binding the contract event 0x7ca0f1e30099488c4ee24e86a6b2c6802e9add6d530919af7aa17db3bcc1cff1.
 //
-// Solidity: event Proved(bytes data)
+// Solidity: event Proved(uint48 firstProposalId, uint48 firstNewProposalId, uint48 lastProposalId, address indexed actualProver, bool checkpointSynced)
 func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseProved(log types.Log) (*ShastaInboxClientProved, error) {
 	event := new(ShastaInboxClientProved)
 	if err := _ShastaInboxClient.contract.UnpackLog(event, "Proved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ShastaInboxClientTransitionConflictDetectedIterator is returned from FilterTransitionConflictDetected and is used to iterate over the raw logs and unpacked data for TransitionConflictDetected events raised by the ShastaInboxClient contract.
-type ShastaInboxClientTransitionConflictDetectedIterator struct {
-	Event *ShastaInboxClientTransitionConflictDetected // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ShastaInboxClientTransitionConflictDetectedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ShastaInboxClientTransitionConflictDetected)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ShastaInboxClientTransitionConflictDetected)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ShastaInboxClientTransitionConflictDetectedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ShastaInboxClientTransitionConflictDetectedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ShastaInboxClientTransitionConflictDetected represents a TransitionConflictDetected event raised by the ShastaInboxClient contract.
-type ShastaInboxClientTransitionConflictDetected struct {
-	Raw types.Log // Blockchain specific contextual infos
-}
-
-// FilterTransitionConflictDetected is a free log retrieval operation binding the contract event 0xedbbc170a31039722f1b233fdedcee87c58f692be26627dc755b33f28537c627.
-//
-// Solidity: event TransitionConflictDetected()
-func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterTransitionConflictDetected(opts *bind.FilterOpts) (*ShastaInboxClientTransitionConflictDetectedIterator, error) {
-
-	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "TransitionConflictDetected")
-	if err != nil {
-		return nil, err
-	}
-	return &ShastaInboxClientTransitionConflictDetectedIterator{contract: _ShastaInboxClient.contract, event: "TransitionConflictDetected", logs: logs, sub: sub}, nil
-}
-
-// WatchTransitionConflictDetected is a free log subscription operation binding the contract event 0xedbbc170a31039722f1b233fdedcee87c58f692be26627dc755b33f28537c627.
-//
-// Solidity: event TransitionConflictDetected()
-func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchTransitionConflictDetected(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientTransitionConflictDetected) (event.Subscription, error) {
-
-	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "TransitionConflictDetected")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ShastaInboxClientTransitionConflictDetected)
-				if err := _ShastaInboxClient.contract.UnpackLog(event, "TransitionConflictDetected", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseTransitionConflictDetected is a log parse operation binding the contract event 0xedbbc170a31039722f1b233fdedcee87c58f692be26627dc755b33f28537c627.
-//
-// Solidity: event TransitionConflictDetected()
-func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseTransitionConflictDetected(log types.Log) (*ShastaInboxClientTransitionConflictDetected, error) {
-	event := new(ShastaInboxClientTransitionConflictDetected)
-	if err := _ShastaInboxClient.contract.UnpackLog(event, "TransitionConflictDetected", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ShastaInboxClientTransitionDuplicateDetectedIterator is returned from FilterTransitionDuplicateDetected and is used to iterate over the raw logs and unpacked data for TransitionDuplicateDetected events raised by the ShastaInboxClient contract.
-type ShastaInboxClientTransitionDuplicateDetectedIterator struct {
-	Event *ShastaInboxClientTransitionDuplicateDetected // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ShastaInboxClientTransitionDuplicateDetectedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ShastaInboxClientTransitionDuplicateDetected)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ShastaInboxClientTransitionDuplicateDetected)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ShastaInboxClientTransitionDuplicateDetectedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ShastaInboxClientTransitionDuplicateDetectedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ShastaInboxClientTransitionDuplicateDetected represents a TransitionDuplicateDetected event raised by the ShastaInboxClient contract.
-type ShastaInboxClientTransitionDuplicateDetected struct {
-	Raw types.Log // Blockchain specific contextual infos
-}
-
-// FilterTransitionDuplicateDetected is a free log retrieval operation binding the contract event 0xf1846d1634477b5b2542d27b601bfcaa46ebc2bff80f941c2b07f862778e491b.
-//
-// Solidity: event TransitionDuplicateDetected()
-func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterTransitionDuplicateDetected(opts *bind.FilterOpts) (*ShastaInboxClientTransitionDuplicateDetectedIterator, error) {
-
-	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "TransitionDuplicateDetected")
-	if err != nil {
-		return nil, err
-	}
-	return &ShastaInboxClientTransitionDuplicateDetectedIterator{contract: _ShastaInboxClient.contract, event: "TransitionDuplicateDetected", logs: logs, sub: sub}, nil
-}
-
-// WatchTransitionDuplicateDetected is a free log subscription operation binding the contract event 0xf1846d1634477b5b2542d27b601bfcaa46ebc2bff80f941c2b07f862778e491b.
-//
-// Solidity: event TransitionDuplicateDetected()
-func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchTransitionDuplicateDetected(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientTransitionDuplicateDetected) (event.Subscription, error) {
-
-	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "TransitionDuplicateDetected")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ShastaInboxClientTransitionDuplicateDetected)
-				if err := _ShastaInboxClient.contract.UnpackLog(event, "TransitionDuplicateDetected", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseTransitionDuplicateDetected is a log parse operation binding the contract event 0xf1846d1634477b5b2542d27b601bfcaa46ebc2bff80f941c2b07f862778e491b.
-//
-// Solidity: event TransitionDuplicateDetected()
-func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseTransitionDuplicateDetected(log types.Log) (*ShastaInboxClientTransitionDuplicateDetected, error) {
-	event := new(ShastaInboxClientTransitionDuplicateDetected)
-	if err := _ShastaInboxClient.contract.UnpackLog(event, "TransitionDuplicateDetected", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

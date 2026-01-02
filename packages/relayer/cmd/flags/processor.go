@@ -40,6 +40,13 @@ var (
 		Required: true,
 		EnvVars:  []string{"DEST_ERC721_VAULT_ADDRESS"},
 	}
+	DestBondManagerAddress = &cli.StringFlag{
+		Name:     "destBondManagerAddress",
+		Usage:    "BondManager address for the destination chain",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"DEST_BOND_MANAGER_ADDRESS"},
+	}
 )
 
 // optional
@@ -150,6 +157,13 @@ var (
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_PROCESS"},
 	}
+	ForkWindowSeconds = &cli.Uint64Flag{
+		Name:     "forkWindowSeconds",
+		Usage:    "Window in seconds around shastaForkTimestamp to pause processing",
+		Category: processorCategory,
+		Value:    0,
+		EnvVars:  []string{"FORK_WINDOW_SECONDS"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
@@ -157,6 +171,7 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	DestERC1155VaultAddress,
 	DestERC20VaultAddress,
 	DestTaikoAddress,
+	DestBondManagerAddress,
 	ProcessorPrivateKey,
 	// optional
 	HeaderSyncInterval,
@@ -169,10 +184,12 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	HopSignalServiceAddresses,
 	HopTaikoAddresses,
 	DestBridgeAddress,
+	EventName,
 	TargetTxHash,
 	CacheOption,
 	UnprofitableMessageQueueExpiration,
 	MaxMessageRetries,
 	MinFeeToProcess,
 	DestQuotaManagerAddress,
+	ForkWindowSeconds,
 })

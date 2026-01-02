@@ -24,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -68,8 +67,7 @@ type Proposer struct {
 	// Fallback proposer related
 	l2HeadUpdate l2HeadUpdateInfo
 
-	txmgrSelector      *utils.TxMgrSelector
-	shastaStateIndexer *shastaIndexer.Indexer
+	txmgrSelector *utils.TxMgrSelector
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -131,9 +129,6 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
-	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkTime); err != nil {
-		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
-	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
@@ -144,7 +139,6 @@ func (p *Proposer) InitFromConfig(
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
-		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
 		cfg.PacayaInboxAddress,
@@ -174,10 +168,6 @@ func (p *Proposer) Start() error {
 	p.l2HeadUpdate = l2HeadUpdateInfo{
 		blockID:   head.Number.Uint64(),
 		updatedAt: time.Now().UTC(),
-	}
-
-	if err := p.shastaStateIndexer.Start(); err != nil {
-		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
 
 	p.wg.Add(1)
@@ -239,11 +229,17 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 		minTip = 0
 	}
 
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
 		p.proposerAddress,
-		manifest.MaxBlockGasLimit,
+		uint32(l2Head.GasLimit),
 		rpc.BlockMaxTxListBytes,
 		[]common.Address{},
 		p.MaxTxListsPerEpoch,
@@ -290,12 +286,11 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Wait until L2 execution engine is synced at first.
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx, p.shastaStateIndexer.GetLastCoreState()); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
 	ok, err := p.shouldPropose(ctx)
-
 	if err != nil {
 		return fmt.Errorf("failed to check if proposer should propose: %w", err)
 	} else if !ok {
@@ -338,10 +333,20 @@ func (p *Proposer) ProposeTxLists(
 	if err != nil {
 		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	forkTime := p.rpc.ShastaClients.ForkTime
-	if l1Head.Time+shastaForkBufferSeconds < forkTime {
-		// Fetch the latest parent meta hash, which will be used
-		// by revert protection.
+	// Still in the Pacaya era.
+	if l1Head.Time < p.rpc.ShastaClients.ForkTime {
+		// If we are within the buffer window, pause proposing to avoid submitting Pacaya batches
+		// right before the Shasta fork activates.
+		if l1Head.Time+shastaForkBufferSeconds >= p.rpc.ShastaClients.ForkTime {
+			log.Info(
+				"Approaching Shasta fork time, waiting to switch to Shasta proposals",
+				"l1HeadTime", l1Head.Time,
+				"shastaForkTime", p.rpc.ShastaClients.ForkTime,
+			)
+			return nil
+		}
+
+		// Fetch the latest parent meta hash, which will be used by revert protection.
 		parentMetaHash, err := p.GetParentMetaHash(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
@@ -418,7 +423,7 @@ func (p *Proposer) ProposeTxListPacaya(
 		log.Info(
 			"Forced inclusion",
 			"proposer", proposerAddress.Hex(),
-			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"blobHash", common.Hash(forcedInclusion.BlobHash),
 			"feeInGwei", forcedInclusion.FeeInGwei,
 			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
 			"blobByteOffset", forcedInclusion.BlobByteOffset,
@@ -475,9 +480,9 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	}
 
 	// Get the last proposal to ensure we are proposing a block after its NextProposalBlockId.
-	lastProposal := p.ShastaIndexer().GetLastProposal()
-	if lastProposal == nil {
-		return errors.New("no previous proposal found, cannot propose new batch")
+	state, err := p.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta Inbox core state: %w", err)
 	}
 
 	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
@@ -487,12 +492,12 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 
 	log.Info(
 		"Last proposal",
-		"id", lastProposal.Proposal.Id,
-		"nextProposalId", lastProposal.CoreState.NextProposalId,
+		"id", state.LastProposalBlockId,
+		"nextProposalId", state.NextProposalId,
 		"l1Head", l1Head.Number,
 	)
 
-	if lastProposal.CoreState.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
+	if state.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
 		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}
@@ -667,10 +672,4 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// ShastaIndexer returns the proposer's Shasta state indexer, this method
-// should only be used for testing.
-func (p *Proposer) ShastaIndexer() *shastaIndexer.Indexer {
-	return p.shastaStateIndexer
 }

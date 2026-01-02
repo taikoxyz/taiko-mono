@@ -35,10 +35,6 @@ cat ../protocol/out/layer1/MainnetInbox.sol/MainnetInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox.go
 
-cat ../protocol/out/layer1/CodecOptimized.sol/CodecOptimized.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type CodecOptimizedClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox_codec.go
-
 cat ../protocol/out/layer2/Anchor.sol/Anchor.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaAnchor --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_anchor.go
@@ -46,6 +42,10 @@ cat ../protocol/out/layer2/Anchor.sol/Anchor.json |
 cat ../protocol/out/layer2/BondManager.sol/BondManager.json |
   jq .abi |
   ${ABIGEN_BIN} --abi - --type BondManager --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_bond_manager.go
+
+cat ../protocol/out/layer1/ComposeVerifier.sol/ComposeVerifier.json |
+  jq .abi |
+  ${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
 
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 

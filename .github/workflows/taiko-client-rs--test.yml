@@ -26,7 +26,7 @@ jobs:
     runs-on: [ubuntu-latest]
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -41,7 +41,7 @@ jobs:
           components: clippy, rustfmt
 
       - name: Setup just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
         with:
           just-version: 1.5.0
 
@@ -63,6 +63,8 @@ jobs:
     name: Tests
     runs-on: [ubuntu-latest]
     timeout-minutes: 10
+    env:
+      PROTOCOL_FORK_DIR: protocol-taiko-mono
 
     steps:
       - name: Cancel Previous Runs
@@ -70,7 +72,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: rui314/setup-mold@v1
 
       - name: Setup Rust cache
@@ -92,12 +94,25 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Setup just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
         with:
           just-version: 1.5.0
 
       - uses: taiki-e/install-action@nextest
 
+      - name: Checkout protocol for testing
+        uses: actions/checkout@v6
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.PROTOCOL_FORK_DIR }}
+          ref: taiko-alethia-protocol-v3.0.0
+
+      - name: Install pnpm dependencies for protocol taiko-mono for testing
+        working-directory: ${{ env.PROTOCOL_FORK_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
       - name: Run tests
         working-directory: packages/taiko-client-rs
+        env:
+          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
         run: just test

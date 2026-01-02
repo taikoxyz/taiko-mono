@@ -23,7 +23,6 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -43,8 +42,7 @@ type eventHandlers struct {
 // Prover keeps trying to prove newly proposed blocks.
 type Prover struct {
 	// Configurations
-	cfg     *Config
-	backoff backoff.BackOffContext
+	cfg *Config
 
 	// Clients
 	rpc *rpc.Client
@@ -53,8 +51,7 @@ type Prover struct {
 	protocolConfigs config.ProtocolConfigs
 
 	// States
-	shastaIndexer *shastaIndexer.Indexer
-	sharedState   *state.SharedState
+	sharedState *state.SharedState
 
 	// Event handlers
 	eventHandlers *eventHandlers
@@ -63,9 +60,10 @@ type Prover struct {
 	proofSubmitterPacaya proofSubmitter.Submitter
 	proofSubmitterShasta proofSubmitter.Submitter
 
-	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
-	proveNotify              chan struct{}
-	batchesAggregationNotify chan proofProducer.ProofType
+	assignmentExpiredCh            chan metadata.TaikoProposalMetaData
+	proveNotify                    chan struct{}
+	batchesAggregationNotifyPacaya chan proofProducer.ProofType
+	batchesAggregationNotifyShasta chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -100,13 +98,6 @@ func InitFromConfig(
 	p.ctx = ctx
 	// Initialize state which will be shared by event handlers.
 	p.sharedState = state.New()
-	p.backoff = backoff.WithContext(
-		backoff.WithMaxRetries(
-			backoff.NewConstantBackOff(p.cfg.BackOffRetryInterval),
-			p.cfg.BackOffMaxRetries,
-		),
-		p.ctx,
-	)
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
@@ -118,17 +109,9 @@ func InitFromConfig(
 		TaikoTokenAddress:  cfg.TaikoTokenAddress,
 		ProverSetAddress:   cfg.ProverSetAddress,
 		Timeout:            cfg.RPCTimeout,
+		ShastaForkTime:     cfg.ShastaForkTime,
 	}); err != nil {
 		return err
-	}
-
-	// Shasta state indexer
-	if p.shastaIndexer, err = shastaIndexer.New(
-		p.ctx,
-		p.rpc,
-		p.rpc.ShastaClients.ForkTime,
-	); err != nil {
-		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}
 
 	// Configs
@@ -143,18 +126,15 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
+	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
-	if err := p.shastaIndexer.Start(); err != nil {
-		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
-	}
 	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
-		p.shastaIndexer,
 		p.cfg.PacayaInboxAddress,
 		p.cfg.ShastaInboxAddress,
 		p.cfg.ProverSetAddress,
@@ -192,7 +172,7 @@ func InitFromConfig(
 	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
 		return err
 	}
-	if err := p.initShastaProofSubmitter(txBuilder); err != nil {
+	if err := p.initShastaProofSubmitter(ctx, txBuilder); err != nil {
 		return err
 	}
 
@@ -276,8 +256,10 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case proofType := <-p.batchesAggregationNotify:
-			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
+		case proofType := <-p.batchesAggregationNotifyPacaya:
+			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
+		case proofType := <-p.batchesAggregationNotifyShasta:
+			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
 		case e := <-batchesVerifiedCh:
 			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
@@ -290,6 +272,8 @@ func (p *Prover) eventLoop() {
 			reqProving()
 		case <-shastaProposedCh:
 			reqProving()
+		case e := <-shastaProvedCh:
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -317,9 +301,15 @@ func (p *Prover) proveOp() error {
 	return iter.Iter()
 }
 
-// aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
-func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
-	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
+// aggregateOp aggregates all proofs in buffer.
+func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) error {
+	var err error
+	if isShasta {
+		err = p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
+	} else {
+		err = p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType)
+	}
+	if err != nil {
 		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
 	}
@@ -344,11 +334,10 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return fmt.Errorf("empty batch proof")
 	}
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		return p.proofSubmitterShasta.BatchSubmitProofs(p.ctx, batchProof)
-	}
-
 	submitter := p.proofSubmitterPacaya
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		submitter = p.proofSubmitterShasta
+	}
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
@@ -398,7 +387,15 @@ func (p *Prover) withRetry(f func() error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		if err := backoff.Retry(f, p.backoff); err != nil {
+		// Create a fresh, per-call backoff policy to avoid shared state across goroutines.
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(p.cfg.BackOffRetryInterval),
+				p.cfg.BackOffMaxRetries,
+			),
+			p.ctx,
+		)
+		if err := backoff.Retry(f, bo); err != nil {
 			log.Error("Operation failed", "error", err)
 		}
 	}()

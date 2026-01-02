@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,10 +34,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	v4signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
+	signalserviceforkrouter "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalserviceforkrouter"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
+	shasta "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // ethClient is a slimmed down interface of a go-ethereum ethclient.Client
@@ -48,6 +52,7 @@ type ethClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
@@ -55,6 +60,10 @@ type ethClient interface {
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+}
+
+type bondManager interface {
+	ProcessedSignals(opts *bind.CallOpts, signal [32]byte) (bool, error)
 }
 
 // hop is a struct which needs to be created based on the config parameters
@@ -80,9 +89,10 @@ type Processor struct {
 
 	hops []hop
 
-	srcEthClient  ethClient
-	destEthClient ethClient
-	srcCaller     relayer.Caller
+	srcEthClient      ethClient
+	destEthClient     ethClient
+	srcContractCaller bind.ContractCaller
+	srcCaller         relayer.Caller
 
 	ecdsaKey *ecdsa.PrivateKey
 
@@ -93,11 +103,14 @@ type Processor struct {
 	destERC1155Vault relayer.TokenVault
 	destERC721Vault  relayer.TokenVault
 	destQuotaManager relayer.QuotaManager
+	bondManager      bondManager
 
 	prover *proof.Prover
 
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
+	shastaOldForkAddress    common.Address
+	shastaNewForkAddress    common.Address
 
 	confirmations uint64
 
@@ -129,8 +142,18 @@ type Processor struct {
 
 	processingTxHashes map[common.Hash]bool
 	processingTxHashMu sync.Mutex
+	processingSignals  map[common.Hash]bool
+	processingSignalMu sync.Mutex
 
 	minFeeToProcess uint64
+
+	shastaForkTimestamp uint64
+	forkWindow          time.Duration
+
+	shastaOldForkSignalService relayer.SignalService
+	shastaNewForkSignalService relayer.SignalService
+
+	eventName string
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -146,6 +169,11 @@ func (p *Processor) InitFromCli(ctx context.Context, c *cli.Context) error {
 // nolint: funlen
 func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.cfg = cfg
+
+	if cfg.EventName == relayer.EventNameBondInstructionCreated &&
+		cfg.DestBondManagerAddress == relayer.ZeroAddress {
+		return fmt.Errorf("destBondManagerAddress is required for event %s", relayer.EventNameBondInstructionCreated)
+	}
 
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
@@ -170,6 +198,11 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
 	if err != nil {
 		return err
+	}
+
+	srcContractCaller, ok := interface{}(srcEthClient).(bind.ContractCaller)
+	if !ok {
+		return errors.New("srcEthClient does not implement bind.ContractCaller")
 	}
 
 	hops := []hop{}
@@ -220,12 +253,61 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		})
 	}
 
-	srcSignalService, err := signalservice.NewSignalService(
-		cfg.SrcSignalServiceAddress,
-		srcEthClient,
-	)
-	if err != nil {
-		return err
+	var srcSignalService relayer.SignalService
+
+	switch {
+	case cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress:
+		router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
+			cfg.SrcSignalServiceForkRouterAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		oldForkAddress, err := router.OldFork(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		newForkAddress, err := router.NewFork(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		oldForkSignalService, err := v4signalservice.NewSignalService(oldForkAddress, srcEthClient)
+		if err != nil {
+			return err
+		}
+
+		newForkSignalService, err := v4signalservice.NewSignalService(newForkAddress, srcEthClient)
+		if err != nil {
+			return err
+		}
+
+		srcSignalService = oldForkSignalService
+
+		p.shastaOldForkSignalService = oldForkSignalService
+		p.shastaNewForkSignalService = newForkSignalService
+		p.shastaOldForkAddress = oldForkAddress
+		p.shastaNewForkAddress = newForkAddress
+
+		shastaForkTimestamp, err := router.ShastaForkTimestamp(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		p.shastaForkTimestamp = shastaForkTimestamp
+	case cfg.SrcSignalServiceAddress != relayer.ZeroAddress:
+		srcSignalService, err = signalservice.NewSignalService(
+			cfg.SrcSignalServiceAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("srcSignalService address not provided")
 	}
 
 	destERC20Vault, err := erc20vault.NewERC20Vault(
@@ -272,6 +354,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	destBridge, err := bridge.NewBridge(cfg.DestBridgeAddress, destEthClient)
 	if err != nil {
 		return err
+	}
+
+	var bondManager bondManager
+	if cfg.DestBondManagerAddress != relayer.ZeroAddress {
+		bondManager, err = shasta.NewBondManager(cfg.DestBondManagerAddress, destEthClient)
+		if err != nil {
+			return err
+		}
 	}
 
 	srcChainID, err := srcEthClient.ChainID(context.Background())
@@ -331,6 +421,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcEthClient = srcEthClient
 	p.destEthClient = destEthClient
+	p.srcContractCaller = srcContractCaller
 
 	p.srcSignalService = srcSignalService
 
@@ -338,6 +429,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
+	p.bondManager = bondManager
 
 	p.ecdsaKey = cfg.ProcessorPrivateKey
 	p.relayerAddr = relayerAddr
@@ -354,6 +446,9 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
+	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
+		p.srcSignalServiceAddress = p.shastaOldForkAddress
+	}
 
 	p.msgCh = make(chan queue.Message)
 	p.srcCaller = srcRpcClient
@@ -362,13 +457,24 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
+	if cfg.ForkWindowSeconds > 0 {
+		p.forkWindow = time.Duration(cfg.ForkWindowSeconds) * time.Second
+	}
+
 	p.targetTxHash = cfg.TargetTxHash
 
 	p.maxMessageRetries = cfg.MaxMessageRetries
 
 	p.processingTxHashes = make(map[common.Hash]bool, 0)
+	p.processingSignals = make(map[common.Hash]bool, 0)
 
 	p.minFeeToProcess = p.cfg.MinFeeToProcess
+
+	if cfg.EventName == "" {
+		p.eventName = relayer.EventNameMessageSent
+	} else {
+		p.eventName = cfg.EventName
+	}
 
 	slog.Info("minFeeToProcess", "minFeeToProcess", p.minFeeToProcess)
 
@@ -442,7 +548,21 @@ func (p *Processor) Start() error {
 }
 
 func (p *Processor) queueName() string {
-	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), relayer.EventNameMessageSent)
+	return fmt.Sprintf("%v-%v-%v-queue", p.srcChainId.String(), p.destChainId.String(), p.eventName)
+}
+
+func (p *Processor) processQueueMessage(
+	ctx context.Context,
+	msg queue.Message,
+) (bool, uint64, error) {
+	switch p.eventName {
+	case relayer.EventNameMessageSent:
+		return p.processMessage(ctx, msg)
+	case relayer.EventNameBondInstructionCreated:
+		return p.processBondInstruction(ctx, msg)
+	default:
+		return false, 0, fmt.Errorf("unsupported eventName: %s", p.eventName)
+	}
 }
 
 // eventLoop is the main event loop of a Processor which should read
@@ -457,7 +577,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			go func(m queue.Message) {
-				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
+				shouldRequeue, timesRetried, err := p.processQueueMessage(ctx, m)
 
 				if err != nil {
 					switch {
@@ -465,7 +585,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
-					case errors.Is(err, relayer.ErrUnprofitable):
+					case errors.Is(err, relayer.ErrUnprofitable) && p.eventName == relayer.EventNameMessageSent:
 						slog.Info("publishing to unprofitable queue")
 
 						headers := make(map[string]interface{}, 0)

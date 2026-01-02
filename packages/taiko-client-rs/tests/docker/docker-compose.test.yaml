@@ -1,7 +1,7 @@
 services:
   l1_node:
     container_name: l1_node
-    image: ghcr.io/foundry-rs/foundry:stable
+    image: ghcr.io/foundry-rs/foundry:v1.3.2
     restart: unless-stopped
     pull_policy: always
     ports:
@@ -13,7 +13,7 @@ services:
 
   l2_node:
     container_name: l2_node
-    image: us-docker.pkg.dev/evmchain/images/alethia-reth:devnet-shasta-0
+    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
     restart: unless-stopped
     pull_policy: always
     volumes:

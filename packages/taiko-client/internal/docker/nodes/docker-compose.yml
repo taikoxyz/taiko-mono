@@ -1,7 +1,7 @@
 services:
   l1_node:
     container_name: l1_node
-    image: ghcr.io/foundry-rs/foundry:stable
+    image: ghcr.io/foundry-rs/foundry:v1.3.2
     restart: unless-stopped
     pull_policy: always
     ports:
@@ -14,6 +14,8 @@ services:
       - "0.0.0.0"
       - --timestamp
       - "${ANVIL_INTERNAL_SHASTA_TIME}"
+      - --gas-limit
+      - "200000000"
 
   l2_geth:
     container_name: l2_geth

@@ -38,82 +38,87 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_savesCheckpointAndUpdatesState() external {
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint);
+        anchor.anchorV4(proposalParams, blockParams);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
-        assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
+        assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
         ICheckpointStore.Checkpoint memory saved =
-            checkpointStore.getCheckpoint(checkpoint.blockNumber);
-        assertEq(saved.blockNumber, checkpoint.blockNumber);
-        assertEq(saved.blockHash, checkpoint.blockHash);
-        assertEq(saved.stateRoot, checkpoint.stateRoot);
+            checkpointStore.getCheckpoint(blockParams.anchorBlockNumber);
+        assertEq(saved.blockNumber, blockParams.anchorBlockNumber);
+        assertEq(saved.blockHash, blockParams.anchorBlockHash);
+        assertEq(saved.stateRoot, blockParams.anchorStateRoot);
 
         assertEq(anchor.blockHashes(block.number - 1), blockhash(block.number - 1));
     }
 
     function test_anchorV4_allowsMultipleAnchorsAcrossBlocks() external {
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint);
+        anchor.anchorV4(proposalParams, blockParams);
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint);
+        anchor.anchorV4(proposalParams, blockParams);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
-        assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
+        assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
     }
 
     function test_anchorV4_rejectsInvalidSender() external {
-        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.expectRevert(Anchor.InvalidSender.selector);
-        anchor.anchorV4(checkpoint);
+        anchor.anchorV4(proposalParams, blockParams);
     }
 
     function test_anchorV4_ignoresStaleCheckpoint() external {
-        ICheckpointStore.Checkpoint memory freshCheckpoint = _checkpoint(1000, 0x1234, 0x5678);
+        Anchor.ProposalParams memory proposalParams = Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.BlockParams memory freshBlockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(freshCheckpoint);
+        anchor.anchorV4(proposalParams, freshBlockParams);
 
-        ICheckpointStore.Checkpoint memory staleCheckpoint = _checkpoint(999, 0xAAAA, 0xBBBB);
+        Anchor.BlockParams memory staleBlockParams = _blockParams(999, 0xAAAA, 0xBBBB);
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(staleCheckpoint);
+        anchor.anchorV4(proposalParams, staleBlockParams);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
-        assertEq(blockState.anchorBlockNumber, freshCheckpoint.blockNumber);
-        assertEq(checkpointStore.getCheckpoint(staleCheckpoint.blockNumber).blockNumber, 0);
+        assertEq(blockState.anchorBlockNumber, freshBlockParams.anchorBlockNumber);
+        assertEq(checkpointStore.getCheckpoint(staleBlockParams.anchorBlockNumber).blockNumber, 0);
     }
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
-    function _checkpoint(
+    function _blockParams(
         uint48 _blockNumber,
         uint256 _blockHash,
         uint256 _stateRoot
     )
         internal
         pure
-        returns (ICheckpointStore.Checkpoint memory)
+        returns (Anchor.BlockParams memory)
     {
-        return ICheckpointStore.Checkpoint({
-            blockNumber: _blockNumber,
-            blockHash: bytes32(_blockHash),
-            stateRoot: bytes32(_stateRoot)
+        return Anchor.BlockParams({
+            anchorBlockNumber: _blockNumber,
+            anchorBlockHash: bytes32(_blockHash),
+            anchorStateRoot: bytes32(_stateRoot),
+            rawTxListHash: bytes32(0)
         });
     }
 }

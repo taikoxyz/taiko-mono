@@ -40,7 +40,6 @@ rpc = { path = "../rpc" }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-event-indexer = { path = "../event-indexer" }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
@@ -48,6 +47,7 @@ proposer = { path = "../proposer" }
 rand = "0.8"
 serde_json = { workspace = true }
 serial_test = { workspace = true }
+test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }

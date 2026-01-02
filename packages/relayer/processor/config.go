@@ -34,18 +34,22 @@ type hopConfig struct {
 // Config is a struct used to initialize a processor.
 type Config struct {
 	// address configs
-	SrcSignalServiceAddress common.Address
-	DestBridgeAddress       common.Address
-	DestERC721VaultAddress  common.Address
-	DestERC20VaultAddress   common.Address
-	DestERC1155VaultAddress common.Address
-	DestTaikoAddress        common.Address
-	DestQuotaManagerAddress common.Address
+	SrcSignalServiceAddress           common.Address
+	SrcSignalServiceForkRouterAddress common.Address
+	DestBridgeAddress                 common.Address
+	DestERC721VaultAddress            common.Address
+	DestERC20VaultAddress             common.Address
+	DestERC1155VaultAddress           common.Address
+	DestTaikoAddress                  common.Address
+	DestQuotaManagerAddress           common.Address
+	DestBondManagerAddress            common.Address
 
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
 
 	TargetTxHash *common.Hash
+
+	EventName string
 
 	// processing configs
 	HeaderSyncInterval   uint64
@@ -73,11 +77,12 @@ type Config struct {
 	QueuePort     uint64
 	QueuePrefetch uint64
 	// rpc configs
-	SrcRPCUrl        string
-	DestRPCUrl       string
-	ETHClientTimeout uint64
-	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (db.DB, error)
+	SrcRPCUrl         string
+	DestRPCUrl        string
+	ETHClientTimeout  uint64
+	ForkWindowSeconds uint64
+	OpenQueueFunc     func() (queue.Queue, error)
+	OpenDBFunc        func() (db.DB, error)
 
 	hopConfigs []hopConfig
 
@@ -133,20 +138,39 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var destQuotaManagerAddress common.Address
+
 	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
-		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
+		destQuotaManagerAddressStr := c.String(flags.DestQuotaManagerAddress.Name)
+		if !common.IsHexAddress(destQuotaManagerAddressStr) {
+			return nil, fmt.Errorf("invalid destQuotaManagerAddress")
+		}
+
+		destQuotaManagerAddress = common.HexToAddress(destQuotaManagerAddressStr)
+	}
+
+	var destBondManagerAddress common.Address
+
+	if c.IsSet(flags.DestBondManagerAddress.Name) {
+		destBondManagerAddressStr := c.String(flags.DestBondManagerAddress.Name)
+		if !common.IsHexAddress(destBondManagerAddressStr) {
+			return nil, fmt.Errorf("invalid destBondManagerAddress")
+		}
+
+		destBondManagerAddress = common.HexToAddress(destBondManagerAddressStr)
 	}
 
 	return &Config{
 		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
 		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
+		SrcSignalServiceForkRouterAddress:  common.HexToAddress(c.String(flags.SrcSignalServiceForkRouterAddress.Name)),
 		DestTaikoAddress:                   common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:                  common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:             common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
 		DestERC20VaultAddress:              common.HexToAddress(c.String(flags.DestERC20VaultAddress.Name)),
 		DestERC1155VaultAddress:            common.HexToAddress(c.String(flags.DestERC1155VaultAddress.Name)),
 		DestQuotaManagerAddress:            destQuotaManagerAddress,
+		DestBondManagerAddress:             destBondManagerAddress,
 		DatabaseUsername:                   c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                   c.String(flags.DatabasePassword.Name),
 		DatabaseName:                       c.String(flags.DatabaseName.Name),
@@ -164,11 +188,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HeaderSyncInterval:                 c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:                      c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:               c.Uint64(flags.ConfirmationTimeout.Name),
+		EventName:                          c.String(flags.EventName.Name),
 		EnableTaikoL2:                      c.Bool(flags.EnableTaikoL2.Name),
 		ProfitableOnly:                     c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
+		ForkWindowSeconds:                  c.Uint64(flags.ForkWindowSeconds.Name),
 		TargetTxHash:                       targetTxHash,
 		CacheOption:                        c.Int(flags.CacheOption.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,

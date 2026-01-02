@@ -16,6 +16,7 @@ import (
 var (
 	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	destQuotaManagerAddr    = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD357"
+	destBondManagerAddr     = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD399"
 	headerSyncInterval      = "30"
 	confirmations           = "10"
 	confirmationTimeout     = "30"
@@ -60,6 +61,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC721VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC1155VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestTaikoAddress)
+		assert.Equal(t, common.HexToAddress(destBondManagerAddr), c.DestBondManagerAddress)
 		assert.Equal(t, uint64(30), c.HeaderSyncInterval)
 		assert.Equal(t, uint64(10), c.Confirmations)
 		assert.Equal(t, uint64(30), c.ConfirmationsTimeout)
@@ -118,6 +120,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.ProfitableOnly.Name,
 		"--" + flags.EnableTaikoL2.Name,
 		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
+		"--" + flags.DestBondManagerAddress.Name, destBondManagerAddr,
 	}))
 }
 
@@ -144,4 +147,55 @@ func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
 		"--" + flags.ProcessorPrivateKey.Name, "invalid-priv-key",
 		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
 	}), "invalid processorPrivateKey")
+}
+
+func TestNewConfigFromCliContext_InvalidDestBondManagerAddress(t *testing.T) {
+	app := setupApp()
+	assert.ErrorContains(t, app.Run([]string{
+		"TestingNewConfigFromCliContext",
+		"--" + flags.DatabaseUsername.Name, "dbuser",
+		"--" + flags.DatabasePassword.Name, "dbpass",
+		"--" + flags.DatabaseHost.Name, "dbhost",
+		"--" + flags.DatabaseName.Name, "dbname",
+		"--" + flags.QueueUsername.Name, "queuename",
+		"--" + flags.QueuePassword.Name, "queuepassword",
+		"--" + flags.QueueHost.Name, "queuehost",
+		"--" + flags.QueuePort.Name, "5555",
+		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
+		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
+		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
+		"--" + flags.ProcessorPrivateKey.Name, dummyEcdsaKey,
+		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
+		"--" + flags.DestBondManagerAddress.Name, "invalid-address",
+	}), "invalid destBondManagerAddress")
+}
+
+func TestNewConfigFromCliContext_InvalidDestQuotaManagerAddress(t *testing.T) {
+	app := setupApp()
+	assert.ErrorContains(t, app.Run([]string{
+		"TestingNewConfigFromCliContext",
+		"--" + flags.DatabaseUsername.Name, "dbuser",
+		"--" + flags.DatabasePassword.Name, "dbpass",
+		"--" + flags.DatabaseHost.Name, "dbhost",
+		"--" + flags.DatabaseName.Name, "dbname",
+		"--" + flags.QueueUsername.Name, "queuename",
+		"--" + flags.QueuePassword.Name, "queuepassword",
+		"--" + flags.QueueHost.Name, "queuehost",
+		"--" + flags.QueuePort.Name, "5555",
+		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
+		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
+		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
+		"--" + flags.ProcessorPrivateKey.Name, dummyEcdsaKey,
+		"--" + flags.DestQuotaManagerAddress.Name, "invalid-address",
+	}), "invalid destQuotaManagerAddress")
 }

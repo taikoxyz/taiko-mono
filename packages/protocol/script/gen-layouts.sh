@@ -41,7 +41,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
-"contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
 "contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
@@ -51,6 +50,7 @@ contracts_layer2=(
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
 "contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
+"contracts/layer2/preconf/PreconfSlasherL2.sol:PreconfSlasherL2"
 )
 
 # Update storage layout for a single contract

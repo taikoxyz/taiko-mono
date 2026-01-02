@@ -86,8 +86,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	proposalId *big.Int,
 	proposer common.Address,
 	proverAuth []byte,
-	bondInstructionsHash common.Hash,
-	bondInstructions []shastaBindings.LibBondsBondInstruction,
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
@@ -111,23 +109,19 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 		"proposalId", proposalId,
 		"proposer", proposer,
 		"endOfSubmissionWindowTimestamp", endOfSubmissionWindowTimestamp,
-		"bondInstructionsHash", bondInstructionsHash,
-		"bondInstructions", len(bondInstructions),
 	)
 
 	return c.rpc.ShastaClients.Anchor.AnchorV4(
 		opts,
 		shastaBindings.AnchorProposalParams{
-			ProposalId:           proposalId,
-			Proposer:             proposer,
-			ProverAuth:           proverAuth,
-			BondInstructionsHash: bondInstructionsHash,
-			BondInstructions:     bondInstructions,
+			ProposalId: proposalId,
+			Proposer:   proposer,
+			ProverAuth: proverAuth,
 		},
-		shastaBindings.AnchorBlockParams{
-			AnchorBlockNumber: anchorBlockNumber,
-			AnchorBlockHash:   anchorBlockHash,
-			AnchorStateRoot:   anchorStateRoot,
+		shastaBindings.ICheckpointStoreCheckpoint{
+			BlockNumber: anchorBlockNumber,
+			BlockHash:   anchorBlockHash,
+			StateRoot:   anchorStateRoot,
 		},
 	)
 }

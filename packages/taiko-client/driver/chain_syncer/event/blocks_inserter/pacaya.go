@@ -108,9 +108,10 @@ func (i *Pacaya) InsertBlocks(
 	}
 
 	var (
-		allTxs          = i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
-		parent          *types.Header
-		lastPayloadData *engine.ExecutableData
+		allTxs              = i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
+		parent              *types.Header
+		lastPayloadData     *engine.ExecutableData
+		batchSafeCheckpoint *verifiedCheckpoint
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)
@@ -171,7 +172,7 @@ func (i *Pacaya) InsertBlocks(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, err := isKnownCanonicalBatchPacaya(
+			lastBlockHeader, isKnown, err := isKnownCanonicalBatchPacaya(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -180,10 +181,11 @@ func (i *Pacaya) InsertBlocks(
 				parent,
 			)
 			if err != nil {
-				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
-			} else if lastBlockHeader != nil {
+				return fmt.Errorf("failed to check if Pacaya batch is known in canonical chain: %w", err)
+			}
+			if isKnown && lastBlockHeader != nil {
 				log.Info(
-					"🧬 Known batch in canonical chain",
+					"🧬 Known Pacaya batch in canonical chain",
 					"batchID", meta.GetBatchID(),
 					"lastBlockID", meta.GetLastBlockID(),
 					"lastBlockHash", lastBlockHeader.Hash(),
@@ -206,6 +208,17 @@ func (i *Pacaya) InsertBlocks(
 		}
 
 		// Otherwise, we need to create a new execution payload and set it as the head block in L2 EE.
+		if batchSafeCheckpoint == nil {
+			lastVerifiedTS, err := i.rpc.GetLastVerifiedTransitionPacaya(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to fetch last verified block: %w", err)
+			}
+			batchSafeCheckpoint = &verifiedCheckpoint{ // Reuse across blocks in this batch.
+				BlockID:   new(big.Int).SetUint64(lastVerifiedTS.BlockId),
+				BlockHash: lastVerifiedTS.Ts.BlockHash,
+			}
+		}
+
 		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
 			ctx,
 			i.rpc,
@@ -226,6 +239,7 @@ func (i *Pacaya) InsertBlocks(
 			&createPayloadAndSetHeadMetaData{
 				createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
 				Parent:                          parent,
+				VerifiedCheckpoint:              batchSafeCheckpoint,
 			},
 			anchorTx,
 		); err != nil {
@@ -273,8 +287,8 @@ func (i *Pacaya) InsertBlocksWithManifest(
 	_ metadata.TaikoProposalMetaData,
 	_ *shastaManifest.ShastaDerivationSourcePayload,
 	_ eventIterator.EndBatchProposedEventIterFunc,
-) error {
-	return errors.New("not supported in Pacaya")
+) (*big.Int, error) {
+	return nil, errors.New("not supported in Pacaya")
 }
 
 // InsertPreconfBlocksFromEnvelopes inserts preconfirmation blocks from the given envelopes.

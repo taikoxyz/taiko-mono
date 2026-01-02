@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethEth "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 	"github.com/labstack/echo/v4"
@@ -104,7 +105,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
@@ -128,21 +129,23 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if s.latestSeenProposal != nil {
 		if s.latestSeenProposal.IsShasta() {
-			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) &&
-				s.latestSeenProposal.IsShasta() {
-				parentProposalID := new(big.Int).SetBytes(parent.Transactions()[0].Data()[4:36])
+			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
+				parentProposalID, err := gethEth.AnchorV4ProposalID(parent.Transactions()[0].Data())
+				if err != nil {
+					return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
+				}
 
-				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetEventData().Id) < 0 {
 					log.Warn(
 						"The parent block proposal ID is smaller than the latest proposal ID seen in event",
 						"parentProposalID", parentProposalID,
-						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetProposal().Id,
+						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetEventData().Id,
 					)
 
 					return s.returnError(c, http.StatusBadRequest,
 						fmt.Errorf(
 							"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
-							s.latestSeenProposal.Shasta().GetProposal().Id,
+							s.latestSeenProposal.Shasta().GetEventData().Id,
 							parentProposalID,
 						),
 					)

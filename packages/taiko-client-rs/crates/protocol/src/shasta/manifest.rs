@@ -143,19 +143,6 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Option<Vec<u8>
     Ok(Some(decoded))
 }
 
-impl DerivationSourceManifest {
-    /// Reset block metadata to defaults for forced-inclusion segments, matching Go driver
-    /// behaviour.
-    pub fn apply_forced_inclusion_defaults(&mut self) {
-        for block in &mut self.blocks {
-            block.gas_limit = 0;
-            block.anchor_block_number = 0;
-            block.timestamp = 0;
-            block.coinbase = Address::ZERO;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

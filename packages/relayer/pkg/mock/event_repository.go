@@ -204,6 +204,26 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	return 5, nil
 }
 
+func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
+	ctx context.Context,
+	chainId uint64,
+	syncedChainId uint64,
+	blockNumber uint64,
+) (*relayer.Event, error) {
+	return &relayer.Event{
+		ID:      rand.Int(), // nolint: gosec
+		ChainID: MockChainID.Int64(),
+	}, nil
+}
+
+func (r *EventRepository) LatestCheckpointSyncedEvent(
+	ctx context.Context,
+	chainId uint64,
+	syncedChainId uint64,
+) (uint64, error) {
+	return 5, nil
+}
+
 // DeleteAllAfterBlockID is used when a reorg is detected
 func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error {
 	return nil

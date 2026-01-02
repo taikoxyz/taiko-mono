@@ -22,11 +22,37 @@ contract Anchor is EssentialContract {
     // Structs
     // ---------------------------------------------------------------
 
+    /// @notice Proposal-level data that applies to the entire batch of blocks.
+    /// @dev For whitelist preconfirmations, `submissionWindowEnd` will not be used
+    /// and can be set to 0.
+    struct ProposalParams {
+        uint48 submissionWindowEnd; // The end of the preconfirmation submission window
+    }
+
+    /// @notice Block-level data specific to a single block within a proposal.
+    /// @dev For whitelist preconfirmations, `rawTxListHash` will not be used
+    /// and can be set to 0-bytes
+    struct BlockParams {
+        uint48 anchorBlockNumber; // L1 block number to anchor (0 to skip)
+        bytes32 anchorBlockHash; // L1 block hash at anchorBlockNumber
+        bytes32 anchorStateRoot; // L1 state root at anchorBlockNumber
+        bytes32 rawTxListHash; // Keccak256 hash of the block's unprocessed transaction list
+    }
+
     /// @notice Stored block-level state for the latest anchor.
     /// @dev 2 slots
     struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
+    }
+
+    /// @notice Metadata that will be required for slashing violations of permissionless preconfs.
+    struct PreconfMetadata {
+        uint48 anchorBlockNumber;
+        uint48 submissionWindowEnd;
+        uint48 parentSubmissionWindowEnd;
+        bytes32 rawTxListHash;
+        bytes32 parentRawTxListHash;
     }
 
     // ---------------------------------------------------------------
@@ -68,8 +94,11 @@ contract Anchor is EssentialContract {
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
 
+    /// @notice Mapping from block number to preconfirmation metadata
+    mapping(uint256 blockNumber => PreconfMetadata metadata) internal _preconfMetadata;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[41] private __gap;
+    uint256[40] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -120,14 +149,17 @@ contract Anchor is EssentialContract {
 
     /// @notice Processes a block and anchors L1 data.
     /// @dev Core function that anchors L1 block data for cross-chain verification.
-    /// @param _checkpoint Checkpoint data for the L1 block being anchored.
-    function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
+    /// @param _proposalParams Proposal-level parameters.
+    /// @param _blockParams Block-level parameters.
+    function anchorV4(ProposalParams calldata _proposalParams, BlockParams calldata _blockParams)
         external
         onlyValidSender
         nonReentrant
     {
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
-        _validateBlock(_checkpoint);
+        _validateBlock(_blockParams);
+
+        _storePreconfMetadata(_proposalParams, _blockParams);
 
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
@@ -164,13 +196,23 @@ contract Anchor is EssentialContract {
         return _blockState;
     }
 
+    function getPreconfMetadata(uint256 _blockNumber)
+        external
+        view
+        returns (PreconfMetadata memory)
+    {
+        PreconfMetadata memory preconfMetadata = _preconfMetadata[_blockNumber];
+        require(preconfMetadata.anchorBlockNumber != 0, InvalidBlockNumber());
+        return preconfMetadata;
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Validates and processes block-level data.
-    /// @param _checkpoint Anchor checkpoint data from L1.
-    function _validateBlock(ICheckpointStore.Checkpoint calldata _checkpoint) private {
+    /// @param _blockParams Anchor block data from L1.
+    function _validateBlock(BlockParams calldata _blockParams) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
         if (_blockState.ancestorsHash != bytes32(0)) {
@@ -179,10 +221,34 @@ contract Anchor is EssentialContract {
         _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
-        if (_checkpoint.blockNumber > _blockState.anchorBlockNumber) {
-            checkpointStore.saveCheckpoint(_checkpoint);
-            _blockState.anchorBlockNumber = _checkpoint.blockNumber;
+        if (_blockParams.anchorBlockNumber > _blockState.anchorBlockNumber) {
+            checkpointStore.saveCheckpoint(ICheckpointStore.Checkpoint({
+                blockNumber: _blockParams.anchorBlockNumber,
+                blockHash: _blockParams.anchorBlockHash,
+                stateRoot: _blockParams.anchorStateRoot
+            }));
+            _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
+    }
+
+    /// @dev Stores preconfirmation metadata for the given proposal and block.
+    /// This information is used for slashing on permissionless preconfs.
+    /// @param _proposalParams The proposal-level parameters.
+    /// @param _blockParams The block-level parameters.
+    function _storePreconfMetadata(
+        ProposalParams calldata _proposalParams,
+        BlockParams calldata _blockParams
+    )
+        private
+    {
+        PreconfMetadata storage parentPreconfMetadata = _preconfMetadata[block.number - 1];
+        _preconfMetadata[block.number] = PreconfMetadata({
+            anchorBlockNumber: _blockParams.anchorBlockNumber,
+            submissionWindowEnd: _proposalParams.submissionWindowEnd,
+            parentSubmissionWindowEnd: parentPreconfMetadata.submissionWindowEnd,
+            rawTxListHash: _blockParams.rawTxListHash,
+            parentRawTxListHash: parentPreconfMetadata.rawTxListHash
+        });
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
@@ -234,6 +300,7 @@ contract Anchor is EssentialContract {
 
     error AncestorsHashMismatch();
     error InvalidAddress();
+    error InvalidBlockNumber();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
