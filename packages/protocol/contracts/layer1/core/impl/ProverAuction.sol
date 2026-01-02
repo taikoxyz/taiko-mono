@@ -278,8 +278,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
         uint32 maxAllowedFee;
         unchecked {
-            maxAllowedFee =
-                uint32(uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
+            maxAllowedFee = uint32(uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         }
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         require(bond.balance >= getRequiredBond(), InsufficientBond());
@@ -426,8 +425,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Get bond information for an account.
     /// @param _account The account to query.
     /// @return bondInfo_ The bond information struct.
-    function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_)
-    {
+    function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_) {
         return _bonds[_account];
     }
 
@@ -479,12 +477,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         _pool.everHadPool = 1;
 
         _activeProvers[0] = leader;
-        _members[leader] = PoolMember({
-            index: 0,
-            joinOrder: 1,
-            weightBps: _weightForJoin(1),
-            active: true
-        });
+        _members[leader] =
+            PoolMember({ index: 0, joinOrder: 1, weightBps: _weightForJoin(1), active: true });
 
         _rebuildSlotTable();
     }
@@ -518,10 +512,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             if (prover == address(0)) continue;
             uint8 joinOrder = i + 1;
             _members[prover] = PoolMember({
-                index: i,
-                joinOrder: joinOrder,
-                weightBps: _weightForJoin(joinOrder),
-                active: true
+                index: i, joinOrder: joinOrder, weightBps: _weightForJoin(joinOrder), active: true
             });
         }
 
@@ -533,10 +524,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint8 size = _pool.poolSize;
         _activeProvers[size] = prover;
         _members[prover] = PoolMember({
-            index: size,
-            joinOrder: joinOrder,
-            weightBps: _weightForJoin(joinOrder),
-            active: true
+            index: size, joinOrder: joinOrder, weightBps: _weightForJoin(joinOrder), active: true
         });
         _pool.poolSize = size + 1;
         _rebuildSlotTable();

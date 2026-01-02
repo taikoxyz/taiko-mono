@@ -114,10 +114,10 @@ contract ProverAuctionTest is CommonTest {
 
         assertEq(count1 + count2 + count3, samples);
 
-        uint256 totalWeight = 10_000 + 9_000 + 8_000;
+        uint256 totalWeight = 10_000 + 9000 + 8000;
         uint256 expected1 = samples * 10_000 / totalWeight;
-        uint256 expected2 = samples * 9_000 / totalWeight;
-        uint256 expected3 = samples * 8_000 / totalWeight;
+        uint256 expected2 = samples * 9000 / totalWeight;
+        uint256 expected3 = samples * 8000 / totalWeight;
         uint256 tolerance1 = expected1 / 10;
         uint256 tolerance2 = expected2 / 10;
         uint256 tolerance3 = expected3 / 10;
