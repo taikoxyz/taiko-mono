@@ -1,28 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
-/// @notice Implements the Shasta fork's anchoring mechanism with prover designation and checkpoint
-/// management.
+/// @notice Implements the Shasta fork's anchoring mechanism with checkpoint management.
 /// @dev This contract implements:
-///      - Prover designation with signature authentication
-///      - State tracking for multi-block proposals
 ///      - Anchoring of L1 checkpoints for cross-chain verification
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract {
+    using LibAddress for address;
+    using SafeERC20 for IERC20;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Stored anchor state for the latest processed block.
+    /// @notice Stored block-level state for the latest anchor.
     /// @dev 2 slots
-    struct AnchorState {
-        uint48 lastProposalId;
+    struct BlockState {
         uint48 anchorBlockNumber;
         bytes32 ancestorsHash;
     }
@@ -60,23 +62,22 @@ contract Anchor is EssentialContract {
     /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
-    /// @notice Latest anchor state, updated on every processed block.
-    AnchorState internal _state;
+    /// @dev Deprecated. Retained for storage layout compatibility.
+    uint48 private _lastProposalId;
+
+    /// @notice Latest block-level state, updated on every processed block.
+    BlockState internal _blockState;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[42] private __gap;
+    uint256[41] private __gap;
 
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
-    event Anchored(
-        uint48 indexed proposalId,
-        bool indexed isNewProposal,
-        uint48 prevAnchorBlockNumber,
-        uint48 anchorBlockNumber,
-        bytes32 ancestorsHash
-    );
+    event Anchored(uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash);
+
+    event Withdrawn(address token, address to, uint256 amount);
 
     // ---------------------------------------------------------------
     // Modifiers
@@ -117,52 +118,50 @@ contract Anchor is EssentialContract {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Processes a block within a proposal and anchors L1 data.
-    /// @dev Core function that processes blocks sequentially within a proposal:
-    ///      1. Designates prover when a new proposal starts (i.e. the first block of a proposal)
-    ///      2. Anchors L1 block data for cross-chain verification
-    /// @param _proposalId Proposal ID for the current batch.
+    /// @notice Processes a block and anchors L1 data.
+    /// @dev Core function that anchors L1 block data for cross-chain verification.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
-    function anchorV4(
-        uint48 _proposalId,
-        ICheckpointStore.Checkpoint calldata _checkpoint
-    )
+    function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         onlyValidSender
         nonReentrant
     {
-        if (_proposalId < _state.lastProposalId) {
-            // Proposal ID cannot go backward
-            revert ProposalIdMismatch();
-        }
-
-        bool isNewProposal = _proposalId > _state.lastProposalId;
-        // We do not need to account for proposalId = 0, since that's genesis
-        if (isNewProposal) {
-            _state.lastProposalId = _proposalId;
-        }
-        uint48 prevAnchorBlockNumber = _state.anchorBlockNumber;
+        uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
 
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
 
         emit Anchored(
-            _state.lastProposalId,
-            isNewProposal,
-            prevAnchorBlockNumber,
-            _state.anchorBlockNumber,
-            _state.ancestorsHash
+            prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash
         );
+    }
+
+    /// @notice Withdraw token or Ether from this address.
+    /// Note: This contract receives a portion of L2 base fees, while the remainder is directed to
+    /// L2 block's coinbase address.
+    /// @param _token Token address or address(0) if Ether.
+    /// @param _to Withdraw to address.
+    function withdraw(address _token, address _to) external onlyOwner nonReentrant {
+        require(_to != address(0), InvalidAddress());
+        uint256 amount;
+        if (_token == address(0)) {
+            amount = address(this).balance;
+            _to.sendEtherAndVerify(amount);
+        } else {
+            amount = IERC20(_token).balanceOf(address(this));
+            IERC20(_token).safeTransfer(_to, amount);
+        }
+        emit Withdrawn(_token, _to, amount);
     }
 
     // ---------------------------------------------------------------
     // Public View Functions
     // ---------------------------------------------------------------
 
-    /// @notice Returns the current anchor state snapshot.
-    function getState() external view returns (AnchorState memory) {
-        return _state;
+    /// @notice Returns the current block-level state snapshot.
+    function getBlockState() external view returns (BlockState memory) {
+        return _blockState;
     }
 
     // ---------------------------------------------------------------
@@ -174,15 +173,15 @@ contract Anchor is EssentialContract {
     function _validateBlock(ICheckpointStore.Checkpoint calldata _checkpoint) private {
         // Verify and update ancestors hash
         (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        if (_state.ancestorsHash != bytes32(0)) {
-            require(_state.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
+        if (_blockState.ancestorsHash != bytes32(0)) {
+            require(_blockState.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
         }
-        _state.ancestorsHash = newAncestorsHash;
+        _blockState.ancestorsHash = newAncestorsHash;
 
         // Anchor checkpoint data if a fresher L1 block is provided
-        if (_checkpoint.blockNumber > _state.anchorBlockNumber) {
+        if (_checkpoint.blockNumber > _blockState.anchorBlockNumber) {
             checkpointStore.saveCheckpoint(_checkpoint);
-            _state.anchorBlockNumber = _checkpoint.blockNumber;
+            _blockState.anchorBlockNumber = _checkpoint.blockNumber;
         }
     }
 
@@ -238,5 +237,4 @@ contract Anchor is EssentialContract {
     error InvalidL1ChainId();
     error InvalidL2ChainId();
     error InvalidSender();
-    error ProposalIdMismatch();
 }

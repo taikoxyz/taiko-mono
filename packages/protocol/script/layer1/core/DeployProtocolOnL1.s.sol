@@ -9,6 +9,7 @@ import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
 import "src/layer1/devnet/OpVerifier.sol";
@@ -51,10 +52,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         address sharedResolver;
         address remoteSigSvc;
         address preconfWhitelist;
-        address proverAuction;
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
+        uint64 minBond;
+        uint64 livenessBond;
+        uint48 withdrawalDelay;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -103,17 +106,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
-        config.proverAuction = vm.envAddress("PROVER_AUCTION");
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
+        config.minBond = uint64(vm.envOr("MIN_BOND_GWEI", uint256(0)));
+        config.livenessBond = uint64(vm.envOr("LIVENESS_BOND_GWEI", uint256(0)));
+        config.withdrawalDelay = uint48(vm.envOr("WITHDRAWAL_DELAY", uint256(0)));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
-        require(config.proverAuction != address(0), "PROVER_AUCTION not set");
     }
 
     function _deployAllVerifiers(DeploymentConfig memory config)
@@ -185,6 +189,14 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
+        // Deploy prover whitelist
+        address proverWhitelist = deployProxy({
+            name: "prover_whitelist",
+            impl: address(new ProverWhitelist()),
+            data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
+        });
+        console2.log("ProverWhitelist deployed:", proverWhitelist);
+
         // Get dependencies
         address signalService =
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
@@ -200,11 +212,23 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("SignalService deployed:", signalService);
         }
 
+        address taikoToken =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "taiko_token", true);
+
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(proofVerifier, whitelist, config.proverAuction, signalService)
+                new DevnetInbox(
+                    proofVerifier,
+                    whitelist,
+                    proverWhitelist,
+                    signalService,
+                    taikoToken,
+                    config.minBond,
+                    config.livenessBond,
+                    config.withdrawalDelay
+                )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
@@ -280,9 +304,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             register(sharedResolver, "taiko_token", taikoToken);
         }
-
-        // Register as bond token as well
-        register(sharedResolver, "bond_token", taikoToken);
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {

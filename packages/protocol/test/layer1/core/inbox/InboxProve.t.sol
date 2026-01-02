@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 /// forge-config: default.isolate = true
 
 import { InboxTestBase } from "./InboxTestBase.sol";
+import { IBondManager } from "src/layer1/core/iface/IBondManager.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -269,6 +270,186 @@ contract InboxProveTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------------
+    // Bond processing
+    // ---------------------------------------------------------------------
+    function test_prove_processesBond_whenLate() public {
+        ProposedEvent memory p1 = _proposeOne();
+        uint48 p1Timestamp = uint48(block.timestamp);
+        _advanceBlock();
+        ProposedEvent memory p2 = _proposeOne();
+        uint48 p2Timestamp = uint48(block.timestamp);
+
+        vm.warp(block.timestamp + config.provingWindow + 1);
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
+            proposer: p1.proposer,
+            designatedProver: proposer, // different from actual prover
+            timestamp: p1Timestamp,
+            blockHash: keccak256("checkpoint1")
+        });
+        transitions[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+
+        IInbox.ProveInput memory input = _buildInput(
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, keccak256("stateRoot")
+        );
+
+        uint64 proposerBalanceBefore = inbox.getBond(proposer).balance;
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+
+        uint64 debited = config.livenessBond;
+        uint64 payeeAmount = debited / 2;
+        uint64 amountToSlash = debited - payeeAmount;
+
+        vm.expectEmit();
+        emit IBondManager.LivenessBondSettled(
+            proposer, prover, config.livenessBond, payeeAmount, amountToSlash
+        );
+
+        _prove(input);
+
+        assertEq(
+            uint256(inbox.getBond(proposer).balance),
+            uint256(proposerBalanceBefore - debited),
+            "payer debited"
+        );
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(proverBalanceBefore + payeeAmount),
+            "payee credited"
+        );
+    }
+
+    function test_prove_noBondChange_withinProvingWindow() public {
+        IInbox.ProveInput memory input = _buildBatchInput(1);
+
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+        _prove(input);
+
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(proverBalanceBefore),
+            "no bond change within window"
+        );
+    }
+
+    function test_prove_processesBond_whenPayerEqualsPayee() public {
+        ProposedEvent memory payload = _proposeOne();
+        uint48 proposalTimestamp = uint48(block.timestamp);
+        vm.warp(proposalTimestamp + config.provingWindow + 1);
+
+        IInbox.Transition[] memory transitions =
+            _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
+
+        // designatedProver == actualProver so payer == payee
+        transitions[0].designatedProver = prover;
+
+        IInbox.ProveInput memory input = _buildInput(
+            payload.id,
+            inbox.getCoreState().lastFinalizedBlockHash,
+            transitions,
+            keccak256("stateRoot")
+        );
+
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+        _prove(input);
+
+        uint64 debited = config.livenessBond;
+        uint64 payeeAmount = debited / 2;
+        uint64 amountToSlash = debited - payeeAmount;
+        uint64 expectedBalance = proverBalanceBefore - debited + payeeAmount;
+
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(expectedBalance),
+            "payer==payee bond split"
+        );
+    }
+
+    function test_prove_processesBond_whenLate_withPartialBondBelowSlash() public {
+        uint64 partialBond = config.livenessBond / 2;
+        address payer = Emma;
+        _depositBond(payer, partialBond);
+
+        ProposedEvent memory payload = _proposeOne();
+        uint48 proposalTimestamp = uint48(block.timestamp);
+
+        vm.warp(proposalTimestamp + config.provingWindow + 1);
+
+        IInbox.Transition[] memory transitions =
+            _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
+        transitions[0].designatedProver = payer;
+
+        IInbox.ProveInput memory input = _buildInput(
+            payload.id,
+            inbox.getCoreState().lastFinalizedBlockHash,
+            transitions,
+            keccak256("stateRoot")
+        );
+
+        uint64 payerBalanceBefore = inbox.getBond(payer).balance;
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+
+        uint64 payeeAmount = payerBalanceBefore / 2;
+        uint64 slashedAmount = payerBalanceBefore - payeeAmount;
+
+        vm.expectEmit();
+        emit IBondManager.LivenessBondSettled(
+            payer, prover, config.livenessBond, payeeAmount, slashedAmount
+        );
+
+        _prove(input);
+
+        assertEq(uint256(inbox.getBond(payer).balance), 0, "payer debited");
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(proverBalanceBefore + payeeAmount),
+            "payee credited"
+        );
+    }
+
+    function test_prove_processesBond_whenLate_withPartialBondAboveSlash() public {
+        uint64 payerBond = (config.livenessBond / 2) + 1;
+        address payer = Alice;
+        _depositBond(payer, payerBond);
+
+        ProposedEvent memory payload = _proposeOne();
+        uint48 proposalTimestamp = uint48(block.timestamp);
+
+        vm.warp(proposalTimestamp + config.provingWindow + 1);
+
+        IInbox.Transition[] memory transitions =
+            _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
+        transitions[0].designatedProver = payer;
+
+        IInbox.ProveInput memory input = _buildInput(
+            payload.id,
+            inbox.getCoreState().lastFinalizedBlockHash,
+            transitions,
+            keccak256("stateRoot")
+        );
+
+        uint64 payerBalanceBefore = inbox.getBond(payer).balance;
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+        uint64 payeeAmount = payerBalanceBefore / 2;
+        uint64 slashedAmount = payerBalanceBefore - payeeAmount;
+
+        vm.expectEmit();
+        emit IBondManager.LivenessBondSettled(
+            payer, prover, config.livenessBond, payeeAmount, slashedAmount
+        );
+
+        _prove(input);
+
+        assertEq(uint256(inbox.getBond(payer).balance), 0, "payer debited");
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(proverBalanceBefore + payeeAmount),
+            "payee credited"
+        );
+    }
+
+    // ---------------------------------------------------------------------
     // Boundary Tests - prove() conditions
     // ---------------------------------------------------------------------
     function test_prove_succeedsWhen_FirstProposalIdAtExactBoundary() public {
@@ -322,6 +503,79 @@ contract InboxProveTest is InboxTestBase {
         vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
+    }
+
+    // ---------------------------------------------------------------------
+    // Boundary Tests - Bond timing
+    // ---------------------------------------------------------------------
+    function test_prove_noBondChange_atExactProvingWindowBoundary() public {
+        ProposedEvent memory payload = _proposeOne();
+        uint48 proposalTimestamp = uint48(block.timestamp);
+
+        vm.warp(proposalTimestamp + config.provingWindow);
+
+        IInbox.Transition[] memory transitions =
+            _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
+        transitions[0].designatedProver = proposer; // Different from actual to exercise bond path
+
+        IInbox.ProveInput memory input = _buildInput(
+            payload.id,
+            inbox.getCoreState().lastFinalizedBlockHash,
+            transitions,
+            keccak256("stateRoot")
+        );
+
+        uint64 proposerBalanceBefore = inbox.getBond(proposer).balance;
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+        _prove(input);
+
+        assertEq(
+            uint256(inbox.getBond(proposer).balance),
+            uint256(proposerBalanceBefore),
+            "payer unchanged at boundary"
+        );
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(proverBalanceBefore),
+            "payee unchanged at boundary"
+        );
+    }
+
+    function test_prove_livenessBond_oneSecondPastProvingWindow() public {
+        ProposedEvent memory payload = _proposeOne();
+        uint48 proposalTimestamp = uint48(block.timestamp);
+
+        vm.warp(proposalTimestamp + config.provingWindow + 1);
+
+        IInbox.Transition[] memory transitions =
+            _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
+        transitions[0].designatedProver = proposer;
+
+        IInbox.ProveInput memory input = _buildInput(
+            payload.id,
+            inbox.getCoreState().lastFinalizedBlockHash,
+            transitions,
+            keccak256("stateRoot")
+        );
+
+        uint64 proposerBalanceBefore = inbox.getBond(proposer).balance;
+        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
+        _prove(input);
+
+        uint64 debited = config.livenessBond;
+        uint64 amountToSlash = debited / 2;
+        uint64 payeeAmount = debited - amountToSlash;
+
+        assertEq(
+            uint256(inbox.getBond(proposer).balance),
+            uint256(proposerBalanceBefore - debited),
+            "payer debited past window"
+        );
+        assertEq(
+            uint256(inbox.getBond(prover).balance),
+            uint256(proverBalanceBefore + payeeAmount),
+            "payee credited past window"
+        );
     }
 
     // ---------------------------------------------------------------------
@@ -441,6 +695,15 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
+    function _depositBond(address _account, uint64 _amount) internal {
+        bondToken.mint(_account, _toTokenAmount(_amount));
+
+        vm.startPrank(_account);
+        bondToken.approve(address(inbox), type(uint256).max);
+        inbox.deposit(_amount);
+        vm.stopPrank();
+    }
+
     function _buildInput(
         uint48 _firstProposalId,
         bytes32 _parentBlockHash,

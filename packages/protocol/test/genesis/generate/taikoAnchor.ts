@@ -195,9 +195,6 @@ async function generateContractConfigs(
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
         ),
-        LibBonds: require(
-            path.join(ARTIFACTS_PATH, "./LibBonds.sol/LibBonds.json"),
-        ),
     };
 
     const proxy = require(
@@ -642,7 +639,6 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        // Rollup Contracts
         AnchorForkRouterImpl: {
             address: addressMap.AnchorForkRouterImpl,
             deployedBytecode: replaceImmutableValues(
@@ -703,6 +699,11 @@ async function generateContractConfigs(
                 contractArtifacts.TaikoAnchor.deployedBytecode.object,
             variables: {
                 _owner: contractOwner,
+                // TaikoAnchor - _blockState will be initialized by first anchor call
+                _blockState: {
+                    anchorBlockNumber: 0,
+                    ancestorsHash: ethers.constants.HashZero,
+                },
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.AnchorForkRouterImpl,
@@ -758,11 +759,6 @@ async function generateContractConfigs(
             address: addressMap.LibNetwork,
             deployedBytecode:
                 contractArtifacts.LibNetwork.deployedBytecode.object,
-        },
-        LibBonds: {
-            address: addressMap.LibBonds,
-            deployedBytecode:
-                contractArtifacts.LibBonds.deployedBytecode.object,
         },
     };
 }

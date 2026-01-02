@@ -114,10 +114,6 @@ module.exports = {
     gasExcess: 0,
   },
   predeployERC20: true,
-  livenessBondGwei: 128_000_000_000,
-  withdrawalDelay: 3600,
-  minBond: 0,
-  bondToken: "0x0000000000000000000000000000000000000000",
   remoteSignalService: "0x0000000000000000000000000000000000000000",
   pacayaTaikoAnchor: "0x0000000000000000000000000000000000000000",
 };
