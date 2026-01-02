@@ -18,7 +18,7 @@ library LibHashOptimized {
     /// @notice Hashing for proposal data.
     /// @dev Uses keccak256(abi.encode(...)) to hash the proposal. Contrarty to the intuition,
     /// this is as efficient if not more than using `EfficientHashLib` in this case because
-    /// the structure of the data(nested dynamic arryas).
+    /// the structure of the data(nested dynamic arrays).
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
