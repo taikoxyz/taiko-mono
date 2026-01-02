@@ -533,7 +533,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             if (designatedProver == address(0)) {
                 // No auction winner - proposer becomes the prover but must have sufficient bond
                 designatedProver = msg.sender;
-                require(_proverAuction.checkBondDeferWithdrawal(msg.sender), InvalidSelfProverBond());
+                require(
+                    _proverAuction.checkBondDeferWithdrawal(msg.sender), InvalidSelfProverBond()
+                );
             }
             proverFee_ = uint256(feeInGwei) * 1 gwei;
 
