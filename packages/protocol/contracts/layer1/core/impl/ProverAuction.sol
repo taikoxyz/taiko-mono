@@ -24,6 +24,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Minimum time between self-bids to prevent moving average manipulation.
     uint48 public constant MIN_SELF_BID_INTERVAL = 2 minutes;
 
+    /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
+    uint48 public constant MIN_AVG_UPDATE_INTERVAL = MIN_SELF_BID_INTERVAL;
+
     /// @notice Maximum number of provers in the pool.
     uint8 public constant MAX_POOL_SIZE = 16;
 
@@ -239,6 +242,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         if (isMember) {
             require(block.timestamp >= _lastAvgUpdate + MIN_SELF_BID_INTERVAL, SelfBidTooFrequent());
             require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
+            require(bond.balance >= getRequiredBond(), InsufficientBond());
             if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
             _clearPoolMembersToWithdrawable(msg.sender);
@@ -281,8 +285,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(bond.balance >= getRequiredBond(), InsufficientBond());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
-        _clearPoolMembersToWithdrawable(address(0));
-        _resetPool(msg.sender, _feeInGwei);
+        _pool.feeInGwei = _feeInGwei;
+        _pool.vacantSince = 0;
+        _pool.everHadPool = 1;
+        _insertLeaderKeepingPool(msg.sender);
         _updateMovingAverage(_feeInGwei);
         emit BidPlaced(msg.sender, _feeInGwei, oldLeader);
     }
@@ -483,6 +489,45 @@ contract ProverAuction is EssentialContract, IProverAuction {
         _rebuildSlotTable();
     }
 
+    /// @dev Inserts a new leader while keeping incumbents active.
+    function _insertLeaderKeepingPool(address leader) internal {
+        uint8 size = _pool.poolSize;
+        if (size == 0) return;
+
+        if (size == MAX_POOL_SIZE) {
+            uint8 last = size - 1;
+            address evicted = _activeProvers[last];
+            if (evicted != address(0)) {
+                _members[evicted].active = false;
+                unchecked {
+                    _bonds[evicted].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+                }
+            }
+            _activeProvers[last] = address(0);
+            size = last;
+        }
+
+        for (uint8 i = size; i > 0; i--) {
+            _activeProvers[i] = _activeProvers[i - 1];
+        }
+        _activeProvers[0] = leader;
+        _pool.poolSize = size + 1;
+
+        for (uint8 i = 0; i < _pool.poolSize; i++) {
+            address prover = _activeProvers[i];
+            if (prover == address(0)) continue;
+            uint8 joinOrder = i + 1;
+            _members[prover] = PoolMember({
+                index: i,
+                joinOrder: joinOrder,
+                weightBps: _weightForJoin(joinOrder),
+                active: true
+            });
+        }
+
+        _rebuildSlotTable();
+    }
+
     /// @dev Adds a prover to the pool and rebuilds the slot table.
     function _addToPool(address prover, uint8 joinOrder) internal {
         uint8 size = _pool.poolSize;
@@ -630,6 +675,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         unchecked {
             uint48 elapsed = nowTs - lastUpdate;
+            if (elapsed < MIN_AVG_UPDATE_INTERVAL) return;
             uint48 window = movingAverageWindow;
             uint256 weightNew = elapsed >= window ? window : elapsed;
             if (weightNew == 0) {

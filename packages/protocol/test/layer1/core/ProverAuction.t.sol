@@ -146,9 +146,39 @@ contract ProverAuctionTest is CommonTest {
 
         _depositAndBid(prover3, REQUIRED_BOND, 95);
 
+        vm.prevrandao(uint256(0));
         (address prover, uint32 fee) = auction.getProver();
-        assertEq(prover, prover3);
+        assertTrue(prover == prover1 || prover == prover2 || prover == prover3);
         assertEq(fee, 95);
+    }
+
+    function test_outbid_doesNotForceWithdrawable() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
+
+        _deposit(prover3, REQUIRED_BOND);
+        vm.prank(prover3);
+        auction.bid(95);
+
+        ProverAuction.BondInfo memory bond1 = auction.getBondInfo(prover1);
+        ProverAuction.BondInfo memory bond2 = auction.getBondInfo(prover2);
+        assertEq(bond1.withdrawableAt, 0);
+        assertEq(bond2.withdrawableAt, 0);
+
+        bool sawProver1;
+        bool sawProver2;
+        bool sawProver3;
+        for (uint256 i = 0; i < 256; i++) {
+            vm.prevrandao(i);
+            (address prover,) = auction.getProver();
+            if (prover == prover1) sawProver1 = true;
+            if (prover == prover2) sawProver2 = true;
+            if (prover == prover3) sawProver3 = true;
+        }
+
+        assertTrue(sawProver1);
+        assertTrue(sawProver2);
+        assertTrue(sawProver3);
     }
 
     function test_requestExitRemovesFromPool() public {
@@ -180,6 +210,42 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(extra);
         vm.expectRevert(ProverAuction.PoolFull.selector);
         auction.bid(100);
+    }
+
+    function test_selfBid_requiresRequiredBond() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+
+        vm.prank(inbox);
+        auction.slashProver(prover1, address(0));
+
+        vm.warp(block.timestamp + auction.MIN_SELF_BID_INTERVAL());
+        vm.prank(prover1);
+        vm.expectRevert(ProverAuction.InsufficientBond.selector);
+        auction.bid(99);
+    }
+
+    function test_movingAverage_globalCooldown_skipsRapidUpdates() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+        assertEq(auction.getMovingAverageFee(), 100);
+
+        _deposit(prover2, REQUIRED_BOND);
+        vm.warp(block.timestamp + auction.MIN_AVG_UPDATE_INTERVAL() - 1);
+        vm.prank(prover2);
+        auction.bid(95);
+
+        assertEq(auction.getMovingAverageFee(), 100);
+
+        _deposit(prover3, REQUIRED_BOND);
+        vm.warp(block.timestamp + 1);
+        vm.prank(prover3);
+        auction.bid(90);
+
+        uint256 window = MOVING_AVG_WINDOW;
+        uint256 elapsed = auction.MIN_AVG_UPDATE_INTERVAL();
+        uint256 weightNew = elapsed >= window ? window : elapsed;
+        uint256 weightOld = window - weightNew;
+        uint256 expected = (uint256(100) * weightOld + uint256(90) * weightNew) / window;
+        assertEq(auction.getMovingAverageFee(), expected);
     }
 
     function _deposit(address prover, uint128 amount) internal {
