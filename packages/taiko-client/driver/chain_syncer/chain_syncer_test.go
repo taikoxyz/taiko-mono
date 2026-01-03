@@ -159,7 +159,6 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 		[]types.Transactions{{}},
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 	b, err := builder.SplitToBlobs([]byte{0x1})
@@ -207,7 +206,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 		[]types.Transactions{{}},
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -265,7 +263,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 		[]types.Transactions{{testTx1}, {testTx2}},
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -316,7 +313,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 		txBatch,
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 
@@ -367,7 +363,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 		txBatch,
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -457,7 +452,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 		[]types.Transactions{{}},
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0
@@ -539,7 +533,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		[]types.Transactions{{}},
 		common.Big1,
 		common.Address{},
-		[]byte{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0

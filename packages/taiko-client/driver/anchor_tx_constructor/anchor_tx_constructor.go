@@ -84,7 +84,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	// Parameters of the ShastaAnchor.anchorV4 transaction.
 	parent *types.Header,
 	proposer common.Address,
-	proverAuth []byte,
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,

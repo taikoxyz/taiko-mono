@@ -295,31 +295,17 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	// Prefetch all derivation source payloads, and set the proposer auth bytes.
+	// Prefetch all derivation source payloads.
 	var (
 		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetEventData().Sources))
-		proposerAuth   []byte
 	)
 	if len(meta.GetEventData().Sources) > 0 {
-		// Fetch the last derivation source payload first, and set the proposer auth bytes.
-		payload, err := s.derivationSourceFetcher.Fetch(ctx, meta, len(meta.GetEventData().Sources)-1)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to fetch Shasta derivation payload for index %d: %w",
-				len(meta.GetEventData().Sources)-1,
-				err,
-			)
-		}
-		sourcePayloads[len(meta.GetEventData().Sources)-1] = payload
-		proposerAuth = payload.ProverAuthBytes
-		// Fetch other derivation source payloads.
-		for i := 0; i < len(meta.GetEventData().Sources)-1; i++ {
+		// Fetch all derivation source payloads.
+		for i := 0; i < len(meta.GetEventData().Sources); i++ {
 			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
 			if err != nil {
 				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
 			}
-			// Set the proposer auth bytes for the non-last source payloads as well.
-			p.ProverAuthBytes = proposerAuth
 			sourcePayloads[i] = p
 		}
 	}

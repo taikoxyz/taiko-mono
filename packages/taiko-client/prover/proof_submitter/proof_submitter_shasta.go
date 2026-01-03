@@ -132,7 +132,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			EventL1Hash:      meta.GetRawBlockHash(),
 			Headers:          []*types.Header{header},
 			L2BlockNums:      l2BlockNums,
-			DesignatedProver: meta.GetProposer(),
+			DesignatedProver: meta.GetProposer(), // Designated prover is alwasys the proposer for Shasta.
 			Checkpoint: &proofProducer.Checkpoint{
 				BlockNumber: header.Number,
 				BlockHash:   header.Hash(),

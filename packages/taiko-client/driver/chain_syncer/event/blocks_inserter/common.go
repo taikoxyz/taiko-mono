@@ -657,7 +657,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		ctx,
 		parent,
 		meta.GetEventData().Proposer,
-		sourcePayload.ProverAuthBytes,
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,

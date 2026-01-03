@@ -57,7 +57,6 @@ func TestAssembleAnchorV4Tx(t *testing.T) {
 		context.Background(),
 		head,
 		head.Coinbase,
-		[]byte{},
 		l1Head.Number,
 		l1Head.Hash(),
 		l1Head.Root,
