@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.3.0...ejector-v0.4.0) (2025-12-30)
+
+
+### Features
+
+* **relayer:** fix few issues in relayer ([#21056](https://github.com/taikoxyz/taiko-mono/issues/21056)) ([25ea270](https://github.com/taikoxyz/taiko-mono/commit/25ea270b7a6d12a49433e29aca5a03e223f76f79))
+
+
+### Bug Fixes
+
+* **ejector:** make metrics target proposers not sequencers ([#21086](https://github.com/taikoxyz/taiko-mono/issues/21086)) ([29e82a0](https://github.com/taikoxyz/taiko-mono/commit/29e82a0f9b3f4cdfa85d97492d78eed5078e1c76))
+
+
+### Chores
+
+* **ejector,repo,taiko-client-rs:** improve code comments clarity ([#21055](https://github.com/taikoxyz/taiko-mono/issues/21055)) ([486a6e3](https://github.com/taikoxyz/taiko-mono/commit/486a6e3b1aee009bb963d16e8482643c9a868730))
+
 ## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.2.0...ejector-v0.3.0) (2025-12-19)
 
 
