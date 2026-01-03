@@ -493,10 +493,7 @@ where
         let tx_list = encode_transactions(transactions);
         let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
 
-        let mut signature = [0u8; 65];
-        let prover_slice = meta.prover_auth_bytes.as_ref();
-        let copy_len = prover_slice.len().min(signature.len());
-        signature[..copy_len].copy_from_slice(&prover_slice[..copy_len]);
+        let signature = [0u8; 65];
 
         let withdrawals: Vec<Withdrawal> = Vec::new();
         let build_payload_args_id = compute_build_payload_args_id(

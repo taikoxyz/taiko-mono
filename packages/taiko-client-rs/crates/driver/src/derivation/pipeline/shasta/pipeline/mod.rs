@@ -266,7 +266,7 @@ where
             return Err(err);
         };
 
-        // Fetch the normal proposal manifest first so we can reuse its prover auth.
+        // Fetch the normal proposal manifest for the final source.
         let final_manifest = self
             .fetch_and_decode_manifest(
                 self.derivation_source_manifest_fetcher.as_ref(),
@@ -274,18 +274,13 @@ where
             )
             .await?;
 
-        let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
-
-        // Fetch the forced inclusion sources afterwards, injecting the proposal-level prover auth
-        // so every segment carries the same signature payload as required by the protocol.
+        // Fetch the forced inclusion sources afterwards.
         let mut manifest_segments = Vec::with_capacity(sources.len());
         for source in forced_inclusion_sources {
-            let mut manifest = self
+            let manifest = self
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
-            manifest = validate_forced_inclusion_manifest(proposal_id, source, manifest);
-            // Inject the proposal-level prover auth into every segment.
-            manifest.prover_auth_bytes = prover_auth_bytes.clone();
+            let manifest = validate_forced_inclusion_manifest(proposal_id, source, manifest);
             manifest_segments.push(SourceManifestSegment {
                 manifest,
                 is_forced_inclusion: source.isForcedInclusion,
@@ -308,7 +303,6 @@ where
                 origin_block_number: event.l1_block_number.saturating_sub(1),
                 proposer: event.event.proposer,
                 basefee_sharing_pctg: event.event.basefeeSharingPctg,
-                prover_auth_bytes,
             },
             sources: manifest_segments,
         };
@@ -504,7 +498,6 @@ mod tests {
     fn forced_inclusion_manifest_defaults_when_block_count_invalid() {
         let source = sample_derivation_source(vec![FixedBytes::from([0u8; 32])], true);
         let manifest = DerivationSourceManifest {
-            prover_auth_bytes: Default::default(),
             blocks: vec![BlockManifest::default(), BlockManifest::default()],
         };
 
