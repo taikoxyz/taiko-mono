@@ -656,7 +656,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
-		meta.GetEventData().Proposer,
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,

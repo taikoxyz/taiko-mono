@@ -83,7 +83,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	ctx context.Context,
 	// Parameters of the ShastaAnchor.anchorV4 transaction.
 	parent *types.Header,
-	proposer common.Address,
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
@@ -104,7 +103,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 		"anchorStateRoot", anchorStateRoot,
 		"parentGasUsed", parent.GasUsed,
 		"parentHash", parent.Hash(),
-		"proposer", proposer,
 		"endOfSubmissionWindowTimestamp", endOfSubmissionWindowTimestamp,
 	)
 
