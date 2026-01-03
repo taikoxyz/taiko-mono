@@ -144,6 +144,9 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
+	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
+	s.Nil(err)
+
 	l1StateRoot, l1Height, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot)
@@ -175,7 +178,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.GreaterOrEqual(len(head.Extra()), 1)
 	s.GreaterOrEqual(len(head2.Extra()), 1)
 	s.Equal(head.Extra()[0], head2.Extra()[0])
-	s.Equal(uint8(75), core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
+	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
@@ -196,6 +199,9 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot)
 
+	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
+	s.Nil(err)
+
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
@@ -215,7 +221,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Less(head.Time(), head2.Time())
 	s.Equal(head.Coinbase(), head2.Coinbase())
 	s.Equal(head.Extra()[0], head2.Extra()[0])
-	s.Equal(uint8(75), core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
+	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
