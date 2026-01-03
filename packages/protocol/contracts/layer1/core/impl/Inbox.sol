@@ -181,8 +181,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
     ///      3. Pays the designated prover their fee via `sendEther` (allows failure if prover
-    ///         rejects). Refunds excess ETH plus any unpaid prover fee to the proposer via
-    ///         `sendEtherAndVerify` (reverts if proposer rejects).
+    ///         rejects). Refunds excess ETH to the proposer via `sendEtherAndVerify` (
+    ///         reverts if proposer rejects).
     ///      4. Updates core state and emits `Proposed` event
     ///
     /// @dev Payment requirements:
