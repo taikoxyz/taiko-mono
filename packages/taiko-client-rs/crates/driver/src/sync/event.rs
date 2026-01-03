@@ -421,6 +421,7 @@ fn decode_anchor_proposal_id(block: &RpcBlock<TxEnvelope>) -> Result<u64, SyncEr
         });
     }
     let mut buf = [0u8; 8];
+    // Zero-pad the upper two bytes so the uint48 (bytes 1..6) becomes a big-endian u64.
     buf[2..8].copy_from_slice(&extra_data[1..7]);
     Ok(u64::from_be_bytes(buf))
 }

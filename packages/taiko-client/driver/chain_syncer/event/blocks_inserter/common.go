@@ -822,6 +822,9 @@ func updateL1OriginForBatchShasta(
 }
 
 // encodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
+// Format (7 bytes):
+//   - Byte 0: basefeeSharingPctg (uint8)
+//   - Bytes 1-6: proposalID (uint48, big-endian)
 func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
 	proposalID *big.Int,
