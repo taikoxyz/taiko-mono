@@ -249,6 +249,10 @@ where
     }
 
     /// Build a proposal bundle from a decoded event payload.
+    ///
+    /// Sources are processed sequentially in the order they appear, with the proposer's
+    /// source appended last per the protocol spec. Each source's `isForcedInclusion` flag
+    /// determines validation behavior.
     async fn build_manifest_from_event(
         &self,
         event: &ProposedEventContext,
@@ -258,25 +262,14 @@ where
         let proposal_id = event.event.id.to::<u64>();
         info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
 
-        // If sources is empty, we return an error, which should never happen for the current
-        // Shasta protocol inbox implementation.
-        let Some((last_source, forced_inclusion_sources)) = sources.split_last() else {
-            let err = DerivationError::EmptyDerivationSources(proposal_id);
+        if sources.is_empty() {
             warn!(proposal_id, "proposal contained no derivation sources");
-            return Err(err);
-        };
+            return Err(DerivationError::EmptyDerivationSources(proposal_id));
+        }
 
-        // Fetch the normal proposal manifest for the final source.
-        let final_manifest = self
-            .fetch_and_decode_manifest(
-                self.derivation_source_manifest_fetcher.as_ref(),
-                last_source,
-            )
-            .await?;
-
-        // Fetch the forced inclusion sources afterwards.
+        // Fetch and validate all source manifests sequentially in order.
         let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in forced_inclusion_sources {
+        for source in sources {
             let manifest = self
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
@@ -286,11 +279,6 @@ where
                 is_forced_inclusion: source.isForcedInclusion,
             });
         }
-
-        manifest_segments.push(SourceManifestSegment {
-            manifest: final_manifest,
-            is_forced_inclusion: last_source.isForcedInclusion,
-        });
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
