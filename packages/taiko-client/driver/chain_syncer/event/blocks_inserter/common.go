@@ -835,18 +835,18 @@ func encodeShastaExtraData(
 	if proposalID.Sign() < 0 {
 		return nil, fmt.Errorf("proposal ID is negative: %s", proposalID.String())
 	}
-	if proposalID.BitLen() > params.ExtraDataProposalIDLength*8 {
+	if proposalID.BitLen() > params.ShastaExtraDataProposalIDLength*8 {
 		return nil, fmt.Errorf("proposal ID too large for extraData: %s", proposalID.String())
 	}
 
 	extraData := make([]byte, params.ShastaExtraDataLen)
 
 	// First byte: basefeeSharingPctg.
-	extraData[params.ExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
+	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
 
 	// Bytes 1..6: proposal ID (uint48, big-endian).
 	proposalBytes := proposalID.Bytes()
-	offset := params.ExtraDataProposalIDIndex + params.ExtraDataProposalIDLength - len(proposalBytes)
+	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
 	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
 
 	return extraData, nil
