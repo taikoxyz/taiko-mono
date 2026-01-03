@@ -42,14 +42,11 @@ type Config struct {
 	DestERC1155VaultAddress           common.Address
 	DestTaikoAddress                  common.Address
 	DestQuotaManagerAddress           common.Address
-	DestBondManagerAddress            common.Address
 
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
 
 	TargetTxHash *common.Hash
-
-	EventName string
 
 	// processing configs
 	HeaderSyncInterval   uint64
@@ -138,25 +135,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var destQuotaManagerAddress common.Address
-
 	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
-		destQuotaManagerAddressStr := c.String(flags.DestQuotaManagerAddress.Name)
-		if !common.IsHexAddress(destQuotaManagerAddressStr) {
-			return nil, fmt.Errorf("invalid destQuotaManagerAddress")
-		}
-
-		destQuotaManagerAddress = common.HexToAddress(destQuotaManagerAddressStr)
-	}
-
-	var destBondManagerAddress common.Address
-
-	if c.IsSet(flags.DestBondManagerAddress.Name) {
-		destBondManagerAddressStr := c.String(flags.DestBondManagerAddress.Name)
-		if !common.IsHexAddress(destBondManagerAddressStr) {
-			return nil, fmt.Errorf("invalid destBondManagerAddress")
-		}
-
-		destBondManagerAddress = common.HexToAddress(destBondManagerAddressStr)
+		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
 	}
 
 	return &Config{
@@ -170,7 +150,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DestERC20VaultAddress:              common.HexToAddress(c.String(flags.DestERC20VaultAddress.Name)),
 		DestERC1155VaultAddress:            common.HexToAddress(c.String(flags.DestERC1155VaultAddress.Name)),
 		DestQuotaManagerAddress:            destQuotaManagerAddress,
-		DestBondManagerAddress:             destBondManagerAddress,
 		DatabaseUsername:                   c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                   c.String(flags.DatabasePassword.Name),
 		DatabaseName:                       c.String(flags.DatabaseName.Name),
@@ -188,7 +167,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HeaderSyncInterval:                 c.Uint64(flags.HeaderSyncInterval.Name),
 		Confirmations:                      c.Uint64(flags.Confirmations.Name),
 		ConfirmationsTimeout:               c.Uint64(flags.ConfirmationTimeout.Name),
-		EventName:                          c.String(flags.EventName.Name),
 		EnableTaikoL2:                      c.Bool(flags.EnableTaikoL2.Name),
 		ProfitableOnly:                     c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
