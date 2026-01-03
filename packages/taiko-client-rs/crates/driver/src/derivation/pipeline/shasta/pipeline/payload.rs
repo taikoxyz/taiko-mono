@@ -493,8 +493,6 @@ where
         let tx_list = encode_transactions(transactions);
         let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
 
-        let signature = [0u8; 65];
-
         let withdrawals: Vec<Withdrawal> = Vec::new();
         let build_payload_args_id = compute_build_payload_args_id(
             parent_hash,
@@ -512,7 +510,7 @@ where
             l1_block_hash: Some(l1_block_hash),
             build_payload_args_id,
             is_forced_inclusion: position.is_forced_inclusion(),
-            signature,
+            signature: [0u8; 65],
         };
 
         // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
