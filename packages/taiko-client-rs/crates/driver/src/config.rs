@@ -5,6 +5,8 @@ use std::time::Duration;
 use alloy::transports::http::reqwest::Url;
 use rpc::client::ClientConfig;
 
+use crate::p2p_sidecar::P2pSidecarConfig;
+
 /// Configuration for the Shasta driver.
 #[derive(Clone, Debug)]
 pub struct DriverConfig {
@@ -18,6 +20,8 @@ pub struct DriverConfig {
     pub l2_checkpoint_url: Option<Url>,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
+    /// Optional P2P sidecar configuration.
+    pub p2p_sidecar: Option<P2pSidecarConfig>,
     /// Enable preconfirmation handling (disabled by default).
     /// NOTE: will be changed to be decided by flag in future.
     pub preconfirmation_enabled: bool,
@@ -41,6 +45,7 @@ impl DriverConfig {
             l1_beacon_endpoint,
             l2_checkpoint_url,
             blob_server_endpoint,
+            p2p_sidecar: None,
             preconfirmation_enabled: false,
         }
     }

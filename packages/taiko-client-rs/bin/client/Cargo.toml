@@ -29,6 +29,7 @@ alloy-primitives = { workspace = true, default-features = false }
 
 # taiko
 driver = { path = "../../crates/driver" }
+p2p = { path = "../../crates/p2p" }
 proposer = { path = "../../crates/proposer" }
 rpc = { path = "../../crates/rpc" }
 

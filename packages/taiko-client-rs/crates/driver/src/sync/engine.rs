@@ -257,6 +257,15 @@ pub struct DriverPreconfEngine {
     shasta_fork_timestamp: u64,
 }
 
+/// Built preconfirmation payload attributes and metadata for sidecar ingestion.
+#[derive(Debug, Clone)]
+pub(crate) struct PreconfPayloadBuild {
+    /// Payload attributes constructed from the commitment.
+    pub(crate) payload: TaikoPayloadAttributes,
+    /// Parent hash that the payload should build on.
+    pub(crate) parent_hash: B256,
+}
+
 impl DriverPreconfEngine {
     /// Construct a new driver preconfirmation engine adapter from raw components.
     pub fn from_parts(
@@ -293,6 +302,138 @@ impl DriverPreconfEngine {
             shasta_fork_timestamp,
         ))
     }
+
+    /// Build preconfirmation payload attributes and metadata without submitting to the engine.
+    pub(crate) async fn build_preconf_payload(
+        &self,
+        commitment: &SignedCommitment,
+        txlist: Option<&[u8]>,
+    ) -> Result<PreconfPayloadBuild, EngineError> {
+        // Commitment payload body.
+        let preconf = &commitment.commitment.preconf;
+        // Block number derived from the commitment.
+        let block_number = uint256_to_u64(&preconf.block_number)?;
+        // L1 anchor block number referenced by the commitment.
+        let anchor_block_number = uint256_to_u64(&preconf.anchor_block_number)?;
+        // Raw txlist bytes required for non-empty preconfirmations.
+        let txlist_bytes = txlist.ok_or_else(|| {
+            EngineError::Other("missing txlist for non-empty preconfirmation".to_string())
+        })?;
+        // Ensure commitment hash matches the provided txlist bytes.
+        ensure_txlist_hash_matches(txlist_bytes, &preconf.raw_tx_list_hash)?;
+        // Decompressed raw txlist bytes.
+        let decoded_txlist = decompress_txlist(txlist_bytes)?;
+        // Decoded transactions from the txlist.
+        let mut transactions = decode_transactions(&decoded_txlist)
+            .map_err(|err| EngineError::Rejected(format!("txlist decode failed: {err}")))?;
+        // Parent block number (commitments always reference the previous L2 block).
+        let parent_number = block_number
+            .checked_sub(1)
+            .ok_or_else(|| EngineError::Other("missing parent block for commitment".to_string()))?;
+        // Parent L2 block fetched from the backend.
+        let parent_block = self.backend.l2_block_by_number(parent_number).await?;
+        // Parent block hash for the payload attributes.
+        let parent_hash = parent_block.header.hash;
+        // Base fee computed from parent block context.
+        let base_fee = compute_next_block_base_fee(
+            self.backend.as_ref(),
+            &parent_block,
+            self.shasta_fork_timestamp,
+        )
+        .await?;
+        // Parent difficulty encoded as a B256 for shasta difficulty calculation.
+        let parent_difficulty = B256::from(parent_block.header.difficulty.to_be_bytes::<32>());
+        // Shasta difficulty for the new block.
+        let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
+        // L1 anchor block fetched from backend.
+        let anchor_block = self.backend.l1_block_by_number(anchor_block_number).await?;
+        // L1 anchor block hash for payload metadata.
+        let anchor_block_hash = anchor_block.header.hash;
+        // L1 anchor block state root for payload metadata.
+        let anchor_state_root = anchor_block.header.inner.state_root;
+        // Coinbase address encoded in the commitment.
+        let proposer = bytes20_to_address(&preconf.coinbase);
+        // Prover authorization bytes extracted from the commitment.
+        let prover_auth = preconf.prover_auth.as_ref().to_vec();
+        // Proposal id from the commitment.
+        let proposal_id = uint256_to_u64(&preconf.proposal_id)?;
+        // Anchor transaction input for the block.
+        let anchor_input = AnchorV4Input {
+            proposal_id,
+            proposer,
+            prover_auth: prover_auth.clone(),
+            anchor_block_number,
+            anchor_block_hash,
+            anchor_state_root,
+            l2_height: block_number,
+            base_fee: U256::from(base_fee),
+        };
+        // Built anchor transaction.
+        let anchor_tx = self.anchor_builder.build_anchor_tx(parent_hash, anchor_input).await?;
+        // Transaction list including the anchor tx.
+        let mut all_transactions = Vec::with_capacity(transactions.len() + 1);
+        // Add anchor transaction first.
+        all_transactions.push(anchor_tx);
+        // Add the remaining transactions after the anchor.
+        all_transactions.append(&mut transactions);
+        // RLP-encoded transaction list.
+        let tx_list = encode_transactions(&all_transactions);
+        // Extra data encoded with basefee sharing + low-bond flags.
+        let extra_data =
+            encode_extra_data(self.config.basefee_sharing_pctg, self.config.is_low_bond_proposal);
+        // Timestamp for the new block.
+        let timestamp = uint256_to_u64(&preconf.timestamp)?;
+        // Gas limit for the new block including anchor gas.
+        let gas_limit = uint256_to_u64(&preconf.gas_limit)?.saturating_add(ANCHOR_V3_V4_GAS_LIMIT);
+        // Empty withdrawals list for shasta blocks.
+        let withdrawals: Vec<Withdrawal> = Vec::new();
+        // Payload args id derived from the payload components.
+        let build_payload_args_id = compute_build_payload_args_id(
+            parent_hash,
+            timestamp,
+            difficulty,
+            proposer,
+            &withdrawals,
+            &tx_list,
+        );
+        // Signature derived from prover authorization.
+        let signature = signature_from_prover_auth(&preconf.prover_auth);
+        // L1 origin metadata for the payload.
+        let l1_origin = RpcL1Origin {
+            block_id: U256::from(block_number),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: Some(U256::from(anchor_block_number)),
+            l1_block_hash: Some(anchor_block_hash),
+            build_payload_args_id,
+            is_forced_inclusion: false,
+            signature,
+        };
+        // Taiko block metadata used to construct the payload attributes.
+        let block_metadata = TaikoBlockMetadata {
+            beneficiary: proposer,
+            gas_limit,
+            timestamp: U256::from(timestamp),
+            mix_hash: difficulty,
+            tx_list,
+            extra_data,
+        };
+        // ETH payload attributes for engine submission.
+        let payload_attributes = EthPayloadAttributes {
+            timestamp,
+            prev_randao: difficulty,
+            suggested_fee_recipient: proposer,
+            withdrawals: Some(withdrawals),
+            parent_beacon_block_root: None,
+        };
+        // Payload attributes that will be submitted to the engine.
+        let payload = TaikoPayloadAttributes {
+            payload_attributes,
+            base_fee_per_gas: U256::from(base_fee),
+            block_metadata,
+            l1_origin,
+        };
+        Ok(PreconfPayloadBuild { payload, parent_hash })
+    }
 }
 
 #[async_trait]
@@ -315,117 +456,21 @@ impl PreconfEngine for DriverPreconfEngine {
         commitment: &SignedCommitment,
         txlist: Option<&[u8]>,
     ) -> Result<EngineApplyOutcome, EngineError> {
+        // Commitment payload body.
         let preconf = &commitment.commitment.preconf;
+        // Block number derived from the commitment.
         let block_number = uint256_to_u64(&preconf.block_number)?;
-        let anchor_block_number = uint256_to_u64(&preconf.anchor_block_number)?;
 
         if preconf.eop && txlist.is_none() && bytes32_is_zero(&preconf.raw_tx_list_hash) {
             return Ok(EngineApplyOutcome { block_number, block_hash: B256::ZERO });
         }
 
-        let txlist_bytes = txlist.ok_or_else(|| {
-            EngineError::Other("missing txlist for non-empty preconfirmation".to_string())
-        })?;
-        ensure_txlist_hash_matches(txlist_bytes, &preconf.raw_tx_list_hash)?;
-
-        let decoded_txlist = decompress_txlist(txlist_bytes)?;
-        let mut transactions = decode_transactions(&decoded_txlist)
-            .map_err(|err| EngineError::Rejected(format!("txlist decode failed: {err}")))?;
-
-        let parent_number = block_number
-            .checked_sub(1)
-            .ok_or_else(|| EngineError::Other("missing parent block for commitment".to_string()))?;
-        let parent_block = self.backend.l2_block_by_number(parent_number).await?;
-        let parent_hash = parent_block.header.hash;
-        let base_fee = compute_next_block_base_fee(
-            self.backend.as_ref(),
-            &parent_block,
-            self.shasta_fork_timestamp,
-        )
-        .await?;
-
-        let parent_difficulty = B256::from(parent_block.header.difficulty.to_be_bytes::<32>());
-        let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
-
-        let anchor_block = self.backend.l1_block_by_number(anchor_block_number).await?;
-        let anchor_block_hash = anchor_block.header.hash;
-        let anchor_state_root = anchor_block.header.inner.state_root;
-
-        let proposer = bytes20_to_address(&preconf.coinbase);
-        let prover_auth = preconf.prover_auth.as_ref().to_vec();
-        let proposal_id = uint256_to_u64(&preconf.proposal_id)?;
-
-        let anchor_input = AnchorV4Input {
-            proposal_id,
-            proposer,
-            prover_auth: prover_auth.clone(),
-            anchor_block_number,
-            anchor_block_hash,
-            anchor_state_root,
-            l2_height: block_number,
-            base_fee: U256::from(base_fee),
-        };
-        let anchor_tx = self.anchor_builder.build_anchor_tx(parent_hash, anchor_input).await?;
-
-        let mut all_transactions = Vec::with_capacity(transactions.len() + 1);
-        all_transactions.push(anchor_tx);
-        all_transactions.append(&mut transactions);
-
-        let tx_list = encode_transactions(&all_transactions);
-        let extra_data =
-            encode_extra_data(self.config.basefee_sharing_pctg, self.config.is_low_bond_proposal);
-
-        let timestamp = uint256_to_u64(&preconf.timestamp)?;
-        let gas_limit = uint256_to_u64(&preconf.gas_limit)?.saturating_add(ANCHOR_V3_V4_GAS_LIMIT);
-
-        let withdrawals: Vec<Withdrawal> = Vec::new();
-        let build_payload_args_id = compute_build_payload_args_id(
-            parent_hash,
-            timestamp,
-            difficulty,
-            proposer,
-            &withdrawals,
-            &tx_list,
-        );
-
-        let signature = signature_from_prover_auth(&preconf.prover_auth);
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: Some(U256::from(anchor_block_number)),
-            l1_block_hash: Some(anchor_block_hash),
-            build_payload_args_id,
-            is_forced_inclusion: false,
-            signature,
-        };
-
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: proposer,
-            gas_limit,
-            timestamp: U256::from(timestamp),
-            mix_hash: difficulty,
-            tx_list,
-            extra_data,
-        };
-
-        let payload_attributes = EthPayloadAttributes {
-            timestamp,
-            prev_randao: difficulty,
-            suggested_fee_recipient: proposer,
-            withdrawals: Some(withdrawals),
-            parent_beacon_block_root: None,
-        };
-
-        let payload = TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::from(base_fee),
-            block_metadata,
-            l1_origin,
-        };
-
+        // Built payload attributes + parent metadata for the commitment.
+        let built = self.build_preconf_payload(commitment, txlist).await?;
+        // Applied payload outcome from the execution engine.
         let applied = self
             .payload_applier
-            .apply_payload(&payload, parent_hash, None)
+            .apply_payload(&built.payload, built.parent_hash, None)
             .await
             .map_err(map_submission_error)?;
 
@@ -442,7 +487,7 @@ impl PreconfEngine for DriverPreconfEngine {
 }
 
 /// Convert a preconfirmation `Uint256` into a `u64`, rejecting overflow.
-fn uint256_to_u64(value: &preconfirmation_types::Uint256) -> Result<u64, EngineError> {
+pub(crate) fn uint256_to_u64(value: &preconfirmation_types::Uint256) -> Result<u64, EngineError> {
     let value_u256 = uint256_to_u256(value);
     let as_u64 = value_u256.to::<u64>();
     if U256::from(as_u64) != value_u256 {
@@ -710,6 +755,49 @@ where
     );
 
     Ok(AppliedPayload { outcome, payload: payload_input })
+}
+
+/// Build an execution payload input from payload attributes without submitting the payload.
+pub(crate) async fn build_execution_payload_input<P>(
+    rpc: &Client<P>,
+    payload: &TaikoPayloadAttributes,
+    parent_hash: B256,
+) -> Result<ExecutionPayloadInputV2, EngineError>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    // Forkchoice state pointing to the parent hash.
+    let forkchoice_state = ForkchoiceState {
+        head_block_hash: parent_hash,
+        safe_block_hash: parent_hash,
+        finalized_block_hash: B256::ZERO,
+    };
+    // Forkchoice update response with payload id.
+    let fc_response = rpc
+        .engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone()))
+        .await
+        .map_err(|err| EngineError::Unavailable(err.to_string()))?;
+    // Payload id returned by the engine.
+    let payload_id = fc_response
+        .payload_id
+        .ok_or_else(|| EngineError::Other("missing payload id".to_string()))?;
+    // Expected payload id derived from attributes.
+    let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
+    if expected_payload_id != payload_id {
+        warn!(
+            expected = %expected_payload_id,
+            received = %payload_id,
+            "payload id mismatch between derivation and engine response",
+        );
+    }
+    // Engine payload envelope fetched from the payload id.
+    let envelope = rpc
+        .engine_get_payload_v2(payload_id)
+        .await
+        .map_err(|err| EngineError::Unavailable(err.to_string()))?;
+    // Normalized payload input converted from the envelope.
+    let (payload_input, _block_hash, _block_number) = envelope_into_submission(envelope);
+    Ok(payload_input)
 }
 
 /// Derive the Taiko-specific execution data sidecar from the provided execution payload.

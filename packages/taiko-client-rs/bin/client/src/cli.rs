@@ -12,9 +12,9 @@ use crate::commands::{driver::DriverSubCommand, proposer::ProposerSubCommand};
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
     /// Run the proposer.
-    Proposer(ProposerSubCommand),
+    Proposer(Box<ProposerSubCommand>),
     /// Run the driver.
-    Driver(DriverSubCommand),
+    Driver(Box<DriverSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]

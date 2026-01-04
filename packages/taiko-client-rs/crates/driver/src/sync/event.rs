@@ -20,7 +20,7 @@ use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, mpsc, oneshot},
+    sync::{Mutex as AsyncMutex, broadcast, mpsc, oneshot},
     time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -33,6 +33,7 @@ use crate::{
     derivation::ShastaDerivationPipeline,
     error::DriverError,
     metrics::DriverMetrics,
+    p2p_sidecar::CanonicalOutcome,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
         ProductionInput, ProductionRouter,
@@ -61,10 +62,14 @@ where
     preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
+    /// Optional canonical outcome sender for sidecar confirmations.
+    canonical_outcome_tx: Option<broadcast::Sender<CanonicalOutcome>>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
 const PRECONF_CHANNEL_CAPACITY: usize = 1024;
+/// Maximum number of buffered canonical outcome notifications.
+const CANONICAL_OUTCOME_CHANNEL_CAPACITY: usize = 1024;
 
 /// Type aliases for preconfirmation payload channels.
 type PreconfSender = mpsc::Sender<PreconfJob>;
@@ -219,6 +224,19 @@ where
                 "successfully processed proposal into L2 blocks",
             );
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
+
+            if let Some(canonical_outcome_tx) = &self.canonical_outcome_tx {
+                // Canonical outcome channel.
+                for outcome in &outcomes {
+                    // Canonical engine outcome to broadcast.
+                    // Canonical block number derived from the outcome.
+                    let block_number = outcome.block_number();
+                    // Canonical block hash derived from the outcome.
+                    let block_hash = outcome.block_hash();
+                    let _ =
+                        canonical_outcome_tx.send(CanonicalOutcome { block_number, block_hash });
+                }
+            }
         }
         Ok(())
     }
@@ -236,12 +254,35 @@ where
             .map_err(|err| SyncError::Other(err.into()))?,
         );
         let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
+            // Preconfirmation ingress channel sender.
             let (tx, rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
             (Some(tx), Some(Arc::new(AsyncMutex::new(rx))))
         } else {
             (None, None)
         };
-        Ok(Self { rpc, cfg: cfg.clone(), blob_source, preconf_tx, preconf_rx })
+        // Whether the sidecar is enabled for canonical outcome notifications.
+        let sidecar_enabled = cfg.p2p_sidecar.as_ref().map(|cfg| cfg.enabled).unwrap_or(false);
+        // Canonical outcome sender for sidecar confirmations.
+        let canonical_outcome_tx = if sidecar_enabled {
+            // Broadcast channel for canonical outcomes.
+            let (tx, _rx) = broadcast::channel(CANONICAL_OUTCOME_CHANNEL_CAPACITY);
+            Some(tx)
+        } else {
+            None
+        };
+        Ok(Self {
+            rpc,
+            cfg: cfg.clone(),
+            blob_source,
+            preconf_tx,
+            preconf_rx,
+            canonical_outcome_tx,
+        })
+    }
+
+    /// Receiver handle for canonical outcomes (if enabled).
+    pub fn canonical_outcome_receiver(&self) -> Option<broadcast::Receiver<CanonicalOutcome>> {
+        self.canonical_outcome_tx.as_ref().map(|tx| tx.subscribe())
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).

@@ -1,7 +1,9 @@
 //! Driver-specific CLI flags.
 
+use std::{net::SocketAddr, time::Duration};
+
+use alloy_primitives::Address;
 use clap::Parser;
-use std::time::Duration;
 use url::Url;
 
 /// Driver-specific CLI arguments.
@@ -33,6 +35,57 @@ pub struct DriverArgs {
         help = "Optional HTTP endpoint of a blob server to fallback when beacon sidecars are unavailable"
     )]
     pub blob_server_endpoint: Option<Url>,
+    #[clap(
+        long = "p2p.sidecar",
+        env = "P2P_SIDECAR",
+        default_value = "false",
+        help = "Enable the in-process P2P preconfirmation sidecar"
+    )]
+    /// Enable the in-process P2P sidecar.
+    pub p2p_sidecar_enabled: bool,
+    #[clap(
+        long = "p2p.chain_id",
+        env = "P2P_CHAIN_ID",
+        help = "Optional chain id override for the P2P sidecar"
+    )]
+    /// Optional chain id override for the P2P sidecar.
+    pub p2p_chain_id: Option<u64>,
+    #[clap(
+        long = "p2p.listen_addr",
+        env = "P2P_LISTEN_ADDR",
+        help = "Optional listen socket address for the P2P sidecar"
+    )]
+    /// Optional listen socket address for the P2P sidecar.
+    pub p2p_listen_addr: Option<SocketAddr>,
+    #[clap(
+        long = "p2p.bootnodes",
+        env = "P2P_BOOTNODES",
+        value_delimiter = ',',
+        help = "Comma-separated bootnodes for the P2P sidecar"
+    )]
+    /// Bootnodes for the P2P sidecar.
+    pub p2p_bootnodes: Vec<String>,
+    #[clap(
+        long = "p2p.enable_discovery",
+        env = "P2P_ENABLE_DISCOVERY",
+        help = "Toggle discovery for the P2P sidecar"
+    )]
+    /// Toggle discovery for the P2P sidecar.
+    pub p2p_enable_discovery: Option<bool>,
+    #[clap(
+        long = "p2p.expected_slasher",
+        env = "P2P_EXPECTED_SLASHER",
+        help = "Expected slasher address for P2P commitment validation"
+    )]
+    /// Expected slasher address for P2P commitment validation.
+    pub p2p_expected_slasher: Option<Address>,
+    #[clap(
+        long = "p2p.max_txlist_bytes",
+        env = "P2P_MAX_TXLIST_BYTES",
+        help = "Maximum txlist bytes accepted by the P2P sidecar"
+    )]
+    /// Maximum txlist bytes accepted by the P2P sidecar.
+    pub p2p_max_txlist_bytes: Option<usize>,
 }
 
 impl DriverArgs {

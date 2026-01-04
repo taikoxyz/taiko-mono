@@ -35,6 +35,7 @@ tracing = { workspace = true }
 url = { workspace = true }
 
 bindings = { path = "../bindings" }
+p2p = { path = "../p2p" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
