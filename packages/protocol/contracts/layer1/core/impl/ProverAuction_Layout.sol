@@ -20,7 +20,7 @@ pragma solidity ^0.8.26;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   _pool                          | struct ProverAuction.PoolState                     | Slot: 251  | Offset: 0    | Bytes: 32  
 //   _activeProvers                 | address[16]                                        | Slot: 252  | Offset: 0    | Bytes: 512 
-//   _slotTable                     | uint8[256]                                         | Slot: 268  | Offset: 0    | Bytes: 256 
+//   _slotTable                     | uint256[8]                                         | Slot: 268  | Offset: 0    | Bytes: 256 
 //   _members                       | mapping(address => struct ProverAuction.PoolMember) | Slot: 276  | Offset: 0    | Bytes: 32  
 //   _bonds                         | mapping(address => struct ProverAuction.BondInfo)  | Slot: 277  | Offset: 0    | Bytes: 32  
 //   _movingAverageFee              | uint32                                             | Slot: 278  | Offset: 0    | Bytes: 4   
