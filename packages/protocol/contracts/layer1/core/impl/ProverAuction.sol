@@ -144,7 +144,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     uint48 internal _contractCreationTime;
     uint48 internal _lastAvgUpdate;
 
-    uint256[44] private __gap;
+    uint256[22] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -199,6 +199,30 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
     // Initializer Functions
     // ---------------------------------------------------------------
+
+    // ---------------------------------------------------------------
+    // Storage access notes (approximate)
+    // ---------------------------------------------------------------
+    // N = _pool.poolSize at function entry (0..MAX_POOL_SIZE).
+    // Counts are worst-case upper bounds per call, excluding:
+    // - ERC20 external calls
+    // - nonReentrant guard storage ops
+    // - compiler-inserted read-modify-write for packed writes
+    //
+    // SLOAD/SSTORE estimates:
+    // - init: dominated by __Essential_init; +1 SSTORE (_contractCreationTime)
+    // - deposit: SLOAD≈1, SSTORE≈1
+    // - withdraw: SLOAD≈2, SSTORE≈1
+    // - bid (self-bid/vacant): SLOAD≈5N + C, SSTORE≈3N + 8 + C
+    // - bid (join/outbid): SLOAD≈4N + C, SSTORE≈2N + 8 + C
+    // - requestExit: SLOAD≈4(N-1) + C, SSTORE≈8 + C
+    // - slashProver (ejection path): SLOAD≈4(N-1) + C, SSTORE≈8 + C
+    // - checkBondDeferWithdrawal: SLOAD≈2-3, SSTORE≈0-1
+    // - getProver: SLOAD≈3, SSTORE=0
+    // - getMaxBidFee: SLOAD≈2-3, SSTORE=0
+    // - getBondInfo: SLOAD≈1, SSTORE=0
+    // - getRequiredBond/getLivenessBond/getEjectionThreshold: SLOAD=0, SSTORE=0
+    // - getMovingAverageFee/getTotalSlashedAmount: SLOAD≈1, SSTORE=0
 
     /// @notice Initializes the contract (for upgradeable proxy pattern).
     /// @param _owner The owner of this contract.
