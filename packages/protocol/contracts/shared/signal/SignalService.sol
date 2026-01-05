@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
@@ -97,6 +97,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         external
         virtual
+        whenNotPaused
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
@@ -115,6 +116,7 @@ contract SignalService is EssentialContract, ISignalService {
         external
         view
         virtual
+        whenNotPaused
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }

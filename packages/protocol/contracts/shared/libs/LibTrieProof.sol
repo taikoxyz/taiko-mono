@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
 import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";
