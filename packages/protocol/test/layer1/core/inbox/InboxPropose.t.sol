@@ -770,16 +770,8 @@ contract InboxProposeTest is InboxTestBase {
 
             // Proposer sent 0, gets back (forcedInclusionFee - proverFee)
             uint256 refund = forcedInclusionFeeWei - proverFeeWei;
-            assertEq(
-                proposer.balance,
-                proposerBalanceBeforeFull + refund,
-                "proposer got refund"
-            );
-            assertEq(
-                prover.balance,
-                proverBalanceBeforeFull + proverFeeWei,
-                "prover received fee"
-            );
+            assertEq(proposer.balance, proposerBalanceBeforeFull + refund, "proposer got refund");
+            assertEq(prover.balance, proverBalanceBeforeFull + proverFeeWei, "prover received fee");
             return;
         }
 
