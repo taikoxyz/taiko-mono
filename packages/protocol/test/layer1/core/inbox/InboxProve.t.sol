@@ -169,10 +169,8 @@ contract InboxProveTest is InboxTestBase {
         uint48 proposalTimestamp = uint48(block.timestamp);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] =
-            _transitionFor(payload, proposalTimestamp, keccak256("checkpoint1"));
-        transitions[1] =
-            _transitionFor(payload, proposalTimestamp, keccak256("checkpoint2"));
+        transitions[0] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input = _buildInputWithCheckpoint(
             payload.id,
@@ -284,9 +282,7 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
-            proposer: p1.proposer,
-            timestamp: p1Timestamp,
-            blockHash: keccak256("checkpoint1")
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
         });
         transitions[1] = _transitionFor(p2, p2Timestamp, keccak256("checkpoint2"));
 
@@ -491,10 +487,8 @@ contract InboxProveTest is InboxTestBase {
         uint48 proposalTimestamp = uint48(block.timestamp);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] =
-            _transitionFor(payload, proposalTimestamp, keccak256("checkpoint1"));
-        transitions[1] =
-            _transitionFor(payload, proposalTimestamp, keccak256("checkpoint2"));
+        transitions[0] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input = _buildInput(
             payload.id,

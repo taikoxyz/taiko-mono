@@ -386,9 +386,7 @@ abstract contract InboxTestBase is CommonTest {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposer: _payload.proposer,
-            timestamp: _proposalTimestamp,
-            blockHash: _blockHash
+            proposer: _payload.proposer, timestamp: _proposalTimestamp, blockHash: _blockHash
         });
     }
 
