@@ -37,18 +37,23 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Fetch owner/repo of pull request
-        uses: alessbell/pull-request-comment-branch@v2.1.0
-        id: comment-branch
-      - name: Checkout repository
+      - name: Checkout repository (fork PRs)
+        if: github.event.pull_request.head.repo.fork == true
         uses: actions/checkout@v5
         with:
-          # account for forked repos case
-          ref: ${{ steps.comment-branch.outputs.head_ref }}
-          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
           # Fetch more history for better git operations
           fetch-depth: 0
-          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
+          token: ${{ github.token }}
+
+      - name: Checkout repository (same-repo PRs)
+        if: github.event.pull_request.head.repo.fork == false
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          # Fetch more history for better git operations
+          fetch-depth: 0
+          token: ${{ github.token }}
 
       - name: Read Foundry version
         id: foundry-version
@@ -125,6 +130,8 @@ jobs:
           commit_message: "Update protocol generated artifacts"
           branch: ${{ github.head_ref }}
           push_options: "--force-with-lease"
+        env:
+          GITHUB_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN != '' && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol

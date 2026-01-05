@@ -5,6 +5,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IProverAuction } from "../iface/IProverAuction.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
@@ -22,16 +23,22 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
 
     /// @notice Minimum time between self-bids to prevent moving average manipulation.
-    uint48 public constant MIN_SELF_BID_INTERVAL = 2 minutes;
+    uint256 public constant MIN_SELF_BID_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
 
     /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
-    uint48 public constant MIN_AVG_UPDATE_INTERVAL = MIN_SELF_BID_INTERVAL;
+    uint256 public constant MIN_AVG_UPDATE_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
 
     /// @notice Maximum number of provers in the pool.
     uint8 public constant MAX_POOL_SIZE = 16;
 
     /// @notice Slot table size for O(1) weighted selection.
     uint16 public constant SLOT_TABLE_SIZE = 256;
+
+    /// @notice Packed slot table word count (SLOT_TABLE_SIZE / 32).
+    uint8 internal constant SLOT_TABLE_WORDS = 8;
+
+    /// @notice Number of uint8 entries stored per packed word.
+    uint8 internal constant SLOTS_PER_WORD = 32;
 
     /// @notice Weight decay per join order in basis points (10%).
     uint16 public constant WEIGHT_DECAY_BPS = 1000;
@@ -127,7 +134,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     PoolState internal _pool;
 
     address[MAX_POOL_SIZE] internal _activeProvers;
-    uint8[SLOT_TABLE_SIZE] internal _slotTable;
+    uint256[SLOT_TABLE_WORDS] internal _slotTable;
 
     mapping(address account => PoolMember member) internal _members;
     mapping(address account => BondInfo info) internal _bonds;
@@ -137,7 +144,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     uint48 internal _contractCreationTime;
     uint48 internal _lastAvgUpdate;
 
-    uint256[44] private __gap;
+    uint256[22] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -193,6 +200,30 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // Initializer Functions
     // ---------------------------------------------------------------
 
+    // ---------------------------------------------------------------
+    // Storage access notes (approximate)
+    // ---------------------------------------------------------------
+    // N = _pool.poolSize at function entry (0..MAX_POOL_SIZE).
+    // Counts are worst-case upper bounds per call, excluding:
+    // - ERC20 external calls
+    // - nonReentrant guard storage ops
+    // - compiler-inserted read-modify-write for packed writes
+    //
+    // SLOAD/SSTORE estimates:
+    // - init: dominated by __Essential_init; +1 SSTORE (_contractCreationTime)
+    // - deposit: SLOAD≈1, SSTORE≈1
+    // - withdraw: SLOAD≈2, SSTORE≈1
+    // - bid (self-bid/vacant): SLOAD≈5N + C, SSTORE≈3N + 8 + C
+    // - bid (join/outbid): SLOAD≈4N + C, SSTORE≈2N + 8 + C
+    // - requestExit: SLOAD≈4(N-1) + C, SSTORE≈8 + C
+    // - slashProver (ejection path): SLOAD≈4(N-1) + C, SSTORE≈8 + C
+    // - checkBondDeferWithdrawal: SLOAD≈2-3, SSTORE≈0-1
+    // - getProver: SLOAD≈3, SSTORE=0
+    // - getMaxBidFee: SLOAD≈2-3, SSTORE=0
+    // - getBondInfo: SLOAD≈1, SSTORE=0
+    // - getRequiredBond/getLivenessBond/getEjectionThreshold: SLOAD=0, SSTORE=0
+    // - getMovingAverageFee/getTotalSlashedAmount: SLOAD≈1, SSTORE=0
+
     /// @notice Initializes the contract (for upgradeable proxy pattern).
     /// @param _owner The owner of this contract.
     function init(address _owner) external initializer {
@@ -206,9 +237,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function deposit(uint128 _amount) external nonReentrant {
+        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         _bonds[msg.sender].balance += _amount;
         emit Deposited(msg.sender, _amount);
-bondToken.safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @inheritdoc IProverAuction
@@ -240,7 +271,7 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         bool isMember = member.active;
 
         if (isMember) {
-            require(block.timestamp >= _lastAvgUpdate + MIN_SELF_BID_INTERVAL, SelfBidTooFrequent());
+            require(block.timestamp >= MIN_SELF_BID_INTERVAL + _lastAvgUpdate, SelfBidTooFrequent());
             require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
             require(bond.balance >= getRequiredBond(), InsufficientBond());
             if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
@@ -315,7 +346,7 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         BondInfo storage bond = _bonds[_proverAddr];
 
         uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
-        uint128 actualReward = 0;
+        uint128 actualReward;
         if (_recipient != address(0)) {
             actualReward = uint128(uint256(actualSlash) * rewardBps / 10_000);
         }
@@ -377,7 +408,7 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         // Use a hash of the block prevrandao to avoid predictable slot cycling.
         // SLOT_TABLE_SIZE is 256 so the uint8 cast is an implicit modulo.
         uint8 slot = uint8(uint256(keccak256(abi.encodePacked(block.prevrandao, address(this)))));
-        uint8 idx = _slotTable[slot];
+        uint8 idx = _readSlotTable(slot);
         return (_activeProvers[idx], pool.feeInGwei);
     }
 
@@ -507,7 +538,7 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         _activeProvers[0] = leader;
         _pool.poolSize = size + 1;
 
-        for (uint8 i = 0; i < _pool.poolSize; i++) {
+        for (uint8 i; i < _pool.poolSize; ++i) {
             address prover = _activeProvers[i];
             if (prover == address(0)) continue;
             uint8 joinOrder = i + 1;
@@ -562,7 +593,7 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
             withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         }
 
-        for (uint8 i = 0; i < size; i++) {
+        for (uint8 i; i < size; ++i) {
             address prover = _activeProvers[i];
             if (prover == address(0)) continue;
             _members[prover].active = false;
@@ -585,15 +616,15 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         if (size == 0) return;
 
         // totalWeight <= MAX_POOL_SIZE * 10_000 (<= 160_000).
-        uint256 totalWeight = 0;
-        for (uint8 i = 0; i < size; i++) {
+        uint256 totalWeight;
+        for (uint8 i; i < size; ++i) {
             totalWeight += _members[_activeProvers[i]].weightBps;
         }
 
-        uint16 assigned = 0;
+        uint16 assigned;
         uint16[MAX_POOL_SIZE] memory slots;
         uint256[MAX_POOL_SIZE] memory remainders;
-        for (uint8 i = 0; i < size; i++) {
+        for (uint8 i; i < size; ++i) {
             uint16 weight = _members[_activeProvers[i]].weightBps;
             uint256 numerator = uint256(SLOT_TABLE_SIZE) * weight;
             uint16 slotCount = uint16(numerator / totalWeight);
@@ -609,10 +640,10 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         if (assigned > SLOT_TABLE_SIZE) {
             uint16 excess = assigned - SLOT_TABLE_SIZE;
-            for (uint16 e = 0; e < excess; e++) {
-                uint8 best = 0;
+            for (uint16 e; e < excess; ++e) {
+                uint8 best;
                 uint256 bestRem = type(uint256).max;
-                for (uint8 i = 0; i < size; i++) {
+                for (uint8 i; i < size; ++i) {
                     if (slots[i] <= 1) continue;
                     uint256 rem = remainders[i];
                     if (rem < bestRem) {
@@ -624,10 +655,10 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
             }
         } else if (assigned < SLOT_TABLE_SIZE) {
             uint16 remaining = SLOT_TABLE_SIZE - assigned;
-            for (uint16 r = 0; r < remaining; r++) {
-                uint8 best = 0;
-                uint256 bestRem = 0;
-                for (uint8 i = 0; i < size; i++) {
+            for (uint16 r; r < remaining; ++r) {
+                uint8 best;
+                uint256 bestRem;
+                for (uint8 i; i < size; ++i) {
                     uint256 rem = remainders[i];
                     if (rem > bestRem) {
                         bestRem = rem;
@@ -639,12 +670,38 @@ bondToken.safeTransferFrom(msg.sender, address(this), _amount);
             }
         }
 
-        uint16 cursor = 0;
-        for (uint8 i = 0; i < size; i++) {
-            for (uint16 j = 0; j < slots[i]; j++) {
-                _slotTable[cursor++] = i;
+        uint256[SLOT_TABLE_WORDS] memory packed;
+        uint256 word;
+        uint8 wordIdx;
+        uint8 byteIdx;
+        for (uint8 i; i < size; ++i) {
+            for (uint16 j; j < slots[i]; ++j) {
+                word |= uint256(i) << (uint256(byteIdx) << 3);
+                unchecked {
+                    ++byteIdx;
+                }
+                if (byteIdx == SLOTS_PER_WORD) {
+                    packed[wordIdx++] = word;
+                    word = 0;
+                    byteIdx = 0;
+                }
             }
         }
+
+        if (byteIdx != 0) {
+            packed[wordIdx] = word;
+        }
+
+        for (uint8 k; k < SLOT_TABLE_WORDS; ++k) {
+            _slotTable[k] = packed[k];
+        }
+    }
+
+    /// @dev Reads a packed slot table entry with a single storage load.
+    function _readSlotTable(uint8 slot) internal view returns (uint8 idx_) {
+        uint256 word = _slotTable[slot >> 5];
+        uint256 shift = uint256(slot & 31) << 3;
+        return uint8(word >> shift);
     }
 
     /// @dev Updates the time-weighted moving average of fees.

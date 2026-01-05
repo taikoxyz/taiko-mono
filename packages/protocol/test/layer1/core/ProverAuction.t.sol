@@ -26,6 +26,8 @@ contract ProverAuctionTest is CommonTest {
     uint8 internal constant MAX_FEE_DOUBLINGS = 8;
     uint32 internal constant INITIAL_MAX_FEE = 1000;
     uint8 internal constant MOVING_AVG_MULTIPLIER = 2;
+    // Slot table starts at storage slot 268 per ProverAuction_Layout.
+    uint256 internal constant SLOT_TABLE_BASE_SLOT = 268;
 
     uint128 internal REQUIRED_BOND;
 
@@ -127,6 +129,31 @@ contract ProverAuctionTest is CommonTest {
         assertApproxEqAbs(count3, expected3, tolerance3);
     }
 
+    function test_slotTable_rebuild_matchesExpectedCounts() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
+        _depositAndBid(prover3, REQUIRED_BOND, 100);
+
+        uint8[256] memory table = _readSlotTable();
+        uint16[16] memory counts;
+        uint16 tableSize = auction.SLOT_TABLE_SIZE();
+
+        for (uint16 i = 0; i < tableSize; i++) {
+            uint8 idx = table[i];
+            assertLt(uint256(idx), uint256(auction.MAX_POOL_SIZE()));
+            counts[idx] += 1;
+        }
+
+        uint16[16] memory expected = _expectedSlotCounts(3);
+        assertEq(counts[0], expected[0]);
+        assertEq(counts[1], expected[1]);
+        assertEq(counts[2], expected[2]);
+
+        for (uint8 i = 3; i < auction.MAX_POOL_SIZE(); i++) {
+            assertEq(counts[i], 0);
+        }
+    }
+
     function test_joinUsesSameRequiredBond() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
 
@@ -195,6 +222,29 @@ contract ProverAuctionTest is CommonTest {
         }
     }
 
+    function test_slotTableRebuild_doesNotReturnRemovedProver() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+        _depositAndBid(prover2, REQUIRED_BOND, 100);
+
+        vm.prank(prover2);
+        auction.requestExit();
+
+        _depositAndBid(prover3, REQUIRED_BOND, 100);
+
+        bool sawProver1;
+        bool sawProver3;
+        for (uint256 i = 0; i < 256; i++) {
+            vm.prevrandao(i);
+            (address prover,) = auction.getProver();
+            assertTrue(prover == prover1 || prover == prover3);
+            if (prover == prover1) sawProver1 = true;
+            if (prover == prover3) sawProver3 = true;
+        }
+
+        assertTrue(sawProver1);
+        assertTrue(sawProver3);
+    }
+
     function test_poolFullReverts() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
 
@@ -259,5 +309,86 @@ contract ProverAuctionTest is CommonTest {
         _deposit(prover, amount);
         vm.prank(prover);
         auction.bid(fee);
+    }
+
+    function _readSlotTable() internal view returns (uint8[256] memory table_) {
+        uint16 tableSize = auction.SLOT_TABLE_SIZE();
+        uint16 slotsPerWord = 32;
+        uint16 words = tableSize / slotsPerWord;
+
+        for (uint16 wordIdx = 0; wordIdx < words; wordIdx++) {
+            bytes32 raw =
+                vm.load(address(auction), bytes32(uint256(SLOT_TABLE_BASE_SLOT + wordIdx)));
+            uint256 word = uint256(raw);
+            uint256 base = uint256(wordIdx) * slotsPerWord;
+            for (uint16 byteIdx = 0; byteIdx < slotsPerWord; byteIdx++) {
+                table_[base + byteIdx] = uint8(word >> (uint256(byteIdx) * 8));
+            }
+        }
+    }
+
+    function _expectedSlotCounts(uint8 size) internal view returns (uint16[16] memory slots_) {
+        uint256 totalWeight;
+        for (uint8 i = 0; i < size; i++) {
+            totalWeight += _weightForJoin(i + 1);
+        }
+
+        uint16 assigned;
+        uint16 tableSize = auction.SLOT_TABLE_SIZE();
+        uint256[16] memory remainders;
+
+        for (uint8 i = 0; i < size; i++) {
+            uint16 weight = _weightForJoin(i + 1);
+            uint256 numerator = uint256(tableSize) * weight;
+            uint16 slotCount = uint16(numerator / totalWeight);
+            uint256 remainder = numerator % totalWeight;
+            if (slotCount == 0) {
+                slotCount = 1;
+                remainder = 0;
+            }
+            slots_[i] = slotCount;
+            remainders[i] = remainder;
+            assigned += slotCount;
+        }
+
+        if (assigned > tableSize) {
+            uint16 excess = assigned - tableSize;
+            for (uint16 e = 0; e < excess; e++) {
+                uint8 best = 0;
+                uint256 bestRem = type(uint256).max;
+                for (uint8 i = 0; i < size; i++) {
+                    if (slots_[i] <= 1) continue;
+                    uint256 rem = remainders[i];
+                    if (rem < bestRem) {
+                        bestRem = rem;
+                        best = i;
+                    }
+                }
+                slots_[best] -= 1;
+            }
+        } else if (assigned < tableSize) {
+            uint16 remaining = tableSize - assigned;
+            for (uint16 r = 0; r < remaining; r++) {
+                uint8 best = 0;
+                uint256 bestRem = 0;
+                for (uint8 i = 0; i < size; i++) {
+                    uint256 rem = remainders[i];
+                    if (rem > bestRem) {
+                        bestRem = rem;
+                        best = i;
+                    }
+                }
+                slots_[best] += 1;
+                remainders[best] = 0;
+            }
+        }
+    }
+
+    function _weightForJoin(uint8 joinOrder) internal view returns (uint16) {
+        uint256 decay = uint256(joinOrder - 1) * auction.WEIGHT_DECAY_BPS();
+        if (decay >= 10_000) {
+            return 1;
+        }
+        return uint16(10_000 - decay);
     }
 }
