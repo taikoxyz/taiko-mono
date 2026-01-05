@@ -691,7 +691,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             _bondStorage.settleLivenessBond(
-                _commitment.transitions[_offset].designatedProver,
+                _commitment.transitions[_offset].proposer,
                 _commitment.actualProver,
                 _livenessBond
             );
