@@ -5,9 +5,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IProverAuction } from "../iface/IProverAuction.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
-import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 
 import "./ProverAuction_Layout.sol"; // DO NOT DELETE
 
