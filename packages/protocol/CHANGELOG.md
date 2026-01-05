@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Breaking Changes
-
-* **protocol:** remove `designatedProver` from `IInbox.Transition` and debit liveness bond from proposer
-
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.2.0...taiko-alethia-protocol-v2.3.0) (2025-05-06)
 
 
