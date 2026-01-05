@@ -691,6 +691,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      4. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
     ///      5. Refund any remaining ETH to proposer via `sendEtherAndVerify` (reverts if rejected)
     ///      Note: If prover rejects payment, the fee remains in the contract (not refunded).
+    ///      Unpaid ETH proving fees are retained in this contract pending a DAO decision on use.
     /// @param _designatedProver The address to receive the prover fee.
     /// @param _proverFee The prover fee in wei.
     /// @param _forcedInclusionFees The forced inclusion fees collected in wei (credited to proposer).
