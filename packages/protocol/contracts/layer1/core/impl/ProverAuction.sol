@@ -208,7 +208,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     function deposit(uint128 _amount) external nonReentrant {
         _bonds[msg.sender].balance += _amount;
         emit Deposited(msg.sender, _amount);
-bondToken.safeTransferFrom(msg.sender, address(this), _amount);
+        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @inheritdoc IProverAuction
