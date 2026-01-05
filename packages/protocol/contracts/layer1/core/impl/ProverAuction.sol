@@ -346,7 +346,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         BondInfo storage bond = _bonds[_proverAddr];
 
         uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
-        uint128 actualReward = 0;
+        uint128 actualReward;
         if (_recipient != address(0)) {
             actualReward = uint128(uint256(actualSlash) * rewardBps / 10_000);
         }
@@ -538,7 +538,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         _activeProvers[0] = leader;
         _pool.poolSize = size + 1;
 
-        for (uint8 i = 0; i < _pool.poolSize; i++) {
+        for (uint8 i; i < _pool.poolSize; ++i) {
             address prover = _activeProvers[i];
             if (prover == address(0)) continue;
             uint8 joinOrder = i + 1;
@@ -593,7 +593,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         }
 
-        for (uint8 i = 0; i < size; i++) {
+        for (uint8 i; i < size; ++i) {
             address prover = _activeProvers[i];
             if (prover == address(0)) continue;
             _members[prover].active = false;
@@ -616,15 +616,15 @@ contract ProverAuction is EssentialContract, IProverAuction {
         if (size == 0) return;
 
         // totalWeight <= MAX_POOL_SIZE * 10_000 (<= 160_000).
-        uint256 totalWeight = 0;
-        for (uint8 i = 0; i < size; i++) {
+        uint256 totalWeight;
+        for (uint8 i; i < size; ++i) {
             totalWeight += _members[_activeProvers[i]].weightBps;
         }
 
-        uint16 assigned = 0;
+        uint16 assigned;
         uint16[MAX_POOL_SIZE] memory slots;
         uint256[MAX_POOL_SIZE] memory remainders;
-        for (uint8 i = 0; i < size; i++) {
+        for (uint8 i; i < size; ++i) {
             uint16 weight = _members[_activeProvers[i]].weightBps;
             uint256 numerator = uint256(SLOT_TABLE_SIZE) * weight;
             uint16 slotCount = uint16(numerator / totalWeight);
@@ -640,10 +640,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         if (assigned > SLOT_TABLE_SIZE) {
             uint16 excess = assigned - SLOT_TABLE_SIZE;
-            for (uint16 e = 0; e < excess; e++) {
-                uint8 best = 0;
+            for (uint16 e; e < excess; ++e) {
+                uint8 best;
                 uint256 bestRem = type(uint256).max;
-                for (uint8 i = 0; i < size; i++) {
+                for (uint8 i; i < size; ++i) {
                     if (slots[i] <= 1) continue;
                     uint256 rem = remainders[i];
                     if (rem < bestRem) {
@@ -655,10 +655,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
             }
         } else if (assigned < SLOT_TABLE_SIZE) {
             uint16 remaining = SLOT_TABLE_SIZE - assigned;
-            for (uint16 r = 0; r < remaining; r++) {
-                uint8 best = 0;
-                uint256 bestRem = 0;
-                for (uint8 i = 0; i < size; i++) {
+            for (uint16 r; r < remaining; ++r) {
+                uint8 best;
+                uint256 bestRem;
+                for (uint8 i; i < size; ++i) {
                     uint256 rem = remainders[i];
                     if (rem > bestRem) {
                         bestRem = rem;
@@ -672,10 +672,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         uint256[SLOT_TABLE_WORDS] memory packed;
         uint256 word;
-        uint8 wordIdx = 0;
-        uint8 byteIdx = 0;
-        for (uint8 i = 0; i < size; i++) {
-            for (uint16 j = 0; j < slots[i]; j++) {
+        uint8 wordIdx;
+        uint8 byteIdx;
+        for (uint8 i; i < size; ++i) {
+            for (uint16 j; j < slots[i]; ++j) {
                 word |= uint256(i) << (uint256(byteIdx) << 3);
                 unchecked {
                     ++byteIdx;
@@ -692,7 +692,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             packed[wordIdx] = word;
         }
 
-        for (uint8 k = 0; k < SLOT_TABLE_WORDS; k++) {
+        for (uint8 k; k < SLOT_TABLE_WORDS; ++k) {
             _slotTable[k] = packed[k];
         }
     }
