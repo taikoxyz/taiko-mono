@@ -33,6 +33,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Slot table size for O(1) weighted selection.
     uint16 public constant SLOT_TABLE_SIZE = 256;
 
+    /// @notice Packed slot table word count (SLOT_TABLE_SIZE / 32).
+    uint8 internal constant SLOT_TABLE_WORDS = 8;
+
+    /// @notice Number of uint8 entries stored per packed word.
+    uint8 internal constant SLOTS_PER_WORD = 32;
+
     /// @notice Weight decay per join order in basis points (10%).
     uint16 public constant WEIGHT_DECAY_BPS = 1000;
 
@@ -127,7 +133,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     PoolState internal _pool;
 
     address[MAX_POOL_SIZE] internal _activeProvers;
-    uint8[SLOT_TABLE_SIZE] internal _slotTable;
+    uint256[SLOT_TABLE_WORDS] internal _slotTable;
 
     mapping(address account => PoolMember member) internal _members;
     mapping(address account => BondInfo info) internal _bonds;
@@ -377,7 +383,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         // Use a hash of the block prevrandao to avoid predictable slot cycling.
         // SLOT_TABLE_SIZE is 256 so the uint8 cast is an implicit modulo.
         uint8 slot = uint8(uint256(keccak256(abi.encodePacked(block.prevrandao, address(this)))));
-        uint8 idx = _slotTable[slot];
+        uint8 idx = _readSlotTable(slot);
         return (_activeProvers[idx], pool.feeInGwei);
     }
 
@@ -639,12 +645,38 @@ contract ProverAuction is EssentialContract, IProverAuction {
             }
         }
 
-        uint16 cursor = 0;
+        uint256[SLOT_TABLE_WORDS] memory packed;
+        uint256 word;
+        uint8 wordIdx = 0;
+        uint8 byteIdx = 0;
         for (uint8 i = 0; i < size; i++) {
             for (uint16 j = 0; j < slots[i]; j++) {
-                _slotTable[cursor++] = i;
+                word |= uint256(i) << (uint256(byteIdx) << 3);
+                unchecked {
+                    ++byteIdx;
+                }
+                if (byteIdx == SLOTS_PER_WORD) {
+                    packed[wordIdx++] = word;
+                    word = 0;
+                    byteIdx = 0;
+                }
             }
         }
+
+        if (byteIdx != 0) {
+            packed[wordIdx] = word;
+        }
+
+        for (uint8 k = 0; k < SLOT_TABLE_WORDS; k++) {
+            _slotTable[k] = packed[k];
+        }
+    }
+
+    /// @dev Reads a packed slot table entry with a single storage load.
+    function _readSlotTable(uint8 slot) internal view returns (uint8 idx_) {
+        uint256 word = _slotTable[slot >> 5];
+        uint256 shift = uint256(slot & 31) << 3;
+        return uint8(word >> shift);
     }
 
     /// @dev Updates the time-weighted moving average of fees.
