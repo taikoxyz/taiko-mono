@@ -8,8 +8,6 @@ use alloy::{
     providers::Provider,
 };
 use alloy_consensus::{Header, TxEnvelope};
-use alloy_eips::{BlockId, eip1898::RpcBlockHash};
-use alloy_primitives::aliases::U48;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
@@ -66,8 +64,6 @@ struct BlockContext<'a> {
     meta: &'a BundleMeta,
     /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
-    /// Indicates whether the proposal is a low-bond proposal (falls back to default manifest).
-    is_low_bond_proposal: bool,
 }
 
 /// Aggregate of per-block data forwarded to `create_payload_attributes`.
@@ -87,8 +83,6 @@ struct PayloadContext<'a> {
     parent_hash: B256,
     /// Positional data describing where the block sits within the proposal.
     position: BlockPosition,
-    /// Indicates whether the low-bond flag should be encoded.
-    is_low_bond_proposal: bool,
 }
 
 /// Aggregated parameters required to assemble the anchor transaction.
@@ -273,7 +267,7 @@ where
         Ok(outcomes)
     }
 
-    /// Apply low-bond overrides and validation rules to a manifest segment.
+    /// Apply validation rules to a manifest segment.
     async fn prepare_segment_manifest(
         &self,
         manifest: DerivationSourceManifest,
@@ -282,7 +276,7 @@ where
         segment_index: usize,
         segments_total: usize,
         is_forced_inclusion: bool,
-    ) -> Result<(DerivationSourceManifest, bool), DerivationError> {
+    ) -> Result<DerivationSourceManifest, DerivationError> {
         info!(
             proposal_id = meta.proposal_id,
             segment_index,
@@ -293,17 +287,6 @@ where
 
         // Sanitize the manifest before deriving payload attributes.
         let mut decoded_manifest = manifest;
-        let is_low_bond_proposal = self.detect_low_bond_proposal(state, meta).await?;
-
-        // If this is a low-bond proposal and its not a forced inclusion segment,
-        // override the manifest to be the default payload.
-        if !is_forced_inclusion && !manifest_is_default(&decoded_manifest) && is_low_bond_proposal {
-            info!(
-                proposal_id = meta.proposal_id,
-                "low-bond proposal detected; using default manifest for segment processing"
-            );
-            decoded_manifest = DerivationSourceManifest::default();
-        }
 
         if is_forced_inclusion || manifest_is_default(&decoded_manifest) {
             state.apply_inherited_metadata(&mut decoded_manifest, meta);
@@ -329,7 +312,7 @@ where
             }
         }
 
-        Ok((decoded_manifest, is_low_bond_proposal))
+        Ok(decoded_manifest)
     }
 
     /// Process a single manifest segment, producing one or more payload attributes.
@@ -348,7 +331,7 @@ where
         let SegmentContext { meta, segment_index, segments_total } = ctx;
         let SourceManifestSegment { manifest, is_forced_inclusion } = segment;
 
-        let (decoded_manifest, is_low_bond_proposal) = self
+        let decoded_manifest = self
             .prepare_segment_manifest(
                 manifest,
                 state,
@@ -372,7 +355,6 @@ where
                     blocks_len,
                     forced_inclusion: is_forced_inclusion,
                 },
-                is_low_bond_proposal,
             };
             let outcome = self
                 .process_block_manifest(block, state, block_ctx, applier, finalized_block_hash)
@@ -433,7 +415,7 @@ where
         state: &ParentState,
         ctx: BlockContext<'_>,
     ) -> Result<BlockDerivationContext, DerivationError> {
-        let BlockContext { meta, position, is_low_bond_proposal } = ctx;
+        let BlockContext { meta, position } = ctx;
 
         let block_number = state.next_block_number();
         info!(
@@ -477,7 +459,6 @@ where
                 block_number,
                 parent_hash,
                 position,
-                is_low_bond_proposal,
             },
         );
 
@@ -506,17 +487,11 @@ where
             block_number,
             parent_hash,
             position,
-            is_low_bond_proposal,
         } = ctx;
         let l1_block_hash = meta.l1_block_hash;
 
         let tx_list = encode_transactions(transactions);
-        let extra_data = encode_extra_data(meta.basefee_sharing_pctg, is_low_bond_proposal);
-
-        let mut signature = [0u8; 65];
-        let prover_slice = meta.prover_auth_bytes.as_ref();
-        let copy_len = prover_slice.len().min(signature.len());
-        signature[..copy_len].copy_from_slice(&prover_slice[..copy_len]);
+        let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
 
         let withdrawals: Vec<Withdrawal> = Vec::new();
         let build_payload_args_id = compute_build_payload_args_id(
@@ -535,7 +510,7 @@ where
             l1_block_hash: Some(l1_block_hash),
             build_payload_args_id,
             is_forced_inclusion: position.is_forced_inclusion(),
-            signature,
+            signature: [0u8; 65],
         };
 
         // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
@@ -638,7 +613,7 @@ where
         let segments_total = sources.len();
 
         for (segment_index, segment) in sources.iter().enumerate() {
-            let (decoded_manifest, is_low_bond_proposal) = self
+            let decoded_manifest = self
                 .prepare_segment_manifest(
                     segment.manifest.clone(),
                     &state,
@@ -657,7 +632,7 @@ where
                     blocks_len: decoded_manifest.blocks.len(),
                     forced_inclusion: segment.is_forced_inclusion,
                 };
-                let block_ctx = BlockContext { meta, position, is_low_bond_proposal };
+                let block_ctx = BlockContext { meta, position };
                 let derived_block = self.prepare_block(block, &state, block_ctx).await?;
 
                 // Any mismatch immediately aborts the fast-path and falls back to fresh payloads.
@@ -871,40 +846,6 @@ where
         Ok(Some(VerifiedCanonicalBlock { outcome, header }))
     }
 
-    /// Query the anchor contract to determine if the proposal is designated as low-bond.
-    #[instrument(skip(self, state, meta))]
-    async fn detect_low_bond_proposal(
-        &self,
-        state: &ParentState,
-        meta: &BundleMeta,
-    ) -> Result<bool, DerivationError> {
-        let block_id = BlockId::Hash(RpcBlockHash {
-            block_hash: state.header.hash_slow(),
-            require_canonical: Some(false),
-        });
-
-        let proposal_state =
-            self.rpc.shasta.anchor.getProposalState().block(block_id).call().await?;
-
-        let designated_prover_info = self
-            .rpc
-            .shasta
-            .anchor
-            .getDesignatedProver(
-                U48::from(meta.proposal_id),
-                meta.proposer,
-                meta.prover_auth_bytes.clone(),
-                proposal_state.designatedProver,
-            )
-            .block(block_id)
-            .call()
-            .await?;
-
-        let is_low_bond = designated_prover_info.isLowBondProposal_;
-        debug!(proposal_id = meta.proposal_id, is_low_bond, "queried designated prover info");
-        Ok(is_low_bond)
-    }
-
     // Build the anchor transaction for the given block.
     #[instrument(skip(self, parent_state, meta, inputs))]
     async fn build_anchor_transaction(
@@ -931,9 +872,6 @@ where
             .assemble_anchor_v4_tx(
                 parent_state.header.hash_slow(),
                 AnchorV4Input {
-                    proposal_id: meta.proposal_id,
-                    proposer: meta.proposer,
-                    prover_auth: meta.prover_auth_bytes.clone().to_vec(),
                     anchor_block_number: block.anchor_block_number,
                     anchor_block_hash,
                     anchor_state_root,

@@ -201,7 +201,6 @@ func (b *TxBuilderWithFallback) BuildShasta(
 		txBatch,
 		minTxsPerForcedInclusion,
 		preconfRouterAddress,
-		[]byte{},
 	)
 }
 

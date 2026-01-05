@@ -117,11 +117,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 	// Request proof.
-	callOpts := &bind.CallOpts{BlockHash: header.Hash(), Context: ctx}
-	proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(callOpts)
-	if err != nil {
-		return err
-	}
 	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
 		BlockHash: lastOriginInLastProposal.L2BlockHash,
 		Context:   ctx,
@@ -137,7 +132,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			EventL1Hash:      meta.GetRawBlockHash(),
 			Headers:          []*types.Header{header},
 			L2BlockNums:      l2BlockNums,
-			DesignatedProver: proposalState.DesignatedProver,
+			DesignatedProver: meta.GetProposer(), // Designated prover is always the proposer for Shasta.
 			Checkpoint: &proofProducer.Checkpoint{
 				BlockNumber: header.Number,
 				BlockHash:   header.Hash(),
