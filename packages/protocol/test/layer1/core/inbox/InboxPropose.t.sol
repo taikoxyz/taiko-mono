@@ -756,22 +756,30 @@ contract InboxProposeTest is InboxTestBase {
         if (forcedInclusionFeeWei >= proverFeeWei) {
             // Test different scenario: forced inclusion fee fully covers prover fee
             // Proposer sends 0 ETH, gets back excess
-            uint256 proposerBalanceBefore = proposer.balance;
-            uint256 proverBalanceBefore = prover.balance;
+            uint256 proposerBalanceBeforeFull = proposer.balance;
+            uint256 proverBalanceBeforeFull = prover.balance;
 
-            IInbox.ProposeInput memory input = _defaultProposeInput();
-            input.blobReference =
+            IInbox.ProposeInput memory inputFull = _defaultProposeInput();
+            inputFull.blobReference =
                 LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
-            input.numForcedInclusions = 1;
-            bytes memory encodedInput = codec.encodeProposeInput(input);
+            inputFull.numForcedInclusions = 1;
+            bytes memory encodedInputFull = codec.encodeProposeInput(inputFull);
 
             vm.prank(proposer);
-            inbox.propose{ value: 0 }(bytes(""), encodedInput);
+            inbox.propose{ value: 0 }(bytes(""), encodedInputFull);
 
             // Proposer sent 0, gets back (forcedInclusionFee - proverFee)
             uint256 refund = forcedInclusionFeeWei - proverFeeWei;
-            assertEq(proposer.balance, proposerBalanceBefore + refund, "proposer got refund");
-            assertEq(prover.balance, proverBalanceBefore + proverFeeWei, "prover received fee");
+            assertEq(
+                proposer.balance,
+                proposerBalanceBeforeFull + refund,
+                "proposer got refund"
+            );
+            assertEq(
+                prover.balance,
+                proverBalanceBeforeFull + proverFeeWei,
+                "prover received fee"
+            );
             return;
         }
 
