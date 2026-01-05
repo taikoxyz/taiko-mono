@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -39,7 +40,7 @@ type ProofSubmitterShasta struct {
 	proverAddress common.Address
 	// Batch proof related
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
-	proofCacheMaps map[proofProducer.ProofType]*ProofCache
+	proofCacheMaps map[proofProducer.ProofType]*cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse]
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
@@ -58,7 +59,7 @@ func NewProofSubmitterShasta(
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
-	proofCacheMaps map[proofProducer.ProofType]*ProofCache,
+	proofCacheMaps map[proofProducer.ProofType]*cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse],
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
@@ -242,7 +243,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				)
 			}
 		} else {
-			cacheMap.set(toID, proofResponse)
+			cacheMap.Set(toID, proofResponse)
 			if proofRangeCached(toBeInsertedID, toID, cacheMap) {
 				if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap); err != nil {
 					return err

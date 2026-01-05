@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
+	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -60,8 +61,8 @@ func monitorProofBuffer(
 func startCacheCleanUpAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
-	proofCacheMaps map[proofProducer.ProofType]*ProofCache,
-	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
+	proofCacheMaps map[proofProducer.ProofType]*cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse],
+	proofBuffers cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse],
 ) {
 	log.Info("Starting proof cache cleanup and flushing monitors", "monitorInterval", monitorInterval)
 	for proofType, cacheMap := range proofCacheMaps {
@@ -105,7 +106,7 @@ func cleanUpStaleCacheAndFlush(
 			if err := flushProofCacheRange(lastFinalizedProposalID.Uint64(), toID, buffer, cacheMap); err != nil {
 				if !errors.Is(err, ErrCacheNotFound) {
 					log.Error(
-					    "Failed to flush proof cache range",
+						"Failed to flush proof cache range",
 						"error", err,
 						"fromID", lastFinalizedProposalID,
 						"toID", toID,
@@ -174,7 +175,7 @@ func flushProofCacheRange(
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
 			if errors.Is(err, proofProducer.ErrBufferOverflow) {
 				log.Info(
-				    "Buffer overflow during cache flush, stop flushing",
+					"Buffer overflow during cache flush, stop flushing",
 					"proposalID", currentID,
 					"proofType", cachedProof.ProofType,
 				)

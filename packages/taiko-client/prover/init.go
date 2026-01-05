@@ -3,6 +3,7 @@ package prover
 import (
 	"context"
 	"fmt"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -142,14 +143,14 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 	var (
 		proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
 		cacheMaps    = make(
-			map[producer.ProofType]*proofSubmitter.ProofCache,
+			map[producer.ProofType]*cmap.ConcurrentMap[uint64, *producer.ProofResponse],
 			proofSubmitter.MaxNumSupportedProofTypes,
 		)
 	)
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	for _, proofType := range proofTypes {
-		cacheMaps[proofType] = proofSubmitter.NewProofCache(proofSubmitter.MaxNumSupportedProofTypes)
+		cacheMaps[proofType] = cmap.NewStringer[uint64, *producer.ProofResponse]()
 		switch proofType {
 		case producer.ProofTypeOp, producer.ProofTypeSgx:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
