@@ -61,7 +61,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     /// @notice The proof verifier contract.
-    IProofVerifier internal immutable _proofVerifier;
+    address internal immutable _proofVerifier;
 
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
@@ -149,7 +149,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     constructor(Config memory _config) {
         LibInboxSetup.validateConfig(_config);
 
-        _proofVerifier = IProofVerifier(_config.proofVerifier);
+        _proofVerifier = _config.proofVerifier;
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
@@ -207,25 +207,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
-        unchecked {
-            ProposeInput memory input = LibCodec.decodeProposeInput(_data);
-            _validateProposeInput(input);
-
-            uint48 nextProposalId = _coreState.nextProposalId;
-            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
-            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
-            require(nextProposalId > 0, ActivationRequired());
-
-            Proposal memory proposal = _buildProposal(
-                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
-            );
-
-            _coreState.nextProposalId = nextProposalId + 1;
-            _coreState.lastProposalBlockId = uint48(block.number);
-            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
-
-            _emitProposedEvent(proposal);
-        }
+        _beforePropose();
+        _propose(_lookahead, _data);
+        _afterPropose();
     }
 
     /// @inheritdoc IInbox
@@ -257,94 +241,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
     function prove(bytes calldata _data, bytes calldata _proof) external {
-        unchecked {
-
-            bool isWhitelistEnabled = _checkProver(msg.sender);
-            CoreState memory state = _coreState;
-            ProveInput memory input = LibCodec.decodeProveInput(_data);
-
-            // -------------------------------------------------------------------------------
-            // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
-            // -------------------------------------------------------------------------------
-            Commitment memory commitment = input.commitment;
-
-            // `offset` is the index of the next-to-finalize proposal in the transitions array.
-            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateCommitment(state, commitment);
-
-            // ---------------------------------------------------------
-            // 2. Verify checkpoint hash continuity and last proposal hash
-            // ---------------------------------------------------------
-            // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash = offset == 0
-                ? commitment.firstProposalParentBlockHash
-                : commitment.transitions[offset - 1].blockHash;
-            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
-
-            require(
-                commitment.lastProposalHash == getProposalHash(lastProposalId),
-                LastProposalHashMismatch()
-            );
-
-            // ---------------------------------------------------------
-            // 3. Process bond instruction
-            // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
-            if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset);
-            }
-
-            // -----------------------------------------------------------------------------
-            // 4. Sync checkpoint
-            // -----------------------------------------------------------------------------
-            bool checkpointSynced = input.forceCheckpointSync
-                || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay;
-
-            if (checkpointSynced) {
-                _signalService.saveCheckpoint(
-                    ICheckpointStore.Checkpoint({
-                        blockNumber: commitment.endBlockNumber,
-                        stateRoot: commitment.endStateRoot,
-                        blockHash: commitment.transitions[numProposals - 1].blockHash
-                    })
-                );
-                state.lastCheckpointTimestamp = uint48(block.timestamp);
-            }
-
-            // ---------------------------------------------------------
-            // 5. Compute proposalAge (for single-proposal proofs only)
-            // ---------------------------------------------------------
-            uint256 proposalAge;
-            if (numProposals == 1) {
-                // We count proposalAge as the time since it became available for proving.
-                proposalAge = block.timestamp
-                    - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
-            }
-
-            // ---------------------------------------------------------
-            // 6. Update core state and emit event
-            // ---------------------------------------------------------
-            state.lastFinalizedProposalId = uint48(lastProposalId);
-            state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
-
-            _coreState = state;
-
-            emit Proved(
-                commitment.firstProposalId,
-                commitment.firstProposalId + offset,
-                uint48(lastProposalId),
-                commitment.actualProver,
-                checkpointSynced
-            );
-
-            // ---------------------------------------------------------
-            // 7. Verify the proof
-            // ---------------------------------------------------------
-            _proofVerifier.verifyProof(
-                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
-            );
-        }
+        _beforeProve();
+        _prove(_data, _proof);
+        _afterProve();
     }
 
     /// @inheritdoc IBondManager
@@ -513,6 +412,123 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Private State-Changing Functions
     // ---------------------------------------------------------------
 
+    /// @dev Internal implementation of propose logic
+    /// @param _lookahead Additional data used for lookahead operations.
+    /// @param _data The encoded proposal input data.
+    function _propose(bytes calldata _lookahead, bytes calldata _data) internal {
+        unchecked {
+            ProposeInput memory input = LibCodec.decodeProposeInput(_data);
+            _validateProposeInput(input);
+
+            uint48 nextProposalId = _coreState.nextProposalId;
+            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
+            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
+            require(nextProposalId > 0, ActivationRequired());
+
+            Proposal memory proposal = _buildProposal(
+                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+            );
+
+            _coreState.nextProposalId = nextProposalId + 1;
+            _coreState.lastProposalBlockId = uint48(block.number);
+            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
+
+            _emitProposedEvent(proposal);
+        }
+    }
+
+    /// @dev Internal implementation of prove logic
+    /// @param _data Encoded ProveInput struct
+    /// @param _proof Validity proof for the batch of proposals
+    function _prove(bytes calldata _data, bytes calldata _proof) internal {
+        unchecked {
+
+            bool isWhitelistEnabled = _checkProver(msg.sender);
+            CoreState memory state = _coreState;
+            ProveInput memory input = LibCodec.decodeProveInput(_data);
+
+            // -------------------------------------------------------------------------------
+            // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
+            // -------------------------------------------------------------------------------
+            Commitment memory commitment = input.commitment;
+
+            // `offset` is the index of the next-to-finalize proposal in the transitions array.
+            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
+                _validateCommitment(state, commitment);
+
+            // ---------------------------------------------------------
+            // 2. Verify checkpoint hash continuity and last proposal hash
+            // ---------------------------------------------------------
+            // The parent block hash must match the stored lastFinalizedBlockHash.
+            bytes32 expectedParentHash = offset == 0
+                ? commitment.firstProposalParentBlockHash
+                : commitment.transitions[offset - 1].blockHash;
+            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+
+            require(
+                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                LastProposalHashMismatch()
+            );
+
+            // ---------------------------------------------------------
+            // 3. Process bond instruction
+            // ---------------------------------------------------------
+            // Bond transfers only apply when whitelist is not enabled.
+            if (!isWhitelistEnabled) {
+                _processLivenessBond(commitment, offset);
+            }
+
+            // -----------------------------------------------------------------------------
+            // 4. Sync checkpoint
+            // -----------------------------------------------------------------------------
+            bool checkpointSynced = input.forceCheckpointSync
+                || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay;
+
+            if (checkpointSynced) {
+                _signalService.saveCheckpoint(
+                    ICheckpointStore.Checkpoint({
+                        blockNumber: commitment.endBlockNumber,
+                        stateRoot: commitment.endStateRoot,
+                        blockHash: commitment.transitions[numProposals - 1].blockHash
+                    })
+                );
+                state.lastCheckpointTimestamp = uint48(block.timestamp);
+            }
+
+            // ---------------------------------------------------------
+            // 5. Compute proposalAge (for single-proposal proofs only)
+            // ---------------------------------------------------------
+            uint256 proposalAge;
+            if (numProposals == 1) {
+                // We count proposalAge as the time since it became available for proving.
+                proposalAge = block.timestamp
+                    - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+            }
+
+            // ---------------------------------------------------------
+            // 6. Update core state and emit event
+            // ---------------------------------------------------------
+            state.lastFinalizedProposalId = uint48(lastProposalId);
+            state.lastFinalizedTimestamp = uint48(block.timestamp);
+            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
+
+            _coreState = state;
+
+            emit Proved(
+                commitment.firstProposalId,
+                commitment.firstProposalId + offset,
+                uint48(lastProposalId),
+                commitment.actualProver,
+                checkpointSynced
+            );
+
+            // ---------------------------------------------------------
+            // 7. Verify the proof
+            // ---------------------------------------------------------
+            _handleProofVerification(proposalAge, commitment, _proof);
+        }
+    }
+
     /// @dev Builds proposal and derivation data.
     /// This function also checks:
     /// - If `msg.sender` can propose.
@@ -542,11 +558,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 NotEnoughCapacity()
             );
 
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
-
-            result.sources[result.sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+            ConsumptionResult memory result = _buildConsumptionResult(_input);
 
             // If forced inclusion is old enough, allow anyone to propose
             // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
@@ -783,6 +795,54 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // The offset points to the first proposal that will be finalized.
             offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Hooks
+    // ---------------------------------------------------------------
+
+    /// @dev A pre proposal hook to execute extra logic before making a proposal
+    function _beforePropose() internal virtual { }
+
+    /// @dev A post proposal hook to execute extra logic after making a proposal
+    function _afterPropose() internal virtual { }
+
+    /// @dev A pre proving hook to execute extra logic before proving a proposal
+    function _beforeProve() internal virtual { }
+
+    /// @dev A post proving hook to execute extra logic after proving a proposal
+    function _afterProve() internal virtual { }
+
+    /// @dev Builds the consumption result that contains the derivation sources
+    /// @dev In certain extended inboxes, forced inclusion may be disabled when the chain
+    /// enters a feature specific "safety mode"
+    /// @param _input The propose input data
+    /// @return result_ The consumption result with sources array and permissionless flag
+    function _buildConsumptionResult(ProposeInput memory _input)
+        internal
+        virtual
+        returns (ConsumptionResult memory result_)
+    {
+        result_ = _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+        result_.sources[result_.sources.length - 1] =
+            DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+    }
+
+    /// @dev Handles proof verification by delegating to the proof verifier contract.
+    /// @param _proposalAge Seconds passed since the proposal was submitted
+    /// @param _commitment The commitment containing the batch transitions to verify.
+    /// @param _proof The encoded proof data to verify against the commitment.
+    function _handleProofVerification(
+        uint256 _proposalAge,
+        Commitment memory _commitment,
+        bytes calldata _proof
+    )
+        internal
+        view
+        virtual
+    {
+        IProofVerifier(_proofVerifier)
+            .verifyProof(_proposalAge, LibHashOptimized.hashCommitment(_commitment), _proof);
     }
 
     // ---------------------------------------------------------------
