@@ -37,7 +37,16 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Checkout repository
+      - name: Checkout repository (fork PRs)
+        if: github.event.pull_request.head.repo.fork == true
+        uses: actions/checkout@v5
+        with:
+          # Fetch more history for better git operations
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Checkout repository (same-repo PRs)
+        if: github.event.pull_request.head.repo.fork == false
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.ref }}
