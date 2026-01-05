@@ -21,7 +21,6 @@ library LibMath {
         return _a > _b ? _a : _b;
     }
 
-    // NOTE: No-op change to trigger protocol workflow.
     function capToUint64(uint256 _value) internal pure returns (uint64) {
         return uint64(min(_value, type(uint64).max));
     }
