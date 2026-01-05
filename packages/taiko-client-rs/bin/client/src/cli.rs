@@ -12,9 +12,9 @@ use crate::commands::{driver::DriverSubCommand, proposer::ProposerSubCommand};
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
     /// Run the proposer.
-    Proposer(Box<ProposerSubCommand>),
+    Proposer(ProposerSubCommand),
     /// Run the driver.
-    Driver(Box<DriverSubCommand>),
+    Driver(DriverSubCommand),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -27,8 +27,8 @@ pub struct Cli {
 
 impl Cli {
     /// Run the subcommand.
-    pub fn run(self) -> Result<()> {
-        match self.subcommand {
+    pub fn run(&self) -> Result<()> {
+        match &self.subcommand {
             Commands::Proposer(proposer_cmd) => Self::run_until_ctrl_c(proposer_cmd.run()),
             Commands::Driver(driver_cmd) => Self::run_until_ctrl_c(driver_cmd.run()),
         }
