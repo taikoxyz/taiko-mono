@@ -23,10 +23,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
 
     /// @notice Minimum time between self-bids to prevent moving average manipulation.
-    uint48 public constant MIN_SELF_BID_INTERVAL = uint48(LibPreconfConstants.SECONDS_IN_EPOCH);
+    uint256 public constant MIN_SELF_BID_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
 
     /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
-    uint48 public constant MIN_AVG_UPDATE_INTERVAL = MIN_SELF_BID_INTERVAL;
+    uint256 public constant MIN_AVG_UPDATE_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
 
     /// @notice Maximum number of provers in the pool.
     uint8 public constant MAX_POOL_SIZE = 16;
@@ -247,7 +247,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         bool isMember = member.active;
 
         if (isMember) {
-            require(block.timestamp >= _lastAvgUpdate + MIN_SELF_BID_INTERVAL, SelfBidTooFrequent());
+            require(block.timestamp >= MIN_SELF_BID_INTERVAL + _lastAvgUpdate , SelfBidTooFrequent());
             require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
             require(bond.balance >= getRequiredBond(), InsufficientBond());
             if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
