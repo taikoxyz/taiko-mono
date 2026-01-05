@@ -312,7 +312,7 @@ abstract contract InboxTestBase is CommonTest {
                 stateRoot: keccak256(abi.encode("stateRoot", i + 1))
             });
             bytes32 blockHash = keccak256(abi.encode(checkpoint));
-            transitions[i] = _transitionFor(payload, proposalTimestamp, prover, blockHash);
+            transitions[i] = _transitionFor(payload, proposalTimestamp, blockHash);
         }
 
         // Get the last proposal hash from the ring buffer
@@ -379,7 +379,6 @@ abstract contract InboxTestBase is CommonTest {
     function _transitionFor(
         ProposedEvent memory _payload,
         uint48 _proposalTimestamp,
-        address _designatedProver,
         bytes32 _blockHash
     )
         internal
@@ -388,7 +387,6 @@ abstract contract InboxTestBase is CommonTest {
     {
         return IInbox.Transition({
             proposer: _payload.proposer,
-            designatedProver: _designatedProver,
             timestamp: _proposalTimestamp,
             blockHash: _blockHash
         });

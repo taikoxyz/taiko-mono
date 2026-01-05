@@ -56,7 +56,6 @@ contract InboxWhitelistProverTest is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: p1.proposer,
-            designatedProver: proposer, // Different from actual to trigger bond
             timestamp: p1Timestamp,
             blockHash: keccak256("checkpoint1")
         });
@@ -124,7 +123,6 @@ contract InboxWhitelistProverTest is InboxTestBase {
             bytes32 blockHash = keccak256(abi.encode("checkpoint", i + 1));
             transitions[i] = IInbox.Transition({
                 proposer: payload.proposer,
-                designatedProver: _actualProver,
                 timestamp: proposalTimestamp,
                 blockHash: blockHash
             });
