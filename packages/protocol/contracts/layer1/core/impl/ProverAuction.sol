@@ -7,6 +7,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IProverAuction } from "../iface/IProverAuction.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 
 import "./ProverAuction_Layout.sol"; // DO NOT DELETE
 
@@ -22,7 +23,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
 
     /// @notice Minimum time between self-bids to prevent moving average manipulation.
-    uint48 public constant MIN_SELF_BID_INTERVAL = 2 minutes;
+    uint48 public constant MIN_SELF_BID_INTERVAL = uint48(LibPreconfConstants.SECONDS_IN_EPOCH);
 
     /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
     uint48 public constant MIN_AVG_UPDATE_INTERVAL = MIN_SELF_BID_INTERVAL;
