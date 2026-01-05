@@ -247,7 +247,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         bool isMember = member.active;
 
         if (isMember) {
-            require(block.timestamp >= MIN_SELF_BID_INTERVAL + _lastAvgUpdate , SelfBidTooFrequent());
+            require(block.timestamp >= MIN_SELF_BID_INTERVAL + _lastAvgUpdate, SelfBidTooFrequent());
             require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
             require(bond.balance >= getRequiredBond(), InsufficientBond());
             if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
