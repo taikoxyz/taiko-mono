@@ -26,11 +26,9 @@ type ShastaBlockPayload struct {
 
 // ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
 type ShastaDerivationSourcePayload struct {
-	ProverAuthBytes   []byte
-	BlockPayloads     []*ShastaBlockPayload
-	Default           bool
-	ParentBlock       *types.Block
-	IsLowBondProposal bool
+	BlockPayloads []*ShastaBlockPayload
+	Default       bool
+	ParentBlock   *types.Block
 }
 
 // ShastaDerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.
@@ -83,7 +81,6 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	derivationIdx int,
 ) (*ShastaDerivationSourcePayload, error) {
 	var (
-		proverAuth               []byte
 		offset                   = int(meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64())
 		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
 		derivationSourceManifest = new(manifest.DerivationSourceManifest)
@@ -141,9 +138,6 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 			)
 			return defaultPayload, nil
 		}
-	} else {
-		// Only use the prover auth from the last source (non-forced-inclusion source).
-		proverAuth = derivationSourceManifest.ProverAuthBytes
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
@@ -158,8 +152,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 
 	// Convert protocol derivation manifest to ShastaDerivationSourcePayload.
 	payload := &ShastaDerivationSourcePayload{
-		ProverAuthBytes: proverAuth,
-		BlockPayloads:   make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
+		BlockPayloads: make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
 	}
 	for i, block := range derivationSourceManifest.Blocks {
 		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}

@@ -62,11 +62,6 @@ func Test_EventType_String(t *testing.T) {
 			EventTypeSendERC20,
 			"sendERC20",
 		},
-		{
-			"bondInstruction",
-			EventTypeBondInstruction,
-			"bondInstruction",
-		},
 	}
 
 	for _, tt := range tests {

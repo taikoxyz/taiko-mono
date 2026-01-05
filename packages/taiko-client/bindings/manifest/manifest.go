@@ -45,6 +45,5 @@ type BlockManifest struct {
 
 // DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
 type DerivationSourceManifest struct {
-	ProverAuthBytes []byte           `json:"proverAuthBytes"`
-	Blocks          []*BlockManifest `json:"blocks"`
+	Blocks []*BlockManifest `json:"blocks"`
 }

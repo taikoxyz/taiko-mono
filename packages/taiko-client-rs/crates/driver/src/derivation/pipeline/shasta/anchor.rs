@@ -12,7 +12,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::{Anchor::ProposalParams, ICheckpointStore::Checkpoint};
+use bindings::anchor::ICheckpointStore::Checkpoint;
 use rpc::client::Client;
 use thiserror::Error;
 use tracing::{info, instrument};
@@ -35,9 +35,6 @@ pub enum AnchorTxConstructorError {
 /// Parameters required to assemble an `anchorV4` transaction.
 #[derive(Debug)]
 pub struct AnchorV4Input {
-    pub proposal_id: u64,
-    pub proposer: Address,
-    pub prover_auth: Vec<u8>,
     pub anchor_block_number: u64,
     pub anchor_block_hash: B256,
     pub anchor_state_root: B256,
@@ -75,16 +72,13 @@ where
     }
 
     /// Assemble an `anchorV4` transaction for the given parent header and parameters.
-    #[instrument(skip(self), fields(proposal_id = params.proposal_id, anchor_block_number = params.anchor_block_number))]
+    #[instrument(skip(self), fields(anchor_block_number = params.anchor_block_number))]
     pub async fn assemble_anchor_v4_tx(
         &self,
         parent_hash: B256,
         params: AnchorV4Input,
     ) -> Result<TxEnvelope, AnchorTxConstructorError> {
         let AnchorV4Input {
-            proposal_id,
-            proposer,
-            prover_auth,
             anchor_block_number,
             anchor_block_hash,
             anchor_state_root,
@@ -124,8 +118,6 @@ where
 
         info!(
             l2_height,
-            proposal_id,
-            ?prover_auth,
             ?anchor_block_number,
             ?anchor_block_hash,
             ?anchor_state_root,
@@ -135,19 +127,13 @@ where
             "assembling shasta anchor anchorV4 transaction",
         );
 
-        let proposal_params = ProposalParams {
-            proposalId: U48::from(proposal_id),
-            proposer,
-            proverAuth: prover_auth.into(),
-        };
-
         let checkpoint = Checkpoint {
             blockNumber: U48::from(anchor_block_number),
             blockHash: anchor_block_hash,
             stateRoot: anchor_state_root,
         };
 
-        let call_builder = self.rpc.shasta.anchor.anchorV4(proposal_params, checkpoint);
+        let call_builder = self.rpc.shasta.anchor.anchorV4(checkpoint);
 
         let call_builder = call_builder
             .from(self.golden_touch_address)

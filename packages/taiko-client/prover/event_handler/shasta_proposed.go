@@ -47,12 +47,6 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		return err
 	}
 
-	// Get the proposal state from the Shasta Anchor contract.
-	_, proposalState, err := h.rpc.GetShastaAnchorState(&bind.CallOpts{Context: ctx, BlockHash: header.Hash()})
-	if err != nil {
-		return fmt.Errorf("failed to get Shasta proposal state (batchID %d): %w", meta.Shasta().GetEventData().Id, err)
-	}
-
 	// If the current batch is handled, just skip it.
 	if meta.Shasta().GetEventData().Id.Uint64() <= h.sharedState.GetLastHandledShastaBatchID() {
 		return nil
@@ -65,7 +59,6 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		"batchID", meta.Shasta().GetEventData().Id,
 		"lastBlockID", header.Number,
 		"proposer", meta.GetProposer(),
-		"designatedProver", proposalState.DesignatedProver,
 		"proposalTimestamp", meta.Shasta().GetTimestamp(),
 		"derivationSources", len(meta.Shasta().GetEventData().Sources),
 	)
@@ -88,7 +81,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 					ctx,
 					meta,
 					meta.Shasta().GetEventData().Id,
-					proposalState.DesignatedProver,
+					meta.GetProposer(),
 				); err != nil {
 					log.Error(
 						"Failed to check Shasta proof status and submit proof",
