@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/orcaman/concurrent-map/v2"
+	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -40,7 +40,7 @@ type ProofSubmitterShasta struct {
 	proverAddress common.Address
 	// Batch proof related
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
-	proofCacheMaps map[proofProducer.ProofType]*cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse]
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse]
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
@@ -59,7 +59,7 @@ func NewProofSubmitterShasta(
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
-	proofCacheMaps map[proofProducer.ProofType]*cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse],
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
@@ -167,9 +167,9 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
-		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1).Uint64()
-		toID := meta.GetProposalID().Uint64()
-		if fromID > toID {
+		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
+		toID := meta.GetProposalID()
+		if fromID.Cmp(toID) > 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
 				"proposalID", toID,
@@ -230,9 +230,9 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
 		}
 
-		toBeInsertedID := proofBuffer.LastInsertID() + 1
+		toBeInsertedID := new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
 		if toID == fromID ||
-			toID == toBeInsertedID {
+			toID.Cmp(toBeInsertedID) == 0 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(

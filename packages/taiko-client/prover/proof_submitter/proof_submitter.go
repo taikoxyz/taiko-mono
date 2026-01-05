@@ -23,6 +23,7 @@ import (
 var (
 	MaxNumSupportedZkTypes    = 2
 	MaxNumSupportedProofTypes = 4
+	ErrCacheNotFound          = errors.New("cache not found")
 )
 
 const maxProofRequestTimeout = 1 * time.Hour

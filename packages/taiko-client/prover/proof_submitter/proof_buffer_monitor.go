@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	cmap "github.com/orcaman/concurrent-map/v2"
 
@@ -61,8 +62,8 @@ func monitorProofBuffer(
 func startCacheCleanUpAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
-	proofCacheMaps map[proofProducer.ProofType]*cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse],
-	proofBuffers cmap.ConcurrentMap[uint64, *proofProducer.ProofResponse],
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
+	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 ) {
 	log.Info("Starting proof cache cleanup and flushing monitors", "monitorInterval", monitorInterval)
 	for proofType, cacheMap := range proofCacheMaps {
@@ -80,7 +81,7 @@ func startCacheCleanUpAndFlush(
 func cleanUpStaleCacheAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
-	cacheMap *ProofCache,
+	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
 	cleanUpInterval time.Duration,
 	buffer *proofProducer.ProofBuffer,
 ) {
@@ -102,8 +103,8 @@ func cleanUpStaleCacheAndFlush(
 			// remove stale cache
 			removeFinalizedProofsFromCache(cacheMap, lastFinalizedProposalID)
 			// flush cached proofs
-			toID := lastFinalizedProposalID.Uint64() + buffer.MaxLength
-			if err := flushProofCacheRange(lastFinalizedProposalID.Uint64(), toID, buffer, cacheMap); err != nil {
+			toID := new(big.Int).SetUint64(lastFinalizedProposalID.Uint64() + buffer.MaxLength)
+			if err := flushProofCacheRange(lastFinalizedProposalID, toID, buffer, cacheMap); err != nil {
 				if !errors.Is(err, ErrCacheNotFound) {
 					log.Error(
 						"Failed to flush proof cache range",
@@ -119,55 +120,50 @@ func cleanUpStaleCacheAndFlush(
 
 // removeFinalizedProofsFromCache deletes cached proofs whose IDs are finalized already.
 func removeFinalizedProofsFromCache(
-	cacheMap *ProofCache,
+	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
 	lastFinalizedProposalID *big.Int,
 ) {
-	if cacheMap == nil || lastFinalizedProposalID == nil {
+	if lastFinalizedProposalID == nil {
 		return
 	}
-	cacheMap.mu.Lock()
-	defer cacheMap.mu.Unlock()
-	for proposalID := range cacheMap.cache {
-		if proposalID < lastFinalizedProposalID.Uint64() {
-			delete(cacheMap.cache, proposalID)
+
+	for _, proposalID := range cacheMap.Keys() {
+		if proposalID.Cmp(lastFinalizedProposalID) < 0 {
+			cacheMap.Remove(proposalID)
 		}
 	}
 }
 
 // proofRangeCached reports whether every ID in [fromID, toID] exists in the proof cache.
 func proofRangeCached(
-	fromID, toID uint64,
-	cacheMap *ProofCache,
+	fromID, toID *big.Int,
+	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
 ) bool {
-	if cacheMap == nil || fromID > toID {
+	if fromID.Cmp(toID) > 0 {
 		return false
 	}
-	cacheMap.mu.RLock()
-	defer cacheMap.mu.RUnlock()
 	currentID := fromID
-	for currentID <= toID {
-		if _, ok := cacheMap.cache[currentID]; !ok {
+	for currentID.Cmp(toID) <= 0 {
+		if _, ok := cacheMap.Get(currentID); !ok {
 			return false
 		}
-		currentID++
+		currentID = currentID.Add(currentID, common.Big1)
 	}
 	return true
 }
 
 // flushProofCacheRange drains cached proofs from fromID through toID into the proof buffer.
 func flushProofCacheRange(
-	fromID, toID uint64,
+	fromID, toID *big.Int,
 	proofBuffer *proofProducer.ProofBuffer,
-	cacheMap *ProofCache,
+	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
 ) error {
-	if proofBuffer == nil || cacheMap == nil {
+	if proofBuffer == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
 	currentID := fromID
-	cacheMap.mu.Lock()
-	defer cacheMap.mu.Unlock()
-	for currentID <= toID {
-		cachedProof, ok := cacheMap.cache[currentID]
+	for currentID.Cmp(toID) <= 0 {
+		cachedProof, ok := cacheMap.Get(currentID)
 		if !ok {
 			log.Error("cached proof not found for proposal", "proposalID", currentID)
 			return ErrCacheNotFound
@@ -183,8 +179,8 @@ func flushProofCacheRange(
 			}
 			return err
 		}
-		delete(cacheMap.cache, currentID)
-		currentID++
+		cacheMap.Remove(currentID)
+		currentID = currentID.Add(currentID, common.Big1)
 	}
 	return nil
 }
