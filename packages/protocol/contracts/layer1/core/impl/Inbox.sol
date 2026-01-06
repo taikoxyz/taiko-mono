@@ -536,15 +536,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             }
 
             // Get designated prover and fee from auction
-            (address designatedProver, uint32 feeInGwei) = _proverAuction.prover();
+            address designatedProver;
+            if (_input.maxProvingFeeGwei != 0) {
+                (designatedProver, proverFee_) = _proverAuction.getProver(_input.maxProvingFeeGwei);
+                proverFee_ *= 1 gwei;
+            }
             if (designatedProver == address(0)) {
-                // No auction winner - proposer becomes the prover but must have sufficient bond
+                // Self-prove: either maxProvingFeeGwei is 0 or no suitable auction prover
                 designatedProver = msg.sender;
                 require(
                     _proverAuction.checkBondDeferWithdrawal(msg.sender), InvalidSelfProverBond()
                 );
             }
-            proverFee_ = uint256(feeInGwei) * 1 gwei;
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;

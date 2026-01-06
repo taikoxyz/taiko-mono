@@ -97,12 +97,16 @@ interface IInbox {
     struct ProposeInput {
         /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
         uint48 deadline;
-        /// @notice Blob reference for proposal data.
-        LibBlobs.BlobReference blobReference;
+        /// @notice Maximum proving fee in Gwei the proposer is willing to pay.
+        /// @dev If 0, always self-prove without using the auction prover.
+        /// Use type(uint32).max to accept any fee.
+        uint32 maxProvingFeeGwei;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
+        /// @notice Blob reference for proposal data.
+        LibBlobs.BlobReference blobReference;
     }
 
     /// @notice Transition data for a proposal used in prove

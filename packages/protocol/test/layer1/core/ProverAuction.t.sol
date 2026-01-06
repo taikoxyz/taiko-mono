@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { ProverAuction } from "src/layer1/core/impl/ProverAuction.sol";
-import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -21,11 +20,6 @@ contract ProverAuctionTest is CommonTest {
     uint16 internal constant MIN_FEE_REDUCTION_BPS = 500; // 5%
     uint16 internal constant REWARD_BPS = 6000; // 60%
     uint48 internal constant BOND_WITHDRAWAL_DELAY = 48 hours;
-    uint48 internal constant FEE_DOUBLING_PERIOD = 15 minutes;
-    uint48 internal constant MOVING_AVG_WINDOW = 30 minutes;
-    uint8 internal constant MAX_FEE_DOUBLINGS = 8;
-    uint32 internal constant INITIAL_MAX_FEE = 1000;
-    uint8 internal constant MOVING_AVG_MULTIPLIER = 2;
 
     uint128 internal REQUIRED_BOND;
 
@@ -36,18 +30,15 @@ contract ProverAuctionTest is CommonTest {
         REQUIRED_BOND = EJECTION_THRESHOLD * 2;
 
         ProverAuction impl = new ProverAuction(
-            inbox,
-            address(bondToken),
-            LIVENESS_BOND,
-            EJECTION_THRESHOLD,
-            MIN_FEE_REDUCTION_BPS,
-            REWARD_BPS,
-            BOND_WITHDRAWAL_DELAY,
-            FEE_DOUBLING_PERIOD,
-            MOVING_AVG_WINDOW,
-            MAX_FEE_DOUBLINGS,
-            INITIAL_MAX_FEE,
-            MOVING_AVG_MULTIPLIER
+            ProverAuction.ConstructorConfig({
+                inbox: inbox,
+                bondToken: address(bondToken),
+                livenessBond: LIVENESS_BOND,
+                ejectionThreshold: EJECTION_THRESHOLD,
+                minFeeReductionBps: MIN_FEE_REDUCTION_BPS,
+                rewardBps: REWARD_BPS,
+                bondWithdrawalDelay: BOND_WITHDRAWAL_DELAY
+            })
         );
 
         auction = ProverAuction(
@@ -61,7 +52,7 @@ contract ProverAuctionTest is CommonTest {
     }
 
     function test_getProver_returnsZeroWhenNoProver() public view {
-        (address prover, uint32 fee) = auction.prover();
+        (address prover, uint32 fee) = auction.getProver(type(uint32).max);
         assertEq(prover, address(0));
         assertEq(fee, 0);
     }
@@ -69,9 +60,23 @@ contract ProverAuctionTest is CommonTest {
     function test_firstBid_setsProver() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
 
-        (address prover, uint32 fee) = auction.prover();
+        (address prover, uint32 fee) = auction.getProver(type(uint32).max);
         assertEq(prover, prover1);
         assertEq(fee, 100);
+    }
+
+    function test_getProver_returnsZeroWhenFeeTooHigh() public {
+        _depositAndBid(prover1, REQUIRED_BOND, 100);
+
+        // Should return prover when maxFee >= actual fee
+        (address prover, uint32 fee) = auction.getProver(100);
+        assertEq(prover, prover1);
+        assertEq(fee, 100);
+
+        // Should return (address(0), 0) when maxFee < actual fee
+        (prover, fee) = auction.getProver(99);
+        assertEq(prover, address(0));
+        assertEq(fee, 0);
     }
 
     function test_outbid_setsWithdrawable() public {
@@ -80,11 +85,11 @@ contract ProverAuctionTest is CommonTest {
         uint48 expected = uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY;
         _depositAndBid(prover2, REQUIRED_BOND, 95);
 
-        (address prover, uint32 fee) = auction.prover();
+        (address prover, uint32 fee) = auction.getProver(type(uint32).max);
         assertEq(prover, prover2);
         assertEq(fee, 95);
 
-        IProverAuction.BondInfo memory bond1 = auction.bondInfo(prover1);
+        ProverAuction.BondInfo memory bond1 = auction.bondInfo(prover1);
         assertEq(bond1.withdrawableAt, expected);
     }
 
@@ -95,11 +100,11 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        (address prover, uint32 fee) = auction.prover();
+        (address prover, uint32 fee) = auction.getProver(type(uint32).max);
         assertEq(prover, address(0));
         assertEq(fee, 0);
 
-        IProverAuction.BondInfo memory bond1 = auction.bondInfo(prover1);
+        ProverAuction.BondInfo memory bond1 = auction.bondInfo(prover1);
         assertEq(bond1.withdrawableAt, expected);
     }
 
@@ -114,26 +119,44 @@ contract ProverAuctionTest is CommonTest {
         auction.bid(99);
     }
 
-    function test_movingAverage_skipsRapidUpdatesOnSelfBid() public {
+    function test_vacantSlot_acceptsAnyFee() public {
+        // No prover yet, any fee should be accepted
+        _depositAndBid(prover1, REQUIRED_BOND, 1_000_000); // Very high fee
+
+        (address prover, uint32 fee) = auction.getProver(type(uint32).max);
+        assertEq(prover, prover1);
+        assertEq(fee, 1_000_000);
+    }
+
+    function test_getConfig_returnsCorrectValues() public view {
+        ProverAuction.Config memory cfg = auction.getConfig();
+
+        assertEq(cfg.inbox, inbox);
+        assertEq(cfg.bondToken, address(bondToken));
+        assertEq(cfg.livenessBond, LIVENESS_BOND);
+        assertEq(cfg.ejectionThreshold, EJECTION_THRESHOLD);
+        assertEq(cfg.requiredBond, REQUIRED_BOND);
+        assertEq(cfg.minFeeReductionBps, MIN_FEE_REDUCTION_BPS);
+        assertEq(cfg.rewardBps, REWARD_BPS);
+        assertEq(cfg.bondWithdrawalDelay, BOND_WITHDRAWAL_DELAY);
+    }
+
+    function test_proverState_returnsCorrectValues() public {
+        // Initially no prover
+        (address currentProver, uint32 currentFeeInGwei, uint48 vacantSince, bool everHadProver) =
+            auction.proverState();
+        assertEq(currentProver, address(0));
+        assertEq(currentFeeInGwei, 0);
+        assertEq(everHadProver, false);
+
+        // After bidding
         _depositAndBid(prover1, REQUIRED_BOND, 100);
-        assertEq(auction.movingAverageFee(), 100);
 
-        uint256 interval = auction.MIN_AVG_UPDATE_INTERVAL();
-        vm.warp(block.timestamp + interval - 1);
-        vm.prank(prover1);
-        auction.bid(90);
-
-        assertEq(auction.movingAverageFee(), 100);
-
-        vm.warp(block.timestamp + 1);
-        vm.prank(prover1);
-        auction.bid(80);
-
-        uint256 window = MOVING_AVG_WINDOW;
-        uint256 weightNew = interval >= window ? window : interval;
-        uint256 weightOld = window - weightNew;
-        uint256 expected = (uint256(100) * weightOld + uint256(80) * weightNew) / window;
-        assertEq(auction.movingAverageFee(), expected);
+        (currentProver, currentFeeInGwei, vacantSince, everHadProver) = auction.proverState();
+        assertEq(currentProver, prover1);
+        assertEq(currentFeeInGwei, 100);
+        assertEq(everHadProver, true);
+        assertEq(vacantSince, 0);
     }
 
     function _deposit(address prover, uint128 amount) internal {

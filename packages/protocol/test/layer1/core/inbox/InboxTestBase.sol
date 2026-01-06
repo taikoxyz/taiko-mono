@@ -307,8 +307,9 @@ abstract contract InboxTestBase is CommonTest {
 
     function _defaultProposeInput() internal pure returns (IInbox.ProposeInput memory input_) {
         input_.deadline = 0;
-        input_.blobReference = LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
+        input_.maxProvingFeeGwei = type(uint32).max; // Accept any fee
         input_.numForcedInclusions = 0;
+        input_.blobReference = LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
     }
 
     function _proposalFromPayload(
@@ -325,7 +326,7 @@ abstract contract InboxTestBase is CommonTest {
             _payload.id == 0 ? bytes32(0) : inbox.getProposalHash(_payload.id - 1);
 
         // Get the designated prover from the auction mock
-        (address designatedProver,) = proverAuction.prover();
+        (address designatedProver,) = proverAuction.getProver(type(uint32).max);
 
         proposal_ = IInbox.Proposal({
             id: _payload.id,

@@ -10,15 +10,18 @@ contract LibCodecTest is Test {
     function test_encode_decode_proposeInput_roundtrip() public pure {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 1_234_567,
-            blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 }),
-            numForcedInclusions: 3
+            maxProvingFeeGwei: 500_000,
+            numForcedInclusions: 3,
+            blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 })
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 18, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
+        assertEq(decoded.maxProvingFeeGwei, input.maxProvingFeeGwei, "maxProvingFeeGwei");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
         assertEq(
             decoded.blobReference.blobStartIndex,
             input.blobReference.blobStartIndex,
@@ -26,55 +29,60 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
-        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
     }
 
     function test_encode_decode_proposeInput_boundaryValues() public pure {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: type(uint48).max,
+            maxProvingFeeGwei: type(uint32).max,
+            numForcedInclusions: type(uint8).max,
             blobReference: LibBlobs.BlobReference({
                 blobStartIndex: type(uint16).max,
                 numBlobs: type(uint16).max,
                 offset: type(uint24).max
-            }),
-            numForcedInclusions: type(uint8).max
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
 
         assertEq(decoded.deadline, input.deadline, "max deadline");
+        assertEq(decoded.maxProvingFeeGwei, input.maxProvingFeeGwei, "max maxProvingFeeGwei");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
         assertEq(
             decoded.blobReference.blobStartIndex, input.blobReference.blobStartIndex, "max start"
         );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "max numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "max offset");
-        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
     }
 
     function testFuzz_encodeDecodeProposeInput_PreservesFields(
         uint48 deadline,
+        uint32 maxProvingFeeGwei,
+        uint8 numForcedInclusions,
         uint16 blobStartIndex,
         uint16 numBlobs,
-        uint24 offset,
-        uint8 numForcedInclusions
+        uint24 offset
     )
         public
         pure
     {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: deadline,
+            maxProvingFeeGwei: maxProvingFeeGwei,
+            numForcedInclusions: numForcedInclusions,
             blobReference: LibBlobs.BlobReference({
                 blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
-            }),
-            numForcedInclusions: numForcedInclusions
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 18, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
+        assertEq(decoded.maxProvingFeeGwei, input.maxProvingFeeGwei, "maxProvingFeeGwei");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
         assertEq(
             decoded.blobReference.blobStartIndex,
             input.blobReference.blobStartIndex,
@@ -82,7 +90,6 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
-        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
     }
 
     function test_encode_decode_proveInput_roundtrip() public pure {

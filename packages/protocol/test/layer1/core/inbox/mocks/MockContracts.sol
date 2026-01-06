@@ -106,10 +106,9 @@ contract MockSignalService is ISignalService {
 contract MockProverAuction is IProverAuction {
     address public proverAddress;
     uint32 public feeInGwei;
-    uint128 public requiredBond;
     uint96 public livenessBond;
-    uint128 public ejectionThreshold;
     uint128 public totalSlashedAmount;
+    uint16 public rewardBps;
 
     mapping(address => bool) public slashedProvers;
     mapping(address => bool) public hasSufficientBond;
@@ -120,9 +119,8 @@ contract MockProverAuction is IProverAuction {
     constructor(address _prover, uint32 _feeInGwei) {
         proverAddress = _prover;
         feeInGwei = _feeInGwei;
-        requiredBond = 10 ether;
         livenessBond = 1 ether;
-        ejectionThreshold = 5 ether;
+        rewardBps = 5000; // 50%
         defaultBondCheck = true;
     }
 
@@ -139,37 +137,36 @@ contract MockProverAuction is IProverAuction {
         hasSufficientBond[_prover] = _value;
     }
 
-    function bid(uint32) external pure { }
-
-    function deposit(uint128) external pure { }
-
-    function withdraw() external pure { }
-
-    function requestExit() external pure { }
-
+    /// @inheritdoc IProverAuction
     function slashProver(address _proverAddr, address _recipient) external {
         slashedProvers[_proverAddr] = true;
         lastSlashedProver = _proverAddr;
         lastSlashRecipient = _recipient;
-        totalSlashedAmount += uint128(livenessBond);
-        emit ProverSlashed(_proverAddr, livenessBond, _recipient, uint128(livenessBond) / 2);
+        uint128 slashed = uint128(livenessBond);
+        totalSlashedAmount += slashed;
+        uint128 rewarded = _recipient != address(0) ? uint128(uint256(slashed) * rewardBps / 10_000) : 0;
+        emit ProverSlashed(_proverAddr, slashed, _recipient, rewarded);
     }
 
+    /// @inheritdoc IProverAuction
     function checkBondDeferWithdrawal(address _prover) external view returns (bool success_) {
         if (hasSufficientBond[_prover]) return true;
         return defaultBondCheck;
     }
 
-    function prover() external view returns (address prover_, uint32 feeInGwei_) {
+    /// @inheritdoc IProverAuction
+    function getProver(uint32 _maxFeeInGwei)
+        external
+        view
+        returns (address prover_, uint32 feeInGwei_)
+    {
+        if (proverAddress == address(0)) {
+            return (address(0), 0);
+        }
+        if (feeInGwei > _maxFeeInGwei) {
+            return (address(0), feeInGwei);
+        }
         return (proverAddress, feeInGwei);
-    }
-
-    function maxBidFee() external view returns (uint32 maxFee_) {
-        return feeInGwei;
-    }
-
-    function bondInfo(address) external pure returns (BondInfo memory bondInfo_) {
-        return BondInfo({balance: 0, withdrawableAt: 0});
     }
 }
 

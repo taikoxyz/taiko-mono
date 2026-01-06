@@ -14,18 +14,21 @@ library LibCodec {
     // ---------------------------------------------------------------
 
     /// @dev Encodes propose input data using compact packing.
+    /// Layout: deadline(6) + maxProvingFeeGwei(4) + numForcedInclusions(1) + blobStartIndex(2) +
+    /// numBlobs(2) + offset(3) = 18 bytes
     function encodeProposeInput(IInbox.ProposeInput memory _input)
         internal
         pure
         returns (bytes memory encoded_)
     {
-        encoded_ = new bytes(14);
+        encoded_ = new bytes(18);
         uint256 ptr = P.dataPtr(encoded_);
         ptr = P.packUint48(ptr, _input.deadline);
+        ptr = P.packUint32(ptr, _input.maxProvingFeeGwei);
+        ptr = P.packUint8(ptr, _input.numForcedInclusions);
         ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
         ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
         ptr = P.packUint24(ptr, _input.blobReference.offset);
-        ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
 
     /// @dev Decodes propose input data using compact packing.
@@ -36,10 +39,11 @@ library LibCodec {
     {
         uint256 ptr = P.dataPtr(_data);
         (input_.deadline, ptr) = P.unpackUint48(ptr);
+        (input_.maxProvingFeeGwei, ptr) = P.unpackUint32(ptr);
+        (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
         (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
-        (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
-        (input_.numForcedInclusions,) = P.unpackUint8(ptr);
+        (input_.blobReference.offset,) = P.unpackUint24(ptr);
     }
 
     // ---------------------------------------------------------------
