@@ -221,9 +221,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         require(_feeInGwei < proverState.feeInGwei, FeeMustBeLower());
-        uint32 maxAllowedFee = uint32(
-            uint256(proverState.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
-        );
+        uint32 maxAllowedFee =
+            uint32(uint256(proverState.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
@@ -268,8 +267,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         if (bond.balance < _ejectionThreshold) {
             if (_proverAddr == _prover.prover && _prover.vacantSince == 0) {
-                _bonds[_proverAddr].withdrawableAt =
-                    uint48(block.timestamp) + bondWithdrawalDelay;
+                _bonds[_proverAddr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
                 emit ProverEjected(_proverAddr);
             }
@@ -311,9 +309,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         ProverState memory proverState = _prover;
 
         if (proverState.prover != address(0) && proverState.vacantSince == 0) {
-            return uint32(
-                uint256(proverState.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
-            );
+            return uint32(uint256(proverState.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         }
 
         uint256 movingAvgFee = uint256(_movingAverageFee) * movingAverageMultiplier;
