@@ -18,13 +18,13 @@ pragma solidity ^0.8.26;
 //   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   _pool                          | struct ProverAuction.PoolState                     | Slot: 251  | Offset: 0    | Bytes: 32  
-//   _activeProvers                 | address[16]                                        | Slot: 252  | Offset: 0    | Bytes: 512 
-//   _slotTable                     | uint256[8]                                         | Slot: 268  | Offset: 0    | Bytes: 256 
-//   _members                       | mapping(address => struct ProverAuction.PoolMember) | Slot: 276  | Offset: 0    | Bytes: 32  
-//   _bonds                         | mapping(address => struct ProverAuction.BondInfo)  | Slot: 277  | Offset: 0    | Bytes: 32  
-//   _movingAverageFee              | uint32                                             | Slot: 278  | Offset: 0    | Bytes: 4   
-//   _totalSlashedAmount            | uint128                                            | Slot: 278  | Offset: 4    | Bytes: 16  
-//   _contractCreationTime          | uint48                                             | Slot: 278  | Offset: 20   | Bytes: 6   
-//   _lastAvgUpdate                 | uint48                                             | Slot: 278  | Offset: 26   | Bytes: 6   
-//   __gap                          | uint256[22]                                        | Slot: 279  | Offset: 0    | Bytes: 704 
+//   _currentProver                 | address                                            | Slot: 251  | Offset: 0    | Bytes: 20  
+//   _currentFeeInGwei              | uint32                                             | Slot: 251  | Offset: 20   | Bytes: 4   
+//   _vacantSince                   | uint48                                             | Slot: 251  | Offset: 24   | Bytes: 6   
+//   _everHadProver                 | uint8                                              | Slot: 251  | Offset: 30   | Bytes: 1   
+//   _bonds                         | mapping(address => struct ProverAuction.BondInfo)  | Slot: 252  | Offset: 0    | Bytes: 32  
+//   _movingAverageFee              | uint32                                             | Slot: 253  | Offset: 0    | Bytes: 4   
+//   _totalSlashedAmount            | uint128                                            | Slot: 253  | Offset: 4    | Bytes: 16  
+//   _contractCreationTime          | uint48                                             | Slot: 253  | Offset: 20   | Bytes: 6   
+//   _lastAvgUpdate                 | uint48                                             | Slot: 253  | Offset: 26   | Bytes: 6   
+//   __gap                          | uint256[22]                                        | Slot: 254  | Offset: 0    | Bytes: 704 
