@@ -24,15 +24,28 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
     uint256 public constant MIN_AVG_UPDATE_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
 
+    /// @notice Maximum number of provers in the pool (storage-only, single prover active).
+    uint8 public constant MAX_POOL_SIZE = 16;
+
+    /// @notice Slot table word count (storage-only, single prover active).
+    uint8 internal constant SLOT_TABLE_WORDS = 8;
+
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
 
-    struct ProverState {
-        address prover;
+    struct PoolState {
         uint32 feeInGwei;
+        uint8 poolSize;
         uint48 vacantSince;
-        uint8 everHadProver;
+        uint8 everHadPool;
+    }
+
+    struct PoolMember {
+        uint8 index;
+        uint8 joinOrder;
+        uint16 weightBps;
+        bool active;
     }
 
     struct BondInfo {
@@ -97,8 +110,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // State Variables
     // ---------------------------------------------------------------
 
-    ProverState internal _prover;
+    PoolState internal _pool;
 
+    address[MAX_POOL_SIZE] internal _activeProvers;
+    uint256[SLOT_TABLE_WORDS] internal _slotTable;
+
+    mapping(address account => PoolMember member) internal _members;
     mapping(address account => BondInfo info) internal _bonds;
 
     uint32 internal _movingAverageFee;
@@ -180,7 +197,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
         BondInfo storage info = _bonds[msg.sender];
 
         if (info.withdrawableAt == 0) {
-            require(msg.sender != _prover.prover, CurrentProverCannotWithdraw());
+            bool isCurrentProver =
+                _pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == msg.sender;
+            require(!isCurrentProver, CurrentProverCannotWithdraw());
         } else {
             require(block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
         }
@@ -194,14 +213,14 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @inheritdoc IProverAuction
     function bid(uint32 _feeInGwei) external {
         BondInfo storage bond = _bonds[msg.sender];
-        ProverState memory proverState = _prover;
-        address oldProver = proverState.prover;
-        bool isVacant = oldProver == address(0) || proverState.vacantSince > 0;
+        PoolState memory pool = _pool;
+        address oldProver = _activeProvers[0];
+        bool isVacant = pool.poolSize == 0 || pool.vacantSince > 0;
 
         require(bond.balance >= getRequiredBond(), InsufficientBond());
 
         if (!isVacant && oldProver == msg.sender) {
-            require(_feeInGwei < proverState.feeInGwei, FeeMustBeLower());
+            require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
             if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
             _setProver(msg.sender, _feeInGwei);
@@ -220,9 +239,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
             return;
         }
 
-        require(_feeInGwei < proverState.feeInGwei, FeeMustBeLower());
+        require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
         uint32 maxAllowedFee = uint32(
-            uint256(proverState.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
+            uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
         );
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
@@ -235,7 +254,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function requestExit() external {
-        if (_prover.prover != msg.sender || _prover.vacantSince > 0) {
+        if (
+            _pool.poolSize == 0 || _pool.vacantSince > 0 || _activeProvers[0] != msg.sender
+        ) {
             revert NotCurrentProver();
         }
 
@@ -267,7 +288,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
         if (bond.balance < _ejectionThreshold) {
-            if (_proverAddr == _prover.prover && _prover.vacantSince == 0) {
+            if (_pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _proverAddr)
+            {
                 _bonds[_proverAddr].withdrawableAt =
                     uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
@@ -277,15 +299,17 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    function checkBondDeferWithdrawal(address _proverAddr) external returns (bool success_) {
+    function checkBondDeferWithdrawal(address _prover) external returns (bool success_) {
         require(msg.sender == inbox, OnlyInbox());
 
-        BondInfo storage bond = _bonds[_proverAddr];
+        BondInfo storage bond = _bonds[_prover];
         if (bond.balance < _ejectionThreshold) {
             return false;
         }
 
-        if (_proverAddr != _prover.prover || _prover.vacantSince > 0 || bond.withdrawableAt != 0) {
+        bool isCurrentProver =
+            _pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _prover;
+        if (!isCurrentProver || bond.withdrawableAt != 0) {
             bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         }
 
@@ -298,21 +322,21 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function getProver() external view returns (address prover_, uint32 feeInGwei_) {
-        ProverState memory proverState = _prover;
-        if (proverState.prover == address(0) || proverState.vacantSince > 0) {
+        PoolState memory pool = _pool;
+        if (pool.poolSize == 0 || pool.vacantSince > 0) {
             return (address(0), 0);
         }
-        return (proverState.prover, proverState.feeInGwei);
+        return (_activeProvers[0], pool.feeInGwei);
     }
 
     /// @notice Get the maximum allowed bid fee at the current time.
     /// @return maxFee_ Maximum fee in Gwei that a bid can specify.
     function getMaxBidFee() public view returns (uint32 maxFee_) {
-        ProverState memory proverState = _prover;
+        PoolState memory pool = _pool;
 
-        if (proverState.prover != address(0) && proverState.vacantSince == 0) {
+        if (pool.poolSize != 0 && pool.vacantSince == 0) {
             return uint32(
-                uint256(proverState.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
+                uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
             );
         }
 
@@ -323,12 +347,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
         uint32 baseFee;
         uint48 startTime;
 
-        if (proverState.everHadProver == 0) {
+        if (pool.everHadPool == 0) {
             baseFee = feeFloor;
             startTime = _contractCreationTime;
         } else {
-            baseFee = uint32(LibMath.max(proverState.feeInGwei, feeFloor));
-            startTime = proverState.vacantSince;
+            baseFee = uint32(LibMath.max(pool.feeInGwei, feeFloor));
+            startTime = pool.vacantSince;
         }
 
         uint256 elapsed = block.timestamp - startTime;
@@ -364,7 +388,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @notice Get the current moving average fee.
-    /// @return avgFee_ The exponential moving average of winning fees in Gwei.
+    /// @return avgFee_ The time-weighted moving average of winning fees in Gwei.
     function getMovingAverageFee() external view returns (uint32 avgFee_) {
         return _movingAverageFee;
     }
@@ -382,16 +406,18 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @param prover The prover address.
     /// @param feeInGwei The fee per proposal in Gwei.
     function _setProver(address prover, uint32 feeInGwei) internal {
-        _prover.prover = prover;
-        _prover.feeInGwei = feeInGwei;
-        _prover.vacantSince = 0;
-        _prover.everHadProver = 1;
+        _pool.feeInGwei = feeInGwei;
+        _pool.poolSize = 1;
+        _pool.vacantSince = 0;
+        _pool.everHadPool = 1;
+        _activeProvers[0] = prover;
     }
 
     /// @dev Vacates the current prover slot.
     function _vacateProver() internal {
-        _prover.prover = address(0);
-        _prover.vacantSince = uint48(block.timestamp);
+        _activeProvers[0] = address(0);
+        _pool.poolSize = 0;
+        _pool.vacantSince = uint48(block.timestamp);
     }
 
     /// @dev Updates the time-weighted moving average of fees.

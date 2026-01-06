@@ -41,7 +41,14 @@ interface IProverAuction {
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Submit a bid to become prover, or join a pool at the current fee.
+    /// @notice Submit a bid to become the designated prover.
+    /// @dev A bid is a fee offer (in Gwei) paid per proposal. Lower fees are better.
+    ///
+    /// If the prover slot is vacant, the bid must be below the dynamically computed maximum.
+    /// If a prover is already active, the bid must undercut the current fee by at least the
+    /// configured minimum reduction.
+    ///
+    /// A current prover may also rebid to lower their own fee.
     /// @param _feeInGwei Fee per proposal in Gwei.
     function bid(uint32 _feeInGwei) external;
 
@@ -61,7 +68,10 @@ interface IProverAuction {
     /// @param _recipient The recipient of the slashed reward.
     function slashProver(address _proverAddr, address _recipient) external;
 
-    /// @notice Refresh the withdrawal delay timer for a prover with sufficient bond.
+    /// @notice Check whether a prover has sufficient bond and defer withdrawals.
+    /// @dev When this function succeeds it (re)sets the withdrawal delay timer. This is used by
+    /// the Inbox to prevent proposers acting as a self-prover from withdrawing their bond while
+    /// they may still be slashable.
     /// @param _prover Address of the prover to check.
     /// @return success_ True if the prover has sufficient bond, false otherwise.
     function checkBondDeferWithdrawal(address _prover) external returns (bool success_);
