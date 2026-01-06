@@ -5,6 +5,7 @@ import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { IPreconfWhitelist } from "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract TestPreconfWhitelist is CommonTest {
@@ -159,6 +160,29 @@ contract TestPreconfWhitelist is CommonTest {
             afterEmmaSet,
             "all operators selectable once fully active"
         );
+    }
+
+    function test_getOperatorForEpoch_handlesSkippedRandomnessSlot() external {
+        vm.etch(
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new MockBeaconBlockRoot()).code
+        );
+        MockBeaconBlockRoot mock =
+            MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT));
+
+        _addOperator(Bob);
+        _addOperator(Carol);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+
+        uint256 epochTs = whitelist.epochStartTimestamp(0);
+        uint256 delaySeconds = LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.RANDOMNESS_DELAY();
+        assertGe(epochTs, delaySeconds);
+        uint256 randomnessTs = epochTs - delaySeconds;
+
+        mock.set(randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT, bytes32(0));
+        mock.set(randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT * 2, bytes32(uint256(0xbeef)));
+
+        address operator = whitelist.getOperatorForCurrentEpoch();
+        assertEq(operator, Carol, "uses next available beacon root when slot is missed");
     }
 
     function test_removeOperatorByIndex_keepsMappingPacked() external {

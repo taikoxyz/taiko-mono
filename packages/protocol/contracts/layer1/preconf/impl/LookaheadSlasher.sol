@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "@eth-fabric/urc/lib/MerkleTree.sol";
 import "src/layer1/preconf/iface/IBlacklist.sol";

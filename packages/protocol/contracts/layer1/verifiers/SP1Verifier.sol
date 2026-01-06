@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
@@ -9,8 +9,6 @@ import { ISP1Verifier } from "@sp1-contracts/src/ISP1Verifier.sol";
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is IProofVerifier, Ownable2Step {
-    bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
-
     uint64 public immutable taikoChainId;
     address public immutable sp1RemoteVerifier;
 
@@ -26,10 +24,14 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
 
     error SP1_INVALID_PROGRAM_VKEY();
     error SP1_INVALID_AGGREGATION_VKEY();
+    error SP1_INVALID_CHAIN_ID();
+    error SP1_INVALID_REMOTE_VERIFIER();
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
     constructor(uint64 _taikoChainId, address _sp1RemoteVerifier, address _owner) {
+        require(_taikoChainId > 1, SP1_INVALID_CHAIN_ID());
+        require(_sp1RemoteVerifier != address(0), SP1_INVALID_REMOTE_VERIFIER());
         taikoChainId = _taikoChainId;
         sp1RemoteVerifier = _sp1RemoteVerifier;
 
@@ -67,11 +69,14 @@ contract SP1Verifier is IProofVerifier, Ownable2Step {
             _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
+        bytes32 sp1AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(blockProvingProgram, publicInput);
+
         // _proof[64:] is the succinct's proof position
         (bool success,) = sp1RemoteVerifier.staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (aggregationProgram, abi.encodePacked(publicInput), _proof[64:])
+                (aggregationProgram, abi.encodePacked(sp1AggregationPublicInput), _proof[64:])
             )
         );
 

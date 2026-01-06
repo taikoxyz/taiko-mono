@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 // Referenced from: https://ethresear.ch/t/slashing-proofoor-on-chain-slashed-validator-proofs/19421
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "./LibBeaconMerkleUtils.sol";
 import "@eth-fabric/urc/lib/BLSUtils.sol";

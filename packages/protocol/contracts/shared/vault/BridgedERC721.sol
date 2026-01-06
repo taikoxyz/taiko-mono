@@ -69,11 +69,9 @@ contract BridgedERC721 is
 
     /// @inheritdoc IBridgedERC721
     function burn(uint256 _tokenId) external whenNotPaused onlyFrom(erc721Vault) nonReentrant {
-        // Check if the caller is the owner of the token. Somehow this is not done inside the
-        // _burn() function below.
-        if (ownerOf(_tokenId) != msg.sender) {
-            revert BTOKEN_INVALID_BURN();
-        }
+        // Vault must own the token to burn it. The vault transfers the token to itself before
+        // calling burn. This check is necessary because OZ's _burn() doesn't verify ownership.
+        if (ownerOf(_tokenId) != msg.sender) revert BTOKEN_INVALID_BURN();
         _burn(_tokenId);
     }
 

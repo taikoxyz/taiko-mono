@@ -175,11 +175,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	txBatch []types.Transactions,
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
-	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
 		to                       = &b.shastaInboxAddress
-		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
+		derivationSourceManifest = &manifest.DerivationSourceManifest{}
 		blobs                    []*eth.Blob
 		data                     []byte
 	)

@@ -2,22 +2,19 @@ package manifest
 
 import (
 	"context"
-	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -29,11 +26,9 @@ type ShastaBlockPayload struct {
 
 // ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
 type ShastaDerivationSourcePayload struct {
-	ProverAuthBytes   []byte
-	BlockPayloads     []*ShastaBlockPayload
-	Default           bool
-	ParentBlock       *types.Block
-	IsLowBondProposal bool
+	BlockPayloads []*ShastaBlockPayload
+	Default       bool
+	ParentBlock   *types.Block
 }
 
 // ShastaDerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.
@@ -66,6 +61,9 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 
 	blobBytes, err := f.fetchBlobs(ctx, meta, derivationIdx)
 	if err != nil {
+		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
+			return &ShastaDerivationSourcePayload{Default: true}, nil
+		}
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
 	}
 
@@ -83,7 +81,6 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	derivationIdx int,
 ) (*ShastaDerivationSourcePayload, error) {
 	var (
-		proverAuth               []byte
 		offset                   = int(meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64())
 		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
 		derivationSourceManifest = new(manifest.DerivationSourceManifest)
@@ -141,9 +138,6 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 			)
 			return defaultPayload, nil
 		}
-	} else {
-		// Only use the prover auth from the last source (non-forced-inclusion source).
-		proverAuth = derivationSourceManifest.ProverAuthBytes
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
@@ -158,8 +152,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 
 	// Convert protocol derivation manifest to ShastaDerivationSourcePayload.
 	payload := &ShastaDerivationSourcePayload{
-		ProverAuthBytes: proverAuth,
-		BlockPayloads:   make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
+		BlockPayloads: make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
 	}
 	for i, block := range derivationSourceManifest.Blocks {
 		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
@@ -176,56 +169,16 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 ) ([]byte, error) {
 	blobHashes := meta.GetBlobHashes(derivationIdx)
 	// Fetch the L1 block sidecars.
-	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), blobHashes)
+	b, err := f.dataSource.GetBlobBytes(ctx, meta.GetBlobTimestamp(derivationIdx), blobHashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
-
-	if len(sidecars) != len(blobHashes) {
-		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
-	}
-
 	log.Info(
 		"Fetch sidecars",
 		"proposalID", meta.GetEventData().Id,
 		"l1Height", meta.GetRawBlockHeight(),
-		"sidecars", len(sidecars),
+		"sidecars", len(blobHashes),
 	)
-	// Build a map of blobHash -> blobBytes for O(1) lookup.
-	blobMap := make(map[common.Hash][]byte, len(sidecars))
-	for j, sidecar := range sidecars {
-		log.Debug(
-			"Block sidecar",
-			"index", j,
-			"KzgCommitment", sidecar.KzgCommitment,
-		)
-
-		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		hash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
-
-		blob := eth.Blob(common.FromHex(sidecar.Blob))
-		bytes, err := blob.ToData()
-		if err != nil {
-			return nil, err
-		}
-		blobMap[hash] = bytes
-	}
-
-	// Append in the order of blobHashes to preserve semantics.
-	var b []byte
-	for _, h := range blobHashes {
-		bytes, ok := blobMap[h]
-		if !ok {
-			// If any requested blob is missing, surface a clear error.
-			return nil, fmt.Errorf("requested blob hash %s not found in sidecars", h.Hex())
-		}
-		b = append(b, bytes...)
-	}
-
-	if len(b) == 0 {
-		return nil, pkg.ErrSidecarNotFound
-	}
-
 	return b, nil
 }
 

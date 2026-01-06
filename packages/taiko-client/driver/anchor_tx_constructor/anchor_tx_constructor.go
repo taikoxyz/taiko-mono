@@ -83,9 +83,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	ctx context.Context,
 	// Parameters of the ShastaAnchor.anchorV4 transaction.
 	parent *types.Header,
-	proposalId *big.Int,
-	proposer common.Address,
-	proverAuth []byte,
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
@@ -106,18 +103,11 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 		"anchorStateRoot", anchorStateRoot,
 		"parentGasUsed", parent.GasUsed,
 		"parentHash", parent.Hash(),
-		"proposalId", proposalId,
-		"proposer", proposer,
 		"endOfSubmissionWindowTimestamp", endOfSubmissionWindowTimestamp,
 	)
 
 	return c.rpc.ShastaClients.Anchor.AnchorV4(
 		opts,
-		shastaBindings.AnchorProposalParams{
-			ProposalId: proposalId,
-			Proposer:   proposer,
-			ProverAuth: proverAuth,
-		},
 		shastaBindings.ICheckpointStoreCheckpoint{
 			BlockNumber: anchorBlockNumber,
 			BlockHash:   anchorBlockHash,

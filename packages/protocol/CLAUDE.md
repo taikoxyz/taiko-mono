@@ -198,7 +198,7 @@ pnpm layout  # CRITICAL: Run before and after changes to upgradeable contracts
 
 ### Overview
 
-The Inbox contract and its subcontracts (InboxOptimized1, InboxOptimized2) use unchecked blocks aggressively for gas optimization. All unchecked operations have been verified safe through:
+The Inbox contract and its optimized variant use unchecked blocks aggressively for gas optimization. All unchecked operations have been verified safe through:
 
 - Bounded loop counters (limited by array lengths or configuration parameters)
 - Modulo operations (mathematically cannot overflow)

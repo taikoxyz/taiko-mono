@@ -249,6 +249,10 @@ where
     }
 
     /// Build a proposal bundle from a decoded event payload.
+    ///
+    /// Sources are processed sequentially in the order they appear, with the proposer's
+    /// source appended last per the protocol spec. Each source's `isForcedInclusion` flag
+    /// determines validation behavior.
     async fn build_manifest_from_event(
         &self,
         event: &ProposedEventContext,
@@ -258,44 +262,23 @@ where
         let proposal_id = event.event.id.to::<u64>();
         info!(proposal_id, source_count = sources.len(), "decoded proposal payload");
 
-        // If sources is empty, we return an error, which should never happen for the current
-        // Shasta protocol inbox implementation.
-        let Some((last_source, forced_inclusion_sources)) = sources.split_last() else {
-            let err = DerivationError::EmptyDerivationSources(proposal_id);
+        if sources.is_empty() {
             warn!(proposal_id, "proposal contained no derivation sources");
-            return Err(err);
-        };
+            return Err(DerivationError::EmptyDerivationSources(proposal_id));
+        }
 
-        // Fetch the normal proposal manifest first so we can reuse its prover auth.
-        let final_manifest = self
-            .fetch_and_decode_manifest(
-                self.derivation_source_manifest_fetcher.as_ref(),
-                last_source,
-            )
-            .await?;
-
-        let prover_auth_bytes = final_manifest.prover_auth_bytes.clone();
-
-        // Fetch the forced inclusion sources afterwards, injecting the proposal-level prover auth
-        // so every segment carries the same signature payload as required by the protocol.
+        // Fetch and validate all source manifests sequentially in order.
         let mut manifest_segments = Vec::with_capacity(sources.len());
-        for source in forced_inclusion_sources {
-            let mut manifest = self
+        for source in sources {
+            let manifest = self
                 .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
                 .await?;
-            manifest = validate_forced_inclusion_manifest(proposal_id, source, manifest);
-            // Inject the proposal-level prover auth into every segment.
-            manifest.prover_auth_bytes = prover_auth_bytes.clone();
+            let manifest = validate_forced_inclusion_manifest(proposal_id, source, manifest);
             manifest_segments.push(SourceManifestSegment {
                 manifest,
                 is_forced_inclusion: source.isForcedInclusion,
             });
         }
-
-        manifest_segments.push(SourceManifestSegment {
-            manifest: final_manifest,
-            is_forced_inclusion: last_source.isForcedInclusion,
-        });
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
@@ -308,7 +291,6 @@ where
                 origin_block_number: event.l1_block_number.saturating_sub(1),
                 proposer: event.event.proposer,
                 basefee_sharing_pctg: event.event.basefeeSharingPctg,
-                prover_auth_bytes,
             },
             sources: manifest_segments,
         };
@@ -504,7 +486,6 @@ mod tests {
     fn forced_inclusion_manifest_defaults_when_block_count_invalid() {
         let source = sample_derivation_source(vec![FixedBytes::from([0u8; 32])], true);
         let manifest = DerivationSourceManifest {
-            prover_auth_bytes: Default::default(),
             blocks: vec![BlockManifest::default(), BlockManifest::default()],
         };
 

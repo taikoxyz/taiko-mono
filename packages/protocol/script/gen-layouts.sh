@@ -25,15 +25,14 @@ contracts_shared=(
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
+"contracts/shared/signal/SignalServiceForkRouter.sol:SignalServiceForkRouter"
 )
 
 # Layer 1 contracts
 contracts_layer1=(
+"contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/core/impl/Inbox.sol:Inbox"
-"contracts/layer1/core/impl/InboxOptimized1.sol:InboxOptimized1"
-"contracts/layer1/core/impl/InboxOptimized2.sol:InboxOptimized2"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
@@ -50,6 +49,7 @@ contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
+"contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
 "contracts/layer2/preconf/PreconfSlasherL2.sol:PreconfSlasherL2"
 )
 

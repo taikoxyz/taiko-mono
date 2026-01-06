@@ -2,8 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -11,24 +9,27 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 interface IInbox {
     /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
-        /// @notice The codec used for encoding and hashing
-        address codec;
-        /// @notice The token used for bonds
-        address bondToken;
-        /// @notice The signal service contract address
-        address checkpointStore;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The prover whitelist contract (address(0) means no whitelist)
+        address proverWhitelist;
+        /// @notice The signal service contract address
+        address signalService;
+        /// @notice The ERC20 bond token address
+        address bondToken;
+        /// @notice The minimum bond a proposer is required to have in gwei
+        uint64 minBond;
+        /// @notice The liveness bond amount in gwei
+        uint64 livenessBond;
+        /// @notice The withdrawal delay in seconds
+        uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
-        /// @notice The extended proving window in seconds
-        uint48 extendedProvingWindow;
-        /// @notice The maximum number of finalized proposals in one block
-        uint256 maxFinalizationCount;
-        /// @notice The finalization grace period in seconds
-        uint48 finalizationGracePeriod;
+        /// @notice Maximum delay allowed between consecutive proofs to still be on time.
+        /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
+        uint48 maxProofSubmissionDelay;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
@@ -48,29 +49,14 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
-        /// @notice Version identifier for composite key generation
-        uint16 compositeKeyVersion;
     }
 
-    /// @notice Represents a source of derivation data within a Derivation
+    /// @notice Represents a source of derivation data within a Proposal
     struct DerivationSource {
         /// @notice Whether this source is from a forced inclusion.
         bool isForcedInclusion;
         /// @notice Blobs that contain the source's manifest data.
         LibBlobs.BlobSlice blobSlice;
-    }
-
-    /// @notice Contains derivation data for a proposal that is not needed during proving.
-    /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
-    struct Derivation {
-        /// @notice The L1 block number when the proposal was accepted.
-        uint48 originBlockNumber;
-        /// @notice The hash of the origin block.
-        bytes32 originBlockHash;
-        /// @notice The percentage of base fee paid to coinbase.
-        uint8 basefeeSharingPctg;
-        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
-        DerivationSource[] sources;
     }
 
     /// @notice Represents a proposal for L2 blocks.
@@ -83,117 +69,109 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice The current hash of coreState
-        bytes32 coreStateHash;
-        /// @notice Hash of the Derivation struct containing additional proposal data.
-        bytes32 derivationHash;
-    }
-
-    /// @notice Represents a transition about the state transition of a proposal.
-    /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving
-    /// support
-    struct Transition {
-        /// @notice The proposal's hash.
-        bytes32 proposalHash;
-        /// @notice The parent transition's hash, this is used to link the transition to its parent
-        /// transition to
-        /// finalize the corresponding proposal.
-        bytes32 parentTransitionHash;
-        /// @notice The end block header containing number, hash, and state root.
-        ICheckpointStore.Checkpoint checkpoint;
-    }
-
-    /// @notice Metadata about the proving of a transition
-    /// @dev Separated from Transition to enable out-of-order proving
-    struct TransitionMetadata {
-        /// @notice The designated prover for this transition.
-        address designatedProver;
-        /// @notice The actual prover who submitted the proof.
-        address actualProver;
-    }
-
-    /// @notice Represents a record of a transition with additional metadata.
-    struct TransitionRecord {
-        /// @notice The span indicating how many proposals this transition record covers.
-        uint8 span;
-        /// @notice The bond instructions.
-        LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The hash of the last transition in the span.
-        bytes32 transitionHash;
-        /// @notice The hash of the last checkpoint in the span.
-        bytes32 checkpointHash;
+        /// @notice Hash of the parent proposal (zero for genesis).
+        bytes32 parentProposalHash;
+        /// @notice The L1 block number when the proposal was accepted.
+        uint48 originBlockNumber;
+        /// @notice The hash of the origin block.
+        bytes32 originBlockHash;
+        /// @notice The percentage of base fee paid to coinbase.
+        uint8 basefeeSharingPctg;
+        /// @notice Array of derivation sources, where each can be regular or forced inclusion.
+        DerivationSource[] sources;
     }
 
     /// @notice Represents the core state of the inbox.
+    /// @dev All 5 uint48 fields (30 bytes) pack into a single storage slot.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The last block ID where a proposal was made.
+        /// @notice The last L1 block ID where a proposal was made.
         uint48 lastProposalBlockId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp when the last proposal was finalized.
+        uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The hash of the last finalized transition.
-        bytes32 lastFinalizedTransitionHash;
-        /// @notice The hash of all bond instructions.
-        bytes32 bondInstructionsHash;
+        /// @notice The block hash of the last finalized proposal.
+        bytes32 lastFinalizedBlockHash;
     }
 
     /// @notice Input data for the propose function
     struct ProposeInput {
         /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
         uint48 deadline;
-        /// @notice The current core state before this proposal.
-        CoreState coreState;
-        /// @notice Array of existing proposals for validation (1-2 elements).
-        Proposal[] parentProposals;
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
-        /// @notice Array of transition records for finalization.
-        TransitionRecord[] transitionRecords;
-        /// @notice The checkpoint for finalization.
-        ICheckpointStore.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
     }
 
-    /// @notice Input data for the prove function
-    struct ProveInput {
-        /// @notice Array of proposals to prove.
-        Proposal[] proposals;
-        /// @notice Array of transitions containing proof details.
-        Transition[] transitions;
-        /// @notice Array of metadata for prover information.
-        /// @dev Must have same length as transitions array.
-        TransitionMetadata[] metadata;
+    /// @notice Transition data for a proposal used in prove
+    struct Transition {
+        /// @notice Address of the proposer.
+        address proposer;
+        /// @notice Address of the designated prover.
+        address designatedProver;
+        /// @notice Timestamp of the proposal.
+        uint48 timestamp;
+        /// @notice end block hash for the proposal.
+        bytes32 blockHash;
     }
 
-    /// @notice Payload data emitted in the Proposed event
-    struct ProposedEventPayload {
-        /// @notice The proposal that was created.
-        Proposal proposal;
-        /// @notice The derivation data for the proposal.
-        Derivation derivation;
-        /// @notice The core state after the proposal.
-        CoreState coreState;
-        /// @notice Bond instructions finalized while processing this proposal.
-        LibBonds.BondInstruction[] bondInstructions;
+    /// @notice Commitment data that the prover commits to when submitting a proof.
+    struct Commitment {
+        /// @notice The ID of the first proposal being proven.
+        uint48 firstProposalId;
+        /// @notice The checkpoint hash of the parent of the first proposal, this is used
+        /// to verify checkpoint continuity in the proof.
+        bytes32 firstProposalParentBlockHash;
+        /// @notice The hash of the last proposal being proven.
+        bytes32 lastProposalHash;
+        /// @notice The actual prover who generated the proof.
+        address actualProver;
+        /// @notice The block number for the end L2 block in this proposal.
+        uint48 endBlockNumber;
+        /// @notice The state root for the end L2 block in this proposal.
+        bytes32 endStateRoot;
+        /// @notice Array of transitions for each proposal in the proof range.
+        Transition[] transitions;
+    }
+
+    /// @notice Input data for the prove function.
+    /// @dev This struct contains two categories of data:
+    ///      1. Commitment data - What the prover is actually proving. This must be fully
+    ///         determined before proof generation and is the only input to the prover's
+    ///         guest program.
+    ///      2. Usage options - Parameters that can be decided after proof generation
+    ///         (e.g., whether to proactively write a checkpoint). The prover system can
+    ///         choose or adjust these options using additional data during or after
+    ///         proof generation.
+    struct ProveInput {
+        /// @notice The commitment data that the proof verifies.
+        Commitment commitment;
+        /// @notice Whether to force syncing the last checkpoint even if the minimum
+        /// delay has not passed.
+        /// @dev This allows checkpoint synchronization ahead of schedule.
+        bool forceCheckpointSync;
     }
 
     /// @notice Payload data emitted in the Proved event
     struct ProvedEventPayload {
-        /// @notice The proposal ID that was proven.
-        uint48 proposalId;
-        /// @notice The transition that was proven.
-        Transition transition;
-        /// @notice The transition record containing additional metadata.
-        TransitionRecord transitionRecord;
-        /// @notice The metadata containing prover information.
-        TransitionMetadata metadata;
+        /// @notice The ID of the first proposal being proven.
+        uint48 firstProposalId;
+        /// @notice The ID of the first proposal that had not been proven before.
+        uint48 firstNewProposalId;
+        /// @notice The ID of the last proposal being proven.
+        uint48 lastProposalId;
+        /// @notice The actual prover who generated the proof.
+        address actualProver;
+        /// @notice Whether the checkpoint was synced.
+        bool checkpointSynced;
     }
 
     // ---------------------------------------------------------------
@@ -201,60 +179,63 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param data The encoded ProposedEventPayload
-    event Proposed(bytes data);
+    /// @param id Unique identifier for the proposal.
+    /// @param proposer Address of the proposer.
+    /// @param parentProposalHash The hash of the parent proposal (zero for genesis).
+    /// @param endOfSubmissionWindowTimestamp Last slot timestamp where the preconfer can propose.
+    /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
+    /// @param sources Array of derivation sources for this proposal.
+    event Proposed(
+        uint48 indexed id,
+        address indexed proposer,
+        bytes32 parentProposalHash,
+        uint48 endOfSubmissionWindowTimestamp,
+        uint8 basefeeSharingPctg,
+        DerivationSource[] sources
+    );
 
     /// @notice Emitted when a proof is submitted
-    /// @param data The encoded ProvedEventPayload
-    event Proved(bytes data);
-
-    /// @notice Emitted when a conflicting transition is detected. This event will be followed by a
-    /// Proved event.
-    event TransitionConflictDetected();
-
-    /// @notice Emitted when a transition is proved again. This event will be followed by a Proved
-    /// event.
-    event TransitionDuplicateDetected();
+    /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)
+    /// @param firstNewProposalId The first proposal ID that was newly proven by this proof
+    /// @param lastProposalId The last proposal ID covered by the proof
+    /// @param actualProver The prover that submitted the proof
+    /// @param checkpointSynced Whether a checkpoint was synced as part of this proof
+    event Proved(
+        uint48 firstProposalId,
+        uint48 firstNewProposalId,
+        uint48 lastProposalId,
+        address indexed actualProver,
+        bool checkpointSynced
+    );
 
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks.
+    /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
-    /// @notice Proves a transition about some properties of a proposal, including its state
-    /// transition.
+    /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     /// @param _data The encoded ProveInput struct.
-    /// @param _proof Validity proof for the transitions.
+    /// @param _proof The validity proof for the batch of proposals.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 
     // ---------------------------------------------------------------
     // External View Functions
     // ---------------------------------------------------------------
 
-    /// @notice Returns the proposal hash for a given proposal ID.
-    /// @param _proposalId The proposal ID to look up.
-    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
-
-    /// @notice Returns the transition record hash for a given proposal ID and parent transition
-    /// hash.
-    /// @param _proposalId The proposal ID.
-    /// @param _parentTransitionHash The parent transition hash.
-    /// @return finalizationDeadline_ The timestamp when finalization is enforced.
-    /// @return recordHash_ The hash of the transition record.
-    function getTransitionRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        external
-        view
-        returns (uint48 finalizationDeadline_, bytes26 recordHash_);
-
     /// @notice Returns the configuration parameters of the Inbox contract
     /// @return config_ The configuration struct containing all immutable parameters
     function getConfig() external view returns (Config memory config_);
+
+    /// @notice Returns the current core state.
+    /// @return The core state struct.
+    function getCoreState() external view returns (CoreState memory);
+
+    /// @notice Returns the proposal hash for a given proposal ID.
+    /// @param _proposalId The proposal ID to look up.
+    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
+    function getProposalHash(uint256 _proposalId) external view returns (bytes32 proposalHash_);
 }
