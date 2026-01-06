@@ -144,7 +144,8 @@ contract MockProverAuction is IProverAuction {
         lastSlashRecipient = _recipient;
         uint128 slashed = uint128(livenessBond);
         totalSlashedAmount += slashed;
-        uint128 rewarded = _recipient != address(0) ? uint128(uint256(slashed) * rewardBps / 10_000) : 0;
+        uint128 rewarded =
+            _recipient != address(0) ? uint128(uint256(slashed) * rewardBps / 10_000) : 0;
         emit ProverSlashed(_proverAddr, slashed, _recipient, rewarded);
     }
 

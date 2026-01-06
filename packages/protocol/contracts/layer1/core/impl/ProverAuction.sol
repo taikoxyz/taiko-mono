@@ -57,7 +57,6 @@ contract ProverAuction is EssentialContract, IProverAuction {
         bool everHadProver; // 1 byte
     }
 
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -188,7 +187,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         require(info.balance > 0, InsufficientBond());
 
-        _bonds[msg.sender] = BondInfo(0,0);
+        _bonds[msg.sender] = BondInfo(0, 0);
         _bondToken.safeTransfer(msg.sender, info.balance);
         emit Withdrawn(msg.sender, info.balance);
     }
@@ -239,37 +238,42 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function slashProver(address _proverAddr, address _recipient) external nonReentrant {
-        unchecked{
-        require(msg.sender == _inbox, OnlyInbox());
+        unchecked {
+            require(msg.sender == _inbox, OnlyInbox());
 
-        BondInfo memory bond = _bonds[_proverAddr]; // Single SLOAD for packed slot
+            BondInfo memory bond = _bonds[_proverAddr]; // Single SLOAD for packed slot
 
-        uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
-        uint128 actualReward;
-        if (_recipient != address(0)) {
-            actualReward = uint128(uint256(actualSlash) * _rewardBps / 10_000);
+            uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
+            uint128 actualReward;
+            if (_recipient != address(0)) {
+                actualReward = uint128(uint256(actualSlash) * _rewardBps / 10_000);
+            }
+
+            uint128 newBalance = bond.balance - actualSlash;
+            totalSlashedAmount += actualSlash - actualReward;
+
+            if (actualReward > 0) {
+                _bondToken.safeTransfer(_recipient, actualReward);
+            }
+
+            emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
+
+            if (newBalance < _ejectionThreshold && proverState.currentProver == _proverAddr) {
+                _bonds[_proverAddr] = BondInfo(newBalance, _withdrawableAt());
+                _vacateProver();
+                emit ProverEjected(_proverAddr);
+            } else {
+                _bonds[_proverAddr].balance = newBalance;
+            }
         }
-
-        uint128 newBalance = bond.balance - actualSlash;
-        totalSlashedAmount += actualSlash - actualReward;
-
-        if (actualReward > 0) {
-            _bondToken.safeTransfer(_recipient, actualReward);
-        }
-
-        emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
-
-        if (newBalance < _ejectionThreshold && proverState.currentProver == _proverAddr) {
-            _bonds[_proverAddr] = BondInfo(newBalance, _withdrawableAt());
-            _vacateProver();
-            emit ProverEjected(_proverAddr);
-        } else {
-            _bonds[_proverAddr].balance = newBalance;
-        }
-    }}
+    }
 
     /// @inheritdoc IProverAuction
-    function checkBondDeferWithdrawal(address _prover) external nonReentrant returns (bool success_) {
+    function checkBondDeferWithdrawal(address _prover)
+        external
+        nonReentrant
+        returns (bool success_)
+    {
         require(msg.sender == _inbox, OnlyInbox());
 
         BondInfo memory bond = _bonds[_prover]; // Single SLOAD for packed slot
@@ -350,9 +354,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @dev Returns the timestamp when withdrawals become available.
     function _withdrawableAt() internal view returns (uint48) {
-        unchecked{
-        return uint48(block.timestamp + _bondWithdrawalDelay);
-    }
+        unchecked {
+            return uint48(block.timestamp + _bondWithdrawalDelay);
+        }
     }
 
     // ---------------------------------------------------------------

@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 /// forge-config: default.isolate = true
 
 import { InboxTestBase } from "./InboxTestBase.sol";
+import { MockProverAuction } from "./mocks/MockContracts.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { MockProverAuction } from "./mocks/MockContracts.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
