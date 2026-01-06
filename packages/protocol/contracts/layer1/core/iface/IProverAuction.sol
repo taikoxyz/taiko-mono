@@ -5,18 +5,6 @@ pragma solidity ^0.8.26;
 /// @notice Minimal interface for prover auction contracts used by the Inbox.
 /// @custom:security-contact security@taiko.xyz
 interface IProverAuction {
-    // ---------------------------------------------------------------
-    // Structs
-    // ---------------------------------------------------------------
-
-    struct BondInfo {
-        uint128 balance;
-        uint48 withdrawableAt;
-    }
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
     /// @notice Emitted when a prover's bond is slashed.
     /// @param prover The prover whose bond was slashed.
     /// @param slashed The amount slashed.
@@ -25,50 +13,6 @@ interface IProverAuction {
     event ProverSlashed(
         address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded
     );
-
-    /// @notice Emitted when a prover is ejected due to insufficient bond.
-    /// @param prover The prover that was ejected.
-    event ProverEjected(address indexed prover);
-
-    /// @notice Emitted when bond tokens are deposited.
-    /// @param account The account that deposited.
-    /// @param amount The amount deposited.
-    event Deposited(address indexed account, uint128 amount);
-
-    /// @notice Emitted when bond tokens are withdrawn.
-    /// @param account The account that withdrew.
-    /// @param amount The amount withdrawn.
-    event Withdrawn(address indexed account, uint128 amount);
-
-    /// @notice Emitted when the current prover requests to exit.
-    /// @param prover The prover that requested exit.
-    /// @param withdrawableAt Timestamp when bond becomes withdrawable.
-    event ExitRequested(address indexed prover, uint48 withdrawableAt);
-
-    // ---------------------------------------------------------------
-    // External Transactional Functions
-    // ---------------------------------------------------------------
-
-    /// @notice Submit a bid to become the designated prover.
-    /// @dev A bid is a fee offer (in Gwei) paid per proposal. Lower fees are better.
-    ///
-    /// If the prover slot is vacant, the bid must be below the dynamically computed maximum.
-    /// If a prover is already active, the bid must undercut the current fee by at least the
-    /// configured minimum reduction.
-    ///
-    /// A current prover may also rebid to lower their own fee.
-    /// @param _feeInGwei Fee per proposal in Gwei.
-    function bid(uint32 _feeInGwei) external;
-
-    /// @notice Deposit bond tokens to caller's balance.
-    /// @param _amount Amount of bond tokens to deposit.
-    function deposit(uint128 _amount) external;
-
-    /// @notice Withdraw the caller's entire bond balance.
-    function withdraw() external;
-
-    /// @notice Request to exit as a current prover.
-    function requestExit() external;
 
     /// @notice Slash a prover for liveness failure.
     /// @param _proverAddr The prover to slash.
@@ -83,21 +27,13 @@ interface IProverAuction {
     /// @return success_ True if the prover has sufficient bond, false otherwise.
     function checkBondDeferWithdrawal(address _prover) external returns (bool success_);
 
-    // ---------------------------------------------------------------
-    // External View Functions
-    // ---------------------------------------------------------------
-
     /// @notice Get the current designated prover and their fee.
-    /// @return prover_ Current prover address (address(0) if none).
-    /// @return feeInGwei_ Fee per proposal in Gwei.
-    function prover() external view returns (address prover_, uint32 feeInGwei_);
-
-    /// @notice Get the maximum allowed bid fee at the current time.
-    /// @return maxFee_ Maximum fee in Gwei that a bid can specify.
-    function maxBidFee() external view returns (uint32 maxFee_);
-
-    /// @notice Get bond information for an account.
-    /// @param _account The account to query.
-    /// @return bondInfo_ The bond information struct.
-    function bondInfo(address _account) external view returns (BondInfo memory bondInfo_);
+    /// @param _maxFeeInGwei Maximum acceptable fee in Gwei. If the current prover's fee exceeds
+    /// this value, returns (address(0), 0). Pass type(uint32).max to always get the prover.
+    /// @return prover_ Current prover address (address(0) if none or fee too high).
+    /// @return feeInGwei_ Fee per proposal in Gwei (0 if no prover or fee too high).
+    function getProver(uint32 _maxFeeInGwei)
+        external
+        view
+        returns (address prover_, uint32 feeInGwei_);
 }

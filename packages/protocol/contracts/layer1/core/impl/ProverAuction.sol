@@ -5,7 +5,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IProverAuction } from "../iface/IProverAuction.sol";
-import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
@@ -18,13 +17,46 @@ contract ProverAuction is EssentialContract, IProverAuction {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
-    // Constants
+    // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
-    uint256 public constant MIN_AVG_UPDATE_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
+    /// @notice Bond information for a prover.
+    struct BondInfo {
+        uint128 balance;
+        uint48 withdrawableAt;
+    }
 
-r
+    /// @notice Configuration parameters for the prover auction constructor.
+    struct ConstructorConfig {
+        address inbox;
+        address bondToken;
+        uint96 livenessBond;
+        uint128 ejectionThreshold;
+        uint16 minFeeReductionBps;
+        uint16 rewardBps;
+        uint48 bondWithdrawalDelay;
+    }
+
+    /// @notice Configuration parameters returned by getConfig().
+    struct Config {
+        address inbox;
+        address bondToken;
+        uint96 livenessBond;
+        uint128 ejectionThreshold;
+        uint128 requiredBond;
+        uint16 minFeeReductionBps;
+        uint16 rewardBps;
+        uint48 bondWithdrawalDelay;
+    }
+
+    /// @dev Internal packed storage struct for prover state (31 bytes, fits in 1 slot).
+    struct ProverState {
+        address currentProver; // 20 bytes
+        uint32 currentFeeInGwei; // 4 bytes
+        uint48 vacantSince; // 6 bytes
+        bool everHadProver; // 1 byte
+    }
+
 
     // ---------------------------------------------------------------
     // Events
@@ -36,64 +68,65 @@ r
     /// @param oldProver The address of the previous prover (address(0) if none).
     event BidPlaced(address indexed newProver, uint32 feeInGwei, address indexed oldProver);
 
+    /// @notice Emitted when a prover is ejected due to insufficient bond.
+    /// @param prover The prover that was ejected.
+    event ProverEjected(address indexed prover);
+
+    /// @notice Emitted when bond tokens are deposited.
+    /// @param account The account that deposited.
+    /// @param amount The amount deposited.
+    event Deposited(address indexed account, uint128 amount);
+
+    /// @notice Emitted when bond tokens are withdrawn.
+    /// @param account The account that withdrew.
+    /// @param amount The amount withdrawn.
+    event Withdrawn(address indexed account, uint128 amount);
+
+    /// @notice Emitted when the current prover requests to exit.
+    /// @param prover The prover that requested exit.
+    /// @param withdrawableAt Timestamp when bond becomes withdrawable.
+    event ExitRequested(address indexed prover, uint48 withdrawableAt);
+
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice The Inbox contract address (only caller for slashProver/checkBondDeferWithdrawal).
-    address public immutable inbox;
+    /// @dev The Inbox contract address (only caller for slashProver/checkBondDeferWithdrawal).
+    address internal immutable _inbox;
 
-    /// @notice The ERC20 token used for bonds (TAIKO token).
-    IERC20 public immutable bondToken;
+    /// @dev The ERC20 token used for bonds (TAIKO token).
+    IERC20 internal immutable _bondToken;
 
-    /// @notice Minimum fee reduction in basis points to outbid (e.g., 500 = 5%).
-    uint16 public immutable minFeeReductionBps;
+    /// @dev Minimum fee reduction in basis points to outbid (e.g., 500 = 5%).
+    uint16 internal immutable _minFeeReductionBps;
 
-    /// @notice Reward percentage in basis points for slashing (e.g., 6000 = 60%).
-    uint16 public immutable rewardBps;
+    /// @dev Reward percentage in basis points for slashing (e.g., 6000 = 60%).
+    uint16 internal immutable _rewardBps;
 
-    /// @notice Time after exit before bond withdrawal is allowed.
-    uint48 public immutable bondWithdrawalDelay;
+    /// @dev Time after exit before bond withdrawal is allowed.
+    uint48 internal immutable _bondWithdrawalDelay;
 
-    /// @notice Time period for fee doubling when slot is vacant.
-    uint48 public immutable feeDoublingPeriod;
+    /// @dev Bond amount slashed per failed proof.
+    uint96 internal immutable _livenessBond;
 
-    /// @notice Time window for moving average smoothing.
-    uint48 public immutable movingAverageWindow;
+    /// @dev Pre-computed required bond amount (ejectionThreshold * 2).
+    uint128 internal immutable _requiredBond;
 
-    /// @notice Maximum number of fee doublings allowed (e.g., 8 = 256x cap).
-    uint8 public immutable maxFeeDoublings;
-
-    /// @notice Initial maximum fee for first-ever bid (in Gwei).
-    uint32 public immutable initialMaxFee;
-
-    /// @notice Multiplier for moving average fee to calculate floor (e.g., 2 = 2x moving average).
-    uint8 public immutable movingAverageMultiplier;
-
-    /// @notice Bond amount slashed per failed proof.
-    uint96 public immutable livenessBond;
-
-    /// @notice Pre-computed required bond amount (ejectionThreshold * 2).
-    uint128 public immutable requiredBond;
-
-    /// @notice Bond threshold that triggers ejection.
-    uint128 public immutable ejectionThreshold;
+    /// @dev Bond threshold that triggers ejection.
+    uint128 internal immutable _ejectionThreshold;
 
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    address internal _currentProver;
-    uint32 internal _currentFeeInGwei;
-    uint48 internal _vacantSince;
-    uint8 internal _everHadProver;
+    // Slot 251: packed prover state (31 bytes used)
+    ProverState public proverState;
 
-    mapping(address account => IProverAuction.BondInfo info) internal _bonds;
+    // Slot 252: totalSlashedAmount (16 bytes used)
+    uint256 public totalSlashedAmount;
 
-    uint32 public movingAverageFee;
-    uint128 public totalSlashedAmount;
-    uint48 internal _contractCreationTime;
-    uint48 internal _lastAvgUpdate;
+    // Slot 253: mapping (uses separate slots via hashing)
+    mapping(address account => BondInfo info) internal _bonds;
 
     uint256[47] private __gap;
 
@@ -101,45 +134,23 @@ r
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        address _inbox,
-        address _bondToken,
-        uint96 _livenessBondAmount,
-        uint128 _ejectionThresholdAmount,
-        uint16 _minFeeReductionBps,
-        uint16 _rewardBps,
-        uint48 _bondWithdrawalDelay,
-        uint48 _feeDoublingPeriod,
-        uint48 _movingAverageWindow,
-        uint8 _maxFeeDoublings,
-        uint32 _initialMaxFee,
-        uint8 _movingAverageMultiplier
-    ) {
-        require(_inbox != address(0), ZeroAddress());
-        require(_bondToken != address(0), ZeroAddress());
-        require(_livenessBondAmount > 0, ZeroValue());
-        require(_ejectionThresholdAmount > _livenessBondAmount, InvalidEjectionThreshold());
-        require(_minFeeReductionBps <= 10_000, InvalidBps());
-        require(_rewardBps <= 10_000, InvalidBps());
-        require(_feeDoublingPeriod > 0, ZeroValue());
-        require(_movingAverageWindow > 0, ZeroValue());
-        require(_maxFeeDoublings <= 64, InvalidMaxFeeDoublings());
-        require(_initialMaxFee > 0, ZeroValue());
-        require(_movingAverageMultiplier > 0, ZeroValue());
+    /// @param _config Configuration struct containing all constructor parameters.
+    constructor(ConstructorConfig memory _config) {
+        require(_config.inbox != address(0), ZeroAddress());
+        require(_config.bondToken != address(0), ZeroAddress());
+        require(_config.livenessBond > 0, ZeroValue());
+        require(_config.ejectionThreshold > _config.livenessBond, InvalidEjectionThreshold());
+        require(_config.minFeeReductionBps <= 10_000, InvalidBps());
+        require(_config.rewardBps <= 10_000, InvalidBps());
 
-        inbox = _inbox;
-        bondToken = IERC20(_bondToken);
-        livenessBond = _livenessBondAmount;
-        minFeeReductionBps = _minFeeReductionBps;
-        rewardBps = _rewardBps;
-        bondWithdrawalDelay = _bondWithdrawalDelay;
-        feeDoublingPeriod = _feeDoublingPeriod;
-        movingAverageWindow = _movingAverageWindow;
-        maxFeeDoublings = _maxFeeDoublings;
-        initialMaxFee = _initialMaxFee;
-        movingAverageMultiplier = _movingAverageMultiplier;
-        ejectionThreshold = _ejectionThresholdAmount;
-        requiredBond = _ejectionThresholdAmount * 2;
+        _inbox = _config.inbox;
+        _bondToken = IERC20(_config.bondToken);
+        _livenessBond = _config.livenessBond;
+        _ejectionThreshold = _config.ejectionThreshold;
+        _requiredBond = _config.ejectionThreshold * 2;
+        _minFeeReductionBps = _config.minFeeReductionBps;
+        _rewardBps = _config.rewardBps;
+        _bondWithdrawalDelay = _config.bondWithdrawalDelay;
     }
 
     // ---------------------------------------------------------------
@@ -150,89 +161,76 @@ r
     /// @param _owner The owner of this contract.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
-        _contractCreationTime = uint48(block.timestamp);
     }
 
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc IProverAuction
-    function deposit(uint128 _amount) external {
-        IProverAuction.BondInfo storage info = _bonds[msg.sender];
+    /// @notice Deposits bond tokens into the auction.
+    /// @param _amount The amount of tokens to deposit.
+    function deposit(uint128 _amount) external nonReentrant {
+        BondInfo storage info = _bonds[msg.sender];
         info.balance += _amount;
-        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
+        _bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         emit Deposited(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverAuction
-    function withdraw() external {
-        IProverAuction.BondInfo storage info = _bonds[msg.sender];
-        uint48 withdrawableAt = info.withdrawableAt;
-        address currentProver = _currentProver;
+    /// @notice Withdraws bond tokens after withdrawal delay has passed.
+    function withdraw() external nonReentrant {
+        BondInfo memory info = _bonds[msg.sender]; // Single SLOAD for packed slot
 
-        if (withdrawableAt == 0) {
-            require(currentProver != msg.sender, CurrentProverCannotWithdraw());
+        if (info.withdrawableAt == 0) {
+            require(proverState.currentProver != msg.sender, CurrentProverCannotWithdraw());
         } else {
-            require(block.timestamp >= withdrawableAt, WithdrawalDelayNotPassed());
+            require(block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
         }
 
-        uint128 amount = info.balance;
-        require(amount > 0, InsufficientBond());
-        info.balance = 0;
-        bondToken.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        require(info.balance > 0, InsufficientBond());
+
+        _bonds[msg.sender] = BondInfo(0,0);
+        _bondToken.safeTransfer(msg.sender, info.balance);
+        emit Withdrawn(msg.sender, info.balance);
     }
 
-    /// @inheritdoc IProverAuction
-    function bid(uint32 _feeInGwei) external {
-        IProverAuction.BondInfo storage bond = _bonds[msg.sender];
-        uint128 bondBalance = bond.balance;
-        uint48 bondWithdrawableAt = bond.withdrawableAt;
-        address oldProver = _currentProver;
-        uint32 currentFee = _currentFeeInGwei;
-        bool isVacant = oldProver == address(0);
+    /// @notice Places a bid to become the designated prover.
+    /// @param _feeInGwei The fee per proposal in Gwei (must be > 0).
+    function bid(uint32 _feeInGwei) external nonReentrant {
+        require(_feeInGwei != 0, ZeroFee());
 
-        require(bondBalance >= requiredBond, InsufficientBond());
+        BondInfo memory info = _bonds[msg.sender]; // Single SLOAD for packed slot
+        require(info.balance >= _requiredBond, InsufficientBond());
 
-        if (!isVacant && oldProver == msg.sender) {
-            require(_feeInGwei < currentFee, FeeMustBeLower());
-            if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
+        ProverState memory state = proverState; // Single SLOAD for packed slot
+        address oldProver = state.currentProver;
 
-            _setProver(msg.sender, _feeInGwei);
-            _updateMovingAverage(_feeInGwei);
-            emit BidPlaced(msg.sender, _feeInGwei, oldProver);
-            return;
+        if (oldProver != address(0)) {
+            // Slot occupied - must meet minimum fee reduction
+            uint32 maxAllowedFee =
+                uint32(uint256(state.currentFeeInGwei) * (10_000 - _minFeeReductionBps) / 10_000);
+            require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
+
+            if (oldProver != msg.sender) {
+                // Outbidding another prover - set their withdrawal delay
+                _bonds[oldProver].withdrawableAt = _withdrawableAt();
+            }
+        }
+        // else: vacant slot - any fee is accepted
+
+        // Clear new prover's withdrawal delay if set
+        if (info.withdrawableAt != 0) {
+            _bonds[msg.sender].withdrawableAt = 0;
         }
 
-        if (isVacant) {
-            require(_feeInGwei <= maxBidFee(), FeeTooHigh());
-            if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
-
-            _setProver(msg.sender, _feeInGwei);
-            _updateMovingAverage(_feeInGwei);
-            emit BidPlaced(msg.sender, _feeInGwei, oldProver);
-            return;
-        }
-
-        require(_feeInGwei < currentFee, FeeMustBeLower());
-        uint32 maxAllowedFee = uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
-        require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
-        if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
-
-        _bonds[oldProver].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         _setProver(msg.sender, _feeInGwei);
-        _updateMovingAverage(_feeInGwei);
         emit BidPlaced(msg.sender, _feeInGwei, oldProver);
     }
 
-    /// @inheritdoc IProverAuction
-    function requestExit() external {
-        if (_currentProver != msg.sender) {
-            revert NotCurrentProver();
-        }
+    /// @notice Requests to exit as the current prover.
+    function requestExit() external nonReentrant {
+        require(proverState.currentProver == msg.sender, NotCurrentProver());
 
-        uint48 withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+        uint48 withdrawableAt = _withdrawableAt();
         _bonds[msg.sender].withdrawableAt = withdrawableAt;
         _vacateProver();
 
@@ -240,50 +238,47 @@ r
     }
 
     /// @inheritdoc IProverAuction
-    function slashProver(address _proverAddr, address _recipient) external {
-        require(msg.sender == inbox, OnlyInbox());
+    function slashProver(address _proverAddr, address _recipient) external nonReentrant {
+        unchecked{
+        require(msg.sender == _inbox, OnlyInbox());
 
-        IProverAuction.BondInfo storage bond = _bonds[_proverAddr];
-        uint128 bondBalance = bond.balance;
+        BondInfo memory bond = _bonds[_proverAddr]; // Single SLOAD for packed slot
 
-        uint128 actualSlash = uint128(LibMath.min(livenessBond, bondBalance));
+        uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
         uint128 actualReward;
         if (_recipient != address(0)) {
-            actualReward = uint128(uint256(actualSlash) * rewardBps / 10_000);
+            actualReward = uint128(uint256(actualSlash) * _rewardBps / 10_000);
         }
 
-        uint128 newBalance = bondBalance - actualSlash;
-        bond.balance = newBalance;
+        uint128 newBalance = bond.balance - actualSlash;
         totalSlashedAmount += actualSlash - actualReward;
 
         if (actualReward > 0) {
-            bondToken.safeTransfer(_recipient, actualReward);
+            _bondToken.safeTransfer(_recipient, actualReward);
         }
 
         emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
-        if (newBalance < ejectionThreshold) {
-            if (_currentProver == _proverAddr) {
-                _bonds[_proverAddr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
-                _vacateProver();
-                emit ProverEjected(_proverAddr);
-            }
+        if (newBalance < _ejectionThreshold && proverState.currentProver == _proverAddr) {
+            _bonds[_proverAddr] = BondInfo(newBalance, _withdrawableAt());
+            _vacateProver();
+            emit ProverEjected(_proverAddr);
+        } else {
+            _bonds[_proverAddr].balance = newBalance;
         }
-    }
+    }}
 
     /// @inheritdoc IProverAuction
-    function checkBondDeferWithdrawal(address _prover) external returns (bool success_) {
-        require(msg.sender == inbox, OnlyInbox());
+    function checkBondDeferWithdrawal(address _prover) external nonReentrant returns (bool success_) {
+        require(msg.sender == _inbox, OnlyInbox());
 
-        IProverAuction.BondInfo storage bond = _bonds[_prover];
-        uint128 bondBalance = bond.balance;
-        uint48 withdrawableAt = bond.withdrawableAt;
-        if (bondBalance < ejectionThreshold) {
+        BondInfo memory bond = _bonds[_prover]; // Single SLOAD for packed slot
+        if (bond.balance < _ejectionThreshold) {
             return false;
         }
 
-        if (_currentProver != _prover || withdrawableAt != 0) {
-            bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+        if (proverState.currentProver != _prover || bond.withdrawableAt != 0) {
+            _bonds[_prover].withdrawableAt = _withdrawableAt();
         }
 
         return true;
@@ -294,54 +289,40 @@ r
     // ---------------------------------------------------------------
 
     /// @inheritdoc IProverAuction
-    function prover() external view returns (address prover_, uint32 feeInGwei_) {
-        address currentProver = _currentProver;
-        if (currentProver == address(0)) {
+    function getProver(uint32 _maxFeeInGwei)
+        external
+        view
+        returns (address prover_, uint32 feeInGwei_)
+    {
+        ProverState memory state = proverState;
+        if (state.currentProver == address(0)) {
             return (address(0), 0);
         }
-        return (currentProver, _currentFeeInGwei);
+        if (state.currentFeeInGwei > _maxFeeInGwei) {
+            return (address(0), 0);
+        }
+        return (state.currentProver, state.currentFeeInGwei);
     }
 
-    /// @notice Get the maximum allowed bid fee at the current time.
-    /// @return maxFee_ Maximum fee in Gwei that a bid can specify.
-    function maxBidFee() public view returns (uint32 maxFee_) {
-        address currentProver = _currentProver;
-        uint32 currentFee = _currentFeeInGwei;
-        if (currentProver != address(0)) {
-            return uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
-        }
-
-        uint32 movingAvg = movingAverageFee;
-        uint256 movingAvgFee = uint256(movingAvg) * movingAverageMultiplier;
-        uint256 cappedMovingAvg = LibMath.min(movingAvgFee, type(uint32).max);
-        uint32 feeFloor = uint32(LibMath.max(initialMaxFee, cappedMovingAvg));
-
-        uint32 baseFee;
-        uint48 startTime;
-
-        if (_everHadProver == 0) {
-            baseFee = feeFloor;
-            startTime = _contractCreationTime;
-        } else {
-            baseFee = uint32(LibMath.max(currentFee, feeFloor));
-            uint48 vacantSince = _vacantSince;
-            startTime = vacantSince == 0 ? _contractCreationTime : vacantSince;
-        }
-
-        uint256 elapsed = block.timestamp - startTime;
-        uint256 periods = elapsed / feeDoublingPeriod;
-        if (periods > maxFeeDoublings) {
-            periods = maxFeeDoublings;
-        }
-
-        uint256 maxFee = uint256(baseFee) << periods;
-        return uint32(LibMath.min(maxFee, type(uint32).max));
+    /// @notice Get the configuration parameters (immutables).
+    /// @return config_ The configuration struct.
+    function getConfig() external view returns (Config memory config_) {
+        config_ = Config({
+            inbox: _inbox,
+            bondToken: address(_bondToken),
+            livenessBond: _livenessBond,
+            ejectionThreshold: _ejectionThreshold,
+            requiredBond: _requiredBond,
+            minFeeReductionBps: _minFeeReductionBps,
+            rewardBps: _rewardBps,
+            bondWithdrawalDelay: _bondWithdrawalDelay
+        });
     }
 
     /// @notice Get bond information for an account.
     /// @param _account The account to query.
     /// @return bondInfo_ The bond information struct.
-    function bondInfo(address _account) external view returns (IProverAuction.BondInfo memory bondInfo_) {
+    function bondInfo(address _account) external view returns (BondInfo memory bondInfo_) {
         return _bonds[_account];
     }
 
@@ -351,47 +332,27 @@ r
 
     /// @dev Sets the current prover and fee.
     /// @param _prover The prover address.
-    /// @param feeInGwei The fee per proposal in Gwei.
-    function _setProver(address _prover, uint32 feeInGwei) internal {
-        _currentFeeInGwei = feeInGwei;
-        _vacantSince = 0;
-        _everHadProver = 1;
-        _currentProver = _prover;
+    /// @param _feeInGwei The fee per proposal in Gwei.
+    function _setProver(address _prover, uint32 _feeInGwei) internal {
+        proverState = ProverState({
+            currentProver: _prover,
+            currentFeeInGwei: _feeInGwei,
+            vacantSince: 0,
+            everHadProver: true
+        });
     }
 
     /// @dev Vacates the current prover slot.
     function _vacateProver() internal {
-        _currentProver = address(0);
-        _vacantSince = uint48(block.timestamp);
+        proverState.currentProver = address(0);
+        proverState.vacantSince = uint48(block.timestamp);
     }
 
-    /// @dev Updates the time-weighted moving average of fees.
-    /// @param _newFee The new fee to incorporate into the average.
-    function _updateMovingAverage(uint32 _newFee) internal {
-        uint48 nowTs = uint48(block.timestamp);
-        uint32 currentAvg = movingAverageFee;
-
-        if (currentAvg == 0) {
-            movingAverageFee = _newFee;
-            _lastAvgUpdate = nowTs;
-            return;
-        }
-
-        uint48 lastUpdate = _lastAvgUpdate == 0 ? nowTs : _lastAvgUpdate;
-        uint48 elapsed = nowTs - lastUpdate;
-        if (elapsed < MIN_AVG_UPDATE_INTERVAL) return;
-
-        uint48 window = movingAverageWindow;
-        uint256 weightNew = elapsed >= window ? window : elapsed;
-        if (weightNew == 0) {
-            weightNew = 1;
-        }
-        uint256 weightOld = window - weightNew;
-
-        uint256 weightedAvg =
-            (uint256(currentAvg) * weightOld + uint256(_newFee) * weightNew) / window;
-        movingAverageFee = uint32(weightedAvg);
-        _lastAvgUpdate = nowTs;
+    /// @dev Returns the timestamp when withdrawals become available.
+    function _withdrawableAt() internal view returns (uint48) {
+        unchecked{
+        return uint48(block.timestamp + _bondWithdrawalDelay);
+    }
     }
 
     // ---------------------------------------------------------------
@@ -399,15 +360,14 @@ r
     // ---------------------------------------------------------------
 
     error CurrentProverCannotWithdraw();
-    error FeeMustBeLower();
     error FeeTooHigh();
     error InsufficientBond();
     error InvalidBps();
     error InvalidEjectionThreshold();
-    error InvalidMaxFeeDoublings();
     error NotCurrentProver();
     error OnlyInbox();
     error WithdrawalDelayNotPassed();
     error ZeroAddress();
+    error ZeroFee();
     error ZeroValue();
 }
