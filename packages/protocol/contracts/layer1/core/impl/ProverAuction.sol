@@ -166,7 +166,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function deposit(uint128 _amount) external {
-        _bonds[msg.sender].balance += _amount;
+        BondInfo storage info = _bonds[msg.sender];
+        info.balance += _amount;
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         emit Deposited(msg.sender, _amount);
     }
@@ -174,11 +175,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @inheritdoc IProverAuction
     function withdraw() external {
         BondInfo storage info = _bonds[msg.sender];
+        uint48 withdrawableAt = info.withdrawableAt;
+        address currentProver = _currentProver;
 
-        if (info.withdrawableAt == 0) {
-            require(!_isCurrentProver(msg.sender), CurrentProverCannotWithdraw());
+        if (withdrawableAt == 0) {
+            require(currentProver != msg.sender, CurrentProverCannotWithdraw());
         } else {
-            require(block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
+            require(block.timestamp >= withdrawableAt, WithdrawalDelayNotPassed());
         }
 
         uint128 amount = info.balance;
@@ -191,15 +194,17 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @inheritdoc IProverAuction
     function bid(uint32 _feeInGwei) external {
         BondInfo storage bond = _bonds[msg.sender];
+        uint128 bondBalance = bond.balance;
+        uint48 bondWithdrawableAt = bond.withdrawableAt;
         address oldProver = _currentProver;
         uint32 currentFee = _currentFeeInGwei;
         bool isVacant = oldProver == address(0);
 
-        require(bond.balance >= getRequiredBond(), InsufficientBond());
+        require(bondBalance >= _requiredBond, InsufficientBond());
 
         if (!isVacant && oldProver == msg.sender) {
             require(_feeInGwei < currentFee, FeeMustBeLower());
-            if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
+            if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
 
             _setProver(msg.sender, _feeInGwei);
             _updateMovingAverage(_feeInGwei);
@@ -209,7 +214,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         if (isVacant) {
             require(_feeInGwei <= getMaxBidFee(), FeeTooHigh());
-            if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
+            if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
 
             _setProver(msg.sender, _feeInGwei);
             _updateMovingAverage(_feeInGwei);
@@ -220,7 +225,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(_feeInGwei < currentFee, FeeMustBeLower());
         uint32 maxAllowedFee = uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
-        if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
+        if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
 
         _bonds[oldProver].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         _setProver(msg.sender, _feeInGwei);
@@ -230,14 +235,15 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function requestExit() external {
-        if (!_isCurrentProver(msg.sender)) {
+        if (_currentProver != msg.sender) {
             revert NotCurrentProver();
         }
 
-        _bonds[msg.sender].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+        uint48 withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+        _bonds[msg.sender].withdrawableAt = withdrawableAt;
         _vacateProver();
 
-        emit ExitRequested(msg.sender, _bonds[msg.sender].withdrawableAt);
+        emit ExitRequested(msg.sender, withdrawableAt);
     }
 
     /// @inheritdoc IProverAuction
@@ -245,14 +251,16 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(msg.sender == inbox, OnlyInbox());
 
         BondInfo storage bond = _bonds[_proverAddr];
+        uint128 bondBalance = bond.balance;
 
-        uint128 actualSlash = uint128(LibMath.min(_livenessBond, bond.balance));
+        uint128 actualSlash = uint128(LibMath.min(_livenessBond, bondBalance));
         uint128 actualReward;
         if (_recipient != address(0)) {
             actualReward = uint128(uint256(actualSlash) * rewardBps / 10_000);
         }
 
-        bond.balance -= actualSlash;
+        uint128 newBalance = bondBalance - actualSlash;
+        bond.balance = newBalance;
         _totalSlashedAmount += actualSlash - actualReward;
 
         if (actualReward > 0) {
@@ -261,8 +269,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
-        if (bond.balance < _ejectionThreshold) {
-            if (_isCurrentProver(_proverAddr)) {
+        if (newBalance < _ejectionThreshold) {
+            if (_currentProver == _proverAddr) {
                 _bonds[_proverAddr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
                 emit ProverEjected(_proverAddr);
@@ -275,11 +283,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
         require(msg.sender == inbox, OnlyInbox());
 
         BondInfo storage bond = _bonds[_prover];
-        if (bond.balance < _ejectionThreshold) {
+        uint128 bondBalance = bond.balance;
+        uint48 withdrawableAt = bond.withdrawableAt;
+        if (bondBalance < _ejectionThreshold) {
             return false;
         }
 
-        if (!_isCurrentProver(_prover) || bond.withdrawableAt != 0) {
+        if (_currentProver != _prover || withdrawableAt != 0) {
             bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         }
 
@@ -292,20 +302,24 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function getProver() external view returns (address prover_, uint32 feeInGwei_) {
-        if (_currentProver == address(0)) {
+        address currentProver = _currentProver;
+        if (currentProver == address(0)) {
             return (address(0), 0);
         }
-        return (_currentProver, _currentFeeInGwei);
+        return (currentProver, _currentFeeInGwei);
     }
 
     /// @notice Get the maximum allowed bid fee at the current time.
     /// @return maxFee_ Maximum fee in Gwei that a bid can specify.
     function getMaxBidFee() public view returns (uint32 maxFee_) {
-        if (_currentProver != address(0)) {
-            return uint32(uint256(_currentFeeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
+        address currentProver = _currentProver;
+        uint32 currentFee = _currentFeeInGwei;
+        if (currentProver != address(0)) {
+            return uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
         }
 
-        uint256 movingAvgFee = uint256(_movingAverageFee) * movingAverageMultiplier;
+        uint32 movingAvg = _movingAverageFee;
+        uint256 movingAvgFee = uint256(movingAvg) * movingAverageMultiplier;
         uint256 cappedMovingAvg = LibMath.min(movingAvgFee, type(uint32).max);
         uint32 feeFloor = uint32(LibMath.max(initialMaxFee, cappedMovingAvg));
 
@@ -316,8 +330,9 @@ contract ProverAuction is EssentialContract, IProverAuction {
             baseFee = feeFloor;
             startTime = _contractCreationTime;
         } else {
-            baseFee = uint32(LibMath.max(_currentFeeInGwei, feeFloor));
-            startTime = _vacantSince == 0 ? _contractCreationTime : _vacantSince;
+            baseFee = uint32(LibMath.max(currentFee, feeFloor));
+            uint48 vacantSince = _vacantSince;
+            startTime = vacantSince == 0 ? _contractCreationTime : vacantSince;
         }
 
         uint256 elapsed = block.timestamp - startTime;
@@ -366,12 +381,6 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
-
-    /// @dev Returns true if `_prover` is the active prover and the slot is not vacant.
-    /// @param _prover The prover to check.
-    function _isCurrentProver(address _prover) internal view returns (bool) {
-        return _currentProver == _prover;
-    }
 
     /// @dev Sets the current prover and fee.
     /// @param prover The prover address.
