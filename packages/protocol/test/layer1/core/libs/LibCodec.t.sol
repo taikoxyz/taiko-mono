@@ -88,16 +88,10 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_roundtrip() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x1111),
-            designatedProver: address(0x2222),
-            timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            proposer: address(0x1111), timestamp: 100, blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
-            proposer: address(0x3333),
-            designatedProver: address(0x4444),
-            timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            proposer: address(0x3333), timestamp: 200, blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -136,11 +130,6 @@ contract LibCodecTest is Test {
             "transitions[0] proposer"
         );
         assertEq(
-            decoded.commitment.transitions[0].designatedProver,
-            transitions[0].designatedProver,
-            "transitions[0] designatedProver"
-        );
-        assertEq(
             decoded.commitment.transitions[0].timestamp,
             transitions[0].timestamp,
             "transitions[0] timestamp"
@@ -171,10 +160,7 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_singleProposal() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x5555),
-            designatedProver: address(0x6666),
-            timestamp: 500,
-            blockHash: bytes32(uint256(55))
+            proposer: address(0x5555), timestamp: 500, blockHash: bytes32(uint256(55))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -228,10 +214,7 @@ contract LibCodecTest is Test {
     function test_encode_proveInput_deterministic() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x1234),
-            designatedProver: address(0x5678),
-            timestamp: 12_345,
-            blockHash: bytes32(uint256(9999))
+            proposer: address(0x1234), timestamp: 12_345, blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -268,7 +251,6 @@ contract LibCodecTest is Test {
         for (uint256 i; i < transitionsLen; ++i) {
             transitions[i] = IInbox.Transition({
                 proposer: _addr(seed, "proposer", i),
-                designatedProver: _addr(seed, "designatedProver", i),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
                 blockHash: keccak256(abi.encode(seed, "blockHash", i))
             });
@@ -318,11 +300,6 @@ contract LibCodecTest is Test {
                 "transition proposer"
             );
             assertEq(
-                decoded.commitment.transitions[i].designatedProver,
-                input.commitment.transitions[i].designatedProver,
-                "transition designatedProver"
-            );
-            assertEq(
                 decoded.commitment.transitions[i].timestamp,
                 input.commitment.transitions[i].timestamp,
                 "transition timestamp"
@@ -349,4 +326,3 @@ contract LibCodecTest is Test {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }
-

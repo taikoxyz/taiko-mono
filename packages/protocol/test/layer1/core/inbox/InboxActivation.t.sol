@@ -38,7 +38,6 @@ contract InboxActivationTest is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: proposer,
-            designatedProver: prover,
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("checkpoint")
         });

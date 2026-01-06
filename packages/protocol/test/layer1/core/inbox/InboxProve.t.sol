@@ -169,15 +169,14 @@ contract InboxProveTest is InboxTestBase {
         uint48 proposalTimestamp = uint48(block.timestamp);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] =
-            _transitionFor(payload, proposalTimestamp, prover, keccak256("checkpoint1"));
-        transitions[1] =
-            _transitionFor(payload, proposalTimestamp, prover, keccak256("checkpoint2"));
+        transitions[0] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint2"));
 
-        IInbox.ProveInput memory input = _buildInput(
+        IInbox.ProveInput memory input = _buildInputWithCheckpoint(
             payload.id,
             inbox.getCoreState().lastFinalizedBlockHash,
             transitions,
+            uint48(block.number),
             keccak256("stateRoot")
         );
 
@@ -195,8 +194,8 @@ contract InboxProveTest is InboxTestBase {
         uint48 p2Timestamp = uint48(block.timestamp);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] = _transitionFor(p1, p1Timestamp, prover, keccak256("checkpoint1"));
-        transitions[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        transitions[0] = _transitionFor(p1, p1Timestamp, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(p2, p2Timestamp, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input =
             _buildInput(1, bytes32(uint256(999)), transitions, keccak256("stateRoot"));
@@ -228,9 +227,9 @@ contract InboxProveTest is InboxTestBase {
         assertEq(inbox.getCoreState().lastFinalizedProposalId, p1.id, "p1 finalized");
 
         IInbox.Transition[] memory fullBatch = new IInbox.Transition[](3);
-        fullBatch[0] = _transitionFor(p1, p1Timestamp, prover, p1Checkpoint);
-        fullBatch[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
-        fullBatch[2] = _transitionFor(p3, p3Timestamp, prover, keccak256("checkpoint3"));
+        fullBatch[0] = _transitionFor(p1, p1Timestamp, p1Checkpoint);
+        fullBatch[1] = _transitionFor(p2, p2Timestamp, keccak256("checkpoint2"));
+        fullBatch[2] = _transitionFor(p3, p3Timestamp, keccak256("checkpoint3"));
 
         IInbox.ProveInput memory fullInput =
             _buildInput(p1.id, bytes32(0), fullBatch, keccak256("stateRoot3"));
@@ -257,8 +256,8 @@ contract InboxProveTest is InboxTestBase {
         _prove(firstInput);
 
         IInbox.Transition[] memory fullBatch = new IInbox.Transition[](2);
-        fullBatch[0] = _transitionFor(p1, p1Timestamp, prover, keccak256("wrongCheckpoint"));
-        fullBatch[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        fullBatch[0] = _transitionFor(p1, p1Timestamp, keccak256("wrongCheckpoint"));
+        fullBatch[1] = _transitionFor(p2, p2Timestamp, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory fullInput =
             _buildInput(p1.id, bytes32(0), fullBatch, keccak256("stateRoot2"));
@@ -283,12 +282,9 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
-            proposer: p1.proposer,
-            designatedProver: proposer, // different from actual prover
-            timestamp: p1Timestamp,
-            blockHash: keccak256("checkpoint1")
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
         });
-        transitions[1] = _transitionFor(p2, p2Timestamp, prover, keccak256("checkpoint2"));
+        transitions[1] = _transitionFor(p2, p2Timestamp, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input = _buildInput(
             p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, keccak256("stateRoot")
@@ -341,26 +337,30 @@ contract InboxProveTest is InboxTestBase {
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
 
-        // designatedProver == actualProver so payer == payee
-        transitions[0].designatedProver = prover;
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            commitment: IInbox.Commitment({
+                firstProposalId: payload.id,
+                firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
+                lastProposalHash: inbox.getProposalHash(payload.id),
+                actualProver: proposer,
+                endBlockNumber: 0,
+                endStateRoot: bytes32(0),
+                transitions: transitions
+            }),
+            forceCheckpointSync: false
+        });
 
-        IInbox.ProveInput memory input = _buildInput(
-            payload.id,
-            inbox.getCoreState().lastFinalizedBlockHash,
-            transitions,
-            keccak256("stateRoot")
-        );
-
-        uint64 proverBalanceBefore = inbox.getBond(prover).balance;
-        _prove(input);
+        uint64 proposerBalanceBefore = inbox.getBond(proposer).balance;
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.prank(proposer);
+        inbox.prove(encodedInput, bytes("proof"));
 
         uint64 debited = config.livenessBond;
         uint64 payeeAmount = debited / 2;
-        uint64 amountToSlash = debited - payeeAmount;
-        uint64 expectedBalance = proverBalanceBefore - debited + payeeAmount;
+        uint64 expectedBalance = proposerBalanceBefore - debited + payeeAmount;
 
         assertEq(
-            uint256(inbox.getBond(prover).balance),
+            uint256(inbox.getBond(proposer).balance),
             uint256(expectedBalance),
             "payer==payee bond split"
         );
@@ -368,22 +368,22 @@ contract InboxProveTest is InboxTestBase {
 
     function test_prove_processesBond_whenLate_withPartialBondBelowSlash() public {
         uint64 partialBond = config.livenessBond / 2;
-        address payer = Emma;
-        _depositBond(payer, partialBond);
+        address payer = proposer;
 
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
 
-        vm.warp(proposalTimestamp + config.provingWindow + 1);
+        _reduceBondTo(payer, partialBond);
+        _warpPastProvingWindow(proposalTimestamp);
 
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
-        transitions[0].designatedProver = payer;
 
-        IInbox.ProveInput memory input = _buildInput(
+        IInbox.ProveInput memory input = _buildInputWithCheckpoint(
             payload.id,
             inbox.getCoreState().lastFinalizedBlockHash,
             transitions,
+            uint48(block.number),
             keccak256("stateRoot")
         );
 
@@ -410,22 +410,22 @@ contract InboxProveTest is InboxTestBase {
 
     function test_prove_processesBond_whenLate_withPartialBondAboveSlash() public {
         uint64 payerBond = (config.livenessBond / 2) + 1;
-        address payer = Alice;
-        _depositBond(payer, payerBond);
+        address payer = proposer;
 
         ProposedEvent memory payload = _proposeOne();
         uint48 proposalTimestamp = uint48(block.timestamp);
 
-        vm.warp(proposalTimestamp + config.provingWindow + 1);
+        _reduceBondTo(payer, payerBond);
+        _warpPastProvingWindow(proposalTimestamp);
 
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
-        transitions[0].designatedProver = payer;
 
-        IInbox.ProveInput memory input = _buildInput(
+        IInbox.ProveInput memory input = _buildInputWithCheckpoint(
             payload.id,
             inbox.getCoreState().lastFinalizedBlockHash,
             transitions,
+            uint48(block.number),
             keccak256("stateRoot")
         );
 
@@ -487,10 +487,8 @@ contract InboxProveTest is InboxTestBase {
         uint48 proposalTimestamp = uint48(block.timestamp);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] =
-            _transitionFor(payload, proposalTimestamp, prover, keccak256("checkpoint1"));
-        transitions[1] =
-            _transitionFor(payload, proposalTimestamp, prover, keccak256("checkpoint2"));
+        transitions[0] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint1"));
+        transitions[1] = _transitionFor(payload, proposalTimestamp, keccak256("checkpoint2"));
 
         IInbox.ProveInput memory input = _buildInput(
             payload.id,
@@ -516,7 +514,6 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
-        transitions[0].designatedProver = proposer; // Different from actual to exercise bond path
 
         IInbox.ProveInput memory input = _buildInput(
             payload.id,
@@ -549,7 +546,6 @@ contract InboxProveTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions =
             _transitionArrayFor(payload, proposalTimestamp, keccak256("checkpoint"));
-        transitions[0].designatedProver = proposer;
 
         IInbox.ProveInput memory input = _buildInput(
             payload.id,
@@ -695,13 +691,26 @@ contract InboxProveTest is InboxTestBase {
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
-    function _depositBond(address _account, uint64 _amount) internal {
-        bondToken.mint(_account, _toTokenAmount(_amount));
+    function _reduceBondTo(address _account, uint64 _targetBalance) internal {
+        uint64 balance = inbox.getBond(_account).balance;
+        require(balance >= _targetBalance, "target balance too high");
 
         vm.startPrank(_account);
-        bondToken.approve(address(inbox), type(uint256).max);
-        inbox.deposit(_amount);
+        inbox.requestWithdrawal();
         vm.stopPrank();
+
+        vm.warp(block.timestamp + config.withdrawalDelay + 1);
+
+        vm.startPrank(_account);
+        inbox.withdraw(_account, balance - _targetBalance);
+        vm.stopPrank();
+    }
+
+    function _warpPastProvingWindow(uint48 _proposalTimestamp) internal {
+        uint256 target = uint256(_proposalTimestamp) + config.provingWindow + 1;
+        if (block.timestamp < target) {
+            vm.warp(target);
+        }
     }
 
     function _buildInput(
@@ -767,6 +776,6 @@ contract InboxProveTest is InboxTestBase {
         returns (IInbox.Transition[] memory transitions_)
     {
         transitions_ = new IInbox.Transition[](1);
-        transitions_[0] = _transitionFor(_payload, _proposalTimestamp, prover, _blockHash);
+        transitions_[0] = _transitionFor(_payload, _proposalTimestamp, _blockHash);
     }
 }
