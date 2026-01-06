@@ -24,7 +24,6 @@ abstract contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
     address public immutable newFork;
 
     error InvalidParams();
-    error ZeroForkAddress();
 
     constructor(address _oldFork, address _newFork) {
         require(_newFork != address(0), InvalidParams());

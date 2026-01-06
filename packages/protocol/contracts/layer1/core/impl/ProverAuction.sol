@@ -197,10 +197,14 @@ contract ProverAuction is EssentialContract, IProverAuction {
         BondInfo storage info = _bonds[msg.sender];
 
         if (info.withdrawableAt == 0) {
-            bool isCurrentProver =
-                _pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == msg.sender;
-            require(!isCurrentProver, CurrentProverCannotWithdraw());
-        } else {
+            require(!_isCurrentProver(msg.sender), CurrentProverCannotWithdraw());
+            if (_members[msg.sender].active) {
+                _members[msg.sender].active = false;
+                info.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
+            }
+        }
+
+        if (info.withdrawableAt != 0) {
             require(block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
         }
 
@@ -254,9 +258,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function requestExit() external {
-        if (
-            _pool.poolSize == 0 || _pool.vacantSince > 0 || _activeProvers[0] != msg.sender
-        ) {
+        if (!_isCurrentProver(msg.sender)) {
             revert NotCurrentProver();
         }
 
@@ -288,8 +290,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
         if (bond.balance < _ejectionThreshold) {
-            if (_pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _proverAddr)
-            {
+            if (_isCurrentProver(_proverAddr)) {
                 _bonds[_proverAddr].withdrawableAt =
                     uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
@@ -307,9 +308,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
             return false;
         }
 
-        bool isCurrentProver =
-            _pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _prover;
-        if (!isCurrentProver || bond.withdrawableAt != 0) {
+        if (!_isCurrentProver(_prover) || bond.withdrawableAt != 0) {
             bond.withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
         }
 
@@ -401,6 +400,12 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Returns true if `_prover` is the active prover and the slot is not vacant.
+    /// @param _prover The prover to check.
+    function _isCurrentProver(address _prover) internal view returns (bool) {
+        return _pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _prover;
+    }
 
     /// @dev Sets the current prover and fee.
     /// @param prover The prover address.
