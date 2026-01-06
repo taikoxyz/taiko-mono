@@ -477,4 +477,3 @@ contract LibCodecTest is Test {
         assertEq(keccak256(encoded1), keccak256(encoded2), "deterministic encoding");
     }
 }
-
