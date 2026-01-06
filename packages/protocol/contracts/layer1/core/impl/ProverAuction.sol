@@ -244,9 +244,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
-        uint32 maxAllowedFee = uint32(
-            uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
-        );
+        uint32 maxAllowedFee =
+            uint32(uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
@@ -334,9 +333,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         PoolState memory pool = _pool;
 
         if (pool.poolSize != 0 && pool.vacantSince == 0) {
-            return uint32(
-                uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
-            );
+            return uint32(uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         }
 
         uint256 movingAvgFee = uint256(_movingAverageFee) * movingAverageMultiplier;
