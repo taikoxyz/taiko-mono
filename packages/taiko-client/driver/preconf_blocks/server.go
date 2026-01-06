@@ -514,7 +514,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"l1OriginBlockID", l1Origin.BlockID.Uint64(),
 		)
 
-		return err
+		return nil
 	}
 
 	// we have the block, now wait a deterministic jitter before responding.
@@ -638,6 +638,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	}
 
 	sig := l1Origin.Signature
+
+	// Skip responding if we cannot provide a valid L1 origin signature (consistent with OnUnsafeL2Request)
+	if sig == [65]byte{} {
+		log.Warn(
+			"Empty L1 origin signature, unable to propagate end-of-sequencing block",
+			"peer", from,
+			"epoch", epoch,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+		)
+		return nil
+	}
 
 	endOfSequencing := true
 	envelope, err := blockToEnvelope(block, &endOfSequencing, &l1Origin.IsForcedInclusion, &sig)
