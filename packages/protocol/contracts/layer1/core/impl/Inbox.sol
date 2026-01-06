@@ -536,7 +536,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             }
 
             // Get designated prover and fee from auction
-            (address designatedProver, uint32 feeInGwei) = _proverAuction.getProver();
+            (address designatedProver, uint32 feeInGwei) = _proverAuction.prover();
             if (designatedProver == address(0)) {
                 // No auction winner - proposer becomes the prover but must have sufficient bond
                 designatedProver = msg.sender;

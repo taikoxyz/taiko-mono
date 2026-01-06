@@ -22,7 +22,7 @@ pragma solidity ^0.8.26;
 //   _currentFeeInGwei              | uint32                                             | Slot: 251  | Offset: 20   | Bytes: 4   
 //   _vacantSince                   | uint48                                             | Slot: 251  | Offset: 24   | Bytes: 6   
 //   _everHadProver                 | uint8                                              | Slot: 251  | Offset: 30   | Bytes: 1   
-//   _bonds                         | mapping(address => struct ProverAuction.BondInfo)  | Slot: 252  | Offset: 0    | Bytes: 32  
+//   _bonds                         | mapping(address => struct IProverAuction.BondInfo) | Slot: 252  | Offset: 0    | Bytes: 32  
 //   _movingAverageFee              | uint32                                             | Slot: 253  | Offset: 0    | Bytes: 4   
 //   _totalSlashedAmount            | uint128                                            | Slot: 253  | Offset: 4    | Bytes: 16  
 //   _contractCreationTime          | uint48                                             | Slot: 253  | Offset: 20   | Bytes: 6   

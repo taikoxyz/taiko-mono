@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import { ProverAuction } from "src/layer1/core/impl/ProverAuction.sol";
+import { IProverAuction } from "src/layer1/core/iface/IProverAuction.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
@@ -60,7 +61,7 @@ contract ProverAuctionTest is CommonTest {
     }
 
     function test_getProver_returnsZeroWhenNoProver() public view {
-        (address prover, uint32 fee) = auction.getProver();
+        (address prover, uint32 fee) = auction.prover();
         assertEq(prover, address(0));
         assertEq(fee, 0);
     }
@@ -68,7 +69,7 @@ contract ProverAuctionTest is CommonTest {
     function test_firstBid_setsProver() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
 
-        (address prover, uint32 fee) = auction.getProver();
+        (address prover, uint32 fee) = auction.prover();
         assertEq(prover, prover1);
         assertEq(fee, 100);
     }
@@ -79,11 +80,11 @@ contract ProverAuctionTest is CommonTest {
         uint48 expected = uint48(block.timestamp) + BOND_WITHDRAWAL_DELAY;
         _depositAndBid(prover2, REQUIRED_BOND, 95);
 
-        (address prover, uint32 fee) = auction.getProver();
+        (address prover, uint32 fee) = auction.prover();
         assertEq(prover, prover2);
         assertEq(fee, 95);
 
-        ProverAuction.BondInfo memory bond1 = auction.getBondInfo(prover1);
+        IProverAuction.BondInfo memory bond1 = auction.bondInfo(prover1);
         assertEq(bond1.withdrawableAt, expected);
     }
 
@@ -94,11 +95,11 @@ contract ProverAuctionTest is CommonTest {
         vm.prank(prover1);
         auction.requestExit();
 
-        (address prover, uint32 fee) = auction.getProver();
+        (address prover, uint32 fee) = auction.prover();
         assertEq(prover, address(0));
         assertEq(fee, 0);
 
-        ProverAuction.BondInfo memory bond1 = auction.getBondInfo(prover1);
+        IProverAuction.BondInfo memory bond1 = auction.bondInfo(prover1);
         assertEq(bond1.withdrawableAt, expected);
     }
 
@@ -115,14 +116,14 @@ contract ProverAuctionTest is CommonTest {
 
     function test_movingAverage_skipsRapidUpdatesOnSelfBid() public {
         _depositAndBid(prover1, REQUIRED_BOND, 100);
-        assertEq(auction.getMovingAverageFee(), 100);
+        assertEq(auction.movingAverageFee(), 100);
 
         uint256 interval = auction.MIN_AVG_UPDATE_INTERVAL();
         vm.warp(block.timestamp + interval - 1);
         vm.prank(prover1);
         auction.bid(90);
 
-        assertEq(auction.getMovingAverageFee(), 100);
+        assertEq(auction.movingAverageFee(), 100);
 
         vm.warp(block.timestamp + 1);
         vm.prank(prover1);
@@ -132,7 +133,7 @@ contract ProverAuctionTest is CommonTest {
         uint256 weightNew = interval >= window ? window : interval;
         uint256 weightOld = window - weightNew;
         uint256 expected = (uint256(100) * weightOld + uint256(80) * weightNew) / window;
-        assertEq(auction.getMovingAverageFee(), expected);
+        assertEq(auction.movingAverageFee(), expected);
     }
 
     function _deposit(address prover, uint128 amount) internal {

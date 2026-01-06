@@ -24,14 +24,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Minimum time between moving-average updates to limit rapid bid manipulation.
     uint256 public constant MIN_AVG_UPDATE_INTERVAL = LibPreconfConstants.SECONDS_IN_EPOCH;
 
-    // ---------------------------------------------------------------
-    // Structs
-    // ---------------------------------------------------------------
-
-    struct BondInfo {
-        uint128 balance;
-        uint48 withdrawableAt;
-    }
+r
 
     // ---------------------------------------------------------------
     // Events
@@ -78,13 +71,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
     uint8 public immutable movingAverageMultiplier;
 
     /// @notice Bond amount slashed per failed proof.
-    uint96 private immutable _livenessBond;
+    uint96 public immutable livenessBond;
 
     /// @notice Pre-computed required bond amount (ejectionThreshold * 2).
-    uint128 private immutable _requiredBond;
+    uint128 public immutable requiredBond;
 
     /// @notice Bond threshold that triggers ejection.
-    uint128 private immutable _ejectionThreshold;
+    uint128 public immutable ejectionThreshold;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -95,10 +88,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     uint48 internal _vacantSince;
     uint8 internal _everHadProver;
 
-    mapping(address account => BondInfo info) internal _bonds;
+    mapping(address account => IProverAuction.BondInfo info) internal _bonds;
 
-    uint32 internal _movingAverageFee;
-    uint128 internal _totalSlashedAmount;
+    uint32 public movingAverageFee;
+    uint128 public totalSlashedAmount;
     uint48 internal _contractCreationTime;
     uint48 internal _lastAvgUpdate;
 
@@ -136,7 +129,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         inbox = _inbox;
         bondToken = IERC20(_bondToken);
-        _livenessBond = _livenessBondAmount;
+        livenessBond = _livenessBondAmount;
         minFeeReductionBps = _minFeeReductionBps;
         rewardBps = _rewardBps;
         bondWithdrawalDelay = _bondWithdrawalDelay;
@@ -145,8 +138,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         maxFeeDoublings = _maxFeeDoublings;
         initialMaxFee = _initialMaxFee;
         movingAverageMultiplier = _movingAverageMultiplier;
-        _ejectionThreshold = _ejectionThresholdAmount;
-        _requiredBond = _ejectionThresholdAmount * 2;
+        ejectionThreshold = _ejectionThresholdAmount;
+        requiredBond = _ejectionThresholdAmount * 2;
     }
 
     // ---------------------------------------------------------------
@@ -166,7 +159,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function deposit(uint128 _amount) external {
-        BondInfo storage info = _bonds[msg.sender];
+        IProverAuction.BondInfo storage info = _bonds[msg.sender];
         info.balance += _amount;
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
         emit Deposited(msg.sender, _amount);
@@ -174,7 +167,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function withdraw() external {
-        BondInfo storage info = _bonds[msg.sender];
+        IProverAuction.BondInfo storage info = _bonds[msg.sender];
         uint48 withdrawableAt = info.withdrawableAt;
         address currentProver = _currentProver;
 
@@ -193,14 +186,14 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function bid(uint32 _feeInGwei) external {
-        BondInfo storage bond = _bonds[msg.sender];
+        IProverAuction.BondInfo storage bond = _bonds[msg.sender];
         uint128 bondBalance = bond.balance;
         uint48 bondWithdrawableAt = bond.withdrawableAt;
         address oldProver = _currentProver;
         uint32 currentFee = _currentFeeInGwei;
         bool isVacant = oldProver == address(0);
 
-        require(bondBalance >= _requiredBond, InsufficientBond());
+        require(bondBalance >= requiredBond, InsufficientBond());
 
         if (!isVacant && oldProver == msg.sender) {
             require(_feeInGwei < currentFee, FeeMustBeLower());
@@ -213,7 +206,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         if (isVacant) {
-            require(_feeInGwei <= getMaxBidFee(), FeeTooHigh());
+            require(_feeInGwei <= maxBidFee(), FeeTooHigh());
             if (bondWithdrawableAt != 0) bond.withdrawableAt = 0;
 
             _setProver(msg.sender, _feeInGwei);
@@ -250,10 +243,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     function slashProver(address _proverAddr, address _recipient) external {
         require(msg.sender == inbox, OnlyInbox());
 
-        BondInfo storage bond = _bonds[_proverAddr];
+        IProverAuction.BondInfo storage bond = _bonds[_proverAddr];
         uint128 bondBalance = bond.balance;
 
-        uint128 actualSlash = uint128(LibMath.min(_livenessBond, bondBalance));
+        uint128 actualSlash = uint128(LibMath.min(livenessBond, bondBalance));
         uint128 actualReward;
         if (_recipient != address(0)) {
             actualReward = uint128(uint256(actualSlash) * rewardBps / 10_000);
@@ -261,7 +254,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         uint128 newBalance = bondBalance - actualSlash;
         bond.balance = newBalance;
-        _totalSlashedAmount += actualSlash - actualReward;
+        totalSlashedAmount += actualSlash - actualReward;
 
         if (actualReward > 0) {
             bondToken.safeTransfer(_recipient, actualReward);
@@ -269,7 +262,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
-        if (newBalance < _ejectionThreshold) {
+        if (newBalance < ejectionThreshold) {
             if (_currentProver == _proverAddr) {
                 _bonds[_proverAddr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
@@ -282,10 +275,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     function checkBondDeferWithdrawal(address _prover) external returns (bool success_) {
         require(msg.sender == inbox, OnlyInbox());
 
-        BondInfo storage bond = _bonds[_prover];
+        IProverAuction.BondInfo storage bond = _bonds[_prover];
         uint128 bondBalance = bond.balance;
         uint48 withdrawableAt = bond.withdrawableAt;
-        if (bondBalance < _ejectionThreshold) {
+        if (bondBalance < ejectionThreshold) {
             return false;
         }
 
@@ -301,7 +294,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IProverAuction
-    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
+    function prover() external view returns (address prover_, uint32 feeInGwei_) {
         address currentProver = _currentProver;
         if (currentProver == address(0)) {
             return (address(0), 0);
@@ -311,14 +304,14 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @notice Get the maximum allowed bid fee at the current time.
     /// @return maxFee_ Maximum fee in Gwei that a bid can specify.
-    function getMaxBidFee() public view returns (uint32 maxFee_) {
+    function maxBidFee() public view returns (uint32 maxFee_) {
         address currentProver = _currentProver;
         uint32 currentFee = _currentFeeInGwei;
         if (currentProver != address(0)) {
             return uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
         }
 
-        uint32 movingAvg = _movingAverageFee;
+        uint32 movingAvg = movingAverageFee;
         uint256 movingAvgFee = uint256(movingAvg) * movingAverageMultiplier;
         uint256 cappedMovingAvg = LibMath.min(movingAvgFee, type(uint32).max);
         uint32 feeFloor = uint32(LibMath.max(initialMaxFee, cappedMovingAvg));
@@ -348,34 +341,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @notice Get bond information for an account.
     /// @param _account The account to query.
     /// @return bondInfo_ The bond information struct.
-    function getBondInfo(address _account) external view returns (BondInfo memory bondInfo_) {
+    function bondInfo(address _account) external view returns (IProverAuction.BondInfo memory bondInfo_) {
         return _bonds[_account];
-    }
-
-    /// @inheritdoc IProverAuction
-    function getRequiredBond() public view returns (uint128 requiredBond_) {
-        return _requiredBond;
-    }
-
-    /// @inheritdoc IProverAuction
-    function getLivenessBond() external view returns (uint96 livenessBond_) {
-        return _livenessBond;
-    }
-
-    /// @inheritdoc IProverAuction
-    function getEjectionThreshold() external view returns (uint128 threshold_) {
-        return _ejectionThreshold;
-    }
-
-    /// @notice Get the current moving average fee.
-    /// @return avgFee_ The time-weighted moving average of winning fees in Gwei.
-    function getMovingAverageFee() external view returns (uint32 avgFee_) {
-        return _movingAverageFee;
-    }
-
-    /// @inheritdoc IProverAuction
-    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
-        return _totalSlashedAmount;
     }
 
     // ---------------------------------------------------------------
@@ -383,13 +350,13 @@ contract ProverAuction is EssentialContract, IProverAuction {
     // ---------------------------------------------------------------
 
     /// @dev Sets the current prover and fee.
-    /// @param prover The prover address.
+    /// @param _prover The prover address.
     /// @param feeInGwei The fee per proposal in Gwei.
-    function _setProver(address prover, uint32 feeInGwei) internal {
+    function _setProver(address _prover, uint32 feeInGwei) internal {
         _currentFeeInGwei = feeInGwei;
         _vacantSince = 0;
         _everHadProver = 1;
-        _currentProver = prover;
+        _currentProver = _prover;
     }
 
     /// @dev Vacates the current prover slot.
@@ -402,10 +369,10 @@ contract ProverAuction is EssentialContract, IProverAuction {
     /// @param _newFee The new fee to incorporate into the average.
     function _updateMovingAverage(uint32 _newFee) internal {
         uint48 nowTs = uint48(block.timestamp);
-        uint32 currentAvg = _movingAverageFee;
+        uint32 currentAvg = movingAverageFee;
 
         if (currentAvg == 0) {
-            _movingAverageFee = _newFee;
+            movingAverageFee = _newFee;
             _lastAvgUpdate = nowTs;
             return;
         }
@@ -423,7 +390,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         uint256 weightedAvg =
             (uint256(currentAvg) * weightOld + uint256(_newFee) * weightNew) / window;
-        _movingAverageFee = uint32(weightedAvg);
+        movingAverageFee = uint32(weightedAvg);
         _lastAvgUpdate = nowTs;
     }
 

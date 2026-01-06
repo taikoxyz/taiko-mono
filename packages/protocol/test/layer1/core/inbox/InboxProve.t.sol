@@ -297,9 +297,9 @@ contract InboxProveTest is InboxTestBase {
         vm.expectEmit(address(proverAuction));
         emit IProverAuction.ProverSlashed(
             p1.designatedProver,
-            proverAuction.getLivenessBond(),
+            proverAuction.livenessBond(),
             prover,
-            uint128(proverAuction.getLivenessBond()) / 2
+            uint128(proverAuction.livenessBond()) / 2
         );
 
         _prove(input);

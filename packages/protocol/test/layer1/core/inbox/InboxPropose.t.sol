@@ -365,7 +365,7 @@ contract InboxProposeTest is InboxTestBase {
     }
 
     // =========================================================================
-    // Self-Prover Tests - when getProver() returns address(0)
+    // Self-Prover Tests - when prover() returns address(0)
     // =========================================================================
 
     /// @notice Test propose succeeds when no auction winner and proposer has sufficient bond

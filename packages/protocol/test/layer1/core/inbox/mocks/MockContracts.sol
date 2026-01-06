@@ -104,7 +104,7 @@ contract MockSignalService is ISignalService {
 }
 
 contract MockProverAuction is IProverAuction {
-    address public prover;
+    address public proverAddress;
     uint32 public feeInGwei;
     uint128 public requiredBond;
     uint96 public livenessBond;
@@ -118,7 +118,7 @@ contract MockProverAuction is IProverAuction {
     bool public defaultBondCheck;
 
     constructor(address _prover, uint32 _feeInGwei) {
-        prover = _prover;
+        proverAddress = _prover;
         feeInGwei = _feeInGwei;
         requiredBond = 10 ether;
         livenessBond = 1 ether;
@@ -127,7 +127,7 @@ contract MockProverAuction is IProverAuction {
     }
 
     function setProver(address _prover, uint32 _feeInGwei) external {
-        prover = _prover;
+        proverAddress = _prover;
         feeInGwei = _feeInGwei;
     }
 
@@ -160,24 +160,16 @@ contract MockProverAuction is IProverAuction {
         return defaultBondCheck;
     }
 
-    function getProver() external view returns (address prover_, uint32 feeInGwei_) {
-        return (prover, feeInGwei);
+    function prover() external view returns (address prover_, uint32 feeInGwei_) {
+        return (proverAddress, feeInGwei);
     }
 
-    function getRequiredBond() external view returns (uint128 requiredBond_) {
-        return requiredBond;
+    function maxBidFee() external view returns (uint32 maxFee_) {
+        return feeInGwei;
     }
 
-    function getLivenessBond() external view returns (uint96 livenessBond_) {
-        return livenessBond;
-    }
-
-    function getEjectionThreshold() external view returns (uint128 threshold_) {
-        return ejectionThreshold;
-    }
-
-    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_) {
-        return totalSlashedAmount;
+    function bondInfo(address) external pure returns (BondInfo memory bondInfo_) {
+        return BondInfo({balance: 0, withdrawableAt: 0});
     }
 }
 

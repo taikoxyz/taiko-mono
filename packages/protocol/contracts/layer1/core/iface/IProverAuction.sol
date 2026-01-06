@@ -6,6 +6,14 @@ pragma solidity ^0.8.26;
 /// @custom:security-contact security@taiko.xyz
 interface IProverAuction {
     // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    struct BondInfo {
+        uint128 balance;
+        uint48 withdrawableAt;
+    }
+    // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
@@ -82,21 +90,14 @@ interface IProverAuction {
     /// @notice Get the current designated prover and their fee.
     /// @return prover_ Current prover address (address(0) if none).
     /// @return feeInGwei_ Fee per proposal in Gwei.
-    function getProver() external view returns (address prover_, uint32 feeInGwei_);
+    function prover() external view returns (address prover_, uint32 feeInGwei_);
 
-    /// @notice Get the required bond amount to become prover.
-    /// @return requiredBond_ The minimum bond required.
-    function getRequiredBond() external view returns (uint128 requiredBond_);
+    /// @notice Get the maximum allowed bid fee at the current time.
+    /// @return maxFee_ Maximum fee in Gwei that a bid can specify.
+    function maxBidFee() external view returns (uint32 maxFee_);
 
-    /// @notice Get the liveness bond amount slashed per failed proof.
-    /// @return livenessBond_ The liveness bond amount.
-    function getLivenessBond() external view returns (uint96 livenessBond_);
-
-    /// @notice Get the bond threshold that triggers ejection.
-    /// @return threshold_ The ejection threshold.
-    function getEjectionThreshold() external view returns (uint128 threshold_);
-
-    /// @notice Get the total accumulated slashed amount (slashed - rewarded).
-    /// @return totalSlashedAmount_ The total amount locked forever in the contract.
-    function getTotalSlashedAmount() external view returns (uint128 totalSlashedAmount_);
+    /// @notice Get bond information for an account.
+    /// @param _account The account to query.
+    /// @return bondInfo_ The bond information struct.
+    function bondInfo(address _account) external view returns (BondInfo memory bondInfo_);
 }

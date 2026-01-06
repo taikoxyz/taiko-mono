@@ -325,7 +325,7 @@ abstract contract InboxTestBase is CommonTest {
             _payload.id == 0 ? bytes32(0) : inbox.getProposalHash(_payload.id - 1);
 
         // Get the designated prover from the auction mock
-        (address designatedProver,) = proverAuction.getProver();
+        (address designatedProver,) = proverAuction.prover();
 
         proposal_ = IInbox.Proposal({
             id: _payload.id,
