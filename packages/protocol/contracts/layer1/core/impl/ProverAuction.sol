@@ -218,8 +218,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         require(_feeInGwei < currentFee, FeeMustBeLower());
-        uint32 maxAllowedFee =
-            uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
+        uint32 maxAllowedFee = uint32(uint256(currentFee) * (10_000 - minFeeReductionBps) / 10_000);
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
