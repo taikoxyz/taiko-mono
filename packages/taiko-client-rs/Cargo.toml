@@ -3,6 +3,7 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
+    "crates/preconfirmation-client",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
@@ -94,3 +95,7 @@ serde_json = "1"
 # testing
 serial_test = { version = "3", features = ["async"] }
 test-context = "0.3"
+
+# p2p / futures
+futures = "0.3"
+libp2p = { version = "0.54", default-features = false }

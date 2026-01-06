@@ -1,0 +1,24 @@
+[package]
+name = "preconfirmation-client"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+alloy-primitives = { workspace = true }
+alloy-rlp = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+flate2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+
+preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
+
+[dev-dependencies]
+rand = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
