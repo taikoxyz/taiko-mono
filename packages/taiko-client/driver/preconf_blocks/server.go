@@ -183,6 +183,8 @@ func LogSkipper(c echo.Context) bool {
 func (s *PreconfBlockAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.RequestID())
 
+	// nolint:staticcheck
+	// Keep legacy logger format for now to avoid changing log consumers.
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: LogSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","level":"INFO","message":{"id":"${id}","remote_ip":"${remote_ip}",` +
@@ -512,7 +514,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"l1OriginBlockID", l1Origin.BlockID.Uint64(),
 		)
 
-		return err
+		return nil
 	}
 
 	// we have the block, now wait a deterministic jitter before responding.
@@ -636,6 +638,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	}
 
 	sig := l1Origin.Signature
+
+	// Skip responding if we cannot provide a valid L1 origin signature (consistent with OnUnsafeL2Request)
+	if sig == [65]byte{} {
+		log.Warn(
+			"Empty L1 origin signature, unable to propagate end-of-sequencing block",
+			"peer", from,
+			"epoch", epoch,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+		)
+		return nil
+	}
 
 	endOfSequencing := true
 	envelope, err := blockToEnvelope(block, &endOfSequencing, &l1Origin.IsForcedInclusion, &sig)
