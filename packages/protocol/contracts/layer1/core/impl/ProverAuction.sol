@@ -240,9 +240,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         }
 
         require(_feeInGwei < pool.feeInGwei, FeeMustBeLower());
-        uint32 maxAllowedFee = uint32(
-            uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
-        );
+        uint32 maxAllowedFee =
+            uint32(uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         require(_feeInGwei <= maxAllowedFee, FeeTooHigh());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
@@ -254,9 +253,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
     /// @inheritdoc IProverAuction
     function requestExit() external {
-        if (
-            _pool.poolSize == 0 || _pool.vacantSince > 0 || _activeProvers[0] != msg.sender
-        ) {
+        if (_pool.poolSize == 0 || _pool.vacantSince > 0 || _activeProvers[0] != msg.sender) {
             revert NotCurrentProver();
         }
 
@@ -288,10 +285,8 @@ contract ProverAuction is EssentialContract, IProverAuction {
         emit ProverSlashed(_proverAddr, actualSlash, _recipient, actualReward);
 
         if (bond.balance < _ejectionThreshold) {
-            if (_pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _proverAddr)
-            {
-                _bonds[_proverAddr].withdrawableAt =
-                    uint48(block.timestamp) + bondWithdrawalDelay;
+            if (_pool.poolSize != 0 && _pool.vacantSince == 0 && _activeProvers[0] == _proverAddr) {
+                _bonds[_proverAddr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
                 emit ProverEjected(_proverAddr);
             }
@@ -335,9 +330,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
         PoolState memory pool = _pool;
 
         if (pool.poolSize != 0 && pool.vacantSince == 0) {
-            return uint32(
-                uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000
-            );
+            return uint32(uint256(pool.feeInGwei) * (10_000 - minFeeReductionBps) / 10_000);
         }
 
         uint256 movingAvgFee = uint256(_movingAverageFee) * movingAverageMultiplier;
