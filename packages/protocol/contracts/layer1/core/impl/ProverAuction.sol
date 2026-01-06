@@ -290,8 +290,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
 
         if (bond.balance < _ejectionThreshold) {
             if (_isCurrentProver(_proverAddr)) {
-                _bonds[_proverAddr].withdrawableAt =
-                    uint48(block.timestamp) + bondWithdrawalDelay;
+                _bonds[_proverAddr].withdrawableAt = uint48(block.timestamp) + bondWithdrawalDelay;
                 _vacateProver();
                 emit ProverEjected(_proverAddr);
             }
