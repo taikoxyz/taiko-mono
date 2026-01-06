@@ -753,7 +753,7 @@ library IInbox {
     struct Proposal { uint48 id; uint48 timestamp; uint48 endOfSubmissionWindowTimestamp; address proposer; bytes32 parentProposalHash; uint48 originBlockNumber; bytes32 originBlockHash; uint8 basefeeSharingPctg; DerivationSource[] sources; }
     struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uint8 numForcedInclusions; }
     struct ProveInput { Commitment commitment; bool forceCheckpointSync; }
-    struct Transition { address proposer; address designatedProver; uint48 timestamp; bytes32 blockHash; }
+    struct Transition { address proposer; uint48 timestamp; bytes32 blockHash; }
 }
 ```*/
 #[allow(
@@ -3217,15 +3217,13 @@ struct ProveInput { Commitment commitment; bool forceCheckpointSync; }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Transition { address proposer; address designatedProver; uint48 timestamp; bytes32 blockHash; }
+struct Transition { address proposer; uint48 timestamp; bytes32 blockHash; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct Transition {
         #[allow(missing_docs)]
         pub proposer: alloy::sol_types::private::Address,
-        #[allow(missing_docs)]
-        pub designatedProver: alloy::sol_types::private::Address,
         #[allow(missing_docs)]
         pub timestamp: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
@@ -3242,13 +3240,11 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
         #[doc(hidden)]
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Address,
-            alloy::sol_types::sol_data::Address,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::FixedBytes<32>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
-            alloy::sol_types::private::Address,
             alloy::sol_types::private::Address,
             alloy::sol_types::private::primitives::aliases::U48,
             alloy::sol_types::private::FixedBytes<32>,
@@ -3268,12 +3264,7 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
         #[doc(hidden)]
         impl ::core::convert::From<Transition> for UnderlyingRustTuple<'_> {
             fn from(value: Transition) -> Self {
-                (
-                    value.proposer,
-                    value.designatedProver,
-                    value.timestamp,
-                    value.blockHash,
-                )
+                (value.proposer, value.timestamp, value.blockHash)
             }
         }
         #[automatically_derived]
@@ -3282,9 +3273,8 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
             fn from(tuple: UnderlyingRustTuple<'_>) -> Self {
                 Self {
                     proposer: tuple.0,
-                    designatedProver: tuple.1,
-                    timestamp: tuple.2,
-                    blockHash: tuple.3,
+                    timestamp: tuple.1,
+                    blockHash: tuple.2,
                 }
             }
         }
@@ -3299,9 +3289,6 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
                 (
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
                         &self.proposer,
-                    ),
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::tokenize(
-                        &self.designatedProver,
                     ),
                     <alloy::sol_types::sol_data::Uint<
                         48,
@@ -3383,7 +3370,7 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Transition(address proposer,address designatedProver,uint48 timestamp,bytes32 blockHash)",
+                    "Transition(address proposer,uint48 timestamp,bytes32 blockHash)",
                 )
             }
             #[inline]
@@ -3401,10 +3388,6 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
                 [
                     <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
                             &self.proposer,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Address as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.designatedProver,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
@@ -3427,9 +3410,6 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
                     + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.proposer,
                     )
-                    + <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.designatedProver,
-                    )
                     + <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
@@ -3451,10 +3431,6 @@ struct Transition { address proposer; address designatedProver; uint48 timestamp
                 );
                 <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.proposer,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Address as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.designatedProver,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -4339,7 +4315,6 @@ library IInbox {
     }
     struct Transition {
         address proposer;
-        address designatedProver;
         uint48 timestamp;
         bytes32 blockHash;
     }
@@ -4712,11 +4687,6 @@ interface Inbox {
                     "internalType": "address"
                   },
                   {
-                    "name": "designatedProver",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
                     "name": "timestamp",
                     "type": "uint48",
                     "internalType": "uint48"
@@ -4875,11 +4845,6 @@ interface Inbox {
                 "components": [
                   {
                     "name": "proposer",
-                    "type": "address",
-                    "internalType": "address"
-                  },
-                  {
-                    "name": "designatedProver",
                     "type": "address",
                     "internalType": "address"
                   },
@@ -5244,11 +5209,6 @@ interface Inbox {
             "components": [
               {
                 "name": "proposer",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "designatedProver",
                 "type": "address",
                 "internalType": "address"
               },
@@ -11779,7 +11739,7 @@ function encodeProposeInput(IInbox.ProposeInput memory _input) external pure ret
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool))` and selector `0xc3d3e2f4`.
+    /**Function with signature `encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,uint48,bytes32)[]),bool))` and selector `0x8301d56d`.
 ```solidity
 function encodeProveInput(IInbox.ProveInput memory _input) external pure returns (bytes memory encoded_);
 ```*/
@@ -11791,7 +11751,7 @@ function encodeProveInput(IInbox.ProveInput memory _input) external pure returns
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool))`](encodeProveInputCall) function.
+    ///Container type for the return parameters of the [`encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,uint48,bytes32)[]),bool))`](encodeProveInputCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct encodeProveInputReturn {
@@ -11885,8 +11845,8 @@ function encodeProveInput(IInbox.ProveInput memory _input) external pure returns
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]),bool))";
-            const SELECTOR: [u8; 4] = [195u8, 211u8, 226u8, 244u8];
+            const SIGNATURE: &'static str = "encodeProveInput(((uint48,bytes32,bytes32,address,uint48,bytes32,(address,uint48,bytes32)[]),bool))";
+            const SELECTOR: [u8; 4] = [131u8, 1u8, 213u8, 109u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -13020,7 +12980,7 @@ function getProposalHash(uint256 _proposalId) external view returns (bytes32);
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive()]
-    /**Function with signature `hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]))` and selector `0xcbc148c3`.
+    /**Function with signature `hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,uint48,bytes32)[]))` and selector `0xf954ab92`.
 ```solidity
 function hashCommitment(IInbox.Commitment memory _commitment) external pure returns (bytes32);
 ```*/
@@ -13032,7 +12992,7 @@ function hashCommitment(IInbox.Commitment memory _commitment) external pure retu
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]))`](hashCommitmentCall) function.
+    ///Container type for the return parameters of the [`hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,uint48,bytes32)[]))`](hashCommitmentCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct hashCommitmentReturn {
@@ -13124,8 +13084,8 @@ function hashCommitment(IInbox.Commitment memory _commitment) external pure retu
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,address,uint48,bytes32)[]))";
-            const SELECTOR: [u8; 4] = [203u8, 193u8, 72u8, 195u8];
+            const SIGNATURE: &'static str = "hashCommitment((uint48,bytes32,bytes32,address,uint48,bytes32,(address,uint48,bytes32)[]))";
+            const SELECTOR: [u8; 4] = [249u8, 84u8, 171u8, 146u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -16199,6 +16159,7 @@ function withdraw(address _to, uint64 _amount) external;
             [106u8, 166u8, 160u8, 26u8],
             [113u8, 80u8, 24u8, 166u8],
             [121u8, 186u8, 80u8, 151u8],
+            [131u8, 1u8, 213u8, 109u8],
             [132u8, 86u8, 203u8, 89u8],
             [138u8, 191u8, 96u8, 119u8],
             [141u8, 165u8, 203u8, 91u8],
@@ -16206,9 +16167,7 @@ function withdraw(address _to, uint64 _amount) external;
             [168u8, 52u8, 114u8, 90u8],
             [175u8, 182u8, 58u8, 212u8],
             [178u8, 142u8, 130u8, 78u8],
-            [195u8, 211u8, 226u8, 244u8],
             [195u8, 249u8, 9u8, 212u8],
-            [203u8, 193u8, 72u8, 195u8],
             [214u8, 218u8, 208u8, 96u8],
             [219u8, 175u8, 33u8, 69u8],
             [223u8, 89u8, 109u8, 158u8],
@@ -16218,6 +16177,7 @@ function withdraw(address _to, uint64 _amount) external;
             [237u8, 186u8, 205u8, 68u8],
             [239u8, 186u8, 131u8, 201u8],
             [242u8, 253u8, 227u8, 139u8],
+            [249u8, 84u8, 171u8, 146u8],
         ];
     }
     #[automatically_derived]
@@ -16509,6 +16469,17 @@ function withdraw(address _to, uint64 _amount) external;
                     acceptOwnership
                 },
                 {
+                    fn encodeProveInput(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxCalls> {
+                        <encodeProveInputCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(InboxCalls::encodeProveInput)
+                    }
+                    encodeProveInput
+                },
+                {
                     fn pause(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <pauseCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(InboxCalls::pause)
@@ -16568,33 +16539,11 @@ function withdraw(address _to, uint64 _amount) external;
                     hashProposal
                 },
                 {
-                    fn encodeProveInput(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <encodeProveInputCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxCalls::encodeProveInput)
-                    }
-                    encodeProveInput
-                },
-                {
                     fn getConfig(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <getConfigCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(InboxCalls::getConfig)
                     }
                     getConfig
-                },
-                {
-                    fn hashCommitment(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <hashCommitmentCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxCalls::hashCommitment)
-                    }
-                    hashCommitment
                 },
                 {
                     fn withdraw(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
@@ -16680,6 +16629,17 @@ function withdraw(address _to, uint64 _amount) external;
                             .map(InboxCalls::transferOwnership)
                     }
                     transferOwnership
+                },
+                {
+                    fn hashCommitment(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxCalls> {
+                        <hashCommitmentCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(InboxCalls::hashCommitment)
+                    }
+                    hashCommitment
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {
@@ -16893,6 +16853,17 @@ function withdraw(address _to, uint64 _amount) external;
                     acceptOwnership
                 },
                 {
+                    fn encodeProveInput(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxCalls> {
+                        <encodeProveInputCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(InboxCalls::encodeProveInput)
+                    }
+                    encodeProveInput
+                },
+                {
                     fn pause(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <pauseCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
@@ -16960,17 +16931,6 @@ function withdraw(address _to, uint64 _amount) external;
                     hashProposal
                 },
                 {
-                    fn encodeProveInput(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <encodeProveInputCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxCalls::encodeProveInput)
-                    }
-                    encodeProveInput
-                },
-                {
                     fn getConfig(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <getConfigCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
@@ -16978,17 +16938,6 @@ function withdraw(address _to, uint64 _amount) external;
                             .map(InboxCalls::getConfig)
                     }
                     getConfig
-                },
-                {
-                    fn hashCommitment(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <hashCommitmentCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxCalls::hashCommitment)
-                    }
-                    hashCommitment
                 },
                 {
                     fn withdraw(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
@@ -17080,6 +17029,17 @@ function withdraw(address _to, uint64 _amount) external;
                             .map(InboxCalls::transferOwnership)
                     }
                     transferOwnership
+                },
+                {
+                    fn hashCommitment(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxCalls> {
+                        <hashCommitmentCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(InboxCalls::hashCommitment)
+                    }
+                    hashCommitment
                 },
             ];
             let Ok(idx) = Self::SELECTORS.binary_search(&selector) else {

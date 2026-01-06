@@ -164,11 +164,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				input.Commitment.EndStateRoot = lastHeader.Root
 			}
 
+			// Set transition information.
 			input.Commitment.Transitions = append(input.Commitment.Transitions, shastaBindings.IInboxTransition{
-				Proposer:         proposals[i].Proposer,
-				DesignatedProver: proposals[i].Proposer,
-				Timestamp:        new(big.Int).SetUint64(proofResponse.Meta.Shasta().GetTimestamp()),
-				BlockHash:        lastHeader.Hash(),
+				Proposer:  proposals[i].Proposer,
+				Timestamp: new(big.Int).SetUint64(proofResponse.Meta.Shasta().GetTimestamp()),
+				BlockHash: lastHeader.Hash(),
 			})
 
 			log.Info(

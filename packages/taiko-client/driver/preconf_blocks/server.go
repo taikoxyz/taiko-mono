@@ -183,6 +183,8 @@ func LogSkipper(c echo.Context) bool {
 func (s *PreconfBlockAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.RequestID())
 
+	// nolint:staticcheck
+	// Keep legacy logger format for now to avoid changing log consumers.
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: LogSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","level":"INFO","message":{"id":"${id}","remote_ip":"${remote_ip}",` +
