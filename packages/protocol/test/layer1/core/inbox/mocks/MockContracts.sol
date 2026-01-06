@@ -143,7 +143,7 @@ contract MockProverAuction is IProverAuction {
 
     function deposit(uint128) external pure { }
 
-    function withdraw(uint128) external pure { }
+    function withdraw() external pure { }
 
     function requestExit() external pure { }
 

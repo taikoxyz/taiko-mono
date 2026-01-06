@@ -27,4 +27,4 @@ pragma solidity ^0.8.26;
 //   _totalSlashedAmount            | uint128                                            | Slot: 253  | Offset: 4    | Bytes: 16  
 //   _contractCreationTime          | uint48                                             | Slot: 253  | Offset: 20   | Bytes: 6   
 //   _lastAvgUpdate                 | uint48                                             | Slot: 253  | Offset: 26   | Bytes: 6   
-//   __gap                          | uint256[22]                                        | Slot: 254  | Offset: 0    | Bytes: 704 
+//   __gap                          | uint256[47]                                        | Slot: 254  | Offset: 0    | Bytes: 1504

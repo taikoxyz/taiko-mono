@@ -102,7 +102,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     uint48 internal _contractCreationTime;
     uint48 internal _lastAvgUpdate;
 
-    uint256[22] private __gap;
+    uint256[47] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -172,7 +172,7 @@ contract ProverAuction is EssentialContract, IProverAuction {
     }
 
     /// @inheritdoc IProverAuction
-    function withdraw(uint128 _amount) external {
+    function withdraw() external {
         BondInfo storage info = _bonds[msg.sender];
 
         if (info.withdrawableAt == 0) {
@@ -181,10 +181,11 @@ contract ProverAuction is EssentialContract, IProverAuction {
             require(block.timestamp >= info.withdrawableAt, WithdrawalDelayNotPassed());
         }
 
-        require(info.balance >= _amount, InsufficientBond());
-        info.balance -= _amount;
-        bondToken.safeTransfer(msg.sender, _amount);
-        emit Withdrawn(msg.sender, _amount);
+        uint128 amount = info.balance;
+        require(amount > 0, InsufficientBond());
+        info.balance = 0;
+        bondToken.safeTransfer(msg.sender, amount);
+        emit Withdrawn(msg.sender, amount);
     }
 
     /// @inheritdoc IProverAuction

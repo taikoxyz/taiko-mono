@@ -56,9 +56,8 @@ interface IProverAuction {
     /// @param _amount Amount of bond tokens to deposit.
     function deposit(uint128 _amount) external;
 
-    /// @notice Withdraw bond tokens from caller's balance.
-    /// @param _amount Amount to withdraw.
-    function withdraw(uint128 _amount) external;
+    /// @notice Withdraw the caller's entire bond balance.
+    function withdraw() external;
 
     /// @notice Request to exit as a current prover.
     function requestExit() external;
