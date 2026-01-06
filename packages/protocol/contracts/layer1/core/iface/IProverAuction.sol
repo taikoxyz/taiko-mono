@@ -14,7 +14,6 @@ interface IProverAuction {
         address indexed prover, uint128 slashed, address indexed recipient, uint128 rewarded
     );
 
-
     /// @notice Slash a prover for liveness failure.
     /// @param _proverAddr The prover to slash.
     /// @param _recipient The recipient of the slashed reward.
