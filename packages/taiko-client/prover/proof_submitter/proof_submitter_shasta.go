@@ -236,6 +236,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		} else {
 			toBeInsertedID = fromID
 		}
+		log.Info("Debug ID info", "toBeInsertedID", toBeInsertedID)
 		if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
