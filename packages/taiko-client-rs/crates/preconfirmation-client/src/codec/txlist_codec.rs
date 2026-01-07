@@ -54,7 +54,6 @@ impl TxListCodec for ZlibTxListCodec {
 }
 
 #[cfg(test)]
-/// Tests for zlib txlist decoding.
 mod tests {
     use std::io::Write;
 

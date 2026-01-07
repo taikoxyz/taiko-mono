@@ -62,13 +62,3 @@ impl PreconfirmationPublisher {
         Ok(())
     }
 }
-
-#[cfg(test)]
-/// Tests for the publisher module.
-mod tests {
-    /// Placeholder test to verify module compiles.
-    #[test]
-    fn publisher_compiles() {
-        assert!(true);
-    }
-}

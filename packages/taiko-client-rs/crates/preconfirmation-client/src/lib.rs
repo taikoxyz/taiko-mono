@@ -6,9 +6,6 @@
 //! - Subscribing to and publishing preconfirmation messages
 //! - Validating commitments and transaction lists
 //! - Passing validated preconfirmation inputs to the driver for ordered processing
-//!
-//! The SDK does NOT call the engine API directly; it submits `PreconfirmationInput`
-//! to the driver via the `DriverSubmitter` trait.
 
 /// Main client orchestrator.
 pub mod client;

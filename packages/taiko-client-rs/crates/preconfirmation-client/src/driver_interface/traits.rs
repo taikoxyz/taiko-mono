@@ -1,7 +1,4 @@
 //! Driver interface trait definitions.
-//!
-//! The SDK does NOT call the engine API directly. Instead it submits
-//! validated preconfirmation inputs to the driver for ordered processing.
 
 use async_trait::async_trait;
 use preconfirmation_types::SignedCommitment;
@@ -38,7 +35,6 @@ pub trait DriverSubmitter: Send + Sync {
 }
 
 #[cfg(test)]
-/// Tests for driver interface types.
 mod tests {
     use super::{DriverSubmitter, PreconfirmationInput};
 

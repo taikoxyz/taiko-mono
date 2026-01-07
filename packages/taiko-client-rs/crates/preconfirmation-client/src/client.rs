@@ -10,9 +10,10 @@ use std::{future::Future, sync::Arc};
 
 use tokio::sync::{RwLock, broadcast};
 use tokio_stream::StreamExt;
-use tracing::{info, warn};
+use tracing::{error, info};
 
 use preconfirmation_net::{NetworkCommand, P2pHandle, P2pNode};
+use preconfirmation_types::MAX_TXLIST_BYTES;
 
 use crate::{
     codec::{TxListCodec, ZlibTxListCodec},
@@ -77,11 +78,8 @@ where
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         // Build the pending txlist buffer.
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
-        // Build the txlist codec.
-        let codec: Arc<dyn TxListCodec> =
-            Arc::new(ZlibTxListCodec::new(config.txlist_codec.max_txlist_bytes));
-        // Wrap the driver in an Arc.
-        let driver = Arc::new(driver);
+        // Build the txlist codec using the protocol constant.
+        let codec: Arc<dyn TxListCodec> = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.
         let validator = build_network_validator(
             config.expected_slasher.clone(),
@@ -104,7 +102,7 @@ where
             pending_parents,
             pending_txlists,
             codec,
-            driver,
+            driver: Arc::new(driver),
             command_sender,
             handle: Some(handle),
             node: Some(node),
@@ -147,7 +145,7 @@ where
         tokio::spawn(async move {
             // Log any P2P driver errors.
             if let Err(err) = node.run().await {
-                warn!(error = %err, "p2p node exited");
+                error!(error = %err, "p2p node exited");
             }
         });
 

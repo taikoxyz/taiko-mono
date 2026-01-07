@@ -235,7 +235,6 @@ impl Default for PendingTxListBuffer {
 }
 
 #[cfg(test)]
-/// Tests for in-memory commitment storage.
 mod tests {
     use super::InMemoryCommitmentStore;
     use crate::storage::commitment_store::CommitmentStore;

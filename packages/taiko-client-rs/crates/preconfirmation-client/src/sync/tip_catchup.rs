@@ -55,13 +55,13 @@ impl TipCatchup {
         }
 
         // Start from the next block after local head.
-        let mut current = local_head + U256::from(1u64);
+        let mut current = local_head + U256::ONE;
         // Prepare the accumulator for fetched commitments.
         let mut fetched = Vec::new();
 
         while current <= peer_tip {
             // Compute remaining blocks to request.
-            let remaining = peer_tip - current + U256::from(1u64);
+            let remaining = peer_tip - current + U256::ONE;
             // Clamp batch size to the configured maximum.
             let batch_size = self.config.catchup_batch_size as u64;
             // Convert remaining to u64 for comparison.
@@ -97,9 +97,6 @@ impl TipCatchup {
 
             // Advance the current block number by the number fetched.
             current += U256::from(response.commitments.len() as u64);
-
-            // Respect the configured interval between batches.
-            tokio::time::sleep(self.config.catchup_interval).await;
         }
 
         // Fetch missing txlists for non-EOP commitments.
@@ -142,15 +139,5 @@ impl TipCatchup {
         // Validate the response payload.
         rules::validate_txlist_response(&response)?;
         Ok(response.txlist.to_vec())
-    }
-}
-
-#[cfg(test)]
-/// Tests for the catch-up module.
-mod tests {
-    /// Placeholder test to verify module compiles.
-    #[tokio::test]
-    async fn catchup_selects_highest_head() {
-        assert!(true);
     }
 }

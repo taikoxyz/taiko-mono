@@ -1,16 +1,3 @@
-# Preconfirmation Client SDK
-
-This crate provides a minimal SDK for participating in the Taiko preconfirmation P2P network.
-It wraps `preconfirmation-p2p`, performs tip catch-up after normal L2 sync, validates inbound
-messages, and submits ordered preconfirmation inputs to the driver.
-
-Key points:
-- The SDK does **not** call the engine API directly.
-- The driver is notified via `DriverSubmitter::submit_preconfirmation`.
-
-## Minimal usage (no-run)
-
-```rust,no_run
 use async_trait::async_trait;
 use preconfirmation_client::{
     DriverSubmitter, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationInput,
@@ -23,7 +10,7 @@ struct DriverAdapter;
 #[async_trait]
 impl DriverSubmitter for DriverAdapter {
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
-        // TODO: forward the input to the driver for ordered processing.
+        // Forward the input to the driver for ordered processing.
         let _commitment = input.commitment;
         Ok(())
     }
@@ -41,7 +28,7 @@ async fn main() -> Result<()> {
 
     // Provide a signal that completes once L2 sync finishes.
     let sync_done = async move {
-        // TODO: await L2 sync completion.
+        // Await L2 sync completion.
     };
 
     // Run the client after sync in a background task.
@@ -49,7 +36,7 @@ async fn main() -> Result<()> {
 
     // Consume events (example loop).
     while let Ok(event) = events.recv().await {
-        // TODO: handle event notifications.
+        // Handle event notifications.
         let _event = event;
     }
 
@@ -57,4 +44,3 @@ async fn main() -> Result<()> {
     let _ = client_task.await;
     Ok(())
 }
-```
