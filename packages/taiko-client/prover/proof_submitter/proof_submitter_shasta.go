@@ -236,7 +236,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		} else {
 			toBeInsertedID = fromID
 		}
-		log.Info("Debug ID info", "toBeInsertedID", toBeInsertedID)
 		if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
@@ -252,6 +251,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			availableCapacity := proofBuffer.AvailableCapacity()
 			if availableCapacity > 0 {
 				toID := new(big.Int).Add(toBeInsertedID, new(big.Int).SetUint64(availableCapacity-1))
+				log.Info("Debug ID info", "toBeInsertedID", toBeInsertedID, "toID", toID)
 				if proofRangeCached(toBeInsertedID, toID, cacheMap) {
 					if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap); err != nil {
 						return err
