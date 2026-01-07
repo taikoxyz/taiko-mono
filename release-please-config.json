@@ -60,18 +60,6 @@
   ],
   "separate-pull-requests": true,
   "packages": {
-    "packages/blobindexer-rs": {
-      "package-name": "blobindexer-rs",
-      "release-type": "simple",
-      "component": "blobindexer-rs",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "Cargo.toml",
-          "jsonpath": "$.package.version"
-        }
-      ]
-    },
     "packages/bridge-ui": {},
     "packages/docs-site": {},
     "packages/eventindexer": {},
