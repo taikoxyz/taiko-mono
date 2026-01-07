@@ -1185,7 +1185,7 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 			header.Time,
 		),
 		PreconfChainReorged: true,
-		LastBlockID:         blockID.Uint64(),
+		LastBlockID:         blockID.ToInt().Uint64(),
 	})
 }
 
