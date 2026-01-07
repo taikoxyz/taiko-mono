@@ -63,16 +63,11 @@ func startCacheCleanUpAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
-	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
+	flushCacheNotify chan proofProducer.ProofType,
 ) {
 	log.Info("Starting proof cache cleanup and flushing monitors", "monitorInterval", monitorInterval)
 	for proofType, cacheMap := range proofCacheMaps {
-		buffer, ok := proofBuffers[proofType]
-		if !ok {
-			log.Error("Proof buffer for proof type not found", "proofType", proofType)
-			return
-		}
-		go cleanUpStaleCacheAndFlush(ctx, rpc, cacheMap, monitorInterval, buffer)
+		go cleanUpStaleCacheAndFlush(ctx, rpc, cacheMap, monitorInterval, proofType, flushCacheNotify)
 	}
 }
 
@@ -83,7 +78,8 @@ func cleanUpStaleCacheAndFlush(
 	rpc *rpc.Client,
 	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
 	cleanUpInterval time.Duration,
-	buffer *proofProducer.ProofBuffer,
+	proofType proofProducer.ProofType,
+	flushCacheNotify chan proofProducer.ProofType,
 ) {
 	ticker := time.NewTicker(cleanUpInterval)
 	defer ticker.Stop()
@@ -102,23 +98,7 @@ func cleanUpStaleCacheAndFlush(
 			// remove stale cache
 			removeFinalizedProofsFromCache(cacheMap, coreState.LastFinalizedProposalId)
 			// flush cached proofs
-			var fromID *big.Int
-			if buffer.LastInsertID() > 0 {
-				fromID = new(big.Int).SetUint64(buffer.LastInsertID() + 1)
-			} else {
-				fromID = new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
-			}
-			toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
-			if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
-				if !errors.Is(err, ErrCacheNotFound) {
-					log.Error(
-						"Failed to flush proof cache range",
-						"error", err,
-						"fromID", fromID,
-						"toID", toID,
-					)
-				}
-			}
+			flushCacheNotify <- proofType
 		}
 	}
 }
@@ -137,25 +117,6 @@ func removeFinalizedProofsFromCache(
 			cacheMap.Remove(proposalID)
 		}
 	}
-}
-
-// proofRangeCached reports whether every ID in [fromID, toID] exists in the proof cache.
-func proofRangeCached(
-	fromID, toID *big.Int,
-	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
-) bool {
-	if fromID.Cmp(toID) > 0 {
-		return false
-	}
-	currentID := fromID
-	for currentID.Cmp(toID) <= 0 {
-		if _, ok := cacheMap.Get(currentID); !ok {
-			return false
-		}
-		currentID = new(big.Int).Add(currentID, common.Big1)
-	}
-	log.Info("Proof range cache hit", "fromID", fromID, "toID", toID)
-	return true
 }
 
 // flushProofCacheRange drains cached proofs from fromID through toID into the proof buffer.
