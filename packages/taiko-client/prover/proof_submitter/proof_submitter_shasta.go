@@ -230,9 +230,13 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
 		}
 
-		toBeInsertedID := new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
-		if meta.GetProposalID().Cmp(fromID) == 0 ||
-			meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
+		var toBeInsertedID *big.Int
+		if proofBuffer.LastInsertID() > 0 {
+			toBeInsertedID = new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
+		} else {
+			toBeInsertedID = fromID
+		}
+		if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(
@@ -246,7 +250,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			cacheMap.Set(meta.GetProposalID(), proofResponse)
 			availableCapacity := proofBuffer.AvailableCapacity()
 			if availableCapacity > 0 {
-				toID := toBeInsertedID.Add(toBeInsertedID, new(big.Int).SetUint64(availableCapacity-1))
+				toID := new(big.Int).Add(toBeInsertedID, new(big.Int).SetUint64(availableCapacity-1))
 				if proofRangeCached(toBeInsertedID, toID, cacheMap) {
 					if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap); err != nil {
 						return err

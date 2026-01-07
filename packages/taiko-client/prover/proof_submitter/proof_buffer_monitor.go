@@ -102,7 +102,12 @@ func cleanUpStaleCacheAndFlush(
 			// remove stale cache
 			removeFinalizedProofsFromCache(cacheMap, coreState.LastFinalizedProposalId)
 			// flush cached proofs
-			fromID := new(big.Int).SetUint64(buffer.LastInsertID())
+			var fromID *big.Int
+			if buffer.LastInsertID() > 0 {
+				fromID = new(big.Int).SetUint64(buffer.LastInsertID() + 1)
+			} else {
+				fromID = new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
+			}
 			toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
 			if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
 				if !errors.Is(err, ErrCacheNotFound) {
@@ -147,7 +152,7 @@ func proofRangeCached(
 		if _, ok := cacheMap.Get(currentID); !ok {
 			return false
 		}
-		currentID = currentID.Add(currentID, common.Big1)
+		currentID = new(big.Int).Add(currentID, common.Big1)
 	}
 	log.Info("Proof range cache hit", "fromID", fromID, "toID", toID)
 	return true
@@ -182,7 +187,7 @@ func flushProofCacheRange(
 			return err
 		}
 		cacheMap.Remove(currentID)
-		currentID = currentID.Add(currentID, common.Big1)
+		currentID = new(big.Int).Add(currentID, common.Big1)
 	}
 	return nil
 }
