@@ -240,6 +240,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			toBeInsertedID = fromID
 		}
 		if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
+			log.Info("Adding proof into the buffer", "proposalID", meta.GetProposalID())
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(
@@ -252,6 +253,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			// Try to aggregate the proofs in the buffer.
 			s.TryAggregate(proofBuffer, proofResponse.ProofType)
 		} else {
+			log.Info("Adding proof into the cache", "proposalID", meta.GetProposalID())
 			cacheMap.Set(meta.GetProposalID(), proofResponse)
 			s.flushCacheNotify <- proofResponse.ProofType
 		}
