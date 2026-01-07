@@ -243,11 +243,12 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 10, this allows ±10 millionths (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 200, this allows ±200 millionths (±0.02%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Validation process**:
 
 1. **Define bounds**:
+
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
    - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
@@ -329,6 +330,7 @@ The anchor transaction serves as a privileged system transaction responsible for
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
+
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
@@ -356,7 +358,7 @@ The following constants govern the block derivation process:
 | **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                            |
 | **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                              |
 | **TIMESTAMP_MAX_OFFSET**       | `1536` (12 \* 128)            | The maximum number timestamp offset from the proposal origin timestamp. This is set to longer than an epoch to allow the next proposer to recover without causing a reorg. |
-| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                      |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `200`                         | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 200 = 200 / 1,000,000 = 0.02%.                                                     |
 | **MIN_BLOCK_GAS_LIMIT**        | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                          |
 | **MAX_BLOCK_GAS_LIMIT**        | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                           |
 | **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                               |
