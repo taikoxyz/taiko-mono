@@ -62,7 +62,7 @@ func monitorProofBuffer(
 func startCacheCleanUpAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
-	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 ) {
 	log.Info("Starting proof cache cleanup and flushing monitors", "monitorInterval", monitorInterval)
@@ -76,7 +76,7 @@ func startCacheCleanUpAndFlush(
 func cleanUpStaleCacheAndFlush(
 	ctx context.Context,
 	rpc *rpc.Client,
-	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
+	cacheMap cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	cleanUpInterval time.Duration,
 	proofType proofProducer.ProofType,
 	flushCacheNotify chan proofProducer.ProofType,
@@ -105,7 +105,7 @@ func cleanUpStaleCacheAndFlush(
 
 // removeFinalizedProofsFromCache deletes cached proofs whose IDs are finalized already.
 func removeFinalizedProofsFromCache(
-	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
+	cacheMap cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	lastFinalizedProposalID *big.Int,
 ) {
 	if lastFinalizedProposalID == nil {
@@ -113,7 +113,11 @@ func removeFinalizedProofsFromCache(
 	}
 
 	for _, proposalID := range cacheMap.Keys() {
-		if proposalID.Cmp(lastFinalizedProposalID) <= 0 {
+		id, fail := new(big.Int).SetString(proposalID, 10)
+		if fail {
+			return
+		}
+		if id.Cmp(lastFinalizedProposalID) <= 0 {
 			log.Info("Removing finalized proof from cache", "proposalID", proposalID)
 			cacheMap.Remove(proposalID)
 		}
@@ -124,7 +128,7 @@ func removeFinalizedProofsFromCache(
 func flushProofCacheRange(
 	fromID, toID *big.Int,
 	proofBuffer *proofProducer.ProofBuffer,
-	cacheMap cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
+	cacheMap cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 ) error {
 	if proofBuffer == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
@@ -132,7 +136,7 @@ func flushProofCacheRange(
 	log.Info("Flushing proof cache range", "from", fromID, "to", toID)
 	currentID := fromID
 	for currentID.Cmp(toID) <= 0 {
-		cachedProof, ok := cacheMap.Get(currentID)
+		cachedProof, ok := cacheMap.Get(currentID.String())
 		log.Info("Getting cached proof", "id", currentID, "cachedProof", cachedProof, "ok", ok)
 		if !ok {
 			log.Error("cached proof not found for proposal", "proposalID", currentID)

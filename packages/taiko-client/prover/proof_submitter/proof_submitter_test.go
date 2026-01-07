@@ -3,6 +3,7 @@ package submitter
 import (
 	"context"
 	"errors"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"math/big"
 	"testing"
 	"time"
@@ -279,4 +280,12 @@ func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
 	}
 
 	require.True(t, buffer.IsAggregating())
+}
+
+func TestCacheAccess(t *testing.T) {
+	cacheMap := cmap.New[*proofProducer.ProofResponse]()
+	cacheMap.Set("1", &proofProducer.ProofResponse{})
+	value, ok := cacheMap.Get("1")
+	require.True(t, ok)
+	require.NotNil(t, value)
 }

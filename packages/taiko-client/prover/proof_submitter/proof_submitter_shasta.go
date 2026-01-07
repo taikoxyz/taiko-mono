@@ -42,7 +42,7 @@ type ProofSubmitterShasta struct {
 	proverAddress common.Address
 	// Batch proof related
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
-	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse]
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
@@ -61,7 +61,7 @@ func NewProofSubmitterShasta(
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
-	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[*big.Int, *proofProducer.ProofResponse],
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
@@ -255,7 +255,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			s.TryAggregate(proofBuffer, proofResponse.ProofType)
 		} else {
 			log.Info("Adding proof into the cache", "proposalID", meta.GetProposalID())
-			cacheMap.Set(meta.GetProposalID(), proofResponse)
+			cacheMap.Set(meta.GetProposalID().String(), proofResponse)
 			s.flushCacheNotify <- proofResponse.ProofType
 		}
 		log.Info(
