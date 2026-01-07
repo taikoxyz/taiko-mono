@@ -2,10 +2,13 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"math/big"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -149,6 +152,27 @@ func (srv *Server) Health(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+type requestLogEntry struct {
+	Time    string            `json:"time"`
+	Level   string            `json:"level"`
+	Message requestLogMessage `json:"message"`
+}
+
+type requestLogMessage struct {
+	ID             string `json:"id"`
+	RemoteIP       string `json:"remote_ip"`
+	Host           string `json:"host"`
+	Method         string `json:"method"`
+	URI            string `json:"uri"`
+	UserAgent      string `json:"user_agent"`
+	ResponseStatus int    `json:"response_status"`
+	Error          string `json:"error"`
+	Latency        int64  `json:"latency"`
+	LatencyHuman   string `json:"latency_human"`
+	BytesIn        int64  `json:"bytes_in"`
+	BytesOut       int64  `json:"bytes_out"`
+}
+
 func LogSkipper(c echo.Context) bool {
 	switch c.Request().URL.Path {
 	case "/healthz":
@@ -163,13 +187,60 @@ func LogSkipper(c echo.Context) bool {
 func (srv *Server) configureMiddleware(corsOrigins []string) {
 	srv.echo.Use(middleware.RequestID())
 
-	srv.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Skipper: LogSkipper,
-		Format: `{"time":"${time_rfc3339_nano}","level":"INFO","message":{"id":"${id}","remote_ip":"${remote_ip}",` + //nolint:lll
-			`"host":"${host}","method":"${method}","uri":"${uri}","user_agent":"${user_agent}",` + //nolint:lll
-			`"response_status":${status},"error":"${error}","latency":${latency},"latency_human":"${latency_human}",` +
-			`"bytes_in":${bytes_in},"bytes_out":${bytes_out}}}` + "\n",
-		Output: os.Stdout,
+	srv.echo.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		Skipper:          LogSkipper,
+		HandleError:      true,
+		LogRequestID:     true,
+		LogRemoteIP:      true,
+		LogHost:          true,
+		LogMethod:        true,
+		LogURI:           true,
+		LogUserAgent:     true,
+		LogStatus:        true,
+		LogError:         true,
+		LogLatency:       true,
+		LogContentLength: true,
+		LogResponseSize:  true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			bytesIn := int64(0)
+			if v.ContentLength != "" {
+				parsed, err := strconv.ParseInt(v.ContentLength, 10, 64)
+				if err == nil {
+					bytesIn = parsed
+				}
+			}
+
+			errMsg := ""
+			if v.Error != nil {
+				errMsg = v.Error.Error()
+			}
+
+			entry := requestLogEntry{
+				Time:  time.Now().Format(time.RFC3339Nano),
+				Level: "INFO",
+				Message: requestLogMessage{
+					ID:             v.RequestID,
+					RemoteIP:       v.RemoteIP,
+					Host:           v.Host,
+					Method:         v.Method,
+					URI:            v.URI,
+					UserAgent:      v.UserAgent,
+					ResponseStatus: v.Status,
+					Error:          errMsg,
+					Latency:        v.Latency.Nanoseconds(),
+					LatencyHuman:   v.Latency.String(),
+					BytesIn:        bytesIn,
+					BytesOut:       v.ResponseSize,
+				},
+			}
+
+			payload, err := json.Marshal(entry)
+			if err != nil {
+				return err
+			}
+			_, err = os.Stdout.Write(append(payload, '\n'))
+			return err
+		},
 	}))
 
 	srv.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
