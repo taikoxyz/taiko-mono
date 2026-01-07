@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/blobindexer-rs-v0.2.0...blobindexer-rs-v0.3.0) (2026-01-07)
+
+
+### Features
+
+* **taiko-client:** send lastBlockID from inserter to the API, separate pacaya/shasta ([#20667](https://github.com/taikoxyz/taiko-mono/issues/20667)) ([977bffb](https://github.com/taikoxyz/taiko-mono/commit/977bffb2a13c1c8080e5486a70a1fb0de33aa328))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 2 directories with 2 updates ([#20822](https://github.com/taikoxyz/taiko-mono/issues/20822)) ([405b4b5](https://github.com/taikoxyz/taiko-mono/commit/405b4b5c9fc605161d3c469febd1ffa1efa22612))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/blobindexer-rs-v0.1.0...blobindexer-rs-v0.2.0) (2025-11-04)
 
 
