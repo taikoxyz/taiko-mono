@@ -37,13 +37,3 @@ pub use client::PreconfirmationClient;
 pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{DriverSubmitter, PreconfirmationInput};
 pub use error::{PreconfirmationClientError, Result};
-
-#[cfg(test)]
-/// Tests for the crate entry point.
-mod tests {
-    /// Ensures the crate compiles.
-    #[test]
-    fn crate_compiles() {
-        assert!(true);
-    }
-}
