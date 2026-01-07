@@ -463,16 +463,12 @@ impl LookaheadResolver {
                 })
             }
             // Fallback to current epoch whitelist operator.
-            None => {
-                let signer =
-                    self.resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist).await?;
-                Ok(PreconfSlotInfo {
-                    signer,
-                    submission_window_end: U256::from(
-                        next_epoch_start.saturating_sub(SECONDS_IN_SLOT),
-                    ),
-                })
-            }
+            None => Ok(PreconfSlotInfo {
+                signer: self
+                    .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
+                    .await?,
+                submission_window_end: U256::from(next_epoch_start.saturating_sub(SECONDS_IN_SLOT)),
+            }),
         }
     }
 
