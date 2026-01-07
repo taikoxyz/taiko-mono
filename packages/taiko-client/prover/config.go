@@ -117,7 +117,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
 		return nil, errors.New("empty raiko host endpoint")
 	}
-
 	if c.IsSet(flags.RaikoJWTPath.Name) {
 		jwtSecret, err = jwt.ParseSecretFromFile(c.String(flags.RaikoJWTPath.Name))
 		if err != nil {
