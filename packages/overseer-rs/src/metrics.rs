@@ -178,53 +178,58 @@ mod tests {
     fn counter_increment_reflected_in_encode() {
         let metrics = Metrics::new().expect("metrics should construct");
         metrics.inc_blacklist_calls();
-        let text = String::from_utf8(metrics.encode().unwrap()).unwrap();
+        let buffer = metrics.encode().expect("encode should succeed");
+        let text = String::from_utf8(buffer).expect("metrics output must be utf8");
 
         assert!(text.contains("overseer_blacklist_calls_total 1"));
     }
 
     #[tokio::test]
     async fn healthz_route_returns_ok() {
-        let metrics = Arc::new(Metrics::new().unwrap());
+        let metrics = Arc::new(Metrics::new().expect("metrics should construct"));
         let req = Request::builder()
             .uri("/healthz")
             .body(Body::empty())
-            .unwrap();
+            .expect("request should build");
 
         let response = respond(metrics, req)
             .await
             .expect("response should succeed");
         assert_eq!(response.status(), StatusCode::OK);
-        let body = to_bytes(response.into_body()).await.unwrap();
+        let body = to_bytes(response.into_body())
+            .await
+            .expect("body should be readable");
         assert_eq!(body.as_ref(), b"ok");
     }
 
     #[tokio::test]
     async fn metrics_route_returns_scraped_metrics() {
-        let metrics = Arc::new(Metrics::new().unwrap());
+        let metrics = Arc::new(Metrics::new().expect("metrics should construct"));
         metrics.inc_observation_errors();
 
         let req = Request::builder()
             .uri("/metrics")
             .body(Body::empty())
-            .unwrap();
+            .expect("request should build");
         let response = respond(Arc::clone(&metrics), req)
             .await
             .expect("response should succeed");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = to_bytes(response.into_body()).await.unwrap();
-        let text = String::from_utf8(body.to_vec()).unwrap();
+        let body = to_bytes(response.into_body())
+            .await
+            .expect("body should be readable");
+        let text = String::from_utf8(body.to_vec()).expect("body should be utf8");
         assert!(text.contains("overseer_observation_errors_total 1"));
     }
 
     #[tokio::test]
     async fn unknown_route_returns_not_found() {
-        let metrics = Arc::new(Metrics::new().unwrap());
+        let metrics = Arc::new(Metrics::new().expect("metrics should construct"));
         let req = Request::builder()
             .uri("/does-not-exist")
             .body(Body::empty())
-            .unwrap();
+            .expect("request should build");
 
         let response = respond(metrics, req)
             .await

@@ -9,7 +9,7 @@ mod types;
 
 use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use clap::Parser;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -35,7 +35,9 @@ use urc::monitor::db::DataBase as UrcDataBase;
 
 /// CLI entrypoint that wires dependencies and launches the monitor runtime.
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
+    color_eyre::install().expect("Failed to install color_eyre");
+
     init_tracing();
 
     let config_inputs = Config::parse();

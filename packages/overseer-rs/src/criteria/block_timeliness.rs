@@ -129,7 +129,10 @@ mod tests {
         };
 
         let criterion = BlockTimelinessCriterion::new();
-        let result = criterion.evaluate(&ctx).await.unwrap();
+        let result = criterion
+            .evaluate(&ctx)
+            .await
+            .expect("evaluation should succeed");
         assert!(result.is_some());
     }
 
@@ -146,7 +149,10 @@ mod tests {
         };
 
         let criterion = BlockTimelinessCriterion::new();
-        let result = criterion.evaluate(&ctx).await.unwrap();
+        let result = criterion
+            .evaluate(&ctx)
+            .await
+            .expect("evaluation should succeed");
         assert!(result.is_none());
     }
 }

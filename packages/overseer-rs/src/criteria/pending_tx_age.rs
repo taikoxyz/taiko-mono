@@ -124,7 +124,7 @@ mod tests {
         let result = PendingTransactionAgeCriterion::new()
             .evaluate(&ctx)
             .await
-            .unwrap();
+            .expect("evaluation should succeed");
         assert!(result.is_some());
     }
 
@@ -143,7 +143,7 @@ mod tests {
         let result = PendingTransactionAgeCriterion::new()
             .evaluate(&ctx)
             .await
-            .unwrap();
+            .expect("evaluation should succeed");
         assert!(result.is_none());
     }
 }
