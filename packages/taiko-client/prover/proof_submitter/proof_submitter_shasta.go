@@ -164,6 +164,11 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
 		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
 		toID := meta.GetProposalID()
+		log.Info(
+			"Debug ID info",
+			"fromID", fromID,
+			"toID", toID,
+		)
 		if fromID.Cmp(toID) > 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
