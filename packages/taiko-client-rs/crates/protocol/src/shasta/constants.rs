@@ -21,7 +21,7 @@ pub const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
 pub const MAX_BLOCK_GAS_LIMIT: u64 = 45_000_000;
 
 /// The maximum block gas limit change per block, expressed in millionths.
-pub const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 10;
+pub const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 200;
 
 /// Denominator (parts per million) used when clamping gas limits (10 ppm = 0.001%).
 pub const GAS_LIMIT_DENOMINATOR: u64 = 1_000_000;

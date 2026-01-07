@@ -17,9 +17,9 @@ const (
 	TimestampMaxOffset = 12 * 128
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number.
 	AnchorMaxOffset = 128
-	// MaxBlockGasLimitChangePermyriad The maximum block gas limit change per block,
+	// MaxBlockGasLimitMaxChange The maximum block gas limit change per block,
 	// expressed in millionths (1/1,000,000).
-	MaxBlockGasLimitChangePermyriad = 10 // 0.001%
+	MaxBlockGasLimitMaxChange = 200 // 0.02%
 	// GasLimitChangeDenominator Denominator used when clamping gas limits (parts per million).
 	GasLimitChangeDenominator = 1_000_000
 	// MinBlockGasLimit The minimum block gas limit.
