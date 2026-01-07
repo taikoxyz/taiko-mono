@@ -13,6 +13,7 @@ use preconfirmation_types::{
     RawTxListGossip, SignedCommitment, b256_to_bytes32, bytes32_to_b256, uint256_to_u256,
 };
 use tokio::sync::{RwLock, broadcast};
+use tracing::debug;
 
 use crate::{
     codec::TxListCodec,
@@ -20,7 +21,7 @@ use crate::{
     error::{PreconfirmationClientError, Result},
     state::PreconfirmationState,
     storage::{CommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
-    validation::rules,
+    validation::rules::{self, validate_commitment_basic, validate_parent_linkage, validate_txlist_gossip},
 };
 
 /// Events emitted by the preconfirmation client.
@@ -132,8 +133,9 @@ where
                 // Emit an error event for observers.
                 let _ = self.event_tx.send(PreconfirmationEvent::Error(err.to_string()));
             }
-            _ => {
-                // Ignore other events for now.
+            other => {
+                // Log unhandled events for observability.
+                debug!(event = ?other, "unhandled network event");
             }
         }
         Ok(())
@@ -163,42 +165,41 @@ where
         let mut queue = vec![commitment];
 
         while let Some(commitment) = queue.pop() {
-            // Validate the commitment with basic rules.
-            rules::validate_commitment_basic(&commitment, self.expected_slasher.as_ref())?;
-
             // Extract the parent hash for linkage checks.
             let parent_hash =
                 bytes32_to_b256(&commitment.commitment.preconf.parent_preconfirmation_hash);
+            // Ignore genesis commitments.
+            if parent_hash == B256::ZERO {
+                debug!("ignoring genesis commitment");
+                continue;
+            }
 
-            // Treat a zero parent hash as genesis.
-            let is_genesis = parent_hash == B256::ZERO;
+            // Validate the commitment with basic rules.
+            validate_commitment_basic(&commitment, self.expected_slasher.as_ref())?;
 
-            if !is_genesis {
-                // Extract the current block number for sequencing.
-                let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
-                // Derive the expected parent block number.
-                let expected_parent = current_block.saturating_sub(U256::from(1u64));
-                // Fetch the parent commitment if available.
-                let parent = self.store.get_commitment(&expected_parent);
-                // Proceed when the parent commitment is present.
-                if let Some(parent) = parent {
-                    // Validate parent linkage using the parent preconfirmation.
-                    rules::validate_parent_linkage(&commitment, &parent.commitment.preconf)?;
-                    // Extract the parent block number for sequential checks.
-                    let parent_block = uint256_to_u256(&parent.commitment.preconf.block_number);
-                    if current_block != parent_block + U256::from(1u64) {
-                        return Err(PreconfirmationClientError::Validation(
-                            "block number not sequential".to_string(),
-                        ));
-                    }
-                } else {
-                    // Clone the parent hash before moving the commitment.
-                    let parent_hash =
-                        commitment.commitment.preconf.parent_preconfirmation_hash.clone();
-                    // Buffer this commitment until the parent arrives.
-                    self.pending_parents.add(&parent_hash, commitment);
-                    continue;
+            // Extract the current block number for sequencing.
+            let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+            // Derive the expected parent block number.
+            let expected_parent = current_block.saturating_sub(U256::ONE);
+            // Fetch the parent commitment if available.
+            let parent = self.store.get_commitment(&expected_parent);
+            // Proceed when the parent commitment is present.
+            if let Some(parent) = parent {
+                // Validate parent linkage using the parent preconfirmation.
+                validate_parent_linkage(&commitment, &parent.commitment.preconf)?;
+                // Extract the parent block number for sequential checks.
+                let parent_block = uint256_to_u256(&parent.commitment.preconf.block_number);
+                if current_block != parent_block + U256::ONE {
+                    return Err(PreconfirmationClientError::Validation(
+                        "block number not sequential".to_string(),
+                    ));
                 }
+            } else {
+                // Clone the parent hash before moving the commitment.
+                let parent_hash = commitment.commitment.preconf.parent_preconfirmation_hash.clone();
+                // Buffer this commitment until the parent arrives.
+                self.pending_parents.add(&parent_hash, commitment);
+                continue;
             }
 
             // Store the validated commitment.
@@ -232,7 +233,7 @@ where
     /// Handle an incoming txlist.
     async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
         // Validate the txlist payload.
-        rules::validate_txlist_gossip(&txlist)?;
+        validate_txlist_gossip(&txlist)?;
         // Extract the txlist hash for indexing.
         let hash = bytes32_to_b256(&txlist.raw_tx_list_hash);
         // Store the txlist for later use.
@@ -298,5 +299,86 @@ where
             .await
             .map_err(|err| PreconfirmationClientError::DriverSubmit(err.to_string()))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+    use async_trait::async_trait;
+    use tokio::sync::{RwLock, broadcast};
+
+    use super::{EventHandler, EventHandlerDeps};
+    use crate::{
+        codec::ZlibTxListCodec,
+        driver_interface::{DriverSubmitter, PreconfirmationInput},
+        error::Result,
+        state::PreconfirmationState,
+        storage::{CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
+    };
+    use preconfirmation_types::{PreconfCommitment, Preconfirmation, SignedCommitment, MAX_TXLIST_BYTES};
+
+    /// Test driver that records submit calls.
+    struct TestDriver {
+        /// Count of submitted preconfirmation inputs.
+        submissions: AtomicUsize,
+    }
+
+    impl TestDriver {
+        /// Create a new test driver with zero submissions.
+        fn new() -> Self {
+            Self { submissions: AtomicUsize::new(0) }
+        }
+
+        /// Fetch the current submission count.
+        fn submissions(&self) -> usize {
+            self.submissions.load(Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait]
+    impl DriverSubmitter for TestDriver {
+        /// Record that a preconfirmation input was submitted.
+        async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> Result<()> {
+            self.submissions.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    /// Genesis commitments are ignored and do not update state or storage.
+    #[tokio::test]
+    async fn genesis_commitment_is_ignored() {
+        // Build shared state and dependencies for the handler.
+        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
+        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let (event_tx, _event_rx) = broadcast::channel(16);
+
+        let handler = EventHandler::new(EventHandlerDeps {
+            state,
+            store: store.clone(),
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver: driver.clone(),
+            expected_slasher: None,
+            event_tx,
+        });
+
+        // Build a commitment with a zero parent hash (genesis).
+        let preconf = Preconfirmation::default();
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment { preconf, ..Default::default() },
+            ..Default::default()
+        };
+
+        // Process the commitment and expect it to be ignored.
+        handler.handle_commitment(commitment).await.expect("genesis ignored");
+        assert!(store.latest_commitment().is_none());
+        assert_eq!(driver.submissions(), 0);
     }
 }
