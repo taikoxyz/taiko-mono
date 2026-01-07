@@ -113,7 +113,8 @@ func removeFinalizedProofsFromCache(
 	}
 
 	for _, proposalID := range cacheMap.Keys() {
-		if proposalID.Cmp(lastFinalizedProposalID) < 0 {
+		if proposalID.Cmp(lastFinalizedProposalID) <= 0 {
+			log.Info("Removing finalized proof from cache", "proposalID", proposalID)
 			cacheMap.Remove(proposalID)
 		}
 	}
