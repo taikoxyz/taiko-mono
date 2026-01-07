@@ -17,6 +17,7 @@ use tokio::sync::broadcast;
 use tracing::warn;
 
 use crate::preconfirmation::lookahead::{
+    PreconfSlotInfo,
     client::LookaheadClient,
     resolver::{BlockReader, LookaheadStoreClient, WhitelistClient},
 };
@@ -29,7 +30,7 @@ use super::{
         error::{LookaheadError, Result},
     },
     epoch::{
-        MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, earliest_allowed_timestamp,
+        MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, SECONDS_IN_SLOT, earliest_allowed_timestamp,
         earliest_allowed_timestamp_at, epoch_start_for, genesis_timestamp_for_chain,
         latest_allowed_timestamp_at,
     },
@@ -362,7 +363,8 @@ impl LookaheadResolver {
             .map(|block| block.header.timestamp)
     }
 
-    /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
+    /// Resolve the expected signer plus submission window end for a given L1 timestamp
+    /// (seconds since epoch).
     ///
     /// Resolution rules (parity with `LookaheadStore._determineProposerContext`) without runtime
     /// network I/O, evaluating blacklist state at the queried timestamp:
@@ -374,11 +376,12 @@ impl LookaheadResolver {
     ///   is still ahead of `ts`, use that first slot (`_handleCrossEpochProposer`); otherwise fall
     ///   back to the cached current-epoch whitelist.
     /// - If the chosen slot was blacklisted at the queried timestamp (tracked via historical
-    ///   events), fall back to the cached current-epoch whitelist.
+    ///   events), fall back to the cached current-epoch whitelist but preserve the slot timestamp
+    ///   as the submission window end.
     /// - Timestamps earlier than `earliest_allowed_timestamp` (one full epoch behind "now") are
     ///   rejected as `TooOld`; timestamps at or beyond `latest_allowed_timestamp` (end of the
     ///   current epoch) are rejected as `TooNew`.
-    pub async fn committer_for_timestamp(&self, timestamp: U256) -> Result<Address> {
+    pub async fn slot_info_for_timestamp(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
         // Convert timestamp to u64 and check genesis boundary.
         let ts = u64::try_from(timestamp)
             .map_err(|_| LookaheadError::EventDecode("timestamp does not fit u64".into()))?;
@@ -428,11 +431,15 @@ impl LookaheadResolver {
                 let slot = &curr_epoch.slots[idx];
                 // Check blacklist status.
                 if self.was_blacklisted_at(slot.registrationRoot, ts) {
-                    return self
+                    let signer = self
                         .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
-                        .await;
+                        .await?;
+                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
                 }
-                Ok(slot.committer)
+                Ok(PreconfSlotInfo {
+                    signer: slot.committer,
+                    submission_window_end: slot.timestamp,
+                })
             }
             // Select from next epoch slots.
             Some(SlotOrigin::Next(idx)) => {
@@ -445,15 +452,29 @@ impl LookaheadResolver {
                     })?;
                 // Check blacklist status.
                 if self.was_blacklisted_at(slot.registrationRoot, ts) {
-                    return self
+                    let signer = self
                         .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
-                        .await;
+                        .await?;
+                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
                 }
-                Ok(slot.committer)
+                Ok(PreconfSlotInfo {
+                    signer: slot.committer,
+                    submission_window_end: slot.timestamp,
+                })
             }
             // Fallback to current epoch whitelist operator.
-            None => self.resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist).await,
+            None => Ok(PreconfSlotInfo {
+                signer: self
+                    .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
+                    .await?,
+                submission_window_end: U256::from(next_epoch_start.saturating_sub(SECONDS_IN_SLOT)),
+            }),
         }
+    }
+
+    /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
+    pub async fn committer_for_timestamp(&self, timestamp: U256) -> Result<Address> {
+        Ok(self.slot_info_for_timestamp(timestamp).await?.signer)
     }
 
     /// Return whether the operator registration root was blacklisted at the provided timestamp.
@@ -571,6 +592,11 @@ impl PreconfSignerResolver for LookaheadResolver {
     /// Return the address allowed to sign the commitment covering `l2_block_timestamp`.
     async fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address> {
         self.committer_for_timestamp(l2_block_timestamp).await
+    }
+
+    /// Return the signer plus canonical submission window end for `l2_block_timestamp`.
+    async fn slot_info_for_timestamp(&self, l2_block_timestamp: U256) -> Result<PreconfSlotInfo> {
+        LookaheadResolver::slot_info_for_timestamp(self, l2_block_timestamp).await
     }
 }
 
@@ -973,6 +999,153 @@ mod tests {
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(result, fallback);
+        });
+    }
+
+    #[test]
+    fn slot_info_same_epoch_returns_slot_timestamp() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            let epoch_start = epoch_start_for(now, 0);
+            let slot_ts = now;
+            let committer = Address::from([0xaa; 20]);
+            let slot = BindingLookaheadSlot {
+                timestamp: U256::from(slot_ts),
+                committer,
+                registrationRoot: B256::ZERO,
+                validatorLeafIndex: U256::ZERO,
+            };
+            let cached = CachedLookaheadEpoch {
+                slots: Arc::new(vec![slot]),
+                fallback_whitelist: Address::from([0xbb; 20]),
+                block_timestamp: epoch_start,
+            };
+            let cache = DashMap::new();
+            cache.insert(epoch_start, cached);
+
+            let latest_block = make_block(101, now);
+            let blocks = DashMap::new();
+            blocks.insert(101, latest_block.clone());
+
+            let resolver = test_resolver_with_cache(
+                cache,
+                FallbackTimelineStore::new(),
+                DashMap::new(),
+                2,
+                0,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: Address::from([0xcc; 20]),
+                    next: Address::from([0xdd; 20]),
+                    addr: Address::from([0x12; 20]),
+                },
+                FakeStore { addr: Address::from([0x56; 20]) },
+            );
+
+            let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
+            assert_eq!(info.signer, committer);
+            assert_eq!(info.submission_window_end, U256::from(slot_ts));
+        });
+    }
+
+    #[test]
+    fn slot_info_fallback_empty_epoch_returns_epoch_end_minus_slot() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            let epoch_start = epoch_start_for(now, 0);
+            let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
+            let fallback = Address::from([0xef; 20]);
+            let cached = CachedLookaheadEpoch {
+                slots: Arc::new(vec![]),
+                fallback_whitelist: fallback,
+                block_timestamp: epoch_start,
+            };
+            let cache = DashMap::new();
+            cache.insert(epoch_start, cached);
+
+            let latest_block = make_block(202, now);
+            let blocks = DashMap::new();
+            blocks.insert(202, latest_block.clone());
+
+            let resolver = test_resolver_with_cache(
+                cache,
+                FallbackTimelineStore::new(),
+                DashMap::new(),
+                2,
+                0,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: fallback,
+                    next: fallback,
+                    addr: Address::from([0x9a; 20]),
+                },
+                FakeStore { addr: Address::from([0x56; 20]) },
+            );
+
+            let info = resolver.slot_info_for_timestamp(U256::from(now)).await.unwrap();
+            assert_eq!(info.signer, fallback);
+            assert_eq!(
+                info.submission_window_end,
+                U256::from(next_epoch_start.saturating_sub(SECONDS_IN_SLOT))
+            );
+        });
+    }
+
+    #[test]
+    fn slot_info_blacklisted_keeps_window_end_but_falls_back_signer() {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let now = current_unix_timestamp().unwrap();
+            let epoch_start = epoch_start_for(now, 0);
+            let slot_ts = now;
+            let committer = Address::from([0xaa; 20]);
+            let root = B256::from([1u8; 32]);
+            let slot = BindingLookaheadSlot {
+                timestamp: U256::from(slot_ts),
+                committer,
+                registrationRoot: root,
+                validatorLeafIndex: U256::ZERO,
+            };
+            let fallback = Address::from([0xee; 20]);
+            let cached = CachedLookaheadEpoch {
+                slots: Arc::new(vec![slot]),
+                fallback_whitelist: fallback,
+                block_timestamp: epoch_start,
+            };
+            let cache = DashMap::new();
+            cache.insert(epoch_start, cached);
+
+            let latest_block = make_block(303, now);
+            let blocks = DashMap::new();
+
+            let mut bl = BlacklistTimeline::default();
+            bl.apply(BlacklistEvent { at: slot_ts, flag: BlacklistFlag::Listed });
+            let blacklist_history = {
+                let map = DashMap::new();
+                map.insert(root, bl);
+                map
+            };
+
+            let resolver = test_resolver_with_cache(
+                cache,
+                FallbackTimelineStore::new(),
+                blacklist_history,
+                2,
+                0,
+                FakeBlockReader { latest: latest_block, blocks },
+                FakeWhitelist {
+                    current: fallback,
+                    next: fallback,
+                    addr: Address::from([0x9a; 20]),
+                },
+                FakeStore { addr: Address::from([0x56; 20]) },
+            );
+
+            let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
+            assert_eq!(info.signer, fallback);
+            assert_eq!(info.submission_window_end, U256::from(slot_ts));
         });
     }
 
