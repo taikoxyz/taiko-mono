@@ -2,6 +2,7 @@ package submitter
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -551,7 +552,11 @@ func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofPr
 	if !exist {
 		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
 	}
-	log.Info("Receiving flush cache signal", "type", proofType, "cacheLength", cacheMap.Count())
+	jsonValue, err := json.Marshal(cacheMap)
+	if err != nil {
+		return err
+	}
+	log.Info("Receiving flush cache signal", "jsonValue", string(jsonValue))
 	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
@@ -564,6 +569,7 @@ func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofPr
 	}
 	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
 	if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
+		log.Info("Error info", "ErrCacheNotFound", errors.Is(err, ErrCacheNotFound))
 		if !errors.Is(err, ErrCacheNotFound) {
 			log.Error(
 				"Failed to flush proof cache range",
