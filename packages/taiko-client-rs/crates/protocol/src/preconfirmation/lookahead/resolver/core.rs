@@ -596,7 +596,7 @@ impl PreconfSignerResolver for LookaheadResolver {
 
     /// Return the signer plus canonical submission window end for `l2_block_timestamp`.
     async fn slot_info_for_timestamp(&self, l2_block_timestamp: U256) -> Result<PreconfSlotInfo> {
-        self.slot_info_for_timestamp(l2_block_timestamp).await
+        LookaheadResolver::slot_info_for_timestamp(self, l2_block_timestamp).await
     }
 }
 
