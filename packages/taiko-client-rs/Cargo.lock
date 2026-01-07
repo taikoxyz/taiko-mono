@@ -7165,13 +7165,17 @@ name = "preconfirmation-client"
 version = "2.0.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-provider",
  "alloy-rlp",
+ "alloy-transport",
  "async-trait",
  "dashmap 6.1.0",
  "flate2",
  "preconfirmation-net",
  "preconfirmation-types",
+ "protocol",
  "rand 0.8.5",
+ "secp256k1 0.30.0",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",

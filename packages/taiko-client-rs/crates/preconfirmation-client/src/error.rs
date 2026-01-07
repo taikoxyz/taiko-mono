@@ -32,12 +32,22 @@ pub enum PreconfirmationClientError {
     /// Parent commitment is missing; the commitment should be buffered.
     #[error("parent commitment missing: {0}")]
     ParentMissing(String),
+    /// Lookahead resolver initialization failed.
+    #[error("lookahead error: {0}")]
+    Lookahead(String),
 }
 
 impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {
     /// Convert a network error from the P2P layer.
     fn from(err: preconfirmation_net::NetworkError) -> Self {
         PreconfirmationClientError::Network(err.to_string())
+    }
+}
+
+impl From<protocol::preconfirmation::LookaheadError> for PreconfirmationClientError {
+    /// Convert a lookahead resolver error into an SDK error.
+    fn from(err: protocol::preconfirmation::LookaheadError) -> Self {
+        PreconfirmationClientError::Lookahead(err.to_string())
     }
 }
 

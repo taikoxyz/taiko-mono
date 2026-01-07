@@ -2,12 +2,16 @@
 
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
-    sync::Arc,
     time::Duration,
 };
 
-use preconfirmation_net::{LookaheadResolver, P2pConfig};
+use alloy_primitives::Address;
+use alloy_provider::Provider;
+use preconfirmation_net::P2pConfig;
 use preconfirmation_types::Bytes20;
+use protocol::preconfirmation::LookaheadResolver;
+
+use crate::Result;
 
 /// Configuration for the preconfirmation client SDK.
 #[derive(Clone)]
@@ -20,8 +24,8 @@ pub struct PreconfirmationClientConfig {
     pub request_timeout: Duration,
     /// Maximum number of commitments requested per catch-up batch.
     pub catchup_batch_size: u32,
-    /// Optional lookahead resolver used for signer/slot validation.
-    pub lookahead_resolver: Option<Arc<dyn LookaheadResolver>>,
+    /// Lookahead resolver used for signer/slot validation.
+    pub lookahead_resolver: LookaheadResolver,
 }
 
 impl Debug for PreconfirmationClientConfig {
@@ -32,34 +36,48 @@ impl Debug for PreconfirmationClientConfig {
             .field("expected_slasher", &self.expected_slasher)
             .field("request_timeout", &self.request_timeout)
             .field("catchup_batch_size", &self.catchup_batch_size)
-            .field("lookahead_resolver", &self.lookahead_resolver.is_some())
+            .field("lookahead_resolver", &"<LookaheadResolver>")
             .finish()
     }
 }
 
-impl Default for PreconfirmationClientConfig {
-    /// Builds a default configuration suitable for local development.
-    fn default() -> Self {
-        // Start from the network defaults to keep P2P settings consistent.
-        let p2p = P2pConfig::default();
-        Self {
+impl PreconfirmationClientConfig {
+    /// Build a configuration by resolving lookahead state from the Inbox and provider.
+    pub async fn new<P>(p2p: P2pConfig, inbox_address: Address, provider: P) -> Result<Self>
+    where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        let lookahead_resolver = LookaheadResolver::build(inbox_address, provider).await?;
+        Ok(Self {
             p2p,
             expected_slasher: None,
             request_timeout: Duration::from_secs(10),
             catchup_batch_size: 64,
-            lookahead_resolver: None,
-        }
+            lookahead_resolver,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use alloy_primitives::Address;
+    use alloy_provider::ProviderBuilder;
+    use alloy_transport::mock::Asserter;
+    use preconfirmation_net::P2pConfig;
+
     use super::PreconfirmationClientConfig;
 
-    #[test]
-    fn default_config_has_catchup_batch() {
-        // Build a default config for the assertion.
-        let cfg = PreconfirmationClientConfig::default();
-        assert!(cfg.catchup_batch_size > 0);
+    /// Config constructor surfaces provider failures.
+    #[tokio::test]
+    async fn config_new_reports_provider_failure() {
+        // Prepare a mocked provider that fails the first request.
+        let asserter = Asserter::new();
+        asserter.push_failure_msg("chain id failure");
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+
+        let result =
+            PreconfirmationClientConfig::new(P2pConfig::default(), Address::ZERO, provider).await;
+
+        assert!(result.is_err());
     }
 }

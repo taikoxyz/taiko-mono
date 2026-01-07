@@ -12,7 +12,9 @@ use tokio::sync::{RwLock, broadcast};
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 
-use preconfirmation_net::{NetworkCommand, P2pHandle, P2pNode};
+use preconfirmation_net::{
+    LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, ValidationAdapter,
+};
 use preconfirmation_types::MAX_TXLIST_BYTES;
 
 use crate::{
@@ -27,7 +29,6 @@ use crate::{
     },
     subscription::{EventHandler, EventHandlerDeps, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
-    validation::build_network_validator,
 };
 
 /// The main preconfirmation client.
@@ -81,10 +82,8 @@ where
         // Build the txlist codec using the protocol constant.
         let codec: Arc<dyn TxListCodec> = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.
-        let validator = build_network_validator(
-            config.expected_slasher.clone(),
-            config.lookahead_resolver.clone(),
-        );
+        let validator: Box<dyn ValidationAdapter> =
+            Box::new(LocalValidationAdapter::new(config.expected_slasher.clone()));
         // Create the P2P handle and node.
         let (handle, node) = P2pNode::new(config.p2p.clone(), validator)
             .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
@@ -164,6 +163,7 @@ where
             driver: self.driver.clone(),
             expected_slasher: self.config.expected_slasher.clone(),
             event_tx: self.event_tx.clone(),
+            lookahead_resolver: Arc::new(self.config.lookahead_resolver.clone()),
         };
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(deps);

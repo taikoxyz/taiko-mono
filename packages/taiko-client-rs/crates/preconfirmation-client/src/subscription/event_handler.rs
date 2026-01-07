@@ -4,6 +4,7 @@
 //! - Gossip commitments and txlists
 //! - Peer connections/disconnections
 //! - Driver submission for validated inputs
+//! - Lookahead validation for signer and submission window
 
 use std::sync::Arc;
 
@@ -12,8 +13,9 @@ use preconfirmation_net::NetworkEvent;
 use preconfirmation_types::{
     RawTxListGossip, SignedCommitment, b256_to_bytes32, bytes32_to_b256, uint256_to_u256,
 };
+use protocol::preconfirmation::PreconfSignerResolver;
 use tokio::sync::{RwLock, broadcast};
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
     codec::TxListCodec,
@@ -21,7 +23,10 @@ use crate::{
     error::{PreconfirmationClientError, Result},
     state::PreconfirmationState,
     storage::{CommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
-    validation::rules::{self, validate_commitment_basic, validate_parent_linkage, validate_txlist_gossip},
+    validation::rules::{
+        self, validate_commitment_basic_with_signer, validate_lookahead, validate_parent_linkage,
+        validate_txlist_gossip,
+    },
 };
 
 /// Events emitted by the preconfirmation client.
@@ -62,12 +67,15 @@ where
     pub expected_slasher: Option<preconfirmation_types::Bytes20>,
     /// Broadcast channel for outbound events.
     pub event_tx: broadcast::Sender<PreconfirmationEvent>,
+    /// Lookahead resolver for signer and submission window validation.
+    pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
 
 /// Handler for processing P2P network events.
 ///
 /// This component validates incoming gossip messages, stores commitments and txlists,
-/// and submits preconfirmation inputs to the driver.
+/// and submits preconfirmation inputs to the driver. It also validates commitments
+/// against the lookahead resolver to ensure the correct signer and submission window.
 pub struct EventHandler<D>
 where
     D: DriverSubmitter,
@@ -88,13 +96,15 @@ where
     expected_slasher: Option<preconfirmation_types::Bytes20>,
     /// Broadcast channel for outbound events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
+    /// Lookahead resolver for signer and submission window validation.
+    lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
 
 impl<D> EventHandler<D>
 where
     D: DriverSubmitter,
 {
-    /// Create a new event handler.
+    /// Create a new event handler with the required dependencies.
     pub fn new(deps: EventHandlerDeps<D>) -> Self {
         Self {
             state: deps.state,
@@ -105,6 +115,7 @@ where
             driver: deps.driver,
             expected_slasher: deps.expected_slasher,
             event_tx: deps.event_tx,
+            lookahead_resolver: deps.lookahead_resolver,
         }
     }
 
@@ -160,6 +171,12 @@ where
     }
 
     /// Handle an incoming commitment.
+    ///
+    /// This method validates the commitment through multiple stages:
+    /// 1. Basic validation (signature, format, slasher address)
+    /// 2. Lookahead validation (signer and submission_window_end)
+    /// 3. Parent linkage validation
+    /// 4. Block number sequencing validation
     pub async fn handle_commitment(&self, commitment: SignedCommitment) -> Result<()> {
         // Initialize a queue for commitment processing.
         let mut queue = vec![commitment];
@@ -174,8 +191,37 @@ where
                 continue;
             }
 
-            // Validate the commitment with basic rules.
-            validate_commitment_basic(&commitment, self.expected_slasher.as_ref())?;
+            // Validate the commitment with basic rules (signature, format, slasher).
+            let recovered_signer = match validate_commitment_basic_with_signer(
+                &commitment,
+                self.expected_slasher.as_ref(),
+            ) {
+                Ok(signer) => signer,
+                Err(err) => {
+                    warn!(error = %err, "dropping invalid commitment");
+                    continue;
+                }
+            };
+
+            // Get the commitment timestamp for lookahead lookup.
+            let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
+
+            // Query the lookahead resolver for the expected slot info.
+            let expected_slot_info =
+                match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
+                    Ok(info) => info,
+                    Err(err) => {
+                        warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
+                        continue;
+                    }
+                };
+
+            // Validate the signer and submission_window_end against lookahead expectations.
+            if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info)
+            {
+                warn!(error = %err, "dropping commitment with invalid lookahead");
+                continue;
+            }
 
             // Extract the current block number for sequencing.
             let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
@@ -186,13 +232,20 @@ where
             // Proceed when the parent commitment is present.
             if let Some(parent) = parent {
                 // Validate parent linkage using the parent preconfirmation.
-                validate_parent_linkage(&commitment, &parent.commitment.preconf)?;
+                if let Err(err) = validate_parent_linkage(&commitment, &parent.commitment.preconf) {
+                    warn!(error = %err, "dropping commitment with invalid parent linkage");
+                    continue;
+                }
                 // Extract the parent block number for sequential checks.
                 let parent_block = uint256_to_u256(&parent.commitment.preconf.block_number);
-                if current_block != parent_block + U256::ONE {
-                    return Err(PreconfirmationClientError::Validation(
-                        "block number not sequential".to_string(),
-                    ));
+                let expected_block = parent_block + U256::ONE;
+                if current_block != expected_block {
+                    warn!(
+                        current = %current_block,
+                        expected = %expected_block,
+                        "dropping commitment with non-sequential block number"
+                    );
+                    continue;
                 }
             } else {
                 // Clone the parent hash before moving the commitment.
@@ -233,7 +286,10 @@ where
     /// Handle an incoming txlist.
     async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
         // Validate the txlist payload.
-        validate_txlist_gossip(&txlist)?;
+        if let Err(err) = validate_txlist_gossip(&txlist) {
+            warn!(error = %err, "dropping invalid txlist gossip");
+            return Ok(());
+        }
         // Extract the txlist hash for indexing.
         let hash = bytes32_to_b256(&txlist.raw_tx_list_hash);
         // Store the txlist for later use.
@@ -304,9 +360,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
 
+    use alloy_primitives::{Address, U256};
     use async_trait::async_trait;
+    use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
+    use secp256k1::SecretKey;
     use tokio::sync::{RwLock, broadcast};
 
     use super::{EventHandler, EventHandlerDeps};
@@ -315,9 +377,14 @@ mod tests {
         driver_interface::{DriverSubmitter, PreconfirmationInput},
         error::Result,
         state::PreconfirmationState,
-        storage::{CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
+        storage::{
+            CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer,
+        },
     };
-    use preconfirmation_types::{PreconfCommitment, Preconfirmation, SignedCommitment, MAX_TXLIST_BYTES};
+    use preconfirmation_types::{
+        Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
+        sign_commitment,
+    };
 
     /// Test driver that records submit calls.
     struct TestDriver {
@@ -346,6 +413,69 @@ mod tests {
         }
     }
 
+    /// Build a signed commitment for tests.
+    fn build_signed_commitment(
+        sk: &SecretKey,
+        block_number: u64,
+        parent_hash: Bytes32,
+        timestamp: u64,
+        submission_window_end: u64,
+    ) -> SignedCommitment {
+        // Build a minimal preconfirmation payload.
+        let preconf = Preconfirmation {
+            eop: true,
+            block_number: Uint256::from(block_number),
+            timestamp: Uint256::from(timestamp),
+            submission_window_end: Uint256::from(submission_window_end),
+            parent_preconfirmation_hash: parent_hash,
+            ..Default::default()
+        };
+        // Build the commitment and sign it.
+        let commitment = PreconfCommitment { preconf, ..Default::default() };
+        let signature = sign_commitment(&commitment, sk).expect("sign commitment");
+        SignedCommitment { commitment, signature }
+    }
+
+    /// Mock lookahead resolver for testing.
+    struct MockResolver;
+
+    #[async_trait]
+    impl PreconfSignerResolver for MockResolver {
+        async fn signer_for_timestamp(
+            &self,
+            _l2_block_timestamp: U256,
+        ) -> protocol::preconfirmation::Result<Address> {
+            Ok(Address::ZERO)
+        }
+
+        async fn slot_info_for_timestamp(
+            &self,
+            _l2_block_timestamp: U256,
+        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
+            Ok(PreconfSlotInfo { signer: Address::ZERO, submission_window_end: U256::ZERO })
+        }
+    }
+
+    /// Resolver that intentionally mismatches lookahead expectations.
+    struct MismatchResolver;
+
+    #[async_trait]
+    impl PreconfSignerResolver for MismatchResolver {
+        async fn signer_for_timestamp(
+            &self,
+            _l2_block_timestamp: U256,
+        ) -> protocol::preconfirmation::Result<Address> {
+            Ok(Address::ZERO)
+        }
+
+        async fn slot_info_for_timestamp(
+            &self,
+            _l2_block_timestamp: U256,
+        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
+            Ok(PreconfSlotInfo { signer: Address::ZERO, submission_window_end: U256::ZERO })
+        }
+    }
+
     /// Genesis commitments are ignored and do not update state or storage.
     #[tokio::test]
     async fn genesis_commitment_is_ignored() {
@@ -356,6 +486,7 @@ mod tests {
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
 
         let handler = EventHandler::new(EventHandlerDeps {
@@ -367,6 +498,7 @@ mod tests {
             driver: driver.clone(),
             expected_slasher: None,
             event_tx,
+            lookahead_resolver,
         });
 
         // Build a commitment with a zero parent hash (genesis).
@@ -380,5 +512,40 @@ mod tests {
         handler.handle_commitment(commitment).await.expect("genesis ignored");
         assert!(store.latest_commitment().is_none());
         assert_eq!(driver.submissions(), 0);
+    }
+
+    /// Invalid lookahead data drops the commitment without aborting the handler.
+    #[tokio::test]
+    async fn invalid_lookahead_does_not_abort() {
+        // Build shared state and dependencies for the handler.
+        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
+        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MismatchResolver);
+        let (event_tx, _event_rx) = broadcast::channel(16);
+
+        let handler = EventHandler::new(EventHandlerDeps {
+            state,
+            store: store.clone(),
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver,
+            expected_slasher: None,
+            event_tx,
+            lookahead_resolver,
+        });
+
+        // Build a signed commitment with a non-zero parent hash.
+        let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
+        let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
+        let commitment = build_signed_commitment(&sk, 2, parent_hash, 100, 200);
+
+        // Process the commitment and expect it to be dropped without error.
+        assert!(handler.handle_commitment(commitment).await.is_ok());
+        assert!(store.latest_commitment().is_none());
     }
 }

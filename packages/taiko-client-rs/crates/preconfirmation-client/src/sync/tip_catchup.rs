@@ -85,14 +85,10 @@ impl TipCatchup {
                 break;
             }
 
-            // Store and accumulate commitments.
+            // Accumulate commitments for validation by the event handler.
             for commitment in response.commitments.iter() {
-                // Clone the commitment for storage and output.
-                let commitment = commitment.clone();
-                // Store the commitment.
-                self.store.insert_commitment(commitment.clone());
-                // Push into the output list.
-                fetched.push(commitment);
+                // Clone the commitment for output.
+                fetched.push(commitment.clone());
             }
 
             // Advance the current block number by the number fetched.
@@ -123,9 +119,6 @@ impl TipCatchup {
             // Store the txlist by hash.
             self.store.insert_txlist(bytes32_to_b256(&gossip.raw_tx_list_hash), gossip);
         }
-
-        // Update the stored head snapshot.
-        self.store.set_head(peer_head);
 
         Ok(fetched)
     }
