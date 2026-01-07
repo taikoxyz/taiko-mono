@@ -133,6 +133,7 @@ func flushProofCacheRange(
 	currentID := fromID
 	for currentID.Cmp(toID) <= 0 {
 		cachedProof, ok := cacheMap.Get(currentID)
+		log.Info("Getting cached proof", "id", currentID, "cachedProof", cachedProof, "ok", ok)
 		if !ok {
 			log.Error("cached proof not found for proposal", "proposalID", currentID)
 			return ErrCacheNotFound
