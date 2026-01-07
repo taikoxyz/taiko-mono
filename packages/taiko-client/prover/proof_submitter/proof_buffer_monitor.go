@@ -99,17 +99,17 @@ func cleanUpStaleCacheAndFlush(
 				log.Error("Failed to get Shasta core state", "error", err)
 				continue // Skip this iteration, retry on next tick
 			}
-			lastFinalizedProposalID := coreState.LastFinalizedProposalId
 			// remove stale cache
-			removeFinalizedProofsFromCache(cacheMap, lastFinalizedProposalID)
+			removeFinalizedProofsFromCache(cacheMap, coreState.LastFinalizedProposalId)
 			// flush cached proofs
-			toID := new(big.Int).SetUint64(lastFinalizedProposalID.Uint64() + buffer.MaxLength)
-			if err := flushProofCacheRange(lastFinalizedProposalID, toID, buffer, cacheMap); err != nil {
+			fromID := new(big.Int).SetUint64(buffer.LastInsertID())
+			toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
+			if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
 				if !errors.Is(err, ErrCacheNotFound) {
 					log.Error(
 						"Failed to flush proof cache range",
 						"error", err,
-						"fromID", lastFinalizedProposalID,
+						"fromID", fromID,
 						"toID", toID,
 					)
 				}
@@ -149,6 +149,7 @@ func proofRangeCached(
 		}
 		currentID = currentID.Add(currentID, common.Big1)
 	}
+	log.Info("Proof range cache hit", "fromID", fromID, "toID", toID)
 	return true
 }
 
@@ -161,6 +162,7 @@ func flushProofCacheRange(
 	if proofBuffer == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
+	log.Info("Flushing proof cache range", "from", fromID, "to", toID)
 	currentID := fromID
 	for currentID.Cmp(toID) <= 0 {
 		cachedProof, ok := cacheMap.Get(currentID)
