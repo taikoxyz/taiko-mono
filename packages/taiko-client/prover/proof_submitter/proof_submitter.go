@@ -504,3 +504,6 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 
 	return invalidBatchIDs, nil
 }
+func (s *ProofSubmitterPacaya) FlushCache(_ context.Context, _ proofProducer.ProofType) error {
+	return errors.New("FlushCache is not supported in Pacaya fork")
+}

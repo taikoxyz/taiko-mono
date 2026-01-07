@@ -546,3 +546,40 @@ func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, trans
 		return fmt.Errorf("transition %d not verified yet", transitionID.Uint64())
 	}, backoff.WithContext(backoff.NewConstantBackOff(chainiterator.DefaultRetryInterval), ctx))
 }
+
+// TryFlushingCache tries to aggregate the proofs in the buffer, if the buffer is full,
+// or the forced aggregation interval has passed.
+func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofProducer.ProofType) error {
+	buffer, exist := s.proofBuffers[proofType]
+	if !exist {
+		return fmt.Errorf("failed to get buffer with expected proof type: %s", proofType)
+	}
+	cacheMap, exist := s.proofCacheMaps[proofType]
+	if !exist {
+		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
+	}
+	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta core state: %w", err)
+	}
+	var fromID *big.Int
+	if buffer.LastInsertID() > 0 {
+		fromID = new(big.Int).SetUint64(buffer.LastInsertID() + 1)
+	} else {
+		fromID = new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
+	}
+	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
+	if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
+		if !errors.Is(err, ErrCacheNotFound) {
+			log.Error(
+				"Failed to flush proof cache range",
+				"error", err,
+				"fromID", fromID,
+				"toID", toID,
+			)
+			return fmt.Errorf("failed to flush proof cache range: %w", err)
+		}
+	}
+	s.TryAggregate(buffer, proofType)
+	return nil
+}
