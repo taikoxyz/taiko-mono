@@ -551,6 +551,7 @@ func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofPr
 	if !exist {
 		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
 	}
+	log.Info("Receiving flush cache signal", "type", proofType, "cacheLength", cacheMap.Count())
 	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
