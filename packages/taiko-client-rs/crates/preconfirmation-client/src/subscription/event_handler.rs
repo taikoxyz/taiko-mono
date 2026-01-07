@@ -300,13 +300,3 @@ where
         Ok(())
     }
 }
-
-#[cfg(test)]
-/// Tests for the event handler module.
-mod tests {
-    /// Placeholder test to verify module compiles.
-    #[test]
-    fn event_handler_compiles() {
-        assert!(true);
-    }
-}

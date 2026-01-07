@@ -42,11 +42,9 @@ impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {
 }
 
 #[cfg(test)]
-/// Tests for error conversions.
 mod tests {
     use super::PreconfirmationClientError;
 
-    /// Ensure error display formatting is not empty.
     #[test]
     fn error_display_works() {
         // Create a validation error for formatting.

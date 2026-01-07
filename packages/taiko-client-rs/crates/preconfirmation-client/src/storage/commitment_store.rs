@@ -67,12 +67,14 @@ impl InMemoryCommitmentStore {
 }
 
 impl Default for InMemoryCommitmentStore {
+    /// Build a default in-memory store using the standard constructor.
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl CommitmentStore for InMemoryCommitmentStore {
+    /// Insert a commitment into the in-memory store.
     fn insert_commitment(&self, commitment: SignedCommitment) {
         // Extract the block number for indexing.
         let block_number = Self::block_number(&commitment);
@@ -100,24 +102,28 @@ impl CommitmentStore for InMemoryCommitmentStore {
         }
     }
 
+    /// Fetch a commitment by block number from the in-memory store.
     fn get_commitment(&self, block_number: &U256) -> Option<SignedCommitment> {
         // Read the map for the requested block number.
         let guard = self.commitments.read().ok()?;
         guard.get(block_number).cloned()
     }
 
+    /// Fetch the highest stored commitment, if any.
     fn latest_commitment(&self) -> Option<SignedCommitment> {
         // Read the map to access the highest block.
         let guard = self.commitments.read().ok()?;
         guard.iter().next_back().map(|(_, value)| value.clone())
     }
 
+    /// Fetch the highest stored block number, if any.
     fn latest_block_number(&self) -> Option<U256> {
         // Read the map to access the highest block.
         let guard = self.commitments.read().ok()?;
         guard.keys().next_back().cloned()
     }
 
+    /// Fetch a range of commitments starting at the provided block number.
     fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
         // Prepare the output vector.
         let mut commitments = Vec::new();
@@ -138,16 +144,19 @@ impl CommitmentStore for InMemoryCommitmentStore {
         commitments
     }
 
+    /// Insert a raw txlist payload keyed by its hash.
     fn insert_txlist(&self, hash: B256, txlist: RawTxListGossip) {
         // Insert into the concurrent map.
         self.txlists.insert(hash, txlist);
     }
 
+    /// Fetch a raw txlist payload by hash.
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
         // Fetch and clone the stored txlist.
         self.txlists.get(hash).map(|entry| entry.value().clone())
     }
 
+    /// Update the cached head snapshot.
     fn set_head(&self, head: PreconfHead) {
         // Write the new head snapshot.
         if let Ok(mut guard) = self.head.write() {
@@ -155,6 +164,7 @@ impl CommitmentStore for InMemoryCommitmentStore {
         }
     }
 
+    /// Fetch the cached head snapshot, if set.
     fn head(&self) -> Option<PreconfHead> {
         // Read and clone the head snapshot.
         let guard = self.head.read().ok()?;
@@ -195,6 +205,7 @@ impl PendingCommitmentBuffer {
 }
 
 impl Default for PendingCommitmentBuffer {
+    /// Build a default pending commitment buffer using the standard constructor.
     fn default() -> Self {
         Self::new()
     }
@@ -229,6 +240,7 @@ impl PendingTxListBuffer {
 }
 
 impl Default for PendingTxListBuffer {
+    /// Build a default pending txlist buffer using the standard constructor.
     fn default() -> Self {
         Self::new()
     }

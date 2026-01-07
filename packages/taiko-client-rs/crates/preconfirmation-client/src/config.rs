@@ -53,11 +53,9 @@ impl Default for PreconfirmationClientConfig {
 }
 
 #[cfg(test)]
-/// Tests for default configuration values.
 mod tests {
     use super::PreconfirmationClientConfig;
 
-    /// Default config exposes a positive catch-up batch size.
     #[test]
     fn default_config_has_catchup_batch() {
         // Build a default config for the assertion.
