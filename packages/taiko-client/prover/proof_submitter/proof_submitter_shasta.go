@@ -231,7 +231,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		}
 
 		toBeInsertedID := new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
-		if toID == fromID ||
+		if toID.Cmp(fromID) == 0 ||
 			toID.Cmp(toBeInsertedID) == 0 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
