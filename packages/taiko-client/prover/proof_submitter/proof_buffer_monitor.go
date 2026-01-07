@@ -133,11 +133,9 @@ func flushProofCacheRange(
 	if proofBuffer == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
-	log.Info("Flushing proof cache range", "from", fromID, "to", toID)
 	currentID := fromID
 	for currentID.Cmp(toID) <= 0 {
 		cachedProof, ok := cacheMap.Get(currentID.String())
-		log.Info("Getting cached proof", "id", currentID, "cachedProof", cachedProof, "ok", ok)
 		if !ok {
 			log.Error("cached proof not found for proposal", "proposalID", currentID)
 			return ErrCacheNotFound

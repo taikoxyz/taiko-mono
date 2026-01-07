@@ -2,7 +2,6 @@ package submitter
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -168,11 +167,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
 		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
 		meta.GetProposalID()
-		log.Info(
-			"Debug ID info",
-			"fromID", fromID,
-			"proposalID", meta.GetProposalID(),
-		)
 		if fromID.Cmp(meta.GetProposalID()) > 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
@@ -241,7 +235,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			toBeInsertedID = fromID
 		}
 		if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
-			log.Info("Adding proof into the buffer", "proposalID", meta.GetProposalID())
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(
@@ -254,7 +247,6 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			// Try to aggregate the proofs in the buffer.
 			s.TryAggregate(proofBuffer, proofResponse.ProofType)
 		} else {
-			log.Info("Adding proof into the cache", "proposalID", meta.GetProposalID())
 			cacheMap.Set(meta.GetProposalID().String(), proofResponse)
 			s.flushCacheNotify <- proofResponse.ProofType
 		}
@@ -552,11 +544,6 @@ func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofPr
 	if !exist {
 		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
 	}
-	jsonValue, err := json.Marshal(cacheMap)
-	if err != nil {
-		return err
-	}
-	log.Info("Receiving flush cache signal", "jsonValue", string(jsonValue))
 	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
@@ -569,7 +556,6 @@ func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofPr
 	}
 	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
 	if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
-		log.Info("Error info", "ErrCacheNotFound", errors.Is(err, ErrCacheNotFound))
 		if !errors.Is(err, ErrCacheNotFound) {
 			log.Error(
 				"Failed to flush proof cache range",
