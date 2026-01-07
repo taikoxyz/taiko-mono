@@ -6,7 +6,7 @@
 //! - Event handling for gossip subscriptions
 //! - Submitting preconfirmation inputs to the driver
 
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use tokio::sync::{RwLock, broadcast};
 use tokio_stream::StreamExt;
@@ -15,7 +15,7 @@ use tracing::{error, info};
 use preconfirmation_net::{
     LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, ValidationAdapter,
 };
-use preconfirmation_types::MAX_TXLIST_BYTES;
+use preconfirmation_types::{MAX_TXLIST_BYTES, uint256_to_u256};
 
 use crate::{
     codec::{TxListCodec, ZlibTxListCodec},
@@ -36,9 +36,6 @@ use crate::{
 /// This client manages the P2P network connection, handles gossip events,
 /// performs tip catch-up synchronization, and submits preconfirmation inputs
 /// to the driver.
-///
-/// **Important:** The SDK does NOT call the engine API directly. It constructs
-/// `PreconfirmationInput` and hands it to the driver via the `DriverSubmitter` trait.
 pub struct PreconfirmationClient<D>
 where
     D: DriverSubmitter + 'static,
@@ -119,21 +116,18 @@ where
         PreconfirmationPublisher::new(self.command_sender.clone())
     }
 
-    /// Run the client after the L2 sync has completed.
+    /// Run the client after the driver event sync has completed.
     ///
     /// This method:
-    /// 1. Waits for the sync_done signal.
+    /// 1. Waits for the driver event sync completion signal.
     /// 2. Performs tip catch-up to synchronize preconfirmation commitments.
     /// 3. Enters the event loop to process gossip events.
-    pub async fn run_after_sync<F>(mut self, sync_done: F) -> Result<()>
-    where
-        F: Future<Output = ()>,
-    {
-        info!("waiting for L2 sync to complete");
-        // Wait for sync to complete.
-        sync_done.await;
+    pub async fn run_after_event_sync(mut self) -> Result<()> {
+        info!("waiting for driver event sync to complete");
+        // Wait for the driver to report event sync completion.
+        self.driver.wait_event_sync().await?;
 
-        info!("L2 sync complete, starting preconfirmation client");
+        info!("driver event sync complete, starting preconfirmation client");
 
         // Take ownership of the handle and node for the runtime.
         let mut handle = self.handle.take().ok_or(PreconfirmationClientError::Shutdown)?;
@@ -151,7 +145,7 @@ where
         // Run the catch-up flow.
         let catchup = TipCatchup::new(self.config.clone(), self.store.clone());
         // Fetch commitments from the network tip.
-        let commitments = catchup.run(&mut handle).await?;
+        let (commitments, mut parentless_block) = catchup.run(&mut handle).await?;
 
         // Bundle dependencies for the event handler.
         let deps = EventHandlerDeps {
@@ -170,6 +164,12 @@ where
 
         // Process each catch-up commitment through the handler.
         for commitment in commitments {
+            let block_number = uint256_to_u256(&commitment.commitment.preconf.block_number);
+            if parentless_block == Some(block_number) {
+                handler.handle_catchup_commitment(commitment, true).await?;
+                parentless_block = None;
+                continue;
+            }
             handler.handle_commitment(commitment).await?;
         }
 

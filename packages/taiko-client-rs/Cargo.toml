@@ -99,3 +99,24 @@ test-context = "0.3"
 # p2p / futures
 futures = "0.3"
 libp2p = { version = "0.54", default-features = false }
+
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package]
+proptest.opt-level = 3
+rand_chacha.opt-level = 3
+rand_xorshift.opt-level = 3
+unarray.opt-level = 3
+
+[profile.debug-fast]
+inherits = "release"
+debug = true
+lto = "thin"
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+incremental = false

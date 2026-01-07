@@ -178,6 +178,24 @@ where
     /// 3. Parent linkage validation
     /// 4. Block number sequencing validation
     pub async fn handle_commitment(&self, commitment: SignedCommitment) -> Result<()> {
+        self.handle_commitment_internal(commitment, false).await
+    }
+
+    /// Handle a catch-up commitment, allowing a parentless commitment if configured.
+    pub async fn handle_catchup_commitment(
+        &self,
+        commitment: SignedCommitment,
+        allow_parentless: bool,
+    ) -> Result<()> {
+        self.handle_commitment_internal(commitment, allow_parentless).await
+    }
+
+    /// Handle a commitment with optional parentless allowance.
+    async fn handle_commitment_internal(
+        &self,
+        commitment: SignedCommitment,
+        allow_parentless: bool,
+    ) -> Result<()> {
         // Initialize a queue for commitment processing.
         let mut queue = vec![commitment];
 
@@ -247,6 +265,11 @@ where
                     );
                     continue;
                 }
+            } else if allow_parentless {
+                warn!(
+                    block = %current_block,
+                    "accepting catch-up commitment without parent"
+                );
             } else {
                 // Clone the parent hash before moving the commitment.
                 let parent_hash = commitment.commitment.preconf.parent_preconfirmation_hash.clone();
@@ -368,7 +391,7 @@ mod tests {
     use alloy_primitives::{Address, U256};
     use async_trait::async_trait;
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
-    use secp256k1::SecretKey;
+    use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tokio::sync::{RwLock, broadcast};
 
     use super::{EventHandler, EventHandlerDeps};
@@ -383,7 +406,7 @@ mod tests {
     };
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
-        sign_commitment,
+        public_key_to_address, sign_commitment,
     };
 
     /// Test driver that records submit calls.
@@ -409,6 +432,11 @@ mod tests {
         /// Record that a preconfirmation input was submitted.
         async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> Result<()> {
             self.submissions.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        /// Report event sync completion for tests.
+        async fn wait_event_sync(&self) -> Result<()> {
             Ok(())
         }
     }
@@ -473,6 +501,32 @@ mod tests {
             _l2_block_timestamp: U256,
         ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
             Ok(PreconfSlotInfo { signer: Address::ZERO, submission_window_end: U256::ZERO })
+        }
+    }
+
+    /// Resolver that matches a specific signer for catch-up tests.
+    struct MatchingResolver {
+        signer: Address,
+        submission_window_end: U256,
+    }
+
+    #[async_trait]
+    impl PreconfSignerResolver for MatchingResolver {
+        async fn signer_for_timestamp(
+            &self,
+            _l2_block_timestamp: U256,
+        ) -> protocol::preconfirmation::Result<Address> {
+            Ok(self.signer)
+        }
+
+        async fn slot_info_for_timestamp(
+            &self,
+            _l2_block_timestamp: U256,
+        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
+            Ok(PreconfSlotInfo {
+                signer: self.signer,
+                submission_window_end: self.submission_window_end,
+            })
         }
     }
 
@@ -547,5 +601,44 @@ mod tests {
         // Process the commitment and expect it to be dropped without error.
         assert!(handler.handle_commitment(commitment).await.is_ok());
         assert!(store.latest_commitment().is_none());
+    }
+
+    /// Catch-up parentless commitments are processed without a parent.
+    #[tokio::test]
+    async fn catchup_parentless_is_processed() {
+        // Build shared state and dependencies for the handler.
+        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
+        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let (event_tx, _event_rx) = broadcast::channel(16);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver =
+            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+
+        let handler = EventHandler::new(EventHandlerDeps {
+            state,
+            store: store.clone(),
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver: driver.clone(),
+            expected_slasher: None,
+            event_tx,
+            lookahead_resolver,
+        });
+
+        // Build a signed commitment with a missing parent (parentless).
+        let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
+        let commitment = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
+
+        handler.handle_catchup_commitment(commitment, true).await.expect("parentless processed");
+
+        assert!(store.latest_commitment().is_some());
+        assert_eq!(driver.submissions(), 1);
     }
 }

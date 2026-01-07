@@ -32,11 +32,14 @@ impl PreconfirmationInput {
 pub trait DriverSubmitter: Send + Sync {
     /// Submit a preconfirmation input for ordered processing.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()>;
+    /// Await the driver event sync completion signal.
+    async fn wait_event_sync(&self) -> Result<()>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::{DriverSubmitter, PreconfirmationInput};
+    use async_trait::async_trait;
 
     /// Ensure the driver submitter trait can be referenced.
     #[test]
@@ -65,5 +68,28 @@ mod tests {
         // Build the input.
         let input = PreconfirmationInput::new(commitment, None, None);
         assert!(input.transactions.is_none());
+    }
+
+    /// Ensure the driver submitter trait is async-safe.
+    #[test]
+    fn driver_submitter_async_methods_compile() {
+        struct MockDriver;
+
+        #[async_trait]
+        impl DriverSubmitter for MockDriver {
+            async fn submit_preconfirmation(
+                &self,
+                _input: PreconfirmationInput,
+            ) -> super::Result<()> {
+                Ok(())
+            }
+
+            async fn wait_event_sync(&self) -> super::Result<()> {
+                Ok(())
+            }
+        }
+
+        fn _assert_impl<T: DriverSubmitter>() {}
+        _assert_impl::<MockDriver>();
     }
 }

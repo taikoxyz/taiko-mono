@@ -22,9 +22,16 @@ struct DriverAdapter;
 
 #[async_trait]
 impl DriverSubmitter for DriverAdapter {
+    /// Submit a preconfirmation input for ordered processing.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
         // Forward the input to the driver for ordered processing.
         let _commitment = input.commitment;
+        Ok(())
+    }
+
+    /// Await the driver event sync completion signal.
+    async fn wait_event_sync(&self) -> Result<()> {
+        // Block until the driver reports event sync completion.
         Ok(())
     }
 }
@@ -48,24 +55,17 @@ async fn main() -> Result<()> {
     // Build the provider for lookahead resolution.
     let provider = source.to_provider().await.expect("failed to build provider");
 
-    // Build the P2P configuration.
-    let p2p = P2pConfig::default();
-
     // Build the client configuration with the mandatory lookahead resolver.
-    let config = PreconfirmationClientConfig::new(p2p, inbox_address, provider).await?;
+    let config =
+        PreconfirmationClientConfig::new(P2pConfig::default(), inbox_address, provider).await?;
     // Construct the client with a driver adapter.
     let client = PreconfirmationClient::new(config, DriverAdapter)?;
 
     // Subscribe to SDK events before starting the client.
     let mut events = client.subscribe();
 
-    // Provide a signal that completes once L2 sync finishes.
-    let sync_done = async move {
-        // Await L2 sync completion from the driver.
-    };
-
-    // Run the client after sync in a background task.
-    let client_task = tokio::spawn(async move { client.run_after_sync(sync_done).await });
+    // Run the client after driver event sync completes in a background task.
+    let client_task = tokio::spawn(async move { client.run_after_event_sync().await });
 
     // Consume events (example loop).
     while let Ok(event) = events.recv().await {
