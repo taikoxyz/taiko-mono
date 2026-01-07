@@ -32,10 +32,22 @@ pub use resolver::{LookaheadBroadcast, LookaheadResolver};
 /// Convenience alias for the default provider stack used by lookahead clients/resolvers.
 pub type LookaheadResolverWithDefaultProvider = LookaheadResolver;
 
+/// Resolved signer plus canonical submission window end for a preconfirmation slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PreconfSlotInfo {
+    /// Address allowed to sign the commitment for the slot.
+    pub signer: Address,
+    /// Canonical end of the submission window for the slot.
+    pub submission_window_end: U256,
+}
+
 /// Resolves the expected signer for a preconfirmation commitment at a given L2 block timestamp,
 /// matching the documented lookahead resolver behavior above.
 #[async_trait]
 pub trait PreconfSignerResolver {
     /// Return the address allowed to sign the commitment covering `l2_block_timestamp`.
     async fn signer_for_timestamp(&self, l2_block_timestamp: U256) -> Result<Address>;
+
+    /// Return the signer plus canonical submission window end for `l2_block_timestamp`.
+    async fn slot_info_for_timestamp(&self, l2_block_timestamp: U256) -> Result<PreconfSlotInfo>;
 }
