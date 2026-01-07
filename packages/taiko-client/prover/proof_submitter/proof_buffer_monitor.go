@@ -147,7 +147,6 @@ func flushProofCacheRange(
 			}
 			return err
 		}
-		cacheMap.Remove(currentID)
 		currentID = new(big.Int).Add(currentID, common.Big1)
 	}
 	return nil
