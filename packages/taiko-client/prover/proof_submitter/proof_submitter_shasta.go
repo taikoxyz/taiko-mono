@@ -163,16 +163,16 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		}
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
 		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
-		toID := meta.GetProposalID()
+		meta.GetProposalID()
 		log.Info(
 			"Debug ID info",
 			"fromID", fromID,
-			"toID", toID,
+			"proposalID", meta.GetProposalID(),
 		)
-		if fromID.Cmp(toID) > 0 {
+		if fromID.Cmp(meta.GetProposalID()) > 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
-				"proposalID", toID,
+				"proposalID", meta.GetProposalID(),
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 			)
 			return nil
@@ -231,8 +231,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		}
 
 		toBeInsertedID := new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
-		if toID.Cmp(fromID) == 0 ||
-			toID.Cmp(toBeInsertedID) == 0 {
+		if meta.GetProposalID().Cmp(fromID) == 0 ||
+			meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
 			bufferSize, err := proofBuffer.Write(proofResponse)
 			if err != nil {
 				return fmt.Errorf(
@@ -243,10 +243,14 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				)
 			}
 		} else {
-			cacheMap.Set(toID, proofResponse)
-			if proofRangeCached(toBeInsertedID, toID, cacheMap) {
-				if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap); err != nil {
-					return err
+			cacheMap.Set(meta.GetProposalID(), proofResponse)
+			availableCapacity := proofBuffer.AvailableCapacity()
+			if availableCapacity > 0 {
+				toID := toBeInsertedID.Add(toBeInsertedID, new(big.Int).SetUint64(availableCapacity-1))
+				if proofRangeCached(toBeInsertedID, toID, cacheMap) {
+					if err := flushProofCacheRange(toBeInsertedID, toID, proofBuffer, cacheMap); err != nil {
+						return err
+					}
 				}
 			}
 		}
