@@ -139,7 +139,6 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 			Dummy:               p.cfg.Dummy,
 		}
 	}
-
 	// Init proof buffers.
 	var (
 		proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
