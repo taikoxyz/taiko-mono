@@ -3,15 +3,16 @@
 
   import { page } from '$app/stores';
   import { ImportStep, ReviewStep } from '$components/Bridge/FungibleBridgeComponents';
-  import { ConfirmationStep } from '$components/Bridge/SharedBridgeComponents';
+  import { ConfirmationStep, RecipientStep } from '$components/Bridge/SharedBridgeComponents';
   import { BridgeSteps, BridgingStatus } from '$components/Bridge/types';
   import WidgetNavigation from '$components/Bridge/WidgetBridge/WidgetNavigation.svelte';
   import WidgetStep from '$components/Bridge/WidgetBridge/WidgetStep.svelte';
   import WidgetStepper from '$components/Bridge/WidgetBridge/WidgetStepper.svelte';
   import { ConnectButton } from '$components/ConnectButton';
-  import { account } from '$stores/account';
+  import { account, connectedSmartContractWallet } from '$stores/account';
 
   let activeStep: BridgeSteps = BridgeSteps.IMPORT;
+  let recipientStepComponent: RecipientStep;
   let stepTitle: string;
   let stepDescription: string;
   let hasEnoughEth: boolean = false;
@@ -19,6 +20,9 @@
   let exceedsQuota: boolean = false;
   let bridgingStatus: BridgingStatus;
   let needsManualReviewConfirmation: boolean;
+  let needsManualRecipientConfirmation: boolean;
+
+  $: needsManualRecipientConfirmation = $connectedSmartContractWallet;
 
   // Get padding from URL query parameter (defaults to 0, max 100)
   $: {
@@ -80,15 +84,18 @@
     </WidgetStepper>
 
     <!-- Bridge Step Content -->
-    <div class="w-full">
+    <div class="w-full px-4 overflow-hidden">
       {#if activeStep === BridgeSteps.IMPORT}
         <ImportStep bind:hasEnoughEth bind:exceedsQuota />
       {:else if activeStep === BridgeSteps.REVIEW}
         <ReviewStep
+          on:editTransactionDetails={() => (activeStep = BridgeSteps.RECIPIENT)}
           on:goBack={() => (activeStep = BridgeSteps.IMPORT)}
           bind:needsManualReviewConfirmation
           bind:hasEnoughEth
           bind:hasEnoughFundsToContinue />
+      {:else if activeStep === BridgeSteps.RECIPIENT}
+        <RecipientStep bind:this={recipientStepComponent} bind:hasEnoughEth bind:needsManualRecipientConfirmation />
       {:else if activeStep === BridgeSteps.CONFIRM}
         <ConfirmationStep bind:bridgingStatus />
       {/if}
@@ -100,7 +107,8 @@
       bind:exceedsQuota
       bind:hasEnoughFundsToContinue
       {bridgingStatus}
-      bind:needsManualReviewConfirmation />
+      bind:needsManualReviewConfirmation
+      bind:needsManualRecipientConfirmation />
   </div>
 {:else}
   <div class="flex flex-col justify-center items-center w-full h-full gap-6" style="padding: {paddingStyle}">

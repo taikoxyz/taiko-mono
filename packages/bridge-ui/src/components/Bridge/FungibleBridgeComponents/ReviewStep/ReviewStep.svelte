@@ -25,6 +25,7 @@
   export let hasEnoughEth: boolean = false;
   export let needsManualReviewConfirmation = false;
   export let hasEnoughFundsToContinue: boolean = true;
+  export let showRecipientEdit: boolean = true;
 
   let recipientComponent: Recipient;
   let destOwnerComponent: DestOwner;
@@ -70,31 +71,26 @@
   };
 </script>
 
-<div class="container mx-auto inline-block align-middle space-y-[25px] w-full">
-  <div class="flex justify-between items-center">
+<div class="f-col w-full">
+  <div class="f-between-center mb-[10px]">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.transfer_details')}</div>
     <span role="button" tabindex="0" class="link" on:keydown={goBack} on:click={goBack}>{$t('common.edit')}</span>
   </div>
-  <div class="!mt-[10px]">
-    <div class="flex justify-between items-center">
-      <div class="text-secondary-content">{$t('common.from')}</div>
-      <div class="">{$connectedSourceChain?.name}</div>
-    </div>
-
-    <div class="flex justify-between items-center">
-      <div class="text-secondary-content">{$t('common.to')}</div>
-      <div class="">{$destChain?.name}</div>
-    </div>
-
-    <div class="flex justify-between items-center">
-      <div class="text-secondary-content">{$t('common.amount')}</div>
-      <div class="">{renderedDisplay}</div>
-    </div>
-
-    <div class="flex justify-between items-center">
-      <div class="text-secondary-content">{$t('common.name')}</div>
-      <div class="">{$selectedToken?.symbol}</div>
-    </div>
+  <div class="f-between-center">
+    <div class="text-secondary-content">{$t('common.from')}</div>
+    <div>{$connectedSourceChain?.name}</div>
+  </div>
+  <div class="f-between-center">
+    <div class="text-secondary-content">{$t('common.to')}</div>
+    <div>{$destChain?.name}</div>
+  </div>
+  <div class="f-between-center">
+    <div class="text-secondary-content">{$t('common.amount')}</div>
+    <div>{renderedDisplay}</div>
+  </div>
+  <div class="f-between-center">
+    <div class="text-secondary-content">{$t('common.name')}</div>
+    <div>{$selectedToken?.symbol}</div>
   </div>
 </div>
 
@@ -107,10 +103,12 @@
 Recipient & Processing Fee
 -->
 
-<div class="f-col">
+<div class="f-col w-full">
   <div class="f-between-center mb-[10px]">
     <div class="font-bold text-primary-content">{$t('bridge.nft.step.review.recipient_details')}</div>
-    <button class="flex justify-start link" on:click={editTransactionDetails}> {$t('common.edit')} </button>
+    {#if showRecipientEdit}
+      <button class="flex justify-start link" on:click={editTransactionDetails}> {$t('common.edit')} </button>
+    {/if}
   </div>
   <Recipient bind:this={recipientComponent} small />
   {#if $destOwnerAddress !== $account?.address && $destOwnerAddress}

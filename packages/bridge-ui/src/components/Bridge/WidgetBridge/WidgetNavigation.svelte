@@ -6,19 +6,21 @@
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
   import { StepBack } from '$components/Stepper';
-  import { account } from '$stores/account';
+  import { account, connectedSmartContractWallet } from '$stores/account';
 
   export let activeStep: BridgeSteps = BridgeSteps.IMPORT;
   export let validatingImport = false;
 
   export let hasEnoughFundsToContinue: boolean;
   export let needsManualReviewConfirmation: boolean;
+  export let needsManualRecipientConfirmation: boolean;
   export let bridgingStatus: BridgingStatus;
 
   export let exceedsQuota: boolean;
 
   let nextStepButtonText: string;
   let manuallyConfirmedReviewStep = false;
+  let manuallyConfirmedRecipientStep = false;
 
   const getStepText = () => {
     if (activeStep === BridgeSteps.REVIEW) {
@@ -33,9 +35,15 @@
 
   const handleNextStep = () => {
     if (activeStep === BridgeSteps.IMPORT) {
-      activeStep = BridgeSteps.REVIEW;
+      if ($connectedSmartContractWallet && !manuallyConfirmedRecipientStep) {
+        activeStep = BridgeSteps.RECIPIENT;
+      } else {
+        activeStep = BridgeSteps.REVIEW;
+      }
     } else if (activeStep === BridgeSteps.REVIEW) {
       activeStep = BridgeSteps.CONFIRM;
+    } else if (activeStep === BridgeSteps.RECIPIENT) {
+      activeStep = BridgeSteps.REVIEW;
     } else if (activeStep === BridgeSteps.CONFIRM) {
       activeStep = BridgeSteps.IMPORT;
     }
@@ -46,12 +54,15 @@
       activeStep = BridgeSteps.IMPORT;
     } else if (activeStep === BridgeSteps.CONFIRM) {
       activeStep = BridgeSteps.REVIEW;
+    } else if (activeStep === BridgeSteps.RECIPIENT) {
+      activeStep = BridgeSteps.REVIEW;
     }
     reset();
   };
 
   const reset = () => {
     manuallyConfirmedReviewStep = false;
+    manuallyConfirmedRecipientStep = false;
   };
 
   $: disabled = !$account || !$account.isConnected || $calculatingProcessingFee;
@@ -59,6 +70,8 @@
   $: nextStepButtonText = getStepText();
 
   $: reviewConfirmed = !needsManualReviewConfirmation || manuallyConfirmedReviewStep;
+
+  $: recipientConfirmed = !needsManualRecipientConfirmation || manuallyConfirmedRecipientStep;
 </script>
 
 <div class="f-col w-full justify-content-center gap-4">
@@ -97,6 +110,24 @@
     <StepBack on:click={() => handlePreviousStep()}>
       {$t('common.back')}
     </StepBack>
+  {/if}
+
+  {#if activeStep === BridgeSteps.RECIPIENT}
+    {#if needsManualRecipientConfirmation}
+      <ActionButton
+        priority="primary"
+        disabled={recipientConfirmed}
+        on:click={() => (manuallyConfirmedRecipientStep = true)}>
+        {#if !recipientConfirmed}
+          {$t('bridge.actions.acknowledge')}
+        {:else}
+          <Icon type="check" />{$t('common.confirmed')}
+        {/if}
+      </ActionButton>
+    {/if}
+    <ActionButton disabled={disabled || !recipientConfirmed} priority="primary" on:click={() => handleNextStep()}>
+      <span class="body-bold">{nextStepButtonText}</span>
+    </ActionButton>
   {/if}
 
   {#if activeStep === BridgeSteps.CONFIRM}
