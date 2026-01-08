@@ -8,7 +8,7 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::P2pHandle;
 use preconfirmation_types::{
-    Bytes32, RawTxListGossip, SignedCommitment, bytes32_to_b256, u256_to_uint256, uint256_to_u256,
+    Bytes32, RawTxListGossip, SignedCommitment, u256_to_uint256, uint256_to_u256,
 };
 use protocol::preconfirmation::PreconfSignerResolver;
 use tracing::{debug, info, warn};
@@ -17,7 +17,10 @@ use crate::{
     config::PreconfirmationClientConfig,
     error::{PreconfirmationClientError, Result},
     storage::CommitmentStore,
-    validation::rules::{self, is_eop_only, validate_parent_linkage, validate_txlist_response},
+    validation::rules::{
+        is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
+        validate_parent_linkage, validate_txlist_response,
+    },
 };
 
 /// Tip catch-up handler.
@@ -45,14 +48,15 @@ async fn seed_commitments(
 
     for commitment in commitments {
         let parent_hash =
-            bytes32_to_b256(&commitment.commitment.preconf.parent_preconfirmation_hash);
+            B256::from_slice(commitment.commitment.preconf.parent_preconfirmation_hash.as_ref());
         if parent_hash == B256::ZERO {
             debug!("ignoring genesis commitment during catch-up");
             continue;
         }
 
+        // Validate basic commitment rules and recover signer.
         let recovered_signer =
-            match rules::validate_commitment_basic_with_signer(commitment, expected_slasher) {
+            match validate_commitment_basic_with_signer(commitment, expected_slasher) {
                 Ok(signer) => signer,
                 Err(err) => {
                     warn!(error = %err, "dropping catch-up commitment with invalid basics");
@@ -69,9 +73,7 @@ async fn seed_commitments(
             }
         };
 
-        if let Err(err) =
-            rules::validate_lookahead(commitment, recovered_signer, &expected_slot_info)
-        {
+        if let Err(err) = validate_lookahead(commitment, recovered_signer, &expected_slot_info) {
             warn!(error = %err, "dropping catch-up commitment with invalid lookahead");
             continue;
         }
@@ -125,8 +127,8 @@ impl TipCatchup {
         Self { config, store }
     }
 
-    /// Run the catch-up process using the provided P2P handle.
-    pub async fn run(
+    /// Backfill commitments from the peer head using the provided P2P handle.
+    pub async fn backfill_from_peer_head(
         &self,
         handle: &mut P2pHandle,
     ) -> Result<(Vec<SignedCommitment>, Option<U256>)> {
@@ -224,20 +226,25 @@ impl TipCatchup {
             // Build a gossip-style container for storage.
             let gossip = RawTxListGossip { raw_tx_list_hash: txlist_hash, txlist: response.txlist };
             // Store the txlist by hash.
-            self.store.insert_txlist(bytes32_to_b256(&gossip.raw_tx_list_hash), gossip);
+            let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
+            self.store.insert_txlist(hash, gossip);
         }
 
         Ok((fetched, parentless_block))
     }
 
     /// Fetch a txlist by hash from peers.
-    pub async fn fetch_txlist(&self, handle: &mut P2pHandle, hash: Bytes32) -> Result<Vec<u8>> {
+    pub async fn fetch_txlist_from_peers(
+        &self,
+        handle: &mut P2pHandle,
+        hash: Bytes32,
+    ) -> Result<Vec<u8>> {
         // Request the raw txlist payload by hash.
         let response = handle.request_raw_txlist(hash, None).await.map_err(|err| {
             PreconfirmationClientError::Catchup(format!("failed to fetch txlist: {err}"))
         })?;
         // Validate the response payload.
-        rules::validate_txlist_response(&response)?;
+        validate_txlist_response(&response)?;
         Ok(response.txlist.to_vec())
     }
 }
@@ -250,8 +257,8 @@ mod tests {
     use async_trait::async_trait;
     use preconfirmation_types::{
         Bytes20, Bytes32, PreconfCommitment, PreconfHead, Preconfirmation, RawTxListGossip,
-        SignedCommitment, Uint256, b256_to_bytes32, preconfirmation_hash, public_key_to_address,
-        sign_commitment,
+        SignedCommitment, Uint256, preconfirmation_hash, public_key_to_address, sign_commitment,
+        uint256_to_u256,
     };
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
@@ -268,8 +275,7 @@ mod tests {
     impl CommitmentStore for RecordingStore {
         /// Record the inserted commitment.
         fn insert_commitment(&self, commitment: SignedCommitment) {
-            let block_number =
-                preconfirmation_types::uint256_to_u256(&commitment.commitment.preconf.block_number);
+            let block_number = uint256_to_u256(&commitment.commitment.preconf.block_number);
             self.inserted.lock().unwrap().insert(block_number, commitment);
         }
 
@@ -371,7 +377,8 @@ mod tests {
         let parentless = make_commitment(1, parent_hash, 1000, 10, &sk);
         let parentless_hash =
             preconfirmation_hash(&parentless.commitment.preconf).expect("hash parentless");
-        let child_parent = b256_to_bytes32(parentless_hash);
+        let child_parent =
+            Bytes32::try_from(parentless_hash.as_slice().to_vec()).expect("hash length 32");
         let child = make_commitment(2, child_parent, 1000, 20, &sk);
 
         let (seeded, parentless_block_used) =

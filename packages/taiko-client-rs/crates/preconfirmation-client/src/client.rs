@@ -144,8 +144,9 @@ where
 
         // Run the catch-up flow.
         let catchup = TipCatchup::new(self.config.clone(), self.store.clone());
-        // Fetch commitments from the network tip.
-        let (commitments, mut parentless_block) = catchup.run(&mut handle).await?;
+        // Fetch commitments and txlists from the network tip.
+        let (commitments, mut parentless_block) =
+            catchup.backfill_from_peer_head(&mut handle).await?;
 
         // Bundle dependencies for the event handler.
         let deps = EventHandlerDeps {

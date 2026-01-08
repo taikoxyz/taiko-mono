@@ -10,9 +10,7 @@ use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkEvent;
-use preconfirmation_types::{
-    RawTxListGossip, SignedCommitment, b256_to_bytes32, bytes32_to_b256, uint256_to_u256,
-};
+use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, uint256_to_u256};
 use protocol::preconfirmation::PreconfSignerResolver;
 use tokio::sync::{RwLock, broadcast};
 use tracing::{debug, warn};
@@ -24,8 +22,8 @@ use crate::{
     state::PreconfirmationState,
     storage::{CommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
     validation::rules::{
-        self, validate_commitment_basic_with_signer, validate_lookahead, validate_parent_linkage,
-        validate_txlist_gossip,
+        is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
+        validate_parent_linkage, validate_txlist_gossip,
     },
 };
 
@@ -201,8 +199,9 @@ where
 
         while let Some(commitment) = queue.pop() {
             // Extract the parent hash for linkage checks.
-            let parent_hash =
-                bytes32_to_b256(&commitment.commitment.preconf.parent_preconfirmation_hash);
+            let parent_hash = B256::from_slice(
+                commitment.commitment.preconf.parent_preconfirmation_hash.as_ref(),
+            );
             // Ignore genesis commitments.
             if parent_hash == B256::ZERO {
                 debug!("ignoring genesis commitment");
@@ -314,7 +313,7 @@ where
             return Ok(());
         }
         // Extract the txlist hash for indexing.
-        let hash = bytes32_to_b256(&txlist.raw_tx_list_hash);
+        let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
         // Store the txlist for later use.
         self.store.insert_txlist(hash, txlist.clone());
         // Emit the txlist event.
@@ -339,7 +338,7 @@ where
         let hash = preconfirmation_types::preconfirmation_hash(&commitment.commitment.preconf)
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
         // Convert to Bytes32 for the buffer lookup.
-        let hash_bytes = b256_to_bytes32(hash);
+        let hash_bytes = Bytes32::try_from(hash.as_slice().to_vec()).expect("hash length 32");
         // Drain buffered children for this parent.
         let children = self.pending_parents.take_children(&hash_bytes);
         Ok(children)
@@ -347,7 +346,7 @@ where
 
     /// Submit a commitment to the driver if txlist requirements are satisfied.
     async fn submit_if_ready(&self, commitment: SignedCommitment) -> Result<()> {
-        if rules::is_eop_only(&commitment) {
+        if is_eop_only(&commitment) {
             // Build an input without transactions.
             let input = PreconfirmationInput::new(commitment, None, None);
             self.driver
@@ -360,7 +359,7 @@ where
         // Determine the txlist hash for the commitment.
         let txlist_hash = commitment.commitment.preconf.raw_tx_list_hash.clone();
         // Look up the raw txlist payload.
-        let txlist = self.store.get_txlist(&bytes32_to_b256(&txlist_hash));
+        let txlist = self.store.get_txlist(&B256::from_slice(txlist_hash.as_ref()));
         // Require the txlist to be present before submission.
         let Some(txlist) = txlist else {
             // Buffer the commitment until the txlist arrives.

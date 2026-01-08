@@ -49,7 +49,6 @@ pub fn validate_parent_linkage(
     commitment: &SignedCommitment,
     parent_preconf: &Preconfirmation,
 ) -> Result<()> {
-    // Validate the parent hash against the supplied parent preconfirmation.
     validate_parent_hash(
         &commitment.commitment.preconf.parent_preconfirmation_hash,
         parent_preconf,

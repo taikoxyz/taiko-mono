@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, sync::RwLock};
 use alloy_primitives::{B256, U256};
 use dashmap::DashMap;
 use preconfirmation_types::{
-    Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, bytes32_to_b256, uint256_to_u256,
+    Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
 };
 
 /// Trait for accessing stored commitments and txlists.
@@ -191,7 +191,7 @@ impl PendingCommitmentBuffer {
     /// Add a commitment to the pending buffer keyed by its parent hash.
     pub fn add(&self, parent_hash: &Bytes32, commitment: SignedCommitment) {
         // Normalize the parent hash to B256.
-        let key = bytes32_to_b256(parent_hash);
+        let key = B256::from_slice(parent_hash.as_ref());
         // Push the commitment into the pending list.
         self.pending_by_parent.entry(key).or_default().push(commitment);
     }
@@ -199,7 +199,7 @@ impl PendingCommitmentBuffer {
     /// Remove and return all commitments waiting for the given parent hash.
     pub fn take_children(&self, parent_hash: &Bytes32) -> Vec<SignedCommitment> {
         // Normalize the parent hash to B256.
-        let key = bytes32_to_b256(parent_hash);
+        let key = B256::from_slice(parent_hash.as_ref());
         self.pending_by_parent.remove(&key).map(|(_, value)| value).unwrap_or_default()
     }
 }
@@ -226,7 +226,7 @@ impl PendingTxListBuffer {
     /// Add a commitment to the pending txlist buffer.
     pub fn add(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
         // Normalize the hash to B256.
-        let key = bytes32_to_b256(txlist_hash);
+        let key = B256::from_slice(txlist_hash.as_ref());
         // Push the commitment into the pending list.
         self.pending_by_txhash.entry(key).or_default().push(commitment);
     }
@@ -234,7 +234,7 @@ impl PendingTxListBuffer {
     /// Remove and return all commitments waiting for a txlist hash.
     pub fn take_waiting(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
         // Normalize the hash to B256.
-        let key = bytes32_to_b256(txlist_hash);
+        let key = B256::from_slice(txlist_hash.as_ref());
         self.pending_by_txhash.remove(&key).map(|(_, value)| value).unwrap_or_default()
     }
 }
