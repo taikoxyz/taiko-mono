@@ -163,6 +163,7 @@ where
             expected_slasher: self.config.expected_slasher.clone(),
             event_tx: self.event_tx.clone(),
             lookahead_resolver: Arc::new(self.config.lookahead_resolver.clone()),
+            command_sender: self.command_sender.clone(),
         };
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(deps);

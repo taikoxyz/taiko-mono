@@ -9,10 +9,12 @@
 use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
-use preconfirmation_net::NetworkEvent;
-use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, uint256_to_u256};
+use preconfirmation_net::{NetworkCommand, NetworkEvent};
+use preconfirmation_types::{
+    Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
+};
 use protocol::preconfirmation::PreconfSignerResolver;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{RwLock, broadcast, mpsc::Sender};
 use tracing::{debug, warn};
 
 use crate::{
@@ -65,6 +67,8 @@ where
     pub expected_slasher: Option<preconfirmation_types::Bytes20>,
     /// Broadcast channel for outbound events.
     pub event_tx: broadcast::Sender<PreconfirmationEvent>,
+    /// Command sender for updating the P2P head.
+    pub command_sender: Sender<NetworkCommand>,
     /// Lookahead resolver for signer and submission window validation.
     pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
@@ -94,6 +98,8 @@ where
     expected_slasher: Option<preconfirmation_types::Bytes20>,
     /// Broadcast channel for outbound events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
+    /// Command sender for updating the P2P head.
+    command_sender: Sender<NetworkCommand>,
     /// Lookahead resolver for signer and submission window validation.
     lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
@@ -113,6 +119,7 @@ where
             driver: deps.driver,
             expected_slasher: deps.expected_slasher,
             event_tx: deps.event_tx,
+            command_sender: deps.command_sender,
             lookahead_resolver: deps.lookahead_resolver,
         }
     }
@@ -137,6 +144,18 @@ where
             NetworkEvent::GossipRawTxList { from: _, msg } => {
                 // Process the txlist payload.
                 self.handle_txlist(*msg).await?;
+            }
+            NetworkEvent::InboundCommitmentsRequest { from } => {
+                // Commitments are served by the P2P node from the shared store.
+                debug!(peer = %from, "received inbound commitments request");
+            }
+            NetworkEvent::InboundRawTxListRequest { from } => {
+                // Raw txlists are served by the P2P node from the shared store.
+                debug!(peer = %from, "received inbound raw txlist request");
+            }
+            NetworkEvent::InboundHeadRequest { from } => {
+                // Heads are served by the P2P node using the updated head snapshot.
+                debug!(peer = %from, "received inbound head request");
             }
             NetworkEvent::Error(err) => {
                 // Emit an error event for observers.
@@ -284,15 +303,8 @@ where
                 .event_tx
                 .send(PreconfirmationEvent::NewCommitment(Box::new(commitment.clone())));
 
-            // Update the head snapshot.
-            // Acquire a mutable state guard.
-            let mut guard = self.state.write().await;
-            // Build the head snapshot for the state.
-            let head = preconfirmation_types::PreconfHead {
-                block_number: commitment.commitment.preconf.block_number.clone(),
-                submission_window_end: commitment.commitment.preconf.submission_window_end.clone(),
-            };
-            guard.set_head(head);
+            // Update the head snapshot across store, state, and P2P driver.
+            self.update_head(&commitment).await;
 
             // Collect buffered children waiting on this commitment.
             let children = self.collect_pending_children(&commitment)?;
@@ -378,6 +390,34 @@ where
             .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
         Ok(())
     }
+
+    /// Update the head snapshot across store, state, and P2P driver.
+    async fn update_head(&self, commitment: &SignedCommitment) {
+        // Build the head snapshot from the commitment.
+        let head = PreconfHead {
+            block_number: commitment.commitment.preconf.block_number.clone(),
+            submission_window_end: commitment.commitment.preconf.submission_window_end.clone(),
+        };
+
+        // Only advance the head when this commitment is newer than the stored head.
+        let new_block = uint256_to_u256(&head.block_number);
+        let current_head = self.store.head().map(|head| uint256_to_u256(&head.block_number));
+        if current_head.map(|current| new_block <= current).unwrap_or(false) {
+            return;
+        }
+
+        // Persist the head in the commitment store.
+        self.store.set_head(head.clone());
+
+        // Update the shared state view.
+        {
+            let mut guard = self.state.write().await;
+            guard.set_head(head.clone());
+        }
+
+        // Notify the P2P driver so inbound get_head requests respond correctly.
+        let _ = self.command_sender.send(NetworkCommand::UpdateHead { head }).await;
+    }
 }
 
 #[cfg(test)]
@@ -391,7 +431,7 @@ mod tests {
     use async_trait::async_trait;
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
-    use tokio::sync::{RwLock, broadcast};
+    use tokio::sync::{RwLock, broadcast, mpsc};
 
     use super::{EventHandler, EventHandlerContext};
     use crate::{
@@ -547,6 +587,7 @@ mod tests {
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
 
+        let (command_sender, _command_rx) = mpsc::channel(8);
         let handler = EventHandler::new(EventHandlerContext {
             state,
             store: store.clone(),
@@ -557,6 +598,7 @@ mod tests {
             expected_slasher: None,
             event_tx,
             lookahead_resolver,
+            command_sender,
         });
 
         // Build a commitment with a zero parent hash (genesis).
@@ -585,6 +627,7 @@ mod tests {
         let lookahead_resolver = Arc::new(MismatchResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
 
+        let (command_sender, _command_rx) = mpsc::channel(8);
         let handler = EventHandler::new(EventHandlerContext {
             state,
             store: store.clone(),
@@ -595,6 +638,7 @@ mod tests {
             expected_slasher: None,
             event_tx,
             lookahead_resolver,
+            command_sender,
         });
 
         // Build a signed commitment with a non-zero parent hash.
@@ -624,6 +668,7 @@ mod tests {
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
+        let (command_sender, _command_rx) = mpsc::channel(8);
         let handler = EventHandler::new(EventHandlerContext {
             state,
             store: store.clone(),
@@ -634,6 +679,7 @@ mod tests {
             expected_slasher: None,
             event_tx,
             lookahead_resolver,
+            command_sender,
         });
 
         // Build a signed commitment with a missing parent (parentless).
