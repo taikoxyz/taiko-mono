@@ -21,7 +21,7 @@ use crate::{
     codec::ZlibTxListCodec,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{PreconfirmationClientError, Result},
-    storage::{CommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
+    storage::{CommitmentStore, CommitmentsAwaitingParent, CommitmentsAwaitingTxList},
     validation::rules::{
         is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
         validate_parent_linkage, validate_txlist_gossip,
@@ -56,10 +56,10 @@ where
 {
     /// Commitment store for caching commitments and txlists.
     store: Arc<dyn CommitmentStore>,
-    /// Pending buffer for out-of-order commitments.
-    pending_parents: Arc<PendingCommitmentBuffer>,
-    /// Pending buffer for commitments waiting on txlists.
-    pending_txlists: Arc<PendingTxListBuffer>,
+    /// Commitments awaiting their parent commitment.
+    awaiting_parent: Arc<CommitmentsAwaitingParent>,
+    /// Commitments awaiting their txlist payload.
+    awaiting_txlist: Arc<CommitmentsAwaitingTxList>,
     /// Txlist codec for decompression.
     codec: Arc<ZlibTxListCodec>,
     /// Driver client for handing off to the driver.
@@ -82,8 +82,8 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         store: Arc<dyn CommitmentStore>,
-        pending_parents: Arc<PendingCommitmentBuffer>,
-        pending_txlists: Arc<PendingTxListBuffer>,
+        awaiting_parent: Arc<CommitmentsAwaitingParent>,
+        awaiting_txlist: Arc<CommitmentsAwaitingTxList>,
         codec: Arc<ZlibTxListCodec>,
         driver: Arc<D>,
         expected_slasher: Option<Bytes20>,
@@ -93,8 +93,8 @@ where
     ) -> Self {
         Self {
             store,
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver,
             expected_slasher,
@@ -275,7 +275,7 @@ where
                     let parent_hash =
                         commitment.commitment.preconf.parent_preconfirmation_hash.clone();
                     // Buffer this commitment until the parent arrives.
-                    self.pending_parents.add(&parent_hash, commitment);
+                    self.awaiting_parent.add(&parent_hash, commitment);
                     continue;
                 }
             }
@@ -317,7 +317,7 @@ where
         let _ = self.event_tx.send(PreconfirmationEvent::NewTxList(hash));
 
         // Drain commitments waiting on this txlist.
-        for commitment in self.pending_txlists.take_waiting(&txlist.raw_tx_list_hash) {
+        for commitment in self.awaiting_txlist.take_waiting(&txlist.raw_tx_list_hash) {
             // Submit if now ready.
             self.submit_if_ready(commitment).await?;
         }
@@ -338,7 +338,7 @@ where
             PreconfirmationClientError::Validation(format!("invalid hash length: {err}"))
         })?;
         // Drain buffered children for this parent.
-        let children = self.pending_parents.take_children(&hash_bytes);
+        let children = self.awaiting_parent.take_children(&hash_bytes);
         Ok(children)
     }
 
@@ -361,7 +361,7 @@ where
         // Require the txlist to be present before submission.
         let Some(txlist) = txlist else {
             // Buffer the commitment until the txlist arrives.
-            self.pending_txlists.add(&txlist_hash, commitment);
+            self.awaiting_txlist.add(&txlist_hash, commitment);
             return Ok(());
         };
 
@@ -428,7 +428,7 @@ mod tests {
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
-        storage::{InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
+        storage::{InMemoryCommitmentStore, CommitmentsAwaitingParent, CommitmentsAwaitingTxList},
     };
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,
@@ -567,8 +567,8 @@ mod tests {
     async fn genesis_commitment_is_processed() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
@@ -581,8 +581,8 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver.clone(),
             None,
@@ -606,8 +606,8 @@ mod tests {
     async fn invalid_lookahead_does_not_abort() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MismatchResolver);
@@ -616,8 +616,8 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver,
             None,
@@ -641,8 +641,8 @@ mod tests {
     async fn invalid_commitment_evicts_pending() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MismatchResolver);
@@ -651,8 +651,8 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver,
             None,
@@ -680,8 +680,8 @@ mod tests {
     async fn invalid_txlist_evicts_pending() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
@@ -690,8 +690,8 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver,
             None,
@@ -719,8 +719,8 @@ mod tests {
     async fn catchup_parentless_is_processed() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
@@ -733,8 +733,8 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver.clone(),
             None,
@@ -757,8 +757,8 @@ mod tests {
     #[tokio::test]
     async fn notify_head_update_reports_send_failure() {
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
@@ -769,8 +769,8 @@ mod tests {
 
         let handler = EventHandler::new(
             store,
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver,
             None,

@@ -23,7 +23,8 @@ use crate::{
     driver_interface::DriverClient,
     error::{PreconfirmationClientError, Result},
     storage::{
-        CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer,
+        CommitmentStore, CommitmentsAwaitingParent, CommitmentsAwaitingTxList,
+        InMemoryCommitmentStore,
     },
     subscription::{EventHandler, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
@@ -42,10 +43,10 @@ where
     config: PreconfirmationClientConfig,
     /// Commitment store.
     store: Arc<dyn CommitmentStore>,
-    /// Pending commitment buffer for missing parents.
-    pending_parents: Arc<PendingCommitmentBuffer>,
-    /// Pending commitment buffer for missing txlists.
-    pending_txlists: Arc<PendingTxListBuffer>,
+    /// Commitments awaiting their parent commitment.
+    awaiting_parent: Arc<CommitmentsAwaitingParent>,
+    /// Commitments awaiting their txlist payload.
+    awaiting_txlist: Arc<CommitmentsAwaitingTxList>,
     /// Txlist codec for decompression.
     codec: Arc<ZlibTxListCodec>,
     /// Driver client.
@@ -71,10 +72,10 @@ where
             Arc::new(InMemoryCommitmentStore::with_retention_limit(config.retention_limit));
         let store: Arc<dyn CommitmentStore> = store_impl.clone();
         let p2p_storage: Arc<dyn PreconfStorage> = store_impl;
-        // Build the pending parent buffer.
-        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
-        // Build the pending txlist buffer.
-        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        // Build the buffer for commitments awaiting their parent.
+        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        // Build the buffer for commitments awaiting their txlist.
+        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         // Build the txlist codec using the protocol constant.
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.
@@ -92,8 +93,8 @@ where
         Ok(Self {
             config,
             store,
-            pending_parents,
-            pending_txlists,
+            awaiting_parent,
+            awaiting_txlist,
             codec,
             driver: Arc::new(driver),
             command_sender,
@@ -148,8 +149,8 @@ where
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(
             self.store.clone(),
-            self.pending_parents.clone(),
-            self.pending_txlists.clone(),
+            self.awaiting_parent.clone(),
+            self.awaiting_txlist.clone(),
             self.codec.clone(),
             self.driver.clone(),
             self.config.expected_slasher.clone(),

@@ -294,119 +294,201 @@ impl PreconfStorage for InMemoryCommitmentStore {
     }
 }
 
-/// Buffer for pending commitments that arrived out of order.
+/// Buffer for commitments awaiting their parent commitment.
 ///
 /// When a commitment arrives whose parent is not yet known, it is buffered here
 /// keyed by its parent hash. Once the parent arrives, children can be retrieved
 /// and processed.
-pub struct PendingCommitmentBuffer {
+pub struct CommitmentsAwaitingParent {
     /// Map from parent preconfirmation hash to children waiting for that parent.
-    pending_by_parent: DashMap<B256, Vec<SignedCommitment>>,
-    /// Count of pending commitments across all parents.
-    pending_count: AtomicUsize,
+    by_parent_hash: DashMap<B256, Vec<SignedCommitment>>,
+    /// Count of commitments across all parents.
+    count: AtomicUsize,
+    /// Maximum number of commitments to retain.
+    retention_limit: usize,
 }
 
-impl PendingCommitmentBuffer {
-    /// Create a new empty pending buffer.
+impl CommitmentsAwaitingParent {
+    /// Create a new empty buffer.
     pub fn new() -> Self {
-        Self { pending_by_parent: DashMap::new(), pending_count: AtomicUsize::new(0) }
+        Self::with_retention_limit(DEFAULT_RETENTION_LIMIT)
     }
 
-    /// Add a commitment to the pending buffer keyed by its parent hash.
-    pub fn add(&self, parent_hash: &Bytes32, commitment: SignedCommitment) {
-        if self.reserve_slot().is_err() {
-            return;
+    /// Create a new buffer with a custom retention limit.
+    pub fn with_retention_limit(retention_limit: usize) -> Self {
+        Self {
+            by_parent_hash: DashMap::new(),
+            count: AtomicUsize::new(0),
+            retention_limit,
         }
+    }
+
+    /// Add a commitment awaiting its parent.
+    ///
+    /// If the buffer is at capacity, the commitment with the smallest block number
+    /// is evicted to make room for the new one.
+    pub fn add(&self, parent_hash: &Bytes32, commitment: SignedCommitment) {
+        // Evict oldest if at capacity.
+        self.evict_if_needed();
         // Normalize the parent hash to B256.
         let key = B256::from_slice(parent_hash.as_ref());
-        // Push the commitment into the pending list.
-        self.pending_by_parent.entry(key).or_default().push(commitment);
+        // Push the commitment into the list.
+        self.by_parent_hash.entry(key).or_default().push(commitment);
+        self.count.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Remove and return all commitments waiting for the given parent hash.
     pub fn take_children(&self, parent_hash: &Bytes32) -> Vec<SignedCommitment> {
         // Normalize the parent hash to B256.
         let key = B256::from_slice(parent_hash.as_ref());
-        if let Some((_, value)) = self.pending_by_parent.remove(&key) {
-            self.release_slots(value.len());
+        if let Some((_, value)) = self.by_parent_hash.remove(&key) {
+            self.count.fetch_sub(value.len(), Ordering::SeqCst);
             return value;
         }
         Vec::new()
     }
 
-    fn reserve_slot(&self) -> Result<(), ()> {
-        self.pending_count
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
-                if count >= DEFAULT_RETENTION_LIMIT { None } else { Some(count + 1) }
-            })
-            .map(|_| ())
-            .map_err(|_| ())
-    }
+    /// Evict the commitment with the smallest block number if at capacity.
+    fn evict_if_needed(&self) {
+        let count = self.count.load(Ordering::SeqCst);
+        if count < self.retention_limit {
+            return;
+        }
 
-    fn release_slots(&self, count: usize) {
-        self.pending_count.fetch_sub(count, Ordering::SeqCst);
+        // Find the commitment with the smallest block number.
+        let mut min_block: Option<U256> = None;
+        let mut min_key: Option<B256> = None;
+        let mut min_idx: Option<usize> = None;
+
+        for entry in self.by_parent_hash.iter() {
+            for (idx, commitment) in entry.value().iter().enumerate() {
+                let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+                if min_block.is_none() || block < min_block.unwrap() {
+                    min_block = Some(block);
+                    min_key = Some(*entry.key());
+                    min_idx = Some(idx);
+                }
+            }
+        }
+
+        // Remove the oldest commitment.
+        if let (Some(key), Some(idx)) = (min_key, min_idx) {
+            if let Some(mut entry) = self.by_parent_hash.get_mut(&key) {
+                if idx < entry.len() {
+                    entry.remove(idx);
+                    self.count.fetch_sub(1, Ordering::SeqCst);
+                    // Remove the key if the vector is now empty.
+                    if entry.is_empty() {
+                        drop(entry);
+                        self.by_parent_hash.remove(&key);
+                    }
+                }
+            }
+        }
     }
 }
 
-impl Default for PendingCommitmentBuffer {
-    /// Build a default pending commitment buffer using the standard constructor.
+impl Default for CommitmentsAwaitingParent {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Buffer for pending commitments that are waiting on txlists.
-pub struct PendingTxListBuffer {
-    /// Map from txlist hash to commitments waiting for the payload.
-    pending_by_txhash: DashMap<B256, Vec<SignedCommitment>>,
-    /// Count of pending commitments across all txlist hashes.
-    pending_count: AtomicUsize,
+/// Buffer for commitments awaiting their txlist payload.
+///
+/// When a commitment arrives but its txlist hasn't arrived yet, the commitment
+/// is buffered here keyed by the txlist hash. Once the txlist arrives, the
+/// commitments can be retrieved and processed.
+pub struct CommitmentsAwaitingTxList {
+    /// Map from txlist hash to commitments waiting for that txlist.
+    by_txlist_hash: DashMap<B256, Vec<SignedCommitment>>,
+    /// Count of commitments across all txlist hashes.
+    count: AtomicUsize,
+    /// Maximum number of commitments to retain.
+    retention_limit: usize,
 }
 
-impl PendingTxListBuffer {
-    /// Create a new empty pending txlist buffer.
+impl CommitmentsAwaitingTxList {
+    /// Create a new empty buffer.
     pub fn new() -> Self {
-        Self { pending_by_txhash: DashMap::new(), pending_count: AtomicUsize::new(0) }
+        Self::with_retention_limit(DEFAULT_RETENTION_LIMIT)
     }
 
-    /// Add a commitment to the pending txlist buffer.
-    pub fn add(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
-        if self.reserve_slot().is_err() {
-            return;
+    /// Create a new buffer with a custom retention limit.
+    pub fn with_retention_limit(retention_limit: usize) -> Self {
+        Self {
+            by_txlist_hash: DashMap::new(),
+            count: AtomicUsize::new(0),
+            retention_limit,
         }
+    }
+
+    /// Add a commitment awaiting its txlist.
+    ///
+    /// If the buffer is at capacity, the commitment with the smallest block number
+    /// is evicted to make room for the new one.
+    pub fn add(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
+        // Evict oldest if at capacity.
+        self.evict_if_needed();
         // Normalize the hash to B256.
         let key = B256::from_slice(txlist_hash.as_ref());
-        // Push the commitment into the pending list.
-        self.pending_by_txhash.entry(key).or_default().push(commitment);
+        // Push the commitment into the list.
+        self.by_txlist_hash.entry(key).or_default().push(commitment);
+        self.count.fetch_add(1, Ordering::SeqCst);
     }
 
-    /// Remove and return all commitments waiting for a txlist hash.
+    /// Remove and return all commitments waiting for the given txlist hash.
     pub fn take_waiting(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
         // Normalize the hash to B256.
         let key = B256::from_slice(txlist_hash.as_ref());
-        if let Some((_, value)) = self.pending_by_txhash.remove(&key) {
-            self.release_slots(value.len());
+        if let Some((_, value)) = self.by_txlist_hash.remove(&key) {
+            self.count.fetch_sub(value.len(), Ordering::SeqCst);
             return value;
         }
         Vec::new()
     }
 
-    fn reserve_slot(&self) -> Result<(), ()> {
-        self.pending_count
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
-                if count >= DEFAULT_RETENTION_LIMIT { None } else { Some(count + 1) }
-            })
-            .map(|_| ())
-            .map_err(|_| ())
-    }
+    /// Evict the commitment with the smallest block number if at capacity.
+    fn evict_if_needed(&self) {
+        let count = self.count.load(Ordering::SeqCst);
+        if count < self.retention_limit {
+            return;
+        }
 
-    fn release_slots(&self, count: usize) {
-        self.pending_count.fetch_sub(count, Ordering::SeqCst);
+        // Find the commitment with the smallest block number.
+        let mut min_block: Option<U256> = None;
+        let mut min_key: Option<B256> = None;
+        let mut min_idx: Option<usize> = None;
+
+        for entry in self.by_txlist_hash.iter() {
+            for (idx, commitment) in entry.value().iter().enumerate() {
+                let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+                if min_block.is_none() || block < min_block.unwrap() {
+                    min_block = Some(block);
+                    min_key = Some(*entry.key());
+                    min_idx = Some(idx);
+                }
+            }
+        }
+
+        // Remove the oldest commitment.
+        if let (Some(key), Some(idx)) = (min_key, min_idx) {
+            if let Some(mut entry) = self.by_txlist_hash.get_mut(&key) {
+                if idx < entry.len() {
+                    entry.remove(idx);
+                    self.count.fetch_sub(1, Ordering::SeqCst);
+                    // Remove the key if the vector is now empty.
+                    if entry.is_empty() {
+                        drop(entry);
+                        self.by_txlist_hash.remove(&key);
+                    }
+                }
+            }
+        }
     }
 }
 
-impl Default for PendingTxListBuffer {
-    /// Build a default pending txlist buffer using the standard constructor.
+impl Default for CommitmentsAwaitingTxList {
     fn default() -> Self {
         Self::new()
     }
@@ -414,8 +496,8 @@ impl Default for PendingTxListBuffer {
 
 #[cfg(test)]
 mod tests {
-    use super::{InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer};
-    use crate::{config::DEFAULT_RETENTION_LIMIT, storage::commitment_store::CommitmentStore};
+    use super::{CommitmentsAwaitingParent, CommitmentsAwaitingTxList, InMemoryCommitmentStore};
+    use crate::storage::commitment_store::CommitmentStore;
     use alloy_primitives::{B256, U256};
     use preconfirmation_net::PreconfStorage;
     use preconfirmation_types::{
@@ -465,41 +547,63 @@ mod tests {
     }
 
     #[test]
-    fn pending_commitment_buffer_is_capped() {
-        let buffer = PendingCommitmentBuffer::new();
-        let commitment = SignedCommitment::default();
+    fn commitments_awaiting_parent_evicts_oldest() {
+        let buffer = CommitmentsAwaitingParent::with_retention_limit(3);
 
-        for i in 0..=DEFAULT_RETENTION_LIMIT {
-            let parent_hash = Bytes32::try_from(vec![i as u8; 32]).expect("parent hash");
-            buffer.add(&parent_hash, commitment.clone());
-        }
+        // Add commitments with different block numbers.
+        let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
+        buffer.add(&parent_hash, commitment_with_block(U256::from(10u64)));
+        buffer.add(&parent_hash, commitment_with_block(U256::from(5u64)));
+        buffer.add(&parent_hash, commitment_with_block(U256::from(15u64)));
 
-        let mut total = 0usize;
-        for i in 0..=DEFAULT_RETENTION_LIMIT {
-            let parent_hash = Bytes32::try_from(vec![i as u8; 32]).expect("parent hash");
-            total += buffer.take_children(&parent_hash).len();
-        }
+        // Adding a 4th should evict the one with block 5 (smallest).
+        buffer.add(&parent_hash, commitment_with_block(U256::from(20u64)));
 
-        assert!(total <= DEFAULT_RETENTION_LIMIT);
+        let children = buffer.take_children(&parent_hash);
+        assert_eq!(children.len(), 3);
+
+        // Verify block 5 was evicted (smallest block number).
+        let blocks: Vec<u64> = children
+            .iter()
+            .map(|c| {
+                let block = preconfirmation_types::uint256_to_u256(&c.commitment.preconf.block_number);
+                block.try_into().unwrap()
+            })
+            .collect();
+        assert!(!blocks.contains(&5u64));
+        assert!(blocks.contains(&10u64));
+        assert!(blocks.contains(&15u64));
+        assert!(blocks.contains(&20u64));
     }
 
     #[test]
-    fn pending_txlist_buffer_is_capped() {
-        let buffer = PendingTxListBuffer::new();
-        let commitment = SignedCommitment::default();
+    fn commitments_awaiting_txlist_evicts_oldest() {
+        let buffer = CommitmentsAwaitingTxList::with_retention_limit(3);
 
-        for i in 0..=DEFAULT_RETENTION_LIMIT {
-            let txlist_hash = Bytes32::try_from(vec![i as u8; 32]).expect("txlist hash");
-            buffer.add(&txlist_hash, commitment.clone());
-        }
+        // Add commitments with different block numbers.
+        let txlist_hash = Bytes32::try_from(vec![1u8; 32]).expect("txlist hash");
+        buffer.add(&txlist_hash, commitment_with_block(U256::from(10u64)));
+        buffer.add(&txlist_hash, commitment_with_block(U256::from(5u64)));
+        buffer.add(&txlist_hash, commitment_with_block(U256::from(15u64)));
 
-        let mut total = 0usize;
-        for i in 0..=DEFAULT_RETENTION_LIMIT {
-            let txlist_hash = Bytes32::try_from(vec![i as u8; 32]).expect("txlist hash");
-            total += buffer.take_waiting(&txlist_hash).len();
-        }
+        // Adding a 4th should evict the one with block 5 (smallest).
+        buffer.add(&txlist_hash, commitment_with_block(U256::from(20u64)));
 
-        assert!(total <= DEFAULT_RETENTION_LIMIT);
+        let waiting = buffer.take_waiting(&txlist_hash);
+        assert_eq!(waiting.len(), 3);
+
+        // Verify block 5 was evicted (smallest block number).
+        let blocks: Vec<u64> = waiting
+            .iter()
+            .map(|c| {
+                let block = preconfirmation_types::uint256_to_u256(&c.commitment.preconf.block_number);
+                block.try_into().unwrap()
+            })
+            .collect();
+        assert!(!blocks.contains(&5u64));
+        assert!(blocks.contains(&10u64));
+        assert!(blocks.contains(&15u64));
+        assert!(blocks.contains(&20u64));
     }
 
     /// Ensure a new store has no latest commitment.
