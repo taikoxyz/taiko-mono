@@ -17,10 +17,6 @@ pub mod config;
 pub mod driver_interface;
 /// Error types surfaced by the SDK.
 pub mod error;
-/// Publishing helpers for outbound gossip.
-pub mod publish;
-/// State tracking for sync progress.
-pub mod state;
 /// Storage helpers for commitments and txlists.
 pub mod storage;
 /// Subscription/event handling for inbound gossip.

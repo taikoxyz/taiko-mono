@@ -3,7 +3,7 @@
 //! This module defines the validation rules used by the client to verify
 //! incoming commitments and transaction lists.
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::Address;
 use preconfirmation_types::{
     Bytes20, GetRawTxListResponse, Preconfirmation, RawTxListGossip, SignedCommitment,
     uint256_to_u256, validate_parent_hash, validate_preconfirmation_basic,
@@ -34,14 +34,6 @@ pub fn validate_commitment_basic_with_signer(
         }
     }
     Ok(recovered)
-}
-
-/// Validate a signed commitment with basic checks.
-pub fn validate_commitment_basic(
-    commitment: &SignedCommitment,
-    expected_slasher: Option<&Bytes20>,
-) -> Result<()> {
-    validate_commitment_basic_with_signer(commitment, expected_slasher).map(|_| ())
 }
 
 /// Validate parent linkage using the parent preconfirmation.
@@ -75,12 +67,6 @@ pub fn is_eop_only(commitment: &SignedCommitment) -> bool {
     let preconf = &commitment.commitment.preconf;
     // Check if eop is set and the txlist hash is zero.
     preconf.eop && preconf.raw_tx_list_hash.iter().all(|byte| *byte == 0)
-}
-
-/// Compute the commitment's raw txlist hash as B256.
-pub fn commitment_txlist_hash(commitment: &SignedCommitment) -> B256 {
-    // Convert the raw txlist hash into B256.
-    B256::from_slice(commitment.commitment.preconf.raw_tx_list_hash.as_ref())
 }
 
 /// Validate that the commitment's signer and submission_window_end match the expected slot info.

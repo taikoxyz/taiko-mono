@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{broadcast, mpsc::Sender};
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 
@@ -18,16 +18,14 @@ use preconfirmation_net::{
 use preconfirmation_types::MAX_TXLIST_BYTES;
 
 use crate::{
-    codec::{TxListCodec, ZlibTxListCodec},
+    codec::ZlibTxListCodec,
     config::PreconfirmationClientConfig,
     driver_interface::DriverClient,
     error::{PreconfirmationClientError, Result},
-    publish::PreconfirmationPublisher,
-    state::PreconfirmationState,
     storage::{
         CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer,
     },
-    subscription::{EventHandler, EventHandlerContext, PreconfirmationEvent},
+    subscription::{EventHandler, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
 };
 
@@ -42,8 +40,6 @@ where
 {
     /// Client configuration.
     config: PreconfirmationClientConfig,
-    /// Shared client state (head, sync status, peers).
-    state: Arc<RwLock<PreconfirmationState>>,
     /// Commitment store.
     store: Arc<dyn CommitmentStore>,
     /// Pending commitment buffer for missing parents.
@@ -51,11 +47,11 @@ where
     /// Pending commitment buffer for missing txlists.
     pending_txlists: Arc<PendingTxListBuffer>,
     /// Txlist codec for decompression.
-    codec: Arc<dyn TxListCodec>,
+    codec: Arc<ZlibTxListCodec>,
     /// Driver client.
     driver: Arc<D>,
     /// Command sender for publishing and req/resp.
-    command_sender: tokio::sync::mpsc::Sender<NetworkCommand>,
+    command_sender: Sender<NetworkCommand>,
     /// Optional P2P handle used by the event loop.
     handle: Option<P2pHandle>,
     /// Optional P2P node used to run the network driver.
@@ -80,7 +76,7 @@ where
         // Build the pending txlist buffer.
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
         // Build the txlist codec using the protocol constant.
-        let codec: Arc<dyn TxListCodec> = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.
         let validator: Box<dyn ValidationAdapter> =
             Box::new(LocalValidationAdapter::new(config.expected_slasher.clone()));
@@ -92,12 +88,9 @@ where
         let command_sender = handle.command_sender();
         // Build the broadcast channel for events.
         let (event_tx, _event_rx) = broadcast::channel(16);
-        // Build the shared state container.
-        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
 
         Ok(Self {
             config,
-            state,
             store,
             pending_parents,
             pending_txlists,
@@ -115,9 +108,9 @@ where
         self.event_tx.subscribe()
     }
 
-    /// Get a publisher for outbound messages.
-    pub fn publisher(&self) -> PreconfirmationPublisher {
-        PreconfirmationPublisher::new(self.command_sender.clone())
+    /// Get the command sender for outbound messages.
+    pub fn command_sender(&self) -> Sender<NetworkCommand> {
+        self.command_sender.clone()
     }
 
     /// Run the client after the driver event sync has completed.
@@ -126,7 +119,7 @@ where
     /// 1. Waits for the driver event sync completion signal.
     /// 2. Fetches the driver event sync tip to bound catch-up.
     /// 3. Performs tip catch-up to synchronize preconfirmation commitments.
-    /// 4. Enters the event loop to process gossip events.
+    /// 4. Emits a synced event.
     pub async fn run_after_event_sync(mut self) -> Result<()> {
         info!("waiting for driver event sync to complete");
         // Wait for the driver to report event sync completion.
@@ -156,21 +149,18 @@ where
         let (commitments, catchup_boundary) =
             catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
 
-        // Bundle dependencies for the event handler.
-        let deps = EventHandlerContext {
-            state: self.state.clone(),
-            store: self.store.clone(),
-            pending_parents: self.pending_parents.clone(),
-            pending_txlists: self.pending_txlists.clone(),
-            codec: self.codec.clone(),
-            driver: self.driver.clone(),
-            expected_slasher: self.config.expected_slasher.clone(),
-            event_tx: self.event_tx.clone(),
-            lookahead_resolver: Arc::new(self.config.lookahead_resolver.clone()),
-            command_sender: self.command_sender.clone(),
-        };
         // Build the event handler for gossip processing.
-        let handler = EventHandler::new(deps);
+        let handler = EventHandler::new(
+            self.store.clone(),
+            self.pending_parents.clone(),
+            self.pending_txlists.clone(),
+            self.codec.clone(),
+            self.driver.clone(),
+            self.config.expected_slasher.clone(),
+            self.event_tx.clone(),
+            self.command_sender.clone(),
+            Arc::new(self.config.lookahead_resolver.clone()),
+        );
 
         // Process each catch-up commitment through the handler.
         let mut commit_iter = commitments.into_iter();
@@ -181,10 +171,6 @@ where
             handler.handle_commitment(commitment).await?;
         }
 
-        // Mark the client as synced.
-        // Acquire a mutable state guard.
-        let mut guard = self.state.write().await;
-        guard.set_synced(true);
         // Emit the synced event.
         let _ = self.event_tx.send(PreconfirmationEvent::Synced);
 

@@ -357,21 +357,6 @@ impl TipCatchup {
 
         Ok((chain, catchup_boundary))
     }
-
-    /// Fetch a txlist by hash from peers.
-    pub async fn fetch_txlist_from_peers(
-        &self,
-        handle: &mut P2pHandle,
-        hash: Bytes32,
-    ) -> Result<Vec<u8>> {
-        // Request the raw txlist payload by hash.
-        let response = handle.request_raw_txlist(hash, None).await.map_err(|err| {
-            PreconfirmationClientError::Catchup(format!("failed to fetch txlist: {err}"))
-        })?;
-        // Validate the response payload.
-        validate_txlist_response(&response)?;
-        Ok(response.txlist.to_vec())
-    }
 }
 
 #[cfg(test)]

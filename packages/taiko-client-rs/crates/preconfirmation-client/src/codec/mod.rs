@@ -3,5 +3,5 @@
 /// Txlist codec definitions.
 pub mod txlist_codec;
 
-/// Txlist codec trait and zlib implementation.
-pub use txlist_codec::{TxListCodec, ZlibTxListCodec};
+/// Zlib txlist codec implementation.
+pub use txlist_codec::ZlibTxListCodec;

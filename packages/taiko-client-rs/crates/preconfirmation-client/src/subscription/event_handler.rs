@@ -11,17 +11,16 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::{NetworkCommand, NetworkEvent};
 use preconfirmation_types::{
-    Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
+    Bytes20, Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
 };
 use protocol::preconfirmation::PreconfSignerResolver;
-use tokio::sync::{RwLock, broadcast, mpsc::Sender};
+use tokio::sync::{broadcast, mpsc::Sender};
 use tracing::{debug, warn};
 
 use crate::{
-    codec::TxListCodec,
+    codec::ZlibTxListCodec,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{PreconfirmationClientError, Result},
-    state::PreconfirmationState,
     storage::{CommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
     validation::rules::{
         is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
@@ -46,33 +45,6 @@ pub enum PreconfirmationEvent {
     Error(String),
 }
 
-/// Dependencies required to construct an event handler.
-pub struct EventHandlerContext<D>
-where
-    D: DriverClient,
-{
-    /// Client state for tracking sync status and peers.
-    pub state: Arc<RwLock<PreconfirmationState>>,
-    /// Commitment store for caching commitments and txlists.
-    pub store: Arc<dyn CommitmentStore>,
-    /// Pending buffer for out-of-order commitments.
-    pub pending_parents: Arc<PendingCommitmentBuffer>,
-    /// Pending buffer for commitments waiting on txlists.
-    pub pending_txlists: Arc<PendingTxListBuffer>,
-    /// Txlist codec for decompression.
-    pub codec: Arc<dyn TxListCodec>,
-    /// Driver client for handing off to the driver.
-    pub driver: Arc<D>,
-    /// Expected slasher address for validation.
-    pub expected_slasher: Option<preconfirmation_types::Bytes20>,
-    /// Broadcast channel for outbound events.
-    pub event_tx: broadcast::Sender<PreconfirmationEvent>,
-    /// Command sender for updating the P2P head.
-    pub command_sender: Sender<NetworkCommand>,
-    /// Lookahead resolver for signer and submission window validation.
-    pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
-}
-
 /// Handler for processing P2P network events.
 ///
 /// This component validates incoming gossip messages, stores commitments and txlists,
@@ -82,8 +54,6 @@ pub struct EventHandler<D>
 where
     D: DriverClient,
 {
-    /// Client state for tracking sync status and peers.
-    state: Arc<RwLock<PreconfirmationState>>,
     /// Commitment store for caching commitments and txlists.
     store: Arc<dyn CommitmentStore>,
     /// Pending buffer for out-of-order commitments.
@@ -91,11 +61,11 @@ where
     /// Pending buffer for commitments waiting on txlists.
     pending_txlists: Arc<PendingTxListBuffer>,
     /// Txlist codec for decompression.
-    codec: Arc<dyn TxListCodec>,
+    codec: Arc<ZlibTxListCodec>,
     /// Driver client for handing off to the driver.
     driver: Arc<D>,
     /// Expected slasher address for validation.
-    expected_slasher: Option<preconfirmation_types::Bytes20>,
+    expected_slasher: Option<Bytes20>,
     /// Broadcast channel for outbound events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
     /// Command sender for updating the P2P head.
@@ -109,18 +79,28 @@ where
     D: DriverClient,
 {
     /// Create a new event handler with the required dependencies.
-    pub fn new(deps: EventHandlerContext<D>) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        store: Arc<dyn CommitmentStore>,
+        pending_parents: Arc<PendingCommitmentBuffer>,
+        pending_txlists: Arc<PendingTxListBuffer>,
+        codec: Arc<ZlibTxListCodec>,
+        driver: Arc<D>,
+        expected_slasher: Option<Bytes20>,
+        event_tx: broadcast::Sender<PreconfirmationEvent>,
+        command_sender: Sender<NetworkCommand>,
+        lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
+    ) -> Self {
         Self {
-            state: deps.state,
-            store: deps.store,
-            pending_parents: deps.pending_parents,
-            pending_txlists: deps.pending_txlists,
-            codec: deps.codec,
-            driver: deps.driver,
-            expected_slasher: deps.expected_slasher,
-            event_tx: deps.event_tx,
-            command_sender: deps.command_sender,
-            lookahead_resolver: deps.lookahead_resolver,
+            store,
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver,
+            expected_slasher,
+            event_tx,
+            command_sender,
+            lookahead_resolver,
         }
     }
 
@@ -130,12 +110,12 @@ where
             NetworkEvent::PeerConnected(peer_id) => {
                 // Convert the peer id to a string for the event.
                 let peer = peer_id.to_string();
-                self.handle_peer_connected(peer).await;
+                self.handle_peer_connected(peer);
             }
             NetworkEvent::PeerDisconnected(peer_id) => {
                 // Convert the peer id to a string for the event.
                 let peer = peer_id.to_string();
-                self.handle_peer_disconnected(peer).await;
+                self.handle_peer_disconnected(peer);
             }
             NetworkEvent::GossipSignedCommitment { from: _, msg } => {
                 // Process the commitment payload.
@@ -169,21 +149,13 @@ where
         Ok(())
     }
 
-    /// Update state and emit a peer connected event.
-    async fn handle_peer_connected(&self, peer_id: String) {
-        // Acquire a mutable state guard.
-        let mut guard = self.state.write().await;
-        guard.increment_peers();
-        // Emit the peer connected event.
+    /// Emit a peer connected event.
+    fn handle_peer_connected(&self, peer_id: String) {
         let _ = self.event_tx.send(PreconfirmationEvent::PeerConnected(peer_id));
     }
 
-    /// Update state and emit a peer disconnected event.
-    async fn handle_peer_disconnected(&self, peer_id: String) {
-        // Acquire a mutable state guard.
-        let mut guard = self.state.write().await;
-        guard.decrement_peers();
-        // Emit the peer disconnected event.
+    /// Emit a peer disconnected event.
+    fn handle_peer_disconnected(&self, peer_id: String) {
         let _ = self.event_tx.send(PreconfirmationEvent::PeerDisconnected(peer_id));
     }
 
@@ -397,7 +369,7 @@ where
         Ok(())
     }
 
-    /// Update the head snapshot across store, state, and P2P driver.
+    /// Update the head snapshot across store and P2P driver.
     async fn update_head(&self, commitment: &SignedCommitment) {
         // Build the head snapshot from the commitment.
         let head = PreconfHead {
@@ -414,12 +386,6 @@ where
 
         // Persist the head in the commitment store.
         self.store.set_head(head.clone());
-
-        // Update the shared state view.
-        {
-            let mut guard = self.state.write().await;
-            guard.set_head(head.clone());
-        }
 
         // Notify the P2P driver so inbound get_head requests respond correctly.
         let _ = self.command_sender.send(NetworkCommand::UpdateHead { head }).await;
@@ -438,14 +404,13 @@ mod tests {
     use preconfirmation_net::PreconfStorage;
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
-    use tokio::sync::{RwLock, broadcast, mpsc};
+    use tokio::sync::{broadcast, mpsc};
 
-    use super::{EventHandler, EventHandlerContext};
+    use super::EventHandler;
     use crate::{
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
-        state::PreconfirmationState,
         storage::{
             CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer,
         },
@@ -581,11 +546,10 @@ mod tests {
         }
     }
 
-    /// Genesis commitments are ignored and do not update state or storage.
+    /// Genesis commitments are ignored and do not update storage.
     #[tokio::test]
     async fn genesis_commitment_is_ignored() {
-        // Build shared state and dependencies for the handler.
-        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
@@ -593,20 +557,19 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-
         let (command_sender, _command_rx) = mpsc::channel(8);
-        let handler = EventHandler::new(EventHandlerContext {
-            state,
-            store: store.clone(),
+
+        let handler = EventHandler::new(
+            store.clone(),
             pending_parents,
             pending_txlists,
             codec,
-            driver: driver.clone(),
-            expected_slasher: None,
+            driver.clone(),
+            None,
             event_tx,
-            lookahead_resolver,
             command_sender,
-        });
+            lookahead_resolver,
+        );
 
         // Build a commitment with a zero parent hash (genesis).
         let preconf = Preconfirmation::default();
@@ -624,8 +587,7 @@ mod tests {
     /// Invalid lookahead data drops the commitment without aborting the handler.
     #[tokio::test]
     async fn invalid_lookahead_does_not_abort() {
-        // Build shared state and dependencies for the handler.
-        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
@@ -633,20 +595,19 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MismatchResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-
         let (command_sender, _command_rx) = mpsc::channel(8);
-        let handler = EventHandler::new(EventHandlerContext {
-            state,
-            store: store.clone(),
+
+        let handler = EventHandler::new(
+            store.clone(),
             pending_parents,
             pending_txlists,
             codec,
             driver,
-            expected_slasher: None,
+            None,
             event_tx,
-            lookahead_resolver,
             command_sender,
-        });
+            lookahead_resolver,
+        );
 
         // Build a signed commitment with a non-zero parent hash.
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
@@ -661,8 +622,7 @@ mod tests {
     /// Dropped commitments should be evicted from pending storage.
     #[tokio::test]
     async fn invalid_commitment_evicts_pending() {
-        // Build shared state and dependencies for the handler.
-        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
@@ -670,20 +630,19 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MismatchResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-
         let (command_sender, _command_rx) = mpsc::channel(8);
-        let handler = EventHandler::new(EventHandlerContext {
-            state,
-            store: store.clone(),
+
+        let handler = EventHandler::new(
+            store.clone(),
             pending_parents,
             pending_txlists,
             codec,
             driver,
-            expected_slasher: None,
+            None,
             event_tx,
-            lookahead_resolver,
             command_sender,
-        });
+            lookahead_resolver,
+        );
 
         // Build a signed commitment with a non-zero parent hash.
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
@@ -702,8 +661,7 @@ mod tests {
     /// Dropped txlists should be evicted from pending storage.
     #[tokio::test]
     async fn invalid_txlist_evicts_pending() {
-        // Build shared state and dependencies for the handler.
-        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
@@ -711,20 +669,19 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-
         let (command_sender, _command_rx) = mpsc::channel(8);
-        let handler = EventHandler::new(EventHandlerContext {
-            state,
-            store: store.clone(),
+
+        let handler = EventHandler::new(
+            store.clone(),
             pending_parents,
             pending_txlists,
             codec,
             driver,
-            expected_slasher: None,
+            None,
             event_tx,
-            lookahead_resolver,
             command_sender,
-        });
+            lookahead_resolver,
+        );
 
         // Build a txlist with a mismatched hash to trigger validation failure.
         let raw_tx_list_hash = Bytes32::try_from(vec![0u8; 32]).expect("txlist hash");
@@ -743,33 +700,31 @@ mod tests {
     /// Catch-up parentless commitments are processed without a parent.
     #[tokio::test]
     async fn catchup_parentless_is_processed() {
-        // Build shared state and dependencies for the handler.
-        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_sender, _command_rx) = mpsc::channel(8);
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
-        let (command_sender, _command_rx) = mpsc::channel(8);
-        let handler = EventHandler::new(EventHandlerContext {
-            state,
-            store: store.clone(),
+        let handler = EventHandler::new(
+            store.clone(),
             pending_parents,
             pending_txlists,
             codec,
-            driver: driver.clone(),
-            expected_slasher: None,
+            driver.clone(),
+            None,
             event_tx,
-            lookahead_resolver,
             command_sender,
-        });
+            lookahead_resolver,
+        );
 
         // Build a signed commitment with a missing parent (parentless).
         let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");

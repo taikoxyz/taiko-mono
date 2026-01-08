@@ -7,12 +7,6 @@ use flate2::read::ZlibDecoder;
 
 use crate::error::{PreconfirmationClientError, Result};
 
-/// Trait for decoding compressed transaction lists.
-pub trait TxListCodec: Send + Sync {
-    /// Decode a compressed txlist into raw transaction byte blobs.
-    fn decode(&self, compressed: &[u8]) -> Result<Vec<Vec<u8>>>;
-}
-
 /// Zlib-based txlist decoder compatible with the P2P specification.
 pub struct ZlibTxListCodec {
     /// Maximum allowed decompressed txlist size.
@@ -24,11 +18,9 @@ impl ZlibTxListCodec {
     pub fn new(max_txlist_bytes: usize) -> Self {
         Self { max_txlist_bytes }
     }
-}
 
-impl TxListCodec for ZlibTxListCodec {
     /// Decode compressed zlib bytes into a list of raw transactions.
-    fn decode(&self, compressed: &[u8]) -> Result<Vec<Vec<u8>>> {
+    pub fn decode(&self, compressed: &[u8]) -> Result<Vec<Vec<u8>>> {
         // Prepare a zlib decoder over the compressed buffer.
         let mut decoder = ZlibDecoder::new(compressed);
         // Buffer for the decompressed payload.
@@ -59,7 +51,7 @@ mod tests {
 
     use flate2::{Compression, write::ZlibEncoder};
 
-    use super::{TxListCodec, ZlibTxListCodec};
+    use super::ZlibTxListCodec;
 
     /// Placeholder test to enforce codec module compilation.
     #[test]

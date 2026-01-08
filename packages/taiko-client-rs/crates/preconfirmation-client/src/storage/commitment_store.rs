@@ -23,12 +23,6 @@ pub trait CommitmentStore: Send + Sync {
     fn insert_commitment(&self, commitment: SignedCommitment);
     /// Fetch a commitment by block number.
     fn get_commitment(&self, block_number: &U256) -> Option<SignedCommitment>;
-    /// Fetch the latest stored commitment.
-    fn latest_commitment(&self) -> Option<SignedCommitment>;
-    /// Fetch the latest stored block number.
-    fn latest_block_number(&self) -> Option<U256>;
-    /// Return up to `max` commitments starting from `start` (inclusive).
-    fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment>;
     /// Store a raw txlist keyed by its hash.
     fn insert_txlist(&self, hash: B256, txlist: RawTxListGossip);
     /// Fetch a raw txlist by hash.
@@ -85,6 +79,27 @@ impl InMemoryCommitmentStore {
     fn block_number(commitment: &SignedCommitment) -> U256 {
         // Convert the SSZ uint256 block number into an alloy U256.
         uint256_to_u256(&commitment.commitment.preconf.block_number)
+    }
+
+    /// Fetch a range of commitments starting at the provided block number.
+    pub(crate) fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
+        // Prepare the output vector.
+        let mut commitments = Vec::new();
+        // Read the map for ordered iteration.
+        let guard = match self.commitments.read() {
+            Ok(guard) => guard,
+            Err(_) => return commitments,
+        };
+        // Iterate over the requested range.
+        for (_, commitment) in guard.range(start..) {
+            // Stop when we reach the requested max.
+            if commitments.len() >= max {
+                break;
+            }
+            // Push a clone of the commitment.
+            commitments.push(commitment.clone());
+        }
+        commitments
     }
 
     /// Prune the oldest commitments if the retention limit is exceeded.
@@ -190,24 +205,6 @@ impl CommitmentStore for InMemoryCommitmentStore {
         self.pending_commitments.remove(&block_number);
         // Prune unreferenced txlists if needed.
         self.prune_txlists();
-        // Update the head snapshot when this is the new tip.
-        if let Ok(mut head_guard) = self.head.write() {
-            // Compute the current head block number.
-            let current_head = head_guard.as_ref().map(|head| uint256_to_u256(&head.block_number));
-            // Update head if missing or smaller.
-            if current_head.map(|current| block_number > current).unwrap_or(true) {
-                // Build a new head snapshot from the commitment.
-                let head = PreconfHead {
-                    block_number: commitment.commitment.preconf.block_number.clone(),
-                    submission_window_end: commitment
-                        .commitment
-                        .preconf
-                        .submission_window_end
-                        .clone(),
-                };
-                *head_guard = Some(head);
-            }
-        }
     }
 
     /// Fetch a commitment by block number from the in-memory store.
@@ -215,41 +212,6 @@ impl CommitmentStore for InMemoryCommitmentStore {
         // Read the map for the requested block number.
         let guard = self.commitments.read().ok()?;
         guard.get(block_number).cloned()
-    }
-
-    /// Fetch the highest stored commitment, if any.
-    fn latest_commitment(&self) -> Option<SignedCommitment> {
-        // Read the map to access the highest block.
-        let guard = self.commitments.read().ok()?;
-        guard.iter().next_back().map(|(_, value)| value.clone())
-    }
-
-    /// Fetch the highest stored block number, if any.
-    fn latest_block_number(&self) -> Option<U256> {
-        // Read the map to access the highest block.
-        let guard = self.commitments.read().ok()?;
-        guard.keys().next_back().cloned()
-    }
-
-    /// Fetch a range of commitments starting at the provided block number.
-    fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
-        // Prepare the output vector.
-        let mut commitments = Vec::new();
-        // Read the map for ordered iteration.
-        let guard = match self.commitments.read() {
-            Ok(guard) => guard,
-            Err(_) => return commitments,
-        };
-        // Iterate over the requested range.
-        for (_, commitment) in guard.range(start..) {
-            // Stop when we reach the requested max.
-            if commitments.len() >= max {
-                break;
-            }
-            // Push a clone of the commitment.
-            commitments.push(commitment.clone());
-        }
-        commitments
     }
 
     /// Insert a raw txlist payload keyed by its hash.
@@ -317,7 +279,7 @@ impl PreconfStorage for InMemoryCommitmentStore {
 
     /// Fetch commitments starting from a block number.
     fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
-        CommitmentStore::commitments_from(self, start, max)
+        InMemoryCommitmentStore::commitments_from(self, start, max)
     }
 
     /// Fetch a raw txlist by its hash.
@@ -411,6 +373,12 @@ mod tests {
     };
 
     impl InMemoryCommitmentStore {
+        /// Fetch the highest stored commitment, if any.
+        pub(crate) fn latest_commitment(&self) -> Option<SignedCommitment> {
+            let guard = self.commitments.read().ok()?;
+            guard.iter().next_back().map(|(_, value)| value.clone())
+        }
+
         /// Get the number of pending commitments.
         pub(crate) fn pending_commitments_len(&self) -> usize {
             self.pending_commitments.len()
@@ -462,7 +430,7 @@ mod tests {
 
         PreconfStorage::insert_commitment(&store, block, commitment.clone());
 
-        assert!(CommitmentStore::latest_commitment(&store).is_none());
+        assert!(store.latest_commitment().is_none());
         assert!(PreconfStorage::commitments_from(&store, block, 1).is_empty());
 
         CommitmentStore::insert_commitment(&store, commitment.clone());
