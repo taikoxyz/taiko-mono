@@ -24,7 +24,7 @@ contract DeployHeklaPreconf is DeployCapability {
         address rollupResolver = 0x058810c7e843cbe7F94fF2edCa1941E226e3DF72;
         address taikoInbox = 0xeAd9c57ce675464AD9E7F60432DA65b84323a3A2;
         address fallbackPreconfProposer = 0x32C6404F14cafC89363801a8efEb697410a7F516;
-        address proofVerifier = 0xf33b846Fb36eDE3a8acF375C853b01236562bB82;
+        address proofVerifier = 0x10F65D0803d449617cdCFfc7C0Ce37119DBB6E8b;
         address taikoToken = 0xB3c5453C1c77D0d68487E9d34eeEC85fE13EEeeb;
         address signalService = 0xE4154D229b8185AF0604D06522dF1107395A13E9;
         address oldFork = 0x0883396A11a8c94Da64c39Eb3E61A2BCCccD2e1a;
@@ -80,6 +80,6 @@ contract DeployHeklaPreconf is DeployCapability {
             address(new DevnetInbox(167011,2 hours,taikoWrapper, proofVerifier, taikoToken, signalService));
 //        address newRouter = address(new PacayaForkRouter(oldFork, newFork));
         UUPSUpgradeable(taikoInbox).upgradeTo(newFork);
-        TaikoInbox(taikoInbox).init(0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190, 0xeef96dc254e1ac4a0044b116e38b16dface1a153d9299c056552898a43f8513e);
+//        TaikoInbox(taikoInbox).init(0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190, 0xeef96dc254e1ac4a0044b116e38b16dface1a153d9299c056552898a43f8513e);
     }
 }
