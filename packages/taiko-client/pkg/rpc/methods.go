@@ -1520,9 +1520,9 @@ func (c *Client) GetProposalByIDShasta(
 		return nil, nil, fmt.Errorf("failed to get last block ID by batch ID %d: %w", proposalID, err)
 	}
 
-	block, err := c.L2.BlockByNumber(ctxWithTimeout, blockID)
+	block, err := c.L2.BlockByNumber(ctxWithTimeout, blockID.ToInt())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockID, err)
+		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockID.ToInt(), err)
 	}
 
 	_, anchorNumber, _, err := c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
