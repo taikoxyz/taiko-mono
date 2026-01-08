@@ -32,5 +32,5 @@ pub mod validation;
 
 pub use client::PreconfirmationClient;
 pub use config::PreconfirmationClientConfig;
-pub use driver_interface::{DriverSubmitter, PreconfirmationInput};
+pub use driver_interface::{DriverClient, PreconfirmationInput};
 pub use error::{PreconfirmationClientError, Result};

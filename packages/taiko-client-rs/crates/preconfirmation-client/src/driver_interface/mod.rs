@@ -3,4 +3,4 @@
 /// Driver-facing traits and input structures.
 pub mod traits;
 
-pub use traits::{DriverSubmitter, PreconfirmationInput};
+pub use traits::{DriverClient, PreconfirmationInput};

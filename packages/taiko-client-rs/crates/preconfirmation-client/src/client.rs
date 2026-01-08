@@ -20,7 +20,7 @@ use preconfirmation_types::{MAX_TXLIST_BYTES, uint256_to_u256};
 use crate::{
     codec::{TxListCodec, ZlibTxListCodec},
     config::PreconfirmationClientConfig,
-    driver_interface::DriverSubmitter,
+    driver_interface::DriverClient,
     error::{PreconfirmationClientError, Result},
     publish::PreconfirmationPublisher,
     state::PreconfirmationState,
@@ -38,7 +38,7 @@ use crate::{
 /// to the driver.
 pub struct PreconfirmationClient<D>
 where
-    D: DriverSubmitter + 'static,
+    D: DriverClient + 'static,
 {
     /// Client configuration.
     config: PreconfirmationClientConfig,
@@ -52,7 +52,7 @@ where
     pending_txlists: Arc<PendingTxListBuffer>,
     /// Txlist codec for decompression.
     codec: Arc<dyn TxListCodec>,
-    /// Driver submitter.
+    /// Driver client.
     driver: Arc<D>,
     /// Command sender for publishing and req/resp.
     command_sender: tokio::sync::mpsc::Sender<NetworkCommand>,
@@ -66,7 +66,7 @@ where
 
 impl<D> PreconfirmationClient<D>
 where
-    D: DriverSubmitter + 'static,
+    D: DriverClient + 'static,
 {
     /// Create a new preconfirmation client and underlying P2P node.
     pub fn new(config: PreconfirmationClientConfig, driver: D) -> Result<Self> {

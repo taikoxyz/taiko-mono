@@ -17,9 +17,9 @@ pub enum PreconfirmationClientError {
     /// Storage layer failure (in-memory or persistent).
     #[error("storage error: {0}")]
     Storage(String),
-    /// Error returned by the driver submitter callback.
-    #[error("driver submit error: {0}")]
-    DriverSubmit(String),
+    /// Error returned by the driver client callback.
+    #[error("driver client error: {0}")]
+    DriverClient(String),
     /// Codec error while decoding a txlist payload.
     #[error("codec error: {0}")]
     Codec(String),

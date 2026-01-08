@@ -1,6 +1,7 @@
 //! Driver interface trait definitions.
 
 use async_trait::async_trait;
+use alloy_primitives::U256;
 use preconfirmation_types::SignedCommitment;
 
 use crate::error::Result;
@@ -27,25 +28,28 @@ impl PreconfirmationInput {
     }
 }
 
-/// Trait for submitting preconfirmation inputs to the driver.
+/// Trait for driving preconfirmation submissions and sync state.
 #[async_trait]
-pub trait DriverSubmitter: Send + Sync {
+pub trait DriverClient: Send + Sync {
     /// Submit a preconfirmation input for ordered processing.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()>;
     /// Await the driver event sync completion signal.
     async fn wait_event_sync(&self) -> Result<()>;
+    /// Return the latest event sync tip block number.
+    async fn event_sync_tip(&self) -> Result<U256>;
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DriverSubmitter, PreconfirmationInput};
+    use super::{DriverClient, PreconfirmationInput};
     use async_trait::async_trait;
+    use alloy_primitives::U256;
 
-    /// Ensure the driver submitter trait can be referenced.
+    /// Ensure the driver client trait can be referenced.
     #[test]
-    fn driver_submitter_trait_exists() {
+    fn driver_client_trait_exists() {
         // Use a generic assertion to reference the trait.
-        fn _assert_trait<T: DriverSubmitter>() {}
+        fn _assert_trait<T: DriverClient>() {}
         assert!(true);
     }
 
@@ -70,13 +74,13 @@ mod tests {
         assert!(input.transactions.is_none());
     }
 
-    /// Ensure the driver submitter trait is async-safe.
+    /// Ensure the driver client trait is async-safe.
     #[test]
-    fn driver_submitter_async_methods_compile() {
+    fn driver_client_async_methods_compile() {
         struct MockDriver;
 
         #[async_trait]
-        impl DriverSubmitter for MockDriver {
+        impl DriverClient for MockDriver {
             async fn submit_preconfirmation(
                 &self,
                 _input: PreconfirmationInput,
@@ -87,9 +91,13 @@ mod tests {
             async fn wait_event_sync(&self) -> super::Result<()> {
                 Ok(())
             }
+
+            async fn event_sync_tip(&self) -> super::Result<U256> {
+                Ok(U256::ZERO)
+            }
         }
 
-        fn _assert_impl<T: DriverSubmitter>() {}
+        fn _assert_impl<T: DriverClient>() {}
         _assert_impl::<MockDriver>();
     }
 }

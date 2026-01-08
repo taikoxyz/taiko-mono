@@ -17,7 +17,7 @@ use tracing::{debug, warn};
 
 use crate::{
     codec::TxListCodec,
-    driver_interface::{DriverSubmitter, PreconfirmationInput},
+    driver_interface::{DriverClient, PreconfirmationInput},
     error::{PreconfirmationClientError, Result},
     state::PreconfirmationState,
     storage::{CommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
@@ -47,7 +47,7 @@ pub enum PreconfirmationEvent {
 /// Dependencies required to construct an event handler.
 pub struct EventHandlerDeps<D>
 where
-    D: DriverSubmitter,
+    D: DriverClient,
 {
     /// Client state for tracking sync status and peers.
     pub state: Arc<RwLock<PreconfirmationState>>,
@@ -59,7 +59,7 @@ where
     pub pending_txlists: Arc<PendingTxListBuffer>,
     /// Txlist codec for decompression.
     pub codec: Arc<dyn TxListCodec>,
-    /// Driver submitter for handing off to the driver.
+    /// Driver client for handing off to the driver.
     pub driver: Arc<D>,
     /// Expected slasher address for validation.
     pub expected_slasher: Option<preconfirmation_types::Bytes20>,
@@ -76,7 +76,7 @@ where
 /// against the lookahead resolver to ensure the correct signer and submission window.
 pub struct EventHandler<D>
 where
-    D: DriverSubmitter,
+    D: DriverClient,
 {
     /// Client state for tracking sync status and peers.
     state: Arc<RwLock<PreconfirmationState>>,
@@ -88,7 +88,7 @@ where
     pending_txlists: Arc<PendingTxListBuffer>,
     /// Txlist codec for decompression.
     codec: Arc<dyn TxListCodec>,
-    /// Driver submitter for handing off to the driver.
+    /// Driver client for handing off to the driver.
     driver: Arc<D>,
     /// Expected slasher address for validation.
     expected_slasher: Option<preconfirmation_types::Bytes20>,
@@ -100,7 +100,7 @@ where
 
 impl<D> EventHandler<D>
 where
-    D: DriverSubmitter,
+    D: DriverClient,
 {
     /// Create a new event handler with the required dependencies.
     pub fn new(deps: EventHandlerDeps<D>) -> Self {
@@ -352,7 +352,7 @@ where
             self.driver
                 .submit_preconfirmation(input)
                 .await
-                .map_err(|err| PreconfirmationClientError::DriverSubmit(err.to_string()))?;
+                .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
             return Ok(());
         }
 
@@ -375,7 +375,7 @@ where
         self.driver
             .submit_preconfirmation(input)
             .await
-            .map_err(|err| PreconfirmationClientError::DriverSubmit(err.to_string()))?;
+            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
         Ok(())
     }
 }
@@ -396,7 +396,7 @@ mod tests {
     use super::{EventHandler, EventHandlerDeps};
     use crate::{
         codec::ZlibTxListCodec,
-        driver_interface::{DriverSubmitter, PreconfirmationInput},
+    driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
         state::PreconfirmationState,
         storage::{
@@ -427,7 +427,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl DriverSubmitter for TestDriver {
+    impl DriverClient for TestDriver {
         /// Record that a preconfirmation input was submitted.
         async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> Result<()> {
             self.submissions.fetch_add(1, Ordering::SeqCst);
@@ -437,6 +437,11 @@ mod tests {
         /// Report event sync completion for tests.
         async fn wait_event_sync(&self) -> Result<()> {
             Ok(())
+        }
+
+        /// Return the latest event sync tip block number for tests.
+        async fn event_sync_tip(&self) -> Result<U256> {
+            Ok(U256::ZERO)
         }
     }
 

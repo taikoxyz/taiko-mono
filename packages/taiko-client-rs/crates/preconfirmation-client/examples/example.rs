@@ -11,8 +11,7 @@
 use alloy_primitives::Address;
 use async_trait::async_trait;
 use preconfirmation_client::{
-    DriverSubmitter, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationInput,
-    Result,
+    DriverClient, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationInput, Result,
 };
 use preconfirmation_net::P2pConfig;
 use protocol::subscription_source::SubscriptionSource;
@@ -21,7 +20,7 @@ use protocol::subscription_source::SubscriptionSource;
 struct DriverAdapter;
 
 #[async_trait]
-impl DriverSubmitter for DriverAdapter {
+impl DriverClient for DriverAdapter {
     /// Submit a preconfirmation input for ordered processing.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
         // Forward the input to the driver for ordered processing.
@@ -33,6 +32,11 @@ impl DriverSubmitter for DriverAdapter {
     async fn wait_event_sync(&self) -> Result<()> {
         // Block until the driver reports event sync completion.
         Ok(())
+    }
+
+    /// Return the latest event sync tip block number.
+    async fn event_sync_tip(&self) -> Result<alloy_primitives::U256> {
+        Ok(alloy_primitives::U256::ZERO)
     }
 }
 
