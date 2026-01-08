@@ -15,7 +15,7 @@ use tracing::{error, info};
 use preconfirmation_net::{
     LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, ValidationAdapter,
 };
-use preconfirmation_types::{MAX_TXLIST_BYTES, uint256_to_u256};
+use preconfirmation_types::MAX_TXLIST_BYTES;
 
 use crate::{
     codec::{TxListCodec, ZlibTxListCodec},
@@ -120,14 +120,18 @@ where
     ///
     /// This method:
     /// 1. Waits for the driver event sync completion signal.
-    /// 2. Performs tip catch-up to synchronize preconfirmation commitments.
-    /// 3. Enters the event loop to process gossip events.
+    /// 2. Fetches the driver event sync tip to bound catch-up.
+    /// 3. Performs tip catch-up to synchronize preconfirmation commitments.
+    /// 4. Enters the event loop to process gossip events.
     pub async fn run_after_event_sync(mut self) -> Result<()> {
         info!("waiting for driver event sync to complete");
         // Wait for the driver to report event sync completion.
         self.driver.wait_event_sync().await?;
 
-        info!("driver event sync complete, starting preconfirmation client");
+        // Read the driver event sync tip to determine catch-up bounds.
+        let event_sync_tip = self.driver.event_sync_tip().await?;
+
+        info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
 
         // Take ownership of the handle and node for the runtime.
         let mut handle = self.handle.take().ok_or(PreconfirmationClientError::Shutdown)?;
@@ -145,8 +149,8 @@ where
         // Run the catch-up flow.
         let catchup = TipCatchup::new(self.config.clone(), self.store.clone());
         // Fetch commitments and txlists from the network tip.
-        let (commitments, mut parentless_block) =
-            catchup.backfill_from_peer_head(&mut handle).await?;
+        let (commitments, catchup_boundary) =
+            catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
 
         // Bundle dependencies for the event handler.
         let deps = EventHandlerDeps {
@@ -164,13 +168,11 @@ where
         let handler = EventHandler::new(deps);
 
         // Process each catch-up commitment through the handler.
-        for commitment in commitments {
-            let block_number = uint256_to_u256(&commitment.commitment.preconf.block_number);
-            if parentless_block == Some(block_number) {
-                handler.handle_catchup_commitment(commitment, true).await?;
-                parentless_block = None;
-                continue;
-            }
+        let mut commit_iter = commitments.into_iter();
+        if catchup_boundary && let Some(first) = commit_iter.next() {
+            handler.handle_catchup_commitment(first, true).await?;
+        }
+        for commitment in commit_iter {
             handler.handle_commitment(commitment).await?;
         }
 

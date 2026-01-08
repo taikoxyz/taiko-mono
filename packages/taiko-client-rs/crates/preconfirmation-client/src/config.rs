@@ -24,6 +24,8 @@ pub struct PreconfirmationClientConfig {
     pub request_timeout: Duration,
     /// Maximum number of commitments requested per catch-up batch.
     pub catchup_batch_size: u32,
+    /// Optional concurrency limit for catch-up txlist fetches (None = default 4).
+    pub txlist_fetch_concurrency: Option<usize>,
     /// Lookahead resolver used for signer/slot validation.
     pub lookahead_resolver: LookaheadResolver,
 }
@@ -36,6 +38,7 @@ impl Debug for PreconfirmationClientConfig {
             .field("expected_slasher", &self.expected_slasher)
             .field("request_timeout", &self.request_timeout)
             .field("catchup_batch_size", &self.catchup_batch_size)
+            .field("txlist_fetch_concurrency", &self.txlist_fetch_concurrency)
             .field("lookahead_resolver", &"<LookaheadResolver>")
             .finish()
     }
@@ -53,6 +56,7 @@ impl PreconfirmationClientConfig {
             expected_slasher: None,
             request_timeout: Duration::from_secs(10),
             catchup_batch_size: 64,
+            txlist_fetch_concurrency: None,
             lookahead_resolver,
         })
     }

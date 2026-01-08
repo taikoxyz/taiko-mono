@@ -1,7 +1,7 @@
 //! Driver interface trait definitions.
 
-use async_trait::async_trait;
 use alloy_primitives::U256;
+use async_trait::async_trait;
 use preconfirmation_types::SignedCommitment;
 
 use crate::error::Result;
@@ -42,8 +42,8 @@ pub trait DriverClient: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::{DriverClient, PreconfirmationInput};
-    use async_trait::async_trait;
     use alloy_primitives::U256;
+    use async_trait::async_trait;
 
     /// Ensure the driver client trait can be referenced.
     #[test]

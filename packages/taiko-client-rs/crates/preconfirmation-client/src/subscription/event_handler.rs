@@ -396,7 +396,7 @@ mod tests {
     use super::{EventHandler, EventHandlerDeps};
     use crate::{
         codec::ZlibTxListCodec,
-    driver_interface::{DriverClient, PreconfirmationInput},
+        driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
         state::PreconfirmationState,
         storage::{
