@@ -52,10 +52,10 @@ where
     driver: Arc<D>,
     /// Command sender for publishing and req/resp.
     command_sender: Sender<NetworkCommand>,
-    /// Optional P2P handle used by the event loop.
-    handle: Option<P2pHandle>,
-    /// Optional P2P node used to run the network driver.
-    node: Option<P2pNode>,
+    /// P2P handle used by the event loop.
+    handle: P2pHandle,
+    /// P2P node used to run the network driver.
+    node: P2pNode,
     /// Broadcast channel for outbound events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
 }
@@ -97,8 +97,8 @@ where
             codec,
             driver: Arc::new(driver),
             command_sender,
-            handle: Some(handle),
-            node: Some(node),
+            handle,
+            node,
             event_tx,
         })
     }
@@ -115,12 +115,12 @@ where
 
     /// Run the client after the driver event sync has completed.
     ///
-    /// This method:
+    /// This method consumes the client and:
     /// 1. Waits for the driver event sync completion signal.
     /// 2. Fetches the driver event sync tip to bound catch-up.
     /// 3. Performs tip catch-up to synchronize preconfirmation commitments.
     /// 4. Emits a synced event.
-    pub async fn run_after_event_sync(mut self) -> Result<()> {
+    pub async fn run_after_event_sync(self) -> Result<()> {
         info!("waiting for driver event sync to complete");
         // Wait for the driver to report event sync completion.
         self.driver.wait_event_sync().await?;
@@ -130,15 +130,12 @@ where
 
         info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
 
-        // Take ownership of the handle and node for the runtime.
-        let mut handle = self.handle.take().ok_or(PreconfirmationClientError::Shutdown)?;
-        // Take ownership of the node for the runtime.
-        let node = self.node.take().ok_or(PreconfirmationClientError::Shutdown)?;
+        let mut handle = self.handle;
 
         // Spawn the P2P node driver loop.
         tokio::spawn(async move {
             // Log any P2P driver errors.
-            if let Err(err) = node.run().await {
+            if let Err(err) = self.node.run().await {
                 error!(error = %err, "p2p node exited");
             }
         });

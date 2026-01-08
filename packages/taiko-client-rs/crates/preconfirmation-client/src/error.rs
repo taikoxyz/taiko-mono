@@ -26,9 +26,6 @@ pub enum PreconfirmationClientError {
     /// Catch-up error when syncing with peers.
     #[error("catchup error: {0}")]
     Catchup(String),
-    /// The client was shut down.
-    #[error("client shutdown")]
-    Shutdown,
     /// Parent commitment is missing; the commitment should be buffered.
     #[error("parent commitment missing: {0}")]
     ParentMissing(String),
