@@ -71,7 +71,8 @@ where
     /// Create a new preconfirmation client and underlying P2P node.
     pub fn new(config: PreconfirmationClientConfig, driver: D) -> Result<Self> {
         // Build the commitment store (shared with the P2P node storage).
-        let store_impl = Arc::new(InMemoryCommitmentStore::new());
+        let store_impl =
+            Arc::new(InMemoryCommitmentStore::with_retention_limit(config.retention_limit));
         let store: Arc<dyn CommitmentStore> = store_impl.clone();
         let p2p_storage: Arc<dyn PreconfStorage> = store_impl;
         // Build the pending parent buffer.

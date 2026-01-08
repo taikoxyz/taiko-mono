@@ -13,6 +13,9 @@ use protocol::preconfirmation::LookaheadResolver;
 
 use crate::Result;
 
+/// Default number of commitments/txlists to retain in memory.
+pub const DEFAULT_RETENTION_LIMIT: usize = 384 * 10;
+
 /// Configuration for the preconfirmation client SDK.
 #[derive(Clone)]
 pub struct PreconfirmationClientConfig {
@@ -28,6 +31,8 @@ pub struct PreconfirmationClientConfig {
     pub txlist_fetch_concurrency: Option<usize>,
     /// Lookahead resolver used for signer/slot validation.
     pub lookahead_resolver: LookaheadResolver,
+    /// Maximum number of commitments/txlists retained in memory.
+    pub retention_limit: usize,
 }
 
 impl Debug for PreconfirmationClientConfig {
@@ -40,6 +45,7 @@ impl Debug for PreconfirmationClientConfig {
             .field("catchup_batch_size", &self.catchup_batch_size)
             .field("txlist_fetch_concurrency", &self.txlist_fetch_concurrency)
             .field("lookahead_resolver", &"<LookaheadResolver>")
+            .field("retention_limit", &self.retention_limit)
             .finish()
     }
 }
@@ -58,6 +64,7 @@ impl PreconfirmationClientConfig {
             catchup_batch_size: 64,
             txlist_fetch_concurrency: None,
             lookahead_resolver,
+            retention_limit: DEFAULT_RETENTION_LIMIT,
         })
     }
 }

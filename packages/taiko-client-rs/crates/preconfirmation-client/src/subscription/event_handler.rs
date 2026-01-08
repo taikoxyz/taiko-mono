@@ -217,6 +217,8 @@ where
         let mut queue = vec![commitment];
 
         while let Some(commitment) = queue.pop() {
+            // Extract the current block number for reuse across checks.
+            let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
             // Extract the parent hash for linkage checks.
             let parent_hash = B256::from_slice(
                 commitment.commitment.preconf.parent_preconfirmation_hash.as_ref(),
@@ -224,6 +226,7 @@ where
             // Ignore genesis commitments.
             if parent_hash == B256::ZERO {
                 debug!("ignoring genesis commitment");
+                self.store.drop_pending_commitment(&current_block);
                 continue;
             }
 
@@ -235,6 +238,7 @@ where
                 Ok(signer) => signer,
                 Err(err) => {
                     warn!(error = %err, "dropping invalid commitment");
+                    self.store.drop_pending_commitment(&current_block);
                     continue;
                 }
             };
@@ -248,6 +252,7 @@ where
                     Ok(info) => info,
                     Err(err) => {
                         warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
+                        self.store.drop_pending_commitment(&current_block);
                         continue;
                     }
                 };
@@ -256,11 +261,9 @@ where
             if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info)
             {
                 warn!(error = %err, "dropping commitment with invalid lookahead");
+                self.store.drop_pending_commitment(&current_block);
                 continue;
             }
-
-            // Extract the current block number for sequencing.
-            let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
             // Derive the expected parent block number.
             let expected_parent = current_block.saturating_sub(U256::ONE);
             // Fetch the parent commitment if available.
@@ -270,6 +273,7 @@ where
                 // Validate parent linkage using the parent preconfirmation.
                 if let Err(err) = validate_parent_linkage(&commitment, &parent.commitment.preconf) {
                     warn!(error = %err, "dropping commitment with invalid parent linkage");
+                    self.store.drop_pending_commitment(&current_block);
                     continue;
                 }
                 // Extract the parent block number for sequential checks.
@@ -281,6 +285,7 @@ where
                         expected = %expected_block,
                         "dropping commitment with non-sequential block number"
                     );
+                    self.store.drop_pending_commitment(&current_block);
                     continue;
                 }
             } else if allow_parentless {
@@ -319,13 +324,14 @@ where
 
     /// Handle an incoming txlist.
     async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
+        // Extract the txlist hash for indexing.
+        let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
         // Validate the txlist payload.
         if let Err(err) = validate_txlist_gossip(&txlist) {
             warn!(error = %err, "dropping invalid txlist gossip");
+            self.store.drop_pending_txlist(&hash);
             return Ok(());
         }
-        // Extract the txlist hash for indexing.
-        let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
         // Store the txlist for later use.
         self.store.insert_txlist(hash, txlist.clone());
         // Emit the txlist event.
@@ -427,8 +433,9 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
     };
 
-    use alloy_primitives::{Address, U256};
+    use alloy_primitives::{Address, B256, U256};
     use async_trait::async_trait;
+    use preconfirmation_net::PreconfStorage;
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tokio::sync::{RwLock, broadcast, mpsc};
@@ -444,8 +451,8 @@ mod tests {
         },
     };
     use preconfirmation_types::{
-        Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
-        public_key_to_address, sign_commitment,
+        Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
+        SignedCommitment, TxListBytes, Uint256, public_key_to_address, sign_commitment,
     };
 
     /// Test driver that records submit calls.
@@ -649,6 +656,88 @@ mod tests {
         // Process the commitment and expect it to be dropped without error.
         assert!(handler.handle_commitment(commitment).await.is_ok());
         assert!(store.latest_commitment().is_none());
+    }
+
+    /// Dropped commitments should be evicted from pending storage.
+    #[tokio::test]
+    async fn invalid_commitment_evicts_pending() {
+        // Build shared state and dependencies for the handler.
+        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
+        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MismatchResolver);
+        let (event_tx, _event_rx) = broadcast::channel(16);
+
+        let (command_sender, _command_rx) = mpsc::channel(8);
+        let handler = EventHandler::new(EventHandlerContext {
+            state,
+            store: store.clone(),
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver,
+            expected_slasher: None,
+            event_tx,
+            lookahead_resolver,
+            command_sender,
+        });
+
+        // Build a signed commitment with a non-zero parent hash.
+        let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
+        let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
+        let commitment = build_signed_commitment(&sk, 2, parent_hash, 100, 200);
+        let block = U256::from(2);
+
+        PreconfStorage::insert_commitment(store.as_ref(), block, commitment.clone());
+        assert_eq!(store.pending_commitments_len(), 1);
+
+        // Process the commitment and expect it to be dropped.
+        assert!(handler.handle_commitment(commitment).await.is_ok());
+        assert_eq!(store.pending_commitments_len(), 0);
+    }
+
+    /// Dropped txlists should be evicted from pending storage.
+    #[tokio::test]
+    async fn invalid_txlist_evicts_pending() {
+        // Build shared state and dependencies for the handler.
+        let state = Arc::new(RwLock::new(PreconfirmationState::default()));
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
+        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MockResolver);
+        let (event_tx, _event_rx) = broadcast::channel(16);
+
+        let (command_sender, _command_rx) = mpsc::channel(8);
+        let handler = EventHandler::new(EventHandlerContext {
+            state,
+            store: store.clone(),
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver,
+            expected_slasher: None,
+            event_tx,
+            lookahead_resolver,
+            command_sender,
+        });
+
+        // Build a txlist with a mismatched hash to trigger validation failure.
+        let raw_tx_list_hash = Bytes32::try_from(vec![0u8; 32]).expect("txlist hash");
+        let txlist = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
+        let gossip = RawTxListGossip { raw_tx_list_hash, txlist };
+        let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
+
+        PreconfStorage::insert_txlist(store.as_ref(), hash, gossip.clone());
+        assert_eq!(store.pending_txlists_len(), 1);
+
+        // Process the txlist and expect it to be dropped.
+        assert!(handler.handle_txlist(gossip).await.is_ok());
+        assert_eq!(store.pending_txlists_len(), 0);
     }
 
     /// Catch-up parentless commitments are processed without a parent.
