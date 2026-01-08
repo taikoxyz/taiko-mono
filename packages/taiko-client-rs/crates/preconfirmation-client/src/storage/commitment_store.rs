@@ -10,6 +10,7 @@ use std::{collections::BTreeMap, sync::RwLock};
 
 use alloy_primitives::{B256, U256};
 use dashmap::DashMap;
+use preconfirmation_net::PreconfStorage;
 use preconfirmation_types::{
     Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
 };
@@ -39,12 +40,17 @@ pub trait CommitmentStore: Send + Sync {
 /// In-memory commitment store.
 ///
 /// This store keeps commitments indexed by block number and raw txlists
-/// indexed by their hash. It is separate from the P2P layer's internal storage.
+/// indexed by their hash. It is shared with the P2P layer, but only validated
+/// entries are exposed via the P2P storage interface.
 pub struct InMemoryCommitmentStore {
     /// Commitments indexed by block number.
     commitments: RwLock<BTreeMap<U256, SignedCommitment>>,
     /// Raw txlists indexed by hash.
     txlists: DashMap<B256, RawTxListGossip>,
+    /// Pending commitments inserted by the P2P layer before client validation.
+    pending_commitments: DashMap<U256, SignedCommitment>,
+    /// Pending txlists inserted by the P2P layer before client validation.
+    pending_txlists: DashMap<B256, RawTxListGossip>,
     /// Current head snapshot.
     head: RwLock<Option<PreconfHead>>,
 }
@@ -55,6 +61,8 @@ impl InMemoryCommitmentStore {
         Self {
             commitments: RwLock::new(BTreeMap::new()),
             txlists: DashMap::new(),
+            pending_commitments: DashMap::new(),
+            pending_txlists: DashMap::new(),
             head: RwLock::new(None),
         }
     }
@@ -82,6 +90,8 @@ impl CommitmentStore for InMemoryCommitmentStore {
         if let Ok(mut guard) = self.commitments.write() {
             guard.insert(block_number, commitment.clone());
         }
+        // Drop any pending entry for this block now that it is accepted.
+        self.pending_commitments.remove(&block_number);
         // Update the head snapshot when this is the new tip.
         if let Ok(mut head_guard) = self.head.write() {
             // Compute the current head block number.
@@ -148,6 +158,8 @@ impl CommitmentStore for InMemoryCommitmentStore {
     fn insert_txlist(&self, hash: B256, txlist: RawTxListGossip) {
         // Insert into the concurrent map.
         self.txlists.insert(hash, txlist);
+        // Drop any pending entry for this hash now that it is accepted.
+        self.pending_txlists.remove(&hash);
     }
 
     /// Fetch a raw txlist payload by hash.
@@ -169,6 +181,36 @@ impl CommitmentStore for InMemoryCommitmentStore {
         // Read and clone the head snapshot.
         let guard = self.head.read().ok()?;
         guard.clone()
+    }
+}
+
+impl PreconfStorage for InMemoryCommitmentStore {
+    /// Insert a commitment into the pending buffer.
+    fn insert_commitment(&self, block: U256, commitment: SignedCommitment) {
+        if let Ok(guard) = self.commitments.read() &&
+            guard.contains_key(&block)
+        {
+            return;
+        }
+        self.pending_commitments.insert(block, commitment);
+    }
+
+    /// Insert a raw txlist into the pending buffer.
+    fn insert_txlist(&self, hash: B256, tx: RawTxListGossip) {
+        if self.txlists.contains_key(&hash) {
+            return;
+        }
+        self.pending_txlists.insert(hash, tx);
+    }
+
+    /// Fetch commitments starting from a block number.
+    fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
+        CommitmentStore::commitments_from(self, start, max)
+    }
+
+    /// Fetch a raw txlist by its hash.
+    fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
+        CommitmentStore::get_txlist(self, hash)
     }
 }
 
@@ -250,6 +292,23 @@ impl Default for PendingTxListBuffer {
 mod tests {
     use super::InMemoryCommitmentStore;
     use crate::storage::commitment_store::CommitmentStore;
+    use alloy_primitives::{B256, U256};
+    use preconfirmation_net::PreconfStorage;
+    use preconfirmation_types::{
+        Bytes32, RawTxListGossip, SignedCommitment, TxListBytes, u256_to_uint256,
+    };
+
+    fn commitment_with_block(block: U256) -> SignedCommitment {
+        let mut commitment = SignedCommitment::default();
+        commitment.commitment.preconf.block_number = u256_to_uint256(block);
+        commitment
+    }
+
+    fn txlist_with_byte(byte: u8) -> RawTxListGossip {
+        let raw_tx_list_hash = Bytes32::try_from(vec![byte; 32]).expect("32-byte hash");
+        let txlist = TxListBytes::try_from(vec![byte; 3]).expect("txlist bytes");
+        RawTxListGossip { raw_tx_list_hash, txlist }
+    }
 
     /// Ensure a new store has no latest commitment.
     #[test]
@@ -257,5 +316,37 @@ mod tests {
         // Initialize a fresh store for assertions.
         let store = InMemoryCommitmentStore::new();
         assert!(store.latest_commitment().is_none());
+    }
+
+    #[test]
+    fn pending_commitment_hidden_until_accepted() {
+        let store = InMemoryCommitmentStore::new();
+        let block = U256::from(7);
+        let commitment = commitment_with_block(block);
+
+        PreconfStorage::insert_commitment(&store, block, commitment.clone());
+
+        assert!(CommitmentStore::latest_commitment(&store).is_none());
+        assert!(PreconfStorage::commitments_from(&store, block, 1).is_empty());
+
+        CommitmentStore::insert_commitment(&store, commitment.clone());
+
+        let commitments = PreconfStorage::commitments_from(&store, block, 1);
+        assert_eq!(commitments, vec![commitment]);
+    }
+
+    #[test]
+    fn pending_txlist_hidden_until_accepted() {
+        let store = InMemoryCommitmentStore::new();
+        let txlist = txlist_with_byte(0xAB);
+        let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
+
+        PreconfStorage::insert_txlist(&store, hash, txlist.clone());
+
+        assert!(PreconfStorage::get_txlist(&store, &hash).is_none());
+
+        CommitmentStore::insert_txlist(&store, hash, txlist.clone());
+
+        assert_eq!(PreconfStorage::get_txlist(&store, &hash), Some(txlist));
     }
 }

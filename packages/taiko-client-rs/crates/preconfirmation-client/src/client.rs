@@ -13,7 +13,7 @@ use tokio_stream::StreamExt;
 use tracing::{error, info};
 
 use preconfirmation_net::{
-    LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, ValidationAdapter,
+    LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
 };
 use preconfirmation_types::MAX_TXLIST_BYTES;
 
@@ -70,8 +70,10 @@ where
 {
     /// Create a new preconfirmation client and underlying P2P node.
     pub fn new(config: PreconfirmationClientConfig, driver: D) -> Result<Self> {
-        // Build the commitment store.
-        let store: Arc<dyn CommitmentStore> = Arc::new(InMemoryCommitmentStore::new());
+        // Build the commitment store (shared with the P2P node storage).
+        let store_impl = Arc::new(InMemoryCommitmentStore::new());
+        let store: Arc<dyn CommitmentStore> = store_impl.clone();
+        let p2p_storage: Arc<dyn PreconfStorage> = store_impl;
         // Build the pending parent buffer.
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         // Build the pending txlist buffer.
@@ -82,8 +84,9 @@ where
         let validator: Box<dyn ValidationAdapter> =
             Box::new(LocalValidationAdapter::new(config.expected_slasher.clone()));
         // Create the P2P handle and node.
-        let (handle, node) = P2pNode::new(config.p2p.clone(), validator)
-            .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
+        let (handle, node) =
+            P2pNode::new_with_validator_and_storage(config.p2p.clone(), validator, p2p_storage)
+                .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
         // Capture the command sender for publishing.
         let command_sender = handle.command_sender();
         // Build the broadcast channel for events.
