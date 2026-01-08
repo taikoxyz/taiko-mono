@@ -195,11 +195,9 @@ where
             let parent_hash = B256::from_slice(
                 commitment.commitment.preconf.parent_preconfirmation_hash.as_ref(),
             );
-            // Ignore genesis commitments.
-            if parent_hash == B256::ZERO {
-                debug!("ignoring genesis commitment");
-                self.store.drop_pending_commitment(&current_block);
-                continue;
+            let is_genesis = parent_hash == B256::ZERO;
+            if is_genesis {
+                debug!(block = %current_block, "accepting genesis commitment");
             }
 
             // Validate the commitment with basic rules (signature, format, slasher).
@@ -236,41 +234,46 @@ where
                 self.store.drop_pending_commitment(&current_block);
                 continue;
             }
-            // Derive the expected parent block number.
-            let expected_parent = current_block.saturating_sub(U256::ONE);
-            // Fetch the parent commitment if available.
-            let parent = self.store.get_commitment(&expected_parent);
-            // Proceed when the parent commitment is present.
-            if let Some(parent) = parent {
-                // Validate parent linkage using the parent preconfirmation.
-                if let Err(err) = validate_parent_linkage(&commitment, &parent.commitment.preconf) {
-                    warn!(error = %err, "dropping commitment with invalid parent linkage");
-                    self.store.drop_pending_commitment(&current_block);
-                    continue;
-                }
-                // Extract the parent block number for sequential checks.
-                let parent_block = uint256_to_u256(&parent.commitment.preconf.block_number);
-                let expected_block = parent_block + U256::ONE;
-                if current_block != expected_block {
+            if !is_genesis {
+                // Derive the expected parent block number.
+                let expected_parent = current_block.saturating_sub(U256::ONE);
+                // Fetch the parent commitment if available.
+                let parent = self.store.get_commitment(&expected_parent);
+                // Proceed when the parent commitment is present.
+                if let Some(parent) = parent {
+                    // Validate parent linkage using the parent preconfirmation.
+                    if let Err(err) =
+                        validate_parent_linkage(&commitment, &parent.commitment.preconf)
+                    {
+                        warn!(error = %err, "dropping commitment with invalid parent linkage");
+                        self.store.drop_pending_commitment(&current_block);
+                        continue;
+                    }
+                    // Extract the parent block number for sequential checks.
+                    let parent_block = uint256_to_u256(&parent.commitment.preconf.block_number);
+                    let expected_block = parent_block + U256::ONE;
+                    if current_block != expected_block {
+                        warn!(
+                            current = %current_block,
+                            expected = %expected_block,
+                            "dropping commitment with non-sequential block number"
+                        );
+                        self.store.drop_pending_commitment(&current_block);
+                        continue;
+                    }
+                } else if allow_parentless {
                     warn!(
-                        current = %current_block,
-                        expected = %expected_block,
-                        "dropping commitment with non-sequential block number"
+                        block = %current_block,
+                        "accepting catch-up commitment without parent"
                     );
-                    self.store.drop_pending_commitment(&current_block);
+                } else {
+                    // Clone the parent hash before moving the commitment.
+                    let parent_hash =
+                        commitment.commitment.preconf.parent_preconfirmation_hash.clone();
+                    // Buffer this commitment until the parent arrives.
+                    self.pending_parents.add(&parent_hash, commitment);
                     continue;
                 }
-            } else if allow_parentless {
-                warn!(
-                    block = %current_block,
-                    "accepting catch-up commitment without parent"
-                );
-            } else {
-                // Clone the parent hash before moving the commitment.
-                let parent_hash = commitment.commitment.preconf.parent_preconfirmation_hash.clone();
-                // Buffer this commitment until the parent arrives.
-                self.pending_parents.add(&parent_hash, commitment);
-                continue;
             }
 
             // Store the validated commitment.
@@ -310,8 +313,7 @@ where
         let _ = self.event_tx.send(PreconfirmationEvent::NewTxList(hash));
 
         // Drain commitments waiting on this txlist.
-        let waiting = self.pending_txlists.take_waiting(&txlist.raw_tx_list_hash);
-        for commitment in waiting {
+        for commitment in self.pending_txlists.take_waiting(&txlist.raw_tx_list_hash) {
             // Submit if now ready.
             self.submit_if_ready(commitment).await?;
         }
@@ -328,7 +330,9 @@ where
         let hash = preconfirmation_types::preconfirmation_hash(&commitment.commitment.preconf)
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
         // Convert to Bytes32 for the buffer lookup.
-        let hash_bytes = Bytes32::try_from(hash.as_slice().to_vec()).expect("hash length 32");
+        let hash_bytes = Bytes32::try_from(hash.as_slice().to_vec()).map_err(|(_, err)| {
+            PreconfirmationClientError::Validation(format!("invalid hash length: {err}"))
+        })?;
         // Drain buffered children for this parent.
         let children = self.pending_parents.take_children(&hash_bytes);
         Ok(children)
@@ -544,18 +548,22 @@ mod tests {
         }
     }
 
-    /// Genesis commitments are ignored and do not update storage.
+    /// Genesis commitments are processed and update storage.
     #[tokio::test]
-    async fn genesis_commitment_is_ignored() {
+    async fn genesis_commitment_is_processed() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
         let pending_parents = Arc::new(PendingCommitmentBuffer::new());
         let pending_txlists = Arc::new(PendingTxListBuffer::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_sender, _command_rx) = mpsc::channel(8);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver =
+            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
         let handler = EventHandler::new(
             store.clone(),
@@ -569,17 +577,14 @@ mod tests {
             lookahead_resolver,
         );
 
-        // Build a commitment with a zero parent hash (genesis).
-        let preconf = Preconfirmation::default();
-        let commitment = SignedCommitment {
-            commitment: PreconfCommitment { preconf, ..Default::default() },
-            ..Default::default()
-        };
+        // Build a signed commitment with a zero parent hash (genesis).
+        let parent_hash = Bytes32::try_from(vec![0u8; 32]).expect("parent hash");
+        let commitment = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
 
-        // Process the commitment and expect it to be ignored.
-        handler.handle_commitment(commitment).await.expect("genesis ignored");
-        assert!(store.latest_commitment().is_none());
-        assert_eq!(driver.submissions(), 0);
+        // Process the commitment and expect it to be stored and submitted.
+        handler.handle_commitment(commitment).await.expect("genesis processed");
+        assert!(store.latest_commitment().is_some());
+        assert_eq!(driver.submissions(), 1);
     }
 
     /// Invalid lookahead data drops the commitment without aborting the handler.

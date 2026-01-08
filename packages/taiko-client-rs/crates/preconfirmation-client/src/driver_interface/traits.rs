@@ -41,17 +41,7 @@ pub trait DriverClient: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use super::{DriverClient, PreconfirmationInput};
-    use alloy_primitives::U256;
-    use async_trait::async_trait;
-
-    /// Ensure the driver client trait can be referenced.
-    #[test]
-    fn driver_client_trait_exists() {
-        // Use a generic assertion to reference the trait.
-        fn _assert_trait<T: DriverClient>() {}
-        assert!(true);
-    }
+    use super::PreconfirmationInput;
 
     /// Ensure the input struct can be constructed.
     #[test]
@@ -72,32 +62,5 @@ mod tests {
         // Build the input.
         let input = PreconfirmationInput::new(commitment, None, None);
         assert!(input.transactions.is_none());
-    }
-
-    /// Ensure the driver client trait is async-safe.
-    #[test]
-    fn driver_client_async_methods_compile() {
-        struct MockDriver;
-
-        #[async_trait]
-        impl DriverClient for MockDriver {
-            async fn submit_preconfirmation(
-                &self,
-                _input: PreconfirmationInput,
-            ) -> super::Result<()> {
-                Ok(())
-            }
-
-            async fn wait_event_sync(&self) -> super::Result<()> {
-                Ok(())
-            }
-
-            async fn event_sync_tip(&self) -> super::Result<U256> {
-                Ok(U256::ZERO)
-            }
-        }
-
-        fn _assert_impl<T: DriverClient>() {}
-        _assert_impl::<MockDriver>();
     }
 }

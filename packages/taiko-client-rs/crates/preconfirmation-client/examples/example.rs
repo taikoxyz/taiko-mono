@@ -4,17 +4,27 @@
 //! 1. Build a provider for the lookahead resolver
 //! 2. Create a `PreconfirmationClientConfig` with the resolver
 //! 3. Run the preconfirmation client
+//! 4. Publish a txlist and commitment
 //!
 //! The lookahead resolver is mandatory and used to validate that commitment signers
 //! match the expected slot signer and that submission_window_end values are correct.
 
+use std::io::Write;
+
 use alloy_primitives::Address;
 use async_trait::async_trait;
+use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_client::{
-    DriverClient, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationInput, Result,
+    DriverClient, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationClientError,
+    PreconfirmationInput, Result,
 };
-use preconfirmation_net::P2pConfig;
+use preconfirmation_net::{NetworkCommand, P2pConfig};
+use preconfirmation_types::{
+    Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
+    TxListBytes, keccak256_bytes, sign_commitment,
+};
 use protocol::subscription_source::SubscriptionSource;
+use secp256k1::SecretKey;
 
 /// Driver adapter used to forward inputs into the driver queue.
 struct DriverAdapter;
@@ -40,6 +50,34 @@ impl DriverClient for DriverAdapter {
     }
 }
 
+/// Build example publish payloads: a compressed raw txlist gossip and a signed commitment.
+fn build_publish_payloads() -> (RawTxListGossip, SignedCommitment) {
+    // Build a minimal txlist payload (RLP empty list) and compress it.
+    let rlp_payload = vec![0xC0];
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&rlp_payload).expect("zlib encode failed");
+    let compressed = encoder.finish().expect("zlib encode failed");
+    let txlist_bytes = TxListBytes::try_from(compressed).expect("txlist bytes error");
+    let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
+    let raw_tx_list_hash =
+        Bytes32::try_from(txlist_hash.as_slice().to_vec()).expect("txlist hash error");
+    let txlist =
+        RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
+
+    // Build a signed commitment that references the txlist hash.
+    let preconf = Preconfirmation {
+        eop: false,
+        raw_tx_list_hash: raw_tx_list_hash.clone(),
+        ..Default::default()
+    };
+    let commitment = PreconfCommitment { preconf, slasher_address: Bytes20::default() };
+    let sk = SecretKey::from_slice(&[1u8; 32]).expect("invalid secret key");
+    let signature = sign_commitment(&commitment, &sk).expect("sign commitment failed");
+    let signed_commitment = SignedCommitment { commitment, signature };
+
+    (txlist, signed_commitment)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Configure the RPC endpoint for the lookahead resolver.
@@ -53,11 +91,11 @@ async fn main() -> Result<()> {
         .expect("invalid inbox address");
 
     // Build the subscription source for event scanning.
-    let source = SubscriptionSource::try_from(rpc_url.as_str())
-        .expect("failed to parse subscription source");
+    let source =
+        SubscriptionSource::try_from(rpc_url.as_str()).expect("invalid subscription source");
 
     // Build the provider for lookahead resolution.
-    let provider = source.to_provider().await.expect("failed to build provider");
+    let provider = source.to_provider().await.expect("provider error");
 
     // Build the client configuration with the mandatory lookahead resolver.
     let config =
@@ -65,19 +103,22 @@ async fn main() -> Result<()> {
     // Construct the client with a driver adapter.
     let client = PreconfirmationClient::new(config, DriverAdapter)?;
 
-    // Subscribe to SDK events before starting the client.
-    let mut events = client.subscribe();
+    // Build example publish payloads.
+    let (txlist, signed_commitment) = build_publish_payloads();
+    let sender = client.command_sender();
 
-    // Run the client after driver event sync completes in a background task.
-    let client_task = tokio::spawn(async move { client.run_after_event_sync().await });
+    // Wait for driver event sync to complete, catching up to the latest preconfirmation state,
+    // then start processing events.
+    client.wait_event_sync_then_run().await?;
 
-    // Consume events (example loop).
-    while let Ok(event) = events.recv().await {
-        // Handle event notifications.
-        let _event = event;
-    }
-
-    // Await the client task if you want a clean shutdown path.
-    let _ = client_task.await;
+    // Publish a txlist and commitment after the client run returns.
+    sender
+        .send(NetworkCommand::PublishRawTxList(txlist))
+        .await
+        .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
+    sender
+        .send(NetworkCommand::PublishCommitment(signed_commitment))
+        .await
+        .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
     Ok(())
 }

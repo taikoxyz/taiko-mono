@@ -113,14 +113,14 @@ where
         self.command_sender.clone()
     }
 
-    /// Run the client after the driver event sync has completed.
+    /// Wait for driver event sync to complete, then run the client.
     ///
     /// This method consumes the client and:
     /// 1. Waits for the driver event sync completion signal.
     /// 2. Fetches the driver event sync tip to bound catch-up.
     /// 3. Performs tip catch-up to synchronize preconfirmation commitments.
     /// 4. Emits a synced event.
-    pub async fn run_after_event_sync(self) -> Result<()> {
+    pub async fn wait_event_sync_then_run(self) -> Result<()> {
         info!("waiting for driver event sync to complete");
         // Wait for the driver to report event sync completion.
         self.driver.wait_event_sync().await?;

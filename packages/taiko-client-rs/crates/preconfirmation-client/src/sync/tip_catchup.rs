@@ -53,13 +53,6 @@ async fn validate_commitment(
     expected_slasher: Option<&preconfirmation_types::Bytes20>,
     lookahead_resolver: &(dyn PreconfSignerResolver + Send + Sync),
 ) -> Option<SignedCommitment> {
-    let parent_hash =
-        B256::from_slice(commitment.commitment.preconf.parent_preconfirmation_hash.as_ref());
-    if parent_hash == B256::ZERO {
-        debug!("ignoring genesis commitment during catch-up");
-        return None;
-    }
-
     let recovered_signer = match validate_commitment_basic_with_signer(commitment, expected_slasher)
     {
         Ok(signer) => signer,
@@ -452,9 +445,9 @@ mod tests {
         assert!(result.is_none());
     }
 
-    /// Validate commitment skips genesis commitments (zero parent hash).
+    /// Validate commitment accepts genesis commitments (zero parent hash).
     #[tokio::test]
-    async fn validate_commitment_skips_genesis() {
+    async fn validate_commitment_accepts_genesis() {
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
         let secp = Secp256k1::new();
         let pk = PublicKey::from_secret_key(&secp, &sk);
@@ -465,7 +458,7 @@ mod tests {
         let commitment = make_commitment(0, zero_hash, 1000, 10, &sk);
 
         let result = validate_commitment(&commitment, None, &resolver).await;
-        assert!(result.is_none());
+        assert!(result.is_some());
     }
 
     /// Chain walking follows parent hashes down to the stop block.
