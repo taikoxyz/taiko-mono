@@ -428,7 +428,7 @@ mod tests {
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
-        storage::{InMemoryCommitmentStore, CommitmentsAwaitingParent, CommitmentsAwaitingTxList},
+        storage::{CommitmentsAwaitingParent, CommitmentsAwaitingTxList, InMemoryCommitmentStore},
     };
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,

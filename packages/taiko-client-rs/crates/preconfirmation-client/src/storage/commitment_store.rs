@@ -3,8 +3,8 @@
 //! This module provides:
 //! - `CommitmentStore` trait for accessing stored commitments and txlists.
 //! - `InMemoryCommitmentStore` for caching commitments in memory.
-//! - `PendingCommitmentBuffer` for buffering out-of-order commitments.
-//! - `PendingTxListBuffer` for buffering commitments awaiting txlists.
+//! - `CommitmentsAwaitingParent` for buffering out-of-order commitments.
+//! - `CommitmentsAwaitingTxList` for buffering commitments awaiting txlists.
 
 use std::{
     collections::BTreeMap,
@@ -316,11 +316,7 @@ impl CommitmentsAwaitingParent {
 
     /// Create a new buffer with a custom retention limit.
     pub fn with_retention_limit(retention_limit: usize) -> Self {
-        Self {
-            by_parent_hash: DashMap::new(),
-            count: AtomicUsize::new(0),
-            retention_limit,
-        }
+        Self { by_parent_hash: DashMap::new(), count: AtomicUsize::new(0), retention_limit }
     }
 
     /// Add a commitment awaiting its parent.
@@ -372,9 +368,9 @@ impl CommitmentsAwaitingParent {
         }
 
         // Remove the oldest commitment.
-        if let (Some(key), Some(idx)) = (min_key, min_idx) {
-            if let Some(mut entry) = self.by_parent_hash.get_mut(&key) {
-                if idx < entry.len() {
+        if let (Some(key), Some(idx)) = (min_key, min_idx)
+            && let Some(mut entry) = self.by_parent_hash.get_mut(&key)
+                && idx < entry.len() {
                     entry.remove(idx);
                     self.count.fetch_sub(1, Ordering::SeqCst);
                     // Remove the key if the vector is now empty.
@@ -383,8 +379,6 @@ impl CommitmentsAwaitingParent {
                         self.by_parent_hash.remove(&key);
                     }
                 }
-            }
-        }
     }
 }
 
@@ -416,11 +410,7 @@ impl CommitmentsAwaitingTxList {
 
     /// Create a new buffer with a custom retention limit.
     pub fn with_retention_limit(retention_limit: usize) -> Self {
-        Self {
-            by_txlist_hash: DashMap::new(),
-            count: AtomicUsize::new(0),
-            retention_limit,
-        }
+        Self { by_txlist_hash: DashMap::new(), count: AtomicUsize::new(0), retention_limit }
     }
 
     /// Add a commitment awaiting its txlist.
@@ -472,9 +462,9 @@ impl CommitmentsAwaitingTxList {
         }
 
         // Remove the oldest commitment.
-        if let (Some(key), Some(idx)) = (min_key, min_idx) {
-            if let Some(mut entry) = self.by_txlist_hash.get_mut(&key) {
-                if idx < entry.len() {
+        if let (Some(key), Some(idx)) = (min_key, min_idx)
+            && let Some(mut entry) = self.by_txlist_hash.get_mut(&key)
+                && idx < entry.len() {
                     entry.remove(idx);
                     self.count.fetch_sub(1, Ordering::SeqCst);
                     // Remove the key if the vector is now empty.
@@ -483,8 +473,6 @@ impl CommitmentsAwaitingTxList {
                         self.by_txlist_hash.remove(&key);
                     }
                 }
-            }
-        }
     }
 }
 
@@ -566,7 +554,8 @@ mod tests {
         let blocks: Vec<u64> = children
             .iter()
             .map(|c| {
-                let block = preconfirmation_types::uint256_to_u256(&c.commitment.preconf.block_number);
+                let block =
+                    preconfirmation_types::uint256_to_u256(&c.commitment.preconf.block_number);
                 block.try_into().unwrap()
             })
             .collect();
@@ -596,7 +585,8 @@ mod tests {
         let blocks: Vec<u64> = waiting
             .iter()
             .map(|c| {
-                let block = preconfirmation_types::uint256_to_u256(&c.commitment.preconf.block_number);
+                let block =
+                    preconfirmation_types::uint256_to_u256(&c.commitment.preconf.block_number);
                 block.try_into().unwrap()
             })
             .collect();

@@ -67,15 +67,19 @@ where
 {
     /// Create a new preconfirmation client and underlying P2P node.
     pub fn new(config: PreconfirmationClientConfig, driver: D) -> Result<Self> {
+        // Validate config parameters.
+        config.validate()?;
         // Build the commitment store (shared with the P2P node storage).
         let store_impl =
             Arc::new(InMemoryCommitmentStore::with_retention_limit(config.retention_limit));
         let store: Arc<dyn CommitmentStore> = store_impl.clone();
         let p2p_storage: Arc<dyn PreconfStorage> = store_impl;
         // Build the buffer for commitments awaiting their parent.
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
+        let awaiting_parent =
+            Arc::new(CommitmentsAwaitingParent::with_retention_limit(config.retention_limit));
         // Build the buffer for commitments awaiting their txlist.
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
+        let awaiting_txlist =
+            Arc::new(CommitmentsAwaitingTxList::with_retention_limit(config.retention_limit));
         // Build the txlist codec using the protocol constant.
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.

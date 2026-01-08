@@ -32,6 +32,9 @@ pub enum PreconfirmationClientError {
     /// Lookahead resolver initialization failed.
     #[error("lookahead error: {0}")]
     Lookahead(String),
+    /// Invalid configuration parameter.
+    #[error("config error: {0}")]
+    Config(String),
 }
 
 impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {
