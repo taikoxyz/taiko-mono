@@ -139,7 +139,11 @@ where
             }
             NetworkEvent::Error(err) => {
                 // Emit an error event for observers.
-                let _ = self.event_tx.send(PreconfirmationEvent::Error(err.to_string()));
+                if let Err(send_err) =
+                    self.event_tx.send(PreconfirmationEvent::Error(err.to_string()))
+                {
+                    warn!(error = %send_err, "failed to emit error event");
+                }
             }
             other => {
                 // Log unhandled events for observability.
@@ -392,7 +396,16 @@ where
         self.store.set_head(head.clone());
 
         // Notify the P2P driver so inbound get_head requests respond correctly.
-        let _ = self.command_sender.send(NetworkCommand::UpdateHead { head }).await;
+        if let Err(err) = self.notify_head_update(head).await {
+            warn!(error = %err, "failed to notify p2p head update");
+        }
+    }
+
+    async fn notify_head_update(&self, head: PreconfHead) -> Result<()> {
+        self.command_sender
+            .send(NetworkCommand::UpdateHead { head })
+            .await
+            .map_err(|err| PreconfirmationClientError::Network(err.to_string()))
     }
 }
 
@@ -418,8 +431,9 @@ mod tests {
         storage::{InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer},
     };
     use preconfirmation_types::{
-        Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
-        SignedCommitment, TxListBytes, Uint256, public_key_to_address, sign_commitment,
+        Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,
+        RawTxListGossip, SignedCommitment, TxListBytes, Uint256, public_key_to_address,
+        sign_commitment,
     };
 
     /// Test driver that records submit calls.
@@ -737,5 +751,39 @@ mod tests {
 
         assert!(store.latest_commitment().is_some());
         assert_eq!(driver.submissions(), 1);
+    }
+
+    /// Head update sends should surface errors when the channel is closed.
+    #[tokio::test]
+    async fn notify_head_update_reports_send_failure() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let pending_parents = Arc::new(PendingCommitmentBuffer::new());
+        let pending_txlists = Arc::new(PendingTxListBuffer::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MockResolver);
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_sender, command_rx) = mpsc::channel(1);
+
+        drop(command_rx);
+
+        let handler = EventHandler::new(
+            store,
+            pending_parents,
+            pending_txlists,
+            codec,
+            driver,
+            None,
+            event_tx,
+            command_sender,
+            lookahead_resolver,
+        );
+
+        let head = PreconfHead {
+            block_number: Uint256::from(1u64),
+            submission_window_end: Uint256::from(2u64),
+        };
+
+        assert!(handler.notify_head_update(head).await.is_err());
     }
 }

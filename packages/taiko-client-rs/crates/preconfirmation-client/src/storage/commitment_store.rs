@@ -6,7 +6,13 @@
 //! - `PendingCommitmentBuffer` for buffering out-of-order commitments.
 //! - `PendingTxListBuffer` for buffering commitments awaiting txlists.
 
-use std::{collections::BTreeMap, sync::RwLock};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        RwLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use alloy_primitives::{B256, U256};
 use dashmap::DashMap;
@@ -296,16 +302,21 @@ impl PreconfStorage for InMemoryCommitmentStore {
 pub struct PendingCommitmentBuffer {
     /// Map from parent preconfirmation hash to children waiting for that parent.
     pending_by_parent: DashMap<B256, Vec<SignedCommitment>>,
+    /// Count of pending commitments across all parents.
+    pending_count: AtomicUsize,
 }
 
 impl PendingCommitmentBuffer {
     /// Create a new empty pending buffer.
     pub fn new() -> Self {
-        Self { pending_by_parent: DashMap::new() }
+        Self { pending_by_parent: DashMap::new(), pending_count: AtomicUsize::new(0) }
     }
 
     /// Add a commitment to the pending buffer keyed by its parent hash.
     pub fn add(&self, parent_hash: &Bytes32, commitment: SignedCommitment) {
+        if self.reserve_slot().is_err() {
+            return;
+        }
         // Normalize the parent hash to B256.
         let key = B256::from_slice(parent_hash.as_ref());
         // Push the commitment into the pending list.
@@ -316,7 +327,24 @@ impl PendingCommitmentBuffer {
     pub fn take_children(&self, parent_hash: &Bytes32) -> Vec<SignedCommitment> {
         // Normalize the parent hash to B256.
         let key = B256::from_slice(parent_hash.as_ref());
-        self.pending_by_parent.remove(&key).map(|(_, value)| value).unwrap_or_default()
+        if let Some((_, value)) = self.pending_by_parent.remove(&key) {
+            self.release_slots(value.len());
+            return value;
+        }
+        Vec::new()
+    }
+
+    fn reserve_slot(&self) -> Result<(), ()> {
+        self.pending_count
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+                if count >= DEFAULT_RETENTION_LIMIT { None } else { Some(count + 1) }
+            })
+            .map(|_| ())
+            .map_err(|_| ())
+    }
+
+    fn release_slots(&self, count: usize) {
+        self.pending_count.fetch_sub(count, Ordering::SeqCst);
     }
 }
 
@@ -331,16 +359,21 @@ impl Default for PendingCommitmentBuffer {
 pub struct PendingTxListBuffer {
     /// Map from txlist hash to commitments waiting for the payload.
     pending_by_txhash: DashMap<B256, Vec<SignedCommitment>>,
+    /// Count of pending commitments across all txlist hashes.
+    pending_count: AtomicUsize,
 }
 
 impl PendingTxListBuffer {
     /// Create a new empty pending txlist buffer.
     pub fn new() -> Self {
-        Self { pending_by_txhash: DashMap::new() }
+        Self { pending_by_txhash: DashMap::new(), pending_count: AtomicUsize::new(0) }
     }
 
     /// Add a commitment to the pending txlist buffer.
     pub fn add(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
+        if self.reserve_slot().is_err() {
+            return;
+        }
         // Normalize the hash to B256.
         let key = B256::from_slice(txlist_hash.as_ref());
         // Push the commitment into the pending list.
@@ -351,7 +384,24 @@ impl PendingTxListBuffer {
     pub fn take_waiting(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
         // Normalize the hash to B256.
         let key = B256::from_slice(txlist_hash.as_ref());
-        self.pending_by_txhash.remove(&key).map(|(_, value)| value).unwrap_or_default()
+        if let Some((_, value)) = self.pending_by_txhash.remove(&key) {
+            self.release_slots(value.len());
+            return value;
+        }
+        Vec::new()
+    }
+
+    fn reserve_slot(&self) -> Result<(), ()> {
+        self.pending_count
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+                if count >= DEFAULT_RETENTION_LIMIT { None } else { Some(count + 1) }
+            })
+            .map(|_| ())
+            .map_err(|_| ())
+    }
+
+    fn release_slots(&self, count: usize) {
+        self.pending_count.fetch_sub(count, Ordering::SeqCst);
     }
 }
 
@@ -364,8 +414,8 @@ impl Default for PendingTxListBuffer {
 
 #[cfg(test)]
 mod tests {
-    use super::InMemoryCommitmentStore;
-    use crate::storage::commitment_store::CommitmentStore;
+    use super::{InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer};
+    use crate::{config::DEFAULT_RETENTION_LIMIT, storage::commitment_store::CommitmentStore};
     use alloy_primitives::{B256, U256};
     use preconfirmation_net::PreconfStorage;
     use preconfirmation_types::{
@@ -412,6 +462,44 @@ mod tests {
     fn txlist_with_hash(hash: Bytes32) -> RawTxListGossip {
         let txlist = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
         RawTxListGossip { raw_tx_list_hash: hash, txlist }
+    }
+
+    #[test]
+    fn pending_commitment_buffer_is_capped() {
+        let buffer = PendingCommitmentBuffer::new();
+        let commitment = SignedCommitment::default();
+
+        for i in 0..=DEFAULT_RETENTION_LIMIT {
+            let parent_hash = Bytes32::try_from(vec![i as u8; 32]).expect("parent hash");
+            buffer.add(&parent_hash, commitment.clone());
+        }
+
+        let mut total = 0usize;
+        for i in 0..=DEFAULT_RETENTION_LIMIT {
+            let parent_hash = Bytes32::try_from(vec![i as u8; 32]).expect("parent hash");
+            total += buffer.take_children(&parent_hash).len();
+        }
+
+        assert!(total <= DEFAULT_RETENTION_LIMIT);
+    }
+
+    #[test]
+    fn pending_txlist_buffer_is_capped() {
+        let buffer = PendingTxListBuffer::new();
+        let commitment = SignedCommitment::default();
+
+        for i in 0..=DEFAULT_RETENTION_LIMIT {
+            let txlist_hash = Bytes32::try_from(vec![i as u8; 32]).expect("txlist hash");
+            buffer.add(&txlist_hash, commitment.clone());
+        }
+
+        let mut total = 0usize;
+        for i in 0..=DEFAULT_RETENTION_LIMIT {
+            let txlist_hash = Bytes32::try_from(vec![i as u8; 32]).expect("txlist hash");
+            total += buffer.take_waiting(&txlist_hash).len();
+        }
+
+        assert!(total <= DEFAULT_RETENTION_LIMIT);
     }
 
     /// Ensure a new store has no latest commitment.

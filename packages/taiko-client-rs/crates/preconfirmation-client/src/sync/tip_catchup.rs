@@ -147,6 +147,33 @@ async fn chain_from_tip(
     chain
 }
 
+/// Ensure the catch-up chain reached the required boundary.
+fn ensure_catchup_boundary(
+    require_boundary: bool,
+    stop_block: U256,
+    boundary_block: Option<U256>,
+) -> Result<()> {
+    if !require_boundary || boundary_block == Some(stop_block) {
+        return Ok(());
+    }
+
+    Err(PreconfirmationClientError::Catchup(format!(
+        "catch-up chain did not reach the driver sync boundary: expected {stop_block}, got {boundary_block:?}"
+    )))
+}
+
+// Ensure the tip commitment is present.
+fn require_tip_commitment(
+    peer_tip: U256,
+    tip: Option<SignedCommitment>,
+) -> Result<SignedCommitment> {
+    tip.ok_or_else(|| {
+        PreconfirmationClientError::Catchup(format!(
+            "peer returned no commitment for tip at {peer_tip}"
+        ))
+    })
+}
+
 /// Request a raw txlist using a cloned command sender.
 async fn request_raw_txlist_with_sender(
     commands: Sender<NetworkCommand>,
@@ -193,17 +220,11 @@ impl TipCatchup {
     }
 
     /// Backfill commitments from the peer head using backward chaining.
-    ///
-    /// Anchors on the peer tip commitment and walks the parent hash chain
-    /// until reaching the block immediately after the driver event sync tip.
-    ///
-    /// Returns the catch-up chain plus a flag indicating whether the first
-    /// commitment should be treated as the catch-up boundary.
     pub async fn backfill_from_peer_head(
         &self,
         handle: &mut P2pHandle,
         event_sync_tip: U256,
-    ) -> Result<(Vec<SignedCommitment>, bool)> {
+    ) -> Result<Vec<SignedCommitment>> {
         info!(event_sync_tip = %event_sync_tip, "starting tip catch-up");
 
         // Request head from any connected peer.
@@ -232,10 +253,7 @@ impl TipCatchup {
                 |err| PreconfirmationClientError::Catchup(format!("failed to fetch tip: {err}")),
             )?;
 
-        let Some(tip) = tip_response.commitments.first().cloned() else {
-            warn!(peer_tip = %peer_tip, "peer returned no commitment for tip");
-            return Ok((Vec::new(), false));
-        };
+        let tip = require_tip_commitment(peer_tip, tip_response.commitments.first().cloned())?;
 
         // Fetch the range between stop_block and peer_tip (exclusive).
         let mut fetched = Vec::new();
@@ -278,26 +296,20 @@ impl TipCatchup {
         .await;
 
         if chain.is_empty() {
-            warn!("no valid commitments found during catch-up");
-            return Ok((Vec::new(), false));
+            return Err(PreconfirmationClientError::Catchup(
+                "no valid commitments found during catch-up".to_string(),
+            ));
         }
 
         // Reverse to forward order (oldest to newest).
         chain.reverse();
 
-        // Mark the catch-up boundary for the first commitment in the chain.
-        let catchup_boundary = !chain.is_empty();
         let boundary_block = chain
             .first()
             .map(|commitment| uint256_to_u256(&commitment.commitment.preconf.block_number));
 
-        if require_boundary && boundary_block != Some(stop_block) {
-            warn!(
-                stop_block = %stop_block,
-                "catch-up chain did not reach the driver sync boundary"
-            );
-            return Ok((Vec::new(), false));
-        }
+        // Ensure we reached the required boundary.
+        ensure_catchup_boundary(require_boundary, stop_block, boundary_block)?;
 
         // Insert the validated chain into the store.
         for commitment in &chain {
@@ -348,7 +360,7 @@ impl TipCatchup {
             }
         }
 
-        Ok((chain, catchup_boundary))
+        Ok(chain)
     }
 }
 
@@ -363,7 +375,11 @@ mod tests {
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
 
-    use super::{chain_from_tip, map_commitments, validate_commitment};
+    use super::{
+        chain_from_tip, ensure_catchup_boundary, map_commitments, require_tip_commitment,
+        validate_commitment,
+    };
+    use crate::error::PreconfirmationClientError;
 
     struct MockResolver {
         signer: Address,
@@ -459,6 +475,30 @@ mod tests {
 
         let result = validate_commitment(&commitment, None, &resolver).await;
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn catchup_boundary_mismatch_returns_error() {
+        let stop_block = U256::from(10u64);
+        let boundary_block = Some(U256::from(9u64));
+
+        let err =
+            ensure_catchup_boundary(true, stop_block, boundary_block).expect_err("must error");
+        assert!(err.to_string().contains("catch-up chain did not reach"));
+    }
+
+    #[test]
+    fn require_tip_commitment_errors_on_missing() {
+        let err = require_tip_commitment(U256::from(7u64), None).expect_err("must error");
+        assert!(err.to_string().contains("peer returned no commitment for tip"));
+    }
+
+    #[test]
+    fn empty_catchup_chain_returns_error() {
+        let err = PreconfirmationClientError::Catchup(
+            "no valid commitments found during catch-up".to_string(),
+        );
+        assert!(err.to_string().contains("no valid commitments found"));
     }
 
     /// Chain walking follows parent hashes down to the stop block.

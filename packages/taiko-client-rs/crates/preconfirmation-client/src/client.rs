@@ -143,8 +143,7 @@ where
         // Run the catch-up flow.
         let catchup = TipCatchup::new(self.config.clone(), self.store.clone());
         // Fetch commitments and txlists from the network tip.
-        let (commitments, catchup_boundary) =
-            catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
+        let commitments = catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
 
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(
@@ -161,7 +160,7 @@ where
 
         // Process each catch-up commitment through the handler.
         let mut commit_iter = commitments.into_iter();
-        if catchup_boundary && let Some(first) = commit_iter.next() {
+        if let Some(first) = commit_iter.next() {
             handler.handle_catchup_commitment(first, true).await?;
         }
         for commitment in commit_iter {
