@@ -621,9 +621,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 : _numForcedInclusionsRequested;
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, _sources, head, toProcess
-            );
+            (oldestTimestamp, head) =
+                _dequeueAndProcessForcedInclusions($, _feeRecipient, _sources, head, toProcess);
 
             // We check the following conditions are met:
             // 1. Proposer is willing to include at least the minimum required
