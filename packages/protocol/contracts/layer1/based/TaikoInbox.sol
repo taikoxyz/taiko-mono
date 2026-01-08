@@ -56,7 +56,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         signalService = ISignalService(_signalService);
     }
 
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function init(address _owner, bytes32 _genesisBlockHash) external onlyFromOwnerOr(address(0)) {
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
@@ -531,8 +531,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // Internal functions ----------------------------------------------------------------------
 
-    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
-        __Essential_init(_owner);
+    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal {
+//        __Essential_init(_owner);
 
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
         state.transitions[0][1].blockHash = _genesisBlockHash;
@@ -653,7 +653,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 blockHash = _blockHash;
                 batch = state.batches[slot];
                 tid = _tid;
-              
+
                 uint96 bondToReturn =
                     ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
                 _creditBond(ts.prover, bondToReturn);
