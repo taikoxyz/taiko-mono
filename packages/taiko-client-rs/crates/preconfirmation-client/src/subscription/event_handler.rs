@@ -45,7 +45,7 @@ pub enum PreconfirmationEvent {
 }
 
 /// Dependencies required to construct an event handler.
-pub struct EventHandlerDeps<D>
+pub struct EventHandlerContext<D>
 where
     D: DriverClient,
 {
@@ -103,7 +103,7 @@ where
     D: DriverClient,
 {
     /// Create a new event handler with the required dependencies.
-    pub fn new(deps: EventHandlerDeps<D>) -> Self {
+    pub fn new(deps: EventHandlerContext<D>) -> Self {
         Self {
             state: deps.state,
             store: deps.store,
@@ -393,7 +393,7 @@ mod tests {
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tokio::sync::{RwLock, broadcast};
 
-    use super::{EventHandler, EventHandlerDeps};
+    use super::{EventHandler, EventHandlerContext};
     use crate::{
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
@@ -547,7 +547,7 @@ mod tests {
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
 
-        let handler = EventHandler::new(EventHandlerDeps {
+        let handler = EventHandler::new(EventHandlerContext {
             state,
             store: store.clone(),
             pending_parents,
@@ -585,7 +585,7 @@ mod tests {
         let lookahead_resolver = Arc::new(MismatchResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
 
-        let handler = EventHandler::new(EventHandlerDeps {
+        let handler = EventHandler::new(EventHandlerContext {
             state,
             store: store.clone(),
             pending_parents,
@@ -624,7 +624,7 @@ mod tests {
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
-        let handler = EventHandler::new(EventHandlerDeps {
+        let handler = EventHandler::new(EventHandlerContext {
             state,
             store: store.clone(),
             pending_parents,

@@ -27,7 +27,7 @@ use crate::{
     storage::{
         CommitmentStore, InMemoryCommitmentStore, PendingCommitmentBuffer, PendingTxListBuffer,
     },
-    subscription::{EventHandler, EventHandlerDeps, PreconfirmationEvent},
+    subscription::{EventHandler, EventHandlerContext, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
 };
 
@@ -153,7 +153,7 @@ where
             catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
 
         // Bundle dependencies for the event handler.
-        let deps = EventHandlerDeps {
+        let deps = EventHandlerContext {
             state: self.state.clone(),
             store: self.store.clone(),
             pending_parents: self.pending_parents.clone(),
