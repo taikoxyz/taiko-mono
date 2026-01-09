@@ -14,6 +14,7 @@
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test --extra-output storage-layout --match-path 'test/layer1/**/*.t.sol'",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test --extra-output storage-layout --match-path 'test/layer2/**/*.t.sol'",
     "test:shared": "FOUNDRY_PROFILE=shared forge test --extra-output storage-layout --match-path 'test/shared/**/*.t.sol'",
+    "test:ccip": "FOUNDRY_PROFILE=layer1ccip forge test --extra-output storage-layout --match-path 'test/layer1/**/*.t.sol'",
     "snapshot:l1": "pnpm test:l1 && FOUNDRY_PROFILE=layer1 forge snapshot --snap gas-reports/layer1-contracts.txt",
     "test": "pnpm test:l1 && pnpm test:l2 && pnpm test:shared",
     "layout:shared": "./script/gen-layouts.sh shared",
@@ -50,6 +51,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "4.9.6",
     "@openzeppelin/contracts-upgradeable": "4.9.6",
+    "@openzeppelin/contracts-v5": "npm:@openzeppelin/contracts@5.4.0",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
     "merkletreejs": "^0.4.0",
@@ -58,6 +60,7 @@
     "risc0-ethereum": "github:risc0/risc0-ethereum#v3.0.0",
     "solady": "github:Vectorized/solady#v0.1.24",
     "urc": "github:eth-fabric/urc#main",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0"
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
+    "azure-tdx-verifier": "github:Hyodar/azure-tdx-verifier#master"
   }
 }

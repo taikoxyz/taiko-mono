@@ -28,10 +28,15 @@ remappings = [
     "forge-std/=node_modules/forge-std/",
     "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
     "@eth-fabric/urc/=node_modules/urc/src/",
+    "azure-tdx-verifier/=node_modules/azure-tdx-verifier/src/",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",
     "script/=script/",
+
+    # For Azure TDX
+    "solady/utils/=node_modules/solady/src/utils/",
+    "openzeppelin-contracts/contracts/utils/cryptography/RSA.sol=node_modules/@openzeppelin/contracts-v5/utils/cryptography/RSA.sol",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
@@ -60,7 +65,7 @@ bracket_spacing = true
 line_length = 100
 multiline_func_header = "all"
 number_underscore = "thousands"
-wrap_comments = false # there is a bug with foundry formatter
+wrap_comments = false                     # there is a bug with foundry formatter
 tab_width = 4
 style = "space"
 int_types = "long"
@@ -86,12 +91,21 @@ exclude_lints = [
     "unwrapped-modifier-logic",
     "mixed-case-function",
     "unsafe-cheatcode",
-    "max-line-length"
+    "max-line-length",
 ]
 
 [profile.layer1]
 src = "contracts/layer1"
 test = "test/layer1"
+script = "script/layer1"
+out = "out/layer1"
+# Surge: Exclude CCIP tests since they require mainnet fork and special setup
+no_match_path = "test/layer1/surge/ccip/*"
+
+# Surge: Add this profile for CCIP TDX tests
+[profile.layer1ccip]
+src = "contracts/layer1"
+test = "test/layer1/surge/ccip"
 script = "script/layer1"
 out = "out/layer1"
 

@@ -5,7 +5,7 @@ set -eou pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v docker &> /dev/null 2>&1; then
-    echo "ERROR: `docker` command not found"
+    echo "ERROR: \`docker\` command not found"
     exit 1
 fi
 
@@ -17,46 +17,21 @@ fi
 GENESIS_JSON="$DIR/data/genesis.json"
 TESTNET_CONFIG="$DIR/testnet/docker-compose.yml"
 
-touch "$GENESIS_JSON"
-
-echo '
-{
-  "config": {
-    "chainId": 167,
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0,
-    "muirGlacierBlock": 0,
-    "berlinBlock": 0,
-    "clique": {
-      "period": 0,
-      "epoch": 30000
-    }
-  },
-  "gasLimit": "30000000",
-  "difficulty": "1",
-  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000df08f82de32b8d460adbe8d72043e3a7e25a3b390000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-  "alloc":
-' > "$GENESIS_JSON"
-
 echo "Starting generate_genesis tests..."
 
 # compile the contracts to get latest bytecode
 rm -rf out && pnpm compile:genesis
 
-# run the task
+# run the task - this now generates the full genesis.json
 pnpm run genesis:gen $DIR/test_config.js
 
-# generate complete genesis json
-cat "$DIR/data/genesis_alloc.json" >> "$GENESIS_JSON"
+# Verify genesis.json was generated
+if [ ! -f "$GENESIS_JSON" ]; then
+    echo "ERROR: genesis.json was not generated"
+    exit 1
+fi
 
-echo '}' >> "$GENESIS_JSON"
+echo "Genesis JSON generated at: $GENESIS_JSON"
 
 # start a geth instance and init with the output genesis json
 echo ""

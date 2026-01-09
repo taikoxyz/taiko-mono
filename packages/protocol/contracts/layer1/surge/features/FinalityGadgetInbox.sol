@@ -12,12 +12,40 @@ import { LibProofBitmap } from "../libs/LibProofBitmap.sol";
 abstract contract FinalityGadgetInbox is Inbox {
     using LibProofBitmap for LibProofBitmap.ProofBitmap;
 
+    uint256[50] private __gap;
+
     /// @dev Emitted when conflicting proofs are detected for a proposal
     /// @param firstProposalId The ID of the first proposal in the conflict
     /// @param conflictingProofBitmap Bitmap representing the conflicting proofs
     event ConflictingProofsDetected(
         uint48 indexed firstProposalId, LibProofBitmap.ProofBitmap conflictingProofBitmap
     );
+
+    // ---------------------------------------------------------------
+    // Codec
+    // ---------------------------------------------------------------
+
+    /// @notice Encodes an array of commitments into bytes
+    /// @param _commitments The array of commitments to encode
+    /// @return The ABI-encoded commitments
+    function encodeCommitments(Commitment[] calldata _commitments)
+        external
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_commitments);
+    }
+
+    /// @notice Decodes bytes into an array of commitments
+    /// @param _data The ABI-encoded commitments data
+    /// @return The decoded array of commitments
+    function decodeCommitments(bytes calldata _data) external pure returns (Commitment[] memory) {
+        return _decodeCommitments(_data);
+    }
+
+    // ---------------------------------------------------------------
+    // Feature specific functions
+    // ---------------------------------------------------------------
 
     /// @notice Proves that conflicting commitments exist for the same proposal, allowing
     /// the conflicting verifiers to be marked as upgradeable
@@ -55,6 +83,10 @@ abstract contract FinalityGadgetInbox is Inbox {
                     commitments[i].transitions[0].blockHash
                         != commitments[0].transitions[0].blockHash,
                     Surge_TransitionBlockhashMustDiffer()
+                );
+                require(
+                    commitments[i].endStateRoot != commitments[0].endStateRoot,
+                    Surge_CommitmentStateRootsMustDiffer()
                 );
 
                 // Verify proof validity and merge the flag with the conflicting proofs bitmap
@@ -103,10 +135,6 @@ abstract contract FinalityGadgetInbox is Inbox {
             _currentCommitment.endBlockNumber == _previousCommitment.endBlockNumber,
             Surge_EndBlockNumberMustNotDiffer()
         );
-        require(
-            _currentCommitment.endStateRoot == _previousCommitment.endStateRoot,
-            Surge_EndStateRootMustNotDiffer()
-        );
 
         // `actualProver` may or may not be different between commitments
     }
@@ -128,11 +156,13 @@ abstract contract FinalityGadgetInbox is Inbox {
     /// @dev Override the handler to call the SurgeVerifier that requires a proof threshold for the
     /// verification to pass.
     function _handleProofVerification(
+        uint256, /* _proposalAge */
         Commitment memory _commitment,
         bytes calldata _proof
     )
         internal
         view
+        virtual
         override
     {
         SurgeVerifier(_proofVerifier)
@@ -143,6 +173,7 @@ abstract contract FinalityGadgetInbox is Inbox {
     // Custom errors
     // ---------------------------------------------------------------
 
+    error Surge_CommitmentStateRootsMustDiffer();
     error Surge_EndBlockNumberMustNotDiffer();
     error Surge_EndStateRootMustNotDiffer();
     error Surge_FirstProposalIdMustNotDiffer();

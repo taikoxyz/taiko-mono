@@ -16,6 +16,12 @@ abstract contract FinalizationStreakInbox is Inbox {
     /// @dev Slot 0
     uint48 internal _finalizationStreakStartedAt;
 
+    uint256[49] private __gap;
+
+    constructor(uint48 _maxFinalizationDelayBeforeStreakReset) {
+        maxFinalizationDelayBeforeStreakReset = _maxFinalizationDelayBeforeStreakReset;
+    }
+
     // ---------------------------------------------------------------
     // External views
     // ---------------------------------------------------------------
@@ -36,6 +42,12 @@ abstract contract FinalizationStreakInbox is Inbox {
     // ---------------------------------------------------------------
     // Overrides
     // ---------------------------------------------------------------
+
+    /// @dev Initialize the state of this feature contract right after activation
+    function _afterActivate() internal virtual override {
+        _finalizationStreakStartedAt = uint48(block.timestamp);
+        super._afterActivate();
+    }
 
     /// @dev Reset the finalization streak if the grace period has been crossed
     function _beforeProve() internal virtual override {

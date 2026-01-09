@@ -1,20 +1,27 @@
 "use strict";
 const ADDRESS_LENGTH = 40;
 
+// Environment variable configuration with defaults
+const CONTRACT_OWNER =
+  process.env.CONTRACT_OWNER || "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39";
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || "167", 10);
+const L1_CHAIN_ID = parseInt(process.env.L1_CHAIN_ID || "31337", 10);
+const SEED_ADDRESS =
+  process.env.SEED_ADDRESS || "0x0000000000000000000000000000000000000000";
+const SEED_AMOUNT = parseInt(process.env.SEED_AMOUNT || "0", 10);
+const REMOTE_SIGNAL_SERVICE =
+  process.env.REMOTE_SIGNAL_SERVICE ||
+  "0x0000000000000000000000000000000000000000";
+
 module.exports = {
   // Owner address of the pre-deployed L2 contracts.
-  contractOwner: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
+  contractOwner: CONTRACT_OWNER,
   // Chain ID of the Taiko L2 network.
-  chainId: 167,
+  chainId: CHAIN_ID,
   // Account address and pre-mint ETH amount as key-value pairs.
-  seedAccounts: [
-    { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1000 },
-    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000 },
-  ],
+  seedAccounts: [{ [SEED_ADDRESS]: SEED_AMOUNT }],
   // Owner Chain ID, Security Council, and Timelock Controller
-  l1ChainId: 31337,
-  ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
-  ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
+  l1ChainId: L1_CHAIN_ID,
   get contractAddresses() {
     return {
       // ============ Implementations ============
@@ -52,7 +59,7 @@ module.exports = {
   },
   // Option to pre-deploy an ERC-20 token.
   predeployERC20: true,
-  remoteSignalService: "0x0000000000000000000000000000000000000000",
+  remoteSignalService: REMOTE_SIGNAL_SERVICE,
   pacayaTaikoAnchor: "0x0000000000000000000000000000000000000000",
 };
 

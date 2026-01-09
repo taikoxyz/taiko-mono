@@ -44,14 +44,15 @@ contract SurgeVerifier is Ownable2Step {
     }
 
     /// @notice Mapping from bit flag to an internal verifier contract that implements IProofVerifier
-    mapping(LibProofBitmap.ProofBitmap proofBitFlag => InternalVerifier verifier) public verifiers;
+    mapping(LibProofBitmap.ProofBitmap proofBitFlag => InternalVerifier verifier) internal
+        _verifiers;
 
     /// @notice Mapping from bit flag and a proposal id to a boolean that represents if the verifier for
     /// the proof type has been marked for upgrade due to conflicts at the given proposal id
     mapping(
         LibProofBitmap.ProofBitmap proofBitFlag
             => mapping(uint48 proposalId => bool markedForUpgrade)
-    ) public historicalMarkings;
+    ) internal _historicalMarkings;
 
     /// @dev Emitted when a verifier is updated
     /// @param proofBitFlag The proof bit flag of the verifier
@@ -82,8 +83,8 @@ contract SurgeVerifier is Ownable2Step {
         external
         onlyOwner
     {
-        address oldVerifierAddr = verifiers[_proofBitFlag].addr;
-        verifiers[_proofBitFlag] = InternalVerifier(_verifierAddr, false);
+        address oldVerifierAddr = _verifiers[_proofBitFlag].addr;
+        _verifiers[_proofBitFlag] = InternalVerifier(_verifierAddr, false);
         emit VerifierUpdated(_proofBitFlag, oldVerifierAddr, _verifierAddr);
     }
 
@@ -99,10 +100,10 @@ contract SurgeVerifier is Ownable2Step {
         external
         onlyOwner
     {
-        InternalVerifier memory oldVerifier = verifiers[_proofBitFlag];
+        InternalVerifier memory oldVerifier = _verifiers[_proofBitFlag];
         require(oldVerifier.addr != address(0), Surge_InvalidProofBitFlag());
         require(oldVerifier.allowInstantUpgrade, Surge_InstantUpgradeNotAllowed());
-        verifiers[_proofBitFlag] = InternalVerifier(_verifierAddr, false);
+        _verifiers[_proofBitFlag] = InternalVerifier(_verifierAddr, false);
         emit VerifierUpdated(_proofBitFlag, oldVerifier.addr, _verifierAddr);
     }
 
@@ -126,15 +127,15 @@ contract SurgeVerifier is Ownable2Step {
                 LibProofBitmap.ProofBitmap proofBitFlag =
                     LibProofBitmap.ProofBitmap.wrap(uint8(1 << i));
                 require(
-                    !historicalMarkings[proofBitFlag][_proposalId],
+                    !_historicalMarkings[proofBitFlag][_proposalId],
                     Surge_AlreadyMarkedForProposalId()
                 );
 
-                InternalVerifier storage verifier = verifiers[proofBitFlag];
+                InternalVerifier storage verifier = _verifiers[proofBitFlag];
                 require(verifier.addr != address(0), Surge_InvalidProofBitFlag());
 
                 verifier.allowInstantUpgrade = _allowInstantUpgrade;
-                historicalMarkings[proofBitFlag][_proposalId] = true;
+                _historicalMarkings[proofBitFlag][_proposalId] = true;
             }
         }
     }
@@ -157,7 +158,7 @@ contract SurgeVerifier is Ownable2Step {
 
         for (uint256 i; i < subProofs.length; ++i) {
             LibProofBitmap.ProofBitmap proofBitFlag = subProofs[i].proofBitFlag;
-            address verifierAddr = verifiers[proofBitFlag].addr;
+            address verifierAddr = _verifiers[proofBitFlag].addr;
             if (verifierAddr == address(0)) revert Surge_InvalidProofBitFlag();
 
             // `_proposalAge` is skipped
@@ -170,6 +171,37 @@ contract SurgeVerifier is Ownable2Step {
             !_requiresThreshold || mergedBitmap_.numProofs() >= numProofsThreshold,
             Surge_NumProofsThresholdNotMet()
         );
+    }
+
+    // ---------------------------------------------------------------
+    // External views
+    // ---------------------------------------------------------------
+
+    /// @notice Returns the internal verifier for a given proof bit flag
+    /// @param _proofBitFlag The proof bit flag to look up
+    /// @return verifier_ The InternalVerifier struct containing address and instant upgrade flag
+    function getInternalVerifier(LibProofBitmap.ProofBitmap _proofBitFlag)
+        external
+        view
+        returns (InternalVerifier memory verifier_)
+    {
+        verifier_ = _verifiers[_proofBitFlag];
+        require(verifier_.addr != address(0), Surge_InvalidProofBitFlag());
+    }
+
+    /// @notice Returns whether a verifier has been marked for upgrade at a given proposal id
+    /// @param _proofBitFlag The proof bit flag to look up
+    /// @param _proposalId The proposal id to check
+    /// @return markedForUpgrade_ Whether the verifier was marked for upgrade
+    function getHistoricalMarking(
+        LibProofBitmap.ProofBitmap _proofBitFlag,
+        uint48 _proposalId
+    )
+        external
+        view
+        returns (bool markedForUpgrade_)
+    {
+        markedForUpgrade_ = _historicalMarkings[_proofBitFlag][_proposalId];
     }
 
     // ---------------------------------------------------------------

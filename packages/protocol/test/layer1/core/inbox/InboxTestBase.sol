@@ -186,6 +186,15 @@ abstract contract InboxTestBase is CommonTest {
         payload_ = _proposeAndDecode(_defaultProposeInput());
     }
 
+    function _proposeN(uint256 _n) internal returns (ProposedEvent[] memory payloads_) {
+        payloads_ = new ProposedEvent[](_n);
+        for (uint256 i = 0; i < _n; i++) {
+            _advanceBlock();
+            _setBlobHashes(3);
+            payloads_[i] = _proposeAndDecode(_defaultProposeInput());
+        }
+    }
+
     function _proposeAndDecode(IInbox.ProposeInput memory _input)
         internal
         returns (ProposedEvent memory payload_)
@@ -205,11 +214,22 @@ abstract contract InboxTestBase is CommonTest {
         internal
         returns (ProposedEvent memory payload_)
     {
+        payload_ = _proposeAndDecodeWithGas(_input, _benchName, "shasta-propose");
+    }
+
+    function _proposeAndDecodeWithGas(
+        IInbox.ProposeInput memory _input,
+        string memory _benchName,
+        string memory _fileName
+    )
+        internal
+        returns (ProposedEvent memory payload_)
+    {
         bytes memory encodedInput = codec.encodeProposeInput(_input);
         vm.recordLogs();
         vm.startPrank(proposer);
 
-        if (bytes(_benchName).length > 0) vm.startSnapshotGas("shasta-propose", _benchName);
+        if (bytes(_benchName).length > 0) vm.startSnapshotGas(_fileName, _benchName);
         inbox.propose(bytes(""), encodedInput);
         if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 

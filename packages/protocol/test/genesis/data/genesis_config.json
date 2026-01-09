@@ -1,13 +1,8 @@
 {
   "contractOwner": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   "chainId": 167,
-  "seedAccounts": [
-    { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1000 },
-    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000 }
-  ],
+  "seedAccounts": [{ "0x0000000000000000000000000000000000000000": 1000 }],
   "l1ChainId": 31337,
-  "ownerSecurityCouncil": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
-  "ownerTimelockController": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   "contractAddresses": {
     "BridgeImpl": "0x0167000000000000000000000000000000000001",
     "ERC20VaultImpl": "0x0167000000000000000000000000000000000002",
@@ -32,7 +27,15 @@
     "RollupResolver": "0x1670000000000000000000000000000000010002"
   },
   "param1559": { "gasExcess": 1 },
+<<<<<<< HEAD
   "predeployERC20": true,
+=======
+  "predeployERC20": false,
+  "livenessBond": "128000000000000000000",
+  "withdrawalDelay": 3600,
+  "minBond": 0,
+  "bondToken": "0x0000000000000000000000000000000000000000",
+>>>>>>> ff187348f (feat(protocol): add deployment scripts (#239))
   "remoteSignalService": "0x0000000000000000000000000000000000000000",
   "pacayaTaikoAnchor": "0x0000000000000000000000000000000000000000"
 }

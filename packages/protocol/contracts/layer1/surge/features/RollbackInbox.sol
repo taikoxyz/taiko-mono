@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Inbox } from "../../core/impl/Inbox.sol";
+import { LibBlobs } from "../../core/libs/LibBlobs.sol";
 
 /// @title RollbackInbox
 /// @notice A feature-contract that implements chain rollback feature
@@ -77,10 +78,9 @@ abstract contract RollbackInbox is Inbox {
         bytes calldata _proof
     )
         external
-        nonReentrant
     {
-        propose(_lookahead, _proposeData);
-        prove(_proveData, _proof);
+        _propose(_lookahead, _proposeData);
+        _prove(_proveData, _proof);
 
         // Verify that the head of the chain is finalized
         require(
@@ -94,15 +94,32 @@ abstract contract RollbackInbox is Inbox {
     // ---------------------------------------------------------------
 
     /// @dev Disable calling the `propose(..)` function externally when in limp mode.
-    function _beforePropose() internal override {
-        require(!inLimpMode || msg.sender == address(this), Surge_CannotProposeDirectlyInLimpMode());
+    function _beforePropose() internal virtual override {
+        require(!inLimpMode, Surge_CannotProposeDirectlyInLimpMode());
         super._beforePropose();
     }
 
     /// @dev Disable calling the `prove(..)` function externally when in limp mode.
-    function _beforeProve() internal override {
-        require(!inLimpMode || msg.sender == address(this), Surge_CannotProveDirectlyInLimpMode());
+    function _beforeProve() internal virtual override {
+        require(!inLimpMode, Surge_CannotProveDirectlyInLimpMode());
         super._beforeProve();
+    }
+
+    /// @dev Override the building of consumption in the base class to skip forced inclusions
+    /// when in limp mode, to prevent any past unprovable proposals from being force included.
+    function _buildConsumptionResult(ProposeInput memory _input)
+        internal
+        virtual
+        override
+        returns (ConsumptionResult memory result_)
+    {
+        if (inLimpMode) {
+            result_.sources = new DerivationSource[](1);
+            result_.sources[0] =
+                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+        } else {
+            return super._buildConsumptionResult(_input);
+        }
     }
 
     // ---------------------------------------------------------------
