@@ -19,7 +19,7 @@ use tokio::{
     sync::{mpsc::Sender, oneshot},
     task::JoinSet,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     config::PreconfirmationClientConfig,
@@ -279,6 +279,7 @@ impl TipCatchup {
             metrics::counter!(PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL).increment(1);
 
             if response.commitments.is_empty() {
+                error!(start = ?current, count, "peer returned empty commitment batch during catch-up");
                 break;
             }
 
