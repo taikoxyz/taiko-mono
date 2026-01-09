@@ -59,7 +59,7 @@ contract TestLookaheadStore_PostedByProtectorOrWhitelistedPreconfer is Lookahead
      *         );
      *
      *         // Attempt to post the lookahead for the next epoch again reverts
-     *         vm.expectRevert(ILookaheadStore.LookaheadNotRequired.selector);
+     *         vm.expectRevert(LookaheadStore.LookaheadNotRequired.selector);
      *         _updateLookahead(_lookaheadSlots, _lookaheadOperators.length);
      *     }
      */

@@ -162,6 +162,12 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	ShastaForkTime = &cli.Uint64Flag{
+		Name:     "shasta.time",
+		Usage:    "Shasta hardfork activation timestamp (unix seconds)",
+		Category: commonCategory,
+		EnvVars:  []string{"TAIKO_SHASTA_TIME"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -173,6 +179,7 @@ var CommonFlags = []cli.Flag{
 	TaikoAnchorAddress,
 	// Optional
 	ProverSetAddress,
+	ShastaForkTime,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,

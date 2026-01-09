@@ -11,6 +11,10 @@ pre-commit:
     protocol_ts:
       glob: "packages/protocol/**.{ts}"
       run: pnpm -F protocol eslint && git add {staged_files}
+    docs_site:
+      glob: "packages/docs-site/src/content/**/*.{md,mdx}"
+      run: pnpm -F docs-site lint:mdx && git add {staged_files}
     repo:
       glob: "**.{json,md,yaml,yml}"
+      exclude: "packages/docs-site/src/content/**/*.{md,mdx}"
       run: pnpm prettier {staged_files} --write && git add {staged_files}

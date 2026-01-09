@@ -1,0 +1,52 @@
+[package]
+name = "preconfirmation-net"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+authors = ["Taiko Labs"]
+
+[features]
+default = []
+# Optional: enable QUIC transport support.
+quic-transport = ["libp2p/quic"]
+
+[dependencies]
+alloy-primitives.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+clap = { version = "4", features = ["derive"] }
+crossbeam-skiplist.workspace = true
+dashmap.workspace = true
+discv5.workspace = true
+futures.workspace = true
+ipnet.workspace = true
+libp2p = { workspace = true, features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "autonat", "relay", "noise", "yamux", "macros", "tokio"] }
+libp2p-allow-block-list.workspace = true
+libp2p-connection-limits.workspace = true
+libp2p-request-response.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+preconfirmation-types = { path = "../types" }
+rand.workspace = true
+reth-discv5.workspace = true
+reth-network-types.workspace = true
+reth-tokio-util = { workspace = true, features = ["time"] }
+secp256k1.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ssz_rs.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+unsigned-varint = { version = "0.8", features = ["futures"] }
+
+[dependencies.kona-gossip]
+workspace = true
+
+[dependencies.kona-peers]
+workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

@@ -38,6 +38,47 @@ struct BlobSidecarsResponse {
     data: Vec<BeaconBlobSidecar>,
 }
 
+/// JSON payload returned by `/eth/v2/beacon/blocks/<slot>`.
+#[derive(Debug, Deserialize)]
+struct BeaconBlockResponse {
+    data: BeaconBlockData,
+}
+
+/// Inner data of a beacon block response.
+#[derive(Debug, Deserialize)]
+struct BeaconBlockData {
+    message: BeaconBlockMessage,
+}
+
+/// Beacon block message body.
+#[derive(Debug, Deserialize)]
+struct BeaconBlockMessage {
+    body: BeaconBlockBody,
+}
+
+/// Beacon block body containing the execution payload or header.
+#[derive(Debug, Deserialize)]
+struct BeaconBlockBody {
+    #[serde(rename = "execution_payload")]
+    execution_payload: Option<ExecutionPayload>,
+    #[serde(rename = "execution_payload_header")]
+    execution_payload_header: Option<ExecutionPayloadHeader>,
+}
+
+/// Execution payload returned by the beacon node.
+#[derive(Debug, Deserialize)]
+struct ExecutionPayload {
+    #[serde(rename = "block_number")]
+    block_number: String,
+}
+
+/// Blinded execution payload header returned by the beacon node.
+#[derive(Debug, Deserialize)]
+struct ExecutionPayloadHeader {
+    #[serde(rename = "block_number")]
+    block_number: String,
+}
+
 /// Serialized representation of a single blob sidecar returned by the beacon node.
 #[derive(Debug, Deserialize)]
 struct BeaconBlobSidecar {
@@ -170,6 +211,80 @@ impl BeaconClient {
         Ok(sidecars)
     }
 
+    /// Resolve the execution-layer block number for the provided timestamp by querying the beacon
+    /// node. If the computed slot does not contain a block (missed slot), the search walks
+    /// backwards until a block with an execution payload or header is found.
+    pub async fn execution_block_number_by_timestamp(
+        &self,
+        timestamp: u64,
+    ) -> Result<u64, BlobDataError> {
+        let mut slot = self.timestamp_to_slot(timestamp)?;
+        loop {
+            match self.execution_block_number_by_slot(slot).await {
+                Ok(Some(number)) => return Ok(number),
+                Ok(None) => {
+                    debug!(slot, "beacon slot missing execution payload; trying previous slot");
+                }
+                Err(BlobDataError::HttpStatus { status }) if status == 404 => {
+                    if slot == 0 {
+                        break;
+                    }
+                    debug!(slot, status, "beacon block not found for slot; trying previous slot");
+                }
+                Err(err) => return Err(err),
+            }
+
+            if slot == 0 {
+                break;
+            }
+            slot = slot.saturating_sub(1);
+        }
+
+        Err(BlobDataError::Beacon(format!(
+            "unable to locate execution block for timestamp {timestamp}"
+        )))
+    }
+
+    /// Fetch the execution block number for a specific beacon slot.
+    async fn execution_block_number_by_slot(
+        &self,
+        slot: u64,
+    ) -> Result<Option<u64>, BlobDataError> {
+        let block_url = self
+            .endpoint
+            .join(&format!("/eth/v2/beacon/blocks/{slot}"))
+            .map_err(|err| BlobDataError::Other(err.into()))?;
+        debug!(slot, url = block_url.as_str(), "requesting beacon block by slot");
+
+        let response = self
+            .http
+            .get(block_url.clone())
+            .send()
+            .await
+            .map_err(|err| BlobDataError::Other(err.into()))?;
+        if !response.status().is_success() {
+            warn!(
+                status = response.status().as_u16(),
+                slot,
+                url = block_url.as_str(),
+                "beacon block request failed"
+            );
+            return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
+        }
+
+        let payload: BeaconBlockResponse =
+            response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+
+        let Some(block_number) = payload.execution_block_number() else {
+            debug!(slot, "beacon block missing execution payload");
+            return Ok(None);
+        };
+
+        let block_number =
+            block_number.parse::<u64>().map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        Ok(Some(block_number))
+    }
+
     /// Convert an L1 timestamp into a beacon slot using the cached genesis metadata.
     fn timestamp_to_slot(&self, timestamp: u64) -> Result<u64, BlobDataError> {
         if timestamp < self.genesis_time {
@@ -199,4 +314,25 @@ fn decode_hex(value: &str) -> Result<Vec<u8>, BlobDataError> {
         stripped.insert(0, '0');
     }
     hex::decode(stripped).map_err(|err| BlobDataError::Parse(err.to_string()))
+}
+
+impl BeaconBlockResponse {
+    /// Extract the execution-layer block number string from either the execution payload or its
+    /// header (for blinded blocks).
+    fn execution_block_number(&self) -> Option<&str> {
+        self.data
+            .message
+            .body
+            .execution_payload
+            .as_ref()
+            .map(|payload| payload.block_number.as_str())
+            .or_else(|| {
+                self.data
+                    .message
+                    .body
+                    .execution_payload_header
+                    .as_ref()
+                    .map(|header| header.block_number.as_str())
+            })
+    }
 }

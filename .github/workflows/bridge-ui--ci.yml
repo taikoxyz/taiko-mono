@@ -12,7 +12,7 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

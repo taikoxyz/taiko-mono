@@ -63,6 +63,7 @@ abstract contract ComposeVerifier is IProofVerifier {
     )
         external
         view
+        virtual
     {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;

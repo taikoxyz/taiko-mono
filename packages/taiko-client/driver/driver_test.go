@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -82,7 +82,6 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
-	s.Nil(s.d.shastaIndexer.Start())
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -165,13 +164,13 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		m.Shasta().GetProposal().Id,
+		m.Shasta().GetEventData().Id,
 		true,
 	)
 	s.Nil(err)
@@ -225,13 +224,13 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		m.Shasta().GetProposal().Id,
+		m.Shasta().GetEventData().Id,
 		true,
 	)
 	s.Nil(err)
@@ -289,7 +288,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(err)
 	s.Greater(l2Head3.Time, s.RPCClient.ShastaClients.ForkTime)
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head3.Hash(), headL1Origin.L2BlockHash)
 
@@ -297,7 +296,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(err)
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	res, err := s.RPCClient.CheckL1Reorg(context.Background(), m.Shasta().GetProposal().Id, true)
+	res, err := s.RPCClient.CheckL1Reorg(context.Background(), m.Shasta().GetEventData().Id, true)
 	s.Nil(err)
 	s.False(res.IsReorged)
 
@@ -358,13 +357,13 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		m.Shasta().GetProposal().Id,
+		m.Shasta().GetEventData().Id,
 		true,
 	)
 	s.Nil(err)
@@ -1332,7 +1331,6 @@ func (s *DriverTestSuite) InitProposer() {
 	}, nil, nil))
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.p.ShastaIndexer().Start())
 }
 
 func TestDriverTestSuite(t *testing.T) {

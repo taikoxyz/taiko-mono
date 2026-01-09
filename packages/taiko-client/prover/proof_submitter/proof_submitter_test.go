@@ -251,3 +251,32 @@ func TestProofRequestSuccessful(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeOp, resp.ProofType)
 	require.Equal(t, 1, mockProducer.requestCount)
 }
+
+func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	buffer := proofProducer.NewProofBuffer(2)
+	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(1)})
+	require.NoError(t, err)
+
+	s := &ProofSubmitterPacaya{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeOp: buffer,
+		},
+		batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+		forceBatchProvingInterval: 50 * time.Millisecond,
+		proofPollingInterval:      10 * time.Millisecond,
+	}
+
+	go monitorProofBuffer(ctx, proofProducer.ProofTypeOp, buffer, 50*time.Millisecond, s.TryAggregate)
+
+	select {
+	case proofType := <-s.batchAggregationNotify:
+		require.Equal(t, proofProducer.ProofTypeOp, proofType)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected aggregation signal but timed out")
+	}
+
+	require.True(t, buffer.IsAggregating())
+}

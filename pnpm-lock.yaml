@@ -133,7 +133,7 @@ importers:
         specifier: ^8.4.38
         version: 8.5.6
       prettier:
-        specifier: ^3.2.5
+        specifier: ^3.6.2
         version: 3.6.2
       prettier-plugin-svelte:
         specifier: ^3.2.3
@@ -308,12 +308,6 @@ importers:
 
   packages/protocol:
     dependencies:
-      '@automata-network/automata-dcap-attestation':
-        specifier: github:automata-network/automata-dcap-attestation#v1.0.0
-        version: automata-dcap-attestation#v1.0.0@https://codeload.github.com/automata-network/automata-dcap-attestation/tar.gz/e747e3e6ec1ba841160ca652fdd3789739265462
-      '@automata-network/automata-on-chain-pccs':
-        specifier: github:automata-network/automata-on-chain-pccs#v1.0.0
-        version: automata-on-chain-pccs#v1.0.0@https://codeload.github.com/automata-network/automata-on-chain-pccs/tar.gz/dc74d902a1eed6dae0913820f9d0213550200788
       '@openzeppelin/contracts':
         specifier: 4.9.6
         version: 4.9.6
@@ -4613,14 +4607,6 @@ packages:
   atomic-sleep@1.0.0:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
-
-  automata-dcap-attestation#v1.0.0@https://codeload.github.com/automata-network/automata-dcap-attestation/tar.gz/e747e3e6ec1ba841160ca652fdd3789739265462:
-    resolution: {tarball: https://codeload.github.com/automata-network/automata-dcap-attestation/tar.gz/e747e3e6ec1ba841160ca652fdd3789739265462}
-    version: 0.0.0
-
-  automata-on-chain-pccs#v1.0.0@https://codeload.github.com/automata-network/automata-on-chain-pccs/tar.gz/dc74d902a1eed6dae0913820f9d0213550200788:
-    resolution: {tarball: https://codeload.github.com/automata-network/automata-on-chain-pccs/tar.gz/dc74d902a1eed6dae0913820f9d0213550200788}
-    version: 0.0.0
 
   autoprefixer@10.4.21:
     resolution: {integrity: sha512-O+A6LWV5LDHSJD3LjHYoNi4VLsj/Whi7k6zG12xTYaU4cQ8oxQGckXNX8cRHK5yOZ/ppVHe0ZBXGzSV9jXdVbQ==}
@@ -17485,10 +17471,6 @@ snapshots:
   asynckit@0.4.0: {}
 
   atomic-sleep@1.0.0: {}
-
-  automata-dcap-attestation#v1.0.0@https://codeload.github.com/automata-network/automata-dcap-attestation/tar.gz/e747e3e6ec1ba841160ca652fdd3789739265462: {}
-
-  automata-on-chain-pccs#v1.0.0@https://codeload.github.com/automata-network/automata-on-chain-pccs/tar.gz/dc74d902a1eed6dae0913820f9d0213550200788: {}
 
   autoprefixer@10.4.21(postcss@8.5.6):
     dependencies:

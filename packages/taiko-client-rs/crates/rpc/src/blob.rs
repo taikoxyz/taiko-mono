@@ -114,6 +114,19 @@ impl BlobDataSource {
         Err(BlobDataError::Beacon("no beacon or blob server available for blob retrieval".into()))
     }
 
+    /// Look up the execution-layer block number associated with a given timestamp via the beacon
+    /// endpoint.
+    pub async fn execution_block_number_by_timestamp(
+        &self,
+        timestamp: u64,
+    ) -> Result<u64, BlobDataError> {
+        let beacon = self
+            .beacon
+            .as_ref()
+            .ok_or_else(|| BlobDataError::Beacon("beacon endpoint not configured".into()))?;
+        beacon.execution_block_number_by_timestamp(timestamp).await
+    }
+
     async fn fetch_from_blob_server(
         &self,
         endpoint: &Url,

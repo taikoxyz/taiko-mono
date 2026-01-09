@@ -69,7 +69,7 @@
       disabled={isDisabled}
       bind:value={enteredIds}
       on:input={(e) => validateInput(e.target)}
-      class="withValdiation w-full input-box py-6 pr-16 px-[26px] {typeClass} {$$props.class}" />
+      class="withValidation w-full input-box py-6 pr-16 px-[26px] {typeClass} {$$props.class}" />
     {#if enteredIds && enteredIds.length > 0}
       <button class="absolute right-6 uppercase body-bold text-secondary-content" on:click={clearIds}>
         <Icon type="x-close-circle" fillClass="fill-primary-icon" size={24} />

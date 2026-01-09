@@ -221,15 +221,23 @@ func (w *Watchdog) Start() error {
 	}
 
 	go func() {
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(w.backOffRetryInterval),
+				w.backOffMaxRetries,
+			),
+			ctx,
+		)
+
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := w.queue.Subscribe(ctx, w.msgCh, &w.wg); err != nil {
-				slog.Error("processor queue subscription error", "err", err.Error())
+				slog.Error("watchdog queue subscription error", "err", err.Error())
 				return err
 			}
 
 			return nil
-		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
+		}, bo); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()
@@ -332,7 +340,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 			relayer.BridgePausedErrors.Inc()
 
-			return err
+			return fmt.Errorf(
+				"pause transaction reverted for bridge %s (status=%d)",
+				w.cfg.SrcBridgeAddress.Hex(),
+				pauseReceipt.Status,
+			)
 		}
 	}
 
@@ -354,7 +366,11 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 			relayer.BridgePausedErrors.Inc()
 
-			return err
+			return fmt.Errorf(
+				"pause transaction reverted for bridge %s (status=%d)",
+				w.cfg.DestBridgeAddress.Hex(),
+				pauseReceipt.Status,
+			)
 		}
 	}
 

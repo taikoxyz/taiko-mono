@@ -89,15 +89,8 @@ const (
 func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 	fees := make([]fee, 0)
 
-	srcChainID, err := srv.srcEthClient.ChainID(c.Request().Context())
-	if err != nil {
-		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
-	}
-
-	destChainID, err := srv.destEthClient.ChainID(c.Request().Context())
-	if err != nil {
-		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
-	}
+	srcChainID := srv.srcChainID
+	destChainID := srv.destChainID
 
 	srcGasTipCap, err := srv.srcEthClient.SuggestGasTipCap(c.Request().Context())
 	if err != nil {

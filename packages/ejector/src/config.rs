@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "ejector", version)]
@@ -23,12 +23,9 @@ pub struct Config {
     #[arg(long, env = "L2_HTTP_URL", default_value = "http://localhost:8547")]
     pub l2_http_url: String,
 
-    // targe block time in seconds
-    #[arg(long, env = "L2_TARGET_BLOCK_TIME_SECONDS", default_value_t = 2u64)]
-    pub l2_target_block_time: u64,
-
-    #[arg(long, env = "EJECT_AFTER_N_SLOTS_MISSED", default_value_t = 4u64)]
-    pub eject_after_n_slots_missed: u64,
+    // Max time without L2 blocks before ejecting, in seconds
+    #[arg(long, env = "EJECT_AFTER_SECONDS", default_value_t = 96u64)]
+    pub eject_after_seconds: u64,
 
     // private key for sending L1 txs, must be set as an ejector on the preconf whitelist contract
     #[arg(long, env = "PRIVATE_KEY")]
@@ -61,6 +58,10 @@ pub struct Config {
     // minimum reorg depth (number of blocks replaced) required before we eject operators
     #[arg(long, env = "MIN_REORG_DEPTH_FOR_EJECT", default_value_t = 4usize)]
     pub min_reorg_depth_for_eject: usize,
+
+    // toggle whether reorg-triggered ejection is enabled
+    #[arg(long, env = "ENABLE_REORG_EJECTION", default_value_t = true, action = ArgAction::Set)]
+    pub enable_reorg_ejection: bool,
 }
 
 // tests
@@ -83,9 +84,7 @@ mod tests {
             "ws://test-l2.com",
             "--l2-http-url",
             "http://test-l2.com",
-            "--l2-target-block-time",
-            "3",
-            "--eject-after-n-slots-missed",
+            "--eject-after-seconds",
             "10",
             "--private-key",
             "0x1234",
@@ -101,6 +100,8 @@ mod tests {
             "1",
             "--min-reorg-depth-for-eject",
             "5",
+            "--enable-reorg-ejection",
+            "false",
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
@@ -108,8 +109,7 @@ mod tests {
         assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
         assert_eq!(config.l1_ws_url, "ws://test-l1-rpc.com");
         assert_eq!(config.l2_ws_url, "ws://test-l2.com");
-        assert_eq!(config.l2_target_block_time, 3);
-        assert_eq!(config.eject_after_n_slots_missed, 10);
+        assert_eq!(config.eject_after_seconds, 10);
         assert_eq!(config.l2_http_url, "http://test-l2.com");
         assert_eq!(config.private_key, "0x1234");
         assert_eq!(config.taiko_wrapper_address, "0x456");
@@ -118,5 +118,6 @@ mod tests {
         assert_eq!(config.server_port, 8081);
         assert_eq!(config.min_operators, 1);
         assert_eq!(config.min_reorg_depth_for_eject, 5);
+        assert!(!config.enable_reorg_ejection);
     }
 }

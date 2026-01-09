@@ -3,7 +3,7 @@ title: What is Taiko Gwyneth?
 description: Core concept page for "What is Taiko Gwyneth?".
 ---
 
-import { Code } from '@astrojs/starlight/components';
+import { Code } from "@astrojs/starlight/components";
 
 Based rollups are arguably the **most effective, decentralized, and Ethereum-aligned** way of running a rollup. By delegating the sequencing job to L1, a based rollup **inherits** the L1 decentralization, simplicity, and liveness, among other benefits.
 
@@ -38,10 +38,14 @@ All Taiko Gwyneth L2s can **access** each other synchronously. They can also **a
 
 To achieve this functionality, Taiko Gwyneth introduces a new **XCALLOPTIONS** precompile that enables seamless cross-rollup execution.
 
-<Code code='
+<Code
+  code="
 XCALLOPTIONS(version: uint16, chainID: uint, sandbox: bool, txOrigin: address,
 msgSender: address, blockHash: bytes32, proof: bytes)
- 'lang="solidity" title="XCALLOPTIONS Context" />
+ "
+  lang="solidity"
+  title="XCALLOPTIONS Context"
+/>
 
 The precompile allows contracts to specify the target chain for the next `CALL`, enabling direct state access across rollups. The entire execution environment of the specific chain is emulated, including the basefee.
 

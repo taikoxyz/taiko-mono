@@ -41,7 +41,7 @@ jobs:
         uses: alessbell/pull-request-comment-branch@v2.1.0
         id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # account for forked repos case
           ref: ${{ steps.comment-branch.outputs.head_ref }}
@@ -120,7 +120,7 @@ jobs:
 
       - name: Commit generated protocol artifacts
         if: steps.git_status.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
-        uses: stefanzweifel/git-auto-commit-action@v6
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "Update protocol generated artifacts"
           branch: ${{ github.head_ref }}
@@ -149,7 +149,7 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 

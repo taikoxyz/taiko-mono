@@ -17,7 +17,7 @@ It is **highly recommended** you use the latest software. You can find the lates
 | [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/tree/main)           | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/simple-taiko-node?include_prereleases&label=)](https://github.com/taikoxyz/simple-taiko-node/blob/main/CHANGELOG.md)                  |
 | [raiko](https://github.com/taikoxyz/raiko/tree/main)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/raiko?label=)](https://github.com/taikoxyz/raiko/blob/main/CHANGELOG.md)                                                              |
 
-### Taiko Hekla & Taiko Hoodi
+### Taiko Hoodi
 
 | Package                                                                                | Release notes                                                                                                                                                                                                                 |
 | :------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

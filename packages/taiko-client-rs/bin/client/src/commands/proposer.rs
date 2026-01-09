@@ -5,7 +5,6 @@ use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
-use event_indexer::metrics::IndexerMetrics;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
 use rpc::SubscriptionSource;
 
@@ -68,7 +67,6 @@ impl Subcommand for ProposerSubCommand {
     // Register proposer and indexer metrics.
     fn register_metrics(&self) -> Result<()> {
         ProposerMetrics::init();
-        IndexerMetrics::init();
         Ok(())
     }
 

@@ -19,7 +19,6 @@ Taiko Alethia is designed with **flexibility**, enabling:
 1. **Ethereum's Scaling Limits**
 
    A single L2 has inherent constraints:
-
    - Throughput bottlenecks: Even a performant rollup has an upper bound on TPS.
    - State Growth: Storing all state in a single rollup leads to **expensive calldata** and **verification costs** on Ethereum L1.
 
@@ -41,7 +40,6 @@ Taiko Alethia is designed with **flexibility**, enabling:
 ## Benefits of Inception Layers
 
 1. **Ethereum-Equivalence Across Layers**
-
    - **L2s and L3s** share the **same execution environment** as Ethereum.
    - Developers can **reuse smart contracts** across layers without modifications.
    - **EVM compatibility is preserved**, ensuring seamless migration.
@@ -49,7 +47,6 @@ Taiko Alethia is designed with **flexibility**, enabling:
    <br/>
 
 2. **Optimized for Composability & Interoperability**
-
    - Rollups at different layers can **efficiently interact** using **Merkle proofs**.
    - This enables **secure, trustless message passing** between L1, L2, and L3.
 

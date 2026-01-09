@@ -114,15 +114,4 @@ contract Proposal0004 is BuildProposal {
             )
         });
     }
-
-    function buildL2Actions()
-        internal
-        pure
-        override
-        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
-    {
-        l2ExecutionId = 0;
-        l2GasLimit = 0;
-        actions = new Controller.Action[](0);
-    }
 }

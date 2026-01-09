@@ -16,6 +16,7 @@ var (
 	EventNameMessageStatusChanged = "MessageStatusChanged"
 	EventNameMessageProcessed     = "MessageProcessed"
 	EventNameChainDataSynced      = "ChainDataSynced"
+	EventNameCheckpointSaved      = "CheckpointSaved"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -156,6 +157,17 @@ type EventRepository interface {
 	LatestChainDataSyncedEvent(
 		ctx context.Context,
 		srcChainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
+	CheckpointSyncedEventByBlockNumberOrGreater(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*Event, error)
+	LatestCheckpointSyncedEvent(
+		ctx context.Context,
+		chainId uint64,
 		syncedChainId uint64,
 	) (uint64, error)
 	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error

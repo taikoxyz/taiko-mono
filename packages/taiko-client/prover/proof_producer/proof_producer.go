@@ -41,8 +41,10 @@ type BatchProofs struct {
 	BatchIDs             []*big.Int
 	ProofType            ProofType
 	Verifier             common.Address
+	VerifierID           uint8
 	SgxGethBatchProof    []byte
 	SgxGethProofVerifier common.Address
+	SgxGethVerifierID    uint8
 }
 
 // ProofProducer is an interface that contains all methods to generate a proof.

@@ -27,15 +27,7 @@
     "RollupResolver": "0x1670000000000000000000000000000000010002"
   },
   "param1559": { "gasExcess": 1 },
-<<<<<<< HEAD
   "predeployERC20": true,
-=======
-  "predeployERC20": false,
-  "livenessBond": "128000000000000000000",
-  "withdrawalDelay": 3600,
-  "minBond": 0,
-  "bondToken": "0x0000000000000000000000000000000000000000",
->>>>>>> ff187348f (feat(protocol): add deployment scripts (#239))
   "remoteSignalService": "0x0000000000000000000000000000000000000000",
   "pacayaTaikoAnchor": "0x0000000000000000000000000000000000000000"
 }

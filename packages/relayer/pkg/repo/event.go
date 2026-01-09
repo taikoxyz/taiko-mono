@@ -99,7 +99,7 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 	}).Error
 
 	if err != nil {
-		return errors.Wrap(err, "r.db.Commit")
+		return errors.Wrap(err, "tx.Updates")
 	}
 
 	return nil
@@ -121,7 +121,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	}
 
 	if err := tx.Update("status", status).Error; err != nil {
-		return errors.Wrap(err, "tx.Commit")
+		return errors.Wrap(err, "tx.Update")
 	}
 
 	return nil
@@ -249,6 +249,54 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	// find all message sent events
 	if err := r.db.GormDB().WithContext(ctx).Table("events").
 		Where("chain_id = ?", srcChainId).
+		Where("synced_chain_id = ?", syncedChainId).
+		Select("COALESCE(MAX(block_id), 0)").
+		Scan(&blockID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return 0, nil
+		}
+
+		return 0, errors.Wrap(err, "r.db.First")
+	}
+
+	return uint64(blockID), nil
+}
+
+func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
+	ctx context.Context,
+	chainId uint64,
+	syncedChainId uint64,
+	blockNumber uint64,
+) (*relayer.Event, error) {
+	e := &relayer.Event{}
+
+	if err := r.db.GormDB().WithContext(ctx).Where("name = ?", relayer.EventNameCheckpointSaved).
+		Where("chain_id = ?", chainId).
+		Where("synced_chain_id = ?", syncedChainId).
+		Where("block_id >= ?", blockNumber).
+		Order("block_id DESC").
+		Limit(1).
+		First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "r.db.First")
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) LatestCheckpointSyncedEvent(
+	ctx context.Context,
+	chainId uint64,
+	syncedChainId uint64,
+) (uint64, error) {
+	blockID := 0
+
+	if err := r.db.GormDB().WithContext(ctx).Table("events").
+		Where("name = ?", relayer.EventNameCheckpointSaved).
+		Where("chain_id = ?", chainId).
 		Where("synced_chain_id = ?", syncedChainId).
 		Select("COALESCE(MAX(block_id), 0)").
 		Scan(&blockID).Error; err != nil {

@@ -38,7 +38,7 @@ pub struct CommonArgs {
     )]
     pub l2_auth_jwt_secret: PathBuf,
     #[clap(
-        long = "shastaInbox",
+        long = "shasta.inbox",
         env = "SHASTA_INBOX",
         required = true,
         help = "Taiko Shasta protocol Inbox contract address"
