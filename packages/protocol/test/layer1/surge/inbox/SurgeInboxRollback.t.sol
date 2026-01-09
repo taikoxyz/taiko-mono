@@ -315,7 +315,6 @@ contract SurgeInboxRollback is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: proposer,
-            designatedProver: prover,
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockHash1")
         });
@@ -399,7 +398,6 @@ contract SurgeInboxRollback is InboxTestBase {
         for (uint256 i; i < transitions.length; ++i) {
             transitions[i] = IInbox.Transition({
                 proposer: proposer,
-                designatedProver: prover,
                 // Can keep this as latest timestamp since proof is not verified
                 timestamp: uint48(block.timestamp),
                 blockHash: keccak256(abi.encode("blockhash", i + 1))
@@ -488,13 +486,11 @@ contract SurgeInboxRollback is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
             proposer: proposer,
-            designatedProver: prover,
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockHash1")
         });
         transitions[1] = IInbox.Transition({
             proposer: proposer,
-            designatedProver: prover,
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockHash2")
         });
@@ -574,7 +570,6 @@ contract SurgeInboxRollback is InboxTestBase {
         for (uint256 i; i < transitions.length; ++i) {
             transitions[i] = IInbox.Transition({
                 proposer: proposer,
-                designatedProver: prover,
                 // Can keep this as latest timestamp since proof is not verified
                 timestamp: uint48(block.timestamp),
                 blockHash: keccak256(abi.encode("blockhash", i + 1))
@@ -740,6 +735,10 @@ contract SurgeInboxRollback is InboxTestBase {
             proposerChecker: address(proposerChecker),
             proverWhitelist: address(proverWhitelistContract),
             signalService: address(signalService),
+            bondToken: address(bondToken),
+            minBond: 0,
+            livenessBond: 0,
+            withdrawalDelay: 0,
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,

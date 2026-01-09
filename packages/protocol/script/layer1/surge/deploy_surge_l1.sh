@@ -26,6 +26,20 @@ export USE_DUMMY_VERIFIER=${USE_DUMMY_VERIFIER:-false}
 # This is wallet address of the key that is used to sign commitments
 export DUMMY_VERIFIER_SIGNER=${DUMMY_VERIFIER_SIGNER:-"0x0000000000000000000000000000000000000000"}
 
+# Bond configuration
+# ---------------------------------------------------------------
+# Bond token address (default: zero address for native ETH)
+export BOND_TOKEN=${BOND_TOKEN:-"0x0000000000000000000000000000000000000000"}
+
+# Minimum bond amount in gwei (default: 0)
+export MIN_BOND=${MIN_BOND:-0}
+
+# Liveness bond amount in gwei (default: 128 ETH = 128000000000 gwei)
+export LIVENESS_BOND=${LIVENESS_BOND:-128000000000}
+
+# Withdrawal delay in seconds (default: 1 hour)
+export WITHDRAWAL_DELAY=${WITHDRAWAL_DELAY:-3600}
+
 # Inbox configuration
 # ---------------------------------------------------------------
 # Proving window in seconds (default: 2 hours)

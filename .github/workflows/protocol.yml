@@ -89,7 +89,7 @@ jobs:
 
       - name: Test L1 contracts
         working-directory: ./packages/protocol
-        run: pnpm snapshot:l1 && pnpm layout:l1
+        run: pnpm snapshot:l1 && pnpm layout:l1 && pnpm layout:surge
 
       # - name: Generate coverage report
       #   if: ${{ secrets.CODECOV_TOKEN != '' }}

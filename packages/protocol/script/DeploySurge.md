@@ -99,6 +99,12 @@ DUMMY_VERIFIER_SIGNER=0x...        # Signer address for ProofVerifierDummy (requ
 DEPLOY_RISC0_RETH_VERIFIER=true    # Deploy/enable RISC0 verifier
 DEPLOY_SP1_RETH_VERIFIER=true      # Deploy/enable SP1 verifier
 
+# Bond Configuration
+BOND_TOKEN=0x0...0                 # Bond token address (zero address for native ETH)
+MIN_BOND=0                         # Minimum bond amount in gwei
+LIVENESS_BOND=128000000000         # Liveness bond amount in gwei (128 ETH)
+WITHDRAWAL_DELAY=3600              # Withdrawal delay in seconds (1 hour)
+
 # Inbox Configuration
 PROVING_WINDOW=7200                # Proving window in seconds (2 hours)
 MAX_PROOF_SUBMISSION_DELAY=14400   # Max delay between consecutive proofs (4 hours)

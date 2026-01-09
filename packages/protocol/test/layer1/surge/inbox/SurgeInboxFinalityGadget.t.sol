@@ -54,7 +54,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -62,7 +61,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2") // Different blockhash to create conflict
         });
@@ -121,7 +119,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -129,7 +126,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2") // Different blockhash to create conflict
         });
@@ -191,7 +187,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -199,7 +194,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2") // Different blockhash to create conflict
         });
@@ -207,7 +201,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions3 = new IInbox.Transition[](1);
         transitions3[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash3") // Different blockhash to create conflict
         });
@@ -290,7 +283,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -325,13 +317,11 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](2);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
         transitions1[1] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1b")
         });
@@ -339,7 +329,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2")
         });
@@ -386,7 +375,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -394,7 +382,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2")
         });
@@ -441,7 +428,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -449,7 +435,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2")
         });
@@ -498,7 +483,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -506,7 +490,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2")
         });
@@ -553,7 +536,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -561,7 +543,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2")
         });
@@ -608,7 +589,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("sameBlockhash")
         });
@@ -616,7 +596,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("sameBlockhash") // Same blockhash (not a conflict)
         });
@@ -663,7 +642,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions1 = new IInbox.Transition[](1);
         transitions1[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash1")
         });
@@ -671,7 +649,6 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
         IInbox.Transition[] memory transitions2 = new IInbox.Transition[](1);
         transitions2[0] = IInbox.Transition({
             proposer: address(0x1),
-            designatedProver: address(0x2),
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("blockhash2") // Different blockhash
         });
@@ -758,6 +735,10 @@ contract SurgeInboxFinalityGadget is InboxTestBase {
             proposerChecker: address(proposerChecker),
             proverWhitelist: address(proverWhitelistContract),
             signalService: address(signalService),
+            bondToken: address(bondToken),
+            minBond: 0,
+            livenessBond: 0,
+            withdrawalDelay: 0,
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,

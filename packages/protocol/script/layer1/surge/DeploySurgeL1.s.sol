@@ -60,6 +60,13 @@ contract DeploySurgeL1 is DeployCapability {
     bool internal immutable deployRisc0RethVerifier = vm.envBool("DEPLOY_RISC0_RETH_VERIFIER");
     bool internal immutable deploySp1RethVerifier = vm.envBool("DEPLOY_SP1_RETH_VERIFIER");
 
+    // Bond configuration
+    // ---------------------------------------------------------------
+    address internal immutable bondToken = vm.envAddress("BOND_TOKEN");
+    uint64 internal immutable minBond = uint64(vm.envUint("MIN_BOND"));
+    uint64 internal immutable livenessBond = uint64(vm.envUint("LIVENESS_BOND"));
+    uint48 internal immutable withdrawalDelay = uint48(vm.envUint("WITHDRAWAL_DELAY"));
+
     // Inbox configuration
     // ---------------------------------------------------------------
     uint48 internal immutable provingWindow = uint48(vm.envUint("PROVING_WINDOW"));
@@ -438,6 +445,10 @@ contract DeploySurgeL1 is DeployCapability {
             proposerChecker: whitelist,
             proverWhitelist: address(0), // No prover whitelist
             signalService: _sharedContracts.signalService,
+            bondToken: bondToken,
+            minBond: minBond,
+            livenessBond: livenessBond,
+            withdrawalDelay: withdrawalDelay,
             provingWindow: provingWindow,
             maxProofSubmissionDelay: maxProofSubmissionDelay,
             ringBufferSize: ringBufferSize,
