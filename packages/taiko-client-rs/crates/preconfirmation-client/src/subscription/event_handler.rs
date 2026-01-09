@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use alloy_primitives::B256;
+use alloy_primitives::{B256, U256};
 use preconfirmation_net::{NetworkCommand, NetworkEvent};
 use preconfirmation_types::{
     Bytes20, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
@@ -168,6 +168,15 @@ where
         // Extract the current block number for reuse across checks.
         let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
 
+        // Drop commitments at or below the driver event sync tip.
+        if current_block <= self.driver.event_sync_tip().await? {
+            self.store.remove_commitment(&current_block);
+            let txlist_hash =
+                B256::from_slice(commitment.commitment.preconf.raw_tx_list_hash.as_ref());
+            self.store.remove_txlist(&txlist_hash);
+            return Ok(());
+        }
+
         // Validate the commitment with basic rules (signature, format, slasher).
         let recovered_signer =
             match validate_commitment_with_signer(&commitment, self.expected_slasher.as_ref()) {
@@ -214,11 +223,14 @@ where
             warn!(error = %err, "failed to emit new commitment event");
         }
 
-        // Update the head snapshot across store, state, and P2P driver.
+        // Update the head snapshot across store, state, and P2P node.
         self.update_head(&commitment).await;
 
-        // Submit to the driver when txlist requirements are satisfied.
-        self.submit_if_ready(commitment).await?;
+        // Attempt to submit contiguous commitments only when the incoming block is next.
+        let next_block = self.driver.preconf_tip().await? + U256::ONE;
+        if current_block == next_block {
+            self.try_submit_contiguous_from(next_block).await?;
+        }
         Ok(())
     }
 
@@ -249,17 +261,33 @@ where
             warn!(error = %err, "failed to emit new txlist event");
         }
 
-        // Drain commitments waiting on this txlist.
-        for commitment in self.store.take_awaiting_txlist(&txlist.raw_tx_list_hash) {
-            // Submit if now ready.
-            self.submit_if_ready(commitment).await?;
+        // Clear commitments waiting on this txlist (submission happens on commitment arrival).
+        let _ = self.store.take_awaiting_txlist(&txlist.raw_tx_list_hash);
+
+        Ok(())
+    }
+
+    /// Attempt to submit contiguous commitments starting from the driver preconf tip.
+    async fn try_submit_contiguous_from(&self, start: U256) -> Result<()> {
+        let mut next = start;
+        loop {
+            let Some(commitment) = self.store.get_commitment(&next) else {
+                break;
+            };
+
+            let submitted = self.submit_if_ready(commitment).await?;
+            if !submitted {
+                break;
+            }
+
+            next += U256::ONE;
         }
 
         Ok(())
     }
 
     /// Submit a commitment to the driver if txlist requirements are satisfied.
-    async fn submit_if_ready(&self, commitment: SignedCommitment) -> Result<()> {
+    async fn submit_if_ready(&self, commitment: SignedCommitment) -> Result<bool> {
         if is_eop_only(&commitment) {
             // Build an input without transactions.
             let input = PreconfirmationInput::new(commitment, None, None);
@@ -274,7 +302,7 @@ where
                     return Err(PreconfirmationClientError::DriverClient(err.to_string()));
                 }
             }
-            return Ok(());
+            return Ok(true);
         }
 
         // Determine the txlist hash for the commitment.
@@ -285,7 +313,7 @@ where
         let Some(txlist) = txlist else {
             // Buffer the commitment until the txlist arrives.
             self.store.add_awaiting_txlist(&txlist_hash, commitment);
-            return Ok(());
+            return Ok(false);
         };
 
         // Decode the txlist into transaction bytes.
@@ -304,10 +332,10 @@ where
                 return Err(PreconfirmationClientError::DriverClient(err.to_string()));
             }
         }
-        Ok(())
+        Ok(true)
     }
 
-    /// Update the head snapshot across store and P2P driver.
+    /// Update the head snapshot across store and P2P node.
     async fn update_head(&self, commitment: &SignedCommitment) {
         // Build the head snapshot from the commitment.
         let head = PreconfHead {
@@ -328,12 +356,13 @@ where
         let block_f64: f64 = new_block.into();
         metrics::gauge!(PreconfirmationClientMetrics::HEAD_BLOCK).set(block_f64);
 
-        // Notify the P2P driver so inbound get_head requests respond correctly.
+        // Notify the P2P node so inbound get_head requests respond correctly.
         if let Err(err) = self.notify_head_update(head).await {
             warn!(error = %err, "failed to notify p2p head update");
         }
     }
 
+    /// Notify the P2P node of a head update.
     async fn notify_head_update(&self, head: PreconfHead) -> Result<()> {
         self.command_sender
             .send(NetworkCommand::UpdateHead { head })
@@ -361,24 +390,41 @@ mod tests {
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
-        storage::InMemoryCommitmentStore,
+        storage::{CommitmentStore, InMemoryCommitmentStore},
     };
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,
-        RawTxListGossip, SignedCommitment, TxListBytes, Uint256, public_key_to_address,
-        sign_commitment,
+        RawTxListGossip, SignedCommitment, TxListBytes, Uint256, keccak256_bytes,
+        public_key_to_address, sign_commitment, uint256_to_u256,
     };
 
-    /// Test driver that records submit calls.
+    /// Test driver that records submit calls and maintains a preconf tip.
     struct TestDriver {
         /// Count of submitted preconfirmation inputs.
         submissions: AtomicUsize,
+        /// Current preconfirmation tip.
+        preconf_tip: std::sync::RwLock<U256>,
+        /// Current event sync tip.
+        event_sync_tip: std::sync::RwLock<U256>,
     }
 
     impl TestDriver {
         /// Create a new test driver with zero submissions.
         fn new() -> Self {
-            Self { submissions: AtomicUsize::new(0) }
+            Self {
+                submissions: AtomicUsize::new(0),
+                preconf_tip: std::sync::RwLock::new(U256::ZERO),
+                event_sync_tip: std::sync::RwLock::new(U256::ZERO),
+            }
+        }
+
+        /// Create a test driver with a specific event sync tip.
+        fn with_event_sync_tip(event_sync_tip: U256) -> Self {
+            Self {
+                submissions: AtomicUsize::new(0),
+                preconf_tip: std::sync::RwLock::new(U256::ZERO),
+                event_sync_tip: std::sync::RwLock::new(event_sync_tip),
+            }
         }
 
         /// Fetch the current submission count.
@@ -390,8 +436,11 @@ mod tests {
     #[async_trait]
     impl DriverClient for TestDriver {
         /// Record that a preconfirmation input was submitted.
-        async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> Result<()> {
+        async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
             self.submissions.fetch_add(1, Ordering::SeqCst);
+            if let Ok(mut guard) = self.preconf_tip.write() {
+                *guard = uint256_to_u256(&input.commitment.commitment.preconf.block_number);
+            }
             Ok(())
         }
 
@@ -402,7 +451,12 @@ mod tests {
 
         /// Return the latest event sync tip block number for tests.
         async fn event_sync_tip(&self) -> Result<U256> {
-            Ok(U256::ZERO)
+            Ok(*self.event_sync_tip.read().expect("event sync tip"))
+        }
+
+        /// Return the latest preconfirmation tip block number for tests.
+        async fn preconf_tip(&self) -> Result<U256> {
+            Ok(*self.preconf_tip.read().expect("preconf tip"))
         }
     }
 
@@ -664,6 +718,124 @@ mod tests {
 
         assert!(store.latest_commitment().is_some());
         assert_eq!(driver.submissions(), 1);
+    }
+
+    /// Contiguous commitments are submitted once the gap is filled.
+    #[tokio::test]
+    async fn contiguous_commitments_submit_when_gap_filled() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_sender, _command_rx) = mpsc::channel(8);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver =
+            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+
+        let handler = EventHandler::new(
+            store.clone(),
+            codec,
+            driver.clone(),
+            None,
+            event_tx,
+            command_sender,
+            lookahead_resolver,
+        );
+
+        let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
+        let commitment_two = build_signed_commitment(&sk, 2, parent_hash.clone(), 100, 200);
+        handler.handle_commitment(commitment_two).await.expect("gap buffered");
+        assert_eq!(driver.submissions(), 0);
+
+        let commitment_one = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
+        handler.handle_commitment(commitment_one).await.expect("gap filled");
+        assert_eq!(driver.submissions(), 2);
+    }
+
+    /// Commitments at or below the event sync tip are dropped with their txlists.
+    #[tokio::test]
+    async fn stale_commitments_are_dropped() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::with_event_sync_tip(U256::from(5u64)));
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_sender, _command_rx) = mpsc::channel(8);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver =
+            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+
+        let handler = EventHandler::new(
+            store.clone(),
+            codec,
+            driver.clone(),
+            None,
+            event_tx,
+            command_sender,
+            lookahead_resolver,
+        );
+
+        let txlist_bytes = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
+        let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
+        let raw_tx_list_hash =
+            Bytes32::try_from(txlist_hash.as_slice().to_vec()).expect("txlist hash");
+        let gossip =
+            RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
+        let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
+        CommitmentStore::insert_txlist(store.as_ref(), hash, gossip.clone());
+
+        let preconf = Preconfirmation {
+            eop: true,
+            block_number: Uint256::from(5u64),
+            timestamp: Uint256::from(100u64),
+            submission_window_end: Uint256::from(200u64),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![0u8; 32]).expect("parent"),
+            raw_tx_list_hash: raw_tx_list_hash.clone(),
+            ..Default::default()
+        };
+        let commitment = PreconfCommitment { preconf, ..Default::default() };
+        let signature = sign_commitment(&commitment, &sk).expect("sign commitment");
+        let signed = SignedCommitment { commitment, signature };
+
+        handler.handle_commitment(signed).await.expect("stale dropped");
+        assert!(store.get_commitment(&U256::from(5u64)).is_none());
+        assert!(CommitmentStore::get_txlist(store.as_ref(), &hash).is_none());
+        assert_eq!(driver.submissions(), 0);
+    }
+
+    /// Valid txlists without commitments are retained until pruned.
+    #[tokio::test]
+    async fn txlists_without_commitments_are_retained() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MockResolver);
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_sender, _command_rx) = mpsc::channel(8);
+
+        let handler = EventHandler::new(
+            store.clone(),
+            codec,
+            driver,
+            None,
+            event_tx,
+            command_sender,
+            lookahead_resolver,
+        );
+
+        let txlist_bytes = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
+        let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
+        let raw_tx_list_hash =
+            Bytes32::try_from(txlist_hash.as_slice().to_vec()).expect("txlist hash");
+        let gossip =
+            RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
+        let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
+
+        assert!(handler.handle_txlist(gossip).await.is_ok());
+        assert!(CommitmentStore::get_txlist(store.as_ref(), &hash).is_some());
     }
 
     /// Head update sends should surface errors when the channel is closed.

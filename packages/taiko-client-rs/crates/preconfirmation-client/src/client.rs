@@ -127,9 +127,9 @@ where
 
         let mut handle = self.handle;
 
-        // Spawn the P2P node driver loop.
+        // Spawn the P2P node loop.
         tokio::spawn(async move {
-            // Log any P2P driver errors.
+            // Log any P2P node errors.
             if let Err(err) = self.node.run().await {
                 error!(error = %err, "p2p node exited");
             }

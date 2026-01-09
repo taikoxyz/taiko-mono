@@ -28,10 +28,14 @@ pub trait CommitmentStore: Send + Sync {
     fn insert_commitment(&self, commitment: SignedCommitment);
     /// Fetch a commitment by block number.
     fn get_commitment(&self, block_number: &U256) -> Option<SignedCommitment>;
+    /// Remove a commitment by block number.
+    fn remove_commitment(&self, block_number: &U256);
     /// Store a raw txlist keyed by its hash.
     fn insert_txlist(&self, hash: B256, txlist: RawTxListGossip);
     /// Fetch a raw txlist by hash.
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip>;
+    /// Remove a raw txlist by hash.
+    fn remove_txlist(&self, hash: &B256);
     /// Drop a pending commitment that failed validation.
     fn drop_pending_commitment(&self, block_number: &U256);
     /// Drop a pending txlist that failed validation.
@@ -230,6 +234,18 @@ impl CommitmentStore for InMemoryCommitmentStore {
         guard.get(block_number).cloned()
     }
 
+    /// Remove a commitment by block number.
+    fn remove_commitment(&self, block_number: &U256) {
+        if let Ok(mut guard) = self.commitments.write() {
+            guard.remove(block_number);
+            metrics::gauge!(PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT)
+                .set(guard.len() as f64);
+        }
+        self.pending_commitments.remove(block_number);
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+            .set(self.pending_commitments.len() as f64);
+    }
+
     /// Insert a raw txlist payload keyed by its hash.
     fn insert_txlist(&self, hash: B256, txlist: RawTxListGossip) {
         // Insert into the concurrent map.
@@ -246,6 +262,14 @@ impl CommitmentStore for InMemoryCommitmentStore {
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
         // Fetch and clone the stored txlist.
         self.txlists.get(hash).map(|entry| entry.value().clone())
+    }
+
+    /// Remove a raw txlist by hash.
+    fn remove_txlist(&self, hash: &B256) {
+        self.txlists.remove(hash);
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
+            .set(self.txlists.len() as f64);
+        self.pending_txlists.remove(hash);
     }
 
     /// Drop a pending commitment for the provided block.

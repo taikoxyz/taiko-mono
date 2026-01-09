@@ -11,7 +11,7 @@
 
 use std::io::Write;
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, U256};
 use async_trait::async_trait;
 use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_client::{
@@ -45,8 +45,13 @@ impl DriverClient for DriverAdapter {
     }
 
     /// Return the latest event sync tip block number.
-    async fn event_sync_tip(&self) -> Result<alloy_primitives::U256> {
-        Ok(alloy_primitives::U256::ZERO)
+    async fn event_sync_tip(&self) -> Result<U256> {
+        Ok(U256::ZERO)
+    }
+
+    /// Return the latest preconfirmation tip block number.
+    async fn preconf_tip(&self) -> Result<U256> {
+        Ok(U256::ZERO)
     }
 }
 
@@ -107,7 +112,7 @@ async fn main() -> Result<()> {
     let (txlist, signed_commitment) = build_publish_payloads();
     let sender = client.command_sender();
 
-    // Wait for driver event sync to complete, catching up to the latest preconfirmation state,
+    // Wait for driver event sync to complete, catching up to the latest preconfirmation tip,
     // then start processing events.
     client.wait_event_sync_then_run().await?;
 
