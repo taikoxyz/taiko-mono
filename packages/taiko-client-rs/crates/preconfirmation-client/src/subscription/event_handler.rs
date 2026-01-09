@@ -21,11 +21,9 @@ use crate::{
     codec::ZlibTxListCodec,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{PreconfirmationClientError, Result},
+    metrics::PreconfirmationClientMetrics,
     storage::CommitmentStore,
-    validation::rules::{
-        is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
-        validate_txlist_gossip,
-    },
+    validation::rules::{is_eop_only, validate_commitment_with_signer, validate_lookahead},
 };
 
 /// Events emitted by the preconfirmation client.
@@ -147,12 +145,16 @@ where
 
     /// Emit a peer connected event.
     fn handle_peer_connected(&self, peer_id: String) {
-        let _ = self.event_tx.send(PreconfirmationEvent::PeerConnected(peer_id));
+        if let Err(err) = self.event_tx.send(PreconfirmationEvent::PeerConnected(peer_id)) {
+            warn!(error = %err, "failed to emit peer connected event");
+        }
     }
 
     /// Emit a peer disconnected event.
     fn handle_peer_disconnected(&self, peer_id: String) {
-        let _ = self.event_tx.send(PreconfirmationEvent::PeerDisconnected(peer_id));
+        if let Err(err) = self.event_tx.send(PreconfirmationEvent::PeerDisconnected(peer_id)) {
+            warn!(error = %err, "failed to emit peer disconnected event");
+        }
     }
 
     /// Handle an incoming commitment.
@@ -161,17 +163,19 @@ where
     /// 1. Basic validation (signature, format, slasher address)
     /// 2. Lookahead validation (signer and submission_window_end)
     pub async fn handle_commitment(&self, commitment: SignedCommitment) -> Result<()> {
+        metrics::counter!(PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL).increment(1);
+
         // Extract the current block number for reuse across checks.
         let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
 
         // Validate the commitment with basic rules (signature, format, slasher).
-        let recovered_signer = match validate_commitment_basic_with_signer(
-            &commitment,
-            self.expected_slasher.as_ref(),
-        ) {
+        let recovered_signer =
+            match validate_commitment_with_signer(&commitment, self.expected_slasher.as_ref()) {
             Ok(signer) => signer,
             Err(err) => {
                 warn!(error = %err, "dropping invalid commitment");
+                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                    .increment(1);
                 self.store.drop_pending_commitment(&current_block);
                 return Ok(());
             }
@@ -183,17 +187,21 @@ where
         // Query the lookahead resolver for the expected slot info.
         let expected_slot_info =
             match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
-                Ok(info) => info,
-                Err(err) => {
-                    warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
-                    self.store.drop_pending_commitment(&current_block);
-                    return Ok(());
-                }
-            };
+            Ok(info) => info,
+            Err(err) => {
+                warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
+                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                    .increment(1);
+                self.store.drop_pending_commitment(&current_block);
+                return Ok(());
+            }
+        };
 
         // Validate the signer and submission_window_end against lookahead expectations.
         if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info) {
             warn!(error = %err, "dropping commitment with invalid lookahead");
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                .increment(1);
             self.store.drop_pending_commitment(&current_block);
             return Ok(());
         }
@@ -201,8 +209,11 @@ where
         // Store the validated commitment.
         self.store.insert_commitment(commitment.clone());
         // Emit the commitment event.
-        let _ =
-            self.event_tx.send(PreconfirmationEvent::NewCommitment(Box::new(commitment.clone())));
+        if let Err(err) =
+            self.event_tx.send(PreconfirmationEvent::NewCommitment(Box::new(commitment.clone())))
+        {
+            warn!(error = %err, "failed to emit new commitment event");
+        }
 
         // Update the head snapshot across store, state, and P2P driver.
         self.update_head(&commitment).await;
@@ -219,18 +230,26 @@ where
 
     /// Handle an incoming txlist.
     async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
+        metrics::counter!(PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL).increment(1);
+
         // Extract the txlist hash for indexing.
         let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
         // Validate the txlist payload.
-        if let Err(err) = validate_txlist_gossip(&txlist) {
+        if let Err(err) = preconfirmation_types::validate_raw_txlist_gossip(&txlist)
+            .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
+        {
             warn!(error = %err, "dropping invalid txlist gossip");
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                .increment(1);
             self.store.drop_pending_txlist(&hash);
             return Ok(());
         }
         // Store the txlist for later use.
         self.store.insert_txlist(hash, txlist.clone());
         // Emit the txlist event.
-        let _ = self.event_tx.send(PreconfirmationEvent::NewTxList(hash));
+        if let Err(err) = self.event_tx.send(PreconfirmationEvent::NewTxList(hash)) {
+            warn!(error = %err, "failed to emit new txlist event");
+        }
 
         // Drain commitments waiting on this txlist.
         for commitment in self.store.take_awaiting_txlist(&txlist.raw_tx_list_hash) {
@@ -246,10 +265,17 @@ where
         if is_eop_only(&commitment) {
             // Build an input without transactions.
             let input = PreconfirmationInput::new(commitment, None, None);
-            self.driver
-                .submit_preconfirmation(input)
-                .await
-                .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
+            match self.driver.submit_preconfirmation(input).await {
+                Ok(()) => {
+                    metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL)
+                        .increment(1);
+                }
+                Err(err) => {
+                    metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
+                        .increment(1);
+                    return Err(PreconfirmationClientError::DriverClient(err.to_string()));
+                }
+            }
             return Ok(());
         }
 
@@ -269,10 +295,17 @@ where
         // Build the input for the driver.
         let input =
             PreconfirmationInput::new(commitment, Some(transactions), Some(txlist.txlist.to_vec()));
-        self.driver
-            .submit_preconfirmation(input)
-            .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
+        match self.driver.submit_preconfirmation(input).await {
+            Ok(()) => {
+                metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL)
+                    .increment(1);
+            }
+            Err(err) => {
+                metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
+                    .increment(1);
+                return Err(PreconfirmationClientError::DriverClient(err.to_string()));
+            }
+        }
         Ok(())
     }
 
@@ -293,6 +326,9 @@ where
 
         // Persist the head in the commitment store.
         self.store.set_head(head.clone());
+
+        let block_f64: f64 = new_block.into();
+        metrics::gauge!(PreconfirmationClientMetrics::HEAD_BLOCK).set(block_f64);
 
         // Notify the P2P driver so inbound get_head requests respond correctly.
         if let Err(err) = self.notify_head_update(head).await {

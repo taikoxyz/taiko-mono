@@ -21,6 +21,7 @@ use preconfirmation_types::{
 };
 
 use crate::config::DEFAULT_RETENTION_LIMIT;
+use crate::metrics::PreconfirmationClientMetrics;
 
 /// Trait for accessing stored commitments and txlists.
 pub trait CommitmentStore: Send + Sync {
@@ -212,9 +213,13 @@ impl CommitmentStore for InMemoryCommitmentStore {
         if let Ok(mut guard) = self.commitments.write() {
             guard.insert(block_number, commitment.clone());
             self.prune_commitments(&mut guard);
+            metrics::gauge!(PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT)
+                .set(guard.len() as f64);
         }
         // Drop any pending entry for this block now that it is accepted.
         self.pending_commitments.remove(&block_number);
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+            .set(self.pending_commitments.len() as f64);
         // Prune unreferenced txlists if needed.
         self.prune_txlists();
     }
@@ -232,6 +237,8 @@ impl CommitmentStore for InMemoryCommitmentStore {
         self.txlists.insert(hash, txlist);
         // Drop any pending entry for this hash now that it is accepted.
         self.pending_txlists.remove(&hash);
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
+            .set(self.txlists.len() as f64);
         // Prune unreferenced txlists if needed.
         self.prune_txlists();
     }
@@ -245,6 +252,8 @@ impl CommitmentStore for InMemoryCommitmentStore {
     /// Drop a pending commitment for the provided block.
     fn drop_pending_commitment(&self, block_number: &U256) {
         self.pending_commitments.remove(block_number);
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+            .set(self.pending_commitments.len() as f64);
     }
 
     /// Drop a pending txlist for the provided hash.
@@ -255,11 +264,16 @@ impl CommitmentStore for InMemoryCommitmentStore {
     /// Buffer a commitment awaiting its txlist payload.
     fn add_awaiting_txlist(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
         self.awaiting_txlist.add(txlist_hash, commitment);
+        metrics::gauge!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH)
+            .set(self.awaiting_txlist.len() as f64);
     }
 
     /// Drain commitments waiting on the provided txlist hash.
     fn take_awaiting_txlist(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
-        self.awaiting_txlist.take_waiting(txlist_hash)
+        let result = self.awaiting_txlist.take_waiting(txlist_hash);
+        metrics::gauge!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH)
+            .set(self.awaiting_txlist.len() as f64);
+        result
     }
 
     /// Update the cached head snapshot.
@@ -288,6 +302,8 @@ impl PreconfStorage for InMemoryCommitmentStore {
         }
         self.pending_commitments.insert(block, commitment);
         self.prune_pending_commitments();
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+            .set(self.pending_commitments.len() as f64);
     }
 
     /// Insert a raw txlist into the pending buffer.
@@ -333,6 +349,11 @@ impl CommitmentsAwaitingTxList {
     /// Create a new buffer with a custom retention limit.
     pub fn with_retention_limit(retention_limit: usize) -> Self {
         Self { by_txlist_hash: DashMap::new(), count: AtomicUsize::new(0), retention_limit }
+    }
+
+    /// Return the number of commitments in the buffer.
+    pub fn len(&self) -> usize {
+        self.count.load(Ordering::SeqCst)
     }
 
     /// Add a commitment awaiting its txlist.

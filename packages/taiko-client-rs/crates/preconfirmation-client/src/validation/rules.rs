@@ -5,8 +5,7 @@
 
 use alloy_primitives::Address;
 use preconfirmation_types::{
-    Bytes20, GetRawTxListResponse, RawTxListGossip, SignedCommitment, uint256_to_u256,
-    validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
+    Bytes20, SignedCommitment, uint256_to_u256, validate_preconfirmation_basic,
     verify_signed_commitment,
 };
 use protocol::preconfirmation::PreconfSlotInfo;
@@ -14,7 +13,7 @@ use protocol::preconfirmation::PreconfSlotInfo;
 use crate::error::{PreconfirmationClientError, Result};
 
 /// Validate a signed commitment with basic checks and return the recovered signer.
-pub fn validate_commitment_basic_with_signer(
+pub fn validate_commitment_with_signer(
     commitment: &SignedCommitment,
     expected_slasher: Option<&Bytes20>,
 ) -> Result<Address> {
@@ -37,20 +36,8 @@ pub fn validate_commitment_basic_with_signer(
 }
 
 /// Validate a raw txlist gossip payload.
-pub fn validate_txlist_gossip(msg: &RawTxListGossip) -> Result<()> {
-    validate_raw_txlist_gossip(msg)
-        .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
-}
-
-/// Validate a raw txlist response payload.
-pub fn validate_txlist_response(msg: &GetRawTxListResponse) -> Result<()> {
-    validate_raw_txlist_response(msg)
-        .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
-}
-
 /// Returns true if the commitment is EOP-only (eop=true and zero txlist hash).
 pub fn is_eop_only(commitment: &SignedCommitment) -> bool {
-    // Extract the preconfirmation fields.
     let preconf = &commitment.commitment.preconf;
     // Check if eop is set and the txlist hash is zero.
     preconf.eop && preconf.raw_tx_list_hash.iter().all(|byte| *byte == 0)
@@ -81,12 +68,10 @@ pub fn validate_lookahead(
         ));
     }
 
-    // Convert commitment's submission_window_end to U256 for comparison.
-    let commitment_window_end =
-        uint256_to_u256(&commitment.commitment.preconf.submission_window_end);
-
     // Validate the submission_window_end matches the canonical slot end.
-    if commitment_window_end != expected_slot_info.submission_window_end {
+    if uint256_to_u256(&commitment.commitment.preconf.submission_window_end) !=
+        expected_slot_info.submission_window_end
+    {
         return Err(PreconfirmationClientError::Validation(
             "submission_window_end mismatch: commitment window end does not match expected slot end"
                 .to_string(),

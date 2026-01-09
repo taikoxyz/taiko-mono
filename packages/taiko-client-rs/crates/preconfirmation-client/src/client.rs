@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use tokio::sync::{broadcast, mpsc::Sender};
 use tokio_stream::StreamExt;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use preconfirmation_net::{
     LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
@@ -22,6 +22,7 @@ use crate::{
     config::PreconfirmationClientConfig,
     driver_interface::DriverClient,
     error::{PreconfirmationClientError, Result},
+    metrics::PreconfirmationClientMetrics,
     storage::{CommitmentStore, InMemoryCommitmentStore},
     subscription::{EventHandler, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
@@ -48,7 +49,7 @@ where
     command_sender: Sender<NetworkCommand>,
     /// P2P handle used by the event loop.
     handle: P2pHandle,
-    /// P2P node used to run the network driver.
+    /// P2P node used to run the P2P network.
     node: P2pNode,
     /// Broadcast channel for outbound events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
@@ -60,13 +61,13 @@ where
 {
     /// Create a new preconfirmation client and underlying P2P node.
     pub fn new(config: PreconfirmationClientConfig, driver: D) -> Result<Self> {
+        PreconfirmationClientMetrics::init();
+
         // Validate config parameters.
         config.validate()?;
         // Build the commitment store (shared with the P2P node storage).
-        let store_impl =
-            Arc::new(InMemoryCommitmentStore::with_retention_limit(config.retention_limit));
-        let store: Arc<dyn CommitmentStore> = store_impl.clone();
-        let p2p_storage: Arc<dyn PreconfStorage> = store_impl;
+        let store = Arc::new(InMemoryCommitmentStore::with_retention_limit(config.retention_limit));
+        let p2p_storage: Arc<dyn PreconfStorage> = store.clone();
         // Build the txlist codec using the protocol constant.
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.
@@ -131,9 +132,12 @@ where
         });
 
         // Run the catch-up flow.
+        let catchup_start = std::time::Instant::now();
         let catchup = TipCatchup::new(self.config.clone(), self.store.clone());
         // Fetch commitments and txlists from the network tip.
         let commitments = catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
+        metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
+            .record(catchup_start.elapsed().as_secs_f64());
 
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(
@@ -156,11 +160,13 @@ where
         }
 
         // Emit the synced event.
-        let _ = self.event_tx.send(PreconfirmationEvent::Synced);
+        if let Err(err) = self.event_tx.send(PreconfirmationEvent::Synced) {
+            warn!(error = %err, "failed to emit synced event");
+        }
+        metrics::counter!(PreconfirmationClientMetrics::SYNCED_TOTAL).increment(1);
 
         // Enter the gossip event loop.
-        let mut events = handle.events();
-        while let Some(event) = events.next().await {
+        while let Some(event) = handle.events().next().await {
             handler.handle_event(event).await?;
         }
 

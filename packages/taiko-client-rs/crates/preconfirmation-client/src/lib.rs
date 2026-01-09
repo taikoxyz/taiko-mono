@@ -17,6 +17,8 @@ pub mod config;
 pub mod driver_interface;
 /// Error types surfaced by the SDK.
 pub mod error;
+/// Metrics exposed by the preconfirmation client.
+pub mod metrics;
 /// Storage helpers for commitments and txlists.
 pub mod storage;
 /// Subscription/event handling for inbound gossip.
@@ -30,3 +32,4 @@ pub use client::PreconfirmationClient;
 pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{DriverClient, PreconfirmationInput};
 pub use error::{PreconfirmationClientError, Result};
+pub use metrics::PreconfirmationClientMetrics;

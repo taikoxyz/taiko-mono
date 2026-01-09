@@ -24,11 +24,9 @@ use tracing::{debug, info, warn};
 use crate::{
     config::PreconfirmationClientConfig,
     error::{PreconfirmationClientError, Result},
+    metrics::PreconfirmationClientMetrics,
     storage::CommitmentStore,
-    validation::rules::{
-        is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
-        validate_txlist_response,
-    },
+    validation::rules::{is_eop_only, validate_commitment_with_signer, validate_lookahead},
 };
 
 /// Tip catch-up handler.
@@ -53,8 +51,7 @@ async fn validate_commitment(
     expected_slasher: Option<&preconfirmation_types::Bytes20>,
     lookahead_resolver: &(dyn PreconfSignerResolver + Send + Sync),
 ) -> Option<SignedCommitment> {
-    let recovered_signer = match validate_commitment_basic_with_signer(commitment, expected_slasher)
-    {
+    let recovered_signer = match validate_commitment_with_signer(commitment, expected_slasher) {
         Ok(signer) => signer,
         Err(err) => {
             warn!(error = %err, "dropping catch-up commitment with invalid basics");
@@ -205,7 +202,8 @@ async fn fetch_txlist(
     hash: Bytes32,
 ) -> Result<Option<RawTxListGossip>> {
     let response = request_raw_txlist_with_sender(commands, hash.clone()).await?;
-    validate_txlist_response(&response)?;
+    preconfirmation_types::validate_raw_txlist_response(&response)
+        .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
     if response.txlist.is_empty() {
         return Ok(None);
     }
@@ -272,10 +270,14 @@ impl TipCatchup {
                 .request_commitments(u256_to_uint256(current), count, None)
                 .await
                 .map_err(|err| {
+                    metrics::counter!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL)
+                        .increment(1);
                     PreconfirmationClientError::Catchup(format!(
                         "failed to fetch commitments: {err}"
                     ))
                 })?;
+
+            metrics::counter!(PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL).increment(1);
 
             if response.commitments.is_empty() {
                 break;
@@ -296,6 +298,7 @@ impl TipCatchup {
         .await;
 
         if chain.is_empty() {
+            metrics::counter!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL).increment(1);
             return Err(PreconfirmationClientError::Catchup(
                 "no valid commitments found during catch-up".to_string(),
             ));

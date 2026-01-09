@@ -12,6 +12,7 @@ alloy-rlp = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
+metrics = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
