@@ -26,9 +26,6 @@ pub enum PreconfirmationClientError {
     /// Catch-up error when syncing with peers.
     #[error("catchup error: {0}")]
     Catchup(String),
-    /// Parent commitment is missing; the commitment should be buffered.
-    #[error("parent commitment missing: {0}")]
-    ParentMissing(String),
     /// Lookahead resolver initialization failed.
     #[error("lookahead error: {0}")]
     Lookahead(String),

@@ -5,9 +5,9 @@
 
 use alloy_primitives::Address;
 use preconfirmation_types::{
-    Bytes20, GetRawTxListResponse, Preconfirmation, RawTxListGossip, SignedCommitment,
-    uint256_to_u256, validate_parent_hash, validate_preconfirmation_basic,
-    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment,
+    Bytes20, GetRawTxListResponse, RawTxListGossip, SignedCommitment, uint256_to_u256,
+    validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
+    verify_signed_commitment,
 };
 use protocol::preconfirmation::PreconfSlotInfo;
 
@@ -34,19 +34,6 @@ pub fn validate_commitment_basic_with_signer(
         }
     }
     Ok(recovered)
-}
-
-/// Validate parent linkage using the parent preconfirmation.
-pub fn validate_parent_linkage(
-    commitment: &SignedCommitment,
-    parent_preconf: &Preconfirmation,
-) -> Result<()> {
-    validate_parent_hash(
-        &commitment.commitment.preconf.parent_preconfirmation_hash,
-        parent_preconf,
-    )
-    .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
-    Ok(())
 }
 
 /// Validate a raw txlist gossip payload.

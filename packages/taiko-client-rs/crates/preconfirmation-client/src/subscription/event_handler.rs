@@ -8,10 +8,10 @@
 
 use std::sync::Arc;
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use preconfirmation_net::{NetworkCommand, NetworkEvent};
 use preconfirmation_types::{
-    Bytes20, Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
+    Bytes20, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
 };
 use protocol::preconfirmation::PreconfSignerResolver;
 use tokio::sync::{broadcast, mpsc::Sender};
@@ -21,10 +21,10 @@ use crate::{
     codec::ZlibTxListCodec,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{PreconfirmationClientError, Result},
-    storage::{CommitmentStore, CommitmentsAwaitingParent, CommitmentsAwaitingTxList},
+    storage::CommitmentStore,
     validation::rules::{
         is_eop_only, validate_commitment_basic_with_signer, validate_lookahead,
-        validate_parent_linkage, validate_txlist_gossip,
+        validate_txlist_gossip,
     },
 };
 
@@ -56,10 +56,6 @@ where
 {
     /// Commitment store for caching commitments and txlists.
     store: Arc<dyn CommitmentStore>,
-    /// Commitments awaiting their parent commitment.
-    awaiting_parent: Arc<CommitmentsAwaitingParent>,
-    /// Commitments awaiting their txlist payload.
-    awaiting_txlist: Arc<CommitmentsAwaitingTxList>,
     /// Txlist codec for decompression.
     codec: Arc<ZlibTxListCodec>,
     /// Driver client for handing off to the driver.
@@ -82,8 +78,6 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         store: Arc<dyn CommitmentStore>,
-        awaiting_parent: Arc<CommitmentsAwaitingParent>,
-        awaiting_txlist: Arc<CommitmentsAwaitingTxList>,
         codec: Arc<ZlibTxListCodec>,
         driver: Arc<D>,
         expected_slasher: Option<Bytes20>,
@@ -93,8 +87,6 @@ where
     ) -> Self {
         Self {
             store,
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver,
             expected_slasher,
@@ -168,137 +160,61 @@ where
     /// This method validates the commitment through multiple stages:
     /// 1. Basic validation (signature, format, slasher address)
     /// 2. Lookahead validation (signer and submission_window_end)
-    /// 3. Parent linkage validation
-    /// 4. Block number sequencing validation
     pub async fn handle_commitment(&self, commitment: SignedCommitment) -> Result<()> {
-        self.handle_commitment_internal(commitment, false).await
-    }
+        // Extract the current block number for reuse across checks.
+        let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
 
-    /// Handle a catch-up commitment, allowing a parentless commitment if configured.
-    pub async fn handle_catchup_commitment(
-        &self,
-        commitment: SignedCommitment,
-        allow_parentless: bool,
-    ) -> Result<()> {
-        self.handle_commitment_internal(commitment, allow_parentless).await
-    }
-
-    /// Handle a commitment with optional parentless allowance.
-    async fn handle_commitment_internal(
-        &self,
-        commitment: SignedCommitment,
-        allow_parentless: bool,
-    ) -> Result<()> {
-        // Initialize a queue for commitment processing.
-        let mut queue = vec![commitment];
-
-        while let Some(commitment) = queue.pop() {
-            // Extract the current block number for reuse across checks.
-            let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
-            // Extract the parent hash for linkage checks.
-            let parent_hash = B256::from_slice(
-                commitment.commitment.preconf.parent_preconfirmation_hash.as_ref(),
-            );
-            let is_genesis = parent_hash == B256::ZERO;
-            if is_genesis {
-                debug!(block = %current_block, "accepting genesis commitment");
+        // Validate the commitment with basic rules (signature, format, slasher).
+        let recovered_signer = match validate_commitment_basic_with_signer(
+            &commitment,
+            self.expected_slasher.as_ref(),
+        ) {
+            Ok(signer) => signer,
+            Err(err) => {
+                warn!(error = %err, "dropping invalid commitment");
+                self.store.drop_pending_commitment(&current_block);
+                return Ok(());
             }
+        };
 
-            // Validate the commitment with basic rules (signature, format, slasher).
-            let recovered_signer = match validate_commitment_basic_with_signer(
-                &commitment,
-                self.expected_slasher.as_ref(),
-            ) {
-                Ok(signer) => signer,
+        // Get the commitment timestamp for lookahead lookup.
+        let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
+
+        // Query the lookahead resolver for the expected slot info.
+        let expected_slot_info =
+            match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
+                Ok(info) => info,
                 Err(err) => {
-                    warn!(error = %err, "dropping invalid commitment");
+                    warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
                     self.store.drop_pending_commitment(&current_block);
-                    continue;
+                    return Ok(());
                 }
             };
 
-            // Get the commitment timestamp for lookahead lookup.
-            let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
-
-            // Query the lookahead resolver for the expected slot info.
-            let expected_slot_info =
-                match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
-                    Ok(info) => info,
-                    Err(err) => {
-                        warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
-                        self.store.drop_pending_commitment(&current_block);
-                        continue;
-                    }
-                };
-
-            // Validate the signer and submission_window_end against lookahead expectations.
-            if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info)
-            {
-                warn!(error = %err, "dropping commitment with invalid lookahead");
-                self.store.drop_pending_commitment(&current_block);
-                continue;
-            }
-            if !is_genesis {
-                // Derive the expected parent block number.
-                let expected_parent = current_block.saturating_sub(U256::ONE);
-                // Fetch the parent commitment if available.
-                let parent = self.store.get_commitment(&expected_parent);
-                // Proceed when the parent commitment is present.
-                if let Some(parent) = parent {
-                    // Validate parent linkage using the parent preconfirmation.
-                    if let Err(err) =
-                        validate_parent_linkage(&commitment, &parent.commitment.preconf)
-                    {
-                        warn!(error = %err, "dropping commitment with invalid parent linkage");
-                        self.store.drop_pending_commitment(&current_block);
-                        continue;
-                    }
-                    // Extract the parent block number for sequential checks.
-                    let parent_block = uint256_to_u256(&parent.commitment.preconf.block_number);
-                    let expected_block = parent_block + U256::ONE;
-                    if current_block != expected_block {
-                        warn!(
-                            current = %current_block,
-                            expected = %expected_block,
-                            "dropping commitment with non-sequential block number"
-                        );
-                        self.store.drop_pending_commitment(&current_block);
-                        continue;
-                    }
-                } else if allow_parentless {
-                    warn!(
-                        block = %current_block,
-                        "accepting catch-up commitment without parent"
-                    );
-                } else {
-                    // Clone the parent hash before moving the commitment.
-                    let parent_hash =
-                        commitment.commitment.preconf.parent_preconfirmation_hash.clone();
-                    // Buffer this commitment until the parent arrives.
-                    self.awaiting_parent.add(&parent_hash, commitment);
-                    continue;
-                }
-            }
-
-            // Store the validated commitment.
-            self.store.insert_commitment(commitment.clone());
-            // Emit the commitment event.
-            let _ = self
-                .event_tx
-                .send(PreconfirmationEvent::NewCommitment(Box::new(commitment.clone())));
-
-            // Update the head snapshot across store, state, and P2P driver.
-            self.update_head(&commitment).await;
-
-            // Collect buffered children waiting on this commitment.
-            let children = self.collect_pending_children(&commitment)?;
-            // Submit to the driver when txlist requirements are satisfied.
-            self.submit_if_ready(commitment).await?;
-            // Queue any children for processing.
-            queue.extend(children);
+        // Validate the signer and submission_window_end against lookahead expectations.
+        if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info) {
+            warn!(error = %err, "dropping commitment with invalid lookahead");
+            self.store.drop_pending_commitment(&current_block);
+            return Ok(());
         }
 
+        // Store the validated commitment.
+        self.store.insert_commitment(commitment.clone());
+        // Emit the commitment event.
+        let _ =
+            self.event_tx.send(PreconfirmationEvent::NewCommitment(Box::new(commitment.clone())));
+
+        // Update the head snapshot across store, state, and P2P driver.
+        self.update_head(&commitment).await;
+
+        // Submit to the driver when txlist requirements are satisfied.
+        self.submit_if_ready(commitment).await?;
         Ok(())
+    }
+
+    /// Handle a catch-up commitment using the standard validation path.
+    pub async fn handle_catchup_commitment(&self, commitment: SignedCommitment) -> Result<()> {
+        self.handle_commitment(commitment).await
     }
 
     /// Handle an incoming txlist.
@@ -317,29 +233,12 @@ where
         let _ = self.event_tx.send(PreconfirmationEvent::NewTxList(hash));
 
         // Drain commitments waiting on this txlist.
-        for commitment in self.awaiting_txlist.take_waiting(&txlist.raw_tx_list_hash) {
+        for commitment in self.store.take_awaiting_txlist(&txlist.raw_tx_list_hash) {
             // Submit if now ready.
             self.submit_if_ready(commitment).await?;
         }
 
         Ok(())
-    }
-
-    /// Collect children buffered on the current commitment hash.
-    fn collect_pending_children(
-        &self,
-        commitment: &SignedCommitment,
-    ) -> Result<Vec<SignedCommitment>> {
-        // Compute the preconfirmation hash for the commitment.
-        let hash = preconfirmation_types::preconfirmation_hash(&commitment.commitment.preconf)
-            .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
-        // Convert to Bytes32 for the buffer lookup.
-        let hash_bytes = Bytes32::try_from(hash.as_slice().to_vec()).map_err(|(_, err)| {
-            PreconfirmationClientError::Validation(format!("invalid hash length: {err}"))
-        })?;
-        // Drain buffered children for this parent.
-        let children = self.awaiting_parent.take_children(&hash_bytes);
-        Ok(children)
     }
 
     /// Submit a commitment to the driver if txlist requirements are satisfied.
@@ -361,7 +260,7 @@ where
         // Require the txlist to be present before submission.
         let Some(txlist) = txlist else {
             // Buffer the commitment until the txlist arrives.
-            self.awaiting_txlist.add(&txlist_hash, commitment);
+            self.store.add_awaiting_txlist(&txlist_hash, commitment);
             return Ok(());
         };
 
@@ -428,7 +327,7 @@ mod tests {
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
         error::Result,
-        storage::{CommitmentsAwaitingParent, CommitmentsAwaitingTxList, InMemoryCommitmentStore},
+        storage::InMemoryCommitmentStore,
     };
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,
@@ -567,8 +466,6 @@ mod tests {
     async fn genesis_commitment_is_processed() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
@@ -581,8 +478,6 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver.clone(),
             None,
@@ -606,8 +501,6 @@ mod tests {
     async fn invalid_lookahead_does_not_abort() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MismatchResolver);
@@ -616,8 +509,6 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver,
             None,
@@ -641,8 +532,6 @@ mod tests {
     async fn invalid_commitment_evicts_pending() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MismatchResolver);
@@ -651,8 +540,6 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver,
             None,
@@ -680,8 +567,6 @@ mod tests {
     async fn invalid_txlist_evicts_pending() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
@@ -690,8 +575,6 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver,
             None,
@@ -714,13 +597,11 @@ mod tests {
         assert_eq!(store.pending_txlists_len(), 0);
     }
 
-    /// Catch-up parentless commitments are processed without a parent.
+    /// Parentless commitments are processed without a parent.
     #[tokio::test]
-    async fn catchup_parentless_is_processed() {
+    async fn parentless_commitment_is_processed() {
         // Build dependencies for the handler.
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
@@ -733,8 +614,6 @@ mod tests {
 
         let handler = EventHandler::new(
             store.clone(),
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver.clone(),
             None,
@@ -747,7 +626,7 @@ mod tests {
         let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
         let commitment = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
 
-        handler.handle_catchup_commitment(commitment, true).await.expect("parentless processed");
+        handler.handle_commitment(commitment).await.expect("parentless processed");
 
         assert!(store.latest_commitment().is_some());
         assert_eq!(driver.submissions(), 1);
@@ -757,8 +636,6 @@ mod tests {
     #[tokio::test]
     async fn notify_head_update_reports_send_failure() {
         let store = Arc::new(InMemoryCommitmentStore::new());
-        let awaiting_parent = Arc::new(CommitmentsAwaitingParent::new());
-        let awaiting_txlist = Arc::new(CommitmentsAwaitingTxList::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
@@ -769,8 +646,6 @@ mod tests {
 
         let handler = EventHandler::new(
             store,
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver,
             None,

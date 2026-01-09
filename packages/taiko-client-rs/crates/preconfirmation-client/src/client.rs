@@ -22,10 +22,7 @@ use crate::{
     config::PreconfirmationClientConfig,
     driver_interface::DriverClient,
     error::{PreconfirmationClientError, Result},
-    storage::{
-        CommitmentStore, CommitmentsAwaitingParent, CommitmentsAwaitingTxList,
-        InMemoryCommitmentStore,
-    },
+    storage::{CommitmentStore, InMemoryCommitmentStore},
     subscription::{EventHandler, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
 };
@@ -43,10 +40,6 @@ where
     config: PreconfirmationClientConfig,
     /// Commitment store.
     store: Arc<dyn CommitmentStore>,
-    /// Commitments awaiting their parent commitment.
-    awaiting_parent: Arc<CommitmentsAwaitingParent>,
-    /// Commitments awaiting their txlist payload.
-    awaiting_txlist: Arc<CommitmentsAwaitingTxList>,
     /// Txlist codec for decompression.
     codec: Arc<ZlibTxListCodec>,
     /// Driver client.
@@ -74,12 +67,6 @@ where
             Arc::new(InMemoryCommitmentStore::with_retention_limit(config.retention_limit));
         let store: Arc<dyn CommitmentStore> = store_impl.clone();
         let p2p_storage: Arc<dyn PreconfStorage> = store_impl;
-        // Build the buffer for commitments awaiting their parent.
-        let awaiting_parent =
-            Arc::new(CommitmentsAwaitingParent::with_retention_limit(config.retention_limit));
-        // Build the buffer for commitments awaiting their txlist.
-        let awaiting_txlist =
-            Arc::new(CommitmentsAwaitingTxList::with_retention_limit(config.retention_limit));
         // Build the txlist codec using the protocol constant.
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         // Build the network validator.
@@ -97,8 +84,6 @@ where
         Ok(Self {
             config,
             store,
-            awaiting_parent,
-            awaiting_txlist,
             codec,
             driver: Arc::new(driver),
             command_sender,
@@ -153,8 +138,6 @@ where
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(
             self.store.clone(),
-            self.awaiting_parent.clone(),
-            self.awaiting_txlist.clone(),
             self.codec.clone(),
             self.driver.clone(),
             self.config.expected_slasher.clone(),
@@ -166,7 +149,7 @@ where
         // Process each catch-up commitment through the handler.
         let mut commit_iter = commitments.into_iter();
         if let Some(first) = commit_iter.next() {
-            handler.handle_catchup_commitment(first, true).await?;
+            handler.handle_catchup_commitment(first).await?;
         }
         for commitment in commit_iter {
             handler.handle_commitment(commitment).await?;
