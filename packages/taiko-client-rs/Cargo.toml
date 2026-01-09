@@ -96,10 +96,6 @@ serde_json = "1"
 serial_test = { version = "3", features = ["async"] }
 test-context = "0.3"
 
-# p2p / futures
-futures = "0.3"
-libp2p = { version = "0.54", default-features = false }
-
 [profile.dev]
 debug = "line-tables-only"
 split-debuginfo = "unpacked"
