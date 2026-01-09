@@ -221,6 +221,14 @@ func (w *Watchdog) Start() error {
 	}
 
 	go func() {
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(w.backOffRetryInterval),
+				w.backOffMaxRetries,
+			),
+			ctx,
+		)
+
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := w.queue.Subscribe(ctx, w.msgCh, &w.wg); err != nil {
@@ -229,7 +237,7 @@ func (w *Watchdog) Start() error {
 			}
 
 			return nil
-		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
+		}, bo); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()

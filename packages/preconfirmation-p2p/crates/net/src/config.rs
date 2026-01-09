@@ -49,7 +49,7 @@ pub struct P2pConfig {
 /// This struct consolidates all network-related settings, from listen addresses
 /// and bootnodes to various protocol tunings and reputation parameters.
 #[derive(Debug, Clone)]
-pub(crate) struct NetworkConfig {
+pub struct NetworkConfig {
     /// Chain ID used to derive gossip topics and protocol IDs.
     pub chain_id: u64,
     /// Libp2p listen address (TCP/QUIC as enabled).

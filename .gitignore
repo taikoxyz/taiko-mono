@@ -116,7 +116,7 @@ __pycache__/
 .husky
 
 # VSCode
-.vscode/launch.json
+.vscode/
 .vercel
 
 # Idea

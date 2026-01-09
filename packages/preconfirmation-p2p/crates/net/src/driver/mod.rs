@@ -35,7 +35,7 @@ use ssz_rs::Deserialize;
 
 /// Handle returned to the service layer; exposes the event receiver and command sender endpoints.
 #[derive(Debug)]
-pub(crate) struct NetworkHandle {
+pub struct NetworkHandle {
     /// Receiver for network events emitted by the driver.
     pub events: Receiver<NetworkEvent>,
     /// Sender for commands targeting the driver.
@@ -43,7 +43,7 @@ pub(crate) struct NetworkHandle {
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
-pub(crate) struct NetworkDriver {
+pub struct NetworkDriver {
     /// The underlying libp2p swarm that manages connections, protocols, and events.
     swarm: Swarm<crate::behaviour::NetBehaviour>,
     /// Sender for network events to be consumed by the service layer.
@@ -106,7 +106,7 @@ impl NetworkDriver {
     }
 
     /// Constructs a new `NetworkDriver` with custom validation and optional storage backend.
-    pub(crate) fn new_with_validator_and_storage(
+    pub fn new_with_validator_and_storage(
         cfg: NetworkConfig,
         validator: Box<dyn ValidationAdapter>,
         storage: Option<Arc<dyn PreconfStorage>>,

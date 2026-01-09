@@ -94,8 +94,8 @@ func (i *Shasta) InsertBlocksWithManifest(
 	if coreState.LastFinalizedProposalId.Cmp(meta.GetEventData().Id) >= 0 {
 		blockID, err := i.rpc.L2.LastBlockIDByBatchID(ctx, coreState.LastFinalizedProposalId)
 		if err == nil {
-			if lastFinalizedHeader, err = i.rpc.L2.HeaderByNumber(ctx, blockID); err != nil {
-				return nil, fmt.Errorf("failed to fetch last finalized block header (%d): %w", blockID, err)
+			if lastFinalizedHeader, err = i.rpc.L2.HeaderByNumber(ctx, blockID.ToInt()); err != nil {
+				return nil, fmt.Errorf("failed to fetch last finalized block header (%d): %w", blockID.ToInt(), err)
 			}
 		} else {
 			log.Warn(
