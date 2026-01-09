@@ -13,6 +13,8 @@ use std::{
     },
 };
 
+use tracing::warn;
+
 use alloy_primitives::{B256, U256};
 use dashmap::DashMap;
 use preconfirmation_net::PreconfStorage;
@@ -104,7 +106,10 @@ impl InMemoryCommitmentStore {
         // Read the map for ordered iteration.
         let guard = match self.commitments.read() {
             Ok(guard) => guard,
-            Err(_) => return commitments,
+            Err(err) => {
+                warn!(error = %err, start = %start, max, "commitments lock poisoned, returning empty");
+                return commitments;
+            }
         };
         // Iterate over the requested range.
         for (_, commitment) in guard.range(start..) {
@@ -184,7 +189,10 @@ impl InMemoryCommitmentStore {
                     B256::from_slice(commitment.commitment.preconf.raw_tx_list_hash.as_ref())
                 })
                 .collect(),
-            Err(_) => return,
+            Err(err) => {
+                warn!(error = %err, "commitments lock poisoned during txlist pruning, skipping prune");
+                return;
+            }
         };
 
         let mut candidates = Vec::new();
@@ -318,10 +326,12 @@ impl CommitmentStore for InMemoryCommitmentStore {
 impl PreconfStorage for InMemoryCommitmentStore {
     /// Insert a commitment into the pending buffer.
     fn insert_commitment(&self, block: U256, commitment: SignedCommitment) {
-        if let Ok(guard) = self.commitments.read() &&
-            guard.contains_key(&block)
-        {
-            return;
+        match self.commitments.read() {
+            Ok(guard) if guard.contains_key(&block) => return,
+            Ok(_) => {}
+            Err(err) => {
+                warn!(error = %err, block = %block, "commitments lock poisoned, inserting to pending anyway");
+            }
         }
         self.pending_commitments.insert(block, commitment);
         self.prune_pending_commitments();

@@ -197,9 +197,15 @@ async fn fetch_txlist(
     commands: Sender<NetworkCommand>,
     hash: Bytes32,
 ) -> Result<Option<RawTxListGossip>> {
-    let response = request_raw_txlist_with_sender(commands, hash.clone()).await?;
-    preconfirmation_types::validate_raw_txlist_response(&response)
-        .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
+    let hash_hex = B256::from_slice(hash.as_ref());
+    let response = request_raw_txlist_with_sender(commands, hash.clone()).await.map_err(|err| {
+        warn!(hash = %hash_hex, error = %err, "failed to fetch txlist during catch-up");
+        err
+    })?;
+    preconfirmation_types::validate_raw_txlist_response(&response).map_err(|err| {
+        warn!(hash = %hash_hex, error = %err, "txlist validation failed during catch-up");
+        PreconfirmationClientError::Validation(format!("txlist {hash_hex}: {err}"))
+    })?;
     if response.txlist.is_empty() {
         return Ok(None);
     }
