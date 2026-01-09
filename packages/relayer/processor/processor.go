@@ -483,6 +483,14 @@ func (p *Processor) Start() error {
 	}
 
 	go func() {
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(p.backOffRetryInterval),
+				p.backOffMaxRetries,
+			),
+			ctx,
+		)
+
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := p.queue.Subscribe(ctx, p.msgCh, &p.wg); err != nil {
@@ -491,7 +499,7 @@ func (p *Processor) Start() error {
 			}
 
 			return nil
-		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
+		}, bo); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()
