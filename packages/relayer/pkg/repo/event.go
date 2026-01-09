@@ -99,7 +99,7 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 	}).Error
 
 	if err != nil {
-		return errors.Wrap(err, "r.db.Commit")
+		return errors.Wrap(err, "tx.Updates")
 	}
 
 	return nil
@@ -121,7 +121,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	}
 
 	if err := tx.Update("status", status).Error; err != nil {
-		return errors.Wrap(err, "tx.Commit")
+		return errors.Wrap(err, "tx.Update")
 	}
 
 	return nil
