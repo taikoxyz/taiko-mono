@@ -266,8 +266,10 @@ where
             warn!(error = %err, "failed to emit new txlist event");
         }
 
-        // Clear commitments waiting on this txlist (submission happens on commitment arrival).
-        let _ = self.store.take_awaiting_txlist(&txlist.raw_tx_list_hash);
+        // Take commitments waiting on this txlist and trigger submission if any exist.
+        if !self.store.take_awaiting_txlist(&txlist.raw_tx_list_hash).is_empty() {
+            self.try_submit_contiguous_from(self.driver.preconf_tip().await? + U256::ONE).await?;
+        }
 
         Ok(())
     }
