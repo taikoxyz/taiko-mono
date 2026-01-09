@@ -266,8 +266,7 @@ impl TipCatchup {
         while current <= end {
             let remaining = end - current + U256::ONE;
             let batch_size = self.config.catchup_batch_size as u64;
-            let remaining_u64: u64 = remaining.try_into().unwrap_or(batch_size);
-            let count = remaining_u64.min(batch_size) as u32;
+            let count = remaining.try_into().unwrap_or(batch_size).min(batch_size) as u32;
 
             debug!(start = ?current, count, "requesting commitment batch");
 
@@ -286,7 +285,10 @@ impl TipCatchup {
 
             if response.commitments.is_empty() {
                 error!(start = ?current, count, "peer returned empty commitment batch during catch-up");
-                break;
+                metrics::counter!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL).increment(1);
+                return Err(PreconfirmationClientError::Catchup(
+                    "peer returned empty commitment batch during catch-up".to_string(),
+                ));
             }
 
             let fetched_count = response.commitments.len();
