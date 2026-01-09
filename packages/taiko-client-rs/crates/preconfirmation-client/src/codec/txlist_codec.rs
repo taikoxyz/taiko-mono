@@ -38,10 +38,8 @@ impl ZlibTxListCodec {
             PreconfirmationClientError::Codec(format!("zlib decode failed: {err}"))
         })?;
 
-        // Slice for RLP decoding.
-        let mut slice = decoded.as_slice();
         // Decode the RLP list into per-transaction byte blobs.
-        let txs = Vec::<Vec<u8>>::decode(&mut slice).map_err(|err| {
+        let txs = Vec::<Vec<u8>>::decode(&mut decoded.as_slice()).map_err(|err| {
             PreconfirmationClientError::Codec(format!("rlp decode failed: {err}"))
         })?;
         Ok(txs)
