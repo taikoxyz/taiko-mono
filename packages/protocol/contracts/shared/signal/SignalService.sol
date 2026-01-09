@@ -253,6 +253,10 @@ contract SignalService is EssentialContract, ISignalService {
             revert SS_EMPTY_PROOF();
         }
 
+        if (proof.blockId > type(uint48).max) {
+            revert SS_INVALID_BLOCK_ID();
+        }
+
         Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
         if (checkpoint.stateRoot != proof.rootHash) {
             revert SS_INVALID_CHECKPOINT();
@@ -278,4 +282,5 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_CHECKPOINT_NOT_FOUND();
     error SS_UNAUTHORIZED();
     error SS_SIGNAL_NOT_RECEIVED();
+    error SS_INVALID_BLOCK_ID();
 }
