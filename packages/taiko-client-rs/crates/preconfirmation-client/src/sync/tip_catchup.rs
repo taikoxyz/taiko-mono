@@ -145,12 +145,8 @@ async fn chain_from_tip(
 }
 
 /// Ensure the catch-up chain reached the required boundary.
-fn ensure_catchup_boundary(
-    require_boundary: bool,
-    stop_block: U256,
-    boundary_block: Option<U256>,
-) -> Result<()> {
-    if !require_boundary || boundary_block == Some(stop_block) {
+fn ensure_catchup_boundary(stop_block: U256, boundary_block: Option<U256>) -> Result<()> {
+    if boundary_block == Some(stop_block) {
         return Ok(());
     }
 
@@ -234,17 +230,14 @@ impl TipCatchup {
 
         // Compute the stop block (first block after the event sync tip).
         let stop_block = event_sync_tip.saturating_add(U256::ONE);
-        let (stop_block, require_boundary) = if stop_block > peer_tip {
+        if stop_block > peer_tip {
             info!(
                 stop_block = %stop_block,
                 peer_tip = %peer_tip,
-                "peer tip behind driver sync tip; running partial catch-up"
+                "already caught up; stop block ahead of peer tip"
             );
-            (peer_tip, false)
-        } else {
-            (stop_block, true)
-        };
-
+            return Ok(Vec::new());
+        }
         // Fetch the tip commitment (head does not include the full payload).
         let tip_response =
             handle.request_commitments(u256_to_uint256(peer_tip), 1, None).await.map_err(
@@ -312,7 +305,7 @@ impl TipCatchup {
             .map(|commitment| uint256_to_u256(&commitment.commitment.preconf.block_number));
 
         // Ensure we reached the required boundary.
-        ensure_catchup_boundary(require_boundary, stop_block, boundary_block)?;
+        ensure_catchup_boundary(stop_block, boundary_block)?;
 
         // Insert the validated chain into the store.
         for commitment in &chain {
@@ -485,8 +478,7 @@ mod tests {
         let stop_block = U256::from(10u64);
         let boundary_block = Some(U256::from(9u64));
 
-        let err =
-            ensure_catchup_boundary(true, stop_block, boundary_block).expect_err("must error");
+        let err = ensure_catchup_boundary(stop_block, boundary_block).expect_err("must error");
         assert!(err.to_string().contains("catch-up chain did not reach"));
     }
 

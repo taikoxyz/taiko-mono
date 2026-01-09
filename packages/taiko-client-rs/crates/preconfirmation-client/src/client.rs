@@ -6,7 +6,7 @@
 //! - Event handling for gossip subscriptions
 //! - Submitting preconfirmation inputs to the driver
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use tokio::sync::{broadcast, mpsc::Sender};
 use tokio_stream::StreamExt;
@@ -27,6 +27,9 @@ use crate::{
     subscription::{EventHandler, PreconfirmationEvent},
     sync::tip_catchup::TipCatchup,
 };
+
+/// Capacity for the broadcast event channel used by the client.
+const EVENT_CHANNEL_CAPACITY: usize = 16;
 
 /// The main preconfirmation client.
 ///
@@ -80,7 +83,7 @@ where
         // Capture the command sender for publishing.
         let command_sender = handle.command_sender();
         // Build the broadcast channel for events.
-        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (event_tx, _event_rx) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
 
         Ok(Self {
             config,
@@ -107,9 +110,10 @@ where
     /// Wait for driver event sync to complete, then run the client.
     ///
     /// This method consumes the client and:
-    /// 1. Waits for the driver event sync completion signal.
-    /// 2. Fetches the driver event sync tip to bound catch-up.
-    /// 3. Performs tip catch-up to synchronize preconfirmation commitments.
+    /// 1. Waits for the driver event sync completion.
+    /// 2. Fetches the driver event sync tip to bound preconfirmation catch-up.
+    /// 3. Performs preconfirmation tip catch-up to synchronize preconfirmation commitments /
+    ///    txlists.
     /// 4. Emits a synced event.
     pub async fn wait_event_sync_then_run(self) -> Result<()> {
         info!("waiting for driver event sync to complete");
@@ -132,12 +136,10 @@ where
         });
 
         // Run the catch-up flow.
-        let catchup_start = std::time::Instant::now();
+        let catchup_start = Instant::now();
         let catchup = TipCatchup::new(self.config.clone(), self.store.clone());
         // Fetch commitments and txlists from the network tip.
         let commitments = catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
-        metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
-            .record(catchup_start.elapsed().as_secs_f64());
 
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(
@@ -158,6 +160,9 @@ where
         for commitment in commit_iter {
             handler.handle_commitment(commitment).await?;
         }
+
+        metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
+            .record(catchup_start.elapsed().as_secs_f64());
 
         // Emit the synced event.
         if let Err(err) = self.event_tx.send(PreconfirmationEvent::Synced) {

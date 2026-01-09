@@ -20,8 +20,7 @@ use preconfirmation_types::{
     Bytes32, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
 };
 
-use crate::config::DEFAULT_RETENTION_LIMIT;
-use crate::metrics::PreconfirmationClientMetrics;
+use crate::{config::DEFAULT_RETENTION_LIMIT, metrics::PreconfirmationClientMetrics};
 
 /// Trait for accessing stored commitments and txlists.
 pub trait CommitmentStore: Send + Sync {
@@ -237,10 +236,10 @@ impl CommitmentStore for InMemoryCommitmentStore {
         self.txlists.insert(hash, txlist);
         // Drop any pending entry for this hash now that it is accepted.
         self.pending_txlists.remove(&hash);
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
-            .set(self.txlists.len() as f64);
         // Prune unreferenced txlists if needed.
         self.prune_txlists();
+        metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
+            .set(self.txlists.len() as f64);
     }
 
     /// Fetch a raw txlist payload by hash.

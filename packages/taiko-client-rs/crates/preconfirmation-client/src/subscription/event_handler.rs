@@ -171,15 +171,15 @@ where
         // Validate the commitment with basic rules (signature, format, slasher).
         let recovered_signer =
             match validate_commitment_with_signer(&commitment, self.expected_slasher.as_ref()) {
-            Ok(signer) => signer,
-            Err(err) => {
-                warn!(error = %err, "dropping invalid commitment");
-                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                    .increment(1);
-                self.store.drop_pending_commitment(&current_block);
-                return Ok(());
-            }
-        };
+                Ok(signer) => signer,
+                Err(err) => {
+                    warn!(error = %err, "dropping invalid commitment");
+                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                        .increment(1);
+                    self.store.drop_pending_commitment(&current_block);
+                    return Ok(());
+                }
+            };
 
         // Get the commitment timestamp for lookahead lookup.
         let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
@@ -187,21 +187,20 @@ where
         // Query the lookahead resolver for the expected slot info.
         let expected_slot_info =
             match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
-            Ok(info) => info,
-            Err(err) => {
-                warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
-                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                    .increment(1);
-                self.store.drop_pending_commitment(&current_block);
-                return Ok(());
-            }
-        };
+                Ok(info) => info,
+                Err(err) => {
+                    warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
+                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                        .increment(1);
+                    self.store.drop_pending_commitment(&current_block);
+                    return Ok(());
+                }
+            };
 
         // Validate the signer and submission_window_end against lookahead expectations.
         if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info) {
             warn!(error = %err, "dropping commitment with invalid lookahead");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                .increment(1);
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
             self.store.drop_pending_commitment(&current_block);
             return Ok(());
         }
@@ -239,8 +238,7 @@ where
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
         {
             warn!(error = %err, "dropping invalid txlist gossip");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                .increment(1);
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
             self.store.drop_pending_txlist(&hash);
             return Ok(());
         }

@@ -146,20 +146,17 @@ mod tests {
     #[test]
     fn metric_constants_have_correct_prefix() {
         assert!(
-            PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS
-                .starts_with("preconf_client_")
+            PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS.starts_with("preconf_client_")
         );
         assert!(PreconfirmationClientMetrics::SYNCED_TOTAL.starts_with("preconf_client_"));
         assert!(
-            PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL
-                .starts_with("preconf_client_")
+            PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL.starts_with("preconf_client_")
         );
         assert!(
             PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL.starts_with("preconf_client_")
         );
         assert!(
-            PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL
-                .starts_with("preconf_client_")
+            PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL.starts_with("preconf_client_")
         );
         assert!(
             PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL
@@ -170,21 +167,13 @@ mod tests {
                 .starts_with("preconf_client_")
         );
         assert!(PreconfirmationClientMetrics::HEAD_BLOCK.starts_with("preconf_client_"));
-        assert!(
-            PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH.starts_with("preconf_client_")
-        );
-        assert!(
-            PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL.starts_with("preconf_client_")
-        );
-        assert!(
-            PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL.starts_with("preconf_client_")
-        );
+        assert!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH.starts_with("preconf_client_"));
+        assert!(PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL.starts_with("preconf_client_"));
+        assert!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL.starts_with("preconf_client_"));
         assert!(
             PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT.starts_with("preconf_client_")
         );
-        assert!(
-            PreconfirmationClientMetrics::STORE_TXLISTS_COUNT.starts_with("preconf_client_")
-        );
+        assert!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT.starts_with("preconf_client_"));
         assert!(
             PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT
                 .starts_with("preconf_client_")
