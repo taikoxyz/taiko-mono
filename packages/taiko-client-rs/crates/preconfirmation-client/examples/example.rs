@@ -112,11 +112,17 @@ async fn main() -> Result<()> {
     let (txlist, signed_commitment) = build_publish_payloads();
     let sender = client.command_sender();
 
-    // Wait for driver event sync to complete, catching up to the latest preconfirmation tip,
-    // then start processing events.
-    client.wait_event_sync_then_run().await?;
+    // Wait for driver event sync to complete and catch up to the latest preconfirmation tip.
+    let event_loop = client.sync_and_catchup().await?;
 
-    // Publish a txlist and commitment after the client run returns.
+    // Spawn the blocking event loop in a separate task.
+    let _ = tokio::spawn(async move {
+        if let Err(err) = event_loop.run_with_retry().await {
+            eprintln!("event loop exited with error: {err}");
+        }
+    });
+
+    // Publish a txlist and commitment.
     sender
         .send(NetworkCommand::PublishRawTxList(txlist))
         .await
@@ -125,5 +131,6 @@ async fn main() -> Result<()> {
         .send(NetworkCommand::PublishCommitment(signed_commitment))
         .await
         .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
+
     Ok(())
 }

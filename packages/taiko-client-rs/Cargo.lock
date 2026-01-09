@@ -7168,6 +7168,7 @@ dependencies = [
  "alloy-provider",
  "alloy-rlp",
  "alloy-transport",
+ "anyhow",
  "async-trait",
  "dashmap 6.1.0",
  "flate2",

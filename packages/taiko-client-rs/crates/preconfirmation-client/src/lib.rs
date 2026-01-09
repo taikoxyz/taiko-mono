@@ -28,7 +28,7 @@ pub mod sync;
 /// Validation rules for commitments and txlists.
 pub mod validation;
 
-pub use client::PreconfirmationClient;
+pub use client::{EventLoop, PreconfirmationClient};
 pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{DriverClient, PreconfirmationInput};
 pub use error::{PreconfirmationClientError, Result};

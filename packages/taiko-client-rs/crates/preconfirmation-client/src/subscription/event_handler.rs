@@ -94,6 +94,11 @@ where
         }
     }
 
+    /// Update the command sender used to notify the P2P node.
+    pub(crate) fn set_command_sender(&mut self, command_sender: Sender<NetworkCommand>) {
+        self.command_sender = command_sender;
+    }
+
     /// Handle a network event.
     pub async fn handle_event(&self, event: NetworkEvent) -> Result<()> {
         match event {

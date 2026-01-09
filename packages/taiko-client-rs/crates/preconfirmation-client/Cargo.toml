@@ -9,6 +9,7 @@ license.workspace = true
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
+anyhow = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
