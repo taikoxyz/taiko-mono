@@ -5,11 +5,13 @@
 
 use anyhow::Result;
 use futures::future::poll_fn;
+use std::sync::Arc;
 
 use crate::{
     config::{NetworkConfig, P2pConfig},
     driver::NetworkDriver,
     handle::P2pHandle,
+    storage::PreconfStorage,
     validation::ValidationAdapter,
 };
 
@@ -62,6 +64,18 @@ impl P2pNode {
         Ok((P2pHandle::new(handle), Self { driver }))
     }
 
+    /// Create a new P2P node with the given configuration, validation adapter, and storage.
+    pub fn new_with_validator_and_storage(
+        cfg: P2pConfig,
+        validator: Box<dyn ValidationAdapter>,
+        storage: Arc<dyn PreconfStorage>,
+    ) -> Result<(P2pHandle, Self)> {
+        let net_cfg: NetworkConfig = cfg.into();
+        let (driver, handle) =
+            NetworkDriver::new_with_validator_and_storage(net_cfg, validator, Some(storage))?;
+        Ok((P2pHandle::new(handle), Self { driver }))
+    }
+
     /// Run the P2P node, driving the network event loop until shutdown.
     ///
     /// This method continuously polls the network driver, processing incoming
@@ -72,6 +86,29 @@ impl P2pNode {
     pub async fn run(mut self) -> Result<()> {
         loop {
             poll_fn(|cx| self.driver.poll(cx)).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{storage::InMemoryStorage, validation::LocalValidationAdapter};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    #[tokio::test]
+    async fn new_with_validator_and_storage_returns_ok() {
+        let mut cfg = P2pConfig::default();
+        cfg.listen_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+        cfg.discovery_listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+        cfg.enable_discovery = false;
+        let validator: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
+        let storage: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
+
+        let result = P2pNode::new_with_validator_and_storage(cfg, validator, storage);
+
+        if let Err(err) = result {
+            panic!("{:#}", err);
         }
     }
 }
