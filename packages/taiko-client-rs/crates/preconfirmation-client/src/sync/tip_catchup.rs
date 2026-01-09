@@ -209,7 +209,13 @@ async fn fetch_txlist(
     if response.txlist.is_empty() {
         return Ok(None);
     }
-
+      // Reject mismatched hashes explicitly.
+      let actual = B256::from_slice(response.raw_tx_list_hash.as_ref());
+      if response.raw_tx_list_hash.as_ref() != hash.as_ref() {
+          return Err(PreconfirmationClientError::Validation(format!(
+              "txlist hash mismatch: requested {requested} got {actual}"
+          )));
+      }
     Ok(Some(RawTxListGossip { raw_tx_list_hash: hash, txlist: response.txlist }))
 }
 
