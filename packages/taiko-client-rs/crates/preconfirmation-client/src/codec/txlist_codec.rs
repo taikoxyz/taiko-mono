@@ -21,6 +21,15 @@ impl ZlibTxListCodec {
 
     /// Decode compressed zlib bytes into a list of raw transactions.
     pub fn decode(&self, compressed: &[u8]) -> Result<Vec<Vec<u8>>> {
+        // Guard against overly large compressed payloads.
+        if compressed.len() > self.max_txlist_bytes {
+            return Err(PreconfirmationClientError::Codec(format!(
+                "txlist exceeds max size: {} > {}",
+                compressed.len(),
+                self.max_txlist_bytes
+            )));
+        }
+
         // Prepare a zlib decoder over the compressed buffer.
         let mut decoder = ZlibDecoder::new(compressed);
         // Buffer for the decompressed payload.
@@ -28,13 +37,7 @@ impl ZlibTxListCodec {
         decoder.read_to_end(&mut decoded).map_err(|err| {
             PreconfirmationClientError::Codec(format!("zlib decode failed: {err}"))
         })?;
-        if decoded.len() > self.max_txlist_bytes {
-            return Err(PreconfirmationClientError::Codec(format!(
-                "txlist exceeds max size: {} > {}",
-                decoded.len(),
-                self.max_txlist_bytes
-            )));
-        }
+
         // Slice for RLP decoding.
         let mut slice = decoded.as_slice();
         // Decode the RLP list into per-transaction byte blobs.
@@ -53,7 +56,6 @@ mod tests {
 
     use super::ZlibTxListCodec;
 
-    /// Placeholder test to enforce codec module compilation.
     #[test]
     fn txlist_codec_roundtrip_placeholder() {
         // RLP empty list payload for a txlist.
