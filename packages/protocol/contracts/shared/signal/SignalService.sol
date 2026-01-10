@@ -276,11 +276,11 @@ contract SignalService is EssentialContract, ISignalService {
     // Errors
     // ---------------------------------------------------------------
 
-    error SS_EMPTY_PROOF();
-    error SS_INVALID_PROOF_LENGTH();
-    error SS_INVALID_CHECKPOINT();
     error SS_CHECKPOINT_NOT_FOUND();
-    error SS_UNAUTHORIZED();
-    error SS_SIGNAL_NOT_RECEIVED();
+    error SS_EMPTY_PROOF();
     error SS_INVALID_BLOCK_ID();
+    error SS_INVALID_CHECKPOINT();
+    error SS_INVALID_PROOF_LENGTH();
+    error SS_SIGNAL_NOT_RECEIVED();
+    error SS_UNAUTHORIZED();
 }
