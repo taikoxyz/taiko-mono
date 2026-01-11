@@ -75,7 +75,7 @@ pub async fn build_taiko_payload_attributes(
         B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
         block_number,
     );
-    let parent_hash = parent_header.hash;
+    let withdrawals: Vec<Withdrawal> = Vec::new();
     let base_fee_per_gas = if parent_header.inner.number == 0 {
         SHASTA_INITIAL_BASE_FEE
     } else {
@@ -92,30 +92,19 @@ pub async fn build_taiko_payload_attributes(
             parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
         )
     };
-    let extra_data = encode_extra_data(basefee_sharing_pctg, proposal_id);
-
-    let transactions = input
-        .transactions
-        .as_ref()
-        .ok_or_else(|| {
-            PreconfirmationClientError::DriverClient(
-                "missing transactions for execution payload".to_string(),
-            )
-        })?
-        .iter()
-        .cloned()
-        .map(Bytes::from)
-        .collect::<Vec<_>>();
-
-    let tx_list = encode_tx_list(&transactions);
-    let withdrawals: Vec<Withdrawal> = Vec::new();
-    let build_payload_args_id = compute_build_payload_args_id(
-        parent_hash,
-        timestamp,
-        mix_hash,
-        fee_recipient,
-        &withdrawals,
-        &tx_list,
+    let tx_list = encode_tx_list(
+        &input
+            .transactions
+            .as_ref()
+            .ok_or_else(|| {
+                PreconfirmationClientError::DriverClient(
+                    "missing transactions for execution payload".to_string(),
+                )
+            })?
+            .iter()
+            .cloned()
+            .map(Bytes::from)
+            .collect::<Vec<_>>(),
     );
 
     let l1_origin = RpcL1Origin {
@@ -123,7 +112,15 @@ pub async fn build_taiko_payload_attributes(
         l2_block_hash: B256::ZERO,
         l1_block_height: None,
         l1_block_hash: None,
-        build_payload_args_id,
+        build_payload_args_id: compute_build_payload_args_id(
+            parent_header.hash,
+            timestamp,
+            mix_hash,
+            fee_recipient,
+            &withdrawals,
+            &tx_list,
+        ),
+        // Deprecated fields.
         is_forced_inclusion: false,
         signature: [0u8; 65],
     };
@@ -134,7 +131,7 @@ pub async fn build_taiko_payload_attributes(
         timestamp: U256::from(timestamp),
         mix_hash,
         tx_list,
-        extra_data,
+        extra_data: encode_extra_data(basefee_sharing_pctg, proposal_id),
     };
 
     let payload_attributes = EthPayloadAttributes {
