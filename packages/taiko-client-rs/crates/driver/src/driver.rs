@@ -74,7 +74,17 @@ impl Driver {
         // Start IPC RPC server (no JWT, uses filesystem permissions) if configured.
         let ipc_server = if let Some(ipc_path) = &self.cfg.rpc_ipc_path {
             info!(path = ?ipc_path, "driver IPC RPC server enabled");
-            Some(DriverIpcServer::start(ipc_path.clone(), Arc::clone(&api)).await?)
+            match DriverIpcServer::start(ipc_path.clone(), Arc::clone(&api)).await {
+                Ok(server) => Some(server),
+                Err(err) => {
+                    // If IPC server fails to start, stop HTTP server if it was started.
+                    if let Some(http) = http_server {
+                        error!(error = %err, "IPC server failed to start, stopping HTTP server");
+                        http.stop().await;
+                    }
+                    return Err(err);
+                }
+            }
         } else {
             None
         };
@@ -84,8 +94,18 @@ impl Driver {
             info!("driver RPC server disabled (no HTTP or IPC endpoint configured)");
         }
 
-        pipeline.run().await?;
-        Ok(())
+        let result = pipeline.run().await;
+
+        if let Some(ipc) = ipc_server {
+            info!("stopping driver IPC RPC server");
+            ipc.stop().await;
+        }
+        if let Some(http) = http_server {
+            info!("stopping driver HTTP RPC server");
+            http.stop().await;
+        }
+
+        result
     }
 
     /// Access the underlying RPC client (primarily for tests).

@@ -115,7 +115,111 @@ async fn ipc_server_starts_and_stops() -> TestResult {
     assert_eq!(server.ipc_path(), &ipc_path);
 
     server.stop().await;
+    assert!(!ipc_path.exists(), "IPC socket should be removed on shutdown");
+    Ok(())
+}
+
+/// Ensure the IPC server auto-creates missing parent directories.
+#[tokio::test]
+async fn ipc_server_creates_parent_directory() -> TestResult {
+    let base_dir = PathBuf::from(format!("/tmp/driver-test-nested-{}/subdir", std::process::id()));
+    let ipc_path = base_dir.join("driver.ipc");
+
+    let _ = std::fs::remove_dir_all(&base_dir);
+    assert!(!base_dir.exists(), "Parent directory should not exist before test");
+
+    let api = Arc::new(StubApi::default());
+    let server = DriverIpcServer::start(ipc_path.clone(), api).await?;
+
+    assert!(base_dir.exists(), "IPC server should auto-create missing parent directories");
+    assert!(ipc_path.exists(), "IPC socket should exist after start");
+
+    server.stop().await;
+
+    let _ = std::fs::remove_dir_all(PathBuf::from(format!(
+        "/tmp/driver-test-nested-{}",
+        std::process::id()
+    )));
+    Ok(())
+}
+
+/// Ensure the IPC server removes a stale socket file on startup.
+#[cfg(unix)]
+#[tokio::test]
+async fn ipc_server_removes_stale_socket_on_startup() -> TestResult {
+    use std::os::unix::net::UnixListener;
+
+    let ipc_path = PathBuf::from(format!("/tmp/driver-test-stale-{}.ipc", std::process::id()));
+
+    {
+        let _ = std::fs::remove_file(&ipc_path);
+        let _listener = UnixListener::bind(&ipc_path)?;
+    }
+    assert!(ipc_path.exists(), "Stale socket should exist before test");
+
+    let api = Arc::new(StubApi::default());
+    let server = DriverIpcServer::start(ipc_path.clone(), api).await?;
+
+    assert!(ipc_path.exists(), "New IPC socket should exist after start");
+
+    server.stop().await;
+    Ok(())
+}
+
+/// Ensure starting a second IPC server on an active socket fails.
+#[cfg(unix)]
+#[tokio::test]
+async fn ipc_server_rejects_active_socket() -> TestResult {
+    let ipc_path = PathBuf::from(format!("/tmp/driver-test-active-{}.ipc", std::process::id()));
+    let _ = std::fs::remove_file(&ipc_path);
+
+    let api = Arc::new(StubApi::default());
+    let server = DriverIpcServer::start(ipc_path.clone(), api).await?;
+
+    let api2 = Arc::new(StubApi::default());
+    let result = DriverIpcServer::start(ipc_path.clone(), api2).await;
+
+    assert!(
+        matches!(result, Err(DriverError::IpcSocketInUse { .. })),
+        "expected IpcSocketInUse error"
+    );
+    assert!(ipc_path.exists(), "socket should not be removed while in use");
+
+    server.stop().await;
+    Ok(())
+}
+
+/// Ensure the IPC server errors if a non-socket file exists at the path.
+#[cfg(unix)]
+#[tokio::test]
+async fn ipc_server_errors_on_non_socket_file() -> TestResult {
+    let ipc_path = PathBuf::from(format!("/tmp/driver-test-regular-{}.ipc", std::process::id()));
+
+    std::fs::write(&ipc_path, "not a socket")?;
+    assert!(ipc_path.exists(), "Regular file should exist before test");
+
+    let api = Arc::new(StubApi::default());
+    let result = DriverIpcServer::start(ipc_path.clone(), api).await;
+
+    assert!(result.is_err(), "IPC server should error if non-socket file exists at path");
 
     let _ = std::fs::remove_file(&ipc_path);
+    Ok(())
+}
+
+/// Ensure the IPC socket file is removed on shutdown.
+#[tokio::test]
+async fn ipc_socket_removed_on_shutdown() -> TestResult {
+    let ipc_path = PathBuf::from(format!("/tmp/driver-test-cleanup-{}.ipc", std::process::id()));
+    let _ = std::fs::remove_file(&ipc_path);
+
+    let api = Arc::new(StubApi::default());
+    let server = DriverIpcServer::start(ipc_path.clone(), api).await?;
+
+    assert!(ipc_path.exists(), "IPC socket should exist after start");
+
+    server.stop().await;
+
+    assert!(!ipc_path.exists(), "IPC socket should be removed after stop()");
     Ok(())
 }

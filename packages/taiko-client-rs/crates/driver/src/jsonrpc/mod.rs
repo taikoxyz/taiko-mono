@@ -1,9 +1,11 @@
 //! JSON-RPC server for driving preconfirmation injection.
 
 use std::{
+    fs::create_dir_all,
     future::Future,
+    io::ErrorKind,
     net::SocketAddr,
-    path::PathBuf,
+    path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -21,7 +23,7 @@ use jsonrpsee::{
 use metrics::{counter, histogram};
 use reth_ipc::server::Builder as IpcBuilder;
 use tower::{Service, ServiceBuilder};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     error::{DriverError, Result as DriverResult},
@@ -128,7 +130,18 @@ impl DriverIpcServer {
     /// Start an IPC JSON-RPC server (no JWT authentication).
     ///
     /// IPC uses filesystem permissions for access control.
+    ///
+    /// This method will:
+    /// - Auto-create missing parent directories for the socket path
+    /// - Remove stale socket files on startup (unix only)
+    /// - Error if a non-socket file exists at the path (unix only)
+    /// - Error if the socket is already in use (unix only)
     pub async fn start(ipc_path: PathBuf, api: Arc<dyn DriverRpcApi>) -> DriverResult<Self> {
+        ensure_ipc_parent_dir(&ipc_path)?;
+
+        #[cfg(unix)]
+        prepare_ipc_socket(&ipc_path).await?;
+
         let server = IpcBuilder::default().build(ipc_path.to_string_lossy().into_owned());
         let path = ipc_path.clone();
 
@@ -144,12 +157,119 @@ impl DriverIpcServer {
         &self.path
     }
 
-    /// Stop the server.
+    /// Stop the server and remove the socket file.
     pub async fn stop(self) {
         if let Err(err) = self.handle.stop() {
             warn!(error = %err, "driver IPC JSON-RPC server already stopped");
         }
         let _ = self.handle.stopped().await;
+        cleanup_ipc_socket(&self.path);
+    }
+}
+
+/// Ensure the parent directory for the IPC socket path exists.
+fn ensure_ipc_parent_dir(ipc_path: &Path) -> DriverResult<()> {
+    if let Some(parent) = ipc_path.parent() &&
+        !parent.exists()
+    {
+        info!(path = ?parent, "creating IPC socket parent directory");
+        create_dir_all(parent)?;
+    }
+    Ok(())
+}
+
+/// Prepare the IPC socket path by removing stale sockets if necessary.
+#[cfg(unix)]
+async fn prepare_ipc_socket(ipc_path: &Path) -> DriverResult<()> {
+    match inspect_ipc_path(ipc_path)? {
+        Some(true) => {
+            if socket_in_use(ipc_path).await? {
+                error!(path = ?ipc_path, "IPC socket already in use");
+                return Err(DriverError::IpcSocketInUse { path: ipc_path.to_path_buf() });
+            }
+            info!(path = ?ipc_path, "removing stale IPC socket");
+            remove_socket_file(ipc_path)?;
+        }
+        Some(false) => {
+            error!(path = ?ipc_path, "non-socket file exists at IPC path");
+            return Err(DriverError::IpcPathNotSocket(ipc_path.to_path_buf()));
+        }
+        None => {}
+    }
+    Ok(())
+}
+
+/// Inspect the IPC path to determine if it exists and whether it is a socket.
+#[cfg(unix)]
+fn inspect_ipc_path(ipc_path: &Path) -> DriverResult<Option<bool>> {
+    use std::os::unix::fs::FileTypeExt;
+
+    match std::fs::metadata(ipc_path) {
+        Ok(metadata) => Ok(Some(metadata.file_type().is_socket())),
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// Check if the IPC socket is currently in use.
+#[cfg(unix)]
+async fn socket_in_use(ipc_path: &Path) -> DriverResult<bool> {
+    use tokio::{
+        net::UnixStream,
+        time::{Duration, timeout},
+    };
+
+    const CONNECT_TIMEOUT: Duration = Duration::from_millis(100);
+
+    match timeout(CONNECT_TIMEOUT, UnixStream::connect(ipc_path)).await {
+        Ok(Ok(_stream)) => Ok(true),
+        Ok(Err(err)) => match err.kind() {
+            ErrorKind::NotFound | ErrorKind::ConnectionRefused => Ok(false),
+            _ => Err(err.into()),
+        },
+        Err(_) => Ok(true),
+    }
+}
+
+/// Remove the IPC socket file.
+#[cfg(unix)]
+fn remove_socket_file(ipc_path: &Path) -> DriverResult<()> {
+    match std::fs::remove_file(ipc_path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+/// Clean up the IPC socket file on server shutdown.
+#[cfg(unix)]
+fn cleanup_ipc_socket(ipc_path: &Path) {
+    match inspect_ipc_path(ipc_path) {
+        Ok(Some(true)) => match remove_socket_file(ipc_path) {
+            Ok(()) => info!(path = ?ipc_path, "removed IPC socket file"),
+            Err(err) => {
+                warn!(path = ?ipc_path, error = %err, "failed to remove IPC socket file");
+            }
+        },
+        Ok(Some(false)) => {
+            warn!(path = ?ipc_path, "IPC path is not a socket; skipping removal");
+        }
+        Ok(None) => {}
+        Err(err) => {
+            warn!(path = ?ipc_path, error = %err, "failed to stat IPC socket file");
+        }
+    }
+}
+
+/// Clean up the IPC socket file on server shutdown.
+#[cfg(not(unix))]
+fn cleanup_ipc_socket(ipc_path: &Path) {
+    match std::fs::remove_file(ipc_path) {
+        Ok(()) => info!(path = ?ipc_path, "removed IPC socket file"),
+        Err(err) if err.kind() == ErrorKind::NotFound => {}
+        Err(err) => {
+            warn!(path = ?ipc_path, error = %err, "failed to remove IPC socket file");
+        }
     }
 }
 
