@@ -169,6 +169,10 @@ impl DriverIpcServer {
 
 /// Ensure the parent directory for the IPC socket path exists.
 fn ensure_ipc_parent_dir(ipc_path: &Path) -> DriverResult<()> {
+    if is_windows_pipe_endpoint(ipc_path) {
+        return Ok(());
+    }
+
     if let Some(parent) = ipc_path.parent() &&
         !parent.exists()
     {
@@ -176,6 +180,13 @@ fn ensure_ipc_parent_dir(ipc_path: &Path) -> DriverResult<()> {
         create_dir_all(parent)?;
     }
     Ok(())
+}
+
+/// Check if the IPC path is a Windows named pipe endpoint.
+fn is_windows_pipe_endpoint(ipc_path: &Path) -> bool {
+    let raw = ipc_path.to_string_lossy();
+    let normalized = raw.replace('/', "\\");
+    normalized.starts_with(r"\\.\pipe\") || normalized.starts_with(r"\\?\pipe\")
 }
 
 /// Prepare the IPC socket path by removing stale sockets if necessary.
@@ -404,6 +415,7 @@ fn unauthorized_response() -> HttpResponse {
 mod tests {
     use super::*;
     use jsonrpsee::server::stop_channel;
+    use std::path::Path;
     use tokio::spawn;
 
     #[tokio::test]
@@ -416,5 +428,14 @@ mod tests {
 
         let join = spawn(async move { server.stop().await });
         join.await.expect("stop task panicked");
+    }
+
+    #[test]
+    fn detects_windows_pipe_endpoints() {
+        assert!(is_windows_pipe_endpoint(Path::new(r"\\.\pipe\reth.ipc")));
+        assert!(is_windows_pipe_endpoint(Path::new(r"\\?\pipe\reth.ipc")));
+        assert!(is_windows_pipe_endpoint(Path::new(r"//./pipe/reth.ipc")));
+        assert!(!is_windows_pipe_endpoint(Path::new("/tmp/reth.ipc")));
+        assert!(!is_windows_pipe_endpoint(Path::new("relative/path")));
     }
 }
