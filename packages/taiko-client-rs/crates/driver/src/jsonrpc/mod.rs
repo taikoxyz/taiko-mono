@@ -17,7 +17,7 @@ use jsonrpsee::{
     types::{ErrorObjectOwned, Params},
 };
 use tower::{Service, ServiceBuilder};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{DriverError, Result as DriverResult};
 
@@ -100,10 +100,11 @@ impl DriverRpcServer {
     }
 
     /// Stop the server.
-    pub async fn stop(self) -> DriverResult<()> {
-        let stop_result = self.handle.stop().map_err(DriverError::from);
+    pub async fn stop(self) {
+        if let Err(err) = self.handle.stop() {
+            warn!(error = %err, "driver JSON-RPC server already stopped");
+        }
         let _ = self.handle.stopped().await;
-        stop_result
     }
 }
 
@@ -206,7 +207,7 @@ mod tests {
     use tokio::spawn;
 
     #[tokio::test]
-    async fn stop_returns_error_when_already_stopped() {
+    async fn stop_is_idempotent() {
         let addr: SocketAddr = "127.0.0.1:0".parse().expect("valid addr");
         let (stop_handle, handle) = stop_channel();
         drop(stop_handle);
@@ -214,7 +215,6 @@ mod tests {
         let server = DriverRpcServer { addr, handle };
 
         let join = spawn(async move { server.stop().await });
-        let result = join.await.expect("stop task panicked");
-        assert!(matches!(result, Err(DriverError::DriverRpcAlreadyStopped(_))));
+        join.await.expect("stop task panicked");
     }
 }

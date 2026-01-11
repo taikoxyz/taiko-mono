@@ -3,7 +3,6 @@
 use std::{io, result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
-use jsonrpsee::server::AlreadyStoppedError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
@@ -35,10 +34,6 @@ pub enum DriverError {
     /// Failed to read the JWT secret configured for the driver RPC server.
     #[error("failed to read jwt secret for driver RPC server")]
     DriverRpcJwtSecretReadFailed,
-
-    /// Driver RPC server was already stopped.
-    #[error("driver RPC server already stopped")]
-    DriverRpcAlreadyStopped(#[from] AlreadyStoppedError),
 
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]
