@@ -1,6 +1,7 @@
 use std::{
     error::Error,
     net::SocketAddr,
+    path::PathBuf,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -12,7 +13,7 @@ use alloy_rpc_types_engine::{Claims, JwtSecret};
 use async_trait::async_trait;
 use driver::{
     error::DriverError,
-    jsonrpc::{DriverRpcApi, DriverRpcServer},
+    jsonrpc::{DriverIpcServer, DriverRpcApi, DriverRpcServer},
 };
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode, body::Bytes};
@@ -98,5 +99,23 @@ async fn last_canonical_proposal_id_is_exposed_over_rpc() -> TestResult {
     let bytes = resp.into_body().collect().await?.to_bytes();
     let value: Value = from_slice(&bytes)?;
     assert_eq!(value["result"].as_u64(), Some(42));
+    Ok(())
+}
+
+/// Ensure the IPC server can start and stop successfully.
+#[tokio::test]
+async fn ipc_server_starts_and_stops() -> TestResult {
+    let ipc_path = PathBuf::from(format!("/tmp/driver-test-{}.ipc", std::process::id()));
+    let _ = std::fs::remove_file(&ipc_path);
+
+    let api = Arc::new(StubApi::default());
+    api.last.store(99, Ordering::Relaxed);
+
+    let server = DriverIpcServer::start(ipc_path.clone(), api).await?;
+    assert_eq!(server.ipc_path(), &ipc_path);
+
+    server.stop().await;
+
+    let _ = std::fs::remove_file(&ipc_path);
     Ok(())
 }

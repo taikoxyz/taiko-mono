@@ -3,6 +3,7 @@
 use std::{
     future::Future,
     net::SocketAddr,
+    path::PathBuf,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -18,6 +19,7 @@ use jsonrpsee::{
     types::{ErrorObjectOwned, Params},
 };
 use metrics::{counter, histogram};
+use reth_ipc::server::Builder as IpcBuilder;
 use tower::{Service, ServiceBuilder};
 use tracing::{debug, info, warn};
 
@@ -58,11 +60,20 @@ pub trait DriverRpcApi: Send + Sync {
     fn last_canonical_proposal_id(&self) -> u64;
 }
 
-/// Running driver JSON-RPC server.
+/// Running driver HTTP JSON-RPC server (JWT-protected).
 #[derive(Debug)]
 pub struct DriverRpcServer {
     /// Socket address the server is bound to.
     addr: SocketAddr,
+    /// Handle used to stop and await server shutdown.
+    handle: ServerHandle,
+}
+
+/// Running driver IPC JSON-RPC server (no JWT, uses filesystem permissions).
+#[derive(Debug)]
+pub struct DriverIpcServer {
+    /// IPC socket path the server is bound to.
+    path: PathBuf,
     /// Handle used to stop and await server shutdown.
     handle: ServerHandle,
 }
@@ -90,7 +101,7 @@ impl DriverRpcServer {
 
         let handle = server.start(build_rpc_module(api));
 
-        info!(addr = %addr, "started driver JSON-RPC server");
+        info!(addr = %addr, "started driver HTTP JSON-RPC server");
         Ok(Self { addr, handle })
     }
 
@@ -107,7 +118,36 @@ impl DriverRpcServer {
     /// Stop the server.
     pub async fn stop(self) {
         if let Err(err) = self.handle.stop() {
-            warn!(error = %err, "driver JSON-RPC server already stopped");
+            warn!(error = %err, "driver HTTP JSON-RPC server already stopped");
+        }
+        let _ = self.handle.stopped().await;
+    }
+}
+
+impl DriverIpcServer {
+    /// Start an IPC JSON-RPC server (no JWT authentication).
+    ///
+    /// IPC uses filesystem permissions for access control.
+    pub async fn start(ipc_path: PathBuf, api: Arc<dyn DriverRpcApi>) -> DriverResult<Self> {
+        let server = IpcBuilder::default().build(ipc_path.to_string_lossy().into_owned());
+        let path = ipc_path.clone();
+
+        let module = build_rpc_module(api);
+        let handle = server.start(module).await?;
+
+        info!(path = ?ipc_path, "started driver IPC JSON-RPC server");
+        Ok(Self { path, handle })
+    }
+
+    /// Return the IPC socket path.
+    pub fn ipc_path(&self) -> &PathBuf {
+        &self.path
+    }
+
+    /// Stop the server.
+    pub async fn stop(self) {
+        if let Err(err) = self.handle.stop() {
+            warn!(error = %err, "driver IPC JSON-RPC server already stopped");
         }
         let _ = self.handle.stopped().await;
     }

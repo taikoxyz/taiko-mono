@@ -24,6 +24,7 @@ flate2 = { workspace = true }
 jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 metrics = { workspace = true }
+reth-ipc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = "0.10"

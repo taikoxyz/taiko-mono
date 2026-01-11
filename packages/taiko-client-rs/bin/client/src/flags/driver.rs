@@ -48,9 +48,16 @@ pub struct DriverArgs {
     #[clap(
         long = "driver.rpc.jwt.secret",
         env = "DRIVER_RPC_JWT_SECRET",
-        help = "Path to the JWT secret used by the driver JSON-RPC server"
+        help = "Path to the JWT secret used by the driver JSON-RPC server (HTTP only)"
     )]
     pub rpc_jwt_secret: Option<PathBuf>,
+    /// Path for the IPC socket used by the driver JSON-RPC server.
+    #[clap(
+        long = "driver.rpc.ipc.path",
+        env = "DRIVER_RPC_IPC_PATH",
+        help = "Path for the IPC socket used by the driver JSON-RPC server (no JWT required)"
+    )]
+    pub rpc_ipc_path: Option<PathBuf>,
 }
 
 impl DriverArgs {

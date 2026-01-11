@@ -7,7 +7,9 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, RootProvider};
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
-use rpc::client::{build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret};
+use rpc::client::{
+    build_ipc_provider, build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret,
+};
 use tokio::time::{Instant, sleep};
 use tracing::{debug, error, info};
 use url::Url;
@@ -19,6 +21,43 @@ use super::{
     traits::{DriverClient, PreconfirmationInput},
 };
 use crate::{Result, error::PreconfirmationClientError};
+
+/// Endpoint type for the driver JSON-RPC connection.
+///
+/// Supports HTTP (with JWT authentication) or IPC (using filesystem permissions).
+#[derive(Clone, Debug)]
+pub enum DriverEndpoint {
+    /// HTTP JSON-RPC endpoint (requires JWT authentication).
+    Http(Url),
+    /// IPC socket path (no JWT; relies on filesystem permissions).
+    Ipc(PathBuf),
+}
+
+impl DriverEndpoint {
+    /// Returns `true` if this is an HTTP endpoint.
+    pub fn is_http(&self) -> bool {
+        matches!(self, Self::Http(_))
+    }
+
+    /// Returns `true` if this is an IPC endpoint.
+    pub fn is_ipc(&self) -> bool {
+        matches!(self, Self::Ipc(_))
+    }
+}
+
+impl From<Url> for DriverEndpoint {
+    /// Construct a `DriverEndpoint` from an HTTP URL.
+    fn from(url: Url) -> Self {
+        Self::Http(url)
+    }
+}
+
+impl From<PathBuf> for DriverEndpoint {
+    /// Construct a `DriverEndpoint` from an IPC path.
+    fn from(path: PathBuf) -> Self {
+        Self::Ipc(path)
+    }
+}
 
 /// Default poll interval for `wait_event_sync`.
 const DEFAULT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(6);
@@ -45,10 +84,11 @@ impl DriverRpcMethod {
 /// Configuration for [`JsonRpcDriverClient`].
 #[derive(Clone, Debug)]
 pub struct JsonRpcDriverClientConfig {
-    /// HTTP JSON-RPC endpoint of the driver server.
-    pub driver_rpc_url: Url,
+    /// Driver endpoint (HTTP with JWT or IPC with filesystem permissions).
+    pub driver_endpoint: DriverEndpoint,
     /// Path to the JWT secret used by the driver JSON-RPC server.
-    pub driver_jwt_secret: PathBuf,
+    /// Required for HTTP endpoints; ignored for IPC.
+    pub driver_jwt_secret: Option<PathBuf>,
     /// L1 HTTP JSON-RPC endpoint (used for inbox state queries).
     pub l1_rpc_url: Url,
     /// L2 HTTP JSON-RPC endpoint (used for safe/latest tips).
@@ -60,7 +100,9 @@ pub struct JsonRpcDriverClientConfig {
 }
 
 impl JsonRpcDriverClientConfig {
-    /// Construct a config with default poll interval.
+    /// Construct a config with an HTTP endpoint and default poll interval.
+    ///
+    /// This is the original constructor for backwards compatibility.
     pub fn with_default_poll_interval(
         driver_rpc_url: Url,
         driver_jwt_secret: PathBuf,
@@ -69,8 +111,43 @@ impl JsonRpcDriverClientConfig {
         inbox_address: Address,
     ) -> Self {
         Self {
-            driver_rpc_url,
-            driver_jwt_secret,
+            driver_endpoint: DriverEndpoint::Http(driver_rpc_url),
+            driver_jwt_secret: Some(driver_jwt_secret),
+            l1_rpc_url,
+            l2_rpc_url,
+            inbox_address,
+            event_sync_poll_interval: DEFAULT_EVENT_SYNC_POLL_INTERVAL,
+        }
+    }
+
+    /// Construct a config with an HTTP endpoint (requires JWT).
+    pub fn with_http_endpoint(
+        driver_rpc_url: Url,
+        driver_jwt_secret: PathBuf,
+        l1_rpc_url: Url,
+        l2_rpc_url: Url,
+        inbox_address: Address,
+    ) -> Self {
+        Self {
+            driver_endpoint: DriverEndpoint::Http(driver_rpc_url),
+            driver_jwt_secret: Some(driver_jwt_secret),
+            l1_rpc_url,
+            l2_rpc_url,
+            inbox_address,
+            event_sync_poll_interval: DEFAULT_EVENT_SYNC_POLL_INTERVAL,
+        }
+    }
+
+    /// Construct a config with an IPC endpoint (no JWT required).
+    pub fn with_ipc_endpoint(
+        driver_ipc_path: PathBuf,
+        l1_rpc_url: Url,
+        l2_rpc_url: Url,
+        inbox_address: Address,
+    ) -> Self {
+        Self {
+            driver_endpoint: DriverEndpoint::Ipc(driver_ipc_path),
+            driver_jwt_secret: None,
             l1_rpc_url,
             l2_rpc_url,
             inbox_address,
@@ -79,10 +156,12 @@ impl JsonRpcDriverClientConfig {
     }
 }
 
-/// JSON-RPC driver client that authenticates via Engine JWT.
+/// JSON-RPC driver client for communicating with the driver.
+///
+/// Supports both HTTP (with JWT authentication) and IPC (with filesystem permissions).
 #[derive(Clone, Debug)]
 pub struct JsonRpcDriverClient {
-    /// JWT-authenticated driver RPC provider.
+    /// Driver RPC provider (HTTP+JWT or IPC).
     driver_provider: RootProvider,
     /// L2 provider used for safe/latest tip queries.
     l2_provider: RootProvider,
@@ -94,13 +173,26 @@ pub struct JsonRpcDriverClient {
 
 impl JsonRpcDriverClient {
     /// Create a new JSON-RPC driver client.
-    pub fn new(cfg: JsonRpcDriverClientConfig) -> Result<Self> {
-        let driver_provider = build_jwt_http_provider(
-            cfg.driver_rpc_url,
-            read_jwt_secret(cfg.driver_jwt_secret).ok_or_else(|| {
-                PreconfirmationClientError::DriverClient("failed to read jwt secret".into())
-            })?,
-        );
+    ///
+    /// For HTTP endpoints, JWT authentication is required.
+    /// For IPC endpoints, security relies on filesystem permissions.
+    pub async fn new(cfg: JsonRpcDriverClientConfig) -> Result<Self> {
+        let driver_provider = match cfg.driver_endpoint {
+            DriverEndpoint::Http(url) => {
+                let jwt_secret_path = cfg.driver_jwt_secret.ok_or_else(|| {
+                    PreconfirmationClientError::DriverClient(
+                        "HTTP endpoint requires JWT secret path".into(),
+                    )
+                })?;
+                let jwt_secret = read_jwt_secret(jwt_secret_path).ok_or_else(|| {
+                    PreconfirmationClientError::DriverClient("failed to read JWT secret".into())
+                })?;
+                build_jwt_http_provider(url, jwt_secret)
+            }
+            DriverEndpoint::Ipc(path) => build_ipc_provider(path)
+                .await
+                .map_err(|e| PreconfirmationClientError::DriverClient(e.to_string()))?,
+        };
 
         let l1_provider = connect_http_with_timeout(cfg.l1_rpc_url);
         let l2_provider = connect_http_with_timeout(cfg.l2_rpc_url);
@@ -301,5 +393,81 @@ impl DriverClient for JsonRpcDriverClient {
                 PreconfirmationClientError::DriverClient("missing latest block".into())
             })?;
         Ok(U256::from(block.number()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn driver_endpoint_from_http_url() {
+        let url: Url = "http://localhost:8545".parse().expect("url");
+        let endpoint = DriverEndpoint::from(url.clone());
+        assert!(matches!(endpoint, DriverEndpoint::Http(u) if u == url));
+    }
+
+    #[test]
+    fn driver_endpoint_from_ipc_path() {
+        let path = PathBuf::from("/tmp/driver.ipc");
+        let endpoint = DriverEndpoint::from(path.clone());
+        assert!(matches!(endpoint, DriverEndpoint::Ipc(p) if p == path));
+    }
+
+    #[test]
+    fn driver_endpoint_is_http() {
+        let http_endpoint = DriverEndpoint::Http("http://localhost:8545".parse().expect("url"));
+        let ipc_endpoint = DriverEndpoint::Ipc(PathBuf::from("/tmp/driver.ipc"));
+
+        assert!(http_endpoint.is_http());
+        assert!(!http_endpoint.is_ipc());
+        assert!(!ipc_endpoint.is_http());
+        assert!(ipc_endpoint.is_ipc());
+    }
+
+    #[test]
+    fn config_with_http_endpoint() {
+        let url: Url = "http://localhost:8545".parse().expect("url");
+        let jwt_secret = PathBuf::from("/tmp/jwt.hex");
+        let config = JsonRpcDriverClientConfig::with_http_endpoint(
+            url.clone(),
+            jwt_secret.clone(),
+            "http://l1:8545".parse().expect("l1 url"),
+            "http://l2:8545".parse().expect("l2 url"),
+            Address::ZERO,
+        );
+
+        assert!(matches!(config.driver_endpoint, DriverEndpoint::Http(u) if u == url));
+        assert_eq!(config.driver_jwt_secret, Some(jwt_secret));
+    }
+
+    #[test]
+    fn config_with_ipc_endpoint() {
+        let path = PathBuf::from("/tmp/driver.ipc");
+        let config = JsonRpcDriverClientConfig::with_ipc_endpoint(
+            path.clone(),
+            "http://l1:8545".parse().expect("l1 url"),
+            "http://l2:8545".parse().expect("l2 url"),
+            Address::ZERO,
+        );
+
+        assert!(matches!(config.driver_endpoint, DriverEndpoint::Ipc(p) if p == path));
+        assert!(config.driver_jwt_secret.is_none());
+    }
+
+    #[test]
+    fn config_with_default_poll_interval_is_http() {
+        let url: Url = "http://localhost:8545".parse().expect("url");
+        let jwt_secret = PathBuf::from("/tmp/jwt.hex");
+        let config = JsonRpcDriverClientConfig::with_default_poll_interval(
+            url.clone(),
+            jwt_secret.clone(),
+            "http://l1:8545".parse().expect("l1 url"),
+            "http://l2:8545".parse().expect("l2 url"),
+            Address::ZERO,
+        );
+
+        assert!(matches!(config.driver_endpoint, DriverEndpoint::Http(u) if u == url));
+        assert_eq!(config.driver_jwt_secret, Some(jwt_secret));
     }
 }

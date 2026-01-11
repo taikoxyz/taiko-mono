@@ -3,6 +3,7 @@
 use std::{io, result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
+use reth_ipc::server::IpcServerStartError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
@@ -34,6 +35,10 @@ pub enum DriverError {
     /// Failed to read the JWT secret configured for the driver RPC server.
     #[error("failed to read jwt secret for driver RPC server")]
     DriverRpcJwtSecretReadFailed,
+
+    /// IPC server failed to start.
+    #[error("failed to start IPC server: {0}")]
+    IpcServerStart(#[from] IpcServerStartError),
 
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]
