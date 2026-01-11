@@ -169,11 +169,12 @@ impl DriverIpcServer {
 
 /// Ensure the parent directory for the IPC socket path exists.
 fn ensure_ipc_parent_dir(ipc_path: &Path) -> DriverResult<()> {
-    if let Some(parent) = ipc_path.parent()
-        && !parent.exists() {
-            info!(path = ?parent, "creating IPC socket parent directory");
-            create_dir_all(parent)?;
-        }
+    if let Some(parent) = ipc_path.parent() &&
+        !parent.exists()
+    {
+        info!(path = ?parent, "creating IPC socket parent directory");
+        create_dir_all(parent)?;
+    }
     Ok(())
 }
 
