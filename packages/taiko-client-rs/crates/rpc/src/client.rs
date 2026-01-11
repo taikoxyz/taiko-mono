@@ -96,7 +96,7 @@ impl<P: Provider + Clone> Client<P> {
             RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
         })?;
         let l2_auth_provider =
-            build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
+            build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
         let anchor = AnchorInstance::new(
@@ -134,8 +134,9 @@ impl<P: Provider + Clone> Client<P> {
     }
 }
 
-/// Builds a RootProvider for the L2 auth provider using the provided URL and JWT secret.
-fn build_l2_auth_provider(url: Url, secret: JwtSecret) -> RootProvider {
+/// Builds a [`RootProvider`] backed by an HTTP transport that authenticates each request
+/// using the Engine API JWT scheme.
+pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
     let hyper_client: HyperService<
         hyper_util::client::legacy::connect::HttpConnector,
         Full<Bytes>,

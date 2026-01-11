@@ -16,14 +16,16 @@ use crate::{
 #[derive(Parser, Clone, Debug)]
 #[command(about = "Runs the driver software")]
 pub struct DriverSubCommand {
+    /// Common CLI arguments shared across all subcommands.
     #[command(flatten)]
     pub common_flags: CommonArgs,
+    /// Driver-specific CLI arguments.
     #[command(flatten)]
     pub driver_flags: DriverArgs,
 }
 
 impl DriverSubCommand {
-    // Build driver configuration from command-line arguments.
+    /// Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
         let l1_source =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
@@ -49,13 +51,19 @@ impl DriverSubCommand {
             inbox_address: self.common_flags.shasta_inbox_address,
         };
 
-        Ok(DriverConfig::new(
+        let mut cfg = DriverConfig::new(
             client_cfg,
             self.driver_flags.retry_interval(),
             l1_beacon,
             l2_checkpoint,
             blob_server,
-        ))
+        );
+
+        cfg.rpc_listen_addr = self.driver_flags.rpc_listen_addr;
+        cfg.rpc_jwt_secret = self.driver_flags.rpc_jwt_secret.clone();
+        cfg.preconfirmation_enabled = cfg.rpc_listen_addr.is_some();
+
+        Ok(cfg)
     }
 
     /// Run the driver.
@@ -66,18 +74,18 @@ impl DriverSubCommand {
 
 #[async_trait]
 impl Subcommand for DriverSubCommand {
-    // Return a reference to the common CLI arguments.
+    /// Return a reference to the common CLI arguments.
     fn common_args(&self) -> &CommonArgs {
         &self.common_flags
     }
 
-    // Register driver and indexer metrics.
+    /// Register driver and indexer metrics.
     fn register_metrics(&self) -> Result<()> {
         DriverMetrics::init();
         Ok(())
     }
 
-    // Run the driver.
+    /// Run the driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

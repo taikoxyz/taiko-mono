@@ -1,7 +1,10 @@
 //! Event sync logic.
 
 use std::{
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -15,6 +18,7 @@ use alloy_provider::Provider;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
+use async_trait::async_trait;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
@@ -32,6 +36,7 @@ use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
     error::DriverError,
+    jsonrpc::DriverRpcApi,
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
@@ -41,9 +46,14 @@ use crate::{
 
 use rpc::{blob::BlobDataSource, client::Client};
 
-/// Two Ethereum epochs as a buffer to avoid resuming on a block that can still be reorged.
+/// Two Ethereum epochs worth of slots used as a reorg safety buffer.
+///
+/// When resuming event sync, the driver backs off by this many slots to ensure
+/// the anchor block cannot still be reorganized on L1.
 const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
 /// Default timeout for preconfirmation payload submission.
+///
+/// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(24);
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -61,9 +71,13 @@ where
     preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
+    /// Tracks the highest canonical proposal id processed from L1 events.
+    last_canonical_proposal_id: Arc<AtomicU64>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
+///
+/// When the channel is full, senders will block until space is available.
 const PRECONF_CHANNEL_CAPACITY: usize = 1024;
 
 /// Type aliases for preconfirmation payload channels.
@@ -71,8 +85,13 @@ type PreconfSender = mpsc::Sender<PreconfJob>;
 type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 
 /// A preconfirmation payload submission job.
+///
+/// Wraps a payload and a oneshot channel for returning the processing result
+/// back to the caller.
 pub struct PreconfJob {
+    /// The preconfirmation payload to be processed.
     payload: Arc<PreconfPayload>,
+    /// Oneshot channel to send the processing result back to the caller.
     respond_to: oneshot::Sender<Result<(), DriverError>>,
 }
 
@@ -173,6 +192,14 @@ where
     ) -> Result<(), SyncError> {
         debug!(log_batch_size = logs.len(), "processing proposal log batch");
         for log in logs {
+            let proposal_id = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())
+                .map(|event| event.id.to::<u64>())
+                .map_err(|e| SyncError::InvalidProposalLog {
+                    reason: e.to_string(),
+                    tx_hash: log.transaction_hash,
+                    block_number: log.block_number,
+                })?;
+
             debug!(
                 block_number = log.block_number,
                 transaction_hash = ?log.transaction_hash,
@@ -218,6 +245,8 @@ where
                 last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
                 "successfully processed proposal into L2 blocks",
             );
+
+            self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
         Ok(())
@@ -241,7 +270,19 @@ where
         } else {
             (None, None)
         };
-        Ok(Self { rpc, cfg: cfg.clone(), blob_source, preconf_tx, preconf_rx })
+        Ok(Self {
+            rpc,
+            cfg: cfg.clone(),
+            blob_source,
+            preconf_tx,
+            preconf_rx,
+            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+        })
+    }
+
+    /// Return the latest canonical proposal id processed from L1 events.
+    pub fn last_canonical_proposal_id(&self) -> u64 {
+        self.last_canonical_proposal_id.load(Ordering::Relaxed)
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
@@ -267,9 +308,7 @@ where
         payload: PreconfPayload,
         timeout_duration: Duration,
     ) -> Result<(), DriverError> {
-        let tx = self.preconf_tx.as_ref().ok_or_else(|| {
-            DriverError::Other(anyhow!("preconfirmation is not enabled in driver config"))
-        })?;
+        let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
 
         // Create oneshot channel for receiving the processing result.
         let (resp_tx, resp_rx) = oneshot::channel();
@@ -355,6 +394,25 @@ where
             "derived anchor block number from anchorV4 transaction",
         );
         Ok((anchor_block_number, U256::from(target_proposal_id)))
+    }
+}
+
+#[async_trait]
+impl<P> DriverRpcApi for EventSyncer<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Submit a preconfirmation payload built by the client for injection.
+    async fn submit_execution_payload_v2(
+        &self,
+        payload: alloy_rpc_types_engine::ExecutionPayloadInputV2,
+    ) -> Result<(), crate::error::DriverError> {
+        self.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
+    }
+
+    /// Return the last canonical proposal id processed by the event syncer.
+    fn last_canonical_proposal_id(&self) -> u64 {
+        self.last_canonical_proposal_id()
     }
 }
 

@@ -22,6 +22,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
 flate2 = { workspace = true }
+jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 metrics = { workspace = true }
 serde = { workspace = true }
@@ -31,6 +32,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 tokio-stream = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
 tracing = { workspace = true }
 url = { workspace = true }
 

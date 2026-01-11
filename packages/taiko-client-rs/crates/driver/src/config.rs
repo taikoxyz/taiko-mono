@@ -1,6 +1,6 @@
 //! Driver configuration.
 
-use std::time::Duration;
+use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
 use alloy::transports::http::reqwest::Url;
 use rpc::client::ClientConfig;
@@ -21,6 +21,16 @@ pub struct DriverConfig {
     /// Enable preconfirmation handling (disabled by default).
     /// NOTE: will be changed to be decided by flag in future.
     pub preconfirmation_enabled: bool,
+    /// Optional driver JSON-RPC server listen address.
+    ///
+    /// When configured, the driver exposes JWT-protected JSON-RPC methods that allow external
+    /// components to submit preconfirmation payloads.
+    pub rpc_listen_addr: Option<SocketAddr>,
+    /// Optional JWT secret path for the driver JSON-RPC server.
+    ///
+    /// When set, the driver RPC server authenticates requests using this secret instead of the
+    /// L2 auth JWT secret.
+    pub rpc_jwt_secret: Option<PathBuf>,
 }
 
 impl DriverConfig {
@@ -42,6 +52,8 @@ impl DriverConfig {
             l2_checkpoint_url,
             blob_server_endpoint,
             preconfirmation_enabled: false,
+            rpc_listen_addr: None,
+            rpc_jwt_secret: None,
         }
     }
 }

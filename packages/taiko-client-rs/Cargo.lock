@@ -3356,6 +3356,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "jsonrpsee",
  "k256",
  "metrics 0.24.2",
  "proposer",
@@ -3372,6 +3373,7 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-stream",
+ "tower 0.5.2",
  "tracing",
  "tracing-subscriber 0.3.20",
  "url",
@@ -7164,12 +7166,18 @@ dependencies = [
 name = "preconfirmation-client"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-consensus",
+ "alloy-consensus",
+ "alloy-eips",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
+ "alloy-rpc-types",
+ "alloy-rpc-types-engine",
  "alloy-transport",
  "anyhow",
  "async-trait",
+ "bindings",
  "dashmap 6.1.0",
  "flate2",
  "metrics 0.24.2",
@@ -7177,11 +7185,13 @@ dependencies = [
  "preconfirmation-types",
  "protocol",
  "rand 0.8.5",
+ "rpc",
  "secp256k1 0.30.0",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
  "tracing",
+ "url",
 ]
 
 [[package]]

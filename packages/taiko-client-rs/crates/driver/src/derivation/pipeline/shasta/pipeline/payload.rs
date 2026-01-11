@@ -11,7 +11,10 @@ use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
-use protocol::shasta::manifest::{BlockManifest, DerivationSourceManifest};
+use protocol::shasta::{
+    encode_extra_data,
+    manifest::{BlockManifest, DerivationSourceManifest},
+};
 
 use crate::{
     derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
@@ -25,10 +28,7 @@ use super::{
     ShastaDerivationPipeline,
     bundle::{BundleMeta, SourceManifestSegment},
     state::ParentState,
-    util::{
-        calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data,
-        encode_transactions,
-    },
+    util::{calculate_shasta_difficulty, compute_build_payload_args_id, encode_transactions},
 };
 
 /// Context describing a manifest segment during payload derivation.

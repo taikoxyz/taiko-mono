@@ -1,10 +1,16 @@
 //! High level driver orchestration.
 
 use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
+use std::sync::Arc;
 use tracing::{info, instrument};
 
-use crate::{config::DriverConfig, error::Result, sync::SyncPipeline};
-use rpc::client::Client;
+use crate::{
+    config::DriverConfig,
+    error::{DriverError, Result},
+    jsonrpc::DriverRpcServer,
+    sync::SyncPipeline,
+};
+use rpc::client::{Client, read_jwt_secret};
 
 /// Type alias for the default RPC client used by the driver.
 pub type DriverRpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
@@ -27,10 +33,32 @@ impl Driver {
     }
 
     /// Start the driver until completion.
+    ///
+    /// When the driver RPC server is enabled, it requires a dedicated JWT secret
+    /// configured via `rpc_jwt_secret`.
     #[instrument(skip(self))]
     pub async fn run(&self) -> Result<()> {
         info!(?self.cfg, "starting driver sync pipeline");
-        SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?.run().await?;
+        let pipeline = SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?;
+
+        let _rpc_server = if let Some(listen_addr) = self.cfg.rpc_listen_addr {
+            let jwt_secret = read_jwt_secret(
+                self.cfg.rpc_jwt_secret.clone().ok_or(DriverError::DriverRpcJwtSecretMissing)?,
+            )
+            .ok_or(DriverError::DriverRpcJwtSecretReadFailed)?;
+            Some(
+                DriverRpcServer::start(
+                    listen_addr,
+                    jwt_secret,
+                    pipeline.event_syncer() as Arc<dyn crate::jsonrpc::DriverRpcApi>,
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
+
+        pipeline.run().await?;
         Ok(())
     }
 
