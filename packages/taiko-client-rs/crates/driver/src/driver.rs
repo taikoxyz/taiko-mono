@@ -2,7 +2,7 @@
 
 use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 use std::sync::Arc;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::DriverConfig,
@@ -42,10 +42,26 @@ impl Driver {
         let pipeline = SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?;
 
         let _rpc_server = if let Some(listen_addr) = self.cfg.rpc_listen_addr {
-            let jwt_secret = read_jwt_secret(
-                self.cfg.rpc_jwt_secret.clone().ok_or(DriverError::DriverRpcJwtSecretMissing)?,
-            )
-            .ok_or(DriverError::DriverRpcJwtSecretReadFailed)?;
+            info!(addr = %listen_addr, "driver RPC server enabled");
+
+            let jwt_secret_path = match &self.cfg.rpc_jwt_secret {
+                Some(path) => path.clone(),
+                None => {
+                    error!("driver RPC server enabled but jwt secret path not configured");
+                    return Err(DriverError::DriverRpcJwtSecretMissing);
+                }
+            };
+
+            let jwt_secret = match read_jwt_secret(jwt_secret_path.clone()) {
+                Some(secret) => {
+                    info!(path = ?jwt_secret_path, "loaded driver RPC JWT secret");
+                    secret
+                }
+                None => {
+                    error!(path = ?jwt_secret_path, "failed to read driver RPC JWT secret");
+                    return Err(DriverError::DriverRpcJwtSecretReadFailed);
+                }
+            };
             Some(
                 DriverRpcServer::start(
                     listen_addr,
@@ -55,6 +71,7 @@ impl Driver {
                 .await?,
             )
         } else {
+            warn!("driver RPC server disabled (no listen address configured)");
             None
         };
 

@@ -6,6 +6,7 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
+    time::Instant,
 };
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
@@ -16,10 +17,14 @@ use jsonrpsee::{
     server::{HttpBody, HttpRequest, HttpResponse, ServerBuilder, ServerHandle},
     types::{ErrorObjectOwned, Params},
 };
+use metrics::{counter, histogram};
 use tower::{Service, ServiceBuilder};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
-use crate::error::{DriverError, Result as DriverResult};
+use crate::{
+    error::{DriverError, Result as DriverResult},
+    metrics::DriverMetrics,
+};
 
 /// Driver JSON-RPC method names.
 #[derive(Debug, Clone, Copy)]
@@ -116,11 +121,30 @@ fn build_rpc_module(api: Arc<dyn DriverRpcApi>) -> RpcModule<DriverRpcContext> {
         .register_async_method(
             DriverRpcMethod::SubmitPreconfirmationPayload.as_str(),
             |params: Params<'static>, ctx: Arc<DriverRpcContext>, _| async move {
-                ctx.api
-                    .submit_execution_payload_v2(params.one()?)
-                    .await
-                    .map(|()| true)
-                    .map_err(driver_error_into_rpc)
+                let method = DriverRpcMethod::SubmitPreconfirmationPayload.as_str();
+                let start = Instant::now();
+                debug!(method, "received RPC request");
+
+                let result = ctx.api.submit_execution_payload_v2(params.one()?).await;
+
+                let duration_secs = start.elapsed().as_secs_f64();
+                histogram!(DriverMetrics::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_DURATION_SECONDS)
+                    .record(duration_secs);
+                counter!(DriverMetrics::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_REQUESTS_TOTAL)
+                    .increment(1);
+
+                match &result {
+                    Ok(()) => {
+                        debug!(method, duration_secs, "RPC request succeeded");
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_ERRORS_TOTAL)
+                            .increment(1);
+                        warn!(method, ?err, duration_secs, "RPC request failed");
+                    }
+                }
+
+                result.map(|()| true).map_err(driver_error_into_rpc)
             },
         )
         .expect("method registration should succeed");
@@ -128,7 +152,21 @@ fn build_rpc_module(api: Arc<dyn DriverRpcApi>) -> RpcModule<DriverRpcContext> {
     module
         .register_method(
             DriverRpcMethod::LastCanonicalProposalId.as_str(),
-            |_, ctx: &DriverRpcContext, _| ctx.api.last_canonical_proposal_id(),
+            |_, ctx: &DriverRpcContext, _| {
+                let method = DriverRpcMethod::LastCanonicalProposalId.as_str();
+                let start = Instant::now();
+                debug!(method, "received RPC request");
+
+                let result = ctx.api.last_canonical_proposal_id();
+
+                let duration_secs = start.elapsed().as_secs_f64();
+                histogram!(DriverMetrics::RPC_LAST_CANONICAL_PROPOSAL_ID_DURATION_SECONDS)
+                    .record(duration_secs);
+                counter!(DriverMetrics::RPC_LAST_CANONICAL_PROPOSAL_ID_REQUESTS_TOTAL).increment(1);
+                debug!(method, result, duration_secs, "RPC request succeeded");
+
+                result
+            },
         )
         .expect("method registration should succeed");
 
@@ -166,11 +204,13 @@ where
 
     /// Validate JWT header before forwarding the request to the inner service.
     fn call(&mut self, request: HttpRequest) -> Self::Future {
-        let is_valid = validate_jwt_header(&request, &self.jwt_secret).is_ok();
+        let validation_result = validate_jwt_header(&request, &self.jwt_secret);
         let mut inner = self.service.clone();
 
         Box::pin(async move {
-            if !is_valid {
+            if let Err(err) = validation_result {
+                counter!(DriverMetrics::RPC_UNAUTHORIZED_TOTAL).increment(1);
+                warn!(?err, "RPC request rejected: unauthorized");
                 return Ok(unauthorized_response());
             }
             inner.call(request).await

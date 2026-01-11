@@ -8,9 +8,11 @@ use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
 use rpc::client::{build_jwt_http_provider, read_jwt_secret};
-use tokio::time::sleep;
-use tracing::{debug, info};
+use tokio::time::{Instant, sleep};
+use tracing::{debug, error, info};
 use url::Url;
+
+use crate::metrics::PreconfirmationClientMetrics;
 
 use super::{
     payload::build_taiko_payload_attributes,
@@ -114,10 +116,26 @@ impl JsonRpcDriverClient {
 
     /// Fetch the last canonical proposal id reported by the driver.
     async fn last_canonical_proposal_id(&self) -> Result<u64> {
-        self.driver_provider
+        let start = Instant::now();
+        let result = self
+            .driver_provider
             .raw_request(Cow::Borrowed(DriverRpcMethod::LastCanonicalProposalId.as_str()), ())
             .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))
+            .map_err(|err| {
+                metrics::counter!(
+                    PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL
+                )
+                .increment(1);
+                error!(error = %err, "driver RPC lastCanonicalProposalId failed");
+                PreconfirmationClientError::DriverClient(err.to_string())
+            });
+
+        metrics::histogram!(
+            PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_DURATION_SECONDS
+        )
+        .record(start.elapsed().as_secs_f64());
+
+        result
     }
 }
 
@@ -125,6 +143,11 @@ impl JsonRpcDriverClient {
 impl DriverClient for JsonRpcDriverClient {
     /// Submit a preconfirmation payload to the driver over JSON-RPC.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
+        let preconf = &input.commitment.commitment.preconf;
+        let block_number =
+            preconfirmation_types::uint256_to_u256(&preconf.block_number).to::<u64>();
+        let proposal_id = preconfirmation_types::uint256_to_u256(&preconf.proposal_id).to::<u64>();
+
         let config = self
             .inbox
             .getConfig()
@@ -133,24 +156,77 @@ impl DriverClient for JsonRpcDriverClient {
             .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
         let basefee_sharing_pctg = config.basefeeSharingPctg;
 
+        // Build the payload with timing and error metrics.
+        let payload_build_start = Instant::now();
         let payload =
-            build_taiko_payload_attributes(&input, basefee_sharing_pctg, &self.l2_provider).await?;
+            match build_taiko_payload_attributes(&input, basefee_sharing_pctg, &self.l2_provider)
+                .await
+            {
+                Ok(payload) => {
+                    metrics::histogram!(
+                        PreconfirmationClientMetrics::PAYLOAD_BUILD_DURATION_SECONDS
+                    )
+                    .record(payload_build_start.elapsed().as_secs_f64());
+                    payload
+                }
+                Err(err) => {
+                    metrics::histogram!(
+                        PreconfirmationClientMetrics::PAYLOAD_BUILD_DURATION_SECONDS
+                    )
+                    .record(payload_build_start.elapsed().as_secs_f64());
+                    metrics::counter!(PreconfirmationClientMetrics::PAYLOAD_BUILD_FAILURES_TOTAL)
+                        .increment(1);
+                    error!(
+                        block_number,
+                        proposal_id,
+                        error = %err,
+                        "failed to build payload attributes"
+                    );
+                    return Err(err);
+                }
+            };
 
-        let _ok: bool = self
+        // Submit to driver with timing and error metrics.
+        debug!(block_number, proposal_id, "submitting preconfirmation payload to driver");
+
+        let rpc_start = Instant::now();
+        let result: std::result::Result<bool, _> = self
             .driver_provider
             .raw_request(
                 Cow::Borrowed(DriverRpcMethod::SubmitPreconfirmationPayload.as_str()),
                 (payload,),
             )
-            .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
+            .await;
 
-        Ok(())
+        metrics::histogram!(PreconfirmationClientMetrics::DRIVER_RPC_SUBMIT_DURATION_SECONDS)
+            .record(rpc_start.elapsed().as_secs_f64());
+
+        match result {
+            Ok(_) => {
+                debug!(
+                    block_number,
+                    proposal_id, "successfully submitted preconfirmation payload to driver"
+                );
+                Ok(())
+            }
+            Err(err) => {
+                metrics::counter!(PreconfirmationClientMetrics::DRIVER_RPC_SUBMIT_ERRORS_TOTAL)
+                    .increment(1);
+                error!(
+                    block_number,
+                    proposal_id,
+                    error = %err,
+                    "driver RPC submitPreconfirmationPayload failed"
+                );
+                Err(PreconfirmationClientError::DriverClient(err.to_string()))
+            }
+        }
     }
 
     /// Wait until the driver reports it has caught up with the L1 inbox.
     async fn wait_event_sync(&self) -> Result<()> {
-        info!("waiting for driver to sync with L1 inbox events");
+        info!("starting wait for driver to sync with L1 inbox events");
+        let start = Instant::now();
 
         loop {
             let last = self.last_canonical_proposal_id().await?;
@@ -169,15 +245,25 @@ impl DriverClient for JsonRpcDriverClient {
             );
 
             if next == 0 {
-                info!("driver event sync complete (no proposals in inbox)");
+                let elapsed = start.elapsed();
+                metrics::histogram!(PreconfirmationClientMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS)
+                    .record(elapsed.as_secs_f64());
+                info!(
+                    duration_secs = elapsed.as_secs_f64(),
+                    "driver event sync complete (no proposals in inbox)"
+                );
                 return Ok(());
             }
 
             let target = next.saturating_sub(1);
             if last >= target {
+                let elapsed = start.elapsed();
+                metrics::histogram!(PreconfirmationClientMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS)
+                    .record(elapsed.as_secs_f64());
                 info!(
                     last_canonical_proposal_id = last,
                     target_proposal_id = target,
+                    duration_secs = elapsed.as_secs_f64(),
                     "driver event sync complete"
                 );
                 return Ok(());

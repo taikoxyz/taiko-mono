@@ -247,6 +247,7 @@ where
             );
 
             self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
+            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
         Ok(())
@@ -309,23 +310,66 @@ where
         timeout_duration: Duration,
     ) -> Result<(), DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
+        let block_number = payload.block_number();
+
+        debug!(block_number, "submitting preconfirmation payload to queue");
 
         // Create oneshot channel for receiving the processing result.
         let (resp_tx, resp_rx) = oneshot::channel();
         // Enqueue the preconfirmation job with timeout.
-        timeout(
+        let enqueue_result = timeout(
             timeout_duration,
             tx.send(PreconfJob { payload: Arc::new(payload), respond_to: resp_tx }),
         )
-        .await
-        .map_err(|_| DriverError::PreconfEnqueueTimeout { waited: timeout_duration })?
-        .map_err(|err| DriverError::PreconfEnqueueFailed(err.to_string()))?;
+        .await;
+
+        match enqueue_result {
+            Err(_) => {
+                counter!(DriverMetrics::PRECONF_ENQUEUE_TIMEOUTS_TOTAL).increment(1);
+                error!(
+                    block_number,
+                    timeout_ms = timeout_duration.as_millis() as u64,
+                    "preconfirmation enqueue timed out"
+                );
+                return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
+            }
+            Ok(Err(err)) => {
+                counter!(DriverMetrics::PRECONF_ENQUEUE_FAILURES_TOTAL).increment(1);
+                error!(block_number, ?err, "preconfirmation enqueue failed");
+                return Err(DriverError::PreconfEnqueueFailed(err.to_string()));
+            }
+            Ok(Ok(())) => {
+                debug!(block_number, "preconfirmation payload enqueued successfully");
+            }
+        }
 
         // Await the processing result with timeout.
-        timeout(timeout_duration, resp_rx)
-            .await
-            .map_err(|_| DriverError::PreconfResponseTimeout { waited: timeout_duration })?
-            .map_err(|err| DriverError::PreconfResponseDropped { recv_error: err })??;
+        let response_result = timeout(timeout_duration, resp_rx).await;
+
+        match response_result {
+            Err(_) => {
+                counter!(DriverMetrics::PRECONF_RESPONSE_TIMEOUTS_TOTAL).increment(1);
+                error!(
+                    block_number,
+                    timeout_ms = timeout_duration.as_millis() as u64,
+                    "preconfirmation response timed out"
+                );
+                return Err(DriverError::PreconfResponseTimeout { waited: timeout_duration });
+            }
+            Ok(Err(err)) => {
+                counter!(DriverMetrics::PRECONF_RESPONSE_DROPPED_TOTAL).increment(1);
+                error!(block_number, ?err, "preconfirmation response channel closed");
+                return Err(DriverError::PreconfResponseDropped { recv_error: err });
+            }
+            Ok(Ok(inner_result)) => {
+                if let Err(ref err) = inner_result {
+                    warn!(block_number, ?err, "preconfirmation processing returned error");
+                }
+                inner_result?;
+            }
+        }
+
+        debug!(block_number, "preconfirmation payload processed successfully");
         Ok(())
     }
 

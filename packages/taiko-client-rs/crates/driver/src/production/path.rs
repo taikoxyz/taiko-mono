@@ -1,11 +1,12 @@
 //! Production paths that materialise inputs into execution blocks.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use super::{ProductionError, ProductionPathKind, kind::ProductionInput};
 use crate::{
     derivation::DerivationPipeline,
     error::DriverError,
+    metrics::DriverMetrics,
     sync::{
         engine::{EngineBlockOutcome, PayloadApplier},
         error::SyncError,
@@ -13,7 +14,9 @@ use crate::{
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
+use metrics::{counter, histogram};
 use rpc::{RpcClientError, client::Client};
+use tracing::{debug, error};
 
 /// A block-production path capable of materialising the provided input into execution blocks.
 ///
@@ -95,7 +98,39 @@ where
                 let payload = preconf.payload();
                 let block_number = preconf.block_number();
                 let parent_number = block_number.saturating_sub(1);
-                let parent_hash = self.applier.block_hash_by_number(parent_number).await?;
+
+                // Measure parent hash lookup duration.
+                let lookup_start = Instant::now();
+                let parent_hash_result = self.applier.block_hash_by_number(parent_number).await;
+                let lookup_duration_secs = lookup_start.elapsed().as_secs_f64();
+                histogram!(DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_DURATION_SECONDS)
+                    .record(lookup_duration_secs);
+
+                let parent_hash = match parent_hash_result {
+                    Ok(hash) => {
+                        debug!(
+                            block_number,
+                            parent_number,
+                            ?hash,
+                            lookup_duration_secs,
+                            "parent hash lookup succeeded"
+                        );
+                        hash
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_FAILURES_TOTAL)
+                            .increment(1);
+                        error!(
+                            block_number,
+                            parent_number,
+                            ?err,
+                            lookup_duration_secs,
+                            "parent hash lookup failed"
+                        );
+                        return Err(err);
+                    }
+                };
+
                 let applied =
                     self.applier.apply_payload(payload, parent_hash, None).await.map_err(
                         |err| DriverError::PreconfInjectionFailed { block_number, source: err },
