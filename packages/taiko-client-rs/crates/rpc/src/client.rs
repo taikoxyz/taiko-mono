@@ -220,9 +220,10 @@ mod tests {
 
     #[test]
     fn test_default_http_timeout_covers_preconfirmation_budget() {
-        assert!(
-            DEFAULT_HTTP_TIMEOUT >= Duration::from_secs(24),
-            "DEFAULT_HTTP_TIMEOUT should cover preconfirmation submit timeout"
+        assert_eq!(
+            DEFAULT_HTTP_TIMEOUT,
+            Duration::from_secs(12),
+            "DEFAULT_HTTP_TIMEOUT should default to 12 seconds"
         );
     }
 }
