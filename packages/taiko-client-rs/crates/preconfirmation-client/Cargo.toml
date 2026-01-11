@@ -35,6 +35,10 @@ rpc = { path = "../rpc" }
 
 [dev-dependencies]
 alloy-transport = { workspace = true }
+driver = { path = "../driver" }
+libp2p = { version = "0.56", default-features = false }
 rand = { workspace = true }
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
+serial_test = { workspace = true }
+test-harness = { path = "../test-harness" }
 tokio = { workspace = true, features = ["full"] }

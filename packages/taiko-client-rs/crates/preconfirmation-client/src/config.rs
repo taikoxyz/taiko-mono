@@ -2,6 +2,7 @@
 
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
+    sync::Arc,
     time::Duration,
 };
 
@@ -9,7 +10,7 @@ use alloy_primitives::Address;
 use alloy_provider::Provider;
 use preconfirmation_net::P2pConfig;
 use preconfirmation_types::Bytes20;
-use protocol::preconfirmation::LookaheadResolver;
+use protocol::preconfirmation::{LookaheadResolver, PreconfSignerResolver};
 
 use crate::Result;
 
@@ -30,7 +31,7 @@ pub struct PreconfirmationClientConfig {
     /// Optional concurrency limit for catch-up txlist fetches (None = default 4).
     pub txlist_fetch_concurrency: Option<usize>,
     /// Lookahead resolver used for signer/slot validation.
-    pub lookahead_resolver: LookaheadResolver,
+    pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
     /// Maximum number of commitments/txlists retained in memory.
     pub retention_limit: usize,
 }
@@ -44,7 +45,7 @@ impl Debug for PreconfirmationClientConfig {
             .field("request_timeout", &self.request_timeout)
             .field("catchup_batch_size", &self.catchup_batch_size)
             .field("txlist_fetch_concurrency", &self.txlist_fetch_concurrency)
-            .field("lookahead_resolver", &"<LookaheadResolver>")
+            .field("lookahead_resolver", &"<PreconfSignerResolver>")
             .field("retention_limit", &self.retention_limit)
             .finish()
     }
@@ -56,7 +57,7 @@ impl PreconfirmationClientConfig {
     where
         P: Provider + Clone + Send + Sync + 'static,
     {
-        let lookahead_resolver = LookaheadResolver::build(inbox_address, provider).await?;
+        let lookahead_resolver = Arc::new(LookaheadResolver::build(inbox_address, provider).await?);
         Ok(Self {
             p2p,
             expected_slasher: None,

@@ -227,15 +227,6 @@ where
             event_tx,
         } = self;
 
-        info!("waiting for driver event sync to complete");
-        // Wait for the driver to report event sync completion.
-        driver.wait_event_sync().await?;
-
-        // Read the driver event sync tip to determine catch-up bounds.
-        let event_sync_tip = driver.event_sync_tip().await?;
-
-        info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
-
         // Build the event handler for gossip processing.
         let handler = EventHandler::new(
             store.clone(),
@@ -244,11 +235,29 @@ where
             config.expected_slasher.clone(),
             event_tx.clone(),
             handle.command_sender(),
-            Arc::new(config.lookahead_resolver.clone()),
+            config.lookahead_resolver.clone(),
         );
 
         // Spawn the P2P node loop before running catch-up.
         let node_handle = tokio::spawn(async move { node.run().await });
+
+        info!("waiting for driver event sync to complete");
+        // Wait for the driver to report event sync completion.
+        if let Err(err) = driver.wait_event_sync().await {
+            node_handle.abort();
+            return Err(err);
+        }
+
+        // Read the driver event sync tip to determine catch-up bounds.
+        let event_sync_tip = match driver.event_sync_tip().await {
+            Ok(tip) => tip,
+            Err(err) => {
+                node_handle.abort();
+                return Err(err);
+            }
+        };
+
+        info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
 
         // Run the catch-up flow.
         let catchup_result = async {

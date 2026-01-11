@@ -126,6 +126,9 @@ impl NetworkDriver {
     /// Handles incoming `NetworkCommand`s from the service layer.
     fn handle_command(&mut self, cmd: NetworkCommand) {
         match cmd {
+            NetworkCommand::Dial { addr } => {
+                let _ = self.swarm.dial(addr);
+            }
             NetworkCommand::PublishCommitment(msg) => {
                 let topic = self.topics.0.clone();
                 if let Err(err) = self.publish_gossip(&topic, msg) {

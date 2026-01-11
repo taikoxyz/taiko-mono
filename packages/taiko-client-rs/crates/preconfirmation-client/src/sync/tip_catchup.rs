@@ -301,7 +301,7 @@ impl TipCatchup {
             &map_commitments(fetched),
             stop_block,
             self.config.expected_slasher.as_ref(),
-            &self.config.lookahead_resolver,
+            self.config.lookahead_resolver.as_ref(),
         )
         .await;
 

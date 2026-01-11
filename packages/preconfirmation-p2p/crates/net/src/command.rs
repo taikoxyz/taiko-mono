@@ -3,7 +3,7 @@
 //! This module defines the [`NetworkCommand`] enum, which represents actions
 //! that the service layer can request from the network driver.
 
-use libp2p::PeerId;
+use libp2p::{Multiaddr, PeerId};
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, Uint256};
 use tokio::sync::oneshot;
 
@@ -13,6 +13,11 @@ use tokio::sync::oneshot;
 /// messages, requesting data from peers, or updating internal state.
 #[derive(Debug)]
 pub enum NetworkCommand {
+    /// Dial a peer at the given multiaddr.
+    Dial {
+        /// The multiaddr to dial.
+        addr: Multiaddr,
+    },
     /// Publish a signed commitment over gossipsub.
     /// The `SignedCommitment` will be serialized and broadcast to subscribed peers.
     PublishCommitment(SignedCommitment),
