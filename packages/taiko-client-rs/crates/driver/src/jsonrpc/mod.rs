@@ -1,19 +1,25 @@
 //! JSON-RPC server for driving preconfirmation injection.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    future::Future,
+    net::SocketAddr,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_rpc_types_engine::{JwtError, JwtSecret};
 use async_trait::async_trait;
 use jsonrpsee::{
     RpcModule,
-    server::{ServerBuilder, ServerHandle},
+    server::{HttpBody, HttpRequest, HttpResponse, ServerBuilder, ServerHandle},
     types::{ErrorObjectOwned, Params},
 };
-use tower::ServiceBuilder;
+use tower::{Service, ServiceBuilder};
 use tracing::info;
 
-use crate::error::DriverError;
+use crate::error::{DriverError, Result as DriverResult};
 
 /// Driver JSON-RPC method names.
 #[derive(Debug, Clone, Copy)]
@@ -41,7 +47,7 @@ pub trait DriverRpcApi: Send + Sync {
     async fn submit_execution_payload_v2(
         &self,
         payload: TaikoPayloadAttributes,
-    ) -> std::result::Result<(), DriverError>;
+    ) -> Result<(), DriverError>;
 
     /// Return the highest canonical proposal id processed from L1 events.
     fn last_canonical_proposal_id(&self) -> u64;
@@ -69,7 +75,7 @@ impl DriverRpcServer {
         listen_addr: SocketAddr,
         jwt_secret: JwtSecret,
         api: Arc<dyn DriverRpcApi>,
-    ) -> crate::error::Result<Self> {
+    ) -> DriverResult<Self> {
         let http_middleware =
             ServiceBuilder::new().layer_fn(move |service| JwtAuthService { service, jwt_secret });
 
@@ -94,9 +100,10 @@ impl DriverRpcServer {
     }
 
     /// Stop the server.
-    pub async fn stop(self) {
-        self.handle.stop().expect("server should stop");
+    pub async fn stop(self) -> DriverResult<()> {
+        let stop_result = self.handle.stop().map_err(DriverError::from);
         let _ = self.handle.stopped().await;
+        stop_result
     }
 }
 
@@ -141,34 +148,23 @@ struct JwtAuthService<S> {
     jwt_secret: JwtSecret,
 }
 
-impl<S> tower::Service<jsonrpsee::server::HttpRequest> for JwtAuthService<S>
+impl<S> Service<HttpRequest> for JwtAuthService<S>
 where
-    S: tower::Service<jsonrpsee::server::HttpRequest, Response = jsonrpsee::server::HttpResponse>
-        + Clone
-        + Send
-        + 'static,
+    S: Service<HttpRequest, Response = HttpResponse> + Clone + Send + 'static,
     S::Error: Send,
     S::Future: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = std::result::Result<Self::Response, Self::Error>>
-                + Send,
-        >,
-    >;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     /// Check whether the inner service is ready to accept a request.
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
     /// Validate JWT header before forwarding the request to the inner service.
-    fn call(&mut self, request: jsonrpsee::server::HttpRequest) -> Self::Future {
+    fn call(&mut self, request: HttpRequest) -> Self::Future {
         let is_valid = validate_jwt_header(&request, &self.jwt_secret).is_ok();
         let mut inner = self.service.clone();
 
@@ -182,10 +178,7 @@ where
 }
 
 /// Validate the HTTP authorization header against the engine JWT secret.
-fn validate_jwt_header(
-    request: &jsonrpsee::server::HttpRequest,
-    jwt_secret: &JwtSecret,
-) -> std::result::Result<(), JwtError> {
+fn validate_jwt_header(request: &HttpRequest, jwt_secret: &JwtSecret) -> Result<(), JwtError> {
     let Some(value) = request.headers().get("authorization") else {
         return Err(JwtError::MissingOrInvalidAuthorizationHeader);
     };
@@ -198,10 +191,30 @@ fn validate_jwt_header(
 }
 
 /// Build a 401 Unauthorized response for failed JWT validation.
-fn unauthorized_response() -> jsonrpsee::server::HttpResponse {
-    jsonrpsee::server::HttpResponse::builder()
+fn unauthorized_response() -> HttpResponse {
+    HttpResponse::builder()
         .status(401)
         .header("content-type", "text/plain")
-        .body(jsonrpsee::server::HttpBody::from("Unauthorized"))
+        .body(HttpBody::from("Unauthorized"))
         .expect("unauthorized response")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jsonrpsee::server::stop_channel;
+    use tokio::spawn;
+
+    #[tokio::test]
+    async fn stop_returns_error_when_already_stopped() {
+        let addr: SocketAddr = "127.0.0.1:0".parse().expect("valid addr");
+        let (stop_handle, handle) = stop_channel();
+        drop(stop_handle);
+
+        let server = DriverRpcServer { addr, handle };
+
+        let join = spawn(async move { server.stop().await });
+        let result = join.await.expect("stop task panicked");
+        assert!(matches!(result, Err(DriverError::DriverRpcAlreadyStopped(_))));
+    }
 }

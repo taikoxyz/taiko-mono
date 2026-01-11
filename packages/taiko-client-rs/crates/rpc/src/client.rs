@@ -1,6 +1,6 @@
 //! RPC client for interacting with L1 and L2 nodes.
 
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
@@ -14,7 +14,10 @@ use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
 use hyper::body::Bytes;
-use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
+use hyper_util::{
+    client::legacy::{Client as HyperService, connect::HttpConnector},
+    rt::TokioExecutor,
+};
 use tower::ServiceBuilder;
 use tracing::info;
 
@@ -137,10 +140,8 @@ impl<P: Provider + Clone> Client<P> {
 /// Builds a [`RootProvider`] backed by an HTTP transport that authenticates each request
 /// using the Engine API JWT scheme.
 pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
-    let hyper_client: HyperService<
-        hyper_util::client::legacy::connect::HttpConnector,
-        Full<Bytes>,
-    > = HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
+    let hyper_client: HyperService<HttpConnector, Full<Bytes>> =
+        HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
 
     let auth_layer = AuthLayer::new(secret);
     let service = ServiceBuilder::new().layer(auth_layer).service(hyper_client);
@@ -154,7 +155,7 @@ pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
 /// Returns the JWT secret for the engine API
 /// using the provided [PathBuf]. If the file is not found, it will return [None].
 pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
-    if let Ok(secret) = std::fs::read_to_string(path) {
+    if let Ok(secret) = fs::read_to_string(path) {
         return JwtSecret::from_hex(secret).ok();
     };
 

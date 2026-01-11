@@ -5,7 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
-use rpc::SubscriptionSource;
+use rpc::{SubscriptionSource, client::ClientConfig};
 
 use crate::{
     commands::Subcommand,
@@ -43,7 +43,7 @@ impl DriverSubCommand {
             None
         };
 
-        let client_cfg = rpc::client::ClientConfig {
+        let client_cfg = ClientConfig {
             l1_provider_source: l1_source,
             l2_provider_url: l2_http,
             l2_auth_provider_url: l2_auth,

@@ -45,7 +45,7 @@ use crate::{
     },
 };
 
-use rpc::{blob::BlobDataSource, client::Client};
+use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 
 /// Two Ethereum epochs worth of slots used as a reorg safety buffer.
 ///
@@ -342,7 +342,7 @@ where
             .get_block_by_number(BlockNumberOrTag::Latest)
             .full()
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingLatestExecutionBlock)?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
@@ -367,7 +367,7 @@ where
             .rpc
             .last_block_id_by_batch_id(U256::from(target_proposal_id))
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
         let target_block = self
             .rpc
@@ -375,7 +375,7 @@ where
             .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
             .full()
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
@@ -406,7 +406,7 @@ where
     async fn submit_execution_payload_v2(
         &self,
         payload: TaikoPayloadAttributes,
-    ) -> Result<(), crate::error::DriverError> {
+    ) -> Result<(), DriverError> {
         self.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
     }
 
@@ -430,7 +430,7 @@ where
             .activationTimestamp()
             .call()
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .to::<u64>();
 
         if activation_time == 0 {

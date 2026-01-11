@@ -7,7 +7,7 @@ use tracing::{info, instrument};
 use crate::{
     config::DriverConfig,
     error::{DriverError, Result},
-    jsonrpc::DriverRpcServer,
+    jsonrpc::{DriverRpcApi, DriverRpcServer},
     sync::SyncPipeline,
 };
 use rpc::client::{Client, read_jwt_secret};
@@ -50,7 +50,7 @@ impl Driver {
                 DriverRpcServer::start(
                     listen_addr,
                     jwt_secret,
-                    pipeline.event_syncer() as Arc<dyn crate::jsonrpc::DriverRpcApi>,
+                    pipeline.event_syncer() as Arc<dyn DriverRpcApi>,
                 )
                 .await?,
             )

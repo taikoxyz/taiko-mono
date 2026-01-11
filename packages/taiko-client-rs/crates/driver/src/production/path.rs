@@ -13,7 +13,7 @@ use crate::{
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
-use rpc::client::Client;
+use rpc::{RpcClientError, client::Client};
 
 /// A block-production path capable of materialising the provided input into execution blocks.
 ///
@@ -51,7 +51,7 @@ where
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Number(block_number))
             .await
-            .map_err(|err| DriverError::Rpc(rpc::error::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(DriverError::BlockNotFound(block_number))?;
         Ok(block.hash())
     }
@@ -165,7 +165,7 @@ where
 mod tests {
     use super::*;
     use crate::{
-        production::PreconfPayload,
+        production::{PreconfPayload, ProductionRouter},
         sync::{engine::AppliedPayload, error::EngineSubmissionError},
     };
     use alethia_reth_primitives::payload::attributes::{
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn router_routes_l1_to_canonical() {
         let canonical = Arc::new(MockPath::new(ProductionPathKind::L1Events));
-        let router = crate::production::ProductionRouter::new(vec![canonical.clone()]);
+        let router = ProductionRouter::new(vec![canonical.clone()]);
         let log = Log::default();
 
         let rt = Runtime::new().unwrap();
@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn router_routes_preconf_to_preconf_path() {
         let preconf = Arc::new(MockPath::new(ProductionPathKind::Preconfirmation));
-        let router = crate::production::ProductionRouter::new(vec![preconf.clone()]);
+        let router = ProductionRouter::new(vec![preconf.clone()]);
         let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
 
         let rt = Runtime::new().unwrap();

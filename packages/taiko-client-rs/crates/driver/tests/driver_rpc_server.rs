@@ -10,10 +10,17 @@ use std::{
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_rpc_types_engine::{Claims, JwtSecret};
 use async_trait::async_trait;
-use driver::jsonrpc::{DriverRpcApi, DriverRpcServer};
+use driver::{
+    error::DriverError,
+    jsonrpc::{DriverRpcApi, DriverRpcServer},
+};
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode, body::Bytes};
 use hyper_util::{client::legacy::Client as HyperClient, rt::TokioExecutor};
+use serde_json::{Value, from_slice, json, to_vec};
+
+/// Result type used by driver RPC server tests.
+type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 
 /// Minimal RPC API stub for server tests.
 #[derive(Default)]
@@ -28,7 +35,7 @@ impl DriverRpcApi for StubApi {
     async fn submit_execution_payload_v2(
         &self,
         _payload: TaikoPayloadAttributes,
-    ) -> Result<(), driver::error::DriverError> {
+    ) -> Result<(), DriverError> {
         Ok(())
     }
 
@@ -39,8 +46,8 @@ impl DriverRpcApi for StubApi {
 }
 
 /// Build a JSON-RPC request body for the given method and params.
-fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
-    serde_json::json!({
+fn jsonrpc_request(method: &str, params: Value) -> Value {
+    json!({
         "jsonrpc": "2.0",
         "id": 1,
         "method": method,
@@ -58,10 +65,8 @@ async fn rejects_requests_without_jwt() -> TestResult {
     let client: HyperClient<_, Full<Bytes>> =
         HyperClient::builder(TokioExecutor::new()).build_http();
 
-    let body = serde_json::to_vec(&jsonrpc_request(
-        "preconf_lastCanonicalProposalId",
-        serde_json::Value::Array(Vec::new()),
-    ))?;
+    let body =
+        to_vec(&jsonrpc_request("preconf_lastCanonicalProposalId", Value::Array(Vec::new())))?;
     let req = Request::post(server.http_url())
         .header("content-type", "application/json")
         .body(Full::new(Bytes::from(body)))?;
@@ -81,10 +86,8 @@ async fn last_canonical_proposal_id_is_exposed_over_rpc() -> TestResult {
     let client: HyperClient<_, Full<Bytes>> =
         HyperClient::builder(TokioExecutor::new()).build_http();
     let jwt = secret.encode(&Claims::default())?;
-    let body = serde_json::to_vec(&jsonrpc_request(
-        "preconf_lastCanonicalProposalId",
-        serde_json::Value::Array(Vec::new()),
-    ))?;
+    let body =
+        to_vec(&jsonrpc_request("preconf_lastCanonicalProposalId", Value::Array(Vec::new())))?;
     let req = Request::post(server.http_url())
         .header("content-type", "application/json")
         .header("authorization", format!("Bearer {jwt}"))
@@ -93,9 +96,7 @@ async fn last_canonical_proposal_id_is_exposed_over_rpc() -> TestResult {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let bytes = resp.into_body().collect().await?.to_bytes();
-    let value: serde_json::Value = serde_json::from_slice(&bytes)?;
+    let value: Value = from_slice(&bytes)?;
     assert_eq!(value["result"].as_u64(), Some(42));
     Ok(())
 }
-/// Result type used by driver RPC server tests.
-type TestResult<T = ()> = std::result::Result<T, Box<dyn Error>>;

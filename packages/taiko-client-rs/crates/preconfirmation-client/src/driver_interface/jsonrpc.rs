@@ -7,7 +7,9 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
+use rpc::client::{build_jwt_http_provider, read_jwt_secret};
 use tokio::time::sleep;
+use tracing::{debug, info};
 use url::Url;
 
 use super::{
@@ -91,11 +93,12 @@ pub struct JsonRpcDriverClient {
 impl JsonRpcDriverClient {
     /// Create a new JSON-RPC driver client.
     pub fn new(cfg: JsonRpcDriverClientConfig) -> Result<Self> {
-        let jwt_secret = rpc::client::read_jwt_secret(cfg.driver_jwt_secret).ok_or_else(|| {
-            PreconfirmationClientError::DriverClient("failed to read jwt secret".into())
-        })?;
-
-        let driver_provider = rpc::client::build_jwt_http_provider(cfg.driver_rpc_url, jwt_secret);
+        let driver_provider = build_jwt_http_provider(
+            cfg.driver_rpc_url,
+            read_jwt_secret(cfg.driver_jwt_secret).ok_or_else(|| {
+                PreconfirmationClientError::DriverClient("failed to read jwt secret".into())
+            })?,
+        );
 
         let l1_provider = ProviderBuilder::default().connect_http(cfg.l1_rpc_url);
         let l2_provider = ProviderBuilder::default().connect_http(cfg.l2_rpc_url);
@@ -147,6 +150,8 @@ impl DriverClient for JsonRpcDriverClient {
 
     /// Wait until the driver reports it has caught up with the L1 inbox.
     async fn wait_event_sync(&self) -> Result<()> {
+        info!("waiting for driver to sync with L1 inbox events");
+
         loop {
             let last = self.last_canonical_proposal_id().await?;
             let core_state = self
@@ -157,14 +162,33 @@ impl DriverClient for JsonRpcDriverClient {
                 .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
             let next = core_state.nextProposalId.to::<u64>();
 
+            debug!(
+                last_canonical_proposal_id = last,
+                next_proposal_id = next,
+                "checking driver event sync progress"
+            );
+
             if next == 0 {
+                info!("driver event sync complete (no proposals in inbox)");
                 return Ok(());
             }
 
-            if last >= next.saturating_sub(1) {
+            let target = next.saturating_sub(1);
+            if last >= target {
+                info!(
+                    last_canonical_proposal_id = last,
+                    target_proposal_id = target,
+                    "driver event sync complete"
+                );
                 return Ok(());
             }
 
+            debug!(
+                last_canonical_proposal_id = last,
+                target_proposal_id = target,
+                poll_interval_secs = self.event_sync_poll_interval.as_secs(),
+                "driver not yet synced, waiting"
+            );
             sleep(self.event_sync_poll_interval).await;
         }
     }

@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn encodes_proposal_id_into_extra_data() {
         let basefee_sharing_pctg = 9;
-        let extra = protocol::shasta::encode_extra_data(basefee_sharing_pctg, 0x0102_0304_0506);
+        let extra = encode_extra_data(basefee_sharing_pctg, 0x0102_0304_0506);
         assert_eq!(extra.len(), 7);
         assert_eq!(extra[0], basefee_sharing_pctg);
         assert_eq!(&extra[1..7], &[0x01, 0x02, 0x03, 0x04, 0x05, 0x06]);
