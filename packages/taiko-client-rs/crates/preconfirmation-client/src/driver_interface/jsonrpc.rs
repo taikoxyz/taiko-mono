@@ -4,10 +4,10 @@ use std::{borrow::Cow, path::PathBuf, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
-use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_provider::{Provider, RootProvider};
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
-use rpc::client::{build_jwt_http_provider, read_jwt_secret};
+use rpc::client::{build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret};
 use tokio::time::{Instant, sleep};
 use tracing::{debug, error, info};
 use url::Url;
@@ -102,8 +102,8 @@ impl JsonRpcDriverClient {
             })?,
         );
 
-        let l1_provider = ProviderBuilder::default().connect_http(cfg.l1_rpc_url);
-        let l2_provider = ProviderBuilder::default().connect_http(cfg.l2_rpc_url);
+        let l1_provider = connect_http_with_timeout(cfg.l1_rpc_url);
+        let l2_provider = connect_http_with_timeout(cfg.l2_rpc_url);
         let inbox = InboxInstance::new(cfg.inbox_address, l1_provider);
 
         Ok(Self {

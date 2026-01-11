@@ -1,6 +1,6 @@
 //! RPC client for interacting with L1 and L2 nodes.
 
-use std::{fs, path::PathBuf};
+use std::{fs, io, path::PathBuf, time::Duration};
 
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
@@ -18,7 +18,8 @@ use hyper_util::{
     client::legacy::{Client as HyperService, connect::HttpConnector},
     rt::TokioExecutor,
 };
-use tower::ServiceBuilder;
+use reqwest::Client as ReqwestClient;
+use tower::{ServiceBuilder, timeout::TimeoutLayer};
 use tracing::info;
 
 use crate::{
@@ -28,6 +29,9 @@ use crate::{
 
 /// Type alias for a Client with a provider that includes a wallet.
 pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
+
+/// Default HTTP timeout for RPC and auxiliary HTTP clients.
+pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Instances of Shasta protocol contracts.
 #[derive(Clone, Debug)]
@@ -94,7 +98,7 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
 impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
-        let l2_provider = ProviderBuilder::default().connect_http(config.l2_provider_url);
+        let l2_provider = connect_http_with_timeout(config.l2_provider_url);
         let jwt_secret = read_jwt_secret(config.jwt_secret.clone()).ok_or_else(|| {
             RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
         })?;
@@ -137,6 +141,16 @@ impl<P: Provider + Clone> Client<P> {
     }
 }
 
+/// Build a reqwest HTTP client with a bounded timeout.
+fn reqwest_client_with_timeout() -> ReqwestClient {
+    ReqwestClient::builder().timeout(DEFAULT_HTTP_TIMEOUT).build().expect("http client")
+}
+
+/// Build a [`RootProvider`] backed by a reqwest client with a bounded timeout.
+pub fn connect_http_with_timeout(url: Url) -> RootProvider {
+    ProviderBuilder::default().connect_reqwest(reqwest_client_with_timeout(), url)
+}
+
 /// Builds a [`RootProvider`] backed by an HTTP transport that authenticates each request
 /// using the Engine API JWT scheme.
 pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
@@ -144,7 +158,11 @@ pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
         HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
 
     let auth_layer = AuthLayer::new(secret);
-    let service = ServiceBuilder::new().layer(auth_layer).service(hyper_client);
+    let service = ServiceBuilder::new()
+        .map_err(io::Error::other)
+        .layer(TimeoutLayer::new(DEFAULT_HTTP_TIMEOUT))
+        .layer(auth_layer)
+        .service(hyper_client);
 
     let layer_transport = HyperClient::<Full<Bytes>, _>::with_service(service);
     let http_hyper = Http::with_client(layer_transport, url);
