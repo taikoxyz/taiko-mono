@@ -3347,6 +3347,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
  "alloy-sol-types",
+ "alloy-transport",
  "anyhow",
  "async-trait",
  "bindings",

@@ -3,7 +3,7 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -74,6 +74,8 @@ where
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
     /// Tracks the highest canonical proposal id processed from L1 events.
     last_canonical_proposal_id: Arc<AtomicU64>,
+    /// Indicates whether the preconfirmation ingress loop is ready to accept submissions.
+    preconf_ingress_ready: Arc<AtomicBool>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
@@ -128,6 +130,7 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         rx: Arc<AsyncMutex<PreconfReceiver>>,
+        ready_flag: Arc<AtomicBool>,
     ) {
         spawn(async move {
             // Start consuming externally supplied preconfirmation payloads.
@@ -136,6 +139,8 @@ where
                 "started preconfirmation ingress loop"
             );
             let mut rx = rx.lock().await;
+            // Signal that the ingress loop is ready to accept submissions.
+            ready_flag.store(true, Ordering::Release);
             while let Some(payload) = rx.recv().await {
                 // Track current backlog before processing this job.
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
@@ -278,6 +283,7 @@ where
             preconf_tx,
             preconf_rx,
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+            preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -310,6 +316,12 @@ where
         timeout_duration: Duration,
     ) -> Result<(), DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
+
+        // Reject early if ingress loop is not ready yet.
+        if !self.preconf_ingress_ready.load(Ordering::Acquire) {
+            return Err(DriverError::PreconfIngressNotReady);
+        }
+
         let block_number = payload.block_number();
 
         debug!(block_number, "submitting preconfirmation payload to queue");
@@ -599,7 +611,7 @@ where
 
         // Spawn preconfirmation ingress loop if enabled.
         if let Some(rx) = self.preconf_rx.clone() {
-            self.spawn_preconf_ingress(router.clone(), rx);
+            self.spawn_preconf_ingress(router.clone(), rx, self.preconf_ingress_ready.clone());
         }
 
         while let Some(message) = stream.next().await {
@@ -624,5 +636,123 @@ where
             self.process_log_batch(router.clone(), logs).await?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use alethia_reth_primitives::payload::attributes::{RpcL1Origin, TaikoBlockMetadata};
+    use alloy::{
+        primitives::{Address, B256, Bytes, U256},
+        transports::http::reqwest::Url,
+    };
+    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+    use alloy_transport::mock::Asserter;
+    use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
+    use rpc::{
+        SubscriptionSource,
+        blob::BlobDataSource,
+        client::{Client, ClientConfig, ShastaProtocolInstance},
+    };
+
+    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
+        let payload_attributes = EthPayloadAttributes {
+            timestamp: 0,
+            prev_randao: B256::ZERO,
+            suggested_fee_recipient: Address::ZERO,
+            withdrawals: Some(Vec::new()),
+            parent_beacon_block_root: None,
+        };
+        let block_metadata = TaikoBlockMetadata {
+            beneficiary: Address::ZERO,
+            gas_limit: 0,
+            timestamp: U256::ZERO,
+            mix_hash: B256::ZERO,
+            tx_list: Bytes::new(),
+            extra_data: Bytes::new(),
+        };
+        let l1_origin = RpcL1Origin {
+            block_id: U256::from(block_number),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        };
+
+        TaikoPayloadAttributes {
+            payload_attributes,
+            base_fee_per_gas: U256::ZERO,
+            block_metadata,
+            l1_origin,
+        }
+    }
+
+    fn mock_client() -> Client<RootProvider> {
+        let l1_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    async fn build_syncer() -> EventSyncer<RootProvider> {
+        let client_config = ClientConfig {
+            l1_provider_source: SubscriptionSource::Ws(
+                Url::parse("ws://localhost:8546").expect("valid ws url"),
+            ),
+            l2_provider_url: Url::parse("http://localhost:8545").expect("valid http url"),
+            l2_auth_provider_url: Url::parse("http://localhost:8551").expect("valid http url"),
+            jwt_secret: PathBuf::from("/dev/null"),
+            inbox_address: Address::ZERO,
+        };
+        let mut cfg = DriverConfig::new(
+            client_config,
+            Duration::from_secs(1),
+            Url::parse("http://localhost:5052").expect("valid beacon url"),
+            None,
+            None,
+        );
+        cfg.preconfirmation_enabled = true;
+
+        let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
+        let blob_source =
+            BlobDataSource::new(None, None, true).await.expect("blob data source should build");
+
+        EventSyncer {
+            rpc: mock_client(),
+            cfg,
+            blob_source: Arc::new(blob_source),
+            preconf_tx: Some(preconf_tx),
+            preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
+            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+            preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    #[tokio::test]
+    async fn preconf_submit_rejected_when_ingress_not_ready() {
+        let syncer = build_syncer().await;
+        let payload = PreconfPayload::new(sample_payload(1));
+        let err = syncer
+            .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
+            .await
+            .expect_err("expected ingress not ready error");
+
+        assert!(matches!(err, DriverError::PreconfIngressNotReady));
     }
 }

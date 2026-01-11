@@ -39,6 +39,10 @@ pub enum DriverError {
     #[error("preconfirmation is not enabled in driver config")]
     PreconfirmationDisabled,
 
+    /// Preconfirmation ingress loop has not started yet.
+    #[error("preconfirmation ingress loop is not ready")]
+    PreconfIngressNotReady,
+
     /// Block not found on remote node.
     #[error("remote node missing block {0}")]
     BlockNotFound(u64),

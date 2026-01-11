@@ -40,6 +40,7 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
+alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
