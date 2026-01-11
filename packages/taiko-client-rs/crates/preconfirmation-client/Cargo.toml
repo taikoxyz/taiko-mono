@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true }
@@ -19,6 +20,7 @@ async-trait = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
 metrics = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

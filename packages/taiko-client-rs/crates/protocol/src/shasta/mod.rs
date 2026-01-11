@@ -3,9 +3,12 @@
 pub mod blob_coder;
 pub mod constants;
 pub mod error;
-pub mod extra_data;
 pub mod manifest;
+pub mod payload_helpers;
 
 pub use blob_coder::BlobCoder;
 pub use error::{ForkConfigResult, ProtocolError, Result, ShastaForkConfigError};
-pub use extra_data::encode_extra_data;
+pub use payload_helpers::{
+    calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data,
+    encode_transactions, encode_tx_list,
+};

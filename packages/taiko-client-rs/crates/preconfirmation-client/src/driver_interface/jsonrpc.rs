@@ -11,7 +11,7 @@ use tokio::time::sleep;
 use url::Url;
 
 use super::{
-    payload::build_execution_payload_input_v2,
+    payload::build_taiko_payload_attributes,
     traits::{DriverClient, PreconfirmationInput},
 };
 use crate::{Result, error::PreconfirmationClientError};
@@ -131,8 +131,7 @@ impl DriverClient for JsonRpcDriverClient {
         let basefee_sharing_pctg = config.basefeeSharingPctg;
 
         let payload =
-            build_execution_payload_input_v2(&input, basefee_sharing_pctg, &self.l2_provider)
-                .await?;
+            build_taiko_payload_attributes(&input, basefee_sharing_pctg, &self.l2_provider).await?;
 
         let _ok: bool = self
             .driver_provider

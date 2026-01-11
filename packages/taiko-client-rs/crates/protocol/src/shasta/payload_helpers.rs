@@ -1,5 +1,7 @@
+//! Shasta payload helper utilities.
+
 use alloy::{
-    primitives::{B256, Bytes, U256, keccak256},
+    primitives::{Address, B256, Bytes, U256, keccak256},
     sol_types::{SolValue, sol},
 };
 use alloy_consensus::TxEnvelope;
@@ -16,7 +18,7 @@ sol! {
 
 /// Calculate the Shasta difficulty for a new block based on the parent difficulty (randao digest)
 /// and block number.
-pub(super) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
+pub fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
     let params = ShastaDifficultyInput {
         parentDifficulty: parent_difficulty,
         blockNumber: U256::from(block_number),
@@ -24,10 +26,29 @@ pub(super) fn calculate_shasta_difficulty(parent_difficulty: B256, block_number:
     B256::from(keccak256(params.abi_encode()))
 }
 
+/// Encode the extra data field for a Shasta block header.
+///
+/// The first byte contains the basefee sharing percentage, followed by a 6-byte
+/// big-endian proposal id.
+pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
+    let mut data = [0u8; 7];
+    data[0] = basefee_sharing_pctg;
+    let proposal_bytes = proposal_id.to_be_bytes();
+    data[1..7].copy_from_slice(&proposal_bytes[2..8]);
+    Bytes::from(data.to_vec())
+}
+
 /// Encode a list of transactions into the format expected by the execution engine.
-pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
+pub fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     let mut buf = BytesMut::new();
     encode_list(transactions, &mut buf);
+    Bytes::from(buf.freeze())
+}
+
+/// Encode a list of raw transaction bytes into the format expected by the execution engine.
+pub fn encode_tx_list(transactions: &[Bytes]) -> Bytes {
+    let mut buf = BytesMut::new();
+    encode_list::<Bytes, [u8]>(transactions, &mut buf);
     Bytes::from(buf.freeze())
 }
 
@@ -37,11 +58,11 @@ pub(super) fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
 const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 /// Compute the payload identifier used when interacting with the execution engine.
-pub(super) fn compute_build_payload_args_id(
+pub fn compute_build_payload_args_id(
     parent_hash: B256,
     timestamp: u64,
     random: B256,
-    fee_recipient: alloy::primitives::Address,
+    fee_recipient: Address,
     withdrawals: &[Withdrawal],
     tx_list: &Bytes,
 ) -> [u8; 8] {

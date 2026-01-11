@@ -8,6 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{Address, U256},
@@ -141,8 +142,7 @@ where
                 let router = router.clone();
                 let job = payload;
                 let start = Instant::now();
-                let block_number = job.payload.execution_payload().execution_payload.block_number;
-                let block_hash = job.payload.execution_payload().execution_payload.block_hash;
+                let block_number = job.payload.block_number();
 
                 // Single-shot injection; serialise via router lock to avoid interleaving.
                 let router_call = router
@@ -159,7 +159,7 @@ where
                         counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
                         info!(
                             block_number,
-                            block_hash = ?block_hash,
+                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
                             duration_secs,
                             "preconfirmation payload injected"
                         );
@@ -171,7 +171,7 @@ where
                         error!(
                             ?err,
                             block_number,
-                            block_hash = ?block_hash,
+                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
                             duration_secs,
                             "preconfirmation processing failed"
                         );
@@ -405,7 +405,7 @@ where
     /// Submit a preconfirmation payload built by the client for injection.
     async fn submit_execution_payload_v2(
         &self,
-        payload: alloy_rpc_types_engine::ExecutionPayloadInputV2,
+        payload: TaikoPayloadAttributes,
     ) -> Result<(), crate::error::DriverError> {
         self.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
     }

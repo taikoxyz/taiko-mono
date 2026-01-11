@@ -2,7 +2,8 @@
 
 use std::{net::SocketAddr, sync::Arc};
 
-use alloy_rpc_types_engine::{ExecutionPayloadInputV2, JwtError, JwtSecret};
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
+use alloy_rpc_types_engine::{JwtError, JwtSecret};
 use async_trait::async_trait;
 use jsonrpsee::{
     RpcModule,
@@ -36,10 +37,10 @@ impl DriverRpcMethod {
 /// Service implementation backing the driver JSON-RPC server.
 #[async_trait]
 pub trait DriverRpcApi: Send + Sync {
-    /// Submit a fully built execution payload for preconfirmation injection.
+    /// Submit a fully built Taiko payload attributes struct for preconfirmation injection.
     async fn submit_execution_payload_v2(
         &self,
-        payload: ExecutionPayloadInputV2,
+        payload: TaikoPayloadAttributes,
     ) -> std::result::Result<(), DriverError>;
 
     /// Return the highest canonical proposal id processed from L1 events.
@@ -107,9 +108,8 @@ fn build_rpc_module(api: Arc<dyn DriverRpcApi>) -> RpcModule<DriverRpcContext> {
         .register_async_method(
             DriverRpcMethod::SubmitPreconfirmationPayload.as_str(),
             |params: Params<'static>, ctx: Arc<DriverRpcContext>, _| async move {
-                let payload: ExecutionPayloadInputV2 = params.one()?;
                 ctx.api
-                    .submit_execution_payload_v2(payload)
+                    .submit_execution_payload_v2(params.one()?)
                     .await
                     .map(|()| true)
                     .map_err(driver_error_into_rpc)

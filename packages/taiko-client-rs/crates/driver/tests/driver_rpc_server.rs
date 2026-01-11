@@ -7,7 +7,9 @@ use std::{
     },
 };
 
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_rpc_types_engine::{Claims, JwtSecret};
+use async_trait::async_trait;
 use driver::jsonrpc::{DriverRpcApi, DriverRpcServer};
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode, body::Bytes};
@@ -20,12 +22,12 @@ struct StubApi {
     last: AtomicU64,
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl DriverRpcApi for StubApi {
     /// Accept any payload without processing.
     async fn submit_execution_payload_v2(
         &self,
-        _payload: alloy_rpc_types_engine::ExecutionPayloadInputV2,
+        _payload: TaikoPayloadAttributes,
     ) -> Result<(), driver::error::DriverError> {
         Ok(())
     }

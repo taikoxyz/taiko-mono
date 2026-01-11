@@ -3,17 +3,22 @@
 use alethia_reth_consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
+use alethia_reth_primitives::payload::attributes::{
+    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+};
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types::Header as RpcHeader;
-use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1};
+use alloy_rpc_types::{Header as RpcHeader, eth::Withdrawal};
+use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use preconfirmation_types::uint256_to_u256;
 
 use super::traits::PreconfirmationInput;
 use crate::{Result, error::PreconfirmationClientError};
-use protocol::shasta::encode_extra_data;
+use protocol::shasta::{
+    calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data, encode_tx_list,
+};
 
 /// Maximum value for a `uint48`.
 const MAX_U48: u64 = (1u64 << 48) - 1;
@@ -42,15 +47,15 @@ where
     }
 }
 
-/// Build an [`ExecutionPayloadInputV2`] from a [`PreconfirmationInput`].
+/// Build [`TaikoPayloadAttributes`] from a [`PreconfirmationInput`].
 ///
 /// This builder is intentionally conservative: it only derives fields available in the
 /// preconfirmation commitment, txlist, and basefee sharing percentage provided by the caller.
-pub async fn build_execution_payload_input_v2(
+pub async fn build_taiko_payload_attributes(
     input: &PreconfirmationInput,
     basefee_sharing_pctg: u8,
     l2_provider: &dyn BlockHeaderProvider,
-) -> Result<ExecutionPayloadInputV2> {
+) -> Result<TaikoPayloadAttributes> {
     let preconf = &input.commitment.commitment.preconf;
 
     let block_number = uint256_to_u256(&preconf.block_number).to::<u64>();
@@ -66,6 +71,10 @@ pub async fn build_execution_payload_input_v2(
     let fee_recipient = Address::from_slice(preconf.coinbase.as_ref());
     let parent_block_number = block_number.saturating_sub(1);
     let parent_header = l2_provider.header_by_number(parent_block_number).await?;
+    let mix_hash = calculate_shasta_difficulty(
+        B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
+        block_number,
+    );
     let parent_hash = parent_header.hash;
     let base_fee_per_gas = if parent_header.inner.number == 0 {
         SHASTA_INITIAL_BASE_FEE
@@ -96,31 +105,52 @@ pub async fn build_execution_payload_input_v2(
         .iter()
         .cloned()
         .map(Bytes::from)
-        .collect();
+        .collect::<Vec<_>>();
 
-    let mut payload = ExecutionPayloadV1 {
+    let tx_list = encode_tx_list(&transactions);
+    let withdrawals: Vec<Withdrawal> = Vec::new();
+    let build_payload_args_id = compute_build_payload_args_id(
         parent_hash,
-        fee_recipient,
-        state_root: B256::ZERO,
-        receipts_root: B256::ZERO,
-        logs_bloom: Bloom::default(),
-        prev_randao: B256::ZERO,
-        block_number,
-        gas_limit,
-        gas_used: 0,
         timestamp,
-        extra_data,
-        base_fee_per_gas: U256::from(base_fee_per_gas),
-        block_hash: B256::ZERO,
-        transactions,
+        mix_hash,
+        fee_recipient,
+        &withdrawals,
+        &tx_list,
+    );
+
+    let l1_origin = RpcL1Origin {
+        block_id: U256::from(block_number),
+        l2_block_hash: B256::ZERO,
+        l1_block_height: None,
+        l1_block_hash: None,
+        build_payload_args_id,
+        is_forced_inclusion: false,
+        signature: [0u8; 65],
     };
 
-    let block = payload.clone().into_block_raw().map_err(|err| {
-        PreconfirmationClientError::DriverClient(format!("failed to build execution block: {err}"))
-    })?;
-    payload.block_hash = block.header.hash_slow();
+    let block_metadata = TaikoBlockMetadata {
+        beneficiary: fee_recipient,
+        gas_limit,
+        timestamp: U256::from(timestamp),
+        mix_hash,
+        tx_list,
+        extra_data,
+    };
 
-    Ok(ExecutionPayloadInputV2 { execution_payload: payload, withdrawals: None })
+    let payload_attributes = EthPayloadAttributes {
+        timestamp,
+        prev_randao: mix_hash,
+        suggested_fee_recipient: fee_recipient,
+        withdrawals: Some(withdrawals),
+        parent_beacon_block_root: None,
+    };
+
+    Ok(TaikoPayloadAttributes {
+        payload_attributes,
+        base_fee_per_gas: U256::from(base_fee_per_gas),
+        block_metadata,
+        l1_origin,
+    })
 }
 
 #[cfg(test)]
@@ -171,11 +201,11 @@ mod tests {
             timestamp: 8,
             gas_limit: 30_000_000,
             gas_used: 15_000_000,
+            difficulty: U256::from(42),
             base_fee_per_gas: Some(900_000_000),
             ..Default::default()
         };
         let parent_header = RpcHeader::new(parent_inner);
-        let parent_hash = parent_header.hash;
 
         let grandparent_inner = Header { number: 3, timestamp: 6, ..Default::default() };
         let grandparent_header = RpcHeader::new(grandparent_inner);
@@ -185,18 +215,33 @@ mod tests {
         headers.insert(3, grandparent_header);
         let provider = TestHeaderProvider { headers };
         let basefee_sharing_pctg = 5;
-        let payload = build_execution_payload_input_v2(&input, basefee_sharing_pctg, &provider)
+        let payload = build_taiko_payload_attributes(&input, basefee_sharing_pctg, &provider)
             .await
             .expect("payload");
-        assert_eq!(payload.execution_payload.block_number, 5);
-        assert_eq!(payload.execution_payload.timestamp, 10);
-        assert_eq!(payload.execution_payload.gas_limit, 30_000_000);
-        assert_eq!(payload.execution_payload.fee_recipient, Address::from([1u8; 20]));
-        assert_eq!(payload.execution_payload.parent_hash, parent_hash);
-        assert_eq!(payload.execution_payload.transactions.len(), 1);
-        assert_eq!(payload.execution_payload.extra_data.len(), 7);
-        assert_eq!(payload.execution_payload.extra_data[0], basefee_sharing_pctg);
-        assert_eq!(payload.execution_payload.base_fee_per_gas, U256::from(900_000_000));
+        let parent_difficulty = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
+        let expected_mix_hash = calculate_shasta_difficulty(parent_difficulty, 5);
+        let transactions = vec![Bytes::from(vec![0x01, 0x02])];
+        let tx_list = encode_tx_list(&transactions);
+        let expected_build_payload_args_id = compute_build_payload_args_id(
+            parent_header.hash,
+            10,
+            expected_mix_hash,
+            Address::from([1u8; 20]),
+            &[],
+            &tx_list,
+        );
+        assert_eq!(payload.payload_attributes.timestamp, 10);
+        assert_eq!(payload.block_metadata.gas_limit, 30_000_000);
+        assert_eq!(payload.block_metadata.beneficiary, Address::from([1u8; 20]));
+        assert_eq!(payload.block_metadata.mix_hash, expected_mix_hash);
+        assert_eq!(payload.payload_attributes.prev_randao, expected_mix_hash);
+        assert_eq!(payload.block_metadata.extra_data.len(), 7);
+        assert_eq!(payload.block_metadata.extra_data[0], basefee_sharing_pctg);
+        assert_eq!(payload.base_fee_per_gas, U256::from(900_000_000));
+        assert_eq!(payload.l1_origin.block_id, U256::from(5));
+        assert_eq!(payload.l1_origin.build_payload_args_id, expected_build_payload_args_id);
+        assert_eq!(payload.l1_origin.l1_block_height, None);
+        assert_eq!(payload.l1_origin.l1_block_hash, None);
     }
 
     /// Verifies the proposal id layout in extra data.

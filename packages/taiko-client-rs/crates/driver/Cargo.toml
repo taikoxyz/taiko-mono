@@ -14,7 +14,6 @@ alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
-alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
 alloy-sol-types = { workspace = true }

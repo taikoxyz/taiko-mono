@@ -7,11 +7,13 @@ use crate::{
     derivation::DerivationPipeline,
     error::DriverError,
     sync::{
-        engine::{EngineBlockOutcome, ExecutionPayloadInjector, PayloadApplier},
+        engine::{EngineBlockOutcome, PayloadApplier},
         error::SyncError,
     },
 };
+use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
+use rpc::client::Client;
 
 /// A block-production path capable of materialising the provided input into execution blocks.
 ///
@@ -31,28 +33,52 @@ pub trait BlockProductionPath: Send + Sync {
     -> Result<Vec<EngineBlockOutcome>, DriverError>;
 }
 
-/// Path that materialises preconfirmation payloads directly into the execution engine.
-pub struct PreconfirmationPath<I>
-where
-    I: ExecutionPayloadInjector,
-{
-    injector: I,
+/// Resolve a parent hash for a given block number.
+#[async_trait]
+pub trait BlockHashReader: Send + Sync {
+    /// Fetch the block hash for the given block number.
+    async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError>;
 }
 
-impl<I> PreconfirmationPath<I>
+#[async_trait]
+impl<P> BlockHashReader for Client<P>
 where
-    I: ExecutionPayloadInjector,
+    P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Construct a preconfirmation path backed by the given injector.
-    pub fn new(injector: I) -> Self {
-        Self { injector }
+    /// Fetch the parent hash for the given block number via RPC.
+    async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError> {
+        let block = self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map_err(|err| DriverError::Rpc(rpc::error::RpcClientError::Provider(err.to_string())))?
+            .ok_or(DriverError::BlockNotFound(block_number))?;
+        Ok(block.hash())
+    }
+}
+
+/// Path that materialises preconfirmation payload attributes into the execution engine.
+pub struct PreconfirmationPath<A>
+where
+    A: PayloadApplier + BlockHashReader,
+{
+    applier: A,
+}
+
+impl<A> PreconfirmationPath<A>
+where
+    A: PayloadApplier + BlockHashReader,
+{
+    /// Construct a preconfirmation path backed by the given payload applier.
+    pub fn new(applier: A) -> Self {
+        Self { applier }
     }
 }
 
 #[async_trait]
-impl<I> BlockProductionPath for PreconfirmationPath<I>
+impl<A> BlockProductionPath for PreconfirmationPath<A>
 where
-    I: ExecutionPayloadInjector + Send + Sync,
+    A: PayloadApplier + BlockHashReader + Send + Sync,
 {
     /// Identify this path as preconfirmation.
     fn kind(&self) -> ProductionPathKind {
@@ -66,13 +92,15 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
         match input {
             ProductionInput::Preconfirmation(preconf) => {
-                let payload = preconf.execution_payload();
-                let block_number = payload.execution_payload.block_number;
-                let outcome =
-                    self.injector.apply_execution_payload(payload, None).await.map_err(|err| {
-                        DriverError::PreconfInjectionFailed { block_number, source: err }
-                    })?;
-                Ok(vec![outcome])
+                let payload = preconf.payload();
+                let block_number = preconf.block_number();
+                let parent_number = block_number.saturating_sub(1);
+                let parent_hash = self.applier.block_hash_by_number(parent_number).await?;
+                let applied =
+                    self.applier.apply_payload(payload, parent_hash, None).await.map_err(
+                        |err| DriverError::PreconfInjectionFailed { block_number, source: err },
+                    )?;
+                Ok(vec![applied.outcome])
             }
             ProductionInput::L1ProposalLog(_) => Err(ProductionError::UnsupportedInput {
                 path: ProductionPathKind::Preconfirmation,
@@ -136,60 +164,123 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{production::PreconfPayload, sync::error::EngineSubmissionError};
+    use crate::{
+        production::PreconfPayload,
+        sync::{engine::AppliedPayload, error::EngineSubmissionError},
+    };
+    use alethia_reth_primitives::payload::attributes::{
+        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+    };
     use alloy::rpc::types::Log;
     use alloy_consensus::TxEnvelope;
-    use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
+    use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types::eth::Block as RpcBlock;
-    use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
+    use alloy_rpc_types_engine::{
+        ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes,
+        PayloadId,
+    };
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
 
-    fn sample_payload(block_number: u64) -> ExecutionPayloadInputV2 {
-        ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::ZERO,
-                fee_recipient: Address::ZERO,
-                state_root: B256::ZERO,
-                receipts_root: B256::ZERO,
-                logs_bloom: Bloom::default(),
-                prev_randao: B256::ZERO,
-                block_number,
-                gas_limit: 0,
-                gas_used: 0,
-                timestamp: 0,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::ZERO,
-                block_hash: B256::ZERO,
-                transactions: Vec::new(),
-            },
-            withdrawals: None,
+    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
+        let payload_attributes = EthPayloadAttributes {
+            timestamp: 0,
+            prev_randao: B256::ZERO,
+            suggested_fee_recipient: Address::ZERO,
+            withdrawals: Some(Vec::new()),
+            parent_beacon_block_root: None,
+        };
+        let block_metadata = TaikoBlockMetadata {
+            beneficiary: Address::ZERO,
+            gas_limit: 0,
+            timestamp: U256::ZERO,
+            mix_hash: B256::ZERO,
+            tx_list: Bytes::new(),
+            extra_data: Bytes::new(),
+        };
+        let l1_origin = RpcL1Origin {
+            block_id: U256::from(block_number),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        };
+
+        TaikoPayloadAttributes {
+            payload_attributes,
+            base_fee_per_gas: U256::ZERO,
+            block_metadata,
+            l1_origin,
         }
     }
 
     #[derive(Clone, Default)]
-    struct MockInjector {
+    struct MockApplier {
         calls: Arc<Mutex<u64>>,
+        expected_parent: u64,
+        parent_hash: B256,
     }
 
-    impl MockInjector {
+    impl MockApplier {
+        fn new(expected_parent: u64, parent_hash: B256) -> Self {
+            Self { calls: Arc::new(Mutex::new(0)), expected_parent, parent_hash }
+        }
         fn calls(&self) -> u64 {
             *self.calls.lock().unwrap()
         }
     }
 
     #[async_trait]
-    impl ExecutionPayloadInjector for MockInjector {
-        async fn apply_execution_payload(
+    impl PayloadApplier for MockApplier {
+        async fn attributes_to_blocks(
             &self,
-            _payload: &ExecutionPayloadInputV2,
+            _payloads: &[TaikoPayloadAttributes],
+        ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError> {
+            Ok(Vec::new())
+        }
+
+        async fn apply_payload(
+            &self,
+            _payload: &TaikoPayloadAttributes,
+            _parent_hash: B256,
             _finalized_block_hash: Option<B256>,
-        ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
+        ) -> Result<AppliedPayload, EngineSubmissionError> {
             let mut guard = self.calls.lock().unwrap();
             *guard += 1;
             let block: RpcBlock<TxEnvelope> = RpcBlock::<TxEnvelope>::default();
             let payload_id = PayloadId::new([0u8; 8]);
-            Ok(EngineBlockOutcome { block, payload_id })
+            Ok(AppliedPayload {
+                outcome: EngineBlockOutcome { block, payload_id },
+                payload: ExecutionPayloadInputV2 {
+                    execution_payload: ExecutionPayloadV1 {
+                        parent_hash: B256::ZERO,
+                        fee_recipient: Address::ZERO,
+                        state_root: B256::ZERO,
+                        receipts_root: B256::ZERO,
+                        logs_bloom: Default::default(),
+                        prev_randao: B256::ZERO,
+                        block_number: 0,
+                        gas_limit: 0,
+                        gas_used: 0,
+                        timestamp: 0,
+                        extra_data: Bytes::new(),
+                        base_fee_per_gas: U256::ZERO,
+                        block_hash: B256::ZERO,
+                        transactions: Vec::new(),
+                    },
+                    withdrawals: None,
+                },
+            })
+        }
+    }
+
+    #[async_trait]
+    impl BlockHashReader for MockApplier {
+        async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError> {
+            assert_eq!(block_number, self.expected_parent);
+            Ok(self.parent_hash)
         }
     }
 
@@ -257,17 +348,18 @@ mod tests {
     }
 
     #[test]
-    fn preconfirmation_path_delegates_to_injector() {
-        let injector = MockInjector::default();
-        let path = PreconfirmationPath::new(injector.clone());
-        let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
+    fn preconfirmation_path_delegates_to_applier() {
+        let parent_hash = B256::from([1u8; 32]);
+        let applier = MockApplier::new(0, parent_hash);
+        let path = PreconfirmationPath::new(applier.clone());
+        let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
             .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
             .expect("preconfirmation path should succeed");
 
-        assert_eq!(injector.calls(), 1);
+        assert_eq!(applier.calls(), 1);
         assert_eq!(outcomes.len(), 1);
     }
 }
