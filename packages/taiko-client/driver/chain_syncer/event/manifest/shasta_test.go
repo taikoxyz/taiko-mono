@@ -290,12 +290,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 
 	// Calculate expected bounds (0.001% change = 10 millionths) based on effective parent gas limit
 	expectedLowerBound := max(
-		effectiveParentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitChangePermyriad)/
+		effectiveParentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitMaxChange)/
 			manifest.GasLimitChangeDenominator,
 		manifest.MinBlockGasLimit,
 	)
 	expectedUpperBound := effectiveParentGasLimit *
-		(manifest.GasLimitChangeDenominator + manifest.MaxBlockGasLimitChangePermyriad) / manifest.GasLimitChangeDenominator
+		(manifest.GasLimitChangeDenominator + manifest.MaxBlockGasLimitMaxChange) / manifest.GasLimitChangeDenominator
 
 	// Test 1: Zero gas limit - should fail
 	sourcePayload := &ShastaDerivationSourcePayload{

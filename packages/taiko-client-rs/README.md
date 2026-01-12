@@ -4,16 +4,17 @@ A Rust implementation of the Taiko Alethia protocol client, designed as an alter
 
 ## Project structure
 
-| Path              | Description                                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| `bin/client/`     | Main executable for the Taiko client                                                                    |
-| `crates/bindings/` | Rust contract bindings for Taiko smart contracts                                                       |
-| `crates/driver/`   | Driver implementation for proposal derivation and syncing                                              |
-| `crates/proposer/` | Proposer implementation for submitting block proposals to L1                                           |
-| `crates/protocol/` | Core protocol types and data structures                                                                |
-| `crates/rpc/`     | RPC client utilities and helper functions                                                               |
-| `script/`         | Helpful scripts for development and deployment                                                          |
-| `tests/`          | Integration and end-to-end tests                                                                        |
+| Path                             | Description                                                  |
+| -------------------------------- | ------------------------------------------------------------ |
+| `bin/client/`                    | Main executable for the Taiko client                         |
+| `crates/bindings/`               | Rust contract bindings for Taiko smart contracts             |
+| `crates/driver/`                 | Driver implementation for proposal derivation and syncing    |
+| `crates/preconfirmation-client/` | Preconfirmation client SDK wrapping the P2P network          |
+| `crates/proposer/`               | Proposer implementation for submitting block proposals to L1 |
+| `crates/protocol/`               | Core protocol types and data structures                      |
+| `crates/rpc/`                    | RPC client utilities and helper functions                    |
+| `script/`                        | Helpful scripts for development and deployment               |
+| `tests/`                         | Integration and end-to-end tests                             |
 
 ## Prerequisites
 

@@ -7,12 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -21,6 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
@@ -186,6 +189,91 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
+}
+
+func (s *ChainSyncerTestSuite) TestShastaDerivationFetchDoesNotBlockPreconf() {
+	ctx := context.Background()
+
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
+	waitCh := make(chan struct{})
+	requestCh := make(chan struct{}, 1)
+	s.BlobServer.SetRequestWaiter(waitCh)
+	s.BlobServer.SetRequestNotifier(requestCh)
+	defer func() {
+		s.BlobServer.SetRequestWaiter(nil)
+		s.BlobServer.SetRequestNotifier(nil)
+	}()
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		ctx,
+		[]types.Transactions{{}},
+		common.Big1,
+		common.Address{},
+	)
+	s.Nil(err)
+	s.Nil(s.p.SendTx(ctx, txCandidate))
+
+	processErrCh := make(chan error, 1)
+	go func() {
+		processErrCh <- s.s.EventSyncer().ProcessL1Blocks(ctx)
+	}()
+
+	select {
+	case <-requestCh:
+	case <-time.After(5 * time.Second):
+		close(waitCh)
+		s.T().Fatal("timeout waiting for blob request")
+	}
+
+	parent, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
+	s.Nil(err)
+
+	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(ctx, parent)
+	s.Nil(err)
+
+	u256BaseFee, overflow := uint256.FromBig(baseFee)
+	s.False(overflow)
+
+	payload := &eth.ExecutionPayload{
+		ParentHash:    parent.Hash(),
+		FeeRecipient:  s.TestAddr,
+		PrevRandao:    eth.Bytes32(testutils.RandomHash()),
+		BlockNumber:   eth.Uint64Quantity(parent.Number.Uint64() + 1),
+		GasLimit:      eth.Uint64Quantity(parent.GasLimit),
+		Timestamp:     eth.Uint64Quantity(parent.Time + 1),
+		ExtraData:     parent.Extra,
+		BaseFeePerGas: eth.Uint256Quantity(*u256BaseFee),
+		Transactions:  []eth.Data{},
+		Withdrawals:   &types.Withdrawals{},
+	}
+
+	preconfErrCh := make(chan error, 1)
+	go func() {
+		_, err := s.s.EventSyncer().BlocksInserterShasta().InsertPreconfBlocksFromEnvelopes(
+			ctx,
+			[]*preconf.Envelope{{Payload: payload}},
+			false,
+		)
+		preconfErrCh <- err
+	}()
+
+	select {
+	case err := <-preconfErrCh:
+		s.ErrorContains(err, "no transactions data in the payload")
+	case <-time.After(2 * time.Second):
+		close(waitCh)
+		s.T().Fatal("preconfirmation insert blocked while fetching derivation payloads")
+	}
+
+	close(waitCh)
+
+	select {
+	case err := <-processErrCh:
+		s.Nil(err)
+	case <-time.After(10 * time.Second):
+		s.T().Fatal("timeout waiting for ProcessL1Blocks")
+	}
 }
 
 func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
