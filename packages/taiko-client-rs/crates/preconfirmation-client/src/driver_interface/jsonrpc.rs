@@ -95,7 +95,13 @@ impl JsonRpcDriverClientConfig {
         l2_rpc_url: Url,
         inbox_address: Address,
     ) -> Self {
-        Self::with_http_endpoint(driver_rpc_url, driver_jwt_secret, l1_rpc_url, l2_rpc_url, inbox_address)
+        Self::with_http_endpoint(
+            driver_rpc_url,
+            driver_jwt_secret,
+            l1_rpc_url,
+            l2_rpc_url,
+            inbox_address,
+        )
     }
 
     /// Construct a config with an HTTP endpoint (requires JWT).

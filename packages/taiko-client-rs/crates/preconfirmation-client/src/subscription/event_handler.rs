@@ -395,7 +395,7 @@ mod tests {
     use crate::{
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
-    error::{DriverApiError, PreconfirmationClientError, Result},
+        error::{DriverApiError, PreconfirmationClientError, Result},
         storage::{CommitmentStore, InMemoryCommitmentStore},
     };
     use preconfirmation_types::{
@@ -512,10 +512,7 @@ mod tests {
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
         let commitment = build_signed_commitment(&sk, 2, parent_hash, 100, 200);
 
-        let err = handler
-            .submit_if_ready(commitment)
-            .await
-            .expect_err("expected driver error");
+        let err = handler.submit_if_ready(commitment).await.expect_err("expected driver error");
 
         assert!(matches!(
             err,

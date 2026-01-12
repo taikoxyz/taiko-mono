@@ -148,9 +148,8 @@ pub async fn build_taiko_payload_attributes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::PreconfirmationClientError;
+    use crate::error::{DriverApiError, PreconfirmationClientError};
     use alloy_consensus::Header;
-    use crate::error::DriverApiError;
     use preconfirmation_types::{
         Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
     };
