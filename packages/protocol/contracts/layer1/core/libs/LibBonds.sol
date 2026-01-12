@@ -4,12 +4,15 @@ pragma solidity ^0.8.26;
 import { IBondManager } from "../iface/IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 
 /// @title LibBonds
 /// @notice Library for bond ledger operations and settlement.
+/// @dev When bondToken is address(0), native ETH is used instead of ERC20 tokens.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
     using SafeERC20 for IERC20;
+    using LibAddress for address;
 
     // ---------------------------------------------------------------
     // Constants
@@ -32,6 +35,7 @@ library LibBonds {
 
     /// @dev Deposits bond tokens in gwei units and credits the recipient.
     /// If `_cancelWithdrawal` is true, the pending withdrawal request is cleared.
+    /// @dev When `_bondToken` is address(0), native ETH is used via msg.value.
     function deposit(
         Storage storage $,
         IERC20 _bondToken,
@@ -48,13 +52,22 @@ library LibBonds {
         if (_cancelWithdrawal && $.bonds[_recipient].withdrawalRequestedAt != 0) {
             $.bonds[_recipient].withdrawalRequestedAt = 0;
         }
-        _bondToken.safeTransferFrom(_depositor, address(this), _toTokenAmount(_amount));
+
+        uint256 tokenAmount = _toTokenAmount(_amount);
+        if (address(_bondToken) == address(0)) {
+            // Native ETH mode
+            require(msg.value == tokenAmount, InsufficientETH());
+        } else {
+            // ERC20 mode
+            _bondToken.safeTransferFrom(_depositor, address(this), tokenAmount);
+        }
 
         emit IBondManager.BondDeposited(_depositor, _recipient, _amount);
     }
 
     /// @dev Withdraws bond tokens in gwei units to a recipient.
     /// If the full balance is withdrawn, the pending withdrawal request is cleared.
+    /// @dev When `_bondToken` is address(0), native ETH is transferred instead.
     function withdraw(
         Storage storage $,
         IERC20 _bondToken,
@@ -84,7 +97,15 @@ library LibBonds {
         if (debited_ == balance && bond_.withdrawalRequestedAt != 0) {
             bond_.withdrawalRequestedAt = 0;
         }
-        _bondToken.safeTransfer(_to, _toTokenAmount(debited_));
+
+        uint256 tokenAmount = _toTokenAmount(debited_);
+        if (address(_bondToken) == address(0)) {
+            // Native ETH mode
+            _to.sendEtherAndVerify(tokenAmount);
+        } else {
+            // ERC20 mode
+            _bondToken.safeTransfer(_to, tokenAmount);
+        }
         emit IBondManager.BondWithdrawn(_from, debited_);
     }
 
@@ -208,6 +229,7 @@ library LibBonds {
     // Errors
     // ---------------------------------------------------------------
 
+    error InsufficientETH();
     error InvalidAddress();
     error MustMaintainMinBond();
     error NoBondToWithdraw();

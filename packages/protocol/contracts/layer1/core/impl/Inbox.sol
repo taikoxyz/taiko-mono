@@ -72,7 +72,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
 
-    /// @notice ERC20 token used as bond.
+    /// @notice ERC20 token used as bond. When address(0), native ETH is used instead.
     IERC20 internal immutable _bondToken;
 
     /// @notice Minimum bond the proposer is required to have in gwei.
@@ -257,12 +257,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IBondManager
-    function deposit(uint64 _amount) external nonReentrant {
+    function deposit(uint64 _amount) external payable nonReentrant {
         _bondStorage.deposit(_bondToken, msg.sender, msg.sender, _amount, true);
     }
 
     /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint64 _amount) external nonReentrant {
+    function depositTo(address _recipient, uint64 _amount) external payable nonReentrant {
         _bondStorage.deposit(_bondToken, msg.sender, _recipient, _amount, false);
     }
 

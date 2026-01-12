@@ -62,15 +62,17 @@ interface IBondManager {
 
     /// @notice Deposits bond tokens for the caller.
     /// @dev Clears the caller's pending withdrawal request, if any.
+    /// @dev When bond token is address(0), msg.value must equal the amount in wei.
     /// @param _amount The amount to deposit in gwei.
-    function deposit(uint64 _amount) external;
+    function deposit(uint64 _amount) external payable;
 
     /// @notice Deposits bond tokens for a recipient.
     /// @dev Recipient must be non-zero. Does not cancel the recipient's pending withdrawal,
     /// even if the recipient is the caller.
+    /// @dev When bond token is address(0), msg.value must equal the amount in wei.
     /// @param _recipient The address to credit the bond to.
     /// @param _amount The amount to deposit in gwei.
-    function depositTo(address _recipient, uint64 _amount) external;
+    function depositTo(address _recipient, uint64 _amount) external payable;
 
     /// @notice Withdraws bond to a recipient.
     /// @dev Withdrawals are subject to a delay so bond operations can be resolved properly.

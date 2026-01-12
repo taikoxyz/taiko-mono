@@ -17,7 +17,7 @@ interface IInbox {
         address proverWhitelist;
         /// @notice The signal service contract address
         address signalService;
-        /// @notice The ERC20 bond token address
+        /// @notice The ERC20 bond token address. Use address(0) to use native ETH instead.
         address bondToken;
         /// @notice The minimum bond a proposer is required to have in gwei
         uint64 minBond;
