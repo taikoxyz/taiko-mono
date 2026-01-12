@@ -27,7 +27,7 @@ type BalanceMonitor struct {
 	ctx                context.Context
 }
 
-// InitFromCli inits a new Indexer from command line or environment variables.
+// InitFromCli initializes a BalanceMonitor from command line or environment variables.
 func (b *BalanceMonitor) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
