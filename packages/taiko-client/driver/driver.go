@@ -32,7 +32,7 @@ const (
 	protocolStatusReportInterval            = 30 * time.Second
 	exchangeTransitionConfigInterval        = 1 * time.Minute
 	peerLoopReportInterval                  = 30 * time.Second
-	defaultHandoverSkipSlots         uint64 = 4
+	defaultHandoverSkipSlots         uint64 = 8
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox

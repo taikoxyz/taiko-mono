@@ -172,6 +172,26 @@ contract TestSignalService is CommonTest {
         vm.chainId(originalChainId);
     }
 
+    function test_proveSignalReceived_RevertWhen_BlockIdTruncates() public {
+        _saveCheckpoint(VALID_PROOF_BLOCK_ID, VALID_PROOF_STATE_ROOT);
+
+        ISignalService.HopProof[] memory proofs =
+            abi.decode(VALID_SIGNAL_PROOF, (ISignalService.HopProof[]));
+
+        uint64 truncatedOffset = uint64(1) << 48;
+        proofs[0].blockId = uint64(VALID_PROOF_BLOCK_ID) + truncatedOffset;
+
+        bytes memory proof = abi.encode(proofs);
+
+        uint64 originalChainId = uint64(block.chainid);
+        vm.chainId(167_001);
+
+        vm.expectRevert(SignalService.SS_INVALID_BLOCK_ID.selector);
+        signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
+
+        vm.chainId(originalChainId);
+    }
+
     function _saveCheckpoint(uint64 blockNumber, bytes32 stateRoot) private {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
