@@ -7,7 +7,8 @@ use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::re
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
+    IpcConnect, Provider, ProviderBuilder, RootProvider, fillers::FillProvider,
+    utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
@@ -170,6 +171,16 @@ pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
     ProviderBuilder::default().connect_client(RpcClient::new(http_hyper, true))
 }
 
+/// Builds a [`RootProvider`] backed by an IPC transport.
+///
+/// IPC does not require JWT authentication; security relies on filesystem permissions.
+pub async fn build_ipc_provider(path: PathBuf) -> Result<RootProvider> {
+    ProviderBuilder::default()
+        .connect_ipc(IpcConnect::new(path))
+        .await
+        .map_err(|e| RpcClientError::Connection(e.to_string()))
+}
+
 /// Returns the JWT secret for the engine API
 /// using the provided [PathBuf]. If the file is not found, it will return [None].
 pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
@@ -205,5 +216,14 @@ mod tests {
         // Should return None for non-existent file
         let secret = read_jwt_secret(jwt_path);
         assert!(secret.is_none());
+    }
+
+    #[test]
+    fn test_default_http_timeout_covers_preconfirmation_budget() {
+        assert_eq!(
+            DEFAULT_HTTP_TIMEOUT,
+            Duration::from_secs(12),
+            "DEFAULT_HTTP_TIMEOUT should default to 12 seconds"
+        );
     }
 }

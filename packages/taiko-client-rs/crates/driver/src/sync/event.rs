@@ -55,7 +55,7 @@ const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
 /// Default timeout for preconfirmation payload submission.
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
-const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(24);
+const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -778,5 +778,14 @@ mod tests {
             .expect_err("expected ingress not ready error");
 
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
+    }
+
+    #[test]
+    fn preconfirmation_submit_timeout_defaults_to_12_seconds() {
+        assert_eq!(
+            PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
+            Duration::from_secs(12),
+            "preconfirmation submit timeout should default to 12 seconds"
+        );
     }
 }

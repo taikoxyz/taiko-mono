@@ -3362,6 +3362,7 @@ dependencies = [
  "proposer",
  "protocol",
  "rand 0.8.5",
+ "reth-ipc",
  "rpc",
  "serde",
  "serde_json",

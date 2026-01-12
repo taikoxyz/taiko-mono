@@ -61,7 +61,8 @@ impl DriverSubCommand {
 
         cfg.rpc_listen_addr = self.driver_flags.rpc_listen_addr;
         cfg.rpc_jwt_secret = self.driver_flags.rpc_jwt_secret.clone();
-        cfg.preconfirmation_enabled = cfg.rpc_listen_addr.is_some();
+        cfg.rpc_ipc_path = self.driver_flags.rpc_ipc_path.clone();
+        cfg.preconfirmation_enabled = cfg.has_rpc_endpoint();
 
         Ok(cfg)
     }

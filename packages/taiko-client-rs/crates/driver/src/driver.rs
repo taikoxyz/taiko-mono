@@ -7,7 +7,7 @@ use tracing::{error, info, instrument, warn};
 use crate::{
     config::DriverConfig,
     error::{DriverError, Result},
-    jsonrpc::{DriverRpcApi, DriverRpcServer},
+    jsonrpc::{DriverIpcServer, DriverRpcApi, DriverRpcServer},
     sync::SyncPipeline,
 };
 use rpc::client::{Client, read_jwt_secret};
@@ -34,8 +34,9 @@ impl Driver {
 
     /// Start the driver until completion.
     ///
-    /// When the driver RPC server is enabled, it requires a dedicated JWT secret
-    /// configured via `rpc_jwt_secret`.
+    /// When the HTTP RPC server is enabled, it requires a dedicated JWT secret
+    /// configured via `rpc_jwt_secret`. The IPC server does not require JWT
+    /// authentication (uses filesystem permissions instead).
     #[instrument(skip(self))]
     pub async fn run(&self) -> Result<()> {
         info!(?self.cfg, "starting driver sync pipeline");
@@ -59,13 +60,16 @@ impl Driver {
             info!("preconfirmation ingress is ready; starting RPC server");
         }
 
-        let _rpc_server = if let Some(listen_addr) = self.cfg.rpc_listen_addr {
-            info!(addr = %listen_addr, "driver RPC server enabled");
+        let api: Arc<dyn DriverRpcApi> = event_syncer.clone();
+
+        // Start HTTP RPC server (JWT-protected) if configured.
+        let http_server = if let Some(listen_addr) = self.cfg.rpc_listen_addr {
+            info!(addr = %listen_addr, "driver HTTP RPC server enabled");
 
             let jwt_secret_path = match &self.cfg.rpc_jwt_secret {
                 Some(path) => path.clone(),
                 None => {
-                    error!("driver RPC server enabled but jwt secret path not configured");
+                    error!("driver HTTP RPC server enabled but jwt secret path not configured");
                     return Err(DriverError::DriverRpcJwtSecretMissing);
                 }
             };
@@ -80,20 +84,46 @@ impl Driver {
                     return Err(DriverError::DriverRpcJwtSecretReadFailed);
                 }
             };
-            Some(
-                DriverRpcServer::start(
-                    listen_addr,
-                    jwt_secret,
-                    event_syncer as Arc<dyn DriverRpcApi>,
-                )
-                .await?,
-            )
+            Some(DriverRpcServer::start(listen_addr, jwt_secret, Arc::clone(&api)).await?)
         } else {
-            warn!("driver RPC server disabled (no listen address configured)");
             None
         };
 
-        pipeline_future.await?;
+        // Start IPC RPC server (no JWT, uses filesystem permissions) if configured.
+        let ipc_server = if let Some(ipc_path) = &self.cfg.rpc_ipc_path {
+            info!(path = ?ipc_path, "driver IPC RPC server enabled");
+            match DriverIpcServer::start(ipc_path.clone(), Arc::clone(&api)).await {
+                Ok(server) => Some(server),
+                Err(err) => {
+                    // If IPC server fails to start, stop HTTP server if it was started.
+                    if let Some(http) = http_server {
+                        error!(error = %err, "IPC server failed to start, stopping HTTP server");
+                        http.stop().await;
+                    }
+                    return Err(err);
+                }
+            }
+        } else {
+            None
+        };
+
+        // Log warning if no RPC servers are configured.
+        if http_server.is_none() && ipc_server.is_none() {
+            info!("driver RPC server disabled (no HTTP or IPC endpoint configured)");
+        }
+
+        let result = pipeline_future.await;
+
+        if let Some(ipc) = ipc_server {
+            info!("stopping driver IPC RPC server");
+            ipc.stop().await;
+        }
+        if let Some(http) = http_server {
+            info!("stopping driver HTTP RPC server");
+            http.stop().await;
+        }
+
+        result?;
         Ok(())
     }
 

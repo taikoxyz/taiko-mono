@@ -79,6 +79,7 @@ alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", pa
   "serde",
 ] }
 alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
 
 # types
 anyhow = "1"
