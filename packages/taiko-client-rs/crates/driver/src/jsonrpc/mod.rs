@@ -125,17 +125,16 @@ impl DriverIpcServer {
         prepare_ipc_socket(&ipc_path).await?;
 
         let server = IpcBuilder::default().build(ipc_path.to_string_lossy().into_owned());
-        let path = ipc_path.clone();
 
         let module = build_rpc_module(api);
         let handle = server.start(module).await?;
 
         info!(path = ?ipc_path, "started driver IPC JSON-RPC server");
-        Ok(Self { path, handle })
+        Ok(Self { path: ipc_path, handle })
     }
 
     /// Return the IPC socket path.
-    pub fn ipc_path(&self) -> &PathBuf {
+    pub fn ipc_path(&self) -> &Path {
         &self.path
     }
 
