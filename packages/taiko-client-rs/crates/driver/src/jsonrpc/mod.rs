@@ -226,8 +226,19 @@ async fn socket_in_use(ipc_path: &Path) -> DriverResult<bool> {
 /// Remove the IPC socket file.
 #[cfg(unix)]
 fn remove_socket_file(ipc_path: &Path) -> DriverResult<()> {
-    match std::fs::remove_file(ipc_path) {
-        Ok(()) => Ok(()),
+    use std::{fs::metadata, os::unix::fs::FileTypeExt};
+
+    match metadata(ipc_path) {
+        Ok(metadata) => {
+            if !metadata.file_type().is_socket() {
+                return Err(DriverError::IpcPathNotSocket(ipc_path.to_path_buf()));
+            }
+            match std::fs::remove_file(ipc_path) {
+                Ok(()) => Ok(()),
+                Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+                Err(err) => Err(err.into()),
+            }
+        }
         Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
         Err(err) => Err(err.into()),
     }
@@ -236,19 +247,13 @@ fn remove_socket_file(ipc_path: &Path) -> DriverResult<()> {
 /// Clean up the IPC socket file on server shutdown.
 #[cfg(unix)]
 fn cleanup_ipc_socket(ipc_path: &Path) {
-    match inspect_ipc_path(ipc_path) {
-        Ok(Some(true)) => match remove_socket_file(ipc_path) {
-            Ok(()) => info!(path = ?ipc_path, "removed IPC socket file"),
-            Err(err) => {
-                warn!(path = ?ipc_path, error = %err, "failed to remove IPC socket file");
-            }
-        },
-        Ok(Some(false)) => {
+    match remove_socket_file(ipc_path) {
+        Ok(()) => info!(path = ?ipc_path, "removed IPC socket file"),
+        Err(DriverError::IpcPathNotSocket(_)) => {
             warn!(path = ?ipc_path, "IPC path is not a socket; skipping removal");
         }
-        Ok(None) => {}
         Err(err) => {
-            warn!(path = ?ipc_path, error = %err, "failed to stat IPC socket file");
+            warn!(path = ?ipc_path, error = %err, "failed to remove IPC socket file");
         }
     }
 }
@@ -396,8 +401,35 @@ fn unauthorized_response() -> HttpResponse {
 mod tests {
     use super::*;
     use jsonrpsee::server::stop_channel;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tokio::spawn;
+
+    #[cfg(unix)]
+    fn temp_ipc_path() -> PathBuf {
+        let mut path = std::env::temp_dir();
+        loop {
+            let suffix = rand::random::<u64>();
+            path.push(format!("taiko-driver-ipc-{suffix}.sock"));
+            if !path.exists() {
+                return path;
+            }
+            path.pop();
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remove_socket_file_rejects_non_socket() {
+        let path = temp_ipc_path();
+        std::fs::write(&path, b"not-a-socket").expect("create test file");
+
+        let result = remove_socket_file(&path);
+
+        assert!(matches!(result, Err(DriverError::IpcPathNotSocket(_))));
+        assert!(path.exists());
+
+        std::fs::remove_file(&path).expect("cleanup test file");
+    }
 
     #[tokio::test]
     async fn stop_is_idempotent() {
