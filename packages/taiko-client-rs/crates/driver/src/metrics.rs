@@ -62,9 +62,6 @@ impl DriverMetrics {
     /// Counter for last_canonical_proposal_id requests.
     pub const RPC_LAST_CANONICAL_PROPOSAL_ID_REQUESTS_TOTAL: &'static str =
         "driver_rpc_last_canonical_proposal_id_requests_total";
-    /// Counter for last_canonical_proposal_id errors.
-    pub const RPC_LAST_CANONICAL_PROPOSAL_ID_ERRORS_TOTAL: &'static str =
-        "driver_rpc_last_canonical_proposal_id_errors_total";
     /// Histogram for last_canonical_proposal_id duration.
     pub const RPC_LAST_CANONICAL_PROPOSAL_ID_DURATION_SECONDS: &'static str =
         "driver_rpc_last_canonical_proposal_id_duration_seconds";
@@ -207,11 +204,6 @@ impl DriverMetrics {
             Unit::Count,
             "Total last_canonical_proposal_id requests"
         );
-        metrics::describe_counter!(
-            Self::RPC_LAST_CANONICAL_PROPOSAL_ID_ERRORS_TOTAL,
-            Unit::Count,
-            "Failed last_canonical_proposal_id requests"
-        );
         metrics::describe_histogram!(
             Self::RPC_LAST_CANONICAL_PROPOSAL_ID_DURATION_SECONDS,
             Unit::Seconds,
@@ -281,7 +273,6 @@ impl DriverMetrics {
         metrics::counter!(Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_REQUESTS_TOTAL).absolute(0);
         metrics::counter!(Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_ERRORS_TOTAL).absolute(0);
         metrics::counter!(Self::RPC_LAST_CANONICAL_PROPOSAL_ID_REQUESTS_TOTAL).absolute(0);
-        metrics::counter!(Self::RPC_LAST_CANONICAL_PROPOSAL_ID_ERRORS_TOTAL).absolute(0);
         metrics::counter!(Self::RPC_UNAUTHORIZED_TOTAL).absolute(0);
 
         // Reset new preconf queue counters

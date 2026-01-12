@@ -18,6 +18,7 @@ use jsonrpsee::{
     types::{ErrorObjectOwned, Params},
 };
 use metrics::{counter, histogram};
+use protocol::shasta::DriverRpcMethod;
 use tower::{Service, ServiceBuilder};
 use tracing::{debug, info, warn};
 
@@ -25,25 +26,6 @@ use crate::{
     error::{DriverError, Result as DriverResult},
     metrics::DriverMetrics,
 };
-
-/// Driver JSON-RPC method names.
-#[derive(Debug, Clone, Copy)]
-pub enum DriverRpcMethod {
-    /// Submit a preconfirmation payload built by the client.
-    SubmitPreconfirmationPayload,
-    /// Return the last processed canonical proposal id.
-    LastCanonicalProposalId,
-}
-
-impl DriverRpcMethod {
-    /// Return the JSON-RPC method name.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::SubmitPreconfirmationPayload => "preconf_submitPreconfirmationPayload",
-            Self::LastCanonicalProposalId => "preconf_lastCanonicalProposalId",
-        }
-    }
-}
 
 /// Service implementation backing the driver JSON-RPC server.
 #[async_trait]
