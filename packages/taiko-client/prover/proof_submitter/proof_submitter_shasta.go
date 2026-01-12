@@ -327,7 +327,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	// Build the Shasta Inbox.prove transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
-		s.txBuilder.BuildProveBatchesShasta(batchProof),
+		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64ProposalIDs...)

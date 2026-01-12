@@ -3,10 +3,11 @@ package submitter
 import (
 	"context"
 	"errors"
-	cmap "github.com/orcaman/concurrent-map/v2"
 	"math/big"
 	"testing"
 	"time"
+
+	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
