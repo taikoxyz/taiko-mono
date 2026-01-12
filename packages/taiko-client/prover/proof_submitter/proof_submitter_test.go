@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	cmap "github.com/orcaman/concurrent-map/v2"
-
 	"github.com/ethereum/go-ethereum/core/types"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"

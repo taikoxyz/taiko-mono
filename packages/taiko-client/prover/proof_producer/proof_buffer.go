@@ -132,6 +132,8 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	if len(pb.buffer) == 0 {
 		pb.firstItemAt = time.Time{}
 		pb.lastInsertID = 0
+	} else {
+		pb.lastInsertID = pb.buffer[len(pb.buffer)-1].BatchID.Uint64()
 	}
 	pb.isAggregating = false
 	return clearedCount
