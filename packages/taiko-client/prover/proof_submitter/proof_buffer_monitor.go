@@ -97,9 +97,16 @@ func cleanUpStaleCacheAndFlush(
 			}
 			// remove stale cache
 			removeFinalizedProofsFromCache(cacheMap, coreState.LastFinalizedProposalId)
-			// flush cached proofs
-			flushCacheNotify <- proofType
+			// try to flush cached proofs
+			tryFlushCache(flushCacheNotify, proofType)
 		}
+	}
+}
+
+func tryFlushCache(flushCacheNotify chan proofProducer.ProofType, proofType proofProducer.ProofType) {
+	select {
+	case flushCacheNotify <- proofType:
+	default:
 	}
 }
 

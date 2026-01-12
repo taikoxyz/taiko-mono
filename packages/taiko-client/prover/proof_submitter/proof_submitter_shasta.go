@@ -248,7 +248,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			s.TryAggregate(proofBuffer, proofResponse.ProofType)
 		} else {
 			cacheMap.Set(meta.GetProposalID().String(), proofResponse)
-			s.flushCacheNotify <- proofResponse.ProofType
+			tryFlushCache(s.flushCacheNotify, proofResponse.ProofType)
 		}
 		log.Info(
 			"Proof generated successfully for Shasta batch",
