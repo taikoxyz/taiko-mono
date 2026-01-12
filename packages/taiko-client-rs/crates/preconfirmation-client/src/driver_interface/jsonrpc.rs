@@ -7,6 +7,7 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, RootProvider};
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
+use protocol::shasta::DriverRpcMethod;
 use rpc::client::{
     build_ipc_provider, build_jwt_http_provider, connect_http_with_timeout, read_jwt_secret,
 };
@@ -61,25 +62,6 @@ impl From<PathBuf> for DriverEndpoint {
 
 /// Default poll interval for `wait_event_sync`.
 const DEFAULT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(6);
-
-/// Driver JSON-RPC method names.
-#[derive(Debug, Clone, Copy)]
-enum DriverRpcMethod {
-    /// Submit a preconfirmation payload for injection.
-    SubmitPreconfirmationPayload,
-    /// Query the last canonical proposal id processed by the driver.
-    LastCanonicalProposalId,
-}
-
-impl DriverRpcMethod {
-    /// Return the JSON-RPC method name.
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::SubmitPreconfirmationPayload => "preconf_submitPreconfirmationPayload",
-            Self::LastCanonicalProposalId => "preconf_lastCanonicalProposalId",
-        }
-    }
-}
 
 /// Configuration for [`JsonRpcDriverClient`].
 #[derive(Clone, Debug)]
@@ -250,33 +232,25 @@ impl DriverClient for JsonRpcDriverClient {
 
         // Build the payload with timing and error metrics.
         let payload_build_start = Instant::now();
-        let payload =
-            match build_taiko_payload_attributes(&input, basefee_sharing_pctg, &self.l2_provider)
-                .await
-            {
-                Ok(payload) => {
-                    metrics::histogram!(
-                        PreconfirmationClientMetrics::PAYLOAD_BUILD_DURATION_SECONDS
-                    )
-                    .record(payload_build_start.elapsed().as_secs_f64());
-                    payload
-                }
-                Err(err) => {
-                    metrics::histogram!(
-                        PreconfirmationClientMetrics::PAYLOAD_BUILD_DURATION_SECONDS
-                    )
-                    .record(payload_build_start.elapsed().as_secs_f64());
-                    metrics::counter!(PreconfirmationClientMetrics::PAYLOAD_BUILD_FAILURES_TOTAL)
-                        .increment(1);
-                    error!(
-                        block_number,
-                        proposal_id,
-                        error = %err,
-                        "failed to build payload attributes"
-                    );
-                    return Err(err);
-                }
-            };
+        let payload_result =
+            build_taiko_payload_attributes(&input, basefee_sharing_pctg, &self.l2_provider).await;
+        metrics::histogram!(PreconfirmationClientMetrics::PAYLOAD_BUILD_DURATION_SECONDS)
+            .record(payload_build_start.elapsed().as_secs_f64());
+
+        let payload = match payload_result {
+            Ok(payload) => payload,
+            Err(err) => {
+                metrics::counter!(PreconfirmationClientMetrics::PAYLOAD_BUILD_FAILURES_TOTAL)
+                    .increment(1);
+                error!(
+                    block_number,
+                    proposal_id,
+                    error = %err,
+                    "failed to build payload attributes"
+                );
+                return Err(err);
+            }
+        };
 
         // Submit to driver with timing and error metrics.
         debug!(block_number, proposal_id, "submitting preconfirmation payload to driver");

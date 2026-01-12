@@ -79,11 +79,12 @@ pub async fn build_taiko_payload_attributes(
     let base_fee_per_gas = if parent_header.inner.number == 0 {
         SHASTA_INITIAL_BASE_FEE
     } else {
-        if parent_header.inner.base_fee_per_gas.is_none() {
-            return Err(PreconfirmationClientError::DriverClient(format!(
+        parent_header.inner.base_fee_per_gas.ok_or_else(|| {
+            PreconfirmationClientError::DriverClient(format!(
                 "missing base fee for parent block {parent_block_number}"
-            )));
-        }
+            ))
+        })?;
+
         let grandparent_header =
             l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
 
