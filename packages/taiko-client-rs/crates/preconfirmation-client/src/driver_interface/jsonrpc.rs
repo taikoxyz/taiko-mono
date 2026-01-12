@@ -21,7 +21,10 @@ use super::{
     payload::build_taiko_payload_attributes,
     traits::{DriverClient, PreconfirmationInput},
 };
-use crate::{Result, error::PreconfirmationClientError};
+use crate::{
+    Result,
+    error::{DriverApiError, PreconfirmationClientError},
+};
 
 /// Endpoint type for the driver JSON-RPC connection.
 ///
@@ -92,14 +95,7 @@ impl JsonRpcDriverClientConfig {
         l2_rpc_url: Url,
         inbox_address: Address,
     ) -> Self {
-        Self {
-            driver_endpoint: DriverEndpoint::Http(driver_rpc_url),
-            driver_jwt_secret: Some(driver_jwt_secret),
-            l1_rpc_url,
-            l2_rpc_url,
-            inbox_address,
-            event_sync_poll_interval: DEFAULT_EVENT_SYNC_POLL_INTERVAL,
-        }
+        Self::with_http_endpoint(driver_rpc_url, driver_jwt_secret, l1_rpc_url, l2_rpc_url, inbox_address)
     }
 
     /// Construct a config with an HTTP endpoint (requires JWT).
@@ -161,19 +157,15 @@ impl JsonRpcDriverClient {
     pub async fn new(cfg: JsonRpcDriverClientConfig) -> Result<Self> {
         let driver_provider = match cfg.driver_endpoint {
             DriverEndpoint::Http(url) => {
-                let jwt_secret_path = cfg.driver_jwt_secret.ok_or_else(|| {
-                    PreconfirmationClientError::DriverClient(
-                        "HTTP endpoint requires JWT secret path".into(),
-                    )
-                })?;
-                let jwt_secret = read_jwt_secret(jwt_secret_path).ok_or_else(|| {
-                    PreconfirmationClientError::DriverClient("failed to read JWT secret".into())
-                })?;
+                let jwt_secret_path =
+                    cfg.driver_jwt_secret.ok_or(DriverApiError::MissingJwtSecret)?;
+                let jwt_secret = read_jwt_secret(jwt_secret_path.clone())
+                    .ok_or_else(|| DriverApiError::JwtSecretReadError { path: jwt_secret_path })?;
                 build_jwt_http_provider(url, jwt_secret)
             }
-            DriverEndpoint::Ipc(path) => build_ipc_provider(path)
+            DriverEndpoint::Ipc(path) => build_ipc_provider(path.clone())
                 .await
-                .map_err(|e| PreconfirmationClientError::DriverClient(e.to_string()))?,
+                .map_err(|err| DriverApiError::IpcConnectionFailed { path, source: err })?,
         };
 
         let l1_provider = connect_http_with_timeout(cfg.l1_rpc_url);
@@ -191,25 +183,23 @@ impl JsonRpcDriverClient {
     /// Fetch the last canonical proposal id reported by the driver.
     async fn last_canonical_proposal_id(&self) -> Result<u64> {
         let start = Instant::now();
-        let result = self
+        let result: std::result::Result<u64, _> = self
             .driver_provider
             .raw_request(Cow::Borrowed(DriverRpcMethod::LastCanonicalProposalId.as_str()), ())
             .await
-            .map_err(|err| {
-                metrics::counter!(
-                    PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL
-                )
-                .increment(1);
-                error!(error = %err, "driver RPC lastCanonicalProposalId failed");
-                PreconfirmationClientError::DriverClient(err.to_string())
-            });
+            .map_err(DriverApiError::from);
 
         metrics::histogram!(
             PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_DURATION_SECONDS
         )
         .record(start.elapsed().as_secs_f64());
 
-        result
+        result.map_err(|err| {
+            metrics::counter!(PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL)
+                .increment(1);
+            error!(error = %err, "driver RPC lastCanonicalProposalId failed");
+            PreconfirmationClientError::from(err)
+        })
     }
 }
 
@@ -228,12 +218,7 @@ impl DriverClient for JsonRpcDriverClient {
             return Ok(());
         }
 
-        let config = self
-            .inbox
-            .getConfig()
-            .call()
-            .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
+        let config = self.inbox.getConfig().call().await.map_err(DriverApiError::from)?;
         let basefee_sharing_pctg = config.basefeeSharingPctg;
 
         // Build the payload with timing and error metrics.
@@ -290,7 +275,7 @@ impl DriverClient for JsonRpcDriverClient {
                     error = %err,
                     "driver RPC submitPreconfirmationPayload failed"
                 );
-                Err(PreconfirmationClientError::DriverClient(err.to_string()))
+                Err(DriverApiError::from(err).into())
             }
         }
     }
@@ -302,12 +287,8 @@ impl DriverClient for JsonRpcDriverClient {
 
         loop {
             let last = self.last_canonical_proposal_id().await?;
-            let core_state = self
-                .inbox
-                .getCoreState()
-                .call()
-                .await
-                .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?;
+            let core_state =
+                self.inbox.getCoreState().call().await.map_err(DriverApiError::from)?;
             let next = core_state.nextProposalId.to::<u64>();
 
             debug!(
@@ -357,8 +338,8 @@ impl DriverClient for JsonRpcDriverClient {
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Safe)
             .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?
-            .ok_or_else(|| PreconfirmationClientError::DriverClient("missing safe block".into()))?;
+            .map_err(DriverApiError::from)?
+            .ok_or(DriverApiError::MissingSafeBlock)?;
         Ok(U256::from(block.number()))
     }
 
@@ -368,10 +349,8 @@ impl DriverClient for JsonRpcDriverClient {
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?
-            .ok_or_else(|| {
-                PreconfirmationClientError::DriverClient("missing latest block".into())
-            })?;
+            .map_err(DriverApiError::from)?
+            .ok_or(DriverApiError::MissingLatestBlock)?;
         Ok(U256::from(block.number()))
     }
 }
@@ -379,6 +358,7 @@ impl DriverClient for JsonRpcDriverClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::DriverApiError;
 
     #[test]
     fn driver_endpoint_from_http_url() {
@@ -449,5 +429,27 @@ mod tests {
 
         assert!(matches!(config.driver_endpoint, DriverEndpoint::Http(u) if u == url));
         assert_eq!(config.driver_jwt_secret, Some(jwt_secret));
+    }
+
+    #[tokio::test]
+    async fn new_reports_jwt_secret_read_error() {
+        let jwt_secret = PathBuf::from("/no/such/jwt");
+        let config = JsonRpcDriverClientConfig::with_http_endpoint(
+            "http://localhost:8545".parse().expect("driver url"),
+            jwt_secret.clone(),
+            "http://l1:8545".parse().expect("l1 url"),
+            "http://l2:8545".parse().expect("l2 url"),
+            Address::ZERO,
+        );
+
+        let err =
+            JsonRpcDriverClient::new(config).await.expect_err("missing jwt secret should fail");
+
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(
+                DriverApiError::JwtSecretReadError { path }
+            ) if path == jwt_secret
+        ));
     }
 }

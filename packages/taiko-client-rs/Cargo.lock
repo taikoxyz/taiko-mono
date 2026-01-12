@@ -7170,6 +7170,7 @@ dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
  "alloy-consensus",
+ "alloy-contract",
  "alloy-eips",
  "alloy-primitives",
  "alloy-provider",

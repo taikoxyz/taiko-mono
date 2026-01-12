@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use preconfirmation_types::uint256_to_u256;
 
 use super::traits::PreconfirmationInput;
-use crate::{Result, error::PreconfirmationClientError};
+use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
     calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data, encode_tx_list,
 };
@@ -40,10 +40,8 @@ where
         let block = self
             .get_block_by_number(BlockNumberOrTag::Number(block_number))
             .await
-            .map_err(|err| PreconfirmationClientError::DriverClient(err.to_string()))?
-            .ok_or_else(|| {
-                PreconfirmationClientError::DriverClient(format!("missing block {block_number}"))
-            })?;
+            .map_err(DriverApiError::from)?
+            .ok_or_else(|| DriverApiError::MissingBlock { block_number })?;
         Ok(block.header)
     }
 }
@@ -64,9 +62,7 @@ pub async fn build_taiko_payload_attributes(
     let gas_limit = uint256_to_u256(&preconf.gas_limit).to::<u64>();
     let proposal_id = uint256_to_u256(&preconf.proposal_id).to::<u64>();
     if proposal_id > MAX_U48 {
-        return Err(PreconfirmationClientError::DriverClient(
-            "proposal_id does not fit into uint48".to_string(),
-        ));
+        return Err(DriverApiError::ProposalIdOverflow.into());
     }
 
     let fee_recipient = Address::from_slice(preconf.coinbase.as_ref());
@@ -80,11 +76,12 @@ pub async fn build_taiko_payload_attributes(
     let base_fee_per_gas = if parent_header.inner.number == 0 {
         SHASTA_INITIAL_BASE_FEE
     } else {
-        parent_header.inner.base_fee_per_gas.ok_or_else(|| {
-            PreconfirmationClientError::DriverClient(format!(
-                "missing base fee for parent block {parent_block_number}"
-            ))
-        })?;
+        // Validate that the parent header has a base fee (required for EIP-1559 chains).
+        // The actual base fee is computed below using the EIP-4396 formula.
+        parent_header
+            .inner
+            .base_fee_per_gas
+            .ok_or_else(|| DriverApiError::MissingBaseFee { parent_block_number })?;
 
         let grandparent_header =
             l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
@@ -98,11 +95,7 @@ pub async fn build_taiko_payload_attributes(
         &input
             .transactions
             .as_ref()
-            .ok_or_else(|| {
-                PreconfirmationClientError::DriverClient(
-                    "missing transactions for execution payload".to_string(),
-                )
-            })?
+            .ok_or(DriverApiError::MissingTransactions)?
             .iter()
             .cloned()
             .map(Bytes::from)
@@ -155,11 +148,28 @@ pub async fn build_taiko_payload_attributes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::PreconfirmationClientError;
     use alloy_consensus::Header;
+    use crate::error::DriverApiError;
     use preconfirmation_types::{
         Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
     };
     use std::collections::BTreeMap;
+
+    /// Test header provider for mocking L2 block headers.
+    struct TestHeaderProvider {
+        headers: BTreeMap<u64, RpcHeader>,
+    }
+
+    #[async_trait]
+    impl BlockHeaderProvider for TestHeaderProvider {
+        async fn header_by_number(&self, block_number: u64) -> Result<RpcHeader> {
+            self.headers
+                .get(&block_number)
+                .cloned()
+                .ok_or_else(|| DriverApiError::MissingBlock { block_number }.into())
+        }
+    }
 
     /// Verifies that basic header fields are carried into the payload.
     #[tokio::test]
@@ -180,20 +190,6 @@ mod tests {
         };
 
         let input = PreconfirmationInput::new(commitment, Some(vec![vec![0x01, 0x02]]), None);
-        struct TestHeaderProvider {
-            headers: BTreeMap<u64, RpcHeader>,
-        }
-
-        #[async_trait]
-        impl BlockHeaderProvider for TestHeaderProvider {
-            async fn header_by_number(&self, block_number: u64) -> Result<RpcHeader> {
-                self.headers.get(&block_number).cloned().ok_or_else(|| {
-                    PreconfirmationClientError::DriverClient(format!(
-                        "missing block {block_number}"
-                    ))
-                })
-            }
-        }
 
         let parent_inner = Header {
             number: 4,
@@ -251,5 +247,83 @@ mod tests {
         assert_eq!(extra.len(), 7);
         assert_eq!(extra[0], basefee_sharing_pctg);
         assert_eq!(&extra[1..7], &[0x01, 0x02, 0x03, 0x04, 0x05, 0x06]);
+    }
+
+    #[tokio::test]
+    async fn proposal_id_overflow_returns_error() {
+        let preconf = Preconfirmation {
+            block_number: 5u64.into(),
+            timestamp: 10u64.into(),
+            gas_limit: 30_000_000u64.into(),
+            coinbase: Bytes20::try_from(vec![1u8; 20]).expect("coinbase"),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![2u8; 32]).expect("parent"),
+            proposal_id: (MAX_U48 + 1).into(),
+            ..Default::default()
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment { preconf, ..Default::default() },
+            signature: Bytes65::try_from(vec![0u8; 65]).expect("signature"),
+        };
+
+        let input = PreconfirmationInput::new(commitment, Some(vec![vec![0x01]]), None);
+
+        let provider = TestHeaderProvider { headers: BTreeMap::new() };
+        let err = build_taiko_payload_attributes(&input, 5, &provider)
+            .await
+            .expect_err("expected overflow error");
+
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(DriverApiError::ProposalIdOverflow)
+        ));
+    }
+
+    #[tokio::test]
+    async fn missing_transactions_returns_error() {
+        let preconf = Preconfirmation {
+            block_number: 5u64.into(),
+            timestamp: 10u64.into(),
+            gas_limit: 30_000_000u64.into(),
+            coinbase: Bytes20::try_from(vec![1u8; 20]).expect("coinbase"),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![2u8; 32]).expect("parent"),
+            proposal_id: 7u64.into(),
+            ..Default::default()
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment { preconf, ..Default::default() },
+            signature: Bytes65::try_from(vec![0u8; 65]).expect("signature"),
+        };
+
+        let input = PreconfirmationInput::new(commitment, None, None);
+
+        let parent_inner = Header {
+            number: 4,
+            timestamp: 8,
+            gas_limit: 30_000_000,
+            gas_used: 15_000_000,
+            difficulty: U256::from(42),
+            base_fee_per_gas: Some(900_000_000),
+            ..Default::default()
+        };
+        let parent_header = RpcHeader::new(parent_inner);
+
+        let grandparent_inner = Header { number: 3, timestamp: 6, ..Default::default() };
+        let grandparent_header = RpcHeader::new(grandparent_inner);
+
+        let mut headers = BTreeMap::new();
+        headers.insert(4, parent_header);
+        headers.insert(3, grandparent_header);
+        let provider = TestHeaderProvider { headers };
+
+        let err = build_taiko_payload_attributes(&input, 5, &provider)
+            .await
+            .expect_err("expected missing transactions error");
+
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(DriverApiError::MissingTransactions)
+        ));
     }
 }
