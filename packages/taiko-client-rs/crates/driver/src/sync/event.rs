@@ -314,8 +314,8 @@ where
         // Back off two epochs worth of proposals to survive L1 reorgs.
         let target_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
         info!(
-            latest_proposal_id = latest_proposal_id,
-            target_proposal_id = target_proposal_id,
+            latest_proposal_id,
+            target_proposal_id,
             latest_hash = ?latest_block.hash(),
             latest_number = latest_block.number(),
             "derived proposal id from latest anchorV4 transaction",
