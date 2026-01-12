@@ -179,6 +179,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,
 				"designatedProver", batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
 				"actualProver", txOpts.From,
+				"firstProposalParentBlockHash", input.Commitment.FirstProposalParentBlockHash,
 			)
 		}
 
