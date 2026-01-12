@@ -492,7 +492,6 @@ impl LookaheadResolver {
         epoch_start: u64,
         baseline: Address,
     ) -> Result<Address> {
-        self.fallback_timeline.prune_before(earliest_allowed_timestamp(self.genesis_timestamp)?);
         self.fallback_timeline.ensure_baseline(epoch_start, baseline);
         Ok(self.fallback_timeline.operator_at(ts).unwrap_or(baseline))
     }
