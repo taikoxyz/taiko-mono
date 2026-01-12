@@ -35,6 +35,7 @@ impl<P> BlockHeaderProvider for P
 where
     P: Provider + Send + Sync,
 {
+    /// Fetch the block header for the specified block number.
     async fn header_by_number(&self, block_number: u64) -> Result<RpcHeader> {
         let block = self
             .get_block_by_number(BlockNumberOrTag::Number(block_number))
