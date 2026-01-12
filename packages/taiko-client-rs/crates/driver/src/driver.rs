@@ -40,6 +40,24 @@ impl Driver {
     pub async fn run(&self) -> Result<()> {
         info!(?self.cfg, "starting driver sync pipeline");
         let pipeline = SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?;
+        let event_syncer = pipeline.event_syncer();
+        let mut pipeline_future = Box::pin(pipeline.run());
+
+        if self.cfg.preconfirmation_enabled && self.cfg.rpc_listen_addr.is_some() {
+            info!("waiting for preconfirmation ingress to become ready before starting RPC server");
+            tokio::select! {
+                ready = event_syncer.wait_preconf_ingress_ready() => {
+                    if ready.is_none() {
+                        warn!("preconfirmation ingress readiness wait skipped (disabled)");
+                    }
+                }
+                result = &mut pipeline_future => {
+                    result?;
+                    return Ok(());
+                }
+            }
+            info!("preconfirmation ingress is ready; starting RPC server");
+        }
 
         let _rpc_server = if let Some(listen_addr) = self.cfg.rpc_listen_addr {
             info!(addr = %listen_addr, "driver RPC server enabled");
@@ -66,7 +84,7 @@ impl Driver {
                 DriverRpcServer::start(
                     listen_addr,
                     jwt_secret,
-                    pipeline.event_syncer() as Arc<dyn DriverRpcApi>,
+                    event_syncer as Arc<dyn DriverRpcApi>,
                 )
                 .await?,
             )
@@ -75,7 +93,7 @@ impl Driver {
             None
         };
 
-        pipeline.run().await?;
+        pipeline_future.await?;
         Ok(())
     }
 
