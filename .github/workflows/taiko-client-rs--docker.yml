@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main, fix-docker-rs]
+    branches: [main]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
