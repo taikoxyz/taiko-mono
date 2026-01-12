@@ -36,7 +36,7 @@ remappings = [
 
     # For Azure TDX
     "solady/utils/=node_modules/solady/src/utils/",
-    "openzeppelin-contracts/contracts/utils/cryptography/RSA.sol=node_modules/@openzeppelin/contracts-v5/utils/cryptography/RSA.sol",
+    "openzeppelin-contracts/contracts/=node_modules/@openzeppelin/contracts-v5/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
