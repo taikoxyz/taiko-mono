@@ -2,7 +2,7 @@
 
 use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 use std::sync::Arc;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::DriverConfig,
@@ -60,7 +60,7 @@ impl Driver {
             info!("preconfirmation ingress is ready; starting RPC server");
         }
 
-        let api: Arc<dyn DriverRpcApi> = pipeline.event_syncer();
+        let api: Arc<dyn DriverRpcApi> = event_syncer.clone();
 
         // Start HTTP RPC server (JWT-protected) if configured.
         let http_server = if let Some(listen_addr) = self.cfg.rpc_listen_addr {
@@ -84,14 +84,7 @@ impl Driver {
                     return Err(DriverError::DriverRpcJwtSecretReadFailed);
                 }
             };
-            Some(
-                DriverRpcServer::start(
-                    listen_addr,
-                    jwt_secret,
-                    event_syncer as Arc<dyn DriverRpcApi>,
-                )
-                .await?,
-            )
+            Some(DriverRpcServer::start(listen_addr, jwt_secret, Arc::clone(&api)).await?)
         } else {
             None
         };
@@ -119,7 +112,7 @@ impl Driver {
             info!("driver RPC server disabled (no HTTP or IPC endpoint configured)");
         }
 
-        let result = pipeline.run().await;
+        let result = pipeline_future.await;
 
         if let Some(ipc) = ipc_server {
             info!("stopping driver IPC RPC server");
@@ -130,7 +123,7 @@ impl Driver {
             http.stop().await;
         }
 
-        pipeline_future.await?;
+        result?;
         Ok(())
     }
 
