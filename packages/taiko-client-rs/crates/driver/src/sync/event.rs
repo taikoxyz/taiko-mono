@@ -25,7 +25,7 @@ use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, mpsc, oneshot},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
     time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -76,6 +76,8 @@ where
     last_canonical_proposal_id: Arc<AtomicU64>,
     /// Indicates whether the preconfirmation ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
+    /// Notifier signaled when the preconfirmation ingress loop becomes ready.
+    preconf_ingress_notify: Arc<Notify>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
@@ -131,6 +133,7 @@ where
         router: Arc<AsyncMutex<ProductionRouter>>,
         rx: Arc<AsyncMutex<PreconfReceiver>>,
         ready_flag: Arc<AtomicBool>,
+        ready_notify: Arc<Notify>,
     ) {
         spawn(async move {
             // Start consuming externally supplied preconfirmation payloads.
@@ -141,11 +144,11 @@ where
             let mut rx = rx.lock().await;
             // Signal that the ingress loop is ready to accept submissions.
             ready_flag.store(true, Ordering::Release);
-            while let Some(payload) = rx.recv().await {
+            ready_notify.notify_waiters();
+            while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
                 let router = router.clone();
-                let job = payload;
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
 
@@ -284,6 +287,7 @@ where
             preconf_rx,
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
+            preconf_ingress_notify: Arc::new(Notify::new()),
         })
     }
 
@@ -295,6 +299,20 @@ where
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
     pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
         self.preconf_tx.clone()
+    }
+
+    /// Wait until the preconfirmation ingress loop is ready to accept submissions.
+    ///
+    /// Returns `None` if preconfirmation is disabled.
+    pub async fn wait_preconf_ingress_ready(&self) -> Option<()> {
+        self.preconf_tx.as_ref()?;
+        loop {
+            let notified = self.preconf_ingress_notify.notified();
+            if self.preconf_ingress_ready.load(Ordering::Acquire) {
+                return Some(());
+            }
+            notified.await;
+        }
     }
 
     /// Submit a preconfirmation payload and await the processing result.
@@ -611,7 +629,12 @@ where
 
         // Spawn preconfirmation ingress loop if enabled.
         if let Some(rx) = self.preconf_rx.clone() {
-            self.spawn_preconf_ingress(router.clone(), rx, self.preconf_ingress_ready.clone());
+            self.spawn_preconf_ingress(
+                router.clone(),
+                rx,
+                self.preconf_ingress_ready.clone(),
+                self.preconf_ingress_notify.clone(),
+            );
         }
 
         while let Some(message) = stream.next().await {
@@ -741,6 +764,7 @@ mod tests {
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
+            preconf_ingress_notify: Arc::new(Notify::new()),
         }
     }
 

@@ -222,6 +222,12 @@ impl DriverClient for JsonRpcDriverClient {
             preconfirmation_types::uint256_to_u256(&preconf.block_number).to::<u64>();
         let proposal_id = preconfirmation_types::uint256_to_u256(&preconf.proposal_id).to::<u64>();
 
+        // Skip EOP-only preconfirmations without a txlist.
+        if input.should_skip_driver_submission() {
+            debug!(block_number, proposal_id, "skipping EOP-only preconfirmation without txlist");
+            return Ok(());
+        }
+
         let config = self
             .inbox
             .getConfig()
