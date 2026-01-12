@@ -240,14 +240,17 @@ async fn p2p_gossip_submits_to_driver() -> anyhow::Result<()> {
         let cmd1 = client1.command_sender();
         let cmd2 = client2.command_sender();
 
-        let loop1 = client1.sync_and_catchup().await?;
-        let loop2 = client2.sync_and_catchup().await?;
-
-        let handle1 = tokio::spawn(async move { loop1.run_with_retry().await });
-        let handle2 = tokio::spawn(async move { loop2.run_with_retry().await });
+        let sync1 = tokio::spawn(async move { client1.sync_and_catchup().await });
+        let sync2 = tokio::spawn(async move { client2.sync_and_catchup().await });
 
         cmd1.send(NetworkCommand::Dial { addr: dial_addr(port2) }).await?;
         cmd2.send(NetworkCommand::Dial { addr: dial_addr(port1) }).await?;
+
+        let loop1 = sync1.await??;
+        let loop2 = sync2.await??;
+
+        let handle1 = tokio::spawn(async move { loop1.run_with_retry().await });
+        let handle2 = tokio::spawn(async move { loop2.run_with_retry().await });
 
         wait_for_peer_connected(&mut events1).await?;
         wait_for_peer_connected(&mut events2).await?;

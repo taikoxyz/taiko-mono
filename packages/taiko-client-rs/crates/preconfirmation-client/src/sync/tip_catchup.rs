@@ -6,7 +6,7 @@
 //! The catch-up flow anchors on the peer tip commitment and walks the
 //! `parent_preconfirmation_hash` chain backward until the driver sync tip.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::{NetworkCommand, NetworkError, NetworkErrorKind, P2pHandle};
@@ -18,6 +18,7 @@ use protocol::preconfirmation::PreconfSignerResolver;
 use tokio::{
     sync::{mpsc::Sender, oneshot},
     task::JoinSet,
+    time::sleep,
 };
 use tracing::{debug, error, info, warn};
 
@@ -234,9 +235,24 @@ impl TipCatchup {
         info!(event_sync_tip = %event_sync_tip, "starting tip catch-up");
 
         // Request head from any connected peer.
-        let peer_head = handle.request_head(None).await.map_err(|err| {
-            PreconfirmationClientError::Catchup(format!("failed to get peer head: {err}"))
-        })?;
+        let mut backoff = Duration::from_millis(200);
+        let max_backoff = Duration::from_secs(5);
+        let peer_head = loop {
+            match handle.request_head(None).await {
+                Ok(head) => break head,
+                Err(err) if err.kind == NetworkErrorKind::ReqRespBackpressure => {
+                    info!(error = %err, "no peers available for catch-up; waiting");
+                    sleep(backoff).await;
+                    let doubled = backoff + backoff;
+                    backoff = doubled.min(max_backoff);
+                }
+                Err(err) => {
+                    return Err(PreconfirmationClientError::Catchup(format!(
+                        "failed to get peer head: {err}"
+                    )));
+                }
+            }
+        };
         // Convert peer head to a block number.
         let peer_tip = uint256_to_u256(&peer_head.block_number);
 
