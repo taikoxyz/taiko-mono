@@ -306,7 +306,7 @@ where
                 Err(err) => {
                     metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
                         .increment(1);
-                    return Err(PreconfirmationClientError::DriverClient(err.to_string()));
+                    return Err(err);
                 }
             }
             return Ok(true);
@@ -336,7 +336,7 @@ where
             Err(err) => {
                 metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
                     .increment(1);
-                return Err(PreconfirmationClientError::DriverClient(err.to_string()));
+                return Err(err);
             }
         }
         Ok(true)
@@ -352,8 +352,7 @@ where
 
         // Only advance the head when this commitment is newer than the stored head.
         let new_block = uint256_to_u256(&head.block_number);
-        let current_head = self.store.head().map(|head| uint256_to_u256(&head.block_number));
-        if current_head.map(|current| new_block <= current).unwrap_or(false) {
+        if self.store.head().is_some_and(|h| new_block <= uint256_to_u256(&h.block_number)) {
             return;
         }
 
@@ -396,7 +395,7 @@ mod tests {
     use crate::{
         codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
-        error::Result,
+        error::{DriverApiError, PreconfirmationClientError, Result},
         storage::{CommitmentStore, InMemoryCommitmentStore},
     };
     use preconfirmation_types::{
@@ -467,6 +466,60 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn submit_if_ready_propagates_driver_error() {
+        struct ErrorDriver;
+
+        #[async_trait]
+        impl DriverClient for ErrorDriver {
+            async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> Result<()> {
+                Err(PreconfirmationClientError::DriverInterface(
+                    DriverApiError::MissingTransactions,
+                ))
+            }
+
+            async fn wait_event_sync(&self) -> Result<()> {
+                Ok(())
+            }
+
+            async fn event_sync_tip(&self) -> Result<U256> {
+                Ok(U256::ZERO)
+            }
+
+            async fn preconf_tip(&self) -> Result<U256> {
+                Ok(U256::ZERO)
+            }
+        }
+
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(ErrorDriver);
+        let lookahead_resolver = Arc::new(MockResolver);
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_sender, _command_rx) = mpsc::channel(8);
+
+        let handler = EventHandler::new(
+            store,
+            codec,
+            driver,
+            None,
+            event_tx,
+            command_sender,
+            lookahead_resolver,
+        );
+
+        let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
+        let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
+        let commitment = build_signed_commitment(&sk, 2, parent_hash, 100, 200);
+
+        let err = handler.submit_if_ready(commitment).await.expect_err("expected driver error");
+
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(DriverApiError::MissingTransactions)
+        ));
+    }
+
     /// Build a signed commitment for tests.
     fn build_signed_commitment(
         sk: &SecretKey,
@@ -495,26 +548,6 @@ mod tests {
 
     #[async_trait]
     impl PreconfSignerResolver for MockResolver {
-        async fn signer_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<Address> {
-            Ok(Address::ZERO)
-        }
-
-        async fn slot_info_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
-            Ok(PreconfSlotInfo { signer: Address::ZERO, submission_window_end: U256::ZERO })
-        }
-    }
-
-    /// Resolver that intentionally mismatches lookahead expectations.
-    struct MismatchResolver;
-
-    #[async_trait]
-    impl PreconfSignerResolver for MismatchResolver {
         async fn signer_for_timestamp(
             &self,
             _l2_block_timestamp: U256,
@@ -598,7 +631,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MismatchResolver);
+        let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_sender, _command_rx) = mpsc::channel(8);
 
@@ -629,7 +662,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MismatchResolver);
+        let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_sender, _command_rx) = mpsc::channel(8);
 

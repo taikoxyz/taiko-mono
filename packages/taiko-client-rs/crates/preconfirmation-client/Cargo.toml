@@ -9,12 +9,14 @@ license.workspace = true
 alethia-reth-consensus = { workspace = true }
 alethia-reth-primitives = { workspace = true }
 alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
@@ -34,7 +36,6 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
-alloy-transport = { workspace = true }
 rand = { workspace = true }
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 tokio = { workspace = true, features = ["full"] }
