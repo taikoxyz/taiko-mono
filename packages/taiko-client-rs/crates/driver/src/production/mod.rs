@@ -6,8 +6,8 @@
 //! Preconfirmation flow: external components can inject prebuilt payloads via the
 //! `preconfirmation_sender` exposed on `EventSyncer` when `DriverConfig.preconfirmation_enabled` is
 //! true. These payloads enter the `ProductionRouter` as `ProductionInput::Preconfirmation` and are
-//! applied through `PreconfirmationPath`, which wraps `ExecutionPayloadInjector` to submit the
-//! payload directly to the engine.
+//! applied through `PreconfirmationPath`, which uses the payload attributes path to submit the
+//! payload to the engine.
 
 pub mod error;
 pub mod kind;
