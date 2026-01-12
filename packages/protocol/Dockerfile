@@ -20,7 +20,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash
 ENV PATH="/root/.foundry/bin:$PATH"
 
 # Install Foundry version
-RUN foundryup -i 1.2.3
+RUN foundryup -i 1.4.2
 
 # Copy package files first for better layer caching
 COPY package.json pnpm-lock.yaml* ./
@@ -65,7 +65,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash
 ENV PATH="/root/.foundry/bin:$PATH"
 
 # Install Foundry version
-RUN foundryup -i 1.2.3
+RUN foundryup -i 1.4.2
 
 # Copy everything from builder
 COPY --from=builder /app ./
