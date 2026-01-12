@@ -23,8 +23,9 @@ mod storage;
 mod validation;
 
 pub use command::NetworkCommand;
-pub use config::{P2pConfig, RateLimitConfig};
+pub use config::{NetworkConfig, P2pConfig, RateLimitConfig};
 pub use discovery::spawn_discovery;
+pub use driver::{NetworkDriver, NetworkHandle};
 pub use event::{NetworkError, NetworkErrorKind, NetworkEvent};
 pub use handle::P2pHandle;
 pub use node::P2pNode;
