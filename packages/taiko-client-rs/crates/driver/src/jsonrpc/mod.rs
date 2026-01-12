@@ -155,6 +155,7 @@ fn ensure_ipc_parent_dir(ipc_path: &Path) -> DriverResult<()> {
     }
 
     if let Some(parent) = ipc_path.parent() &&
+        !parent.as_os_str().is_empty() &&
         !parent.exists()
     {
         info!(path = ?parent, "creating IPC socket parent directory");
@@ -401,8 +402,37 @@ fn unauthorized_response() -> HttpResponse {
 mod tests {
     use super::*;
     use jsonrpsee::server::stop_channel;
-    use std::path::{Path, PathBuf};
+    use std::{
+        io,
+        path::{Path, PathBuf},
+        sync::{Arc, Mutex},
+    };
     use tokio::spawn;
+    use tracing_subscriber::fmt::writer::MakeWriter;
+
+    #[derive(Clone, Default)]
+    struct LogBuffer(Arc<Mutex<Vec<u8>>>);
+
+    struct LogWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl<'a> MakeWriter<'a> for LogBuffer {
+        type Writer = LogWriter;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            LogWriter(self.0.clone())
+        }
+    }
+
+    impl io::Write for LogWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.0.lock().expect("log buffer lock").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     #[cfg(unix)]
     fn temp_ipc_path() -> PathBuf {
@@ -450,5 +480,28 @@ mod tests {
         assert!(is_windows_pipe_endpoint(Path::new(r"//./pipe/reth.ipc")));
         assert!(!is_windows_pipe_endpoint(Path::new("/tmp/reth.ipc")));
         assert!(!is_windows_pipe_endpoint(Path::new("relative/path")));
+    }
+
+    #[test]
+    fn ensure_ipc_parent_dir_skips_empty_parent_dir_creation() {
+        let buffer = LogBuffer::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_ansi(false)
+            .with_writer(buffer.clone())
+            .finish();
+
+        let relative_path = Path::new("driver.ipc");
+        tracing::subscriber::with_default(subscriber, || {
+            ensure_ipc_parent_dir(relative_path).expect("should handle relative IPC path");
+        });
+
+        let output = String::from_utf8(buffer.0.lock().expect("log buffer lock").clone())
+            .expect("valid UTF-8 logs");
+
+        assert!(
+            !output.contains("creating IPC socket parent directory"),
+            "should not attempt to create an empty parent directory"
+        );
     }
 }
