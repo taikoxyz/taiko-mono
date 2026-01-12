@@ -1,7 +1,7 @@
 //! Core production input types and markers.
 
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::rpc::types::Log;
-use alloy_rpc_types_engine::ExecutionPayloadInputV2;
 use std::sync::Arc;
 
 /// Marker for the source of a block-production request.
@@ -31,22 +31,27 @@ pub enum ProductionInput {
 /// Concrete preconfirmation payload wrapper used for injection.
 #[derive(Clone, Debug)]
 pub struct PreconfPayload {
-    execution_payload: ExecutionPayloadInputV2,
+    payload: TaikoPayloadAttributes,
 }
 
 impl PreconfPayload {
     /// Create a new preconfirmation payload.
-    pub fn new(execution_payload: ExecutionPayloadInputV2) -> Self {
-        Self { execution_payload }
+    pub fn new(payload: TaikoPayloadAttributes) -> Self {
+        Self { payload }
     }
 
-    /// Access the underlying execution payload.
-    pub fn execution_payload(&self) -> &ExecutionPayloadInputV2 {
-        &self.execution_payload
+    /// Access the underlying Taiko payload attributes.
+    pub fn payload(&self) -> &TaikoPayloadAttributes {
+        &self.payload
     }
 
-    /// Consume the wrapper and return the underlying execution payload.
-    pub fn into_execution_payload(self) -> ExecutionPayloadInputV2 {
-        self.execution_payload
+    /// Consume the wrapper and return the underlying payload attributes.
+    pub fn into_payload(self) -> TaikoPayloadAttributes {
+        self.payload
+    }
+
+    /// Return the target block number for the preconfirmation payload.
+    pub fn block_number(&self) -> u64 {
+        self.payload.l1_origin.block_id.to::<u64>()
     }
 }

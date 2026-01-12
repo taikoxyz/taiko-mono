@@ -6,14 +6,18 @@ use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
 use alloy_consensus::{self, Block, TxEnvelope};
 use alloy_eips::BlockNumberOrTag;
-use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
 use anyhow::anyhow;
 use metrics::{counter, gauge};
-use rpc::{client::Client, error::RpcClientError, l1_origin::L1Origin};
+use rpc::{
+    client::{Client, connect_http_with_timeout},
+    error::RpcClientError,
+    l1_origin::L1Origin,
+};
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, info, instrument, warn};
 
@@ -41,10 +45,8 @@ where
     /// Construct a new beacon syncer from the provided configuration and RPC client.
     #[instrument(skip(config, rpc))]
     pub fn new(config: &DriverConfig, rpc: Client<P>) -> Self {
-        let checkpoint = config
-            .l2_checkpoint_url
-            .as_ref()
-            .map(|url| ProviderBuilder::default().connect_http(url.clone()));
+        let checkpoint =
+            config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
 
         Self { retry_interval: config.retry_interval, rpc, checkpoint, _marker: PhantomData }
     }
