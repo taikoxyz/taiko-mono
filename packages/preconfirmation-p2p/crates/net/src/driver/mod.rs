@@ -35,7 +35,7 @@ use ssz_rs::Deserialize;
 
 /// Handle returned to the service layer; exposes the event receiver and command sender endpoints.
 #[derive(Debug)]
-pub(crate) struct NetworkHandle {
+pub struct NetworkHandle {
     /// Receiver for network events emitted by the driver.
     pub events: Receiver<NetworkEvent>,
     /// Sender for commands targeting the driver.
@@ -43,7 +43,7 @@ pub(crate) struct NetworkHandle {
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
-pub(crate) struct NetworkDriver {
+pub struct NetworkDriver {
     /// The underlying libp2p swarm that manages connections, protocols, and events.
     swarm: Swarm<crate::behaviour::NetBehaviour>,
     /// Sender for network events to be consumed by the service layer.
@@ -106,15 +106,13 @@ impl NetworkDriver {
     }
 
     /// Constructs a new `NetworkDriver` with custom validation and optional storage backend.
-    pub(crate) fn new_with_validator_and_storage(
+    pub fn new_with_validator_and_storage(
         cfg: NetworkConfig,
         validator: Box<dyn ValidationAdapter>,
         storage: Option<Arc<dyn PreconfStorage>>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
-        let dial_factor = {
-            let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();
-            NonZeroU8::new(dial).unwrap_or_else(|| NonZeroU8::new(1).unwrap())
-        };
+        let dial_factor =
+            NonZeroU8::new(cfg.dial_concurrency_factor).unwrap_or(NonZeroU8::new(1).unwrap());
 
         let parts = build_transport_and_behaviour(&cfg)?;
         let peer_id = parts.keypair.public().to_peer_id();

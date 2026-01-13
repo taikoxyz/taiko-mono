@@ -25,10 +25,7 @@ use crate::preconfirmation::lookahead::{
 use crate::preconfirmation::lookahead::resolver::epoch::current_unix_timestamp;
 
 use super::{
-    super::{
-        PreconfSignerResolver,
-        error::{LookaheadError, Result},
-    },
+    super::{LookaheadError, PreconfSignerResolver, Result},
     epoch::{
         MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, SECONDS_IN_SLOT, earliest_allowed_timestamp,
         earliest_allowed_timestamp_at, epoch_start_for, genesis_timestamp_for_chain,
@@ -70,7 +67,7 @@ pub struct LookaheadResolver {
 impl LookaheadResolver {
     /// Build a resolver backed by the given Inbox address and provider, inferring the beacon
     /// genesis timestamp from the chain ID.
-    pub(crate) async fn build<P>(inbox_address: Address, provider: P) -> Result<Self>
+    pub async fn build<P>(inbox_address: Address, provider: P) -> Result<Self>
     where
         P: Provider + Clone + Send + Sync + 'static,
     {
@@ -87,7 +84,7 @@ impl LookaheadResolver {
 
     /// Build a resolver backed by the given Inbox address and provider with an explicit genesis
     /// timestamp, bypassing chain ID inference (useful for custom networks).
-    pub(crate) async fn build_with_genesis<P>(
+    pub async fn build_with_genesis<P>(
         inbox_address: Address,
         provider: P,
         genesis_timestamp: u64,

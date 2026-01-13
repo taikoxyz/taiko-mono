@@ -88,13 +88,9 @@ pub fn build_transport_and_behaviour(cfg: &NetworkConfig) -> anyhow::Result<Buil
         libp2p::gossipsub::IdentTopic::new(preconfirmation_types::topic_raw_txlists(cfg.chain_id)),
     );
     let protocols = crate::codec::Protocols {
-        commitments: crate::codec::SszProtocol(
-            preconfirmation_types::protocol_get_commitments_by_number(cfg.chain_id),
-        ),
-        raw_txlists: crate::codec::SszProtocol(preconfirmation_types::protocol_get_raw_txlist(
-            cfg.chain_id,
-        )),
-        head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(cfg.chain_id)),
+        commitments: preconfirmation_types::protocol_get_commitments_by_number(cfg.chain_id),
+        raw_txlists: preconfirmation_types::protocol_get_raw_txlist(cfg.chain_id),
+        head: preconfirmation_types::protocol_get_head(cfg.chain_id),
     };
     let behaviour = NetBehaviour::new(keypair.clone(), topics.clone(), protocols, cfg)?;
 
