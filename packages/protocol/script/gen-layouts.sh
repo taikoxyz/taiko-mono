@@ -30,7 +30,7 @@ contracts_shared=(
 
 # Layer 1 contracts
 contracts_layer1=(
-"contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
+"contracts/layer1/core/impl/ProverAuction.sol:ProverAuction"
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"

@@ -13,18 +13,10 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
-        /// @notice The prover whitelist contract (address(0) means no whitelist)
-        address proverWhitelist;
+        /// @notice The prover auction contract
+        address proverAuction;
         /// @notice The signal service contract address
         address signalService;
-        /// @notice The ERC20 bond token address
-        address bondToken;
-        /// @notice The minimum bond a proposer is required to have in gwei
-        uint64 minBond;
-        /// @notice The liveness bond amount in gwei
-        uint64 livenessBond;
-        /// @notice The withdrawal delay in seconds
-        uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
@@ -69,6 +61,8 @@ interface IInbox {
         uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
+        /// @notice Address of the designated prover from the auction.
+        address designatedProver;
         /// @notice Hash of the parent proposal (zero for genesis).
         bytes32 parentProposalHash;
         /// @notice The L1 block number when the proposal was accepted.
@@ -103,18 +97,22 @@ interface IInbox {
     struct ProposeInput {
         /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
         uint48 deadline;
-        /// @notice Blob reference for proposal data.
-        LibBlobs.BlobReference blobReference;
+        /// @notice Maximum proving fee in Gwei the proposer is willing to pay.
+        /// @dev If 0, always self-prove without using the auction prover.
+        /// Use type(uint32).max to accept any fee.
+        uint32 maxProvingFeeGwei;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
         uint8 numForcedInclusions;
+        /// @notice Blob reference for proposal data.
+        LibBlobs.BlobReference blobReference;
     }
 
     /// @notice Transition data for a proposal used in prove
     struct Transition {
-        /// @notice Address of the proposer.
-        address proposer;
+        /// @notice Address of the designated prover.
+        address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
         /// @notice end block hash for the proposal.
@@ -178,19 +176,8 @@ interface IInbox {
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param id Unique identifier for the proposal.
-    /// @param proposer Address of the proposer.
-    /// @param parentProposalHash The hash of the parent proposal (zero for genesis).
-    /// @param endOfSubmissionWindowTimestamp Last slot timestamp where the preconfer can propose.
-    /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
-    /// @param sources Array of derivation sources for this proposal.
-    event Proposed(
-        uint48 indexed id,
-        address indexed proposer,
-        bytes32 parentProposalHash,
-        uint48 endOfSubmissionWindowTimestamp,
-        uint8 basefeeSharingPctg,
-        DerivationSource[] sources
-    );
+    /// @param data The encoded proposal data (Proposal struct without the id field).
+    event Proposed(uint48 indexed id, bytes data);
 
     /// @notice Emitted when a proof is submitted
     /// @param firstProposalId The first proposal ID covered by the proof (may include finalized ids)
@@ -211,9 +198,11 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
+    /// @dev The proposer must send ETH to pay the designated prover's fee. Any excess ETH
+    ///      will be refunded to the proposer.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external;
+    function propose(bytes calldata _lookahead, bytes calldata _data) external payable;
 
     /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     /// @param _data The encoded ProveInput struct.

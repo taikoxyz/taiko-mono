@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IBondManager } from "../iface/IBondManager.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
+import { IProverAuction } from "../iface/IProverAuction.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -30,12 +27,11 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Proposal submission with forced inclusion support
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
-///      - Bond accounting and liveness bond processing
+///      - Prover auction integration for designated prover assignment and slashing
 ///      - Finalization of proven proposals with checkpoint rate limiting
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
+contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
-    using LibBonds for LibBonds.Storage;
     using LibForcedInclusion for LibForcedInclusion.Storage;
     using LibMath for uint48;
     using LibMath for uint256;
@@ -66,23 +62,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
-    /// @notice The prover whitelist contract (address(0) means no whitelist)
-    IProverWhitelist internal immutable _proverWhitelist;
+    /// @notice The prover auction contract for designated prover assignment.
+    IProverAuction internal immutable _proverAuction;
 
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
-
-    /// @notice ERC20 token used as bond.
-    IERC20 internal immutable _bondToken;
-
-    /// @notice Minimum bond the proposer is required to have in gwei.
-    uint64 internal immutable _minBond;
-
-    /// @notice Liveness bond amount in gwei.
-    uint64 internal immutable _livenessBond;
-
-    /// @notice Time delay required before withdrawal after request.
-    uint48 internal immutable _withdrawalDelay;
 
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
@@ -135,10 +119,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
-    /// @dev Storage for bond balances.
-    LibBonds.Storage private _bondStorage;
-
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -151,12 +132,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
+        _proverAuction = IProverAuction(_config.proverAuction);
         _signalService = ISignalService(_config.signalService);
-        _bondToken = IERC20(_config.bondToken);
-        _minBond = _config.minBond;
-        _livenessBond = _config.livenessBond;
-        _withdrawalDelay = _config.withdrawalDelay;
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
@@ -203,28 +180,46 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      1. Validates proposer authorization via `IProposerChecker`
     ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
     ///         process at least `config.minForcedInclusionCount` if they are due.
-    ///      3. Updates core state and emits `Proposed` event
+    ///      3. Pays the designated prover their fee via `sendEther` (allows failure if prover
+    ///         rejects). Refunds excess ETH to the proposer via `sendEtherAndVerify` (
+    ///         reverts if proposer rejects).
+    ///      4. Updates core state and emits `Proposed` event
+    ///
+    /// @dev Payment requirements:
+    ///      - `msg.value + forcedInclusionFees` must be >= prover fee
+    ///      - Forced inclusion fees collected from the queue are credited toward the prover fee
+    ///      - If prover rejects payment, the full amount (fee + excess) is refunded to proposer
+    ///
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(
+        bytes calldata _lookahead,
+        bytes calldata _data
+    )
+        external
+        payable
+        nonReentrant
+    {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
 
             uint48 nextProposalId = _coreState.nextProposalId;
-            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
-            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
-            Proposal memory proposal = _buildProposal(
+            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
+            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
+
+            (Proposal memory proposal, uint256 proverFee, uint256 forcedInclusionFees) = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
-            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
+            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
             _emitProposedEvent(proposal);
+            _settleProposalPayments(proposal.designatedProver, proverFee, forcedInclusionFees);
         }
     }
 
@@ -256,10 +251,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(bytes calldata _data, bytes calldata _proof) external {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
-
-            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
@@ -287,12 +280,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             );
 
             // ---------------------------------------------------------
-            // 3. Process bond instruction
+            // 3. Process slashing if out of proving window
             // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
-            if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset);
-            }
+            _processSlashingIfLate(commitment, offset, state.lastFinalizedTimestamp);
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
@@ -347,31 +337,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @inheritdoc IBondManager
-    function deposit(uint64 _amount) external nonReentrant {
-        _bondStorage.deposit(_bondToken, msg.sender, msg.sender, _amount, true);
-    }
-
-    /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint64 _amount) external nonReentrant {
-        _bondStorage.deposit(_bondToken, msg.sender, _recipient, _amount, false);
-    }
-
-    /// @inheritdoc IBondManager
-    function withdraw(address _to, uint64 _amount) external nonReentrant {
-        _bondStorage.withdraw(_bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay);
-    }
-
-    /// @inheritdoc IBondManager
-    function requestWithdrawal() external nonReentrant {
-        _bondStorage.requestWithdrawal(msg.sender, _withdrawalDelay);
-    }
-
-    /// @inheritdoc IBondManager
-    function cancelWithdrawal() external nonReentrant {
-        _bondStorage.cancelWithdrawal(msg.sender);
-    }
-
     /// @inheritdoc IForcedInclusionStore
     /// @dev This function will revert if called before the first non-activation proposal is
     /// submitted to make sure blocks have been produced already and the derivation can use the
@@ -409,6 +374,24 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc ICodec
+    function encodeProposal(IInbox.Proposal calldata _proposal)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibCodec.encodeProposal(_proposal);
+    }
+
+    /// @inheritdoc ICodec
+    function decodeProposal(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.Proposal memory proposal_)
+    {
+        return LibCodec.decodeProposal(_data);
+    }
+
+    /// @inheritdoc ICodec
     function encodeProveInput(IInbox.ProveInput calldata _input)
         external
         pure
@@ -443,10 +426,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // External and Public View Functions
     // ---------------------------------------------------------------
-    /// @inheritdoc IBondManager
-    function getBond(address _address) external view returns (Bond memory bond_) {
-        return _bondStorage.getBond(_address);
-    }
 
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
@@ -477,12 +456,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         config_ = Config({
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
-            proverWhitelist: address(_proverWhitelist),
+            proverAuction: address(_proverAuction),
             signalService: address(_signalService),
-            bondToken: address(_bondToken),
-            minBond: _minBond,
-            livenessBond: _livenessBond,
-            withdrawalDelay: _withdrawalDelay,
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
@@ -516,13 +491,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Builds proposal and derivation data.
     /// This function also checks:
     /// - If `msg.sender` can propose.
-    /// - If `msg.sender` has sufficient bond.
+    /// - Gets the designated prover and fee from the auction.
     /// @param _input The propose input data.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _nextProposalId The proposal ID to assign.
     /// @param _lastProposalBlockId The last block number where a proposal was made.
     /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
     /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
+    /// @return proverFee_ The prover fee in wei.
+    /// @return forcedInclusionFees_ The forced inclusion fees in wei to refund to the proposer.
     function _buildProposal(
         ProposeInput memory _input,
         bytes calldata _lookahead,
@@ -531,7 +508,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         uint48 _lastFinalizedProposalId
     )
         private
-        returns (Proposal memory proposal_)
+        returns (Proposal memory proposal_, uint256 proverFee_, uint256 forcedInclusionFees_)
     {
         unchecked {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
@@ -542,20 +519,34 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 NotEnoughCapacity()
             );
 
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            (ConsumptionResult memory result, uint256 forcedInclusionFeesInGwei) =
+                _consumeForcedInclusions(_input.numForcedInclusions);
+            forcedInclusionFees_ = forcedInclusionFeesInGwei * 1 gwei;
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
-            // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
+            // set endOfSubmissionWindowTimestamp = 0
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
-                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
+            }
+
+            // Get designated prover and fee from auction
+            address designatedProver;
+            if (_input.maxProvingFeeGwei != 0) {
+                (designatedProver, proverFee_) = _proverAuction.getProver(_input.maxProvingFeeGwei);
+                proverFee_ *= 1 gwei;
+            }
+            if (designatedProver == address(0)) {
+                // Self-prove: either maxProvingFeeGwei is 0 or no suitable auction prover
+                designatedProver = msg.sender;
+                require(
+                    _proverAuction.checkBondDeferWithdrawal(msg.sender), InvalidSelfProverBond()
+                );
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -565,6 +556,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
+                designatedProver: designatedProver,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
@@ -582,16 +574,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
     /// source
-    /// @param _feeRecipient Address to receive accumulated fees
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
     /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
     /// and whether permissionless proposals are allowed
-    function _consumeForcedInclusions(
-        address _feeRecipient,
-        uint256 _numForcedInclusionsRequested
-    )
+    /// @return forcedInclusionFeesInGwei_ Total fees accumulated from processed inclusions in Gwei
+    function _consumeForcedInclusions(uint256 _numForcedInclusionsRequested)
         private
-        returns (ConsumptionResult memory result_)
+        returns (ConsumptionResult memory result_, uint256 forcedInclusionFeesInGwei_)
     {
         unchecked {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
@@ -607,9 +596,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, toProcess
-            );
+            (oldestTimestamp, head, forcedInclusionFeesInGwei_) =
+                _dequeueAndProcessForcedInclusions($, result_.sources, head, toProcess);
 
             // We check the following conditions are met:
             // 1. Proposer is willing to include at least the minimum required
@@ -629,38 +617,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @dev Dequeues and processes forced inclusions from the queue without checking if they exist
     /// @param $ Storage reference
-    /// @param _feeRecipient Address to receive fees
     /// @param _sources Array to populate with derivation sources
     /// @param _head Current queue head position
     /// @param _toProcess Number of inclusions to process
     /// @return oldestTimestamp_ Oldest timestamp from processed inclusions.
     /// `type(uint48).max` if no inclusions were processed
     /// @return head_ Updated head position
+    /// @return totalFeesInGwei_ Total fees accumulated from processed inclusions in Gwei
     function _dequeueAndProcessForcedInclusions(
         LibForcedInclusion.Storage storage $,
-        address _feeRecipient,
         DerivationSource[] memory _sources,
         uint48 _head,
         uint256 _toProcess
     )
         private
-        returns (uint48 oldestTimestamp_, uint48 head_)
+        returns (uint48 oldestTimestamp_, uint48 head_, uint256 totalFeesInGwei_)
     {
         unchecked {
             if (_toProcess == 0) {
-                return (type(uint48).max, _head);
+                return (type(uint48).max, _head, 0);
             }
 
             // Process inclusions and accumulate fees
-            uint256 totalFees;
             for (uint256 i; i < _toProcess; ++i) {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[_head + i];
                 _sources[i] = IInbox.DerivationSource(true, inclusion.blobSlice);
-                totalFees += inclusion.feeInGwei;
+                totalFeesInGwei_ += inclusion.feeInGwei;
             }
-
-            // Transfer accumulated fees
-            _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
 
             // Oldest timestamp is the timestamp of the first inclusion
             oldestTimestamp_ = uint48(_sources[0].blobSlice.timestamp);
@@ -673,39 +656,78 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Calculates and processes liveness bond settlement if applicable.
+    /// @dev Slashes the designated prover if the proof is submitted outside the proving window.
     /// @dev Settlement rules:
-    ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond slash with 50% credited to the actual prover and 50% burned.
+    ///      - On-time (within provingWindow + sequential grace): No slashing.
+    ///      - Late: Slash designated prover via ProverAuction and reward actual prover.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
+    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
+    function _processSlashingIfLate(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+                    + _provingWindow).max(_lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
-            // On-time proof - no bond transfer needed.
+            // On-time proof - no slashing needed.
             if (block.timestamp <= livenessWindowDeadline) {
                 return;
             }
 
-            _bondStorage.settleLivenessBond(
-                _commitment.transitions[_offset].proposer, _commitment.actualProver, _livenessBond
+            // Late proof: slash the designated prover and reward the actual prover
+            _proverAuction.slashProver(
+                _commitment.transitions[_offset].designatedProver, _commitment.actualProver
             );
+        }
+    }
+
+    /// @dev Settles payments for a proposal: pays the prover fee and refunds any excess to proposer.
+    ///      Payment flow:
+    ///      1. Calculate total available ETH: `_forcedInclusionFees + msg.value`
+    ///      2. Require total >= `_proverFee` (reverts with `InsufficientProverFee` otherwise)
+    ///      3. Deduct prover fee from total (proposer always pays, regardless of transfer outcome)
+    ///      4. Attempt to pay prover via `sendEther` (allows failure - prover may reject)
+    ///      5. Refund any remaining ETH to proposer via `sendEtherAndVerify` (reverts if rejected)
+    ///      Note: If prover rejects payment, the fee remains in the contract (not refunded).
+    ///      Unpaid ETH proving fees are retained in this contract pending a DAO decision on use.
+    /// @param _designatedProver The address to receive the prover fee.
+    /// @param _proverFee The prover fee in wei.
+    /// @param _forcedInclusionFees The forced inclusion fees collected in wei (credited to proposer).
+    function _settleProposalPayments(
+        address _designatedProver,
+        uint256 _proverFee,
+        uint256 _forcedInclusionFees
+    )
+        private
+    {
+        uint256 ethValue = _forcedInclusionFees + msg.value;
+        require(ethValue >= _proverFee, InsufficientProverFee());
+
+        unchecked {
+            // Deduct prover fee first - proposer always pays regardless of transfer outcome
+            ethValue -= _proverFee;
+
+            // Pay the designated prover (allow failure - prover may reject payment)
+            // If rejected, the fee remains in the contract
+            if (_proverFee > 0) {
+                _designatedProver.sendEther(_proverFee, gasleft(), "");
+            }
+
+            // Refund any excess to proposer
+            if (ethValue > 0) {
+                msg.sender.sendEtherAndVerify(ethValue);
+            }
         }
     }
 
     /// @dev Emits the Proposed event
     function _emitProposedEvent(Proposal memory _proposal) private {
-        emit Proposed(
-            _proposal.id,
-            _proposal.proposer,
-            _proposal.parentProposalHash,
-            _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
-            _proposal.sources
-        );
+        emit Proposed(_proposal.id, LibCodec.encodeProposal(_proposal));
     }
 
     // ---------------------------------------------------------------
@@ -735,19 +757,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Checks if the caller is an authorized prover
-    /// @param _addr The address of the caller to check
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
-    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
-        if (address(_proverWhitelist) == address(0)) return false;
-
-        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
-        if (proverCount == 0) return false;
-
-        require(isWhitelisted, ProverNotWhitelisted());
-        return true;
     }
 
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
@@ -788,17 +797,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
-    error CheckpointDelayHasPassed();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
-    error InsufficientBond();
+    error InsufficientProverFee();
+    error InvalidSelfProverBond();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
-    error ProverNotWhitelisted();
     error UnprocessedForcedInclusionIsDue();
 }
