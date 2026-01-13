@@ -44,12 +44,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Result from consuming forced inclusions
-    struct ConsumptionResult {
-        DerivationSource[] sources;
-        bool allowsPermissionless;
-    }
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -558,13 +552,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 NotEnoughCapacity()
             );
 
-            ConsumptionResult memory result = _buildConsumptionResult(_input);
+            uint256 maxForcedInclusions = uint256(_input.numForcedInclusions);
+            DerivationSource[] memory sources = new DerivationSource[](maxForcedInclusions + 1);
+            (uint256 forcedCount, bool allowsPermissionless) =
+                _buildForcedInclusions(_input, sources);
+            sources[forcedCount] =
+                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+            // Shrink to the exact length now that we know how many forced inclusions we used.
+            assembly {
+                mstore(sources, add(forcedCount, 1))
+            }
 
             // If forced inclusion is old enough, allow anyone to propose
             // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
-            if (!result.allowsPermissionless) {
+            if (!allowsPermissionless) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
                 require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
@@ -581,7 +584,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
+                sources: sources
             });
         }
     }
@@ -592,18 +595,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
-    /// source
+    /// @dev Consumes forced inclusions from the queue and populates the given sources array
     /// @param _feeRecipient Address to receive accumulated fees
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
-    /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
-    /// and whether permissionless proposals are allowed
+    /// @param _sources Preallocated sources array with capacity for requested inclusions
+    /// @return processed_ Number of forced inclusions processed
+    /// @return allowsPermissionless_ Whether permissionless proposals are allowed
     function _consumeForcedInclusions(
         address _feeRecipient,
-        uint256 _numForcedInclusionsRequested
+        uint256 _numForcedInclusionsRequested,
+        DerivationSource[] memory _sources
     )
         private
-        returns (ConsumptionResult memory result_)
+        returns (uint256 processed_, bool allowsPermissionless_)
     {
         unchecked {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
@@ -616,12 +620,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 ? available
                 : _numForcedInclusionsRequested;
 
-            result_.sources = new DerivationSource[](toProcess + 1);
-
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, toProcess
-            );
+            (oldestTimestamp, head) =
+                _dequeueAndProcessForcedInclusions($, _feeRecipient, _sources, head, toProcess);
 
             // We check the following conditions are met:
             // 1. Proposer is willing to include at least the minimum required
@@ -635,7 +636,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
                 * _permissionlessInclusionMultiplier + oldestTimestamp;
-            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
+            allowsPermissionless_ = block.timestamp > permissionlessTimestamp;
+            processed_ = toProcess;
         }
     }
 
@@ -813,19 +815,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev A post proving hook to execute extra logic after proving a proposal
     function _afterProve() internal virtual { }
 
-    /// @dev Builds the consumption result that contains the derivation sources
+    /// @dev Builds forced inclusion derivation sources.
     /// @dev In certain extended inboxes, forced inclusion may be disabled when the chain
     /// enters a feature specific "safety mode"
     /// @param _input The propose input data
-    /// @return result_ The consumption result with sources array and permissionless flag
-    function _buildConsumptionResult(ProposeInput memory _input)
+    /// @param _sources Preallocated sources array with capacity for requested inclusions
+    /// @return forcedCount_ Number of forced inclusions written to `_sources`
+    /// @return allowsPermissionless_ Whether permissionless proposals are allowed
+    function _buildForcedInclusions(
+        ProposeInput memory _input,
+        DerivationSource[] memory _sources
+    )
         internal
         virtual
-        returns (ConsumptionResult memory result_)
+        returns (uint256 forcedCount_, bool allowsPermissionless_)
     {
-        result_ = _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
-        result_.sources[result_.sources.length - 1] =
-            DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
+        (forcedCount_, allowsPermissionless_) =
+            _consumeForcedInclusions(msg.sender, _input.numForcedInclusions, _sources);
     }
 
     /// @dev Handles proof verification by delegating to the proof verifier contract.
