@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -122,7 +123,10 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 }
 
 // BuildProveBatchesShasta creates a new Shasta Inbox.prove transaction.
-func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProducer.BatchProofs) TxBuilder {
+func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
+	ctx context.Context,
+	batchProof *proofProducer.BatchProofs,
+) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
 			proposals = make([]*shastaBindings.ShastaInboxClientProposed, len(batchProof.ProofResponses))
@@ -153,8 +157,15 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 
 			// Set first proposal information.
 			if i == 0 {
+				lastOriginInLastProposal, err := a.rpc.LastL1OriginInBatchShasta(
+					ctx,
+					new(big.Int).Sub(proposals[i].Id, common.Big1),
+				)
+				if err != nil {
+					return nil, err
+				}
 				input.Commitment.FirstProposalId = proposals[i].Id
-				input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
+				input.Commitment.FirstProposalParentBlockHash = lastOriginInLastProposal.L2BlockHash
 			}
 
 			// Set last proposal information.
@@ -179,6 +190,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,
 				"designatedProver", batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
 				"actualProver", txOpts.From,
+				"firstProposalParentBlockHash", common.Bytes2Hex(input.Commitment.FirstProposalParentBlockHash[:]),
 			)
 		}
 

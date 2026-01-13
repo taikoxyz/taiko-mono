@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -137,12 +138,18 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 			Dummy:               p.cfg.Dummy,
 		}
 	}
-
 	// Init proof buffers.
-	var proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
+	var (
+		proofBuffers = make(map[producer.ProofType]*producer.ProofBuffer, proofSubmitter.MaxNumSupportedProofTypes)
+		cacheMaps    = make(
+			map[producer.ProofType]cmap.ConcurrentMap[string, *producer.ProofResponse],
+			proofSubmitter.MaxNumSupportedProofTypes,
+		)
+	)
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	for _, proofType := range proofTypes {
+		cacheMaps[proofType] = cmap.New[*producer.ProofResponse]()
 		switch proofType {
 		case producer.ProofTypeOp, producer.ProofTypeSgx:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
@@ -171,6 +178,8 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		p.cfg.ProofPollingInterval,
 		proofBuffers,
 		p.cfg.ForceBatchProvingInterval,
+		cacheMaps,
+		p.flushCacheNotify,
 	); err != nil {
 		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
 	}

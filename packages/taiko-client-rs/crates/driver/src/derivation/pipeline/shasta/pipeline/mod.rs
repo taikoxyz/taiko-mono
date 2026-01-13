@@ -46,7 +46,6 @@ struct ProposedEventContext {
 mod bundle;
 mod payload;
 mod state;
-mod util;
 
 use bundle::{BundleMeta, SourceManifestSegment};
 use state::ParentState;

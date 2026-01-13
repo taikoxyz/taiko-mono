@@ -19,13 +19,13 @@ type ProofBuffer struct {
 	firstItemAt   time.Time
 	isAggregating bool
 	mutex         sync.RWMutex
+	lastInsertID  uint64
 }
 
 // NewProofBuffer creates a new ProofBuffer instance.
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
 		buffer:      make([]*ProofResponse, 0, maxLength),
-		firstItemAt: time.Now(),
 		MaxLength:   maxLength,
 	}
 }
@@ -56,6 +56,7 @@ func (pb *ProofBuffer) Write(item *ProofResponse) (int, error) {
 		pb.firstItemAt = time.Now()
 	}
 	pb.buffer = append(pb.buffer, item)
+	pb.lastInsertID = item.BatchID.Uint64()
 	return len(pb.buffer), nil
 }
 
@@ -84,11 +85,25 @@ func (pb *ProofBuffer) Len() int {
 	return len(pb.buffer)
 }
 
+// AvailableCapacity returns current available capacity of the buffer.
+func (pb *ProofBuffer) AvailableCapacity() uint64 {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
+	return pb.MaxLength - uint64(len(pb.buffer))
+}
+
 // FirstItemAt returns the first item updated time of the buffer, only makes sense when Len() is greater than 0.
 func (pb *ProofBuffer) FirstItemAt() time.Time {
 	pb.mutex.RLock()
 	defer pb.mutex.RUnlock()
 	return pb.firstItemAt
+}
+
+// LastInsertID returns the last item insert batch ID.
+func (pb *ProofBuffer) LastInsertID() uint64 {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
+	return pb.lastInsertID
 }
 
 // ClearItems clears items that has given block ids in the buffer.
@@ -115,6 +130,9 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	pb.buffer = newBuffer
 	if len(pb.buffer) == 0 {
 		pb.firstItemAt = time.Time{}
+		pb.lastInsertID = 0
+	} else {
+		pb.lastInsertID = pb.buffer[len(pb.buffer)-1].BatchID.Uint64()
 	}
 	pb.isAggregating = false
 	return clearedCount

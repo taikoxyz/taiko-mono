@@ -1,10 +1,10 @@
 //! CLI command parser and runner.
 
-use std::io::Error;
+use std::{future::Future, io::Error};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 
 use crate::commands::{driver::DriverSubCommand, proposer::ProposerSubCommand};
 
@@ -12,9 +12,9 @@ use crate::commands::{driver::DriverSubCommand, proposer::ProposerSubCommand};
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
     /// Run the proposer.
-    Proposer(ProposerSubCommand),
+    Proposer(Box<ProposerSubCommand>),
     /// Run the driver.
-    Driver(DriverSubCommand),
+    Driver(Box<DriverSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -37,13 +37,13 @@ impl Cli {
     /// Run until ctrl-c is pressed.
     pub fn run_until_ctrl_c<F>(fut: F) -> Result<()>
     where
-        F: std::future::Future<Output = Result<()>>,
+        F: Future<Output = Result<()>>,
     {
-        Self::tokio_runtime().map_err(|e| anyhow::anyhow!(e))?.block_on(fut)
+        Self::tokio_runtime().map_err(|e| anyhow!(e))?.block_on(fut)
     }
 
     /// Create a new default tokio multi-thread runtime.
     pub fn tokio_runtime() -> Result<Runtime, Error> {
-        tokio::runtime::Builder::new_multi_thread().enable_all().build()
+        Builder::new_multi_thread().enable_all().build()
     }
 }

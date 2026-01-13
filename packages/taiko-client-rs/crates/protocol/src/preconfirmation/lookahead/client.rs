@@ -4,10 +4,7 @@ use bindings::{
     inbox::Inbox::InboxInstance, lookahead_store::LookaheadStore::LookaheadStoreInstance,
 };
 
-use super::{
-    LookaheadData, ProposerContext,
-    error::{LookaheadError, Result},
-};
+use super::{LookaheadData, LookaheadError, ProposerContext, Result};
 
 /// Thin wrapper around on-chain lookahead contracts resolved via the Inbox configuration.
 #[derive(Clone)]

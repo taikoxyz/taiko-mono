@@ -23,6 +23,7 @@ import (
 var (
 	MaxNumSupportedZkTypes    = 2
 	MaxNumSupportedProofTypes = 4
+	ErrCacheNotFound          = errors.New("cache not found")
 )
 
 const maxProofRequestTimeout = 1 * time.Hour
@@ -502,4 +503,7 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	}
 
 	return invalidBatchIDs, nil
+}
+func (s *ProofSubmitterPacaya) FlushCache(_ context.Context, _ proofProducer.ProofType) error {
+	return errors.New("FlushCache is not supported in Pacaya fork")
 }
