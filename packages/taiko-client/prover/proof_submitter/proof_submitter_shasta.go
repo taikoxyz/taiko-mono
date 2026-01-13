@@ -218,48 +218,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				return fmt.Errorf("failed to request base proof, error: %w", err)
 			}
 		}
-		// Try to add the proof to the buffer.
-		proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
-		if !exist {
-			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
-		}
-		cacheMap, exist := s.proofCacheMaps[proofResponse.ProofType]
-		if !exist {
-			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
-		}
-
-		var toBeInsertedID *big.Int
-		if proofBuffer.LastInsertID() > 0 {
-			toBeInsertedID = new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
-		} else {
-			toBeInsertedID = fromID
-		}
-		if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
-			bufferSize, err := proofBuffer.Write(proofResponse)
-			if err != nil {
-				return fmt.Errorf(
-					"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-					meta.GetProposalID(),
-					bufferSize,
-					err,
-				)
-			}
-			// Try to aggregate the proofs in the buffer.
-			s.TryAggregate(proofBuffer, proofResponse.ProofType)
-		} else {
-			cacheMap.Set(meta.GetProposalID().String(), proofResponse)
-			tryFlushCache(s.flushCacheNotify, proofResponse.ProofType)
-		}
-		log.Info(
-			"Proof generated successfully for Shasta batch",
-			"proposalID", meta.GetProposalID(),
-			"bufferSize", proofBuffer.Len(),
-			"maxBufferSize", proofBuffer.MaxLength,
-			"proofType", proofResponse.ProofType,
-			"bufferIsAggregating", proofBuffer.IsAggregating(),
-			"bufferFirstItemAt", proofBuffer.FirstItemAt(),
-		)
-		return nil
+		return s.handleProofResponse(meta, fromID, proofResponse)
 	}, backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx)); err != nil {
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
@@ -271,6 +230,58 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		return err
 	}
 
+	return nil
+}
+
+// handleProofResponse routes a new proof into either the sequential buffer or cache.
+func (s *ProofSubmitterShasta) handleProofResponse(
+	meta metadata.TaikoProposalMetaData,
+	fromID *big.Int,
+	proofResponse *proofProducer.ProofResponse,
+) error {
+	if fromID == nil {
+		return fmt.Errorf("fromID cannot be nil when handling proof response")
+	}
+	proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
+	if !exist {
+		return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
+	}
+	cacheMap, exist := s.proofCacheMaps[proofResponse.ProofType]
+	if !exist {
+		return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
+	}
+
+	var toBeInsertedID *big.Int
+	if proofBuffer.LastInsertID() > 0 {
+		toBeInsertedID = new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
+	} else {
+		toBeInsertedID = fromID
+	}
+	if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
+		bufferSize, err := proofBuffer.Write(proofResponse)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
+				meta.GetProposalID(),
+				bufferSize,
+				err,
+			)
+		}
+		// Try to aggregate the proofs in the buffer.
+		s.TryAggregate(proofBuffer, proofResponse.ProofType)
+	} else {
+		cacheMap.Set(meta.GetProposalID().String(), proofResponse)
+		tryFlushCache(s.flushCacheNotify, proofResponse.ProofType)
+	}
+	log.Info(
+		"Proof generated successfully for Shasta batch",
+		"proposalID", meta.GetProposalID(),
+		"bufferSize", proofBuffer.Len(),
+		"maxBufferSize", proofBuffer.MaxLength,
+		"proofType", proofResponse.ProofType,
+		"bufferIsAggregating", proofBuffer.IsAggregating(),
+		"bufferFirstItemAt", proofBuffer.FirstItemAt(),
+	)
 	return nil
 }
 
