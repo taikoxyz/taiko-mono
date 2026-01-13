@@ -16,10 +16,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -107,19 +105,17 @@ func (s *ProverTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:            os.Getenv("L1_WS"),
-			L2Endpoint:            os.Getenv("L2_WS"),
-			L2EngineEndpoint:      os.Getenv("L2_AUTH"),
-			PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-			TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:             string(jwtSecret),
-			UseLocalShastaDecoder: true,
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:          string(jwtSecret),
 		},
 		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
 	s.d = d
-	s.Nil(s.d.ShastaIndexer().Start())
 
 	// Init proposer
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
@@ -135,7 +131,6 @@ func (s *ProverTestSuite) SetupTest() {
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-			UseLocalShastaDecoder:       true,
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -146,7 +141,6 @@ func (s *ProverTestSuite) SetupTest() {
 
 	s.proposer = prop
 	s.proposer.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.proposer.ShastaIndexer().Start())
 }
 
 func (s *ProverTestSuite) TestName() {
@@ -181,86 +175,36 @@ func (s *ProverTestSuite) TestInitError() {
 
 func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
+
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
-
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
-	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Meta))
-	if m.IsPacaya() {
-		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
-	} else {
-		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
-	}
-	if m.IsPacaya() {
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	} else {
-		s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	}
-}
+	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	s.Nil(err)
+	s.Equal(uint64(2), coreState.NextProposalId.Uint64())
+	payload, eventLog, err := s.RPCClient.GetProposalByIDShasta(context.Background(), common.Big1)
+	s.Nil(err)
+	s.NotNil(payload)
+	s.NotNil(eventLog)
 
-func (s *ProverTestSuite) TestProveAfterExtendedWindow() {
-	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
-
-	// Prove the first Shasta proposal created by `ForkIntoShasta`.
-	p := s.ShastaStateIndexer.GetLastProposal()
-	s.NotNil(p)
-	meta := metadata.NewTaikoProposalMetadataShasta(&shasta.IInboxProposedEventPayload{
-		Proposal:         *p.Proposal,
-		Derivation:       *p.Derivation,
-		CoreState:        *p.CoreState,
-		BondInstructions: p.BondInstructions,
-	}, *p.Log)
-	s.True(meta.IsShasta())
+	// Prove the first Shasta proposal proposed in `ForkIntoShasta`.
+	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
+	s.Nil(err)
+	meta := metadata.NewTaikoProposalMetadataShasta(payload, header.Time)
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), meta, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
 	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
-	state, err := s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
-	s.Nil(err)
-	s.Zero(state.BondInstructionsHash)
-
-	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
-	s.Nil(err)
-	s.NotZero(config.ExtendedProvingWindow.Uint64())
-
-	// Propose a new Shasta proposal, then prove it after the extended proving window.
+	// Propose and prove the second Shasta proposal.
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.True(m.IsShasta())
-
-	s.L1Mine()
-	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.SetNextBlockTimestamp(l1Head.Time + config.ExtendedProvingWindow.Uint64())
-	s.L1Mine()
-
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
 	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-
-	// Propose `BondProcessingDelay + 1` more Shasta proposals to ensure the bond instructions are processed.
-	for i := 0; i <= manifest.BondProcessingDelay; i++ {
-		s.True(s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer()).IsShasta())
-
-		l2Head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-		s.Nil(err)
-		s.Greater(l2Head.Transactions().Len(), 0)
-		receipt, err := s.RPCClient.L2.TransactionReceipt(context.Background(), l2Head.Transactions()[0].Hash())
-		s.Nil(err)
-		s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-	}
-
-	// Check the proposal state, the bond instructions should be processed.
-	state, err = s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
-	s.Nil(err)
-	s.NotZero(state.BondInstructionsHash)
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
@@ -442,6 +386,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -499,6 +444,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -518,64 +464,6 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		req := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req.Meta))
 	}
-	proofType := <-batchProver.batchesAggregationNotifyPacaya
-	s.Nil(batchProver.aggregateOp(proofType, false))
-	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
-}
-
-func (s *ProverTestSuite) TestForceAggregate() {
-	batchSize := 3
-	// Init a batch prover
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
-	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
-	s.Nil(err)
-	s.NotZero(decimal)
-	batchProver := new(Prover)
-	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		Allowance: new(big.Int).Exp(
-			big.NewInt(1_000_000_000),
-			new(big.Int).SetUint64(uint64(decimal)),
-			nil,
-		),
-		RPCTimeout:                3 * time.Second,
-		BackOffRetryInterval:      3 * time.Second,
-		BackOffMaxRetries:         12,
-		SGXProofBufferSize:        uint64(batchSize),
-		ForceBatchProvingInterval: 5 * time.Second,
-	}, s.txmgr, s.txmgr))
-
-	for i := 0; i < batchSize-1; i++ {
-		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	}
-
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
-	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
-
-	s.Nil(batchProver.proveOp())
-	req1 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req1.Meta))
-
-	time.Sleep(5 * time.Second)
-	req2 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req2.Meta))
-
 	proofType := <-batchProver.batchesAggregationNotifyPacaya
 	s.Nil(batchProver.aggregateOp(proofType, false))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
@@ -649,7 +537,6 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	)
 	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.Address{},
@@ -796,6 +683,5 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		ZKVMProofBufferSize:    1,
 		BlockConfirmations:     0,
 	}, s.txmgr, s.txmgr))
-	s.Nil(p.shastaIndexer.Start())
 	s.p = p
 }

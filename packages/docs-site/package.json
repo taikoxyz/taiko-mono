@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "format": "prettier --write .",
-    "lint": "eslint . --ext .js,.ts,.astro"
+    "lint": "eslint . --ext .js,.ts,.astro",
+    "lint:mdx": "prettier --log-level warn --write \"src/content/**/*.{md,mdx}\""
   },
   "dependencies": {
     "@astrojs/check": "^0.8.0",

@@ -1,0 +1,50 @@
+[package]
+name = "preconfirmation-client"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rlp = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-transport = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+flate2 = { workspace = true }
+metrics = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+
+bindings = { path = "../bindings" }
+preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+[dev-dependencies]
+driver = { path = "../driver" }
+rand = { workspace = true }
+secp256k1 = { workspace = true }
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber = { workspace = true }
+
+[[test]]
+name = "p2p_integration"
+path = "tests/p2p_integration.rs"

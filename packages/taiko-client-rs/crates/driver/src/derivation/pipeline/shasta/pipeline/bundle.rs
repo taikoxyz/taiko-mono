@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, B256, Bytes};
+use alloy::primitives::{Address, B256};
 use protocol::shasta::manifest::DerivationSourceManifest;
 
 /// A single manifest segment bundled with its forced-inclusion flag.
@@ -22,10 +22,12 @@ pub(super) struct BundleMeta {
     pub(super) proposal_id: u64,
     pub(super) last_finalized_proposal_id: u64,
     pub(super) proposal_timestamp: u64,
+    /// L1 block number that emitted the proposal event.
+    pub(super) l1_block_number: u64,
+    /// L1 block hash that emitted the proposal event.
+    pub(super) l1_block_hash: B256,
+    /// L1 origin block number used for Shasta proposal derivation.
     pub(super) origin_block_number: u64,
-    pub(super) origin_block_hash: B256,
     pub(super) proposer: Address,
     pub(super) basefee_sharing_pctg: u8,
-    pub(super) bond_instructions_hash: B256,
-    pub(super) prover_auth_bytes: Bytes,
 }

@@ -5,10 +5,18 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibL1Addrs {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
+    address public constant DAO_SIGNER_LIST = 0x0F95E6968EC1B28c794CF1aD99609431de5179c2;
+    address public constant DAO_STANDARD_MULTISIG = 0xD7dA1C25E915438720692bC55eb3a7170cA90321;
+    address public constant DAO_EMERGENCY_MULTISIG = 0x2AffADEb2ef5e1F2a7F58964ee191F1e88317ECd;
     address public constant DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a;
+    address public constant DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN =
+        0x989E348275b659d36f8751ea1c10D146211650BE;
+
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
     address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
     address public constant INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+    address public constant PRECONF_WHITELIST = 0xFD019460881e6EeC632258222393d5821029b2ac;
+
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
     address public constant SIGNAL_SERVICE = 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
@@ -18,6 +26,9 @@ library LibL1Addrs {
     address public constant BRIDGED_ERC20 = 0x65666141a541423606365123Ed280AB16a09A2e1;
     address public constant BRIDGED_ERC721 = 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
     address public constant BRIDGED_ERC1155 = 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
+
+    // admin.taiko.eth multisig
+    address public constant MULTISIG_ADMIN_TAIKO_ETH = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
 
     // Third-party addresses
     address public constant ENS_REVERSE_REGISTRAR = 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb;

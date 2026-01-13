@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -250,4 +251,41 @@ func TestProofRequestSuccessful(t *testing.T) {
 	require.Equal(t, big.NewInt(5), resp.BatchID)
 	require.Equal(t, proofProducer.ProofTypeOp, resp.ProofType)
 	require.Equal(t, 1, mockProducer.requestCount)
+}
+
+func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	buffer := proofProducer.NewProofBuffer(2)
+	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(1)})
+	require.NoError(t, err)
+
+	s := &ProofSubmitterPacaya{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeOp: buffer,
+		},
+		batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+		forceBatchProvingInterval: 50 * time.Millisecond,
+		proofPollingInterval:      10 * time.Millisecond,
+	}
+
+	go monitorProofBuffer(ctx, proofProducer.ProofTypeOp, buffer, 50*time.Millisecond, s.TryAggregate)
+
+	select {
+	case proofType := <-s.batchAggregationNotify:
+		require.Equal(t, proofProducer.ProofTypeOp, proofType)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected aggregation signal but timed out")
+	}
+
+	require.True(t, buffer.IsAggregating())
+}
+
+func TestCacheAccess(t *testing.T) {
+	cacheMap := cmap.New[*proofProducer.ProofResponse]()
+	cacheMap.Set("1", &proofProducer.ProofResponse{})
+	value, ok := cacheMap.Get("1")
+	require.True(t, ok)
+	require.NotNil(t, value)
 }

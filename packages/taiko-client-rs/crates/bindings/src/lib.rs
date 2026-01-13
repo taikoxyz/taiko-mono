@@ -4,5 +4,6 @@
 //! Do not manually edit these files.
 //! These files may be overwritten by the codegen system at any time.
 pub mod r#anchor;
-pub mod r#codec_optimized;
 pub mod r#inbox;
+pub mod r#lookahead_store;
+pub mod r#preconf_whitelist;

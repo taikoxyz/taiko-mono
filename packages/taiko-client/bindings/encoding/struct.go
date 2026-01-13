@@ -1,8 +1,6 @@
 package encoding
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -51,12 +49,4 @@ type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
 	PreconfChainReorged bool
 	LastBlockID         uint64
-}
-
-// ProverAuth represents the prover authorization data structure in ShastaAnchor.
-type ProverAuth struct {
-	ProposalId     *big.Int
-	Proposer       common.Address
-	ProvingFeeGwei *big.Int
-	Signature      []byte
 }

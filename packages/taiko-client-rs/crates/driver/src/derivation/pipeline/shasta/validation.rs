@@ -1,9 +1,9 @@
-use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
         BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT,
-        MIN_ANCHOR_OFFSET, MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
+        MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
     },
     manifest::DerivationSourceManifest,
 };
@@ -146,8 +146,7 @@ fn validate_anchor_numbers(
             return false;
         }
 
-        let future_reference_limit = origin_block_number.saturating_sub(MIN_ANCHOR_OFFSET);
-        if anchor >= future_reference_limit {
+        if anchor > origin_block_number {
             return false;
         }
 
@@ -211,7 +210,7 @@ fn effective_parent_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -
     if parent_block_number == 0 {
         parent_gas_limit
     } else {
-        parent_gas_limit.saturating_sub(ANCHOR_V3_GAS_LIMIT)
+        parent_gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
     }
 }
 
@@ -242,13 +241,13 @@ pub fn apply_inherited_metadata(
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{Address, Bytes};
+    use alloy_primitives::Address;
     use protocol::shasta::manifest::BlockManifest;
 
     use super::*;
 
     fn manifest_with_blocks(blocks: Vec<BlockManifest>) -> DerivationSourceManifest {
-        DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks }
+        DerivationSourceManifest { blocks }
     }
 
     #[test]
@@ -359,7 +358,7 @@ mod tests {
         assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
 
         let manifest = manifest_with_blocks(vec![BlockManifest {
-            gas_limit: parent_gas_limit - ANCHOR_V3_GAS_LIMIT,
+            gas_limit: parent_gas_limit - ANCHOR_V3_V4_GAS_LIMIT,
             timestamp: 0,
             coinbase: Address::ZERO,
             anchor_block_number: 0,
@@ -417,7 +416,7 @@ mod tests {
         for block in &manifest.blocks {
             assert_eq!(block.coinbase, Address::repeat_byte(0x11));
             assert_eq!(block.anchor_block_number, 900);
-            assert_eq!(block.gas_limit, 30_000_000 - ANCHOR_V3_GAS_LIMIT);
+            assert_eq!(block.gas_limit, 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT);
         }
         assert_eq!(
             manifest.blocks.first().unwrap().timestamp,

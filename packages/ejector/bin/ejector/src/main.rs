@@ -43,6 +43,7 @@ async fn main() -> Result<()> {
 
     let l1_http_url = Url::parse(&config.l1_http_url).expect("Invalid L1 RPC URL");
     let l1_ws_url = Url::parse(&config.l1_ws_url).expect("Invalid L1 WS URL");
+    let l2_http_url = Url::parse(&config.l2_http_url).expect("Invalid L2 HTTP URL");
 
     let signer = PrivateKeySigner::from_str(&config.private_key).expect("Invalid private key");
 
@@ -79,16 +80,17 @@ async fn main() -> Result<()> {
         beacon_client,
         signer,
         l2_ws_url.clone(),
+        l2_http_url.clone(),
         l1_ws_url.clone(),
         l1_http_url.clone(),
-        config.l2_target_block_time,
-        config.eject_after_n_slots_missed,
+        config.eject_after_seconds,
         taiko_wrapper_address,
         whitelist_address,
         handover_slots,
         preconf_router_address,
         config.min_operators,
         config.min_reorg_depth_for_eject,
+        config.enable_reorg_ejection,
     );
 
     let monitor_handle = tokio::spawn(async move {

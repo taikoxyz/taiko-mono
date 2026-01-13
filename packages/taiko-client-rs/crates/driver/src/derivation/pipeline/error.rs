@@ -43,9 +43,6 @@ pub enum DerivationError {
     /// The proposal contains no derivation sources, which is invalid.
     #[error("proposal contains no derivation sources")]
     EmptyDerivationSources(u64),
-    /// Bond instruction cache mutex was poisoned.
-    #[error("bond instruction cache poisoned during {operation}: {message}")]
-    BondInstructionCachePoisoned { operation: &'static str, message: String },
     /// Execution engine failed to report the last block for a batch.
     #[error("missing last execution block for proposal {proposal_id}")]
     MissingBatchLastBlock { proposal_id: u64 },
@@ -55,12 +52,15 @@ pub enum DerivationError {
     /// Unable to fetch the latest L2 parent block.
     #[error("latest L2 block not found")]
     LatestL2BlockMissing,
-    /// Bond instruction hash mismatched after processing a proposal.
-    #[error("bond instructions hash mismatch: expected {expected:?}, actual {actual:?}")]
-    BondInstructionsMismatch { expected: B256, actual: B256 },
     /// Proposal was missing a transaction hash in the log.
     #[error("missing transaction hash for proposal {proposal_id}")]
     MissingProposeTxHash { proposal_id: u64 },
+    /// Proposal log was missing the emitting L1 block hash.
+    #[error("proposal log missing block hash")]
+    MissingL1BlockHash,
+    /// Proposal log was missing the emitting L1 block number.
+    #[error("proposal log missing block number")]
+    MissingL1BlockNumber,
     /// The propose transaction referenced by the log could not be found.
     #[error("propose transaction {tx_hash:?} for proposal {proposal_id} not found")]
     MissingProposeTransaction { proposal_id: u64, tx_hash: B256 },

@@ -143,6 +143,38 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
+	if p.shastaForkTimestamp > 0 && p.forkWindow > 0 {
+		header, err := p.srcEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(msgBody.Event.Raw.BlockNumber))
+		if err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+
+		blockTs := header.Time
+		if blockTs >= p.shastaForkTimestamp {
+			diff := time.Duration(blockTs-p.shastaForkTimestamp) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("within shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
+
+				return true, msgBody.TimesRetried, nil
+			}
+		} else {
+			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("approaching shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
+
+				return true, msgBody.TimesRetried, nil
+			}
+		}
+	}
+
 	// check paused status
 	paused, err := p.destBridge.Paused(&bind.CallOpts{
 		Context: ctx,
@@ -249,6 +281,11 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	var blockNum = event.Raw.BlockNumber
 
+	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, event.Raw.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+
 	// wait for srcChain => destChain header to sync if no hops,
 	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
 	if len(p.hops) > 0 {
@@ -284,7 +321,9 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 	hops := []proof.HopParams{}
 
-	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{},
+	key, err := signalService.GetSignalSlot(&bind.CallOpts{
+		Context: ctx,
+	},
 		event.Message.SrcChainId,
 		event.Raw.Address,
 		event.MsgHash,
@@ -298,21 +337,26 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
 	// and generate a proof.
 	if len(p.hops) == 0 {
-		latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
-			ctx,
-			p.destChainId.Uint64(),
-			p.srcChainId.Uint64(),
-		)
+		latestBlockID, err := p.latestSyncedBlockID(ctx, p.srcChainId.Uint64(), p.destChainId.Uint64())
 		if err != nil {
 			return nil, err
 		}
 
+		if latestBlockID == 0 {
+			latestBlockID = blockNum
+			slog.Warn("no synced header found; using message block number",
+				"fallbackBlockNum", latestBlockID,
+				"srcChainId", p.srcChainId.Uint64(),
+				"destChainId", p.destChainId.Uint64(),
+			)
+		}
+
 		hops = append(hops, proof.HopParams{
 			ChainID:              p.destChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
+			SignalServiceAddress: signalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        p.srcSignalService,
+			SignalService:        signalService,
 			Key:                  key,
 			BlockNumber:          latestBlockID,
 		})
@@ -321,10 +365,10 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		// the rest of the hops after.
 		hops = append(hops, proof.HopParams{
 			ChainID:              p.destChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
+			SignalServiceAddress: signalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        p.srcSignalService,
+			SignalService:        signalService,
 			Key:                  key,
 			BlockNumber:          blockNum,
 		})
@@ -394,6 +438,34 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	return encodedSignalProof, nil
 }
 
+// signalServiceForBlock picks the correct signal service fork based on the
+// block timestamp relative to the Shasta fork.
+func (p *Processor) signalServiceForBlock(
+	ctx context.Context,
+	blockNumber uint64,
+) (relayer.SignalService, common.Address, error) {
+	if p.shastaForkTimestamp == 0 ||
+		p.shastaOldForkSignalService == nil ||
+		p.shastaNewForkSignalService == nil {
+		return p.srcSignalService, p.srcSignalServiceAddress, nil
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+
+	defer cancel()
+
+	header, err := p.srcEthClient.HeaderByNumber(callCtx, new(big.Int).SetUint64(blockNumber))
+	if err != nil {
+		return nil, common.Address{}, err
+	}
+
+	if header.Time < p.shastaForkTimestamp {
+		return p.shastaOldForkSignalService, p.shastaOldForkAddress, nil
+	}
+
+	return p.shastaNewForkSignalService, p.shastaNewForkAddress, nil
+}
+
 // sendProcessMessageCall calls `bridge.processMessage` with latest nonce
 // after estimating gas, and checking profitability.
 func (p *Processor) sendProcessMessageCall(
@@ -404,7 +476,7 @@ func (p *Processor) sendProcessMessageCall(
 ) (*types.Receipt, error) {
 	defer p.logRelayerBalance(ctx)
 
-	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
+	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{Context: ctx}, event.Message, proof)
 	if err != nil {
 		return nil, err
 	}
@@ -482,7 +554,7 @@ func (p *Processor) sendProcessMessageCall(
 			Data: data,
 		}
 
-		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
+		gasUsed, err := p.destEthClient.EstimateGas(ctx, msg)
 		if err != nil {
 			return nil, err
 		}

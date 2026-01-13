@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
@@ -9,10 +9,6 @@ import { IRiscZeroVerifier } from "@risc0/contracts/IRiscZeroVerifier.sol";
 /// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
 contract Risc0Verifier is IProofVerifier, Ownable2Step {
-    bytes32 internal constant RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
-
-    // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
-    bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
     uint64 public immutable taikoChainId;
     address public immutable riscoGroth16Verifier;
 
@@ -29,12 +25,12 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
     error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
     error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
-    error INVALID_CHAIN_ID();
-    error INVALID_RISC0_GROTH16_VERIFIER();
+    error RISC_ZERO_INVALID_CHAIN_ID();
+    error RISC_ZERO_INVALID_GROTH16_VERIFIER();
 
     constructor(uint64 _taikoChainId, address _riscoGroth16Verifier, address _owner) {
-        if (_taikoChainId == 0) revert INVALID_CHAIN_ID();
-        if (_riscoGroth16Verifier == address(0)) revert INVALID_RISC0_GROTH16_VERIFIER();
+        require(_taikoChainId != 0, RISC_ZERO_INVALID_CHAIN_ID());
+        require(_riscoGroth16Verifier != address(0), RISC_ZERO_INVALID_GROTH16_VERIFIER());
         taikoChainId = _taikoChainId;
         riscoGroth16Verifier = _riscoGroth16Verifier;
 
@@ -71,8 +67,11 @@ contract Risc0Verifier is IProofVerifier, Ownable2Step {
             _aggregatedProvingHash, address(this), address(0), taikoChainId
         );
 
+        bytes32 r0AggregationPublicInput =
+            LibPublicInput.hashZKAggregationPublicInputs(blockImageId, publicInput);
+
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(abi.encodePacked(publicInput));
+        bytes32 journalDigest = sha256(abi.encodePacked(r0AggregationPublicInput));
 
         // call risc0 verifier contract
         (bool success,) = riscoGroth16Verifier.staticcall(

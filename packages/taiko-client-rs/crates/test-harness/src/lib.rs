@@ -5,10 +5,15 @@ use std::sync::OnceLock;
 use tracing_subscriber::EnvFilter;
 
 mod blob_server;
-mod shasta_env;
+mod helper;
+pub mod shasta;
+
+#[cfg(feature = "preconfirmation")]
+pub mod preconfirmation;
 
 pub use blob_server::BlobServer;
-pub use shasta_env::{ShastaEnv, mine_l1_block, verify_anchor_block, wait_for_new_proposal};
+pub use helper::{evm_mine, mine_l1_block};
+pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
 
 /// Initialise tracing for tests using a single global subscriber.
 ///

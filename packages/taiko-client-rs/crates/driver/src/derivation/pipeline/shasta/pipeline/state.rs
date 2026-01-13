@@ -6,7 +6,6 @@ use crate::derivation::DerivationError;
 use alethia_reth_consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
-use alloy::primitives::B256;
 use alloy_consensus::Header;
 
 /// Rolling view of the parent block used when deriving successive payloads.
@@ -14,8 +13,6 @@ use alloy_consensus::Header;
 pub(super) struct ParentState {
     /// Header of the latest block that has been materialised.
     pub(super) header: Header,
-    /// Hash of the bond instructions accumulated up to the parent block.
-    pub(super) bond_instructions_hash: B256,
     /// Anchor block number advertised by the parent block.
     pub(super) anchor_block_number: u64,
     /// Time delta between the parent and grandparent blocks.
@@ -33,7 +30,6 @@ impl ParentState {
         &self,
         header: Header,
         anchor_block_number: u64,
-        next_bond_instructions_hash: B256,
     ) -> Result<Self, DerivationError> {
         if header.number != self.next_block_number() {
             return Err(DerivationError::UnexpectedBlockNumber {
@@ -45,7 +41,6 @@ impl ParentState {
         Ok(Self {
             parent_block_time: header.timestamp.saturating_sub(self.header.timestamp),
             header,
-            bond_instructions_hash: next_bond_instructions_hash,
             anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
         })
