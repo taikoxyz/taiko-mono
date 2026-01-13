@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -32,13 +33,15 @@ type ProofSubmitterShasta struct {
 	batchResultCh          chan *proofProducer.BatchProofs
 	batchAggregationNotify chan proofProducer.ProofType
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
+	flushCacheNotify       chan proofProducer.ProofType
 	// Utilities
 	txBuilder *transaction.ProveBatchesTxBuilder
 	sender    *transaction.Sender
 	// Addresses
 	proverAddress common.Address
 	// Batch proof related
-	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
@@ -57,6 +60,8 @@ func NewProofSubmitterShasta(
 	proofPollingInterval time.Duration,
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	forceBatchProvingInterval time.Duration,
+	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
+	flushCacheNotify chan proofProducer.ProofType,
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
@@ -77,16 +82,20 @@ func NewProofSubmitterShasta(
 		proofPollingInterval:      proofPollingInterval,
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
+		proofCacheMaps:            proofCacheMaps,
+		flushCacheNotify:          flushCacheNotify,
 	}
 
-	proofSubmitter.startProofBufferMonitors(ctx)
+	proofSubmitter.startBackgroundWorkers(ctx)
 	return proofSubmitter, nil
 }
 
-// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation,
-// only be called once during initialization.
-func (s *ProofSubmitterShasta) startProofBufferMonitors(ctx context.Context) {
+// startBackgroundWorkers launches goroutines that monitor proof buffers and
+// prune cached proofs; should only run once during initialization.
+func (s *ProofSubmitterShasta) startBackgroundWorkers(ctx context.Context) {
+	log.Info("Starting background workers for Shasta", "interval", monitorInterval)
 	startProofBufferMonitors(ctx, s.proofBuffers, s.TryAggregate)
+	startCacheCleanUpAndFlush(ctx, s.rpc, s.proofCacheMaps, s.flushCacheNotify)
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -155,11 +164,14 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		if err != nil {
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
-		if coreState.LastFinalizedProposalId.Cmp(meta.Shasta().GetEventData().Id) >= 0 {
+		lastFinalizedProposalID := coreState.LastFinalizedProposalId
+		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
+		meta.GetProposalID()
+		if fromID.Cmp(meta.GetProposalID()) > 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
-				"batchID", meta.Shasta().GetEventData().Id,
-				"lastFinalizedProposalID", coreState.LastFinalizedProposalId,
+				"proposalID", meta.GetProposalID(),
+				"lastFinalizedProposalID", lastFinalizedProposalID,
 			)
 			return nil
 		}
@@ -206,35 +218,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				return fmt.Errorf("failed to request base proof, error: %w", err)
 			}
 		}
-		// Try to add the proof to the buffer.
-		proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
-		if !exist {
-			return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
-		}
-		bufferSize, err := proofBuffer.Write(proofResponse)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-				meta.Shasta().GetEventData().Id,
-				bufferSize,
-				err,
-			)
-		}
-
-		log.Info(
-			"Proof generated successfully for Shasta batch",
-			"proposalID", meta.Shasta().GetEventData().Id,
-			"bufferSize", bufferSize,
-			"maxBufferSize", proofBuffer.MaxLength,
-			"proofType", proofResponse.ProofType,
-			"bufferIsAggregating", proofBuffer.IsAggregating(),
-			"bufferFirstItemAt", proofBuffer.FirstItemAt(),
-		)
-
-		// Try to aggregate the proofs in the buffer.
-		s.TryAggregate(proofBuffer, proofResponse.ProofType)
-
-		return nil
+		return s.handleProofResponse(meta, fromID, proofResponse)
 	}, backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx)); err != nil {
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
@@ -246,6 +230,58 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		return err
 	}
 
+	return nil
+}
+
+// handleProofResponse routes a new proof into either the sequential buffer or cache.
+func (s *ProofSubmitterShasta) handleProofResponse(
+	meta metadata.TaikoProposalMetaData,
+	fromID *big.Int,
+	proofResponse *proofProducer.ProofResponse,
+) error {
+	if fromID == nil {
+		return fmt.Errorf("fromID cannot be nil when handling proof response")
+	}
+	proofBuffer, exist := s.proofBuffers[proofResponse.ProofType]
+	if !exist {
+		return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
+	}
+	cacheMap, exist := s.proofCacheMaps[proofResponse.ProofType]
+	if !exist {
+		return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
+	}
+
+	var toBeInsertedID *big.Int
+	if proofBuffer.LastInsertID() > 0 {
+		toBeInsertedID = new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
+	} else {
+		toBeInsertedID = fromID
+	}
+	if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
+		bufferSize, err := proofBuffer.Write(proofResponse)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
+				meta.GetProposalID(),
+				bufferSize,
+				err,
+			)
+		}
+		// Try to aggregate the proofs in the buffer.
+		s.TryAggregate(proofBuffer, proofResponse.ProofType)
+	} else {
+		cacheMap.Set(meta.GetProposalID().String(), proofResponse)
+		tryFlushCache(s.flushCacheNotify, proofResponse.ProofType)
+	}
+	log.Info(
+		"Proof generated successfully for Shasta batch",
+		"proposalID", meta.GetProposalID(),
+		"bufferSize", proofBuffer.Len(),
+		"maxBufferSize", proofBuffer.MaxLength,
+		"proofType", proofResponse.ProofType,
+		"bufferIsAggregating", proofBuffer.IsAggregating(),
+		"bufferFirstItemAt", proofBuffer.FirstItemAt(),
+	)
 	return nil
 }
 
@@ -302,7 +338,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	// Build the Shasta Inbox.prove transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
-		s.txBuilder.BuildProveBatchesShasta(batchProof),
+		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),
 		batchProof,
 	); err != nil {
 		proofBuffer.ClearItems(uint64ProposalIDs...)
@@ -508,4 +544,39 @@ func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, trans
 		)
 		return fmt.Errorf("transition %d not verified yet", transitionID.Uint64())
 	}, backoff.WithContext(backoff.NewConstantBackOff(chainiterator.DefaultRetryInterval), ctx))
+}
+
+func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofProducer.ProofType) error {
+	buffer, exist := s.proofBuffers[proofType]
+	if !exist {
+		return fmt.Errorf("failed to get buffer with expected proof type: %s", proofType)
+	}
+	cacheMap, exist := s.proofCacheMaps[proofType]
+	if !exist {
+		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
+	}
+	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta core state: %w", err)
+	}
+	var fromID *big.Int
+	if buffer.LastInsertID() > 0 {
+		fromID = new(big.Int).SetUint64(buffer.LastInsertID() + 1)
+	} else {
+		fromID = new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
+	}
+	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
+	if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
+		if !errors.Is(err, ErrCacheNotFound) {
+			log.Error(
+				"Failed to flush proof cache range",
+				"error", err,
+				"fromID", fromID,
+				"toID", toID,
+			)
+			return fmt.Errorf("failed to flush proof cache range: %w", err)
+		}
+	}
+	s.TryAggregate(buffer, proofType)
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -279,4 +280,12 @@ func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
 	}
 
 	require.True(t, buffer.IsAggregating())
+}
+
+func TestCacheAccess(t *testing.T) {
+	cacheMap := cmap.New[*proofProducer.ProofResponse]()
+	cacheMap.Set("1", &proofProducer.ProofResponse{})
+	value, ok := cacheMap.Get("1")
+	require.True(t, ok)
+	require.NotNil(t, value)
 }
