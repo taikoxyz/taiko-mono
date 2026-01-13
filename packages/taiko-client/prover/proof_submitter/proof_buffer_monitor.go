@@ -122,6 +122,7 @@ func removeFinalizedProofsFromCache(
 	for _, proposalID := range cacheMap.Keys() {
 		id, ok := new(big.Int).SetString(proposalID, 10)
 		if !ok {
+			log.Error("Failed to parse proof from cache", "proposalID", proposalID)
 			return
 		}
 		if id.Cmp(lastFinalizedProposalID) <= 0 {
