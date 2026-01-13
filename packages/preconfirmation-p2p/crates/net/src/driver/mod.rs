@@ -40,6 +40,8 @@ pub struct NetworkHandle {
     pub events: Receiver<NetworkEvent>,
     /// Sender for commands targeting the driver.
     pub commands: Sender<NetworkCommand>,
+    /// The local peer ID for this node.
+    pub local_peer_id: PeerId,
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
@@ -176,7 +178,7 @@ impl NetworkDriver {
                 kona_gater: build_kona_gater(&cfg),
                 storage: storage.unwrap_or_else(default_storage),
             },
-            NetworkHandle { events: events_rx, commands: cmd_tx },
+            NetworkHandle { events: events_rx, commands: cmd_tx, local_peer_id: peer_id },
         ))
     }
 

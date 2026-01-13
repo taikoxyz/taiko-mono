@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::reputation::ReputationConfig;
+use libp2p::Multiaddr;
 
 /// Configuration for the P2P.
 ///
@@ -29,6 +30,8 @@ pub struct P2pConfig {
     pub discovery_listen: SocketAddr,
     /// Bootnodes as ENR or multiaddr strings for initial peer discovery.
     pub bootnodes: Vec<String>,
+    /// Static peers to dial on startup (multiaddr including `/p2p/<peer_id>`).
+    pub pre_dial_peers: Vec<Multiaddr>,
     /// Enable QUIC transport (requires `quic-transport` feature).
     pub enable_quic: bool,
     /// Enable TCP transport.
@@ -118,6 +121,7 @@ impl Default for P2pConfig {
             enable_discovery: base.enable_discovery,
             discovery_listen: base.discv5_listen,
             bootnodes: base.bootnodes,
+            pre_dial_peers: Vec::new(),
             enable_quic: base.enable_quic,
             enable_tcp: base.enable_tcp,
             request_timeout: base.request_timeout,

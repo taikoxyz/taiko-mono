@@ -113,7 +113,7 @@ impl TipCatchup {
             &map_commitments(fetched),
             stop_block,
             self.config.expected_slasher.as_ref(),
-            &self.config.lookahead_resolver,
+            self.config.lookahead_resolver.as_ref(),
         )
         .await;
 
@@ -277,11 +277,13 @@ async fn chain_from_tip(
 }
 
 fn ensure_catchup_boundary(stop_block: U256, boundary_block: Option<U256>) -> Result<()> {
-    (boundary_block == Some(stop_block)).then_some(()).ok_or_else(|| {
-        PreconfirmationClientError::Catchup(format!(
+    if boundary_block == Some(stop_block) {
+        Ok(())
+    } else {
+        Err(PreconfirmationClientError::Catchup(format!(
             "catch-up chain did not reach the driver sync boundary: expected {stop_block}, got {boundary_block:?}"
-        ))
-    })
+        )))
+    }
 }
 
 fn require_tip_commitment(
@@ -335,8 +337,8 @@ async fn fetch_txlist(
     if response.txlist.is_empty() {
         return Ok(None);
     }
-    let actual = B256::from_slice(response.raw_tx_list_hash.as_ref());
     if response.raw_tx_list_hash.as_ref() != hash.as_ref() {
+        let actual = B256::from_slice(response.raw_tx_list_hash.as_ref());
         return Err(PreconfirmationClientError::Validation(format!(
             "txlist hash mismatch: requested {hash_hex} got {actual}"
         )));

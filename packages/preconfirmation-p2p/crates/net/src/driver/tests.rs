@@ -186,7 +186,7 @@ fn driver_from_parts(
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
         },
-        NetworkHandle { events: events_rx, commands: cmd_tx },
+        NetworkHandle { events: events_rx, commands: cmd_tx, local_peer_id: peer_id },
     )
 }
 

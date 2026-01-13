@@ -244,11 +244,35 @@ where
             config.expected_slasher.clone(),
             event_tx.clone(),
             handle.command_sender(),
-            Arc::new(config.lookahead_resolver.clone()),
+            Arc::clone(&config.lookahead_resolver),
         );
 
         // Spawn the P2P node loop before running catch-up.
         let node_handle = tokio::spawn(async move { node.run().await });
+
+        // If pre-dial peers are configured, dial them and wait for a connection
+        // before attempting catch-up.
+        let pre_dial_result: Result<()> = async {
+            if !config.p2p.pre_dial_peers.is_empty() {
+                for addr in config.p2p.pre_dial_peers.iter().cloned() {
+                    handle.dial(addr).await?;
+                }
+                let peer_id = handle.wait_for_peer_connected().await?;
+                info!(peer_id = %peer_id, "peer connected before catch-up");
+                if let Err(err) =
+                    event_tx.send(PreconfirmationEvent::PeerConnected(peer_id.to_string()))
+                {
+                    warn!(error = %err, "failed to emit peer connected event");
+                }
+            }
+            Ok(())
+        }
+        .await;
+
+        if let Err(err) = pre_dial_result {
+            node_handle.abort();
+            return Err(err);
+        }
 
         // Run the catch-up flow.
         let catchup_result = async {
@@ -302,8 +326,7 @@ impl RetryBackoff {
     /// Get the next delay duration, doubling the current delay up to the maximum.
     fn next_delay(&mut self) -> Duration {
         let delay = self.current.min(self.max);
-        let doubled = self.current + self.current;
-        self.current = doubled.min(self.max);
+        self.current = (self.current * 2).min(self.max);
         delay
     }
 }

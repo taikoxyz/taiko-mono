@@ -8,6 +8,9 @@ mod blob_server;
 mod helper;
 pub mod shasta;
 
+#[cfg(feature = "preconfirmation")]
+pub mod preconfirmation;
+
 pub use blob_server::BlobServer;
 pub use helper::{evm_mine, mine_l1_block};
 pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};

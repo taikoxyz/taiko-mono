@@ -96,12 +96,17 @@ mod tests {
     use crate::{storage::InMemoryStorage, validation::LocalValidationAdapter};
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-    #[tokio::test]
-    async fn new_with_validator_and_storage_returns_ok() {
+    fn test_config() -> P2pConfig {
         let mut cfg = P2pConfig::default();
         cfg.listen_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         cfg.discovery_listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         cfg.enable_discovery = false;
+        cfg
+    }
+
+    #[tokio::test]
+    async fn new_with_validator_and_storage_returns_ok() {
+        let cfg = test_config();
         let validator: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
         let storage: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
 
@@ -110,5 +115,64 @@ mod tests {
         if let Err(err) = result {
             panic!("{:#}", err);
         }
+    }
+
+    #[tokio::test]
+    async fn p2p_handle_exposes_local_peer_id() {
+        let cfg = test_config();
+        let validator: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
+        let storage: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
+
+        let (handle, _node) = P2pNode::new_with_validator_and_storage(cfg, validator, storage)
+            .expect("node creation failed");
+
+        // Verify local_peer_id is accessible and non-zero
+        let peer_id = handle.local_peer_id();
+        assert!(!peer_id.to_bytes().is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn p2p_handle_dial_and_wait_for_connection() {
+        // Create two nodes
+        let cfg1 = test_config();
+        let cfg2 = test_config();
+
+        let validator1: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
+        let validator2: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
+        let storage1: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
+        let storage2: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
+
+        let (mut handle1, node1) =
+            P2pNode::new_with_validator_and_storage(cfg1, validator1, storage1)
+                .expect("node1 creation failed");
+        let (mut handle2, node2) =
+            P2pNode::new_with_validator_and_storage(cfg2, validator2, storage2)
+                .expect("node2 creation failed");
+
+        // Spawn both nodes
+        let node1_handle = tokio::spawn(async move { node1.run().await });
+        let node2_handle = tokio::spawn(async move { node2.run().await });
+
+        // Get node2's dialable address
+        let addr2 = handle2
+            .dialable_addr()
+            .await
+            .expect("failed to get dialable addr");
+
+        // Node1 dials node2
+        handle1.dial(addr2).await.expect("dial failed");
+
+        // Wait for peer connection on handle1
+        let connected_peer = handle1
+            .wait_for_peer_connected()
+            .await
+            .expect("event stream closed while waiting for peer connection");
+
+        // Verify the connected peer is node2
+        assert_eq!(connected_peer, handle2.local_peer_id());
+
+        // Clean up
+        node1_handle.abort();
+        node2_handle.abort();
     }
 }
