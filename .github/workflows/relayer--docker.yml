@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [main, fix-relayer-build]
+    branches: [main]
     tags:
       - "relayer-v*"
     paths:
