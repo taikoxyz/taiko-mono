@@ -28,19 +28,15 @@ func New(taikoAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*Anchor
 		err                error
 	)
 
-	if rpc.ShastaClients != nil && rpc.ShastaClients.Anchor != nil {
-		if goldenTouchAddress, err = rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil); err == nil {
-			return &AnchorTxValidator{
-				taikoAnchorAddress: taikoAnchor,
-				goldenTouchAddress: goldenTouchAddress,
-				chainID:            chainID,
-				rpc:                rpc,
-			}, nil
-		}
+	hasShastaAnchor := rpc.ShastaClients != nil && rpc.ShastaClients.Anchor != nil
+	if hasShastaAnchor {
+		goldenTouchAddress, err = rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil)
 	}
 
-	if goldenTouchAddress, err = rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil); err != nil {
-		return nil, fmt.Errorf("failed to get golden touch address: %w", err)
+	if !hasShastaAnchor || err != nil {
+		if goldenTouchAddress, err = rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil); err != nil {
+			return nil, fmt.Errorf("failed to get golden touch address: %w", err)
+		}
 	}
 
 	return &AnchorTxValidator{
