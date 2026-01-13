@@ -13,6 +13,9 @@ export class CustomTokenService implements TokenService {
 
   private readonly storageChangeNotifier: EventTarget;
 
+  // Map to store wrapped handlers for proper cleanup
+  private readonly handlerMap: WeakMap<(tokens: Token[]) => void, (event: Event) => void> = new WeakMap();
+
   constructor(storage: Storage) {
     log('CustomTokenService instantiated');
     this.storage = storage;
@@ -140,11 +143,22 @@ export class CustomTokenService implements TokenService {
 
   subscribeToChanges(callback: (tokens: Token[]) => void): void {
     log('Subscribing to storage changes');
-    this.storageChangeNotifier.addEventListener('storageChange', (event) => callback((event as CustomEvent).detail));
+    // Prevent duplicate subscriptions of the same callback
+    if (this.handlerMap.has(callback)) {
+      log('Callback already subscribed, skipping');
+      return;
+    }
+    const handler = (event: Event) => callback((event as CustomEvent).detail);
+    this.handlerMap.set(callback, handler);
+    this.storageChangeNotifier.addEventListener('storageChange', handler);
   }
 
   unsubscribeFromChanges(callback: (tokens: Token[]) => void): void {
     log('Unsubscribing from storage changes');
-    this.storageChangeNotifier.removeEventListener('storageChange', (event) => callback((event as CustomEvent).detail));
+    const handler = this.handlerMap.get(callback);
+    if (handler) {
+      this.storageChangeNotifier.removeEventListener('storageChange', handler);
+      this.handlerMap.delete(callback);
+    }
   }
 }
