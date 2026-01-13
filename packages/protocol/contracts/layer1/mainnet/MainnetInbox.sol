@@ -50,6 +50,7 @@ contract MainnetInbox is Inbox {
                 livenessBond: _livenessBond,
                 withdrawalDelay: _withdrawalDelay,
                 provingWindow: 4 hours,
+                permissionlessProvingDelay: 72 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,

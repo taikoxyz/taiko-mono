@@ -27,6 +27,9 @@ interface IInbox {
         uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
+        /// @notice The delay after which proving becomes permissionless when whitelist is enabled
+        /// @dev Must be greater than provingWindow
+        uint48 permissionlessProvingDelay;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
         /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
         uint48 maxProofSubmissionDelay;
