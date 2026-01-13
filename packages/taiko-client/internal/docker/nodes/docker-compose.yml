@@ -12,8 +12,10 @@ services:
       - "32301"
       - --host
       - "0.0.0.0"
-      - --hardfork
-      - cancun
+      - --timestamp
+      - "${ANVIL_INTERNAL_SHASTA_TIME}"
+      - --gas-limit
+      - "200000000"
 
   l2_geth:
     container_name: l2_geth
@@ -66,3 +68,5 @@ services:
       - --ws.api
       - admin,debug,eth,net,web3,txpool,miner,taiko
       - --taiko
+      - --taiko.internal-shasta-time
+      - "${TAIKO_INTERNAL_SHASTA_TIME}"

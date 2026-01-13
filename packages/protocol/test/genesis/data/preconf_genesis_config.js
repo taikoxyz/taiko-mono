@@ -30,7 +30,6 @@ module.exports = {
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
-      TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       // ============ Proxies ============
       // Shared Contracts
@@ -51,7 +50,6 @@ module.exports = {
   },
   // Option to pre-deploy an ERC-20 token.
   predeployERC20: true,
-  pacayaForkHeight: 0,
 };
 
 function getConstantAddress(prefix, suffix) {

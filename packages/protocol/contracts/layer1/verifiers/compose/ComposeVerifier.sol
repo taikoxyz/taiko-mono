@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibNames.sol";
-import "../IVerifier.sol";
+import "../IProofVerifier.sol";
 
 /// @title ComposeVerifier
 /// @notice This contract is an abstract verifier that composes multiple sub-verifiers to validate
@@ -11,15 +9,23 @@ import "../IVerifier.sol";
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ComposeVerifier is EssentialContract, IVerifier {
-    uint256[50] private __gap;
+abstract contract ComposeVerifier is IProofVerifier {
+    enum VerifierType {
+        NONE,
+        SGX_GETH,
+        TDX_GETH,
+        OP,
+        SGX_RETH,
+        RISC0_RETH,
+        SP1_RETH
+    }
 
     struct SubProof {
-        address verifier;
+        VerifierType verifierId;
         bytes proof;
     }
 
-    address public immutable taikoInbox;
+    /// @notice Immutable verifier addresses
     /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
     /// All other proofs share its status root, despite different public inputs
     /// due to different verification types.
@@ -34,17 +40,13 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     address public immutable sp1RethVerifier;
 
     constructor(
-        address _taikoInbox,
         address _sgxGethVerifier,
         address _tdxGethVerifier,
         address _opVerifier,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
-    )
-        EssentialContract()
-    {
-        taikoInbox = _taikoInbox;
+    ) {
         sgxGethVerifier = _sgxGethVerifier;
         tdxGethVerifier = _tdxGethVerifier;
         opVerifier = _opVerifier;
@@ -53,46 +55,62 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         sp1RethVerifier = _sp1RethVerifier;
     }
 
-    error CV_INVALID_SUB_VERIFIER();
-    error CV_INVALID_SUB_VERIFIER_ORDER();
-    error CV_VERIFIERS_INSUFFICIENT();
-
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-
-    /// @inheritdoc IVerifier
+    /// @inheritdoc IProofVerifier
     function verifyProof(
-        Context[] calldata _ctxs,
+        uint256 _proposalAge,
+        bytes32 _commitmentHash,
         bytes calldata _proof
     )
         external
-        onlyFrom(taikoInbox)
+        view
+        virtual
     {
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         uint256 size = subProofs.length;
         address[] memory verifiers = new address[](size);
 
-        address verifier;
+        VerifierType lastVerifierId;
 
         for (uint256 i; i < size; ++i) {
-            require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
-            require(subProofs[i].verifier > verifier, CV_INVALID_SUB_VERIFIER_ORDER());
+            VerifierType verifierId = subProofs[i].verifierId;
 
-            verifier = subProofs[i].verifier;
-            IVerifier(verifier).verifyProof(_ctxs, subProofs[i].proof);
+            require(verifierId != VerifierType.NONE, CV_INVALID_SUB_VERIFIER());
+            require(verifierId > lastVerifierId, CV_INVALID_SUB_VERIFIER_ORDER());
+
+            address verifier = getVerifierAddress(verifierId);
+            require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
+
+            IProofVerifier(verifier).verifyProof(_proposalAge, _commitmentHash, subProofs[i].proof);
 
             verifiers[i] = verifier;
+            lastVerifierId = verifierId;
         }
 
         require(areVerifiersSufficient(verifiers), CV_VERIFIERS_INSUFFICIENT());
     }
 
+    /// @notice Returns the verifier address for a given verifier ID
+    /// @param _verifierId The verifier ID to query
+    /// @return The address of the verifier (or address(0) if invalid)
+    function getVerifierAddress(VerifierType _verifierId) public view returns (address) {
+        if (_verifierId == VerifierType.SGX_GETH) return sgxGethVerifier;
+        if (_verifierId == VerifierType.TDX_GETH) return tdxGethVerifier;
+        if (_verifierId == VerifierType.OP) return opVerifier;
+        if (_verifierId == VerifierType.SGX_RETH) return sgxRethVerifier;
+        if (_verifierId == VerifierType.RISC0_RETH) return risc0RethVerifier;
+        if (_verifierId == VerifierType.SP1_RETH) return sp1RethVerifier;
+        return address(0);
+    }
+
+    /// @dev Checks if the provided verifiers are sufficient
+    /// NOTE: Verifier addresses are provided in ascending order of their IDs
     function areVerifiersSufficient(address[] memory _verifiers)
         internal
         view
         virtual
         returns (bool);
+
+    error CV_INVALID_SUB_VERIFIER();
+    error CV_INVALID_SUB_VERIFIER_ORDER();
+    error CV_VERIFIERS_INSUFFICIENT();
 }

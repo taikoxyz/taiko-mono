@@ -2,24 +2,92 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "node",
   "changelog-sections": [
-    { "type": "feat", "section": "Features", "hidden": false },
-    { "type": "fix", "section": "Bug Fixes", "hidden": false },
-    { "type": "chore", "section": "Chores", "hidden": false },
-    { "type": "docs", "section": "Documentation", "hidden": false },
-    { "type": "style", "section": "Styles", "hidden": false },
-    { "type": "refactor", "section": "Code Refactoring", "hidden": false },
-    { "type": "perf", "section": "Performance Improvements", "hidden": false },
-    { "type": "test", "section": "Tests", "hidden": false },
-    { "type": "ci", "section": "Workflow", "hidden": false },
-    { "type": "revert", "section": "Reverted Commits", "hidden": false },
-    { "type": "build", "section": "Build", "hidden": false }
+    {
+      "type": "feat",
+      "section": "Features",
+      "hidden": false
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes",
+      "hidden": false
+    },
+    {
+      "type": "chore",
+      "section": "Chores",
+      "hidden": false
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": false
+    },
+    {
+      "type": "style",
+      "section": "Styles",
+      "hidden": false
+    },
+    {
+      "type": "refactor",
+      "section": "Code Refactoring",
+      "hidden": false
+    },
+    {
+      "type": "perf",
+      "section": "Performance Improvements",
+      "hidden": false
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": false
+    },
+    {
+      "type": "ci",
+      "section": "Workflow",
+      "hidden": false
+    },
+    {
+      "type": "revert",
+      "section": "Reverted Commits",
+      "hidden": false
+    },
+    {
+      "type": "build",
+      "section": "Build",
+      "hidden": false
+    }
   ],
   "separate-pull-requests": true,
   "packages": {
     "packages/bridge-ui": {},
     "packages/docs-site": {},
     "packages/eventindexer": {},
+    "packages/ejector": {
+      "package-name": "ejector",
+      "release-type": "simple",
+      "component": "ejector",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/fork-diff": {},
+    "packages/overseer-rs": {
+      "package-name": "overseer-rs",
+      "release-type": "simple",
+      "component": "overseer-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/protocol": {
       "package-name": "taiko-alethia-protocol"
     },
@@ -30,6 +98,30 @@
         {
           "type": "generic",
           "path": "internal/version/version.go"
+        }
+      ]
+    },
+    "packages/taiko-client-rs": {
+      "package-name": "taiko-alethia-client-rs",
+      "release-type": "simple",
+      "component": "taiko-alethia-client-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.workspace.package.version"
+        }
+      ]
+    },
+    "packages/urcindexer-rs": {
+      "package-name": "urcindexer-rs",
+      "release-type": "simple",
+      "component": "urcindexer-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
         }
       ]
     },

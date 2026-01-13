@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
+		context.Background(),
 		&ProofRequestOptionsPacaya{},
 		blockID,
 		&metadata.TaikoDataBlockMetadataPacaya{},

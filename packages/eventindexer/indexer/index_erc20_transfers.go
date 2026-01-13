@@ -93,7 +93,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	// Parse the Transfer event ABI
 	parsedABI, err := abi.JSON(strings.NewReader(transferEventABI))
 	if err != nil {
-		return errors.Wrap(err, "abi.JSON(strings.NewReader")
+		return errors.Wrap(err, "abi.JSON(strings.NewReader)")
 	}
 
 	err = parsedABI.UnpackIntoInterface(&event, "Transfer", vLog.Data)
@@ -159,14 +159,18 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		}
 	}
 
-	// increment To address's balance
+	// increment To address's balance (skip if burn to zero address)
 	// decrement From address's balance
-	increaseOpts := eventindexer.UpdateERC20BalanceOpts{
-		ERC20MetadataID: int64(pk),
-		ChainID:         chainID.Int64(),
-		Address:         to,
-		ContractAddress: vLog.Address.Hex(),
-		Amount:          amount,
+	increaseOpts := eventindexer.UpdateERC20BalanceOpts{}
+
+	if to != ZeroAddress.Hex() {
+		increaseOpts = eventindexer.UpdateERC20BalanceOpts{
+			ERC20MetadataID: int64(pk),
+			ChainID:         chainID.Int64(),
+			Address:         to,
+			ContractAddress: vLog.Address.Hex(),
+			Amount:          amount,
+		}
 	}
 
 	decreaseOpts := eventindexer.UpdateERC20BalanceOpts{}

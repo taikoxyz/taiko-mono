@@ -6,8 +6,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 )
 
+// SignalService exposes functionality shared between legacy and v4
+// signal service contracts.
 type SignalService interface {
 	GetSignalSlot(opts *bind.CallOpts, _chainId uint64, _app common.Address, _signal [32]byte) ([32]byte, error)
+}
+
+// ChainDataSignalService is implemented by the legacy SignalService
+// which emits ChainDataSynced events.
+type ChainDataSignalService interface {
+	SignalService
 	FilterChainDataSynced(
 		opts *bind.FilterOpts,
 		chainid []uint64,

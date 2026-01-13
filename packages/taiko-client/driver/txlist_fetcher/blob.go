@@ -2,13 +2,10 @@ package txlistfetcher
 
 import (
 	"context"
-	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -22,8 +19,8 @@ type BlobFetcher struct {
 	dataSource *rpc.BlobDataSource
 }
 
-// NewBlobTxListFetcher creates a new BlobFetcher instance based on the given rpc client.
-func NewBlobTxListFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher {
+// NewBlobFetcher creates a new BlobFetcher instance based on the given rpc client.
+func NewBlobFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher {
 	return &BlobFetcher{cli, ds}
 }
 
@@ -43,45 +40,18 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 	// Fetch the L1 block header with the given blob.
 	l1Header, err := d.cli.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch L1 header for block %d: %w", blockNum, err)
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, l1Header.Time, meta.GetBlobHashes())
+	b, err := d.dataSource.GetBlobBytes(ctx, l1Header.Time, meta.GetBlobHashes())
 	if err != nil {
+		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
+			return []byte{}, nil
+		}
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))
-
-	var b []byte
-	for _, blobHash := range meta.GetBlobHashes() {
-		// Compare the blob hash with the sidecar's kzg commitment.
-		for j, sidecar := range sidecars {
-			log.Debug(
-				"Block sidecar",
-				"index", j,
-				"KzgCommitment", sidecar.KzgCommitment,
-				"blobHash", blobHash,
-			)
-
-			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
-				blob := eth.Blob(common.FromHex(sidecar.Blob))
-				bytes, err := blob.ToData()
-				if err != nil {
-					return nil, err
-				}
-
-				b = append(b, bytes...)
-				// Exit the loop as the matching sidecar has been found and processed.
-				break
-			}
-		}
-	}
-	if len(b) == 0 {
-		return nil, pkg.ErrSidecarNotFound
-	}
-
+	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(meta.GetBlobHashes()))
 	return sliceTxList(meta.GetBatchID(), b, meta.GetTxListOffset(), meta.GetTxListSize())
 }

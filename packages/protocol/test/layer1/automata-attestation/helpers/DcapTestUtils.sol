@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
-import "src/layer1/automata-attestation/lib/EnclaveIdStruct.sol";
-import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "solady/src/utils/JSONParserLib.sol";
 import "solady/src/utils/LibString.sol";
+import "src/layer1/automata-attestation/lib/EnclaveIdStruct.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
 
 contract DcapTestUtils {
     using JSONParserLib for JSONParserLib.Item;
@@ -174,7 +174,7 @@ contract DcapTestUtils {
                         enclaveId.tcbLevels[j].tcbStatus = EnclaveIdStruct.EnclaveIdStatus.OK;
                     } else if (decodedValue.eq("Revoked")) {
                         enclaveId.tcbLevels[j].tcbStatus =
-                            EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED;
+                        EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED;
                     }
                 }
             }
@@ -214,16 +214,16 @@ contract DcapTestUtils {
                         tcbInfo.tcbLevels[j].status = TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE;
                     } else if (decodedValue.eq("OutOfDateConfigurationNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                            TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
+                        TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED;
                     } else if (decodedValue.eq("ConfigurationNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                            TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_NEEDED;
+                        TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_NEEDED;
                     } else if (decodedValue.eq("ConfigurationAndSWHardeningNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                            TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED;
+                        TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED;
                     } else if (decodedValue.eq("SWHardeningNeeded")) {
                         tcbInfo.tcbLevels[j].status =
-                            TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED;
+                        TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED;
                     } else if (decodedValue.eq("Revoked")) {
                         tcbInfo.tcbLevels[j].status = TCBInfoStruct.TCBStatus.TCB_REVOKED;
                     }

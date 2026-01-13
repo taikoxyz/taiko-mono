@@ -1,19 +1,23 @@
 ---
 title: Bridge tokens
-description: This guide will help you use the bridge to send tokens between Holesky and Hekla.
+description: This guide will help you use the bridge to send tokens between L1 and L2.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from "@astrojs/starlight/components";
 
 <Aside>
-Please be aware, bridging back to L1 will take around 24 hours! See [network configuration](/network-reference/network-configuration) for the currently configured cooldown period.
+  Please be aware, bridging back to L1 will take up to 24 hours! See [network
+  configuration](/network-reference/network-configuration) for the currently
+  configured cooldown period. The time taken may be greater than the cooldown
+  period due to previous unverified parent blocks, but each bridge should
+  generally resolve within 24 hours.
 </Aside>
 
-This guide will help you use the bridge to send tokens between Holesky and Taiko Hekla.
+This guide will help you use the bridge to send tokens between L1 and L2. This means Ethereum/Taiko Alethia or Ethereum Hoodi/Taiko Hoodi.
 
 ## Prerequisites
 
-- A wallet with some testnet ETH on Holesky or Taiko Hekla.
+- A wallet with some ETH on Ethereum/Taiko Alethia, or some testnet ETH on Ethereum Hoodi/Taiko Hoodi.
 
 ## Taiko Alethia
 
@@ -21,8 +25,8 @@ This guide will help you use the bridge to send tokens between Holesky and Taiko
 
 Visit [the bridge](https://bridge.taiko.xyz/) and follow through the UI.
 
-## Taiko Hekla
+## Taiko Hoodi
 
 ---
 
-Visit [the bridge](https://bridge.hekla.taiko.xyz) and follow through the UI.
+Visit [the bridge](https://bridge.hoodi.taiko.xyz) and follow through the UI.

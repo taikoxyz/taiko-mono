@@ -1,0 +1,15 @@
+[package]
+name = "bindings"
+version = "2.0.0"
+edition = "2021"
+license.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+alloy = { version = "1.0.36", features = ["sol-types", "contract"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[lints]
+rust.warnings = "allow"

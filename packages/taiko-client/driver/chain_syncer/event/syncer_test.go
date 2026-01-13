@@ -87,7 +87,7 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 		Withdrawals:           make([]*types.Withdrawal, 0),
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: meta.GetCoinbase(),
-			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3GasLimit,
+			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3V4GasLimit,
 			Timestamp:   meta.Pacaya().GetLastBlockTimestamp(),
 			TxList:      txListBytes,
 			MixHash:     common.BytesToHash(difficulty),
@@ -257,7 +257,8 @@ func (s *EventSyncerTestSuite) initProposer() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),

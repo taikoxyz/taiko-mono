@@ -34,7 +34,7 @@ func blockToEnvelope(
 
 	txs, err := utils.EncodeAndCompressTxList(block.Transactions())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode and compress transaction list: %w", err)
 	}
 
 	return &eth.ExecutionPayloadEnvelope{

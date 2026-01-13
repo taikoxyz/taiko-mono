@@ -196,7 +196,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var bridgeContract *bridge.Bridge
 
 	if cfg.BridgeAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting bridgeADdress", "addr", cfg.BridgeAddress.Hex())
+		slog.Info("setting bridgeAddress", "addr", cfg.BridgeAddress.Hex())
 
 		bridgeContract, err = bridge.NewBridge(cfg.BridgeAddress, ethClient)
 		if err != nil {

@@ -34,13 +34,14 @@ type hopConfig struct {
 // Config is a struct used to initialize a processor.
 type Config struct {
 	// address configs
-	SrcSignalServiceAddress common.Address
-	DestBridgeAddress       common.Address
-	DestERC721VaultAddress  common.Address
-	DestERC20VaultAddress   common.Address
-	DestERC1155VaultAddress common.Address
-	DestTaikoAddress        common.Address
-	DestQuotaManagerAddress common.Address
+	SrcSignalServiceAddress           common.Address
+	SrcSignalServiceForkRouterAddress common.Address
+	DestBridgeAddress                 common.Address
+	DestERC721VaultAddress            common.Address
+	DestERC20VaultAddress             common.Address
+	DestERC1155VaultAddress           common.Address
+	DestTaikoAddress                  common.Address
+	DestQuotaManagerAddress           common.Address
 
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
@@ -56,7 +57,7 @@ type Config struct {
 
 	// backoff configs
 	BackoffRetryInterval uint64
-	BackOffMaxRetrys     uint64
+	BackOffMaxRetries    uint64
 
 	// db configs
 	DatabaseUsername        string
@@ -73,11 +74,12 @@ type Config struct {
 	QueuePort     uint64
 	QueuePrefetch uint64
 	// rpc configs
-	SrcRPCUrl        string
-	DestRPCUrl       string
-	ETHClientTimeout uint64
-	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (db.DB, error)
+	SrcRPCUrl         string
+	DestRPCUrl        string
+	ETHClientTimeout  uint64
+	ForkWindowSeconds uint64
+	OpenQueueFunc     func() (queue.Queue, error)
+	OpenDBFunc        func() (db.DB, error)
 
 	hopConfigs []hopConfig
 
@@ -141,6 +143,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
 		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
+		SrcSignalServiceForkRouterAddress:  common.HexToAddress(c.String(flags.SrcSignalServiceForkRouterAddress.Name)),
 		DestTaikoAddress:                   common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:                  common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:             common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
@@ -167,8 +170,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		EnableTaikoL2:                      c.Bool(flags.EnableTaikoL2.Name),
 		ProfitableOnly:                     c.Bool(flags.ProfitableOnly.Name),
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
-		BackOffMaxRetrys:                   c.Uint64(flags.BackOffMaxRetrys.Name),
+		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
+		ForkWindowSeconds:                  c.Uint64(flags.ForkWindowSeconds.Name),
 		TargetTxHash:                       targetTxHash,
 		CacheOption:                        c.Int(flags.CacheOption.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,

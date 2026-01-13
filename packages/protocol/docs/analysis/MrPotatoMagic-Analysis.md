@@ -87,7 +87,7 @@ There are more roles in the codebase but these are the foremost and most central
 
 ### Understanding Taiko BCR
 
-1. Taiko has no sequencer - block builders/sequencing is decided by Ethereum validators. Permissionless block proposing, building and proving of taiko blocks. Since it uses what Ethereum has to provide (the market of proposers/builders) to its advantage and is not reinventing the wheel, Taiko is "based".
+1. Taiko has no sequencer - block building/sequencing is decided by Ethereum validators. Permissionless block proposing, building and proving of taiko blocks. Since it uses what Ethereum has to provide (the market of proposers/builders) to its advantage and is not reinventing the wheel, Taiko is "based".
 
 2. Why do we need contestable rollups?
 

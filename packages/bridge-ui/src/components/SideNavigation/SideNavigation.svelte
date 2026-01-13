@@ -40,7 +40,7 @@
     return active ? 'fill-white' : 'fill-primary-icon';
   }
 
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isBridgePage = $page.route.id === '/';
   $: isFaucetPage = $page.route.id === '/faucet';
   $: isTransactionsPage = $page.route.id === '/transactions';
 </script>

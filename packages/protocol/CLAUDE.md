@@ -1,224 +1,257 @@
-# CLAUDE.md
+# Protocol Development Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This guide provides specific instructions for working with Taiko's smart contracts in the `packages/protocol` directory.
 
-## Project Overview
+## 🎨 Solidity Coding Standards
 
-Taiko is a based rollup on Ethereum that uses validity proofs for finalization. It's designed to be a type-1 (fully Ethereum-equivalent) ZK-EVM.
+### Import Conventions
 
-**Key Technical Aspects:**
-
-- Based rollup architecture (L1-sequenced)
-- Uses SGX and ZK proofs for block verification
-- Multi-proof system supporting different proof tiers
-- Contestable validity proofs with bonding mechanism
-- Native Ethereum equivalence (type-1 ZK-EVM)
-
-**Monorepo Structure:**
-
-- Uses pnpm workspaces for package management
-- Smart contracts built with Foundry
-- Backend services written in Go
-- Frontend applications using TypeScript/SvelteKit
-
-## Repository Structure
-
-```
-packages/
-├── protocol/           # Core smart contracts (Solidity, Foundry)
-├── taiko-client/      # Go client (driver, proposer, prover)
-├── bridge-ui/         # Bridge frontend (SvelteKit)
-├── relayer/           # Bridge message relayer (Go)
-├── eventindexer/      # Event indexing service (Go)
-└── [other packages]   # NFTs, monitoring, documentation
-```
-
-## Smart Contract Development (packages/protocol)
-
-### Coding Style
-
-- Use newer solidity syntax
-- Private state variables and private or internal functions should be prefixed with an underscore
-- Event names should be in the past tense
 - Use named imports
-  - YES: `import {Contract} from "./contract.sol"`
-  - NO: `import "./contract.sol"`
-- Prefer straightforward custom errors over require strings and avoid natspec comments for errors, always put errors at the end of the implementation file, not in the interface.
-- For larger files, have clear separators between external & public, internal, private functions, and errors.
-  ```
-  // -------------------------------------------------------------------------
-  // Group label
-  // -------------------------------------------------------------------------
-  ```
-- Always make sure there is a "/// @custom:security-contact security@taiko.xyz" for solidity files (test not included), and ensure license is MIT (all solidity files)
-- Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
-- Use named parameters on mapping definitions
-- Function parameters should always start with "_", and return values should always end with "_"
+  - ✅ `import {Contract} from "./contract.sol"`
+  - ❌ `import "./contract.sol"`
 
-### Commands
+### Naming Conventions
+
+- Private state variables and private/internal functions: prefix with underscore `_`
+- Event names: use past tense (e.g., `BlockProposed`, `ProofVerified`)
+- Function parameters: always start with `_`
+- Return values: always end with `_`
+- Use named parameters on mapping definitions
+
+### Code Organization
+
+```solidity
+// ---------------------------------------------------------------
+// External & Public Functions
+// ---------------------------------------------------------------
+
+// ---------------------------------------------------------------
+// Internal Functions
+// ---------------------------------------------------------------
+
+// ---------------------------------------------------------------
+// Private Functions
+// ---------------------------------------------------------------
+
+// ---------------------------------------------------------------
+// Custom Errors
+// ---------------------------------------------------------------
+```
+
+### Error Handling
+
+- Prefer straightforward custom errors over require strings
+- No natspec comments for errors
+- Place errors at the end of implementation file, not in interface
+
+### Documentation
+
+- Use `///` for natspec comments
+- External/public functions: include `@notice`
+- Internal/private functions: only `@dev`
+- All files (except tests): include `/// @custom:security-contact security@taiko.xyz`
+- License: MIT for all Solidity files
+
+## 🏗️ Contract Architecture
+
+### Directory Structure
+
+- `contracts/layer1/`: L1 contracts
+- `contracts/layer2/`: L2 contracts
+- `contracts/shared/`: Shared utilities
+- `test/`: Test files (mirror contract structure)
+- `test/layer1/shasta/inbox`: Test files for the shasta inbox (our main focus at the moment)
+
+### 📍 Key Contract Locations (Shasta)
+
+- `contracts/layer1/impl/Inbox.sol`: main rollup contract that handles propose, prove and finalization.
+- `contracts/layer1/iface`: interfaces for protocol contracts, including most data structures.
+- `contracts/layer2/based/ShastaAnchor.sol`: Anchor contract for synchronizing L1 state into the L2 and also does bond management.
+
+### Design Patterns
+
+- UUPS upgradeable pattern with OpenZeppelin
+- Resolver pattern for cross-contract discovery
+- Storage gaps (`uint256[50] __gap`) for upgrade safety (upgradeable contracts only)
+
+## 🧪 Testing Methodology
+
+**IMPORTANT**: Always use the `solidity-tester` subagent (via Task tool) for running tests, writing tests, or debugging test failures.
+
+### Test Naming Convention
+
+- Positive tests: `test_functionName_Description`
+- Negative tests: `test_functionName_RevertWhen_Description`
+
+### Test Structure
+
+```solidity
+// Inherit from CommonTest
+contract MyTest is CommonTest {
+    // Use provided test accounts: Alice, Bob, Carol, David, Emma
+
+    function test_myFunction_succeeds() external {
+        // Setup
+        // Action with vm.expectEmit() for events
+        // Assert storage and events
+    }
+}
+```
+
+### Testing best practices
+
+- Use `vm.expectEmit()` without parameters (sets all to true)
+- Prefer actual implementations instead of mocks for tests when possible. The setup should reflect the actual dependency as much as possible.
+
+### Optimizing Gas Usage
+
+1. Baseline: `pnpm snapshot:l1` and save results
+2. Focus on reducing storage operations
+3. Run `pnpm snapshot:l1` after changes
+4. Compare diffs in `gas-reports/` and `snapshots/`
+5. Document improvements in PR
+
+### Debugging failed tests
+
+```
+forge test --match-test test_name -vvvv
+
+# Check specific contract
+forge test --match-path path/to/test.sol -vvvv
+```
+
+## 🚀 Development Commands
+
+### Compilation
 
 ```bash
-# Compilation
 pnpm compile              # All contracts
-pnpm compile:l1          # Layer 1 only
-pnpm compile:l2          # Layer 2 only
+pnpm compile:l1          # Layer 1 only (FOUNDRY_PROFILE=layer1)
+pnpm compile:l2          # Layer 2 only (FOUNDRY_PROFILE=layer2)
+```
 
-# Testing
+### Testing
+
+```bash
 pnpm test                # Run all tests
-pnpm test:l1            # L1 tests (uses FOUNDRY_PROFILE=layer1)
-pnpm test:l2            # L2 tests (uses FOUNDRY_PROFILE=layer2)
+pnpm test:l1            # L1 tests only
+pnpm test:l2            # L2 tests only
 pnpm test:coverage      # Generate coverage report
 
 # Single test execution
 forge test --match-test <name>   # Test by name
 forge test --match-path <path>   # Test by file
 forge test -vvvv                # Debug with max verbosity
-
-# Gas & Storage
-pnpm snapshot:l1        # Generate gas report
-pnpm layout             # Generate storage layouts (critical before upgrades)
-
-# Code Quality
-pnpm fmt:sol            # Format Solidity code
+forge test --match-path <path> --summary  # Test summary with gas usage
 ```
 
-### pnpm and Foundry Integration
-
-- Install pnpm packages first before working with Foundry: `pnpm install`
-- Foundry relies on compiled dependencies and packages managed by pnpm
-- Compile contracts and run tests using pnpm commands (that will use forge under the hood with the right profiles)
-
-### Architecture & Standards
-
-**Contract Structure:**
-
-- Layer separation: `layer1/`, `layer2/`, `shared/`
-- UUPS upgradeable pattern with OpenZeppelin
-- Resolver pattern for cross-contract discovery
-- Storage gaps (`uint256[50] __gap`) for upgrade safety (applicable only to upgradeable contracts)
-
-**Testing Standards:**
-
-- Tests mirror contract structure under `test/`
-- Inherit from `CommonTest`, `Layer1Test`, or `Layer2Test`
-- Use provided test accounts (Alice, Bob, Carol)
-- Multi-chain testing with `onEthereum()`/`onTaiko()`
-
-**Before Submitting Changes:**
-
-1. Format code: `pnpm fmt:sol`
-2. Run full test suite: `pnpm test`
-3. Check coverage: `pnpm test:coverage`
-4. Verify storage layout: `pnpm layout` (compare before/after)
-5. Check gas impact: `pnpm snapshot:l1`
-
-### Gas Considerations
-
-- Any contract that lives on the L1 needs to be optimized, and gas consumption is very important. Minimize storage writes and reads as much as possible.
-- When working or reviewing gas optimizations always run:
-  - `pnpm snapshot:l1` and review the diffs in gas consumption per test. You can find them in `packages/protocol/gas-reports/layer1-contracts.txt` file. This shows the gas used by each test.
-  - You can also review the diffs in gas from the other files inside `packages/protocol/gas-reports/`. These are written using Foundry's new `snapshotGas` cheatcodes and are inserted in strategic sections of the tests where we want to capture gas usage. These are updated automatically when running `forge test`.
-
-## Common Tasks
-
-### Working with the Monorepo
+### ⚠️ SHASTA PROTOCOL TESTING
 
 ```bash
-# Install all dependencies
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Run specific package commands
-pnpm --filter @taiko/protocol test
-pnpm --filter @taiko/bridge-ui dev
-pnpm --filter @taiko/taiko-client build
-
-# Clean and reinstall
-pnpm clean && pnpm install
+# IMPORTANT: When testing shasta changes, run ONLY:
+forge test --match-path "test/layer1/shasta/inbox/*"
+# DO NOT run the entire test suite for shasta development
 ```
 
-### Cross-Package Development
+### Performance Analysis
 
-- Changes affecting multiple packages should be tested together
-- Use `pnpm link` for local package development
-- Run integration tests when modifying shared dependencies
-- Update package versions consistently
+```bash
+forge test --gas-report         # Generate gas usage report
+forge test --match-path <path> --gas-limit <limit>  # Test with gas constraints
+```
 
-### Debugging Tips
+## ⛽ Gas Optimization Workflow
 
-- For smart contracts: Use `forge test -vvvv` for maximum verbosity
-- For Go services: Use `dlv` debugger or extensive logging
-- For frontend: Use browser DevTools and SvelteKit's built-in debugging
-- Use `console.log` debugging sparingly, prefer proper debuggers
+L1 contracts require aggressive gas optimization. Follow this workflow:
 
-## Important Notes
+### 1. Baseline Measurement
 
-### Security
+```bash
+pnpm snapshot:l1
+# Save gas-reports/layer1-contracts.txt as baseline
+```
 
-- Never commit sensitive data (private keys, API keys, etc.)
-- Always validate user inputs
-- Follow security best practices for each language/framework
-- Use the security contact for any security-related issues
-- Run security audits on smart contracts before deployment
-- Implement rate limiting and DoS protection
+### 2. Optimization Targets
 
-### Performance
+- Minimize storage reads/writes
+- Pack storage variables
+- Use memory over storage where possible
+- Batch operations
+- Use calldata instead of memory when possible
+- Store hashes of structs instead of entire structs
 
-- L1 contracts must be gas-optimized
-- Minimize storage operations in smart contracts
-- Use efficient algorithms and data structures
-- Profile and benchmark critical paths
-- Consider caching strategies for frequently accessed data
-- Optimize database queries in backend services
+### 3. Impact Analysis
 
-### Documentation
+```bash
+pnpm snapshot:l1
+# Compare new gas-reports/layer1-contracts.txt with baseline
+# Review gas-reports/*.txt for Foundry's snapshotGas measurements
+```
 
-- Update README files when adding new features
-- Document complex algorithms and business logic
-- Keep API documentation up to date
-- Add inline comments for non-obvious code
-- Update CHANGELOG.md for significant changes
+### Storage Layout Verification
 
-## CI/CD and Deployment
+```bash
+pnpm layout  # CRITICAL: Run before and after changes to upgradeable contracts
+```
 
-### Testing Requirements
+## 🔢 Unchecked Arithmetic Guidelines
 
-- All tests must pass before merging
-- Maintain test coverage above threshold
-- Include unit and integration tests
-- Test edge cases and error conditions
+### Overview
 
-### Code Review Guidelines
+The Inbox contract and its optimized variant use unchecked blocks aggressively for gas optimization. All unchecked operations have been verified safe through:
 
-- Review for security vulnerabilities
-- Check for proper error handling
-- Verify gas optimization for L1 contracts
-- Ensure code follows style guidelines
-- Look for potential race conditions in concurrent code
+- Bounded loop counters (limited by array lengths or configuration parameters)
+- Modulo operations (mathematically cannot overflow)
+- Increments with protocol invariant guarantees (e.g., proposal IDs, span counters)
+- Timestamp/block number arithmetic with practical overflow impossibility
 
-## Tool Usage
+See inline comments for specific safety justifications on each unchecked block.
 
-- When interacting with GitHub, use the GitHub CLI (`gh`) instead of doing direct API requests or curl requests. You can find the docs here: https://cli.github.com/manual/
-- Use pnpm commands at the monorepo root for cross-package operations
-- Prefer package-specific commands when working within a single package
-- Use appropriate debugging tools for each technology stack
-- Leverage VS Code extensions for Solidity, Go, and TypeScript development
+### IMPORTANT - Type Conversions in Unchecked Blocks
 
-## Troubleshooting
+Due to aggressive use of unchecked blocks throughout these contracts, developers **MUST** explicitly cast values to their proper types before performing mathematical operations when mixing different numeric types. Without explicit casts, Solidity may perform implicit conversions that could lead to unexpected results within unchecked blocks.
 
-### Common Issues
+**Example:**
 
-1. **Compilation errors**: Run `pnpm clean` and `pnpm install`
-2. **Test failures**: Check for recent dependency updates
-3. **Gas limit issues**: Optimize contract code and storage usage
-4. **Type errors**: Ensure TypeScript definitions are up to date
-5. **Build failures**: Verify all dependencies are installed correctly
+```solidity
+// ✅ CORRECT - Explicit casting
+uint256(uint48Value) + uint256(anotherUint48)
 
-### Getting Help
+// ❌ WRONG - May cause unexpected behavior
+uint48Value + anotherUint48  // Could overflow in unchecked block
+```
 
-- Check existing issues on GitHub
-- Review documentation in each package
-- Ask in developer channels
-- Contact security team for security issues: security@taiko.xyz
+### Best Practices for Unchecked Blocks
+
+1. **Always document safety**: Add inline comments explaining why each unchecked operation is safe
+2. **Use explicit type casting**: Convert to the target type before operations
+3. **Verify bounds**: Ensure all values are within safe ranges before unchecked operations
+4. **Test edge cases**: Include tests for maximum values and boundary conditions
+5. **Review carefully**: All unchecked blocks should be reviewed by multiple developers
+
+## 📋 Pre-Commit Checklist
+
+Before submitting any changes:
+
+1. **Format code**: `pnpm fmt:sol`
+2. **Run full test suite**: `pnpm test`
+3. **Check coverage**: `pnpm test:coverage`
+4. **Verify storage layout**: `pnpm layout` (compare before/after)
+5. **Check gas impact**: `pnpm snapshot:l1`
+6. **Run performance benchmarks** for critical contracts
+7. **Validate test isolation** and cleanup
+8. **Review gas usage patterns** and optimization opportunities
+
+## 🏛️ Upgrade Safety Guidelines
+
+For upgradeable contracts:
+
+1. Never modify existing storage variable order
+2. Always add new variables at the end
+3. Include storage gaps: `uint256[50] __gap`
+4. Run `pnpm layout` before and after changes
+5. Document storage layout changes in PR
+
+---
+
+**Note**: For monorepo-wide guidance, see root `/CLAUDE.md`

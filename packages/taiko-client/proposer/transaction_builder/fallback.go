@@ -15,7 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -37,7 +37,8 @@ func NewBuilderWithFallback(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	l2SuggestedFeeRecipient common.Address,
-	taikoInboxAddress common.Address,
+	pacayaInboxAddress common.Address,
+	shastaInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
@@ -48,12 +49,12 @@ func NewBuilderWithFallback(
 	fallback bool,
 ) *TxBuilderWithFallback {
 	builder := &TxBuilderWithFallback{rpc: rpc, fallback: fallback, txmgrSelector: txmgrSelector}
-
 	if blobAllowed {
 		builder.blobTransactionBuilder = NewBlobTransactionBuilder(
 			rpc,
 			proposerPrivateKey,
-			taikoInboxAddress,
+			pacayaInboxAddress,
+			shastaInboxAddress,
 			taikoWrapperAddress,
 			proverSetAddress,
 			l2SuggestedFeeRecipient,
@@ -67,7 +68,7 @@ func NewBuilderWithFallback(
 		rpc,
 		proposerPrivateKey,
 		l2SuggestedFeeRecipient,
-		taikoInboxAddress,
+		pacayaInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		gasLimit,
@@ -82,7 +83,7 @@ func NewBuilderWithFallback(
 func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *pacaya.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 	preconfRouterAddress common.Address,
@@ -183,6 +184,26 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	return txWithBlob, nil
 }
 
+// BuildShasta implements the ProposeBatchTransactionBuilder interface.
+// Since Shasta fork doesn't support calldata to send txList bytes anymore, we just return the blob transaction here.
+func (b *TxBuilderWithFallback) BuildShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	minTxsPerForcedInclusion *big.Int,
+	preconfRouterAddress common.Address,
+) (*txmgr.TxCandidate, error) {
+	// Shasta requires blob transactions for proposal data availability.
+	if b.blobTransactionBuilder == nil {
+		return nil, fmt.Errorf("blob transactions must be enabled for Shasta; set --l1.blobAllowed=true")
+	}
+	return b.blobTransactionBuilder.BuildShasta(
+		ctx,
+		txBatch,
+		minTxsPerForcedInclusion,
+		preconfRouterAddress,
+	)
+}
+
 // estimateCandidateCost estimates the realtime onchain cost of the given transaction.
 func (b *TxBuilderWithFallback) estimateCandidateCost(
 	ctx context.Context,
@@ -218,7 +239,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 
 	feeWithoutBlob := new(big.Int).Mul(gasFeeCap, new(big.Int).SetUint64(gasUsed))
 
-	// If its a type-2 transaction, we won't calculate blob fee.
+	// If it's a type-2 transaction, we won't calculate blob fee.
 	if len(candidate.Blobs) == 0 {
 		return feeWithoutBlob, nil
 	}
@@ -235,7 +256,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	), nil
 }
 
-// TxBuilderWithFallback returns whether the blob transactions is enabled.
+// BlobAllow returns whether blob transactions are allowed.
 func (b *TxBuilderWithFallback) BlobAllow() bool {
 	return b.blobTransactionBuilder != nil
 }

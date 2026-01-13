@@ -1,5 +1,5 @@
-import { z, defineCollection } from "astro:content";
 import { docsSchema, i18nSchema } from "@astrojs/starlight/schema";
+import { defineCollection, z } from "astro:content";
 
 export const collections = {
   docs: defineCollection({
@@ -11,7 +11,7 @@ export const collections = {
           .optional(),
         // banner: z.object({ content: z.string() }).default({
         //   content: '',
-        //   }),
+        // }),
       }),
     }),
   }),

@@ -1,6 +1,7 @@
 package preconfblocks
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
@@ -72,7 +75,10 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	start := time.Now()
+	var (
+		start = time.Now()
+	)
+
 	defer func() {
 		elapsedMs := time.Since(start).Milliseconds()
 		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(float64(elapsedMs) / 1_000)
@@ -116,25 +122,52 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("executable data is required"))
 	}
 
-	parent, err := s.rpc.L2.HeaderByHash(ctx, reqBody.ExecutableData.ParentHash)
+	parent, err := s.rpc.L2.BlockByHash(ctx, reqBody.ExecutableData.ParentHash)
 	if err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	if s.latestSeenProposal != nil && parent.Number.Uint64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
-		log.Warn(
-			"The parent block ID is smaller than the latest block ID seen in event",
-			"parentBlockID", parent.Number.Uint64(),
-			"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
-		)
+	if s.latestSeenProposal != nil {
+		if s.latestSeenProposal.IsShasta() {
+			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
+				parentProposalID, err := core.DecodeShastaProposalID(parent.Extra())
+				if err != nil {
+					return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
+				}
 
-		return s.returnError(c, http.StatusBadRequest,
-			fmt.Errorf(
-				"latestBatchProposalBlockID: %v, parentBlockID: %v",
-				s.latestSeenProposal.Pacaya().GetLastBlockID(),
-				parent.Number.Uint64(),
-			),
-		)
+				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetEventData().Id) < 0 {
+					log.Warn(
+						"The parent block proposal ID is smaller than the latest proposal ID seen in event",
+						"parentProposalID", parentProposalID,
+						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetEventData().Id,
+					)
+
+					return s.returnError(c, http.StatusBadRequest,
+						fmt.Errorf(
+							"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
+							s.latestSeenProposal.Shasta().GetEventData().Id,
+							parentProposalID,
+						),
+					)
+				}
+			}
+		} else {
+			if parent.NumberU64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
+				log.Warn(
+					"The parent block ID is smaller than the latest block ID seen in event",
+					"parentBlockID", parent.NumberU64(),
+					"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
+				)
+
+				return s.returnError(c, http.StatusBadRequest,
+					fmt.Errorf(
+						"latestBatchProposalBlockID: %v, parentBlockID: %v",
+						s.latestSeenProposal.Pacaya().GetLastBlockID(),
+						parent.NumberU64(),
+					),
+				)
+			}
+		}
 	}
 
 	endOfSequencing := false
@@ -167,10 +200,22 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 	}
 
-	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(reqBody.ExecutableData.Number))
-	if err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
+	var difficulty []byte
+	if reqBody.ExecutableData.Timestamp >= s.rpc.ShastaClients.ForkTime {
+		if difficulty, err = encoding.CalculateShastaDifficulty(
+			parent.Difficulty(),
+			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
+		); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
+	} else {
+		if difficulty, err = encoding.CalculatePacayaDifficulty(
+			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
+		); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
 	}
+
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
 	if overflow {
 		return s.returnError(c, http.StatusBadRequest, errors.New("base fee per gas is too large"))
@@ -193,20 +238,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	// Insert the preconfirmation block.
-	headers, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(
-		ctx,
-		[]*preconf.Envelope{
-			{
-				Payload:           executablePayload,
-				Signature:         nil,
-				IsForcedInclusion: isForcedInclusion,
-			},
-		},
-		false,
+	var (
+		headers   []*types.Header
+		envelopes = []*preconf.Envelope{{Payload: executablePayload, Signature: nil, IsForcedInclusion: isForcedInclusion}}
 	)
-	if err != nil {
+
+	if headers, err = s.insertPreconfBlocksFromEnvelopes(ctx, envelopes, false); err != nil {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
+
 	if len(headers) == 0 {
 		return s.returnError(c, http.StatusInternalServerError, errors.New("no inserted header returned"))
 	}
@@ -265,28 +305,30 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				)
 			}
 
-			if err := s.p2pNode.GossipOut().PublishL2Payload(
-				ctx,
-				&eth.ExecutionPayloadEnvelope{
-					ExecutionPayload: &eth.ExecutionPayload{
-						BaseFeePerGas: eth.Uint256Quantity(u256),
-						ParentHash:    header.ParentHash,
-						FeeRecipient:  header.Coinbase,
-						ExtraData:     header.Extra,
-						PrevRandao:    eth.Bytes32(header.MixDigest),
-						BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-						GasLimit:      eth.Uint64Quantity(header.GasLimit),
-						GasUsed:       eth.Uint64Quantity(header.GasUsed),
-						Timestamp:     eth.Uint64Quantity(header.Time),
-						BlockHash:     header.Hash(),
-						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-					},
-					EndOfSequencing:   reqBody.EndOfSequencing,
-					IsForcedInclusion: &isForcedInclusion,
-					Signature:         sigBytes,
+			// Build envelope once, cache locally, then publish to P2P.
+			env := &eth.ExecutionPayloadEnvelope{
+				ExecutionPayload: &eth.ExecutionPayload{
+					BaseFeePerGas: eth.Uint256Quantity(u256),
+					ParentHash:    header.ParentHash,
+					FeeRecipient:  header.Coinbase,
+					ExtraData:     header.Extra,
+					PrevRandao:    eth.Bytes32(header.MixDigest),
+					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+					GasLimit:      eth.Uint64Quantity(header.GasLimit),
+					GasUsed:       eth.Uint64Quantity(header.GasUsed),
+					Timestamp:     eth.Uint64Quantity(header.Time),
+					BlockHash:     header.Hash(),
+					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 				},
-				s.p2pSigner,
-			); err != nil {
+				EndOfSequencing:   reqBody.EndOfSequencing,
+				IsForcedInclusion: &isForcedInclusion,
+				Signature:         sigBytes,
+			}
+
+			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.
+			s.tryPutEnvelopeIntoCache(env, s.p2pNode.Host().ID())
+
+			if err := s.p2pNode.GossipOut().PublishL2Payload(ctx, env, s.p2pSigner); err != nil {
 				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
 			}
 		}

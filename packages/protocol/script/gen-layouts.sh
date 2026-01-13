@@ -1,103 +1,137 @@
 #!/bin/bash
 
-# Define the list of contracts to inspect
-# Please try not to change the order
+# Storage Layout Generation Script
+#
+# Generates storage layout as separate *Layout.sol files.
+#
+# Usage: ./gen-layouts.sh <profile>
+#   profile: shared, layer1, or layer2
+#
+# For each contract FooBar.sol, creates FooBarLayout.sol with storage layout as comments.
+# Re-running the script replaces old layout files with updated ones.
+
+set -euo pipefail
+
 # Contracts shared between layer 1 and layer 2
 contracts_shared=(
-"contracts/shared/tokenvault/ERC1155Vault.sol:ERC1155Vault"
-"contracts/shared/tokenvault/ERC20Vault.sol:ERC20Vault"
-"contracts/shared/tokenvault/ERC20VaultOriginal.sol:ERC20VaultOriginal"
-"contracts/shared/tokenvault/ERC721Vault.sol:ERC721Vault"
-"contracts/shared/tokenvault/BridgedERC20.sol:BridgedERC20"
-"contracts/shared/tokenvault/BridgedERC20V2.sol:BridgedERC20V2"
-"contracts/shared/tokenvault/BridgedERC721.sol:BridgedERC721"
-"contracts/shared/tokenvault/BridgedERC1155.sol:BridgedERC1155"
+"contracts/shared/vault/ERC1155Vault.sol:ERC1155Vault"
+"contracts/shared/vault/ERC20Vault.sol:ERC20Vault"
+"contracts/shared/vault/ERC721Vault.sol:ERC721Vault"
+"contracts/shared/vault/BridgedERC20.sol:BridgedERC20"
+"contracts/shared/vault/BridgedERC20V2.sol:BridgedERC20V2"
+"contracts/shared/vault/BridgedERC721.sol:BridgedERC721"
+"contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
+"contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
+"contracts/shared/signal/SignalServiceForkRouter.sol:SignalServiceForkRouter"
 )
 
 # Layer 1 contracts
 contracts_layer1=(
-"contracts/layer1/token/TaikoToken.sol:TaikoToken"
-"contracts/layer1/verifiers/compose/SgxAndZkVerifier.sol:SgxAndZkVerifier"
-"contracts/layer1/verifiers/TaikoRisc0Verifier.sol:TaikoRisc0Verifier"
-"contracts/layer1/verifiers/TaikoSP1Verifier.sol:TaikoSP1Verifier"
-"contracts/layer1/verifiers/TaikoSgxVerifier.sol:TaikoSgxVerifier"
+"contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
+"contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
-"contracts/layer1/based2/Inbox.sol:Inbox"
-"contracts/layer1/hekla/HeklaInbox.sol:HeklaInbox"
-"contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
-"contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"
-"contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol:MainnetERC20Vault"
-"contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol:MainnetERC1155Vault"
-"contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
+"contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
-"contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
-"contracts/layer1/provers/ProverSet.sol:ProverSet"
-"contracts/layer1/fork-router/ForkRouter.sol:ForkRouter"
-"contracts/layer1/forced-inclusion/TaikoWrapper.sol:TaikoWrapper"
-"contracts/layer1/forced-inclusion/ForcedInclusionStore.sol:ForcedInclusionStore"
-"contracts/layer1/preconf/impl/PreconfRouter.sol:PreconfRouter"
-"contracts/layer1/preconf/impl/PreconfRouter2.sol:PreconfRouter2"
+"contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
+"contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
+"contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
+"contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
-"contracts/layer1/preconf/impl/PreconfSlasher.sol:PreconfSlasher"
-"contracts/layer1/governance/TaikoDAOController.sol:TaikoDAOController"
+"contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
 # Layer 2 contracts
 contracts_layer2=(
-"contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
-"contracts/layer2/hekla/DelegateOwner.sol:DelegateOwner"
-"contracts/layer2/mainnet/DelegateController.sol:DelegateController"
-"contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
+"contracts/layer2/governance/DelegateController.sol:DelegateController"
+"contracts/layer2/core/Anchor.sol:Anchor"
+"contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
+"contracts/layer2/preconf/PreconfSlasherL2.sol:PreconfSlasherL2"
 )
 
+# Update storage layout for a single contract
+update_contract_layout() {
+    local contract=$1
+    local profile=$2
+    local file_path="${contract%%:*}"  # Extract path before colon
+    local contract_name="${contract##*:}"  # Extract contract name after colon
+
+    [ -f "$file_path" ] || { echo "❌ Failed: ${contract} (file not found)"; return 1; }
+
+    # Derive layout file path: replace .sol with _Layout.sol
+    local dir_path="${file_path%/*}"
+    local base_name="${file_path##*/}"
+    local base_name_no_ext="${base_name%.sol}"
+    local layout_file_path="${dir_path}/${base_name_no_ext}_Layout.sol"
+
+    # Generate storage layout
+    local layout_output
+    layout_output=$(FORGE_DISPLAY=plain FOUNDRY_PROFILE="${profile}" \
+        forge inspect -C "./contracts/${profile}" -o "./out/${profile}" "${contract}" storagelayout 2>&1) || {
+        echo "❌ Failed: ${contract} (forge inspect failed)"
+        return 1
+    }
+
+    # Parse layout table: extract data rows with pipes, skip headers and borders
+    local layout_comments
+    layout_comments=$(echo "$layout_output" | awk -F'|' '
+        NF >= 6 && /\|/ {
+            # Trim whitespace from each field
+            for (i=1; i<=NF; i++) gsub(/^[ \t]+|[ \t]+$/, "", $i);
+            name=$2; type=$3; slot=$4; offset=$5; bytes=$6;
+
+            # Skip headers, empty rows, and border characters
+            if (name == "Name" || name == "" || slot == "Slot" || name ~ /^[─═╭╰│┤┐└┴┬├┼+\-]+$/) next;
+
+            printf "  %-30s | %-50s | Slot: %-4s | Offset: %-4s | Bytes: %-4s\n", name, type, slot, offset, bytes;
+        }
+    ' | sed 's/^/\/\/ /')
+
+    [ -n "$layout_comments" ] || { echo "❌ Failed: ${contract} (no layout data)"; return 1; }
+
+    # Create/overwrite the layout file
+    cat > "$layout_file_path" << EOF
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+/// @title ${contract_name}Layout
+/// @notice Storage layout documentation for ${contract_name}
+/// @dev This file is auto-generated by gen-layouts.sh. DO NOT EDIT MANUALLY.
+/// @custom:security-contact security@taiko.xyz
+
+// solhint-disable max-line-length
+${layout_comments}
+EOF
+
+    echo "✅ Updated: ${layout_file_path}"
+}
+
+# Main
 profile=$1
 
-if [ "$profile" == "shared" ]; then
-    echo "Generating shared contract layouts..."
-    contracts=("${contracts_shared[@]}")
-elif [ "$profile" == "layer1" ]; then
-    echo "Generating layer 1 contract layouts..."
-    contracts=("${contracts_layer1[@]}")
-elif [ "$profile" == "layer2" ]; then
-    echo "Generating layer 2 contract layouts..."
-    contracts=("${contracts_layer2[@]}")
-else
-    echo "Invalid profile. Please enter either 'shared','layer1' or 'layer2'."
-    exit 1
-fi
+case "$profile" in
+    shared) echo "Generating shared contract layouts..."; contracts=("${contracts_shared[@]}") ;;
+    layer1) echo "Generating layer 1 contract layouts..."; contracts=("${contracts_layer1[@]}") ;;
+    layer2) echo "Generating layer 2 contract layouts..."; contracts=("${contracts_layer2[@]}") ;;
+    *) echo "❌ Error: Invalid profile '$profile'"; echo "Usage: $0 <shared|layer1|layer2>"; exit 1 ;;
+esac
 
-# Empty the output file initially
-output_file="layout/${profile}-contracts.txt"
-> $output_file
-
-# Loop over each contract
+# Process contracts
+failed=0
 for contract in "${contracts[@]}"; do
-    # Run forge inspect and append to the file
-    # Ensure correct concatenation of the command without commas
-    echo "inspect ${contract}"
-
-    echo "## ${contract}" >> $output_file
-    FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout >> $output_file
-    echo "" >> $output_file
+    update_contract_layout "$contract" "$profile" || ((failed++))
 done
 
-sed_pattern='s|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g'
-
-if [[ "$(uname -s)" == "Darwin" ]]; then
-    sed -i '' "$sed_pattern" "$output_file"
+# Summary
+echo ""
+echo "=========================================="
+if [ $failed -eq 0 ]; then
+    echo "✅ All ${#contracts[@]} contracts updated successfully!"
 else
-    sed -i "$sed_pattern" "$output_file"
+    echo "⚠️  ${failed}/${#contracts[@]} contracts failed"
+    exit 1
 fi
-
-# Use awk to remove the last column and write to a temporary file
-temp_file="${output_file}_temp"
-while IFS= read -r line; do
-    # Remove everything behind the second-to-last "|"
-    echo "$line" | sed -E 's/\|[^|]*\|[^|]*$/|/'
-done < "$output_file" > "$temp_file"
-mv "$temp_file" "$output_file"

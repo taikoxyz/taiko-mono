@@ -33,11 +33,8 @@ jobs:
         run: |
           echo "Vercel Project ID: ${{ env.VERCEL_PROJECT_ID }}"
 
-      - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git
-
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

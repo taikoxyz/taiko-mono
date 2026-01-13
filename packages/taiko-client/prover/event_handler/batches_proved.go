@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"math/big"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -65,6 +66,27 @@ func (h *BatchesProvedEventHandler) HandlePacaya(
 
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 	}
+
+	return nil
+}
+
+// HandleShasta implements the BatchesProvedHandler interface.
+func (h *BatchesProvedEventHandler) HandleShasta(
+	ctx context.Context,
+	e *shastaBindings.ShastaInboxClientProved,
+) error {
+	coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta core state: %w", err)
+	}
+
+	log.Info(
+		"New valid proven Shasta batch received",
+		"firstProposalID", e.FirstNewProposalId,
+		"lastProposalID", e.LastProposalId,
+		"actualProver", e.ActualProver,
+		"checkpointBlockHash", coreState.LastFinalizedBlockHash,
+	)
 
 	return nil
 }

@@ -81,10 +81,11 @@ interface IBridge {
         payable
         returns (bytes32 msgHash_, Message memory message_);
 
-    /// @notice Recalls a failed message on its source chain, releasing
-    /// associated assets.
-    /// @dev This function checks if the message failed on the source chain and
-    /// releases associated Ether or tokens.
+    /// @notice Recalls a message on its source chain after it has failed on the
+    /// destination chain, releasing associated assets on the source chain.
+    /// @dev Verifies via proof that the message was marked FAILED on the
+    /// destination chain's Bridge, then releases the associated Ether or tokens
+    /// on the source chain.
     /// @param _message The message whose associated Ether should be released.
     /// @param _proof The merkle inclusion proof.
     function recallMessage(Message calldata _message, bytes calldata _proof) external;

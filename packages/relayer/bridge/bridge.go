@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
+	"log/slog"
 	"math/big"
 	"sync"
 	"time"
@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -120,7 +119,7 @@ func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
 	b.destChainId = destChainID
 
 	b.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
-	b.backOffMaxRetries = cfg.BackOffMaxRetrys
+	b.backOffMaxRetries = cfg.BackOffMaxRetries
 	b.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	b.bridgeMessageValue = cfg.BridgeMessageValue
@@ -145,7 +144,9 @@ func (b *Bridge) Start() error {
 
 	b.cancel = cancel
 
-	_ = b.submitBridgeTx(ctx)
+	if err := b.submitBridgeTx(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -175,7 +176,7 @@ func (b *Bridge) estimateGas(
 
 	tx, err := b.srcBridge.SendMessage(auth, message)
 	if err != nil {
-		fmt.Println(err)
+		slog.Error("Failed to send message for gas estimation", "error", err)
 		return 0, errors.Wrap(err, "rcBridge.SendMessage")
 	}
 
@@ -235,7 +236,7 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 
 	tx, err := b.srcBridge.SendMessage(auth, message)
 	if err != nil {
-		fmt.Println("b.srcBridge.SendMessage", err)
+		slog.Error("Failed to send bridge message", "method", "b.srcBridge.SendMessage", "error", err)
 		return errors.Wrap(err, "rcBridge.SendMessage")
 	}
 

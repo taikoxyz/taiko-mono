@@ -1,58 +1,75 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/TaikoInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
+
+import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
 
 /// @title DevnetInbox
-/// @dev Labeled in address resolver as "taiko"
+/// @dev This contract extends the base Inbox contract for devnet deployment
+/// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetInbox is TaikoInbox {
-    uint64 internal immutable chainId;
-    uint24 internal immutable cooldownWindow;
+contract DevnetInbox is Inbox {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+    /// @dev Ring buffer size for storing proposal hashes.
+    /// Assumptions:
+    /// - D = 2: Proposals may continue without finalization for up to 2 days.
+    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
+    ///
+    /// Calculation:
+    ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
+    ///                     = (86400 * 2) / 12 / 6
+    ///                     = 2400
+    uint64 private constant _RING_BUFFER_SIZE = 100;
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
 
     constructor(
-        uint64 _chainId,
-        uint24 _cooldownWindow,
-        address _wrapper,
-        address _verifier,
+        address _proofVerifier,
+        address _proposerChecker,
+        address _proverWhitelist,
+        address _signalService,
         address _bondToken,
-        address _signalService
+        uint64 _minBond,
+        uint64 _livenessBond,
+        uint48 _withdrawalDelay
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
-    {
-        chainId = _chainId;
-        cooldownWindow = _cooldownWindow;
+        Inbox(Config({
+                proofVerifier: _proofVerifier,
+                proposerChecker: _proposerChecker,
+                proverWhitelist: _proverWhitelist,
+                signalService: _signalService,
+                bondToken: _bondToken,
+                minBond: _minBond,
+                livenessBond: _livenessBond,
+                withdrawalDelay: _withdrawalDelay,
+                provingWindow: 2 hours,
+                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
+                ringBufferSize: _RING_BUFFER_SIZE,
+                basefeeSharingPctg: 75,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 0,
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
+                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
+                minCheckpointDelay: 384 seconds, // 1 epoch
+                permissionlessInclusionMultiplier: 5
+            }))
+    { }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    function _storeReentryLock(uint8 _reentry) internal override {
+        LibFasterReentryLock.storeReentryLock(_reentry);
     }
 
-    function _getConfig() internal view override returns (ITaikoInbox.Config memory) {
-        return ITaikoInbox.Config({
-            chainId: chainId,
-            maxUnverifiedBatches: 324_000,
-            batchRingBufferSize: 360_000,
-            maxBatchesToVerify: 16,
-            blockMaxGasLimit: 240_000_000,
-            livenessBond: 25e18, // 25 Taiko token per batch.
-            stateRootSyncInternal: 16,
-            maxAnchorHeightOffset: 96,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_344_899_430, // 0.01 gwei
-                maxGasIssuancePerBlock: 600_000_000
-            }),
-            provingWindow: 2 hours,
-            cooldownWindow: cooldownWindow,
-            maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 768,
-            forkHeights: ITaikoInbox.ForkHeights({
-                ontake: 0,
-                pacaya: 0,
-                shasta: 0,
-                unzen: 0,
-                etna: 0,
-                fuji: 0
-            })
-        });
+    function _loadReentryLock() internal view override returns (uint8) {
+        return LibFasterReentryLock.loadReentryLock();
     }
 }

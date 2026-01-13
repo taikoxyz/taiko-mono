@@ -1,0 +1,56 @@
+[package]
+name = "driver"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+alethia-reth-consensus = { workspace = true }
+alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alloy = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-hardforks = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+event-scanner = { workspace = true }
+flate2 = { workspace = true }
+jsonrpsee = { version = "0.26", features = ["server"] }
+k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
+metrics = { workspace = true }
+reth-ipc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-retry = { workspace = true }
+tokio-stream = { workspace = true }
+tower = { version = "0.5", features = ["util"] }
+tracing = { workspace = true }
+url = { workspace = true }
+
+bindings = { path = "../bindings" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+[dev-dependencies]
+alloy-transport = { workspace = true }
+anyhow = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+proposer = { path = "../proposer" }
+rand = "0.8"
+serde_json = { workspace = true }
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness" }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }

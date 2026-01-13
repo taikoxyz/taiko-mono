@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
+import "./DefaultResolver_Layout.sol"; // DO NOT DELETE
+
 /// @title DefaultResolver
 /// @notice Storage-based address resolver.
 /// @custom:security-contact security@taiko.xyz
@@ -21,8 +23,6 @@ contract DefaultResolver is EssentialContract, ResolverBase {
     event AddressRegistered(
         uint256 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
-
-    constructor() EssentialContract() { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.
@@ -54,7 +54,15 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         return address(this);
     }
 
-    function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {
+    function getAddress(
+        uint256 _chainId,
+        bytes32 _name
+    )
+        internal
+        view
+        override
+        returns (address)
+    {
         return __addresses[_chainId][_name];
     }
 

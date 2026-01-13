@@ -1,21 +1,21 @@
 ---
 title: Add Taiko to your wallet
-description: Step-by-step guide to connect your wallet to Taiko Alethia and Taiko Hekla networks.
+description: Step-by-step guide to connect your wallet to Taiko Alethia and Taiko Hoodi networks.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
-import NetworkAdder from '../../../components/NetworkAdder.astro';
-
+import { Aside } from "@astrojs/starlight/components";
+import NetworkAdder from "../../../components/NetworkAdder.astro";
 
 <Aside>
-We **recommend you choose a Taiko Labs maintained RPC** which ends in `.taiko.xyz` (e.g., `https://rpc.mainnet.taiko.xyz`).
+  We **recommend you choose a Taiko Labs maintained RPC** which ends in
+  `.taiko.xyz` (e.g., `https://rpc.mainnet.taiko.xyz`).
 </Aside>
 
 You can add Taiko networks to your wallet using the buttons below:
 
 <div style="display: flex; gap: 1rem; margin: 2rem 0;">
-  <NetworkAdder network="mainnet" />
-  <NetworkAdder network="testnet" />
+  <NetworkAdder network="Taiko Alethia" />
+  <NetworkAdder network="Taiko Hoodi" />
 </div>
 
 If you are using a different in-browser wallet, the buttons above may also work for them.
@@ -38,8 +38,8 @@ To manually add Taiko as a custom network in your wallet, follow these steps:
 
 ### Testnet network details
 
-- Network Name: Taiko Hekla
-- RPC URL: https://rpc.hekla.taiko.xyz
-- Chain ID: 167009
+- Network Name: Taiko Hoodi
+- RPC URL: https://rpc.hoodi.taiko.xyz
+- Chain ID: 167013
 - Currency Symbol: ETH
-- Block Explorer URL: https://hekla.taikoscan.io/
+- Block Explorer URL: https://hoodi.taikoscan.io/

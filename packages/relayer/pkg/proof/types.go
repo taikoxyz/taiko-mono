@@ -15,8 +15,8 @@ type Bytes []byte
 
 // MarshalText implements encoding.TextMarshaler
 func (q Bytes) MarshalText() ([]byte, error) {
-	return []byte(fmt.Sprintf("0x%v",
-		new(big.Int).SetBytes(q).Text(16))), nil
+	return fmt.Appendf(nil, "0x%v",
+		new(big.Int).SetBytes(q).Text(16)), nil
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.

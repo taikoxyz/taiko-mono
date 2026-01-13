@@ -8,7 +8,7 @@ on:
 jobs:
   claude:
     if: (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
-    runs-on: [arc-runner-set]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
@@ -19,59 +19,56 @@ jobs:
         uses: alessbell/pull-request-comment-branch@v2.1.0
         id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          # account for forked repos case
-          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          # SECURITY: Pin to exact commit at comment time to prevent TOCTOU attacks
+          ref: ${{ steps.comment-branch.outputs.head_sha }}
           repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
           # Fetch more history for better git operations
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@beta
-        env:
-          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "30000" # any safe value < 32000 to avoid reaching token limit
+        uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            Perform a comprehensive code review of the changes in this pull request.
 
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-          # model: "claude-opus-4-20250514"
-
-          # Optional: Customize the trigger phrase (default: @claude)
-          # trigger_phrase: "/claude"
-
-          # Optional: Trigger when specific user is assigned to an issue
-          # assignee_trigger: "claude-bot"
-
-          # Allow Claude to run specific commands
-          allowed_tools: |
-            mcp__github__create_pull_request
-            Bash(pnpm install)
-            Bash(pnpm test:*)
-            Bash(pnpm fmt:sol)
-            Bash(pnpm snapshot:*)
-            Bash(pnpm compile:*)
-            Bash(pnpm layout:*)
-            Bash(cat *)
-            Bash(find *)
-            Bash(grep *)
-            Bash(ls *)
-            Bash(git remote remove fork-pr-*)
-            WebFetch(domain:docs.anthropic.com)
-
-          # Add custom instructions for Claude to customize its behavior for your project
-          custom_instructions: |
             For protocol(smart contract) changes always start in the `packages/protocol` directory.
-            You MUST run `pnpm install` first.
+            You MUST run `pnpm install --ignore-scripts` first for security (prevents malicious lifecycle scripts).
             You MUST follow the development workflow described in CLAUDE.md.
             You MUST make sure the tests are passing before creating a pull request.
             You MUST open a draft pull request after creating a branch.
             You MUST create a pull request after completing your task.
             You can create pull requests using the `mcp__github__create_pull_request` tool.
+
+            Use top-level comments for the review. Leave out sections that have no relevance, for example if it is a documentation change testing may be irrelevant.
+            Be constructive and helpful in your feedback. Don't be overly polite or verbose, be direct.
+          # Tools for comprehensive PR review
+          claude_args: |
+            --allowedTools "
+              mcp__github_inline_comment__create_inline_comment,
+              Bash(gh pr comment:*),
+              Bash(gh pr diff:*),
+              Bash(gh pr view:*),
+              Bash(pnpm install --ignore-scripts),
+              Bash(pnpm test:*),
+              Bash(pnpm fmt:sol),
+              Bash(pnpm snapshot:*),
+              Bash(pnpm compile:*),
+              Bash(pnpm layout:*),
+              Bash(cat *),
+              Bash(find *),
+              Bash(grep *),
+              Bash(ls *),
+              WebFetch(domain:docs.anthropic.com)
+            "
+          use_sticky_comment: true

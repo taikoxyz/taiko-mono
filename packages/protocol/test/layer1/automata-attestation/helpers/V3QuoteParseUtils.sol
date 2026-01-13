@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
-import "src/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
-import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "solady/src/utils/Base64.sol";
 import "solady/src/utils/JSONParserLib.sol";
 import "solady/src/utils/LibString.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "src/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
 
 contract V3QuoteParseUtils {
     using JSONParserLib for JSONParserLib.Item;
@@ -34,7 +34,7 @@ contract V3QuoteParseUtils {
         bytes32 mrEnclave;
         bytes32 mrSigner;
         bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation
-            // of attestation key and QEAuthData
+        // of attestation key and QEAuthData
         bytes reserved1;
         bytes32 reserved2;
         bytes reserved3; // 96 bytes

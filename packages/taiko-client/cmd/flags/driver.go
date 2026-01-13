@@ -65,12 +65,12 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
 	}
-	PreconfHandoverSkipSlots = &cli.Uint64Flag{
-		Name:     "preconfirmation.handoverSkipSlots",
-		Usage:    "Handover slots to provide a boundary at the end of an epoch",
-		Value:    4,
+	DriverTaikoWrapperAddress = &cli.StringFlag{
+		Name:     "taikoWrapper",
+		Usage:    "TaikoWrapper contract `address`",
+		Required: false,
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONF_HANDOVER_SKIP_SLOTS"},
+		EnvVars:  []string{"TAIKO_WRAPPER"},
 	}
 )
 
@@ -88,5 +88,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
 	PreconfWhitelistAddress,
-	PreconfHandoverSkipSlots,
+	DriverTaikoWrapperAddress,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

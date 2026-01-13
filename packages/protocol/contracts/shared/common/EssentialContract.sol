@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./IResolver.sol";
+import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title EssentialContract
 /// @custom:security-contact security@taiko.xyz
 abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable {
+    // ---------------------------------------------------------------
+    // Constants and Immutable Variables
+    // ---------------------------------------------------------------
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
     address internal immutable __resolver;
+
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
     uint256[50] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
@@ -19,6 +27,10 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal __paused;
 
     uint256[49] private __gap;
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
 
     /// @notice Emitted when the contract is paused.
     /// @param account The account that paused the contract.
@@ -35,14 +47,14 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
-    constructor() {
-        _disableInitializers();
-    }
+    // ---------------------------------------------------------------
+    // Modifiers
+    // ---------------------------------------------------------------
 
     /// @dev Modifier that ensures the caller is either the owner or a specified address.
     /// @param _addr The address to check against.
     modifier onlyFromOwnerOr(address _addr) {
-        require(msg.sender == owner() || msg.sender == _addr, ACCESS_DENIED());
+        _checkOwnerOr(_addr);
         _;
     }
 
@@ -54,7 +66,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     /// @dev Modifier that prevents reentrant calls to a function.
     modifier nonReentrant() {
-        require(_loadReentryLock() != _TRUE, REENTRANT_CALL());
+        _checkReentrancy();
         _storeReentryLock(_TRUE);
         _;
         _storeReentryLock(_FALSE);
@@ -62,34 +74,34 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     /// @dev Modifier that allows function execution only when the contract is paused.
     modifier whenPaused() {
-        require(paused(), INVALID_PAUSE_STATUS());
+        _checkPaused();
         _;
     }
 
     /// @dev Modifier that allows function execution only when the contract is not paused.
     modifier whenNotPaused() {
-        require(!paused(), INVALID_PAUSE_STATUS());
+        _checkNotPaused();
         _;
     }
 
     /// @dev Modifier that ensures the provided address is not the zero address.
     /// @param _addr The address to check.
     modifier nonZeroAddr(address _addr) {
-        require(_addr != address(0), ZERO_ADDRESS());
+        _checkNonZeroAddr(_addr);
         _;
     }
 
     /// @dev Modifier that ensures the provided value is not zero.
     /// @param _value The value to check.
     modifier nonZeroValue(uint256 _value) {
-        require(_value != 0, ZERO_VALUE());
+        _checkNonZeroValue(_value);
         _;
     }
 
     /// @dev Modifier that ensures the provided bytes32 value is not zero.
     /// @param _value The bytes32 value to check.
     modifier nonZeroBytes32(bytes32 _value) {
-        require(_value != 0, ZERO_VALUE());
+        _checkNonZeroBytes32(_value);
         _;
     }
 
@@ -97,23 +109,35 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param _addr1 The first address to check against.
     /// @param _addr2 The second address to check against.
     modifier onlyFromEither(address _addr1, address _addr2) {
-        require(msg.sender == _addr1 || msg.sender == _addr2, ACCESS_DENIED());
+        _checkFromEither(_addr1, _addr2);
         _;
     }
 
     /// @dev Modifier that ensures the caller is the specified address.
     /// @param _addr The address to check against.
     modifier onlyFrom(address _addr) {
-        require(msg.sender == _addr, ACCESS_DENIED());
+        _checkFrom(_addr);
         _;
     }
 
     /// @dev Modifier that ensures the caller is the specified address.
     /// @param _addr The address to check against.
     modifier onlyFromOptional(address _addr) {
-        require(_addr == address(0) || msg.sender == _addr, ACCESS_DENIED());
+        _checkFromOptional(_addr);
         _;
     }
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
+
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ---------------------------------------------------------------
+    // External & Public Functions
+    // ---------------------------------------------------------------
 
     /// @notice Pauses the contract.
     function pause() public whenNotPaused {
@@ -153,6 +177,10 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return __resolver;
     }
 
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function __Essential_init(address _owner) internal virtual onlyInitializing {
@@ -181,5 +209,49 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     // Loads the reentry lock
     function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
         reentry_ = __reentry;
+    }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    function _checkOwnerOr(address _addr) private view {
+        require(msg.sender == owner() || msg.sender == _addr, ACCESS_DENIED());
+    }
+
+    function _checkReentrancy() private view {
+        require(_loadReentryLock() != _TRUE, REENTRANT_CALL());
+    }
+
+    function _checkPaused() private view {
+        require(paused(), INVALID_PAUSE_STATUS());
+    }
+
+    function _checkNotPaused() private view {
+        require(!paused(), INVALID_PAUSE_STATUS());
+    }
+
+    function _checkNonZeroAddr(address _addr) private pure {
+        require(_addr != address(0), ZERO_ADDRESS());
+    }
+
+    function _checkNonZeroValue(uint256 _value) private pure {
+        require(_value != 0, ZERO_VALUE());
+    }
+
+    function _checkNonZeroBytes32(bytes32 _value) private pure {
+        require(_value != 0, ZERO_VALUE());
+    }
+
+    function _checkFromEither(address _addr1, address _addr2) private view {
+        require(msg.sender == _addr1 || msg.sender == _addr2, ACCESS_DENIED());
+    }
+
+    function _checkFrom(address _addr) private view {
+        require(msg.sender == _addr, ACCESS_DENIED());
+    }
+
+    function _checkFromOptional(address _addr) private view {
+        require(_addr == address(0) || msg.sender == _addr, ACCESS_DENIED());
     }
 }

@@ -3,13 +3,13 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 )
 
 // Serve starts the metrics server on the given address, will be closed when the given

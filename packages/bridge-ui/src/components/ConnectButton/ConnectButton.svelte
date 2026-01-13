@@ -30,8 +30,14 @@
 
   $: currentChainId = $connectedSourceChain?.id;
   $: accountAddress = $account?.address || '';
-
   $: balance = $ethBalance || 0n;
+
+  // Use internal reactive connection state that syncs with account store
+  // This ensures UI is always in sync with actual wagmi state
+  $: isConnected = connected || $account?.isConnected || false;
+
+  // Defensive check to ensure we have an address when showing connected state
+  $: actuallyConnected = isConnected && accountAddress;
 
   onMount(async () => {
     unsubscribeWeb3Modal = web3modal.subscribeState(onWeb3Modal);
@@ -41,7 +47,7 @@
   onDestroy(unsubscribeWeb3Modal);
 </script>
 
-{#if connected}
+{#if actuallyConnected}
   <button
     on:click={connectWallet}
     class="rounded-full min-w-[140px] flex items-center justify-center md:pl-[8px] md:pr-[3px] md:max-h-[48px] max-h-[40px] min-h-[40px] wc-parent-glass !border-solid gap-2 font-bold {$$props.class}">

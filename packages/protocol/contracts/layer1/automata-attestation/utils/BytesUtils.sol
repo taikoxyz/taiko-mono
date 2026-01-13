@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: BSD 2-Clause License
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 // Inspired by ensdomains/dnssec-oracle - BSD-2-Clause license
 // https://github.com/ensdomains/dnssec-oracle/blob/master/contracts/BytesUtils.sol
 /// @title BytesUtils
 /// @custom:security-contact security@taiko.xyz
 library BytesUtils {
+    error INVALID_OFFSET();
+    error INVALID_IDX();
+    error UNEXPECTED_LEN();
+    error UNEXPECTED_IDX();
+    error UNEXPECTED_OFFSET();
+
     /*
     * @dev Returns the keccak-256 hash of a byte range.
     * @param self The byte string to hash.
@@ -22,7 +28,7 @@ library BytesUtils {
         pure
         returns (bytes32 ret)
     {
-        require(offset + len <= self.length, "invalid offset");
+        require(offset + len <= self.length, INVALID_OFFSET());
         assembly {
             ret := keccak256(add(add(self, 32), offset), len)
         }
@@ -68,7 +74,7 @@ library BytesUtils {
     * @return The specified 16 bits of the string, interpreted as an integer.
     */
     function readUint16(bytes memory self, uint256 idx) internal pure returns (uint16 ret) {
-        require(idx + 2 <= self.length, "invalid idx");
+        require(idx + 2 <= self.length, INVALID_IDX());
         assembly {
             ret := and(mload(add(add(self, 2), idx)), 0xFFFF)
         }
@@ -90,8 +96,8 @@ library BytesUtils {
         pure
         returns (bytes32 ret)
     {
-        require(len <= 32, "unexpected len");
-        require(idx + len <= self.length, "unexpected idx");
+        require(len <= 32, UNEXPECTED_LEN());
+        require(idx + len <= self.length, UNEXPECTED_IDX());
         assembly {
             let mask := not(sub(exp(256, sub(32, len)), 1))
             ret := and(mload(add(add(self, 32), idx)), mask)
@@ -119,7 +125,7 @@ library BytesUtils {
         pure
         returns (bytes memory)
     {
-        require(offset + len <= self.length, "unexpected offset");
+        require(offset + len <= self.length, UNEXPECTED_OFFSET());
 
         bytes memory ret = new bytes(len);
         uint256 dest;

@@ -21,6 +21,7 @@ type FixedKSigner struct {
 	privKey *secp256k1.ModNScalar
 }
 
+// NewFixedKSigner creates a new FixedKSigner instance.
 func NewFixedKSigner(privKey string) (*FixedKSigner, error) {
 	var priv btcec.PrivateKey
 	if overflow := priv.Key.SetByteSlice(hexutil.MustDecode(privKey)); overflow || priv.Key.IsZero() {

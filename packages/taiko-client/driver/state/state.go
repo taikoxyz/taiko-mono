@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -30,6 +32,7 @@ type State struct {
 	GenesisL1Height  *big.Int
 	OnTakeForkHeight *big.Int
 	PacayaForkHeight *big.Int
+	ShastaForkTime   uint64
 
 	// RPC clients
 	rpc *rpc.Client
@@ -42,7 +45,7 @@ func New(ctx context.Context, rpc *rpc.Client) (*State, error) {
 	s := &State{rpc: rpc}
 
 	if err := s.init(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize driver state: %w", err)
 	}
 
 	go s.eventLoop(ctx)
@@ -58,33 +61,35 @@ func (s *State) Close() {
 // init fetches the latest status and initializes the state instance.
 func (s *State) init(ctx context.Context) error {
 	if err := s.initGenesisHeight(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize genesis height: %w", err)
 	}
 	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
 	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
+	s.ShastaForkTime = s.rpc.ShastaClients.ForkTime
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
 	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
+	log.Info("Shasta fork timestamp", "time", s.ShastaForkTime)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get latest L2 known L1 header: %w", err)
 	}
 	s.l1Current.Store(latestL2KnownL1Header)
 
 	// L1 head
 	l1Head, err := s.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
 	s.setL1Head(l1Head)
 
 	// L2 head
 	l2Head, err := s.rpc.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 head: %w", err)
 	}
 
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
@@ -104,6 +109,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2HeadCh                = make(chan *types.Header, 10)
 		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
 		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
+		proposedShastaCh        = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
+		provedShastaCh          = make(chan *shastaBindings.ShastaInboxClientProved, 10)
 
 		// Subscriptions.
 		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
@@ -113,6 +120,8 @@ func (s *State) eventLoop(ctx context.Context) {
 			batchesVerifiedPacayaCh,
 		)
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
+		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
+		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
 	)
 
 	defer func() {
@@ -120,6 +129,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2HeadSub.Unsubscribe()
 		l2BatchesVerifiedPacayaSub.Unsubscribe()
 		l2BatchesProvedPacayaSub.Unsubscribe()
+		l2ProposedShastaSub.Unsubscribe()
+		l2ProvedShastaSub.Unsubscribe()
 	}()
 
 	for {
@@ -127,11 +138,29 @@ func (s *State) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case e := <-batchesProvedPacayaCh:
-			log.Info("✅ Batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
+			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
+		case e := <-provedShastaCh:
+			coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+			if err != nil {
+				log.Error("Failed to get Shasta core state", "err", err)
+				continue
+			}
+			header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
+			if err != nil {
+				log.Error("Failed to get Shasta finalized block header", "err", err)
+				continue
+			}
+			log.Info(
+				"📈 Shasta batches proven and verified",
+				"firstBatchID", e.FirstNewProposalId,
+				"lastBatchID", e.LastProposalId,
+				"checkpointNumber", header.Number,
+				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
+			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
-				"📈 Batches verified",
-				"lastVerifiedBatchId", e.BatchId,
+				"📈 Pacaya batches verified",
+				"lastVerifiedBatchID", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
 		case newHead := <-l1HeadCh:
@@ -195,7 +224,7 @@ func (s *State) IsPacaya(num *big.Int) bool {
 func (s *State) initGenesisHeight(ctx context.Context) error {
 	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get protocol state variables: %w", err)
 	}
 
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
