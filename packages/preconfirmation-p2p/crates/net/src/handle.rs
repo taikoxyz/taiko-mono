@@ -94,10 +94,7 @@ impl P2pHandle {
                 Some(NetworkEvent::PeerConnected(peer_id)) => return Ok(peer_id),
                 Some(_) => continue,
                 None => {
-                    return Err(NetworkError::new(
-                        NetworkErrorKind::Other,
-                        "event stream closed",
-                    ))
+                    return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"))
                 }
             }
         }
@@ -112,10 +109,7 @@ impl P2pHandle {
                 Some(NetworkEvent::NewListenAddr(addr)) => return Ok(addr),
                 Some(_) => continue,
                 None => {
-                    return Err(NetworkError::new(
-                        NetworkErrorKind::Other,
-                        "event stream closed",
-                    ))
+                    return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"))
                 }
             }
         }
@@ -291,17 +285,14 @@ impl P2pHandle {
     /// `Ok(())` if the dial was initiated successfully, or an error message if it failed.
     pub async fn dial(&self, addr: Multiaddr) -> Result<(), NetworkError> {
         let (tx, rx) = oneshot::channel();
-        self.commands
-            .send(NetworkCommand::Dial { addr, respond_to: Some(tx) })
-            .await
-            .map_err(|e| {
+        self.commands.send(NetworkCommand::Dial { addr, respond_to: Some(tx) }).await.map_err(
+            |e| {
                 NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
-            })?;
+            },
+        )?;
 
         rx.await
-            .unwrap_or_else(|_| {
-                Err("service stopped before dial response".to_string())
-            })
+            .unwrap_or_else(|_| Err("service stopped before dial response".to_string()))
             .map_err(|e| NetworkError::new(NetworkErrorKind::DialFailed, e))
     }
 
@@ -315,15 +306,17 @@ impl P2pHandle {
     /// A vector of listening multiaddrs, or an error if the command failed.
     pub async fn listening_addrs(&self) -> Result<Vec<Multiaddr>, NetworkError> {
         let (tx, rx) = oneshot::channel();
-        self.commands
-            .send(NetworkCommand::GetListeningAddrs { respond_to: tx })
-            .await
-            .map_err(|e| {
+        self.commands.send(NetworkCommand::GetListeningAddrs { respond_to: tx }).await.map_err(
+            |e| {
                 NetworkError::new(NetworkErrorKind::SendCommandFailed, format!("send command: {e}"))
-            })?;
+            },
+        )?;
 
         rx.await.map_err(|_| {
-            NetworkError::new(NetworkErrorKind::Other, "service stopped before listening addrs response")
+            NetworkError::new(
+                NetworkErrorKind::Other,
+                "service stopped before listening addrs response",
+            )
         })
     }
 
@@ -337,14 +330,13 @@ impl P2pHandle {
     ///
     /// A dialable multiaddr with the peer ID suffix, or an error if no listeners are available.
     pub async fn dialable_addr(&mut self) -> Result<Multiaddr, NetworkError> {
-        let mut addrs = self.listening_addrs().await?;
-        if addrs.is_empty() {
-            let addr = self.wait_for_listen_addr().await?;
-            addrs.push(addr);
-        }
-        let addr = addrs.into_iter().next().ok_or_else(|| {
-            NetworkError::new(NetworkErrorKind::Other, "no listening addresses available")
-        })?;
+        let addrs = self.listening_addrs().await?;
+        let addr = if let Some(first) = addrs.into_iter().next() {
+            first
+        } else {
+            self.wait_for_listen_addr().await?
+        };
+
         let mut full_addr = addr;
         full_addr.push(libp2p::multiaddr::Protocol::P2p(self.local_peer_id));
         Ok(full_addr)

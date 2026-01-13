@@ -110,11 +110,8 @@ mod tests {
         let validator: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
         let storage: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
 
-        let result = P2pNode::new_with_validator_and_storage(cfg, validator, storage);
-
-        if let Err(err) = result {
-            panic!("{:#}", err);
-        }
+        P2pNode::new_with_validator_and_storage(cfg, validator, storage)
+            .unwrap_or_else(|err| panic!("{:#}", err));
     }
 
     #[tokio::test]
@@ -154,10 +151,7 @@ mod tests {
         let node2_handle = tokio::spawn(async move { node2.run().await });
 
         // Get node2's dialable address
-        let addr2 = handle2
-            .dialable_addr()
-            .await
-            .expect("failed to get dialable addr");
+        let addr2 = handle2.dialable_addr().await.expect("failed to get dialable addr");
 
         // Node1 dials node2
         handle1.dial(addr2).await.expect("dial failed");

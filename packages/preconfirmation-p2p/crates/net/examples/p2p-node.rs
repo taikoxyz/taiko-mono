@@ -158,6 +158,9 @@ async fn main() -> anyhow::Result<()> {
                 NetworkEvent::PeerDisconnected(peer) => {
                     tracing::info!(target: "p2p-node", %peer, "peer disconnected");
                 }
+                NetworkEvent::NewListenAddr(addr) => {
+                    tracing::info!(target: "p2p-node", %addr, "listening on address");
+                }
                 NetworkEvent::Error(err) => {
                     tracing::warn!(target: "p2p-node", %err, "network error");
                 }
