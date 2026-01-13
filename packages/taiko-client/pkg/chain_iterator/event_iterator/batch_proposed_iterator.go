@@ -117,7 +117,7 @@ func assembleBatchProposedIteratorCallback(
 		defer iterPacaya.Close()
 
 		iterShasta, err := rpcClient.ShastaClients.Inbox.FilterProposed(
-			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
+			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx}, nil, nil,
 		)
 		if err != nil {
 			return err
@@ -173,17 +173,13 @@ func assembleBatchProposedIteratorCallback(
 		for iterShasta.Next() {
 			event := iterShasta.Event
 
-			payload, err := rpcClient.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, event.Data)
+			header, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
 			if err != nil {
-				log.Error("Failed to decode proposed event data", "error", err)
-				return err
-			}
-			if payload == nil {
-				return errors.New("decoded proposed event payload is nil")
+				return fmt.Errorf("failed to fetch L1 block header: %w", err)
 			}
 
-			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
-			proposalID := proposedEventPayload.Shasta().GetProposal().Id.Uint64()
+			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
+			proposalID := proposedEventPayload.Shasta().GetEventData().Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
 			if lastShastaBatchID != 0 && proposalID != lastShastaBatchID+1 {

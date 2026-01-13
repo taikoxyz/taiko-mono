@@ -56,7 +56,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -88,9 +88,9 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataPacaya(event))
 			txHash = event.Raw.TxHash
 		case event := <-sink2:
-			decoded, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
+			header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 			s.Nil(err)
-			meta := metadata.NewTaikoProposalMetadataShasta(decoded, event.Raw)
+			meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 			metadataList = append(metadataList, meta)
 			txHash = event.Raw.TxHash
 		}
@@ -130,7 +130,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
 	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -171,9 +171,9 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
 		txHash = event.Raw.TxHash
 	case event := <-sink2:
-		decoded, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
+		header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 		s.Nil(err)
-		meta = metadata.NewTaikoProposalMetadataShasta(decoded, event.Raw)
+		meta = metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 		txHash = event.Raw.TxHash
 	}
 
@@ -214,7 +214,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
 	s.Nil(err)
 
 	defer func() {

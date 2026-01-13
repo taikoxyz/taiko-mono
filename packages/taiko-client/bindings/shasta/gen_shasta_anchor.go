@@ -29,44 +29,22 @@ var (
 	_ = abi.ConvertType
 )
 
-// AnchorBlockParams is an auto generated low-level Go binding around an user-defined struct.
-type AnchorBlockParams struct {
-	AnchorBlockNumber *big.Int
-	AnchorBlockHash   [32]byte
-	AnchorStateRoot   [32]byte
-}
-
 // AnchorBlockState is an auto generated low-level Go binding around an user-defined struct.
 type AnchorBlockState struct {
 	AnchorBlockNumber *big.Int
 	AncestorsHash     [32]byte
 }
 
-// AnchorProposalParams is an auto generated low-level Go binding around an user-defined struct.
-type AnchorProposalParams struct {
-	ProposalId *big.Int
-	Proposer   common.Address
-	ProverAuth []byte
-}
-
-// AnchorProposalState is an auto generated low-level Go binding around an user-defined struct.
-type AnchorProposalState struct {
-	DesignatedProver  common.Address
-	IsLowBondProposal bool
-	ProposalId        *big.Int
-}
-
-// AnchorProverAuth is an auto generated low-level Go binding around an user-defined struct.
-type AnchorProverAuth struct {
-	ProposalId *big.Int
-	Proposer   common.Address
-	ProvingFee *big.Int
-	Signature  []byte
+// ICheckpointStoreCheckpoint is an auto generated low-level Go binding around an user-defined struct.
+type ICheckpointStoreCheckpoint struct {
+	BlockNumber *big.Int
+	BlockHash   [32]byte
+	StateRoot   [32]byte
 }
 
 // ShastaAnchorMetaData contains all meta data concerning the ShastaAnchor contract.
 var ShastaAnchorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_checkpointStore\",\"type\":\"address\",\"internalType\":\"contractICheckpointStore\"},{\"name\":\"_bondManager\",\"type\":\"address\",\"internalType\":\"contractIBondManager\"},{\"name\":\"_livenessBond\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_l1ChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ANCHOR_GAS_LIMIT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"DOMAIN_SEPARATOR\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GOLDEN_TOUCH_ADDRESS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"anchorV4\",\"inputs\":[{\"name\":\"_proposalParams\",\"type\":\"tuple\",\"internalType\":\"structAnchor.ProposalParams\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proverAuth\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"name\":\"_blockParams\",\"type\":\"tuple\",\"internalType\":\"structAnchor.BlockParams\",\"components\":[{\"name\":\"anchorBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"anchorStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockHashes\",\"inputs\":[{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"bondManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBondManager\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"checkpointStore\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractICheckpointStore\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"decodeProverAuth\",\"inputs\":[{\"name\":\"_proverAuth\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structAnchor.ProverAuth\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getBlockState\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structAnchor.BlockState\",\"components\":[{\"name\":\"anchorBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"ancestorsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getDesignatedProver\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_proverAuth\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_currentDesignatedProver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isLowBondProposal_\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"designatedProver_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingFeeToTransfer_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProposalState\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structAnchor.ProposalState\",\"components\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isLowBondProposal\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"l1ChainId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"livenessBond\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validateProverAuth\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_proverAuth\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"signer_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingFee_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Anchored\",\"inputs\":[{\"name\":\"designatedProver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"isLowBondProposal\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"isNewProposal\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"prevAnchorBlockNumber\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"anchorBlockNumber\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"ancestorsHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Withdrawn\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AncestorsHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidL1ChainId\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidL2ChainId\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSender\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalIdMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_checkpointStore\",\"type\":\"address\",\"internalType\":\"contractICheckpointStore\"},{\"name\":\"_l1ChainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"ANCHOR_GAS_LIMIT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GOLDEN_TOUCH_ADDRESS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"anchorV4\",\"inputs\":[{\"name\":\"_checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointStore.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockHashes\",\"inputs\":[{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"checkpointStore\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractICheckpointStore\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlockState\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structAnchor.BlockState\",\"components\":[{\"name\":\"anchorBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"ancestorsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"l1ChainId\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_token\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Anchored\",\"inputs\":[{\"name\":\"prevAnchorBlockNumber\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"anchorBlockNumber\",\"type\":\"uint48\",\"indexed\":false,\"internalType\":\"uint48\"},{\"name\":\"ancestorsHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Withdrawn\",\"inputs\":[{\"name\":\"token\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AncestorsHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidL1ChainId\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidL2ChainId\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSender\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ShastaAnchorABI is the input ABI used to generate the binding from.
@@ -246,37 +224,6 @@ func (_ShastaAnchor *ShastaAnchorCallerSession) ANCHORGASLIMIT() (uint64, error)
 	return _ShastaAnchor.Contract.ANCHORGASLIMIT(&_ShastaAnchor.CallOpts)
 }
 
-// DOMAINSEPARATOR is a free data retrieval call binding the contract method 0x3644e515.
-//
-// Solidity: function DOMAIN_SEPARATOR() view returns(bytes32)
-func (_ShastaAnchor *ShastaAnchorCaller) DOMAINSEPARATOR(opts *bind.CallOpts) ([32]byte, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "DOMAIN_SEPARATOR")
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// DOMAINSEPARATOR is a free data retrieval call binding the contract method 0x3644e515.
-//
-// Solidity: function DOMAIN_SEPARATOR() view returns(bytes32)
-func (_ShastaAnchor *ShastaAnchorSession) DOMAINSEPARATOR() ([32]byte, error) {
-	return _ShastaAnchor.Contract.DOMAINSEPARATOR(&_ShastaAnchor.CallOpts)
-}
-
-// DOMAINSEPARATOR is a free data retrieval call binding the contract method 0x3644e515.
-//
-// Solidity: function DOMAIN_SEPARATOR() view returns(bytes32)
-func (_ShastaAnchor *ShastaAnchorCallerSession) DOMAINSEPARATOR() ([32]byte, error) {
-	return _ShastaAnchor.Contract.DOMAINSEPARATOR(&_ShastaAnchor.CallOpts)
-}
-
 // GOLDENTOUCHADDRESS is a free data retrieval call binding the contract method 0x9ee512f2.
 //
 // Solidity: function GOLDEN_TOUCH_ADDRESS() view returns(address)
@@ -339,37 +286,6 @@ func (_ShastaAnchor *ShastaAnchorCallerSession) BlockHashes(blockNumber *big.Int
 	return _ShastaAnchor.Contract.BlockHashes(&_ShastaAnchor.CallOpts, blockNumber)
 }
 
-// BondManager is a free data retrieval call binding the contract method 0x363cc427.
-//
-// Solidity: function bondManager() view returns(address)
-func (_ShastaAnchor *ShastaAnchorCaller) BondManager(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "bondManager")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// BondManager is a free data retrieval call binding the contract method 0x363cc427.
-//
-// Solidity: function bondManager() view returns(address)
-func (_ShastaAnchor *ShastaAnchorSession) BondManager() (common.Address, error) {
-	return _ShastaAnchor.Contract.BondManager(&_ShastaAnchor.CallOpts)
-}
-
-// BondManager is a free data retrieval call binding the contract method 0x363cc427.
-//
-// Solidity: function bondManager() view returns(address)
-func (_ShastaAnchor *ShastaAnchorCallerSession) BondManager() (common.Address, error) {
-	return _ShastaAnchor.Contract.BondManager(&_ShastaAnchor.CallOpts)
-}
-
 // CheckpointStore is a free data retrieval call binding the contract method 0x955a7244.
 //
 // Solidity: function checkpointStore() view returns(address)
@@ -401,37 +317,6 @@ func (_ShastaAnchor *ShastaAnchorCallerSession) CheckpointStore() (common.Addres
 	return _ShastaAnchor.Contract.CheckpointStore(&_ShastaAnchor.CallOpts)
 }
 
-// DecodeProverAuth is a free data retrieval call binding the contract method 0xb35893fb.
-//
-// Solidity: function decodeProverAuth(bytes _proverAuth) pure returns((uint48,address,uint256,bytes))
-func (_ShastaAnchor *ShastaAnchorCaller) DecodeProverAuth(opts *bind.CallOpts, _proverAuth []byte) (AnchorProverAuth, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "decodeProverAuth", _proverAuth)
-
-	if err != nil {
-		return *new(AnchorProverAuth), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(AnchorProverAuth)).(*AnchorProverAuth)
-
-	return out0, err
-
-}
-
-// DecodeProverAuth is a free data retrieval call binding the contract method 0xb35893fb.
-//
-// Solidity: function decodeProverAuth(bytes _proverAuth) pure returns((uint48,address,uint256,bytes))
-func (_ShastaAnchor *ShastaAnchorSession) DecodeProverAuth(_proverAuth []byte) (AnchorProverAuth, error) {
-	return _ShastaAnchor.Contract.DecodeProverAuth(&_ShastaAnchor.CallOpts, _proverAuth)
-}
-
-// DecodeProverAuth is a free data retrieval call binding the contract method 0xb35893fb.
-//
-// Solidity: function decodeProverAuth(bytes _proverAuth) pure returns((uint48,address,uint256,bytes))
-func (_ShastaAnchor *ShastaAnchorCallerSession) DecodeProverAuth(_proverAuth []byte) (AnchorProverAuth, error) {
-	return _ShastaAnchor.Contract.DecodeProverAuth(&_ShastaAnchor.CallOpts, _proverAuth)
-}
-
 // GetBlockState is a free data retrieval call binding the contract method 0x0f439bd9.
 //
 // Solidity: function getBlockState() view returns((uint48,bytes32))
@@ -461,87 +346,6 @@ func (_ShastaAnchor *ShastaAnchorSession) GetBlockState() (AnchorBlockState, err
 // Solidity: function getBlockState() view returns((uint48,bytes32))
 func (_ShastaAnchor *ShastaAnchorCallerSession) GetBlockState() (AnchorBlockState, error) {
 	return _ShastaAnchor.Contract.GetBlockState(&_ShastaAnchor.CallOpts)
-}
-
-// GetDesignatedProver is a free data retrieval call binding the contract method 0xb3d5e45f.
-//
-// Solidity: function getDesignatedProver(uint48 _proposalId, address _proposer, bytes _proverAuth, address _currentDesignatedProver) view returns(bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
-func (_ShastaAnchor *ShastaAnchorCaller) GetDesignatedProver(opts *bind.CallOpts, _proposalId *big.Int, _proposer common.Address, _proverAuth []byte, _currentDesignatedProver common.Address) (struct {
-	IsLowBondProposal    bool
-	DesignatedProver     common.Address
-	ProvingFeeToTransfer *big.Int
-}, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "getDesignatedProver", _proposalId, _proposer, _proverAuth, _currentDesignatedProver)
-
-	outstruct := new(struct {
-		IsLowBondProposal    bool
-		DesignatedProver     common.Address
-		ProvingFeeToTransfer *big.Int
-	})
-	if err != nil {
-		return *outstruct, err
-	}
-
-	outstruct.IsLowBondProposal = *abi.ConvertType(out[0], new(bool)).(*bool)
-	outstruct.DesignatedProver = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
-	outstruct.ProvingFeeToTransfer = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
-
-	return *outstruct, err
-
-}
-
-// GetDesignatedProver is a free data retrieval call binding the contract method 0xb3d5e45f.
-//
-// Solidity: function getDesignatedProver(uint48 _proposalId, address _proposer, bytes _proverAuth, address _currentDesignatedProver) view returns(bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
-func (_ShastaAnchor *ShastaAnchorSession) GetDesignatedProver(_proposalId *big.Int, _proposer common.Address, _proverAuth []byte, _currentDesignatedProver common.Address) (struct {
-	IsLowBondProposal    bool
-	DesignatedProver     common.Address
-	ProvingFeeToTransfer *big.Int
-}, error) {
-	return _ShastaAnchor.Contract.GetDesignatedProver(&_ShastaAnchor.CallOpts, _proposalId, _proposer, _proverAuth, _currentDesignatedProver)
-}
-
-// GetDesignatedProver is a free data retrieval call binding the contract method 0xb3d5e45f.
-//
-// Solidity: function getDesignatedProver(uint48 _proposalId, address _proposer, bytes _proverAuth, address _currentDesignatedProver) view returns(bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
-func (_ShastaAnchor *ShastaAnchorCallerSession) GetDesignatedProver(_proposalId *big.Int, _proposer common.Address, _proverAuth []byte, _currentDesignatedProver common.Address) (struct {
-	IsLowBondProposal    bool
-	DesignatedProver     common.Address
-	ProvingFeeToTransfer *big.Int
-}, error) {
-	return _ShastaAnchor.Contract.GetDesignatedProver(&_ShastaAnchor.CallOpts, _proposalId, _proposer, _proverAuth, _currentDesignatedProver)
-}
-
-// GetProposalState is a free data retrieval call binding the contract method 0xaade375b.
-//
-// Solidity: function getProposalState() view returns((address,bool,uint48))
-func (_ShastaAnchor *ShastaAnchorCaller) GetProposalState(opts *bind.CallOpts) (AnchorProposalState, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "getProposalState")
-
-	if err != nil {
-		return *new(AnchorProposalState), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(AnchorProposalState)).(*AnchorProposalState)
-
-	return out0, err
-
-}
-
-// GetProposalState is a free data retrieval call binding the contract method 0xaade375b.
-//
-// Solidity: function getProposalState() view returns((address,bool,uint48))
-func (_ShastaAnchor *ShastaAnchorSession) GetProposalState() (AnchorProposalState, error) {
-	return _ShastaAnchor.Contract.GetProposalState(&_ShastaAnchor.CallOpts)
-}
-
-// GetProposalState is a free data retrieval call binding the contract method 0xaade375b.
-//
-// Solidity: function getProposalState() view returns((address,bool,uint48))
-func (_ShastaAnchor *ShastaAnchorCallerSession) GetProposalState() (AnchorProposalState, error) {
-	return _ShastaAnchor.Contract.GetProposalState(&_ShastaAnchor.CallOpts)
 }
 
 // Impl is a free data retrieval call binding the contract method 0x8abf6077.
@@ -635,37 +439,6 @@ func (_ShastaAnchor *ShastaAnchorSession) L1ChainId() (uint64, error) {
 // Solidity: function l1ChainId() view returns(uint64)
 func (_ShastaAnchor *ShastaAnchorCallerSession) L1ChainId() (uint64, error) {
 	return _ShastaAnchor.Contract.L1ChainId(&_ShastaAnchor.CallOpts)
-}
-
-// LivenessBond is a free data retrieval call binding the contract method 0xd4414221.
-//
-// Solidity: function livenessBond() view returns(uint256)
-func (_ShastaAnchor *ShastaAnchorCaller) LivenessBond(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "livenessBond")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// LivenessBond is a free data retrieval call binding the contract method 0xd4414221.
-//
-// Solidity: function livenessBond() view returns(uint256)
-func (_ShastaAnchor *ShastaAnchorSession) LivenessBond() (*big.Int, error) {
-	return _ShastaAnchor.Contract.LivenessBond(&_ShastaAnchor.CallOpts)
-}
-
-// LivenessBond is a free data retrieval call binding the contract method 0xd4414221.
-//
-// Solidity: function livenessBond() view returns(uint256)
-func (_ShastaAnchor *ShastaAnchorCallerSession) LivenessBond() (*big.Int, error) {
-	return _ShastaAnchor.Contract.LivenessBond(&_ShastaAnchor.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -823,51 +596,6 @@ func (_ShastaAnchor *ShastaAnchorCallerSession) Resolver() (common.Address, erro
 	return _ShastaAnchor.Contract.Resolver(&_ShastaAnchor.CallOpts)
 }
 
-// ValidateProverAuth is a free data retrieval call binding the contract method 0xa37ea515.
-//
-// Solidity: function validateProverAuth(uint48 _proposalId, address _proposer, bytes _proverAuth) view returns(address signer_, uint256 provingFee_)
-func (_ShastaAnchor *ShastaAnchorCaller) ValidateProverAuth(opts *bind.CallOpts, _proposalId *big.Int, _proposer common.Address, _proverAuth []byte) (struct {
-	Signer     common.Address
-	ProvingFee *big.Int
-}, error) {
-	var out []interface{}
-	err := _ShastaAnchor.contract.Call(opts, &out, "validateProverAuth", _proposalId, _proposer, _proverAuth)
-
-	outstruct := new(struct {
-		Signer     common.Address
-		ProvingFee *big.Int
-	})
-	if err != nil {
-		return *outstruct, err
-	}
-
-	outstruct.Signer = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	outstruct.ProvingFee = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-
-	return *outstruct, err
-
-}
-
-// ValidateProverAuth is a free data retrieval call binding the contract method 0xa37ea515.
-//
-// Solidity: function validateProverAuth(uint48 _proposalId, address _proposer, bytes _proverAuth) view returns(address signer_, uint256 provingFee_)
-func (_ShastaAnchor *ShastaAnchorSession) ValidateProverAuth(_proposalId *big.Int, _proposer common.Address, _proverAuth []byte) (struct {
-	Signer     common.Address
-	ProvingFee *big.Int
-}, error) {
-	return _ShastaAnchor.Contract.ValidateProverAuth(&_ShastaAnchor.CallOpts, _proposalId, _proposer, _proverAuth)
-}
-
-// ValidateProverAuth is a free data retrieval call binding the contract method 0xa37ea515.
-//
-// Solidity: function validateProverAuth(uint48 _proposalId, address _proposer, bytes _proverAuth) view returns(address signer_, uint256 provingFee_)
-func (_ShastaAnchor *ShastaAnchorCallerSession) ValidateProverAuth(_proposalId *big.Int, _proposer common.Address, _proverAuth []byte) (struct {
-	Signer     common.Address
-	ProvingFee *big.Int
-}, error) {
-	return _ShastaAnchor.Contract.ValidateProverAuth(&_ShastaAnchor.CallOpts, _proposalId, _proposer, _proverAuth)
-}
-
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
 // Solidity: function acceptOwnership() returns()
@@ -889,25 +617,25 @@ func (_ShastaAnchor *ShastaAnchorTransactorSession) AcceptOwnership() (*types.Tr
 	return _ShastaAnchor.Contract.AcceptOwnership(&_ShastaAnchor.TransactOpts)
 }
 
-// AnchorV4 is a paid mutator transaction binding the contract method 0x20ae54eb.
+// AnchorV4 is a paid mutator transaction binding the contract method 0x523e6854.
 //
-// Solidity: function anchorV4((uint48,address,bytes) _proposalParams, (uint48,bytes32,bytes32) _blockParams) returns()
-func (_ShastaAnchor *ShastaAnchorTransactor) AnchorV4(opts *bind.TransactOpts, _proposalParams AnchorProposalParams, _blockParams AnchorBlockParams) (*types.Transaction, error) {
-	return _ShastaAnchor.contract.Transact(opts, "anchorV4", _proposalParams, _blockParams)
+// Solidity: function anchorV4((uint48,bytes32,bytes32) _checkpoint) returns()
+func (_ShastaAnchor *ShastaAnchorTransactor) AnchorV4(opts *bind.TransactOpts, _checkpoint ICheckpointStoreCheckpoint) (*types.Transaction, error) {
+	return _ShastaAnchor.contract.Transact(opts, "anchorV4", _checkpoint)
 }
 
-// AnchorV4 is a paid mutator transaction binding the contract method 0x20ae54eb.
+// AnchorV4 is a paid mutator transaction binding the contract method 0x523e6854.
 //
-// Solidity: function anchorV4((uint48,address,bytes) _proposalParams, (uint48,bytes32,bytes32) _blockParams) returns()
-func (_ShastaAnchor *ShastaAnchorSession) AnchorV4(_proposalParams AnchorProposalParams, _blockParams AnchorBlockParams) (*types.Transaction, error) {
-	return _ShastaAnchor.Contract.AnchorV4(&_ShastaAnchor.TransactOpts, _proposalParams, _blockParams)
+// Solidity: function anchorV4((uint48,bytes32,bytes32) _checkpoint) returns()
+func (_ShastaAnchor *ShastaAnchorSession) AnchorV4(_checkpoint ICheckpointStoreCheckpoint) (*types.Transaction, error) {
+	return _ShastaAnchor.Contract.AnchorV4(&_ShastaAnchor.TransactOpts, _checkpoint)
 }
 
-// AnchorV4 is a paid mutator transaction binding the contract method 0x20ae54eb.
+// AnchorV4 is a paid mutator transaction binding the contract method 0x523e6854.
 //
-// Solidity: function anchorV4((uint48,address,bytes) _proposalParams, (uint48,bytes32,bytes32) _blockParams) returns()
-func (_ShastaAnchor *ShastaAnchorTransactorSession) AnchorV4(_proposalParams AnchorProposalParams, _blockParams AnchorBlockParams) (*types.Transaction, error) {
-	return _ShastaAnchor.Contract.AnchorV4(&_ShastaAnchor.TransactOpts, _proposalParams, _blockParams)
+// Solidity: function anchorV4((uint48,bytes32,bytes32) _checkpoint) returns()
+func (_ShastaAnchor *ShastaAnchorTransactorSession) AnchorV4(_checkpoint ICheckpointStoreCheckpoint) (*types.Transaction, error) {
+	return _ShastaAnchor.Contract.AnchorV4(&_ShastaAnchor.TransactOpts, _checkpoint)
 }
 
 // Init is a paid mutator transaction binding the contract method 0x19ab453c.
@@ -1282,18 +1010,15 @@ func (it *ShastaAnchorAnchoredIterator) Close() error {
 
 // ShastaAnchorAnchored represents a Anchored event raised by the ShastaAnchor contract.
 type ShastaAnchorAnchored struct {
-	DesignatedProver      common.Address
-	IsLowBondProposal     bool
-	IsNewProposal         bool
 	PrevAnchorBlockNumber *big.Int
 	AnchorBlockNumber     *big.Int
 	AncestorsHash         [32]byte
 	Raw                   types.Log // Blockchain specific contextual infos
 }
 
-// FilterAnchored is a free log retrieval operation binding the contract event 0xc6608ecda33eb1305da0b5a63c1530d34700238760ceb711e89ed5c5f171e8be.
+// FilterAnchored is a free log retrieval operation binding the contract event 0x7efb645089c13cff3d84f896f1bf50411e06ae8453a771bd7e3ea45ffb97ac38.
 //
-// Solidity: event Anchored(address designatedProver, bool isLowBondProposal, bool isNewProposal, uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)
+// Solidity: event Anchored(uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)
 func (_ShastaAnchor *ShastaAnchorFilterer) FilterAnchored(opts *bind.FilterOpts) (*ShastaAnchorAnchoredIterator, error) {
 
 	logs, sub, err := _ShastaAnchor.contract.FilterLogs(opts, "Anchored")
@@ -1303,9 +1028,9 @@ func (_ShastaAnchor *ShastaAnchorFilterer) FilterAnchored(opts *bind.FilterOpts)
 	return &ShastaAnchorAnchoredIterator{contract: _ShastaAnchor.contract, event: "Anchored", logs: logs, sub: sub}, nil
 }
 
-// WatchAnchored is a free log subscription operation binding the contract event 0xc6608ecda33eb1305da0b5a63c1530d34700238760ceb711e89ed5c5f171e8be.
+// WatchAnchored is a free log subscription operation binding the contract event 0x7efb645089c13cff3d84f896f1bf50411e06ae8453a771bd7e3ea45ffb97ac38.
 //
-// Solidity: event Anchored(address designatedProver, bool isLowBondProposal, bool isNewProposal, uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)
+// Solidity: event Anchored(uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)
 func (_ShastaAnchor *ShastaAnchorFilterer) WatchAnchored(opts *bind.WatchOpts, sink chan<- *ShastaAnchorAnchored) (event.Subscription, error) {
 
 	logs, sub, err := _ShastaAnchor.contract.WatchLogs(opts, "Anchored")
@@ -1340,9 +1065,9 @@ func (_ShastaAnchor *ShastaAnchorFilterer) WatchAnchored(opts *bind.WatchOpts, s
 	}), nil
 }
 
-// ParseAnchored is a log parse operation binding the contract event 0xc6608ecda33eb1305da0b5a63c1530d34700238760ceb711e89ed5c5f171e8be.
+// ParseAnchored is a log parse operation binding the contract event 0x7efb645089c13cff3d84f896f1bf50411e06ae8453a771bd7e3ea45ffb97ac38.
 //
-// Solidity: event Anchored(address designatedProver, bool isLowBondProposal, bool isNewProposal, uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)
+// Solidity: event Anchored(uint48 prevAnchorBlockNumber, uint48 anchorBlockNumber, bytes32 ancestorsHash)
 func (_ShastaAnchor *ShastaAnchorFilterer) ParseAnchored(log types.Log) (*ShastaAnchorAnchored, error) {
 	event := new(ShastaAnchorAnchored)
 	if err := _ShastaAnchor.contract.UnpackLog(event, "Anchored", log); err != nil {

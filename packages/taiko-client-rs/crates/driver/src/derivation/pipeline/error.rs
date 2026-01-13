@@ -55,6 +55,12 @@ pub enum DerivationError {
     /// Proposal was missing a transaction hash in the log.
     #[error("missing transaction hash for proposal {proposal_id}")]
     MissingProposeTxHash { proposal_id: u64 },
+    /// Proposal log was missing the emitting L1 block hash.
+    #[error("proposal log missing block hash")]
+    MissingL1BlockHash,
+    /// Proposal log was missing the emitting L1 block number.
+    #[error("proposal log missing block number")]
+    MissingL1BlockNumber,
     /// The propose transaction referenced by the log could not be found.
     #[error("propose transaction {tx_hash:?} for proposal {proposal_id} not found")]
     MissingProposeTransaction { proposal_id: u64, tx_hash: B256 },

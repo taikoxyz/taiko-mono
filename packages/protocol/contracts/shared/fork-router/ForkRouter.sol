@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import {
     Ownable2StepUpgradeable
@@ -28,6 +28,7 @@ abstract contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
 
     constructor(address _oldFork, address _newFork) {
         require(_newFork != address(0), InvalidParams());
+        require(_oldFork != address(0), InvalidParams());
         require(_newFork != _oldFork, InvalidParams());
 
         oldFork = _oldFork;
@@ -50,7 +51,6 @@ abstract contract ForkRouter is UUPSUpgradeable, Ownable2StepUpgradeable {
 
     function _fallback() internal virtual {
         address fork = shouldRouteToOldFork(msg.sig) ? oldFork : newFork;
-        require(fork != address(0), ZeroForkAddress());
 
         assembly {
             calldatacopy(0, 0, calldatasize())

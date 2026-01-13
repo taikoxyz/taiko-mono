@@ -3,11 +3,11 @@ use std::{env, fmt, path::PathBuf, str::FromStr, time::Instant};
 use crate::init_tracing;
 use alloy::{eips::eip4844::BlobTransactionSidecar, transports::http::reqwest::Url as RpcUrl};
 use alloy_primitives::{Address, B256};
-use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_provider::RootProvider;
 use anyhow::{Context, Result};
 use rpc::{
     SubscriptionSource,
-    client::{Client, ClientConfig},
+    client::{Client, ClientConfig, connect_http_with_timeout},
 };
 use test_context::AsyncTestContext;
 use tracing::info;
@@ -107,7 +107,7 @@ impl ShastaEnv {
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
         reset_head_l1_origin(&client).await?;
-        let cleanup_provider = ProviderBuilder::default().connect_http(l1_http_url.clone());
+        let cleanup_provider = connect_http_with_timeout(l1_http_url.clone());
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 

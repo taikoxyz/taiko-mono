@@ -47,7 +47,6 @@ func NewBuilderWithFallback(
 	revertProtectionEnabled bool,
 	blobAllowed bool,
 	fallback bool,
-	anchorOffset uint64,
 ) *TxBuilderWithFallback {
 	builder := &TxBuilderWithFallback{rpc: rpc, fallback: fallback, txmgrSelector: txmgrSelector}
 	if blobAllowed {
@@ -62,7 +61,6 @@ func NewBuilderWithFallback(
 			gasLimit,
 			chainConfig,
 			revertProtectionEnabled,
-			anchorOffset,
 		)
 	}
 
@@ -203,7 +201,6 @@ func (b *TxBuilderWithFallback) BuildShasta(
 		txBatch,
 		minTxsPerForcedInclusion,
 		preconfRouterAddress,
-		[]byte{},
 	)
 }
 

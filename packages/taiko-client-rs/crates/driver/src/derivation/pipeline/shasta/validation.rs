@@ -241,13 +241,13 @@ pub fn apply_inherited_metadata(
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{Address, Bytes};
+    use alloy_primitives::Address;
     use protocol::shasta::manifest::BlockManifest;
 
     use super::*;
 
     fn manifest_with_blocks(blocks: Vec<BlockManifest>) -> DerivationSourceManifest {
-        DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks }
+        DerivationSourceManifest { blocks }
     }
 
     #[test]

@@ -52,10 +52,10 @@ type TaikoBatchMetaDataPacaya interface {
 }
 
 type TaikoProposalMetaDataShasta interface {
-	GetProposal() shastaBindings.IInboxProposal
-	GetDerivation() shastaBindings.IInboxDerivation
+	GetEventData() *shastaBindings.ShastaInboxClientProposed
 	GetBlobHashes(int) []common.Hash
 	GetBlobTimestamp(int) uint64
+	GetTimestamp() uint64
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetLog() *types.Log

@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
 import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";
+
+// SECURITY: Always use SecureMerkleTrie, never MerkleTrie directly.
+// The underlying MerkleTrie library has a known vulnerability (Optimism issue #4845)
+// involving an off-by-one error at the 32-byte boundary in node size checks.
+// This vulnerability is NOT exploitable when using SecureMerkleTrie because:
+// 1. SecureMerkleTrie hashes all keys via keccak256 before trie traversal
+// 2. The attack requires constructing specific trie structures with "near" keys
+// 3. With heccak256 keys, this requires a partial preimage attack (2^128 complexity)
+// See: https://github.com/ethereum-optimism/optimism/issues/4845
 import "@optimism/packages/contracts-bedrock/src/libraries/trie/SecureMerkleTrie.sol";
 
 /// @title LibTrieProof

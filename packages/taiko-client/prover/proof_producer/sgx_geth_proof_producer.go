@@ -142,7 +142,7 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	if metas[0].IsShasta() {
 		for i, meta := range metas {
 			proposals = append(proposals, &RaikoProposals{
-				ProposalId:             meta.Shasta().GetProposal().Id,
+				ProposalId:             meta.Shasta().GetEventData().Id,
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
 				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],

@@ -90,30 +90,13 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
 		// VerifierIDs
-		sgxGethVerifierID   uint8
-		sgxRethVerifierID   uint8
-		risc0RethVerifierID uint8
-		sp1RethVerifierID   uint8
+		sgxGethVerifierID   uint8 = 1
+		sgxRethVerifierID   uint8 = 4
+		risc0RethVerifierID uint8 = 5
+		sp1RethVerifierID   uint8 = 6
 
 		err error
 	)
-	// Proof verifiers addresses.
-	if !p.cfg.Dummy {
-		if sgxGethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.SGXGETH(&bind.CallOpts{Context: ctx}); err != nil {
-			return err
-		}
-		if sgxRethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.SGXRETH(&bind.CallOpts{Context: ctx}); err != nil {
-			return err
-		}
-		if risc0RethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.RISC0RETH(
-			&bind.CallOpts{Context: ctx},
-		); err != nil {
-			return err
-		}
-		if sp1RethVerifierID, err = p.rpc.ShastaClients.ComposeVerifier.SP1RETH(&bind.CallOpts{Context: ctx}); err != nil {
-			return err
-		}
-	}
 
 	sgxGethProducer := &producer.SgxGethProofProducer{
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,

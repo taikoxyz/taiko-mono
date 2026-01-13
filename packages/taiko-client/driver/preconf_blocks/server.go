@@ -183,6 +183,8 @@ func LogSkipper(c echo.Context) bool {
 func (s *PreconfBlockAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.RequestID())
 
+	// nolint:staticcheck
+	// Keep legacy logger format for now to avoid changing log consumers.
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: LogSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","level":"INFO","message":{"id":"${id}","remote_ip":"${remote_ip}",` +
@@ -512,7 +514,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"l1OriginBlockID", l1Origin.BlockID.Uint64(),
 		)
 
-		return err
+		return nil
 	}
 
 	// we have the block, now wait a deterministic jitter before responding.
@@ -636,6 +638,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	}
 
 	sig := l1Origin.Signature
+
+	// Skip responding if we cannot provide a valid L1 origin signature (consistent with OnUnsafeL2Request)
+	if sig == [65]byte{} {
+		log.Warn(
+			"Empty L1 origin signature, unable to propagate end-of-sequencing block",
+			"peer", from,
+			"epoch", epoch,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+		)
+		return nil
+	}
 
 	endOfSequencing := true
 	envelope, err := blockToEnvelope(block, &endOfSequencing, &l1Origin.IsForcedInclusion, &sig)
@@ -1103,25 +1117,14 @@ func (s *PreconfBlockAPIServer) monitorPacayaProposalOnChain(ctx context.Context
 
 // monitorShastaProposalOnChain monitors Shasta proposals for reorgs.
 func (s *PreconfBlockAPIServer) monitorShastaProposalOnChain(ctx context.Context, proposal *encoding.LastSeenProposal) {
-	shastaProposal := proposal.Shasta()
-	latestSeenProposalID := shastaProposal.GetProposal().Id
-	currentProposal := shastaProposal.GetProposal()
-
-	proposalHash, err := s.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, &currentProposal)
+	header, err := s.rpc.L1.HeaderByNumber(ctx, proposal.GetRawBlockHeight())
 	if err != nil {
-		log.Error("Failed to hash shasta proposal", "err", err)
+		log.Error("Failed to get L1 header for shasta proposal", "blockNumber", proposal.GetRawBlockHeight(), "err", err)
 		return
 	}
-
-	onChainProposalHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, latestSeenProposalID)
-	if err != nil {
-		log.Error("Failed to get shasta proposal on chain", "err", err)
-		return
-	}
-
 	// Check for reorg and handle it
-	if onChainProposalHash != proposalHash {
-		s.handleShastaProposalReorg(ctx, latestSeenProposalID)
+	if header.Hash() != proposal.GetRawBlockHash() {
+		s.handleShastaProposalReorg(ctx, proposal.GetProposalID())
 	}
 }
 
@@ -1129,56 +1132,61 @@ func (s *PreconfBlockAPIServer) monitorShastaProposalOnChain(ctx context.Context
 func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
 	log.Warn("Shasta proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
 
-	// Find the last valid proposal by searching backwards
-	for i := uint64(1); i <= latestSeenProposalID.Uint64(); i++ {
-		currentProposalID := new(big.Int).Sub(latestSeenProposalID, new(big.Int).SetUint64(i))
-
-		onChainHash, err := s.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, currentProposalID)
-		if err != nil {
-			log.Error("Failed to get shasta proposal on chain", "proposalId", currentProposalID, "err", err)
-			return
-		}
-
-		recordedProposal, eventLog, err := s.rpc.GetProposalByIDShasta(ctx, currentProposalID)
-		if err != nil {
-			log.Error("Proposal not found in cache", "proposalId", currentProposalID, "err", err)
-			return
-		}
-
-		recordedProposalHash, err := s.rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, &recordedProposal.Proposal)
-		if err != nil {
-			log.Error("Failed to hash recorded proposal", "proposalId", currentProposalID, "err", err)
-			return
-		}
-
-		// Found a valid proposal that matches on-chain state
-		if onChainHash == recordedProposalHash {
-			if currentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
-				log.Info("Found valid proposal after reorg", "proposalId", currentProposalID)
-				blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, currentProposalID)
-				if err != nil {
-					log.Error(
-						"Failed to get last block in batch for shasta proposal",
-						"proposalId", currentProposalID,
-						"err", err,
-					)
-					return
-				}
-
-				s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
-					TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(&shastaBindings.IInboxProposedEventPayload{
-						Proposal:   recordedProposal.Proposal,
-						Derivation: recordedProposal.Derivation,
-					}, *eventLog),
-					PreconfChainReorged: true,
-					LastBlockID:         blockID.Uint64(),
-				})
-			}
-			return
-		}
+	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		log.Error("Failed to get core state from Shasta Inbox", "err", err)
+		return
 	}
 
-	log.Error("Could not find valid proposal after reorg", "searchedUpTo", latestSeenProposalID)
+	recordedProposal, eventLog, err := s.rpc.GetProposalByIDShasta(
+		ctx,
+		new(big.Int).Sub(coreState.NextProposalId, common.Big1),
+	)
+	if err != nil {
+		log.Error(
+			"Proposal not found in cache",
+			"proposalId", new(big.Int).Sub(coreState.NextProposalId, common.Big1),
+			"err", err,
+		)
+		return
+	}
+
+	blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, recordedProposal.Id)
+	if err != nil {
+		log.Error(
+			"Failed to get last block in batch for shasta proposal",
+			"proposalId", recordedProposal.Id,
+			"err", err,
+		)
+		return
+	}
+
+	header, err := s.rpc.L1.HeaderByHash(ctx, eventLog.BlockHash)
+	if err != nil {
+		log.Error(
+			"Failed to get L1 header for shasta proposal event",
+			"proposalId", recordedProposal.Id,
+			"blockHash", eventLog.BlockHash.Hex(),
+			"err", err,
+		)
+		return
+	}
+
+	s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
+		TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(
+			&shastaBindings.ShastaInboxClientProposed{
+				Id:                             recordedProposal.Id,
+				Proposer:                       recordedProposal.Proposer,
+				EndOfSubmissionWindowTimestamp: recordedProposal.EndOfSubmissionWindowTimestamp,
+				BasefeeSharingPctg:             recordedProposal.BasefeeSharingPctg,
+				Sources:                        recordedProposal.Sources,
+				Raw:                            recordedProposal.Raw,
+			},
+			header.Time,
+		),
+		PreconfChainReorged: true,
+		LastBlockID:         blockID.ToInt().Uint64(),
+	})
 }
 
 // recordLatestSeenProposalPacaya records the latest seen proposal.
@@ -1215,7 +1223,7 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 
 	log.Info(
 		"Received latest shasta proposal seen in event",
-		"proposalId", proposal.Shasta().GetProposal().Id,
+		"proposalId", proposal.Shasta().GetEventData().Id,
 		"lastBlockId", proposal.LastBlockID,
 	)
 
@@ -1230,7 +1238,7 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 		log.Info(
 			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
-			"proposalId", proposal.Shasta().GetProposal().Id,
+			"proposalId", proposal.Shasta().GetEventData().Id,
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
 
