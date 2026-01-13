@@ -28,9 +28,7 @@ contract TestBridge2Base is CommonTest {
     }
 
     function setUpOnEthereum() internal override {
-        eSignalService = deploySignalService(
-            address(new SignalService_WithoutProofVerification(address(resolver)))
-        );
+        eSignalService = _deployMockSignalService();
         eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
         vm.deal(address(eBridge), 10_000 ether);
     }
@@ -42,5 +40,11 @@ contract TestBridge2Base is CommonTest {
     function getBalanceForAccounts() public view returns (uint256) {
         return Alice.balance + Bob.balance + Carol.balance + David.balance
             + address(eBridge).balance + deployer.balance;
+    }
+
+    function _deployMockSignalService() private returns (SignalService) {
+        return deploySignalServiceWithoutProof(
+            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_E")))), deployer
+        );
     }
 }

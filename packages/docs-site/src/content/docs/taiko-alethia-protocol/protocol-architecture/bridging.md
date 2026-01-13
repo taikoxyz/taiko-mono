@@ -74,7 +74,7 @@ When a user initiates a transfer:
 
 **Diagram: Sending a message on the source chain**
 
-![Bridging source chain process](~/assets/content/docs/taiko-alethia-protocol/bridging-source-chain.webp)
+![Bridging source chain process](../../../../assets/content/docs/taiko-alethia-protocol/bridging-source-chain.webp)
 
 #### Receiving assets on destination chain
 
@@ -89,7 +89,7 @@ To complete the transfer:
 
 **Diagram: Processing a message on the destination chain**
 
-![Bridging destination chain process](~/assets/content/docs/taiko-alethia-protocol/bridging-dest-chain.webp)
+![Bridging destination chain process](../../../../assets/content/docs/taiko-alethia-protocol/bridging-dest-chain.webp)
 
 ## Ether bridging
 

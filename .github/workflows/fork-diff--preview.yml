@@ -21,11 +21,8 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: [arc-runner-set]
     steps:
-      - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git
-
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -56,9 +53,9 @@ jobs:
           sed -i "s/{{ TAIKO_GETH_VERSION }}/${{ env.TAIKO_GETH_VERSION }}/g" packages/fork-diff/fork.yaml
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.22.0
+          go-version-file: go.mod
 
       - name: Generate index.html with forkdiff
         run: |

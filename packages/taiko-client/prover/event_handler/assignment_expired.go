@@ -2,8 +2,9 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -14,22 +15,16 @@ import (
 // AssignmentExpiredEventHandler is responsible for handling the expiration of proof assignments.
 type AssignmentExpiredEventHandler struct {
 	rpc               *rpc.Client
-	proverAddress     common.Address
-	proverSetAddress  common.Address
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 }
 
 // NewAssignmentExpiredEventHandler creates a new AssignmentExpiredEventHandler instance.
 func NewAssignmentExpiredEventHandler(
 	rpc *rpc.Client,
-	proverAddress common.Address,
-	proverSetAddress common.Address,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 ) *AssignmentExpiredEventHandler {
 	return &AssignmentExpiredEventHandler{
 		rpc,
-		proverAddress,
-		proverSetAddress,
 		proofSubmissionCh,
 	}
 }
@@ -39,6 +34,32 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 ) error {
+	if meta.IsShasta() {
+		proposalID := meta.Shasta().GetEventData().Id
+		coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to get Shasta core state: %w", err)
+		}
+
+		// If the proposal is already finalized, skip it.
+		if proposalID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
+			log.Info(
+				"Shasta batch already finalized, skip proof submission",
+				"proposalID", proposalID,
+				"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
+			)
+			return nil
+		}
+
+		log.Info(
+			"Proof assignment window expired",
+			"proposalID", proposalID,
+			"assignedProver", meta.GetProposer(),
+		)
+		go func() { h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta} }()
+		return nil
+	}
+
 	var (
 		proofStatus *rpc.BatchProofStatus
 		err         error

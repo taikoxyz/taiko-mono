@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,6 +34,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	v4signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
+	signalserviceforkrouter "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalserviceforkrouter"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -48,6 +51,7 @@ type ethClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
@@ -98,6 +102,8 @@ type Processor struct {
 
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
+	shastaOldForkAddress    common.Address
+	shastaNewForkAddress    common.Address
 
 	confirmations uint64
 
@@ -131,6 +137,12 @@ type Processor struct {
 	processingTxHashMu sync.Mutex
 
 	minFeeToProcess uint64
+
+	shastaForkTimestamp uint64
+	forkWindow          time.Duration
+
+	shastaOldForkSignalService relayer.SignalService
+	shastaNewForkSignalService relayer.SignalService
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -220,12 +232,61 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		})
 	}
 
-	srcSignalService, err := signalservice.NewSignalService(
-		cfg.SrcSignalServiceAddress,
-		srcEthClient,
-	)
-	if err != nil {
-		return err
+	var srcSignalService relayer.SignalService
+
+	switch {
+	case cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress:
+		router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
+			cfg.SrcSignalServiceForkRouterAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		oldForkAddress, err := router.OldFork(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		newForkAddress, err := router.NewFork(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		oldForkSignalService, err := v4signalservice.NewSignalService(oldForkAddress, srcEthClient)
+		if err != nil {
+			return err
+		}
+
+		newForkSignalService, err := v4signalservice.NewSignalService(newForkAddress, srcEthClient)
+		if err != nil {
+			return err
+		}
+
+		srcSignalService = oldForkSignalService
+
+		p.shastaOldForkSignalService = oldForkSignalService
+		p.shastaNewForkSignalService = newForkSignalService
+		p.shastaOldForkAddress = oldForkAddress
+		p.shastaNewForkAddress = newForkAddress
+
+		shastaForkTimestamp, err := router.ShastaForkTimestamp(&bind.CallOpts{})
+		if err != nil {
+			return err
+		}
+
+		p.shastaForkTimestamp = shastaForkTimestamp
+	case cfg.SrcSignalServiceAddress != relayer.ZeroAddress:
+		srcSignalService, err = signalservice.NewSignalService(
+			cfg.SrcSignalServiceAddress,
+			srcEthClient,
+		)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("srcSignalService address not provided")
 	}
 
 	destERC20Vault, err := erc20vault.NewERC20Vault(
@@ -354,13 +415,20 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
+	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
+		p.srcSignalServiceAddress = p.shastaOldForkAddress
+	}
 
 	p.msgCh = make(chan queue.Message)
 	p.srcCaller = srcRpcClient
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
-	p.backOffMaxRetries = cfg.BackOffMaxRetrys
+	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
+
+	if cfg.ForkWindowSeconds > 0 {
+		p.forkWindow = time.Duration(cfg.ForkWindowSeconds) * time.Second
+	}
 
 	p.targetTxHash = cfg.TargetTxHash
 
@@ -415,6 +483,14 @@ func (p *Processor) Start() error {
 	}
 
 	go func() {
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(p.backOffRetryInterval),
+				p.backOffMaxRetries,
+			),
+			ctx,
+		)
+
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := p.queue.Subscribe(ctx, p.msgCh, &p.wg); err != nil {
@@ -423,7 +499,7 @@ func (p *Processor) Start() error {
 			}
 
 			return nil
-		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
+		}, bo); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()

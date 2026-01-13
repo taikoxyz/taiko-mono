@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -38,7 +37,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	// If we don't need to trigger another beacon sync, just return.
 	needResync, err := s.progressTracker.NeedReSync(new(big.Int).SetUint64(blockID))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if resync is needed: %w", err)
 	}
 	if !needResync {
 		return nil
@@ -54,12 +53,12 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 
 	headPayload, err := s.getBlockPayload(s.ctx, blockID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get block payload: %w", err)
 	}
 
 	status, err := s.rpc.L2Engine.NewPayload(s.ctx, headPayload)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call NewPayload: %w", err)
 	}
 
 	if status.Status != engine.SYNCING && status.Status != engine.VALID {
@@ -70,7 +69,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		HeadBlockHash: headPayload.BlockHash,
 	}, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call ForkchoiceUpdate: %w", err)
 	}
 	if fcRes.PayloadStatus.Status != engine.SYNCING {
 		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
@@ -91,12 +90,12 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 // getBlockPayload fetches the block's header, and converts it to an Engine API executable data,
 // which will be used to let the node start beacon syncing.
 func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.ExecutableData, error) {
-	header, err := s.rpc.L2CheckPoint.HeaderByNumber(s.ctx, new(big.Int).SetUint64(blockID))
+	block, err := s.rpc.L2CheckPoint.BlockByNumber(s.ctx, new(big.Int).SetUint64(blockID))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get block %d: %w", blockID, err)
 	}
 
-	log.Info("Block header to sync retrieved", "number", header.Number, "hash", header.Hash())
+	log.Info("Block to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
-	return encoding.ToExecutableData(header), nil
+	return engine.BlockToExecutableData(block, nil, nil, nil).ExecutionPayload, nil
 }

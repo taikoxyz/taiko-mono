@@ -15,8 +15,9 @@ import (
 
 var (
 	l1Endpoint      = os.Getenv("L1_WS")
-	l2Endpoint      = os.Getenv("L2_HTTP")
-	taikoInbox      = os.Getenv("TAIKO_INBOX")
+	l2Endpoint      = os.Getenv("L2_WS")
+	pacayaInbox     = os.Getenv("PACAYA_INBOX")
+	shastaInbox     = os.Getenv("SHASTA_INBOX")
 	taikoAnchor     = os.Getenv("TAIKO_ANCHOR")
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
 	proposeInterval = "10s"
@@ -34,7 +35,8 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		s.Nil(err)
 		s.Equal(l1Endpoint, c.L1Endpoint)
 		s.Equal(l2Endpoint, c.L2Endpoint)
-		s.Equal(taikoInbox, c.TaikoInboxAddress.String())
+		s.Equal(pacayaInbox, c.PacayaInboxAddress.String())
+		s.Equal(shastaInbox, c.ShastaInboxAddress.String())
 		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(taikoToken, c.TaikoTokenAddress.String())
 		s.Equal(goldenTouchAddress, crypto.PubkeyToAddress(c.L1ProposerPrivKey.PublicKey))
@@ -49,8 +51,9 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 	s.Nil(app.Run([]string{
 		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
-		"--" + flags.L2HTTPEndpoint.Name, l2Endpoint,
-		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
+		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
+		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.TaikoTokenAddress.Name, taikoToken,
 		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
@@ -86,8 +89,9 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
-		&cli.StringFlag{Name: flags.TaikoInboxAddress.Name},
+		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
+		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProposerPrivKey.Name},

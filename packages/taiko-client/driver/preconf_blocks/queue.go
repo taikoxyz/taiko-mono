@@ -51,7 +51,7 @@ func (q *envelopeQueue) put(id uint64, envelope *preconf.Envelope) {
 	metrics.DriverPreconfEnvelopeCachedCounter.Inc()
 }
 
-// get retrieves a previously stored payload item or nil if it does not exist.
+// get retrieves a previously stored envelope item or nil if it does not exist.
 func (q *envelopeQueue) get(id uint64, hash common.Hash) *preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
@@ -67,8 +67,8 @@ func (q *envelopeQueue) get(id uint64, hash common.Hash) *preconf.Envelope {
 	return nil
 }
 
-// getChildren retrieves the longest previously stored payload items that are children of the
-// given parent payload.
+// getChildren retrieves the longest previously stored envelope items that are children of the
+// given parent envelope.
 func (q *envelopeQueue) getChildren(parentID uint64, parentHash common.Hash) []*preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
@@ -109,8 +109,8 @@ func (q *envelopeQueue) getChildren(parentID uint64, parentHash common.Hash) []*
 	return longestChildren
 }
 
-// has checks if a particular payload is already tracked.
-func (q *envelopeQueue) has(id uint64, hash common.Hash) bool {
+// hasExact checks if a particular envelope (by id and hash) is already tracked.
+func (q *envelopeQueue) hasExact(id uint64, hash common.Hash) bool {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
@@ -125,8 +125,8 @@ func (q *envelopeQueue) has(id uint64, hash common.Hash) bool {
 	return false
 }
 
-// getLatestPayload retrieves the latest payload stored in the queue.
-func (q *envelopeQueue) getLatestPayload() *preconf.Envelope {
+// getLatestEnvelope retrieves the latest envelope stored in the queue.
+func (q *envelopeQueue) getLatestEnvelope() *preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 

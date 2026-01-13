@@ -1,9 +1,7 @@
 package encoding
 
 import (
-	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -33,10 +31,16 @@ type BatchParams struct {
 	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
 }
 
-// SubProof should be same with ComposeVerifier.SubProof.
-type SubProof struct {
+// SubProofPacaya should be same with Pacaya ComposeVerifier.SubProof.
+type SubProofPacaya struct {
 	Verifier common.Address
 	Proof    []byte
+}
+
+// SubProofShasta should be same with Shasta ComposeVerifier.SubProof.
+type SubProofShasta struct {
+	VerifierId uint8
+	Proof      []byte
 }
 
 // LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
@@ -44,30 +48,5 @@ type SubProof struct {
 type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
 	PreconfChainReorged bool
-}
-
-// ToExecutableData converts a GETH *types.Header to *engine.ExecutableData.
-func ToExecutableData(header *types.Header) *engine.ExecutableData {
-	executableData := &engine.ExecutableData{
-		ParentHash:    header.ParentHash,
-		FeeRecipient:  header.Coinbase,
-		StateRoot:     header.Root,
-		ReceiptsRoot:  header.ReceiptHash,
-		LogsBloom:     header.Bloom.Bytes(),
-		Random:        header.MixDigest,
-		Number:        header.Number.Uint64(),
-		GasLimit:      header.GasLimit,
-		GasUsed:       header.GasUsed,
-		Timestamp:     header.Time,
-		ExtraData:     header.Extra,
-		BaseFeePerGas: header.BaseFee,
-		BlockHash:     header.Hash(),
-		TxHash:        header.TxHash,
-	}
-
-	if header.WithdrawalsHash != nil {
-		executableData.WithdrawalsHash = *header.WithdrawalsHash
-	}
-
-	return executableData
+	LastBlockID         uint64
 }

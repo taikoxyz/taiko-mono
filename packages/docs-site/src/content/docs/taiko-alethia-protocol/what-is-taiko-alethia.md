@@ -9,6 +9,8 @@ Ethereum is **expensive** and **congested**. However, Ethereum's core principles
 
 Taiko Alethia is an **Ethereum-equivalent, permissionless, based rollup** designed to scale Ethereum without compromising its fundamental properties. Unlike traditional rollups that rely on centralized sequencers, Taiko Alethia leverages Ethereum itself for sequencing, ensuring that block ordering is decentralized and censorship-resistant.
 
+Find Taiko Alethia's whitepaper [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/whitepaper).
+
 ### Why Taiko Alethia?
 
 - **Fully Ethereum-equivalent**: Runs an unmodified Ethereum execution layer, making it easy for developers to migrate smart contracts and tooling.
@@ -66,7 +68,7 @@ These services are open-source, meaning anyone can replicate or improve them.
 
 - [Event Indexer](/api-reference/event-indexer) → Tracks rollup transactions & events.
 - [Bridge Relayer](/api-reference/bridge-relayer) → Facilitates trust-minimized bridging.
-- [Taiko Alethia & Hekla P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.16.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
+- [Taiko Alethia and Taiko Hoodi P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.20.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
 - [Taiko Alethia Taiko Labs' proposers and provers](/network-reference/contract-addresses)
 
 ---
@@ -76,11 +78,9 @@ These services are open-source, meaning anyone can replicate or improve them.
 | Feature                        | Traditional Rollups                  | Taiko Alethia                          |
 | ------------------------------ | ------------------------------------ | -------------------------------------- |
 | **Sequencing**                 | Centralized (single sequencer)       | Decentralized (L1 validators sequence) |
-| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE +ZK)    |
+| **Proof System**               | Single proof type (ZK or Optimistic) | Multiproving (TEE + TEE or TEE + ZK)   |
 | **Censorship Resistance**      | Operator can censor transactions     | Permissionless transaction inclusion   |
 | **Smart Contract Equivalence** | Modified Ethereum (Geth changes)     | 100% Ethereum-equivalent               |
 | **Decentralization**           | Relies on multisig governance        | DAO-controlled with open participation |
 
 Taiko Alethia follows Ethereum’s decentralization ethos by ensuring L1 validators remain in control, minimizing trust assumptions, and maximizing rollup neutrality.
-
----

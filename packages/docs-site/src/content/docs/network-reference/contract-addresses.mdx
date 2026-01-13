@@ -1,9 +1,9 @@
 ---
 title: Contract addresses
-description: Network reference page describing various important addresses on Taiko Alethia and Hekla.
+description: Network reference page describing various important addresses on Taiko Alethia and Taiko Hoodi.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from "@astrojs/starlight/components";
 
 ## Taiko Alethia contract addresses
 
@@ -13,6 +13,7 @@ Please note that the following addresses may not be up to date, please refer to 
 You can find the contract addresses of the latest smart contract deployments of the Taiko Alethia Protocol on Ethereum [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/mainnet-contract-logs-L1.md).
 
 You can find the contract addresses of the latest L2 smart contract deployments for the Taiko Alethia Protocol on Taiko Alethia [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/mainnet-contract-logs-L2.md).
+
 </Aside>
 
 ### Ethereum L1 contracts
@@ -31,28 +32,27 @@ You can find the contract addresses of the latest L2 smart contract deployments 
 | BridgedERC721          | `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7` | N/A                     |
 | BridgedERC1155         | `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40` | N/A                     |
 
-| Contract Name (Rollup-Specific) | Address                                      | ENS                        |
-| ------------------------------- | -------------------------------------------- | -------------------------- |
-| TaikoInbox                      | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` | inbox_based.taiko.eth      |
-| TaikoWrapper                    | `0x9F9D2fC7abe74C79f86F0D1212107692430eef72` | N/A                        |
-| ForcedInclusionStore            | `0x05d88855361808fA1d7fc28084Ef3fCa191c4e03` | N/A                        |
-| RollupAddressResolver           | `0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a` | N/A                        |
-| ComposeVerifier                 | `0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1` | N/A                        |
-| SgxRethVerifier                 | `0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136` | N/A                        |
-| SgxGethVerifier                 | `0x7e6409e9b6c5e2064064a6cC994f9a2e95680782` | N/A                        |
-| Risc0RethVerifier               | `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE` | N/A                        |
-| Risc0Groth16Verifier            | `0xfB3Ca570A5348FD101e65303eECdB5Bf43C5548a` | N/A                        |
-| SP1RethVerifier                 | `0xbee1040D0Aab17AE19454384904525aE4A3602B9` | N/A                        |
-| SP1RemoteVerifier               | `0xff5adab685362dc4c33536a65af5873738d1216b` | N/A                        |
-| AutomataDcapAttestation         | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | N/A                        |
-| SgxGethAutomata                 | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | N/A                        |
-| PemCertChainLib                 | `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169` | N/A                        |
-| P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                        |
-| SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` | N/A                        |
-| TokenUnlock                     | `0x5c475bB14727833394b0704266f14157678A72b6` | N/A                        |
-| ProverSet                       | `0xB8826B144eB895eFE2923b61b3b117B1298A9526` | N/A                        |
-| labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
-| TaikoDAOController              | `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` | controller.taiko.eth       |
+| Contract Name (Rollup-Specific) | Address                                      | ENS                   |
+| ------------------------------- | -------------------------------------------- | --------------------- |
+| TaikoInbox                      | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` | inbox_based.taiko.eth |
+| TaikoWrapper                    | `0x9F9D2fC7abe74C79f86F0D1212107692430eef72` | N/A                   |
+| ForcedInclusionStore            | `0x05d88855361808fA1d7fc28084Ef3fCa191c4e03` | N/A                   |
+| RollupAddressResolver           | `0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a` | N/A                   |
+| ComposeVerifier                 | `0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1` | N/A                   |
+| SgxRethVerifier                 | `0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136` | N/A                   |
+| SgxGethVerifier                 | `0x7e6409e9b6c5e2064064a6cC994f9a2e95680782` | N/A                   |
+| Risc0RethVerifier               | `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE` | N/A                   |
+| Risc0Groth16Verifier            | `0xfB3Ca570A5348FD101e65303eECdB5Bf43C5548a` | N/A                   |
+| SP1RethVerifier                 | `0xbee1040D0Aab17AE19454384904525aE4A3602B9` | N/A                   |
+| SP1RemoteVerifier               | `0xff5adab685362dc4c33536a65af5873738d1216b` | N/A                   |
+| AutomataDcapAttestation         | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | N/A                   |
+| SgxGethAutomata                 | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | N/A                   |
+| PemCertChainLib                 | `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169` | N/A                   |
+| P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                   |
+| SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` | N/A                   |
+| TokenUnlock                     | `0x5c475bB14727833394b0704266f14157678A72b6` | N/A                   |
+| labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth   |
+| TaikoDAOController              | `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` | controller.taiko.eth  |
 
 ### Taiko Alethia L2 contracts
 
@@ -74,24 +74,35 @@ You can find the contract addresses of the latest L2 smart contract deployments 
 | Contract Name          | Address                                      |
 | ---------------------- | -------------------------------------------- |
 | WETH                   | `0xA51894664A773981C6C112C43ce576f315d5b1B6` |
-| Safe Singleton Factory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` |
+| Safe Singleton Factory | `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
 | Multicall3             | `0xca11bde05977b3631167028862be2a173976ca11` |
 | EntryPoint (ERC-4337)  | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` |
 
 ### Taiko Alethia Contracts on Other L2s
 
-| L2 Name     | Contract Name         | Address                                      |
-| ----------- | --------------------- | -------------------------------------------- |
-| BSC         | TaikoToken (Bridged)  | `0x30C60b20C25b2810cA524810467A0c342294FC61` |
-
-## Taiko Hekla contract addresses
-
-You can find the all L1 and L2 contract addresses of the latest smart contract deployments of the Taiko Alethia Protocol [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/hekla-contract-logs.md).
+| L2 Name | Contract Name        | Address                                      |
+| ------- | -------------------- | -------------------------------------------- |
+| BSC     | TaikoToken (Bridged) | `0x30C60b20C25b2810cA524810467A0c342294FC61` |
 
 ## Taiko Alethia bootnode addresses
 
 Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/main/.env.sample).
 
-### Taiko Hekla bootnode addresses
+## Taiko Hoodi contract addresses
 
-Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/main/.env.sample.hekla).
+You can find all L1 and L2 contract addresses of the latest smart contract deployments of the Taiko Alethia Protocol [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/deployments/taiko-hoodi-contract-logs.md).
+
+### Other Taiko Hoodi L2 contracts
+
+| Contract Name                 | Address                                      |
+| ----------------------------- | -------------------------------------------- |
+| WETH                          | `0x3B39685B5495359c892DDD1057B5712F49976835` |
+| Safe Singleton Factory        | `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
+| Multicall3                    | `0xca11bde05977b3631167028862be2a173976ca11` |
+| IdentityRegistry (ERC-8004)   | `0x5806074a60dc9325256b23062c006637ab6d5382` |
+| ReputationRegistry (ERC-8004) | `0x59f8f15002d586a0912225d3437da46ba5641f61` |
+| ValidationRegistry (ERC-8004) | `0xb3956967a17630caa36168857e99cc6e87086bf8` |
+
+## Taiko Hoodi bootnode addresses
+
+Find the latest bootnodes here in [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/blob/main/.env.sample.hoodi).

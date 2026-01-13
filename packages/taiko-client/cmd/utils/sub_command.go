@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/logger"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
@@ -38,7 +39,12 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		if err := metrics.Serve(ctx, c); err != nil {
+		if err := metrics.Serve(
+			ctx,
+			c.Bool(flags.MetricsEnabled.Name),
+			c.String(flags.MetricsAddr.Name),
+			c.Int(flags.MetricsPort.Name),
+		); err != nil {
 			log.Error("Starting metrics server error", "error", err)
 			return err
 		}

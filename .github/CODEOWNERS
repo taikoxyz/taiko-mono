@@ -1,7 +1,24 @@
-go.mod                      @YoGhurt111 @RogerLamTd
-go.sum                      @YoGhurt111 @RogerLamTd
-.github/workflows/*         @YoGhurt111 @RogerLamTd
-/packages/*/package.json    @KorbinianK @bearni95
-/packages/docs-site/**      @RogerLamTd
-/packages/taiko-client/**   @cyberhorsey @YoGhurt111
+# Root level files and workflows
+.github/CODEOWNERS              @dantaik @ggonzalez94 @davidtaikocha
+.github/workflows/*             @ggonzalez94 @YoGhurt111 @davidtaikocha @RogerLamTd
 
+# Protocol (core smart contracts - highest activity)
+/packages/protocol/**           @dantaik @ggonzalez94 @davidtaikocha @smtmfft
+/packages/protocol/contracts/**/*Verifier*.sol @dantaik @ggonzalez94 @smtmfft
+/packages/protocol/contracts/layer1/preconf/** @dantaik @ggonzalez94 @AnshuJalan
+
+# Client services
+/packages/taiko-client/**       @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/taiko-client-rs/**    @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/eventindexer/**       @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/relayer/**            @YoGhurt111 @davidtaikocha @MatusKysel
+
+# Frontend applications
+/packages/docs-site/**          @ggonzalez94 @RogerLamTd
+/packages/bridge-ui/**          @KorbinianK @myronrotter @bearni95
+
+# Infrastructure and tools
+/packages/balance-monitor/**    @YoGhurt111 @davidtaikocha
+/packages/ejector/**            @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/fork-diff/**          @YoGhurt111 @davidtaikocha @RogerLamTd
+/packages/geth-rpc-gateway/**   @YoGhurt111 @davidtaikocha

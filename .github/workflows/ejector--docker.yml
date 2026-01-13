@@ -1,0 +1,152 @@
+name: "Build and Push Multi-Arch Docker Image (ejector)"
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "ejector-v*"
+    paths:
+      - "packages/ejector/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # where to push
+  REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/ejector
+  BUILD_CONTEXT: packages/ejector
+  DOCKERFILE: packages/ejector/Dockerfile
+
+jobs:
+  build:
+    name: Build and push (per-arch)
+    strategy:
+      matrix:
+        include:
+          - runner: arc-runner-set
+            platform: linux/amd64
+          - runner: arc-runner-set-arm64
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Prepare Environment
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GAR_JSON_KEY }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.12.0
+        with:
+          version: v0.29.1
+          cache-binary: false
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          # Keep ref tags; additionally extract semver from tags like ejector-v1.2.3
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+            type=match,pattern=ejector-v(\d+\.\d+\.\d+),group=1
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.DOCKERFILE }}
+          platforms: ${{ matrix.platform }}
+          push: true
+          # push-by-digest: true lets us assemble a manifest later
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.meta.outputs.labels }}
+          # (optional but fast) cache via GitHub Actions
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Create and push multi-arch manifest
+    runs-on: arc-runner-set
+    needs: [build]
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v7
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.12.0
+        with:
+          version: v0.29.1
+          cache-binary: false
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+            type=match,pattern=ejector-v(\d+\.\d+\.\d+),group=1
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GAR_JSON_KEY }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          # Apply all tags produced by metadata-action to the new manifest,
+          # using the per-arch digests produced in the build job.
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          # Use the primary tag (version or ref) from metadata-action
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}

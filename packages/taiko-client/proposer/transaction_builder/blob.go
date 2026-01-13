@@ -3,16 +3,22 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -23,7 +29,8 @@ import (
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
-	taikoInboxAddress       common.Address
+	pacayaInboxAddress      common.Address
+	shastaInboxAddress      common.Address
 	taikoWrapperAddress     common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
@@ -36,7 +43,8 @@ type BlobTransactionBuilder struct {
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
-	taikoInboxAddress common.Address,
+	pacayaInboxAddress common.Address,
+	shastaInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
@@ -47,7 +55,8 @@ func NewBlobTransactionBuilder(
 	return &BlobTransactionBuilder{
 		rpc,
 		proposerPrivateKey,
-		taikoInboxAddress,
+		pacayaInboxAddress,
+		shastaInboxAddress,
 		taikoWrapperAddress,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
@@ -64,10 +73,15 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
+	to := &b.taikoWrapperAddress
+	if preconfRouterAddress != rpc.ZeroAddress {
+		to = &preconfRouterAddress
+	}
+
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
-		to                    = &b.taikoWrapperAddress
 		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
 		data                  []byte
 		blobs                 []*eth.Blob
@@ -107,7 +121,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	if blobs, err = b.splitToBlobs(txListsBytes); err != nil {
+	if blobs, err = SplitToBlobs(txListsBytes); err != nil {
 		return nil, err
 	}
 
@@ -155,14 +169,104 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	}, nil
 }
 
-// splitToBlobs splits the txListBytes into multiple blobs.
-func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
+// BuildShasta implements the ProposeBatchTransactionBuilder interface.
+func (b *BlobTransactionBuilder) BuildShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	minTxsPerForcedInclusion *big.Int,
+	preconfRouterAddress common.Address,
+) (*txmgr.TxCandidate, error) {
+	var (
+		to                       = &b.shastaInboxAddress
+		derivationSourceManifest = &manifest.DerivationSourceManifest{}
+		blobs                    []*eth.Blob
+		data                     []byte
+	)
+	if preconfRouterAddress != rpc.ZeroAddress {
+		to = &preconfRouterAddress
+	}
+
+	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L1 head: %w", err)
+	}
+
+	anchorBlockNumber := l1Head.Number.Uint64()
+
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	var gasLimit = l2Head.GasLimit - consensus.AnchorV3V4GasLimit
+	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
+		gasLimit = manifest.MaxBlockGasLimit
+	}
+
+	for i, txs := range txBatch {
+		log.Info(
+			"Setting up derivation source manifest block",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", anchorBlockNumber,
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: anchorBlockNumber,
+			GasLimit:          gasLimit,
+			Transactions:      txs,
+		})
+	}
+
+	// Encode the derivation source manifest.
+	sourceManifestBytes, err := EncodeSourceManifestShasta(derivationSourceManifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode derivation source manifest: %w", err)
+	}
+
+	// Split the derivation source manifest bytes into multiple blobs.
+	if blobs, err = SplitToBlobs(sourceManifestBytes); err != nil {
+		return nil, err
+	}
+
+	// ABI encode the ShastaInbox.propose parameters.
+	inputData, err := b.rpc.EncodeProposeInput(
+		&bind.CallOpts{Context: ctx},
+		&shastaBindings.IInboxProposeInput{
+			Deadline: common.Big0,
+			BlobReference: shastaBindings.LibBlobsBlobReference{
+				BlobStartIndex: 0,
+				NumBlobs:       uint16(len(blobs)),
+				Offset:         common.Big0,
+			},
+			NumForcedInclusions: uint8(minTxsPerForcedInclusion.Uint64()),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode shasta propose input: %w", err)
+	}
+
+	if data, err = encoding.ShastaInboxABI.Pack("propose", []byte{}, inputData); err != nil {
+		return nil, err
+	}
+
+	return &txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    blobs,
+		To:       to,
+		GasLimit: b.gasLimit,
+	}, nil
+}
+
+// SplitToBlobs splits the txListBytes into multiple blobs.
+func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	var blobs []*eth.Blob
 	for start := 0; start < len(txListBytes); start += eth.MaxBlobDataSize {
-		end := start + eth.MaxBlobDataSize
-		if end > len(txListBytes) {
-			end = len(txListBytes)
-		}
+		end := min(start+eth.MaxBlobDataSize, len(txListBytes))
 
 		var blob = &eth.Blob{}
 		if err := blob.FromData(txListBytes[start:end]); err != nil {
@@ -173,4 +277,28 @@ func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, 
 	}
 
 	return blobs, nil
+}
+
+// EncodeSourceManifestShasta encodes the given derivation source manifest to a byte slice
+// that can be used as input to the Shasta Inbox.propose function.
+func EncodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	sourceManifestBytes, err := utils.EncodeAndCompressSourceManifestShasta(sourceManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepend the version and length bytes to the manifest bytes, then split
+	// the resulting bytes into multiple blobs.
+	versionBytes := make([]byte, 32)
+	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
+
+	lenBytes := make([]byte, 32)
+	lenBig := new(big.Int).SetUint64(uint64(len(sourceManifestBytes)))
+	lenBig.FillBytes(lenBytes)
+
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
+
+	return append(blobBytesPrefix, sourceManifestBytes...), nil
 }

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 // Referenced from: https://ethresear.ch/t/slashing-proofoor-on-chain-slashed-validator-proofs/19421
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import "./LibMerkleUtils.sol";
+import "./LibBeaconMerkleUtils.sol";
+import "@eth-fabric/urc/lib/BLSUtils.sol";
+import "@solady/src/utils/ext/ithaca/BLS.sol";
 
 /// @title LibEIP4788
 /// @custom:security-contact security@taiko.xyz
@@ -17,82 +19,95 @@ library LibEIP4788 {
         bytes32[] validatorProof;
         // Root of the validator list in the beacon state
         bytes32 validatorsRoot;
-        // Proof of inclusion of validator list in the beacon state
-        bytes32[] beaconStateProof;
+        // Proof of inclusion of the root of validators list in the beacon state
+        bytes32[] validatorsRootProof;
+        // Index of the validator in the beacon state proposer lookahead
+        uint256 proposerLookaheadIndex;
+        // Proof of inclusion of validator index in the proposer lookahead
+        bytes32[] validatorIndexProof;
+        // Root of the proposer lookahead in the beacon state
+        bytes32 proposerLookaheadRoot;
+        // Proof of inclusion of the root of proposer lookahead in the beacon state
+        bytes32[] proposerLookaheadRootProof;
         // Root of the beacon state
         bytes32 beaconStateRoot;
         // Proof of inclusion of beacon state in the beacon block
-        bytes32[] beaconBlockProofForState;
-        // Proof of inclusion of the validator index in the beacon block
-        bytes32[] beaconBlockProofForProposerIndex;
+        bytes32[] beaconStateRootProof;
     }
 
-    /// @dev The validator pub key failed verification against the pub key hash tree root in the
-    /// validator chunks
-    error InvalidValidatorBLSPubKey();
-    /// @dev The proof that the validator is a part of the validator list is invalid.
-    error ValidatorProofFailed();
-    /// @dev The proof that the validator list is a part of the beacon state is invalid.
-    error BeaconStateProofFailed();
-    /// @dev The proof that the beacon state is a part of the beacon block is invalid.
-    error BeaconBlockProofForStateFailed();
-    /// @dev The proof that the actual validator index is a part of the beacon is invalid.
-    error BeaconBlockProofForProposerIndex();
+    error InvalidValidatorPubKey();
+    error ValidatorProofVerificationFailed();
+    error ValidatorsRootProofVerificationFailed();
+    error InvalidProposerLookaheadIndex();
+    error ValidatorIndexProofVerificationFailed();
+    error BeaconStateProofVerificationFailed();
 
     function verifyValidator(
-        bytes memory validatorBLSPubKey,
-        bytes32 beaconBlockRoot,
-        InclusionProof memory inclusionProof
+        uint256 _expectedProposerLookaheadIndex,
+        BLS.G1Point memory _validatorPubKey,
+        bytes32 _beaconBlockRoot,
+        InclusionProof memory _inclusionProof
     )
         internal
         pure
     {
-        // Validator's BLS public key is verified against the hash tree root within Validator chunks
-        bytes32 pubKeyHashTreeRoot = sha256(abi.encodePacked(validatorBLSPubKey, bytes16(0)));
-        require(pubKeyHashTreeRoot == inclusionProof.validator[0], InvalidValidatorBLSPubKey());
+        BLS.Fp memory compressedValidatorPubKeyFp = BLSUtils.compress(_validatorPubKey);
 
-        // Validator is verified against the validator list in the beacon state
-        bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(inclusionProof.validator);
+        // Shifts the 16-byte 0-padding to the end
+        bytes32 x = compressedValidatorPubKeyFp.a << 128 | compressedValidatorPubKeyFp.b >> 128;
+        bytes32 y = compressedValidatorPubKeyFp.b << 128;
+
+        // Verify: Validator chunks contains the validator public key
+        bytes32 pubKeyHashTreeRoot = sha256(abi.encodePacked(x, y));
+        require(pubKeyHashTreeRoot == _inclusionProof.validator[0], InvalidValidatorPubKey());
+
+        // Verify: Validator is a part of the validator list in the beacon state
+        bytes32 validatorHashTreeRoot = LibBeaconMerkleUtils.merkleize(_inclusionProof.validator);
         require(
-            LibMerkleUtils.verifyProof(
-                inclusionProof.validatorProof,
-                inclusionProof.validatorsRoot,
+            LibBeaconMerkleUtils.verifyProof(
+                _inclusionProof.validatorProof,
+                _inclusionProof.validatorsRoot,
                 validatorHashTreeRoot,
-                inclusionProof.validatorIndex
+                _inclusionProof.validatorIndex
             ),
-            ValidatorProofFailed()
+            ValidatorProofVerificationFailed()
         );
 
+        // Verify: Validator list is a part of the beacon state
         require(
-            LibMerkleUtils.verifyProof(
-                inclusionProof.beaconStateProof,
-                inclusionProof.beaconStateRoot,
-                inclusionProof.validatorsRoot,
+            LibBeaconMerkleUtils.verifyProof(
+                _inclusionProof.validatorsRootProof,
+                _inclusionProof.beaconStateRoot,
+                _inclusionProof.validatorsRoot,
                 11
             ),
-            BeaconStateProofFailed()
+            ValidatorsRootProofVerificationFailed()
         );
 
-        // Beacon state is verified against the beacon block
+        // Verify: Validator index is a part of the proposer lookahead at the expected index
         require(
-            LibMerkleUtils.verifyProof(
-                inclusionProof.beaconBlockProofForState,
-                beaconBlockRoot,
-                inclusionProof.beaconStateRoot,
+            _inclusionProof.proposerLookaheadIndex == _expectedProposerLookaheadIndex,
+            InvalidProposerLookaheadIndex()
+        );
+        require(
+            LibBeaconMerkleUtils.verifyProof(
+                _inclusionProof.validatorIndexProof,
+                _inclusionProof.proposerLookaheadRoot,
+                LibBeaconMerkleUtils.toLittleEndian(_inclusionProof.validatorIndex),
+                _inclusionProof.proposerLookaheadIndex
+            ),
+            ValidatorIndexProofVerificationFailed()
+        );
+
+        // Verify: Beacon state is a part of the beacon block
+        require(
+            LibBeaconMerkleUtils.verifyProof(
+                _inclusionProof.beaconStateRootProof,
+                _beaconBlockRoot,
+                _inclusionProof.beaconStateRoot,
                 3
             ),
-            BeaconBlockProofForStateFailed()
-        );
-
-        // Validator index is verified against the beacon block
-        require(
-            LibMerkleUtils.verifyProof(
-                inclusionProof.beaconBlockProofForProposerIndex,
-                beaconBlockRoot,
-                LibMerkleUtils.toLittleEndian(inclusionProof.validatorIndex),
-                1
-            ),
-            BeaconBlockProofForProposerIndex()
+            BeaconStateProofVerificationFailed()
         );
     }
 }

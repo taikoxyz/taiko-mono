@@ -1,9 +1,9 @@
 ---
-title: Pacaya fork Taiko Alethia
+title: Pacaya Fork Taiko Alethia
 description: Taiko Alethia protocol page for the upcoming Pacaya fork.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from "@astrojs/starlight/components";
 
 The Taiko Alethia protocol has successfully transitioned into the Pacaya fork as of May 21st 2025 UTC!
 
@@ -19,7 +19,7 @@ Blocks are now proposed in batches, with each batch capable of containing **zero
 
 In the interest of simplifying the protocol and removing the added security risk that Guardian provers introduce, we have removed proof contestation entirely. This change also conveniently aligns us better as a Stage 1 L2 protocol.
 
-In it's place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **sgxGeth** (Gaiko) proof and the original **sgxReth** (Raiko) proof; the sgxGeth proof will be a TEE, and the sgxReth proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition.
+In its place we are introducing **Multiproving**: every batch will be required to have multiple proofs, which will be verified by a single verifier contract. This verifier contract will handle sub-proof verifiers, and will be responsible for verifying the proofs. The required proofs will be a **sgxGeth** (Gaiko) proof and the original **sgxReth** (Raiko) proof; the sgxGeth proof will be a TEE, and the sgxReth proof will be a TEE/ZK proof. Proposers will have to register some new images to ensure a smooth transition.
 
 We have also shortened the proving and cooldown windows to 2 hours, with further reductions planned to enable faster withdrawals.
 
@@ -47,7 +47,13 @@ The Pacaya upgrade marks the first step toward preconfirmation. Given the nature
 
 This initial phase of preconfirmation is not the full implementation: it uses a whitelist-based approach without integrating a lookahead contract or preconfer registry. A staking or restaking-based approach will be introduced and tested in the next phase, followed by slashing rules.
 
-The initial launching partners include [Nethermind](https://www.nethermind.io), [Gattaca](https://gattaca.com), and [Chainbound](https://chainbound.io). If you’re interested in joining the whitelist as a preconfer, feel free to reach out to us. However, we can only add you after discussions to ensure that your infrastructure meets some liveness requirements.
+The initial launching partners include [Nethermind](https://www.nethermind.io), [Gattaca](https://gattaca.com), and [Chainbound](https://chainbound.io). In a post-whitelist phase, the community will be able to run these solutions themselves as secured-by-stake preconfirmers.
+
+The solutions are fully opensource and can be found here:
+
+- [Chainbound Sidecar](https://github.com/chainbound/taiko-mk1)
+- [Gattaca Sidecar](https://github.com/gattaca-com/taiko-gateway)
+- [Nethermind Sidecar](https://github.com/NethermindEth/Catalyst)
 
 While a whitelist-based approach is technically permissioned, it is a necessary step in testing preconfirmation, a complex feature that impacts nearly every aspect of Taiko’s Alethia codebase. Rolling it out incrementally allows us to validate the design, mitigate risks, and gather early feedback to refine future iterations. That said, Taiko remains committed to full permissionlessness, and this phased approach is simply a stepping stone toward that vision.
 

@@ -126,8 +126,6 @@
   - signal_service: `0x1670000000000000000000000000000000000005`
   - bridge: `0x1670000000000000000000000000000000000001`
   - taiko: `0x1670000000000000000000000000000000010001`
-- todo:
-  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
@@ -136,16 +134,16 @@
 #### Anchor
 
 - proxy: `0x1670000000000000000000000000000000010001`
-- impl: `0x3cfe9b8E0e12289D78c91295c8353aB1731F06E1`
+- impl: `0xE6d1efcC6AC8969474308C99a3805c332D33a1E0`
 - owner: `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8`
-- todo:
-  - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - redeployed on May 22, 2024 @commit`b955e0e`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0x75E76c367D6be621bD90e4b1e32fBB3fF59150b6` @commit`9345f14` @tx`0xdbe9caf2b1282d0fecf9a752f2c1aeade8820bb66bb5ad210f0081996504173b`
   - upgrade impl to `0x3cfe9b8E0e12289D78c91295c8353aB1731F06E1` @commit`879fda0` @tx`0x0ae99d24b294622e3d3868c8dca911a5936231ce1f97254ec0c6a6f65f7aa81c`
+  - upgrade impl to `0x1e3fa8ad01327d891ab89b13091f93e4eaf7e8a5` @commit`c2a941e` @tx`0x2f0b5bd30b1cfc929bb03518ce19a588d431bba847ae7c84daedcc2ddf521bf2`
+  - upgrade impl to `0xE6d1efcC6AC8969474308C99a3805c332D33a1E0` @commit`d6d33eb` @tx`0xf9f899beb269bd2cb1b74001493ec9ac41d83191b79b71878422c3f5a8fdb15b`
 
 #### bridged_taiko_token
 

@@ -1,0 +1,49 @@
+[package]
+name = "rpc"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+# observability
+tracing = { workspace = true }
+
+# web
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+tower = { workspace = true }
+
+# ethereum
+alloy = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-sol-macro = { workspace = true, features = ["json"] }
+alloy-sol-types = { workspace = true }
+alloy-transport-http = { workspace = true }
+once_cell = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+url = { workspace = true }
+
+# taiko
+alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alethia-reth-rpc = { workspace = true }
+bindings = { path = "../bindings" }
+event-scanner = { workspace = true }
+protocol = { path = "../protocol" }
+
+# types
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"

@@ -21,6 +21,13 @@ type ProposeBatchTransactionBuilder interface {
 		forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 		minTxsPerForcedInclusion *big.Int,
 		parentMetahash common.Hash,
+		preconfRouterAddress common.Address,
+	) (*txmgr.TxCandidate, error)
+	BuildShasta(
+		ctx context.Context,
+		txBatch []types.Transactions,
+		minTxsPerForcedInclusion *big.Int,
+		preconfRouterAddress common.Address,
 	) (*txmgr.TxCandidate, error)
 }
 

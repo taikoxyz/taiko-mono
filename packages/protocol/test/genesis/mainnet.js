@@ -46,7 +46,6 @@ module.exports = {
     gasExcess: 1,
   },
   predeployERC20: false,
-  pacayaForkHeight: 999_999_999,
 };
 
 function getConstantAddress(prefix, suffix) {

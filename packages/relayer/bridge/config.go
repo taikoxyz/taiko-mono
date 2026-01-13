@@ -27,7 +27,7 @@ type Config struct {
 
 	// backoff configs
 	BackoffRetryInterval uint64
-	BackOffMaxRetrys     uint64
+	BackOffMaxRetries    uint64
 
 	// rpc configs
 	SrcRPCUrl        string
@@ -62,7 +62,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ConfirmationsTimeout: c.Uint64(flags.ConfirmationTimeout.Name),
 		EnableTaikoL2:        c.Bool(flags.EnableTaikoL2.Name),
 		BackoffRetryInterval: c.Uint64(flags.BackOffRetryInterval.Name),
-		BackOffMaxRetrys:     c.Uint64(flags.BackOffMaxRetrys.Name),
+		BackOffMaxRetries:    c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:     c.Uint64(flags.ETHClientTimeout.Name),
 		BridgeMessageValue:   bridgeMessageValue,
 	}, nil

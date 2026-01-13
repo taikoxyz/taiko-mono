@@ -1,0 +1,16 @@
+[package]
+name = "urcindexer-rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "urcindexer"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+axum = "0.7"
+urc = { git = "https://github.com/NethermindEth/Catalyst", package = "urc", rev = "46a051d6cd833c20e9e57509e5ae5cc82751e263" }

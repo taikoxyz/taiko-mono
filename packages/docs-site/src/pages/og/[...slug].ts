@@ -5,10 +5,12 @@ const entries = await getCollection("docs");
 const pages = Object.fromEntries(entries.map(({ data, id }) => [id, { data }]));
 
 // See https://github.com/delucis/astro-og-canvas for the full API
+type Page = (typeof pages)[keyof typeof pages];
+
 export const { getStaticPaths, GET } = OGImageRoute({
   pages,
   param: "slug",
-  getImageOptions: (_path, page: (typeof pages)[number]) => {
+  getImageOptions: (_path, page: Page) => {
     return {
       title: page.data.title,
       description: page.data.description ?? "",

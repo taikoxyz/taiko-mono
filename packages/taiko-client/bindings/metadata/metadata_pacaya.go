@@ -39,6 +39,16 @@ func (m *TaikoDataBlockMetadataPacaya) IsPacaya() bool {
 	return true
 }
 
+// Shasta implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) Shasta() TaikoProposalMetaDataShasta {
+	return nil
+}
+
+// IsShasta implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) IsShasta() bool {
+	return false
+}
+
 // GetTxListHash returns the hash of calldata txlist.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListHash() common.Hash {
 	return m.TxsHash
@@ -56,6 +66,11 @@ func (m *TaikoDataBlockMetadataPacaya) GetCoinbase() common.Address {
 
 // GetBatchID returns batch ID.
 func (m *TaikoDataBlockMetadataPacaya) GetBatchID() *big.Int {
+	return new(big.Int).SetUint64(m.BatchId)
+}
+
+// GetProposalID returns batch ID.
+func (m *TaikoDataBlockMetadataPacaya) GetProposalID() *big.Int {
 	return new(big.Int).SetUint64(m.BatchId)
 }
 
@@ -93,7 +108,7 @@ func (m *TaikoDataBlockMetadataPacaya) GetProposedAt() uint64 {
 	return m.ProposedAt
 }
 
-// ProposedIn returns the proposing L1 block number of this batch.
+// GetProposedIn returns the proposing L1 block number of this batch.
 func (m *TaikoDataBlockMetadataPacaya) GetProposedIn() uint64 {
 	return m.ProposedIn
 }

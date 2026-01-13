@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -63,10 +64,15 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
+	to := &b.taikoWrapperAddress
+	if preconfRouterAddress != rpc.ZeroAddress {
+		to = &preconfRouterAddress
+	}
+
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
-		to                    = &b.taikoWrapperAddress
 		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
 		data                  []byte
 		encodedParams         []byte
@@ -144,4 +150,16 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 		To:       to,
 		GasLimit: b.gasLimit,
 	}, nil
+}
+
+// BuildShasta implements the ProposeBatchTransactionBuilder interface.
+// Since Shasta fork doesn't support calldata to send txList bytes anymore, we just return an error here.
+func (b *CalldataTransactionBuilder) BuildShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
+	preconfRouterAddress common.Address,
+) (*txmgr.TxCandidate, error) {
+	return nil, fmt.Errorf("CalldataTransactionBuilder does not support BuildShasta")
 }

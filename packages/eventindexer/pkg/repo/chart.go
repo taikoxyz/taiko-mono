@@ -3,9 +3,9 @@ package repo
 import (
 	"context"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"log/slog"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 

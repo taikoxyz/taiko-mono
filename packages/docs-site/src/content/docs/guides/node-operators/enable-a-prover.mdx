@@ -13,7 +13,9 @@ import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
 ## Enable a prover with simple-taiko-node
 
 <Aside>
-These are the bare minimum required settings along with a functional Taiko node to run a prover, feel free to customize the rest of the variables in the `.env` file as you see fit!
+  These are the bare minimum required settings along with a functional Taiko
+  node to run a prover, feel free to customize the rest of the variables in the
+  `.env` file as you see fit!
 </Aside>
 
 <Steps>
@@ -24,53 +26,20 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 3. Set the `L1_PROVER_PRIVATE_KEY` to an L1 account's private key which will send the Prove Block transactions.
 
-4. You may optionally [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your prover. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh. A ProverSet is recommended for a longer term stable setup to avoid nonce issues. For testing purposes, you may not feel the need to deploy a ProverSet.
+4. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
 
-5. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
+5. Set `COMPOSE_PROFILES=prover` or add prover to the list.
 
-6. Set `COMPOSE_PROFILES=prover` or add prover to the list.
-
-7. You can then run your prover with `docker compose up -d`! Please use `docker compose -f docker-compose-hekla.yml up -d` if you are running on Taiko Hekla.
+6. You can then run your prover with `docker compose up -d`!
 
 </Steps>
 
-Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
-
-## Enabling batch proving/proof aggregation (optional)
-
-<Aside type="danger">
-We don't recommend users utilize this function unless they already run a fairly active and successful proposer.
-
-By enabling proof aggregation, you will be opening yourself up to more risk as you will be putting up more TAIKO as bond at one time.
-
-The recommended value for SGX_BATCH_SIZE is 10+ as you will see the most gas saved at this value and above. We will NOT refund any lost bonds due to misconfiguration, please evaluate and use this function at your own risk.
-
-We highly recommend you test the function **on Taiko Hekla**, not on Taiko Alethia.
-
-Please note that you must use the [upgraded ProverSet contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/provers/ProverSet.sol) to use this functionality.
-
-Please also note that you should NOT enable revert protection without a PBS service that has revert protection support, as it will interfere with your batch proving on Taiko Hekla.
-</Aside>
-
-Batch proving has been enabled in release 0.43.1 of [the taiko alethia client!](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-client-v0.43.1)
-
-Please use [simple-taiko-node release 1.9.0](https://github.com/taikoxyz/simple-taiko-node/releases/tag/v1.9.0) **or above** to enable this functionality.
-
-You can find the latest software releases [here](/network-reference/software-releases-and-deployments).
-
-**This functionality can be enabled simply by setting `SGX_BATCH_SIZE` in your `.env` file to a number greater than 1.**
-
-If it is set to 1 or unset your prover will submit proofs upon assignment (standard function).
-When enabled, your prover will submit a batch of proofs when x number of blocks are assigned, x being `SGX_BATCH_SIZE`.
-
-As provers are given a proof window for every assigned proof, it can become the case that while waiting for a batch size to be fulfilled the already assigned proofs exit their proof window and become unassigned.
-To prevent this, we have introduced another flag `FORCE_BATCH_PROVING_INTERVAL`. This flag will only be functional if batch proving is enabled.
-
-This flag will force the prover to submit a batch of proofs every x minutes, regardless of the batch size being fulfilled. We don't recommend this value be set > 45 minutes, as the provingWindow is 60 minutes and any closer will put you at risk of having proof assignments expire. It is by default set to 30 minutes.
-
 <Aside>
-The following steps can be done through the [ProverSet contract](/guides/node-operators/deploy-a-proverset/#deploying-a-proverset) if you have deployed one. We highly recommend this for a stable setup.
+  For Step 6, please use `docker compose -f docker-compose-hoodi.yml up -d` if
+  you are running on Taiko Hoodi.
 </Aside>
+
+Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
 
 ### Approve TaikoInbox as TAIKO spender (Taiko Alethia)
 
@@ -85,14 +54,16 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
 
    <Aside>
-      Please verify [contract addresses](/network-reference/contract-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
+     Please verify [contract addresses](/network-reference/contract-addresses)
+     are correct before moving forward. You can check the respective ENS domains
+     on Etherscan.
    </Aside>
 
 4. Set the amount to at least the minimum bond amount of 125 TAIKO.
 
    You will need at least 125 TAIKO for the `livenessBond`. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
 
-   If you have bonded TAIKO in the TaikoInbox contract, it will be used first before more is taken from your ProverSet.
+   If you have bonded TAIKO in the TaikoInbox contract, it will be used first before more is taken from your allowance.
 
    For an explanation on bonds, please refer to the terminology section [here](/resources/terminology).
 
@@ -100,7 +71,7 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 
 </Steps>
 
-### Approve TaikoInbox as TTKOh spender (Taiko Hekla)
+### Approve TaikoInbox as TTKOh spender (Taiko Hoodi)
 
 You will need TTKOh deposited on the TaikoInbox contract to secure the bond for the proofs you generate.
 
@@ -108,17 +79,17 @@ You will need TTKOh deposited on the TaikoInbox contract to secure the bond for 
 
 1. Approve the TaikoInbox contract as a spender.
 
-   Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
+   Visit the TTKOh contract on Hoodi [here](https://hoodi.etherscan.io/address/0xf3b83e226202ECf7E7bb2419a4C6e3eC99e963DA#writeProxyContract).
 
 2. Click the **Connect to Web3** button.
 
-3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
+3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`.
 
 4. Set the amount to at least the minimum bond amount of 125 TTKOh.
 
    You will need at least 125 TTKOh for the `livenessBond`. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
 
-   If you have bonded TTKOh in the TaikoInbox contract, it will be used first before more is taken from your ProverSet.
+   If you have bonded TTKOh in the TaikoInbox contract, it will be used first before more is taken from your allowance.
 
    For an explanation of the difference between these bonds, please refer to the terminology section [here](/resources/terminology).
 
@@ -127,6 +98,8 @@ You will need TTKOh deposited on the TaikoInbox contract to secure the bond for 
 </Steps>
 
 <Card title="Troubleshooting" icon="error">
-    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+  If you run into any problems, please visit the [node troubleshooting
+  page](/guides/node-operators/node-troubleshooting) for help. If you run into
+  an error that isn't yet listed, please reach out in our
+  [Discord](https://discord.com/invite/taikoxyz)!
 </Card>

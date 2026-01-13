@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch",
+      "Bash(gh issue view:*)",
+      "Bash(gh commit:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(find:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(pnpm compile:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm snapshot:*)",
+      "Bash(pnpm layout:*)",
+      "Bash(forge test:*)",
+      "Bash(forge build:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)"
+    ],
+    "deny": ["Bash(git push --force:*)"]
+  }
+}

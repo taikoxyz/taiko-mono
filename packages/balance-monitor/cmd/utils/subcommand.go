@@ -22,7 +22,7 @@ type SubcommandApplication interface {
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		ctx, ctxClose := context.WithCancel(context.Background())
-		defer func() { ctxClose() }()
+		defer ctxClose()
 
 		if err := app.InitFromCli(ctx, c); err != nil {
 			return err

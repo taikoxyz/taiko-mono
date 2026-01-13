@@ -67,7 +67,7 @@ Taiko Alethia is designed with **flexibility**, enabling:
 
 The following illustrates how **Ethereum, Taiko L2, and Taiko L3 layers interconnect**:
 
-![Inception layers diagram](~/assets/content/docs/core-concepts/inception-layers-diagram.png)
+![Inception layers diagram](../../../../assets/content/docs/core-concepts/inception-layers-diagram.png)
 
 - **Ethereum L1** serves as the base layer for settlement and data availability.
 - **Multiple Taiko L2s** operate in parallel, processing transactions independently.

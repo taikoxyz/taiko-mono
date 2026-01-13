@@ -125,7 +125,6 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 	}
 }
 
-// TODO: fix this test
 func TestIntegration_ERC20Balance_FindByAddress(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)
@@ -149,7 +148,7 @@ func TestIntegration_ERC20Balance_FindByAddress(t *testing.T) {
 		},
 	}
 
-	get, err := http.NewRequest("GET", "", nil)
+	get, err := http.NewRequest("GET", "/", nil)
 	assert.Equal(t, nil, err)
 
 	for _, tt := range tests {

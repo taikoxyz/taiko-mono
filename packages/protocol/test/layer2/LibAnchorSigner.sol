@@ -13,8 +13,10 @@ library LibAnchorSigner {
         0x92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38;
 
     // Precomputed curve constants.
-    uint256 private constant GX = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
-    uint256 private constant GY = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
+    uint256 private constant GX =
+        0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
+    uint256 private constant GY =
+        0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
     uint256 private constant GX2 =
         0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5;
     uint256 private constant GY2 =
@@ -53,7 +55,9 @@ library LibAnchorSigner {
         view
         returns (uint8 v, uint256 r, uint256 s)
     {
-        if (k != 1 && k != 2) revert L2_INVALID_GOLDEN_TOUCH_K();
+        if (k != 1 && k != 2) {
+            revert L2_INVALID_GOLDEN_TOUCH_K();
+        }
 
         r = k == 1 ? GX : GX2;
 

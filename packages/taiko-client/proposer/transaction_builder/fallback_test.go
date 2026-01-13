@@ -21,14 +21,28 @@ import (
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataOnly() {
 	builder := s.newTestBuilderWithFallback(false, false, nil)
-	candidate, err := builder.BuildPacaya(context.Background(), []types.Transactions{{}}, nil, nil, common.Hash{})
+	candidate, err := builder.BuildPacaya(
+		context.Background(),
+		[]types.Transactions{{}},
+		nil,
+		nil,
+		common.Hash{},
+		common.Address{},
+	)
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 }
 
 func (s *TransactionBuilderTestSuite) TestBuildCalldataWithBlobAllowed() {
 	builder := s.newTestBuilderWithFallback(true, false, nil)
-	candidate, err := builder.BuildPacaya(context.Background(), []types.Transactions{{}}, nil, nil, common.Hash{})
+	candidate, err := builder.BuildPacaya(
+		context.Background(),
+		[]types.Transactions{{}},
+		nil,
+		nil,
+		common.Hash{},
+		common.Address{},
+	)
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 }
@@ -51,6 +65,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 		nil,
 		nil,
 		common.Hash{},
+		common.Address{},
 	)
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
@@ -71,6 +86,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 		nil,
 		nil,
 		common.Hash{},
+		common.Address{},
 	)
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
@@ -94,6 +110,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 		nil,
 		nil,
 		common.Hash{},
+		common.Address{},
 	)
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
@@ -110,6 +127,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 			s.RPCClient.L2.ChainID,
 			s.RPCClient.PacayaClients.ForkHeights.Ontake,
 			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
+			s.RPCClient.ShastaClients.ForkTime,
 		)
 	)
 
@@ -143,7 +161,8 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 		s.RPCClient,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.Address{},
 		10_000_000,

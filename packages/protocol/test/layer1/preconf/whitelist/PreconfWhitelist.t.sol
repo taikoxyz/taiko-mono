@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "../../Layer1Test.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import "../mocks/MockBeaconBlockRoot.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import { IPreconfWhitelist } from "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
-contract TestPreconfWhitelist is Layer1Test {
+contract TestPreconfWhitelist is CommonTest {
     PreconfWhitelist internal whitelist;
-    PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
     address internal ejecter;
-    BeaconBlockRootImpl internal beaconBlockRootImpl;
 
     function setUpOnEthereum() internal virtual override {
         whitelistOwner = Alice;
@@ -19,483 +20,277 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner))
             })
         );
 
-        whitelistNoDelay = PreconfWhitelist(
-            deploy({
-                name: "preconf_whitelist_nodelay",
-                impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0, 2))
-            })
-        );
-
-        // Advance time to ensure we're at least `randomnessDelay` epochs after genesis to
-        // avoid underflow
+        // Ensure the beacon root contract returns a stable value and randomness delay is satisfied.
+        _setBeaconBlockRoot(bytes32(uint256(0x1234)));
         vm.warp(
-            LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.randomnessDelay()
+            LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH
+                * whitelist.RANDOMNESS_DELAY()
         );
     }
 
-    function test_whitelist_delay2epoch_addThenRemoveOneOperator() external {
-        _setBeaconBlockRoot(bytes32(uint256(7)));
+    function test_addOperator_setsExpectedState() external {
+        vm.expectEmit();
+        emit IPreconfWhitelist.OperatorAdded(Bob, _sequencer(Bob), whitelist.epochStartTimestamp(2));
 
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        _addOperator(Bob);
 
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
 
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) =
-            whitelist.operators(Bob);
+        (uint32 activeSince,, uint8 index, address sequencer) = whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
-        assertEq(inactiveSince, 0);
         assertEq(index, 0);
-        assertEq(sequencerAddress, _getSequencerAddress(Bob));
+        assertEq(sequencer, _sequencer(Bob));
+        assertFalse(whitelist.isOperatorActive(Bob, whitelist.epochStartTimestamp(0)));
 
-        // Verify operator for current epoch
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
-
-        whitelist.consolidate();
-        assertEq(whitelist.havingPerfectOperators(), true);
-
-        vm.prank(whitelistOwner);
-        whitelist.removeOperator(Bob, false);
-
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        (activeSince, inactiveSince, index, sequencerAddress) = whitelist.operators(Bob);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
-        assertEq(index, 0);
-
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 0);
-        assertEq(whitelist.operatorMapping(0), address(0));
-        assertEq(whitelist.havingPerfectOperators(), true);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+        assertTrue(whitelist.isOperatorActive(Bob, whitelist.epochStartTimestamp(0)));
     }
 
-    function test_whitelist_delay2epoch_addThenRemoveTwoOperators() external {
+    function test_addOperator_RevertWhen_Duplicate() external {
+        _addOperator(Bob);
+        vm.prank(whitelistOwner);
+        vm.expectRevert(PreconfWhitelist.OperatorAlreadyExists.selector);
+        whitelist.addOperator(Bob, _sequencer(Bob));
+    }
+
+    function test_addOperator_RevertWhen_InvalidAddresses() external {
+        vm.startPrank(whitelistOwner);
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.addOperator(address(0), Bob);
+
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.addOperator(Bob, address(0));
+        vm.stopPrank();
+    }
+
+    function test_getOperatorForEpoch_respectsActivationDelay() external {
         _setBeaconBlockRoot(bytes32(uint256(7)));
+        _addOperator(Bob);
+        _addOperator(Carol);
 
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
 
-        assertEq(whitelist.operatorCount(), 2);
-        assertEq(whitelist.operatorMapping(0), Alice);
-        assertEq(whitelist.operatorMapping(1), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
+        address current = whitelist.getOperatorForCurrentEpoch();
+        address nextOp = whitelist.getOperatorForNextEpoch();
+        assertTrue(current == Bob || current == Carol);
+        assertTrue(nextOp == Bob || nextOp == Carol);
+    }
 
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 2);
-        assertEq(whitelist.operatorMapping(0), Alice);
-        assertEq(whitelist.operatorMapping(1), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) =
-            whitelist.operators(Alice);
-        assertEq(activeSince, whitelist.epochStartTimestamp(2));
-        assertEq(inactiveSince, 0);
-        assertEq(index, 0);
-
-        (activeSince, inactiveSince, index, sequencerAddress) = whitelist.operators(Bob);
-        assertEq(activeSince, whitelist.epochStartTimestamp(2));
-        assertEq(inactiveSince, 0);
-        assertEq(index, 1);
-
-        // Verify operator for current epoch
+    function test_getOperatorForEpoch_returnsZeroWhenNoActive() external {
+        _addOperator(Bob);
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        vm.prank(whitelistOwner);
-        whitelist.removeOperator(Alice, false);
-        vm.prank(whitelistOwner);
-        whitelist.removeOperator(Bob, false);
-
-        assertEq(whitelist.operatorCount(), 2);
-        assertEq(whitelist.operatorMapping(0), Alice);
-        assertEq(whitelist.operatorMapping(1), Bob);
-
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 2);
-        assertEq(whitelist.operatorMapping(0), Alice);
-        assertEq(whitelist.operatorMapping(1), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        (activeSince, inactiveSince, index, sequencerAddress) = whitelist.operators(Alice);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
-        assertEq(index, 0);
-
-        (activeSince, inactiveSince, index, sequencerAddress) = whitelist.operators(Bob);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
-        assertEq(index, 1);
-
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelist.getOperatorForNextEpoch(), Bob);
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        _advanceOneEpoch();
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 0);
-        assertEq(whitelist.operatorMapping(0), address(0));
-        assertEq(whitelist.operatorMapping(1), address(0));
-        assertEq(whitelist.havingPerfectOperators(), true);
     }
 
-    function test_whitelist_addOrRemoveTheSameOperatorTwiceWillRevert() external {
-        vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-
-        whitelist.removeOperator(Alice, false);
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
-        whitelist.removeOperator(Alice, false);
-        vm.stopPrank();
-    }
-
-    function test_whitelist_addBackRemovedOperator() external {
-        vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-
-        whitelist.removeOperator(Alice, false);
-
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        vm.stopPrank();
-    }
-
-    function test_whitelist_selfRemoval() external {
-        vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-        vm.stopPrank();
-
-        vm.prank(Alice);
-        whitelist.removeSelf();
-        assertEq(whitelist.operatorCount(), 2);
-        assertEq(whitelist.operatorMapping(0), Alice);
-        assertEq(whitelist.operatorMapping(1), Bob);
-
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Bob);
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        vm.prank(Bob);
-        whitelist.removeSelf();
-
-        assertEq(whitelist.operatorCount(), 0);
-
-        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelist.getOperatorForNextEpoch(), address(0));
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        whitelist.consolidate();
-        assertEq(whitelist.operatorCount(), 0);
-        assertEq(whitelist.havingPerfectOperators(), true);
-    }
-
-    function test_whitelist_removeNonExistingOperatorWillRevert() external {
-        vm.startPrank(whitelistOwner);
-        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
-        whitelist.removeOperator(Alice, false);
-        vm.stopPrank();
-    }
-
-    function test_whitelist_removeOperatorImmediatelyLastOperator() external {
-        _setBeaconBlockRoot(bytes32(uint256(7)));
-
-        vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-
-        // Wait for operators to become active
-        _advanceOneEpoch();
-        _advanceOneEpoch();
-
-        whitelist.removeOperator(Bob, true);
-
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Alice);
-        assertEq(whitelist.operatorMapping(1), address(0));
-
-        // Bob's operator info should be deleted
-        (uint32 activeSince, uint32 inactiveSince, uint8 index,) = whitelist.operators(Bob);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, 0);
-        assertEq(index, 0);
-
-        // Alice should now be the only candidate
-        assertEq(whitelist.getOperatorForCurrentEpoch(), Alice);
-        assertEq(whitelist.getOperatorForNextEpoch(), Alice);
-    }
-
-    function test_whitelist_removeOperatorImmediatelyNotLastOperator() external {
-        _setBeaconBlockRoot(bytes32(uint256(7)));
-
-        vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-        whitelist.addOperator(Carol, _getSequencerAddress(Carol));
-
-        // Wait for operators to become active
-        _advanceOneEpoch();
-        _advanceOneEpoch();
-
-        // Remove Alice immediately (she's NOT the last operator)
-        whitelist.removeOperator(Alice, true);
-
-        // Alice should be marked for removal but still in the mapping
-        assertEq(whitelist.operatorCount(), 3);
-        assertEq(whitelist.operatorMapping(0), Alice);
-
-        // Check Alice's operator info
-        (uint32 activeSince, uint32 inactiveSince, uint8 index,) = whitelist.operators(Alice);
-        assertEq(activeSince, 0);
-        assertEq(inactiveSince, whitelist.epochStartTimestamp(0));
-        assertEq(index, 0);
-
-        assertEq(whitelist.havingPerfectOperators(), false);
-
-        // Alice should not be selected anymore
-        address nextOperator = whitelist.getOperatorForNextEpoch();
-        assertTrue(nextOperator == Bob || nextOperator == Carol);
-    }
-
-    function test_whitelist_removeOperatorByEjecterByIndex() external {
-        // Setup: add operator and set ejecter
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-        vm.prank(whitelistOwner);
-        whitelist.setEjecter(ejecter, true);
-
-        // Ejecter can remove operator by index
-        vm.prank(ejecter);
-        whitelist.removeOperator(0);
-
-        // Verify removal
-        (, uint32 inactiveSince,,) = whitelist.operators(Bob);
-        assertTrue(inactiveSince > 0);
-    }
-
-    function test_whitelist_removeOperatorByEjecterByAddress() external {
-        address ejecter2 = makeAddr("ejecter2");
-
-        // Set multiple ejecters
-        vm.startPrank(whitelistOwner);
-        whitelist.setEjecter(ejecter, true);
-        whitelist.setEjecter(ejecter2, true);
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-        vm.stopPrank();
-
-        // Both ejecters can remove operators
-        vm.prank(ejecter2);
-        whitelist.removeOperator(Bob, false);
-
-        (, uint32 inactiveSince,,) = whitelist.operators(Bob);
-        assertTrue(inactiveSince > 0);
-    }
-
-    function test_whitelist_removeOperatorUnauthorizedWillRevert() external {
-        vm.prank(Bob);
-        vm.expectRevert(IPreconfWhitelist.NotOwnerOrEjecter.selector);
-        whitelist.removeOperator(0);
-    }
-
-    function test_whitelist_consolidate_whenEmpty_not_revert() external {
-        whitelist.consolidate();
-        assertEq(whitelist.havingPerfectOperators(), true);
-    }
-
-    function test_whitelist_noDelay_addThenRemoveOneOperator() external {
-        _setBeaconBlockRoot(bytes32(uint256(7)));
-
-        vm.prank(whitelistOwner);
-        whitelistNoDelay.addOperator(Bob, _getSequencerAddress(Bob));
-
-        assertEq(whitelistNoDelay.operatorCount(), 1);
-        assertEq(whitelistNoDelay.operatorMapping(0), Bob);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
-
-        (uint32 activeSince, uint32 inactiveSince, uint8 index,) = whitelistNoDelay.operators(Bob);
-        assertEq(activeSince, whitelistNoDelay.epochStartTimestamp(0));
-        assertEq(inactiveSince, 0);
-        assertEq(index, 0);
-
-        assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), Bob);
-        assertEq(whitelistNoDelay.getOperatorForNextEpoch(), Bob);
-
-        vm.prank(whitelistOwner);
-        whitelistNoDelay.removeOperator(Bob, false);
-
-        assertEq(whitelistNoDelay.operatorCount(), 0);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
-
-        whitelistNoDelay.consolidate();
-        assertEq(whitelistNoDelay.operatorCount(), 0);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
-
-        assertEq(whitelistNoDelay.getOperatorForCurrentEpoch(), address(0));
-        assertEq(whitelistNoDelay.getOperatorForNextEpoch(), address(0));
-    }
-
-    function test_whitelistNoDelay_consolidationPreservesOrder() external {
-        _setBeaconBlockRoot(bytes32(uint256(7)));
-
-        vm.startPrank(whitelistOwner);
-        whitelistNoDelay.addOperator(Alice, _getSequencerAddress(Alice));
-        whitelistNoDelay.addOperator(Bob, _getSequencerAddress(Bob));
-        whitelistNoDelay.addOperator(Carol, _getSequencerAddress(Carol));
-
-        address[] memory candidates = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
-        assertEq(candidates.length, 3);
-        assertEq(candidates[0], Alice);
-        assertEq(candidates[1], Bob);
-        assertEq(candidates[2], Carol);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
-
-        whitelistNoDelay.removeOperator(Alice, false);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), false);
-
-        whitelistNoDelay.consolidate();
-        candidates = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
-        assertEq(candidates.length, 2);
-        assertEq(candidates[0], Bob);
-        assertEq(candidates[1], Carol);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
-
-        vm.stopPrank();
-    }
-
-    function test_whitelistNoDelay_consolidationWillNotChangeCurrentEpochOperator() external {
+    function test_getOperatorForEpoch_pendingOperatorNotSelectedUntilActive() external {
         _setBeaconBlockRoot(bytes32(uint256(5)));
 
-        vm.startPrank(whitelistOwner);
-        whitelistNoDelay.addOperator(Alice, _getSequencerAddress(Alice));
-        whitelistNoDelay.addOperator(Bob, _getSequencerAddress(Bob));
-        whitelistNoDelay.addOperator(Carol, _getSequencerAddress(Carol));
-        whitelistNoDelay.addOperator(David, _getSequencerAddress(David));
-        whitelistNoDelay.removeOperator(Alice, false);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), false);
+        _addOperator(Bob);
+        _addOperator(Carol);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
 
-        address operatorBeforeConsolidate = whitelistNoDelay.getOperatorForCurrentEpoch();
+        address[] memory activeSet = new address[](2);
+        activeSet[0] = Bob;
+        activeSet[1] = Carol;
 
-        whitelistNoDelay.consolidate();
+        address selectedBefore = whitelist.getOperatorForCurrentEpoch();
+        _expectAddressInSet(selectedBefore, activeSet, "selected operator must be active");
 
-        address operatorAfterConsolidate = whitelistNoDelay.getOperatorForCurrentEpoch();
-        assertEq(operatorBeforeConsolidate, operatorAfterConsolidate);
-        assertEq(whitelistNoDelay.havingPerfectOperators(), true);
+        _addOperator(David);
 
-        vm.stopPrank();
+        address selectedWithPending = whitelist.getOperatorForCurrentEpoch();
+        _expectAddressInSet(selectedWithPending, activeSet, "pending operator must not be selected");
+        assertNotEq(selectedWithPending, David, "pending operator must remain inactive");
+
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+        address selectedAfterActivation = whitelist.getOperatorForCurrentEpoch();
+        assertEq(selectedAfterActivation, David, "new operator should join rotation once active");
     }
 
-    function test_addRemoveReAddOperatorWithoutConsolidate() external {
-        _setBeaconBlockRoot(bytes32(uint256(9)));
+    function test_getOperatorForEpoch_handlesStaggeredActivations() external {
+        _setBeaconBlockRoot(bytes32(uint256(11)));
 
-        // first we add carol to WL
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Carol, _getSequencerAddress(Carol));
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Carol);
+        _addOperator(Bob);
+        _addOperator(Carol);
+        uint256 changeDelay = whitelist.OPERATOR_CHANGE_DELAY();
+        _advanceEpochs(changeDelay);
 
-        // now remove her
-        vm.prank(whitelistOwner);
-        whitelist.removeOperator(Carol, false);
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Carol);
-        // re-add her
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Carol, _getSequencerAddress(Carol));
-        assertEq(whitelist.operatorCount(), 1);
-        assertEq(whitelist.operatorMapping(0), Carol);
-        // ensure she was not double-added to mapping
-        assertEq(whitelist.operatorMapping(1), address(0));
+        _addOperator(David);
+        uint256 spacing = 1;
+        assertGt(changeDelay, spacing, "spacing must be less than change delay");
+        _advanceEpochs(spacing);
+        _addOperator(Emma);
 
-        // make sure she is correctly set to active now
-        (uint32 activeSince, uint32 inactiveSince, uint8 index,) = whitelist.operators(Carol);
+        address[] memory initialSet = new address[](2);
+        initialSet[0] = Bob;
+        initialSet[1] = Carol;
+        _expectAddressInSet(
+            whitelist.getOperatorForCurrentEpoch(), initialSet, "only active operators selectable"
+        );
+
+        _advanceEpochs(changeDelay - spacing);
+        address[] memory afterDaveSet = new address[](3);
+        afterDaveSet[0] = Bob;
+        afterDaveSet[1] = Carol;
+        afterDaveSet[2] = David;
+
+        address selectedAfterDave = whitelist.getOperatorForCurrentEpoch();
+        _expectAddressInSet(
+            selectedAfterDave, afterDaveSet, "newly active operator must be considered"
+        );
+        assertNotEq(selectedAfterDave, Emma, "later activation must still be pending");
+
+        _advanceEpochs(spacing);
+        address[] memory afterEmmaSet = new address[](4);
+        afterEmmaSet[0] = Bob;
+        afterEmmaSet[1] = Carol;
+        afterEmmaSet[2] = David;
+        afterEmmaSet[3] = Emma;
+
+        _expectAddressInSet(
+            whitelist.getOperatorForCurrentEpoch(),
+            afterEmmaSet,
+            "all operators selectable once fully active"
+        );
+    }
+
+    function test_getOperatorForEpoch_handlesSkippedRandomnessSlot() external {
+        vm.etch(
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT, address(new MockBeaconBlockRoot()).code
+        );
+        MockBeaconBlockRoot mock =
+            MockBeaconBlockRoot(payable(LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT));
+
+        _addOperator(Bob);
+        _addOperator(Carol);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+
+        uint256 epochTs = whitelist.epochStartTimestamp(0);
+        uint256 delaySeconds = LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.RANDOMNESS_DELAY();
+        assertGe(epochTs, delaySeconds);
+        uint256 randomnessTs = epochTs - delaySeconds;
+
+        mock.set(randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT, bytes32(0));
+        mock.set(randomnessTs + LibPreconfConstants.SECONDS_IN_SLOT * 2, bytes32(uint256(0xbeef)));
+
+        address operator = whitelist.getOperatorForCurrentEpoch();
+        assertEq(operator, Carol, "uses next available beacon root when slot is missed");
+    }
+
+    function test_removeOperatorByIndex_keepsMappingPacked() external {
+        _addOperator(Alice);
+        _addOperator(Bob);
+        _addOperator(Carol);
+
+        vm.prank(whitelistOwner);
+        whitelist.removeOperator(1);
+
+        assertEq(whitelist.operatorCount(), 2);
+        assertEq(whitelist.operatorMapping(0), Alice);
+        assertEq(whitelist.operatorMapping(1), Carol);
+        assertEq(whitelist.operatorMapping(2), address(0));
+
+        (uint32 activeSince,, uint8 index,) = whitelist.operators(Carol);
+        assertEq(index, 1);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
-        assertEq(inactiveSince, 0);
+
+        (activeSince,, index,) = whitelist.operators(Bob);
+        assertEq(activeSince, 0);
         assertEq(index, 0);
     }
 
-    function test_whitelist_setEjecter() external {
-        // Non-owner cannot set ejecter
-        vm.expectRevert();
-        vm.prank(Bob);
-        whitelist.setEjecter(ejecter, true);
+    function test_removeOperator_RevertWhen_NoOtherActive() external {
+        _addOperator(Bob);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+        _addOperator(Carol);
 
-        // Owner can set ejecter
         vm.prank(whitelistOwner);
-        vm.expectEmit();
-        emit PreconfWhitelist.EjecterUpdated(ejecter, true);
+        vm.expectRevert(PreconfWhitelist.NoActiveOperatorRemaining.selector);
+        whitelist.removeOperator(0);
+    }
 
+    function test_removeOperatorByAddress_allowedForEjecter() external {
+        _addOperator(Bob);
+        _addOperator(Carol);
+
+        vm.prank(whitelistOwner);
         whitelist.setEjecter(ejecter, true);
 
-        assertTrue(whitelist.ejecters(ejecter));
+        vm.expectEmit();
+        emit IPreconfWhitelist.OperatorRemoved(Bob, _sequencer(Bob), block.timestamp);
+        vm.prank(ejecter);
+        whitelist.removeOperatorByAddress(Bob);
+
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Carol);
+        (uint32 activeSince,, uint8 index,) = whitelist.operators(Bob);
+        assertEq(activeSince, 0);
+        assertEq(index, 0);
+    }
+
+    function test_removeOperator_RevertWhen_LastOperator() external {
+        _addOperator(Bob);
+        vm.prank(whitelistOwner);
+        vm.expectRevert(PreconfWhitelist.CannotRemoveLastOperator.selector);
+        whitelist.removeOperator(0);
+    }
+
+    function test_checkProposer_allowsSelectedOperator() external {
+        _setBeaconBlockRoot(bytes32(uint256(3)));
+        _addOperator(Bob);
+        _addOperator(Carol);
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+
+        address selected = whitelist.getOperatorForCurrentEpoch();
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        whitelist.checkProposer(Alice, bytes(""));
+
+        uint48 deadline = whitelist.checkProposer(selected, bytes(""));
+        assertEq(deadline, 0);
+    }
+
+    function test_isOperatorActive_reportsLifecycle() external {
+        _addOperator(Bob);
+        _addOperator(Carol);
+        uint32 currentEpoch = whitelist.epochStartTimestamp(0);
+        assertFalse(whitelist.isOperatorActive(Bob, currentEpoch));
+
+        _advanceEpochs(whitelist.OPERATOR_CHANGE_DELAY());
+        uint32 activeEpoch = whitelist.epochStartTimestamp(0);
+        assertTrue(whitelist.isOperatorActive(Bob, activeEpoch));
+
+        vm.prank(whitelistOwner);
+        whitelist.removeOperator(0);
+        assertFalse(whitelist.isOperatorActive(Bob, activeEpoch));
+    }
+
+    function test_setEjecter_updatesAccessControl() external {
+        vm.expectEmit();
+        emit IPreconfWhitelist.EjecterUpdated(ejecter, true);
+        vm.prank(whitelistOwner);
+        whitelist.setEjecter(ejecter, true);
+
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorIndex.selector);
+        vm.prank(ejecter);
+        whitelist.removeOperator(0);
+    }
+
+    function test_constantsHaveExpectedValues() external view {
+        assertEq(whitelist.OPERATOR_CHANGE_DELAY(), 2);
+        assertEq(whitelist.RANDOMNESS_DELAY(), 2);
+    }
+
+    function _addOperator(address proposer) internal {
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(proposer, _sequencer(proposer));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
@@ -505,13 +300,32 @@ contract TestPreconfWhitelist is Layer1Test {
         );
     }
 
-    function _advanceOneEpoch() internal {
-        vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+    function _advanceEpochs(uint256 _count) internal {
+        for (uint256 i; i < _count; ++i) {
+            vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+        }
     }
 
-    // Helper function that returns a deterministic sequencer address for testing purposes
-    function _getSequencerAddress(address proposer) internal pure returns (address) {
+    function _sequencer(address proposer) internal pure returns (address) {
         return address(uint160(proposer) + 1000);
+    }
+
+    function _expectAddressInSet(
+        address actual,
+        address[] memory expected,
+        string memory reason
+    )
+        internal
+        pure
+    {
+        bool found;
+        for (uint256 i; i < expected.length; ++i) {
+            if (actual == expected[i]) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, reason);
     }
 }
 
@@ -527,6 +341,9 @@ contract BeaconBlockRootImpl {
         uint256 _timestamp;
         assembly {
             _timestamp := calldataload(0)
+        }
+        if (_timestamp > block.timestamp) {
+            return abi.encode(bytes32(0));
         }
         return abi.encode(root);
     }

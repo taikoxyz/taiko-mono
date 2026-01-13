@@ -1,0 +1,126 @@
+name: CI
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/ejector/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/ejector/**"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    name: Lint (fmt + clippy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      # Toolchain + components (rustfmt, clippy)
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      # Cache target/ and cargo registry/git
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            packages/ejector
+
+      # If any crate still pulls OpenSSL at build-time, uncomment:
+      # - name: Install native deps (for openssl-sys)
+      #   run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+
+      - name: cargo fmt --check
+        working-directory: packages/ejector
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy (workspace)
+        working-directory: packages/ejector
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            packages/ejector
+
+      # Fast path: plain tests (works even without llvm-cov)
+      - name: cargo test (workspace)
+        working-directory: packages/ejector
+        run: cargo test --workspace --all-features --all-targets
+
+  coverage:
+    # optional: keep if you use Codecov; otherwise delete this job
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            packages/ejector
+
+      - name: Generate coverage (lcov)
+        working-directory: packages/ejector
+        run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: lcov.info
+          path: packages/ejector/lcov.info
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: packages/ejector/lcov.info
+          flags: ejector
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

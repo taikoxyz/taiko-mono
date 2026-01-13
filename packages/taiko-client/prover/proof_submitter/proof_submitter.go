@@ -25,6 +25,8 @@ var (
 	MaxNumSupportedProofTypes = 4
 )
 
+const maxProofRequestTimeout = 1 * time.Hour
+
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterPacaya struct {
@@ -62,6 +64,7 @@ type SenderOptions struct {
 
 // NewProofSubmitterPacaya creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
+	ctx context.Context,
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
@@ -74,12 +77,16 @@ func NewProofSubmitterPacaya(
 	forceBatchProvingInterval time.Duration,
 	proofPollingInterval time.Duration,
 ) (*ProofSubmitterPacaya, error) {
-	anchorValidator, err := validator.New(taikoAnchorAddress, senderOpts.RPCClient.L2.ChainID, senderOpts.RPCClient)
+	anchorValidator, err := validator.New(
+		taikoAnchorAddress,
+		senderOpts.RPCClient.L2.ChainID,
+		senderOpts.RPCClient,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ProofSubmitterPacaya{
+	proofSubmitter := &ProofSubmitterPacaya{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProver,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -101,7 +108,11 @@ func NewProofSubmitterPacaya(
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofPollingInterval:      proofPollingInterval,
-	}, nil
+	}
+
+	proofSubmitter.startProofBufferMonitors(ctx)
+
+	return proofSubmitter, nil
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -179,12 +190,20 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					startAt,
 				); err != nil {
 					if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
-						return fmt.Errorf("zk proof is WIP, status: %w", err)
+						if time.Since(startAt) > maxProofRequestTimeout {
+							log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
+							useZK = false
+							startAt = time.Now()
+						} else {
+							return fmt.Errorf("zk proof is WIP, status: %w", err)
+						}
 					} else {
-						log.Debug("ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
+						log.Debug(
+							"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
 							"batchID", opts.BatchID,
 						)
 						useZK = false
+						startAt = time.Now()
 					}
 				}
 			}
@@ -197,6 +216,9 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					meta,
 					startAt,
 				); err != nil {
+					if time.Since(startAt) > maxProofRequestTimeout {
+						log.Warn("WARN: Proof generation taking too long, please investigate")
+					}
 					return fmt.Errorf("failed to request base proof, error: %w", err)
 				}
 			}
@@ -247,16 +269,23 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
 func (s *ProofSubmitterPacaya) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
-	if !buffer.IsAggregating() &&
-		(uint64(buffer.Len()) >= buffer.MaxLength ||
-			(buffer.Len() != 0 && time.Since(buffer.FirstItemAt()) > s.forceBatchProvingInterval)) {
-		s.batchAggregationNotify <- proofType
-		buffer.MarkAggregating()
-
-		return true
+	// Check conditions first (without locking)
+	if uint64(buffer.Len()) < buffer.MaxLength &&
+		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
+		return false
 	}
 
+	if buffer.MarkAggregatingIfNot() { // Returns true if successfully marked
+		s.batchAggregationNotify <- proofType
+		return true
+	}
 	return false
+}
+
+// StartProofBufferMonitors monitors proof buffers and enforces forced aggregation,
+// only be called once during initialization.
+func (s *ProofSubmitterPacaya) startProofBufferMonitors(ctx context.Context) {
+	startProofBufferMonitors(ctx, s.proofBuffers, s.TryAggregate)
 }
 
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
@@ -379,6 +408,14 @@ func (s *ProofSubmitterPacaya) AggregateProofsByType(ctx context.Context, proofT
 		backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Aggregate proof error", "error", err)
+		batchIDs := make([]uint64, 0, len(buffer))
+		for _, proof := range buffer {
+			if proof.BatchID == nil {
+				continue
+			}
+			batchIDs = append(batchIDs, proof.BatchID.Uint64())
+		}
+		proofBuffer.ClearItems(batchIDs...)
 		return err
 	}
 	return nil

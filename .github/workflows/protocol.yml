@@ -37,65 +37,100 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Prepare environment
-        continue-on-error: true
-        run: sudo apt-get update && sudo apt-get install -y git wget
-
+      - name: Fetch owner/repo of pull request
+        uses: alessbell/pull-request-comment-branch@v2.1.0
+        id: comment-branch
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          submodules: recursive
+          # account for forked repos case
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          # Fetch more history for better git operations
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
-          token: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
+
+      - name: Read Foundry version
+        id: foundry-version
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.4.0
+        uses: foundry-rs/foundry-toolchain@v1.5.0
         with:
-          version: stable
+          version: ${{ steps.foundry-version.outputs.version }}
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
+      - name: Prepare generated artifacts directories for CI
+        working-directory: ./packages/protocol
+        run: |
+          # Ensure directories exist and are writable in CI
+          mkdir -p gas-reports layout snapshots
+          # Reset skip-worktree flags that might exist from local dev
+          git ls-files gas-reports/ | xargs -r git update-index --no-skip-worktree || true
+          git ls-files snapshots/ | xargs -r git update-index --no-skip-worktree || true
+          git ls-files 'contracts/**/*_Layout.sol' | xargs -r git update-index --no-skip-worktree || true
+          # Configure merge strategy for auto-generated files
+          git config merge.ours.driver true
+
       - name: Clean up and fmt
+        if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt
+        run: pnpm clean && pnpm fmt:sol
 
-      - name: Shared-Unit tests
+      - name: Test Shared contracts
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm test:shared && pnpm layout:shared
+        run: pnpm test:shared && pnpm layout:shared
 
-      - name: L2-Unit tests
+      - name: Test L2 contracts
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm compile:l2 && pnpm test:l2 && pnpm layout:l2
+        run: pnpm test:l2 && pnpm layout:l2
 
-      - name: L1-Unit tests
+      - name: Test L1 contracts
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
+        run: pnpm snapshot:l1 && pnpm layout:l1
+
+      # - name: Generate coverage report
+      #   if: ${{ secrets.CODECOV_TOKEN != '' }}
+      #   working-directory: ./packages/protocol
+      #   run: |
+      #     forge coverage --report lcov
+      #     mkdir -p coverage
+      #     mv lcov.info coverage/lcov.info
+
+      # - name: Upload coverage to Codecov
+      #   if: ${{ secrets.CODECOV_TOKEN != '' }}
+      #   uses: codecov/codecov-action@v5
+      #   with:
+      #     files: ./packages/protocol/coverage/lcov.info
+      #     flags: protocol
+      #   env:
+      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Check for changes
         id: git_status
         run: |
           git add -N .  # Simulate staging to detect untracked files
           if [ -n "$(git status --porcelain)" ]; then
-            echo "changes=true" >> $GITHUB_ENV
+            echo "changes=true" >> $GITHUB_OUTPUT
           else
-            echo "changes=false" >> $GITHUB_ENV
+            echo "changes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit contract layout table
-        if: env.changes == 'true'
-        uses: stefanzweifel/git-auto-commit-action@v6
+      - name: Commit generated protocol artifacts
+        if: steps.git_status.outputs.changes == 'true' && github.event.pull_request.head.repo.fork == false
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
-          commit_message: "forge fmt & update contract layout tables"
+          commit_message: "Update protocol generated artifacts"
           branch: ${{ github.head_ref }}
           push_options: "--force-with-lease"
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
-        timeout-minutes: 2
+        timeout-minutes: 4
         run: |
-          anvil --hardfork cancun &
+          anvil &
           until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done
@@ -114,12 +149,18 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
+      - name: Read Foundry version
+        id: foundry-version
+        run: echo "version=$(grep foundry packages/protocol/.tool-versions | awk '{print $2}')" >> $GITHUB_OUTPUT
+
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.3.1
+        uses: foundry-rs/foundry-toolchain@v1.5.0
+        with:
+          version: ${{ steps.foundry-version.outputs.version }}
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

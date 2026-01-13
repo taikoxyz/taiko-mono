@@ -3,16 +3,22 @@ title: Run a Taiko Alethia node with Docker
 description: This guide will help you start up a Taiko RPC node using simple-taiko-node.
 ---
 
-import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+import {
+  Aside,
+  Code,
+  Steps,
+  TabItem,
+  Tabs,
+} from "@astrojs/starlight/components";
 
 This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
 
 ## Software Dependencies
 
-| Dependency                                                    | Version  | Version Check Command |
-| ------------------------------------------------------------- | -------- | --------------------- |
-| [git](https://git-scm.com/)                                   | `^2`     | `git --version`       |
-| [Docker](https://docs.docker.com/engine/install/)             | `^24.0`  | `docker --version`    |
+| Dependency                                        | Version | Version Check Command |
+| ------------------------------------------------- | ------- | --------------------- |
+| [git](https://git-scm.com/)                       | `^2`    | `git --version`       |
+| [Docker](https://docs.docker.com/engine/install/) | `^24.0` | `docker --version`    |
 
 ## Prerequisites
 
@@ -23,171 +29,227 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
 <Steps>
 
-1. Clone simple-taiko-node
+1.  Clone simple-taiko-node
 
     <Tabs>
       <TabItem label="Mac/Linux">
-        ```sh
-        git clone https://github.com/taikoxyz/simple-taiko-node.git
-        cd simple-taiko-node
-        ```
+        <Code
+          code="git clone https://github.com/taikoxyz/simple-taiko-node.git\ncd simple-taiko-node"
+          lang="bash"
+        />
       </TabItem>
       <TabItem label="Windows">
-        ```sh
-        git clone https://github.com/taikoxyz/simple-taiko-node.git
-        cd simple-taiko-node && git config core.autocrlf false
-        ```
+        <Code
+          code="git clone https://github.com/taikoxyz/simple-taiko-node.git\ncd simple-taiko-node && git config core.autocrlf false"
+          lang="bash"
+        />
       </TabItem>
     </Tabs>
 
-2. Copy the sample .env files
+2.  Copy the sample .env files
 
     <Aside title="Info">
-    To run a `Taiko Hekla` node please copy `.env.sample.hekla` instead of `.env.sample`.
+      To run a `Taiko Hoodi` node please copy `.env.sample.hoodi` instead of
+      `.env.sample`.
     </Aside>
 
     ```sh
     cp .env.sample .env
     ```
 
-3. Set the L1 node endpoint
+3.  Set the L1 node endpoint
 
-    First, open the `.env` in your preferred text editor:
+        First, open the `.env` in your preferred text editor:
 
-    <Tabs>
-      <TabItem label="Mac/Linux">
-        ```sh
-        nano .env
-        ```
-      </TabItem>
-      <TabItem label="Windows">
-        ```sh
-        notepad .env
-        ```
-      </TabItem>
-    </Tabs>
+        <Tabs>
+          <TabItem label="Mac/Linux">
+            <Code code="nano .env" lang="bash" />
+          </TabItem>
+          <TabItem label="Windows">
+            <Code code="notepad .env" lang="bash" />
+          </TabItem>
+        </Tabs>
 
-    <Aside>
-    You can use any L1 endpoint to run a Taiko L1 node unless you want to prove blocks past the last 128 blocks, in which case you will need an archive node.
+          <Aside>
 
-    It's recommended to [run a local L1 node](/guides/node-operators/run-an-ethereum-testnet-node) but you browse around for other RPC Providers. Keep in mind they will **eventually rate limit your node** and it will stop syncing, so a local L1 node is recommended for a proper setup.
+    You can use any L1 endpoint to run a Taiko L1 node unless you want to
+    prove blocks past the last 128 blocks, in which case you will need an
+    archive node.
 
-    For Taiko Alethia, the L1 Node will need to be an Ethereum node; for Taiko Hekla, the L1 Node will need to be an Ethereum testnet (Holesky) node.
-    </Aside>
+        It's recommended to
+        [run a local L1 node](/guides/node-operators/run-an-ethereum-testnet-node)
+        but you browse around for other RPC Providers. Keep in mind they will
+        **eventually rate limit your node** and it will stop syncing, so a local L1
+        node is recommended for a proper setup.
 
-    Next, you will set the L1 node endpoints. If you are running a local L1 node, you cannot reference the L1 endpoints as `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:
+        For Taiko Alethia, the L1 Node will need to be an Ethereum node. For Taiko
+        Hoodi, the L1 Node will need to be an Ethereum testnet (Hoodi) node.
 
-    - Using `host.docker.internal` (see: [stack overflow](https://stackoverflow.com/questions/24319662)).
-    - Using the private ip address of your machine (use something like `ip addr show` to get this ip address).
+          </Aside>
 
-    After getting the address of the L1 node, set the following L1 node endpoints in your `.env` file. Here is an example:
+        Next, you will set the L1 node endpoints. If you are running a local L1
+        node, you cannot reference the L1 endpoints as `ws://127.0.0.1:8546` and
+        `http://127.0.0.1:5052` because that is local to inside the
+        simple-taiko-node Docker networking. Instead you can try:
+        - Using `host.docker.internal` (see:
+          [stack overflow](https://stackoverflow.com/questions/24319662)).
+        - Using the private ip address of your machine (use something like
+          `ip addr show` to get this ip address).
 
-    - `L1_ENDPOINT_WS=ws://192.168.1.15:8546`
-    - `L1_BEACON_HTTP=http://192.168.1.15:5052`
+        After getting the address of the L1 node, set the following L1 node
+        endpoints in your `.env` file. Here is an example:
+        - `L1_ENDPOINT_WS=ws://192.168.1.15:8546`
+        - `L1_BEACON_HTTP=http://192.168.1.15:5052`
 
-4. Remove old testnet volumes
+4.  Remove old testnet volumes
 
-    If you ran a testnet node previously, make sure to first remove the old volumes:
+    If you ran a testnet node previously, make sure to first remove the old
+    volumes:
 
     ```sh
     docker compose down -v
     ```
 
-5. Set the profiles you want to run
+5.  Set the profiles you want to run
 
-    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,prover` or any combination of the three).
+        In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services
+        you'd like to run in a comma separated list (i.e., `l2_execution_engine,prover`
+        or any combination of the three).
 
-    Note that if you include `prover`, the service will still be disabled if you do not set `ENABLE_PROVER=true` in your `.env` file.
+        Note that if you include `prover`, the service will still be disabled if you
+        do not set `ENABLE_PROVER=true` in your `.env` file.
 
-6. Set your node's external IP for p2p discovery
+          <Aside type="tip">
 
-    This is an important config for based preconfirmations. Find your machine's external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may choose to leave it blank, in which case our scripts will enable `p2p.nat` in your driver; this means that you will automatically enable NAT traversal with PMP/UPNP devices to learn external IP. This is not preferred, and we highly recommend you manually set the `PUBLIC_IP` for discovery.
+    The following steps 6-8 are only necessary if you wish to have your node
+    receive preconfirmed blocks and keep up with the tip of the chain.
+
+        **To enable preconfs in your node**, please ensure that
+        `ENABLE_PRECONFS_P2P` is set to `true` in your `.env` file.
+
+        If it is set to `false`, your node **will not receive preconfed blocks**
+        and only update it's chainhead when the events are emitted on-chain.
+
+          </Aside>
+
+6.  Set your node's external IP for p2p discovery
+
+    This is an important config for based preconfirmations. Find your machine's
+    external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may
+    choose to leave it blank, in which case our scripts will enable `p2p.nat` in
+    your driver; this means that you will automatically enable NAT traversal
+    with PMP/UPNP devices to learn external IP. This is not preferred, and we
+    highly recommend you manually set the `PUBLIC_IP` for discovery.
 
     <Aside type="danger">
-    `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
+      `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at
+      the UDP and TCP ports you advertise from. If it is not, your node will not
+      join the P2P network correctly.
     </Aside>
 
-7. Ensure that the relevant ports are open on your machine **at the external IP you set.**
+7.  Ensure that the relevant ports are open on your machine **at the external IP you set.**
 
-    Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are **open and visible to the internet at your external IP:**
-      - TCP `4001` OR whichever port you set `P2P_TCP_PORT` to in your `.env`.
-      - UDP `30303` OR whichever port you set `P2P_UDP_PORT` to in your `.env`.
+    Whether you are running the node on a personal machine or a cloud provider's
+    machine, you should ensure your the following ports on your machine are
+    **open and visible to the internet at your external IP:**
+    - TCP `4001` OR whichever port you set `P2P_TCP_PORT` to in your `.env`.
+    - UDP `30303` OR whichever port you set `P2P_UDP_PORT` to in your `.env`.
 
-    These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
+    These ports **are required for p2p gossiping preconfirmed blocks**, so if it
+    is not set you will only subscribe to the events that are emitted on chain.
+    You may need to add additional port-forwarding rules in your firewall/router
+    to enable discovery from the internet.
 
-8. Set a private key for your P2P id
+8.  Set a private key for your P2P id
 
-    Another important config for based preconfirmations, your node needs a private key set to acquire a stable peer ID. This private key should be unique to each node: if you are running multiple, please use different ones for each node. **This private key does not need to hold eth or any valuables, it is simply to persist an identity.**
+    Another important config for based preconfirmations, your node needs a
+    private key set to acquire a stable peer ID. This private key should be
+    unique to each node: if you are running multiple, please use different ones
+    for each node. **This private key does not need to hold eth or any valuables,
+    it is simply to persist an identity.**
 
     You may either set `PRIV_RAW` in your `.env`, or `PRIV_FILE`:
-      - `PRIV_RAW` is the hexstring private key in plaintext
-      - `PRIV_FILE` is the name of your txt file that consists entirely of a private key with no newlines IN YOUR `/script/` DIRECTORY.
+    - `PRIV_RAW` is the hexstring private key in plaintext
+    - `PRIV_FILE` is the name of your txt file that consists entirely of a
+      private key with no newlines IN YOUR `/script/` DIRECTORY.
 
-9. Start the node
+9.  Start the node
 
-    <Aside title="Info">
-    Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
+          <Aside title="Info">
 
-    To run a Taiko Hekla node please use the following command instead: `docker compose -f docker-compose-hekla.yml up -d`.
-    </Aside>
+    Make sure Docker is running and then run the following command to start the
+    node (you may need to use `sudo docker compose up -d` if your user is not
+    in the `docker` group):
 
-    ```sh
-    docker compose up -d
-    ```
+        To run a Taiko Hoodi node please use the following command instead:
+        `docker compose -f docker-compose-hoodi.yml up -d`.
+
+          </Aside>
+
+        ```sh
+        docker compose up -d
+        ```
 
 10. Verify that your node has joined the P2P network
 
-    To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please use `grep` to find logs regarding `peer tick`. You should find something that resembles the following:
+    To ensure that your node is actually configured correctly and has joined the
+    P2P network for preconfirmations, please use `grep` to find logs regarding
+    `peer tick`. You should find something that resembles the following:
 
     ```
     INFO [07-30|18:37:38.168] Peer tick                                peersLen=6 peers="[...]" addrInfo="[...]" id=... advertisedUDP=52700 advertisedTCP=4001 advertisedIP=...
     ```
 
-    As long as `connected=X` is greater than or equal to 6, your node should have joined the P2P network correctly! If it is below that, please reach out to us on Discord for troubleshooting help.
+    As long as `connected=X` is greater than or equal to 6, your node should
+    have joined the P2P network correctly! If it is below that, please reach out
+    to us on Discord for troubleshooting help.
 
 11. Verify node is running
 
     #### Option 1: Check with the node dashboard
 
-    A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
+    A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you
+    set in your `.env` file, which defaults to `3001`:
+    [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
 
-    You can verify that your node is syncing by checking that the **chain head** on the dashboard is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
+    You can verify that your node is syncing by checking that the **chain head**
+    on the dashboard is increasing. Once the chain head matches what's on the
+    block explorer, you are fully synced.
 
     #### Option 2: Check with curl commands
-
-    <Steps>
     1. Check if the Execution Layer client is connected to Taiko L2:
 
-        ```bash
-        curl http://localhost:8547 \
-          -X POST \
-          -H "Content-Type: application/json" \
-          --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
-        ```
+       ```bash
+       curl http://localhost:8547 \
+         -X POST \
+         -H "Content-Type: application/json" \
+         --data '{"method":"eth_chainId","params":[],"id":1,"jsonrpc":"2.0"}'
+       ```
 
-        which should return the chainId as `0x28c61` (167009):
+       which should return the chainId as `0x28c61` (167009):
 
-        ```json
-        { "jsonrpc": "2.0", "id": 1, "result": "0x28c61" }
-        ```
+       ```json
+       { "jsonrpc": "2.0", "id": 1, "result": "0x28c61" }
+       ```
 
     2. Check if the Execution Layer client is synced by requesting the latest Taiko L2 / L3 block from the Execution Layer client:
 
-        ```bash
-        curl http://localhost:8547 \
-          -X POST \
-          -H "Content-Type: application/json" \
-          --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
-        ```
+       ```bash
+       curl http://localhost:8547 \
+         -X POST \
+         -H "Content-Type: application/json" \
+         --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}'
+       ```
 
     3. If the blockNumber response value is `0` or not growing, check the Taiko L2 logs here:
 
-        ```bash
-        docker compose logs -f
-        ```
+       ```bash
+       docker compose logs -f
+       ```
 
-        > Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
-    </Steps>
+       > Note: You may need to use `sudo docker compose logs -f` if you are not in the
+       > `docker` group.
+
 </Steps>
 
 ## Video tutorial

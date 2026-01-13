@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/libs/LibAddress.sol";
 import "../CommonTest.sol";
+import "src/shared/libs/LibAddress.sol";
 
 contract CalldataReceiver {
     // Returns success

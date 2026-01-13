@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /// @title LibNetwork
 library LibNetwork {
     uint256 internal constant ETHEREUM_MAINNET = 1;
-    uint256 internal constant ETHEREUM_ROPSTEN = 2;
+    uint256 internal constant ETHEREUM_ROPSTEN = 3;
     uint256 internal constant ETHEREUM_RINKEBY = 4;
     uint256 internal constant ETHEREUM_GOERLI = 5;
     uint256 internal constant ETHEREUM_KOVAN = 42;
@@ -17,6 +17,7 @@ library LibNetwork {
     uint64 internal constant TAIKO_HEKLA = 167_009;
     uint64 internal constant TAIKO_DEVNET = 167_001;
     uint64 internal constant TAIKO_PRECONF = 167_010;
+    uint64 internal constant TAIKO_HOODI = 167_013;
 
     uint256 internal constant ETHEREUM_BLOCK_TIME = 12 seconds;
 

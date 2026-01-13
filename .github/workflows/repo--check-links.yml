@@ -12,9 +12,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --no-progress --verbose "**/README.md" --accept 429
+          args: --no-progress --verbose "**/README.md" --accept '429, 200'

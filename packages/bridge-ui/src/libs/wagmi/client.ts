@@ -29,4 +29,5 @@ export const config = createConfig({
   transports: createTransports(chains),
 });
 
-reconnect(config);
+// Export the reconnection promise so watcher can wait for it
+export const reconnectionPromise = reconnect(config);

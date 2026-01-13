@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/mainnet/TaikoDAOController.sol";
 import "script/BaseScript.sol";
+import "src/layer1/mainnet/MainnetDAOController.sol";
 
-contract DeployTaikoDAOController is BaseScript {
+contract DeployMainnetDAOController is BaseScript {
     function run() external broadcast {
-        address taikoDaoControllerImpl2 = address(new TaikoDAOController());
-        console2.log("taikoDaoControllerImpl2:", taikoDaoControllerImpl2);
+        address MainnetDAOControllerImpl2 = address(new MainnetDAOController());
+        console2.log("MainnetDAOControllerImpl2:", MainnetDAOControllerImpl2);
     }
 }

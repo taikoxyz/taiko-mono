@@ -44,7 +44,7 @@ export async function getStorageLayout(
     name: string,
 ): Promise<SolidityStorageLayout> {
     const artifactPath =
-        name === "RegularERC20"
+        name === "RegularERC20" || name === "CheckpointManager"
             ? `../../../out/shared/${name}.sol/${name}.json`
             : `../../../out/layer2/${name}.sol/${name}.json`;
     const artifact = require(artifactPath);

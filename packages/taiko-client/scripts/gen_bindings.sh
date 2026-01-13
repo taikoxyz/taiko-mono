@@ -21,7 +21,7 @@ cd ../protocol &&
   cd -
 
 ABIGEN_BIN=$TAIKO_GETH_DIR/build/bin/abigen
-FORK=pacaya
+FORK=shasta
 
 echo ""
 echo "PROTOCOL_FORK_NAME: ${FORK}"
@@ -31,45 +31,17 @@ echo ""
 echo "Start generating Go contract bindings..."
 echo ""
 
-cat ../protocol/out/layer1/TaikoWrapper.sol/TaikoWrapper.json |
+cat ../protocol/out/layer1/MainnetInbox.sol/MainnetInbox.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoWrapperClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_wrapper.go
+	${ABIGEN_BIN} --abi - --type ShastaInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox.go
 
-cat ../protocol/out/layer1/ForcedInclusionStore.sol/ForcedInclusionStore.json |
+cat ../protocol/out/layer2/Anchor.sol/Anchor.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type ForcedInclusionStore --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_forced_inclusion_store.go
-
-cat ../protocol/out/layer1/TaikoInbox.sol/TaikoInbox.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_inbox.go
-
-cat ../protocol/out/layer2/TaikoAnchor.sol/TaikoAnchor.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoAnchorClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_anchor.go
-
-cat ../protocol/out/layer1/TaikoToken.sol/TaikoToken.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoToken --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_token.go
-
-cat ../protocol/out/layer1/ResolverBase.sol/ResolverBase.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type ResolverBase --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_resolver_base.go
-
-cat ../protocol/out/layer1/ProverSet.sol/ProverSet.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type ProverSet --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_prover_set.go
-
-cat ../protocol/out/layer1/ForkRouter.sol/ForkRouter.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type ForkRouter --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_fork_router.go
+	${ABIGEN_BIN} --abi - --type ShastaAnchor --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_anchor.go
 
 cat ../protocol/out/layer1/ComposeVerifier.sol/ComposeVerifier.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
-
-cat ../protocol/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type PreconfWhitelist --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_whitelist.go
+  jq .abi |
+  ${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
 
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
@@ -18,6 +20,15 @@ import (
 // ref: https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md
 type EngineClient struct {
 	*rpc.Client
+	rpcURL string
+}
+
+// CallContext wraps the underlying RPC client's CallContext with metrics tracking.
+func (c *EngineClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	start := time.Now()
+	err := c.Client.CallContext(ctx, result, method, args...)
+	recordRPCMetrics(method, c.rpcURL, start, err)
+	return err
 }
 
 // NewJWTEngineClient creates a new EngineClient with JWT authentication.
@@ -33,6 +44,7 @@ func NewJWTEngineClient(url, jwtSecret string) (*EngineClient, error) {
 
 	return &EngineClient{
 		Client: authClient,
+		rpcURL: url,
 	}, nil
 }
 
@@ -42,11 +54,11 @@ func (c *EngineClient) ForkchoiceUpdate(
 	fc *engine.ForkchoiceStateV1,
 	attributes *engine.PayloadAttributes,
 ) (*engine.ForkChoiceResponse, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
 		return nil, err
 	}
 
@@ -58,11 +70,11 @@ func (c *EngineClient) NewPayload(
 	ctx context.Context,
 	payload *engine.ExecutableData,
 ) (*engine.PayloadStatusV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
 		return nil, err
 	}
 
@@ -74,11 +86,11 @@ func (c *EngineClient) GetPayload(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
 ) (*engine.ExecutableData, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
 		return nil, err
 	}
 
@@ -90,11 +102,11 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	ctx context.Context,
 	cfg *engine.TransitionConfigurationV1,
 ) (*engine.TransitionConfigurationV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
-	if err := c.Client.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
+	if err := c.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
 		return nil, err
 	}
 
@@ -112,7 +124,7 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	maxTransactionsLists uint64,
 	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 	var result []*miner.PreBuiltTxList
 
@@ -161,11 +173,22 @@ func (c *EngineClient) SetL1OriginSignature(
 
 // SetHeadL1Origin sets the latest L2 block's corresponding L1 origin.
 func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
-	var res *big.Int
+	var res hexutil.Big
 
 	if err := c.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	return (*big.Int)(&res), nil
+}
+
+// SetBatchToLastBlock sets the batch to block mapping in the execution engine.
+func (c *EngineClient) SetBatchToLastBlock(ctx context.Context, batchID *big.Int, blockID *big.Int) (*big.Int, error) {
+	var res hexutil.Big
+
+	if err := c.CallContext(ctx, &res, "taikoAuth_setBatchToLastBlock", batchID, blockID); err != nil {
+		return nil, err
+	}
+
+	return (*big.Int)(&res), nil
 }
