@@ -51,11 +51,10 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
 ) (*ShastaDerivationSourcePayload, error) {
-	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offset is invalid,
-	// return the default payload.
+	// If there is no blob hash, or its offset is invalid, return the default payload.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
 		meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
-			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
+			uint64(manifest.BlobBytes-64) {
 		return &ShastaDerivationSourcePayload{Default: true}, nil
 	}
 
