@@ -277,9 +277,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
-            // We count proposalAge as the time since it became available for proving.
-            uint256 proposalAge = block.timestamp
-                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
+            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
             bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
 
             // ---------------------------------------------------------
