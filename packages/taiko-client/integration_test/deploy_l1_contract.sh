@@ -30,12 +30,11 @@ cat "L1 contracts deployed:
   SharedAddressManager: $SHARED_RESOLVER
 "
 
-cd ../protocol &&
-  FOUNDRY_PROFILE=layer1o PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
+cd ${SHASTA_FORK_TAIKO_MONO}/packages/protocol &&
+  FOUNDRY_PROFILE=layer1 PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \
     -vvvvv \
     --private-key "$PRIVATE_KEY" \
-    --block-gas-limit 200000000 \
-    --legacy
+    --block-gas-limit 200000000

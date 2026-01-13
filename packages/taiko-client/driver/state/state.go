@@ -122,9 +122,6 @@ func (s *State) eventLoop(ctx context.Context) {
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
 		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
 		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
-
-		// Last finalized Shasta proposal ID
-		lastFinalizedShastaProposalId *big.Int
 	)
 
 	defer func() {
@@ -143,38 +140,29 @@ func (s *State) eventLoop(ctx context.Context) {
 		case e := <-batchesProvedPacayaCh:
 			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
 		case e := <-provedShastaCh:
-			payload, err := s.rpc.DecodeProvedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
+			coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 			if err != nil {
-				log.Error("Failed to decode proved payload", "err", err)
+				log.Error("Failed to get Shasta core state", "err", err)
+				continue
+			}
+			header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
+			if err != nil {
+				log.Error("Failed to get Shasta finalized block header", "err", err)
 				continue
 			}
 			log.Info(
-				"✅ Shasta batches proven",
-				"batchIDs", payload.ProposalId,
-				"checkpointNumber", payload.Transition.Checkpoint.BlockNumber,
-				"checkpointHash", common.Hash(payload.Transition.Checkpoint.BlockHash),
+				"📈 Shasta batches proven and verified",
+				"firstBatchID", e.FirstNewProposalId,
+				"lastBatchID", e.LastProposalId,
+				"checkpointNumber", header.Number,
+				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
 			)
 		case e := <-batchesVerifiedPacayaCh:
 			log.Info(
 				"📈 Pacaya batches verified",
-				"lastVerifiedBatchId", e.BatchId,
+				"lastVerifiedBatchID", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
-		case e := <-proposedShastaCh:
-			payload, err := s.rpc.DecodeProposedEventPayload(&bind.CallOpts{Context: ctx}, e.Data)
-			if err != nil {
-				log.Error("Failed to decode proposed payload", "err", err)
-				continue
-			}
-			if lastFinalizedShastaProposalId != nil &&
-				payload.CoreState.LastFinalizedProposalId.Cmp(lastFinalizedShastaProposalId) > 0 {
-				log.Info(
-					"📈 Shasta batches verified",
-					"lastVerifiedBatchId", payload.CoreState.LastFinalizedProposalId,
-					"lastFinalizedTransitionHash", common.Hash(payload.CoreState.LastFinalizedTransitionHash[:]),
-				)
-			}
-			lastFinalizedShastaProposalId = payload.CoreState.LastFinalizedProposalId
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
 			s.l1HeadsFeed.Send(newHead)

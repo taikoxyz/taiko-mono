@@ -5,7 +5,7 @@ use std::{
     io::{Read, Write},
 };
 
-use alloy::primitives::{Address, Bytes, U256};
+use alloy::primitives::{Address, U256};
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{self, Decodable, Encodable, RlpDecodable, RlpEncodable};
 use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
@@ -38,9 +38,6 @@ pub struct BlockManifest {
 #[derive(Debug, Clone, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
 pub struct DerivationSourceManifest {
-    /// Raw prover authentication payload.
-    #[serde(default)]
-    pub prover_auth_bytes: Bytes,
     /// Blocks included in this source.
     pub blocks: Vec<BlockManifest>,
 }
@@ -48,7 +45,7 @@ pub struct DerivationSourceManifest {
 impl Default for DerivationSourceManifest {
     /// Create the default derivation source manifest.
     fn default() -> Self {
-        Self { prover_auth_bytes: Bytes::new(), blocks: vec![BlockManifest::default()] }
+        Self { blocks: vec![BlockManifest::default()] }
     }
 }
 

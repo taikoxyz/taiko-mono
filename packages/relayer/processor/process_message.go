@@ -161,19 +161,17 @@ func (p *Processor) processMessage(
 
 				return true, msgBody.TimesRetried, nil
 			}
+		} else {
+			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
+			if diff <= p.forkWindow {
+				slog.Info("approaching shasta fork window, pausing processing",
+					"blockTimestamp", blockTs,
+					"shastaForkTimestamp", p.shastaForkTimestamp,
+					"windowSeconds", p.forkWindow.Seconds(),
+				)
 
-			return false, msgBody.TimesRetried, nil
-		}
-
-		diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
-		if diff <= p.forkWindow {
-			slog.Info("approaching shasta fork window, pausing processing",
-				"blockTimestamp", blockTs,
-				"shastaForkTimestamp", p.shastaForkTimestamp,
-				"windowSeconds", p.forkWindow.Seconds(),
-			)
-
-			return true, msgBody.TimesRetried, nil
+				return true, msgBody.TimesRetried, nil
+			}
 		}
 	}
 
@@ -478,7 +476,7 @@ func (p *Processor) sendProcessMessageCall(
 ) (*types.Receipt, error) {
 	defer p.logRelayerBalance(ctx)
 
-	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
+	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{Context: ctx}, event.Message, proof)
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +554,7 @@ func (p *Processor) sendProcessMessageCall(
 			Data: data,
 		}
 
-		gasUsed, err := p.destEthClient.EstimateGas(context.Background(), msg)
+		gasUsed, err := p.destEthClient.EstimateGas(ctx, msg)
 		if err != nil {
 			return nil, err
 		}

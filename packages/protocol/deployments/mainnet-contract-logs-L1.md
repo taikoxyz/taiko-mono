@@ -233,9 +233,7 @@
 
 - ens: `inbox_based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F`
-- oldFork: `0x904Da4C5bD76f932fE09fF32Ae5D7E3d2A5D2264` at commit `c80373d`
-- newFork: `0x257df77Ec059ca5CF9B7eD523f85B731A2eCdb82` at commit `c2a941e`
+- impl: `0xB0600e011e02eD35A142B45B506B16A35493c3F5`
 - owner : `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -264,6 +262,7 @@
   - Upgrade to `0x4e030b19135869F6fd926614754B7F9c184E2B83` @commit`cf55838` @tx`0x78f766ae83ce94ef2293c9c7d81ae514e8fa0a79fbce1530c3c68d7624708795`
   - Upgrade to `0xde813DD3b89702E5Eb186FeE6FBC5dCf02aE6319` @commit`3328024` @tx`0xffedb70a513e71486c3a47079508d3ba87ae5362e7efb3300febac1be69276bc`
   - Upgrade to `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F` @commit`c2a941e` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
+  - Upgrade to `0xB0600e011e02eD35A142B45B506B16A35493c3F5` @commit`` @tx``
 
 #### tier_router
 

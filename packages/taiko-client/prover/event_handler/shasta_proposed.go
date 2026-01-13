@@ -15,7 +15,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
 // HandleShasta handles the Shasta protocol Proposed event.
@@ -28,18 +27,18 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		log.Debug("Skip non-Shasta Proposed event", "batchID", meta.Pacaya().GetBatchID())
 		return nil
 	}
-	if meta.Shasta().GetProposal().Id.Cmp(common.Big0) == 0 {
+	if meta.Shasta().GetEventData().Id.Cmp(common.Big0) == 0 {
 		return nil
 	}
 
 	// Wait for the corresponding L2 block being mined in node.
-	header, err := h.rpc.WaitShastaHeader(ctx, meta.Shasta().GetProposal().Id)
+	header, err := h.rpc.WaitShastaHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
-		return fmt.Errorf("failed to wait L2 Shasta header (batchID %d): %w", meta.Shasta().GetProposal().Id, err)
+		return fmt.Errorf("failed to wait L2 Shasta header (batchID %d): %w", meta.Shasta().GetEventData().Id, err)
 	}
 
 	// Check if the L1 chain has reorged at first.
-	if err := h.checkL1Reorg(ctx, meta.Shasta().GetProposal().Id, meta); err != nil {
+	if err := h.checkL1Reorg(ctx, meta.Shasta().GetEventData().Id, meta); err != nil {
 		if err.Error() == errL1Reorged.Error() {
 			end()
 			return nil
@@ -48,14 +47,8 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		return err
 	}
 
-	// Get the proposal state from the Shasta Anchor contract.
-	_, proposalState, err := h.rpc.GetShastaAnchorState(&bind.CallOpts{Context: ctx, BlockHash: header.Hash()})
-	if err != nil {
-		return fmt.Errorf("failed to get Shasta proposal state (batchID %d): %w", meta.Shasta().GetProposal().Id, err)
-	}
-
 	// If the current batch is handled, just skip it.
-	if meta.Shasta().GetProposal().Id.Uint64() <= h.sharedState.GetLastHandledShastaBatchID() {
+	if meta.Shasta().GetEventData().Id.Uint64() <= h.sharedState.GetLastHandledShastaBatchID() {
 		return nil
 	}
 
@@ -63,15 +56,14 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		"New Shasta Proposed event",
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
-		"batchID", meta.Shasta().GetProposal().Id,
+		"batchID", meta.Shasta().GetEventData().Id,
 		"lastBlockID", header.Number,
 		"proposer", meta.GetProposer(),
-		"designatedProver", proposalState.DesignatedProver,
-		"proposalTimestamp", meta.Shasta().GetProposal().Timestamp,
-		"derivationSources", len(meta.Shasta().GetDerivation().Sources),
+		"proposalTimestamp", meta.Shasta().GetTimestamp(),
+		"derivationSources", len(meta.Shasta().GetEventData().Sources),
 	)
 
-	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.Shasta().GetProposal().Id.Uint64()))
+	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.Shasta().GetEventData().Id.Uint64()))
 
 	// Move l1Current cursor.
 	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.GetRawBlockHash())
@@ -79,7 +71,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledShastaBatchID(meta.Shasta().GetProposal().Id.Uint64())
+	h.sharedState.SetLastHandledShastaBatchID(meta.Shasta().GetEventData().Id.Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
@@ -88,13 +80,13 @@ func (h *BatchProposedEventHandler) HandleShasta(
 				if err := h.checkExpirationAndSubmitProofShasta(
 					ctx,
 					meta,
-					meta.Shasta().GetProposal().Id,
-					proposalState.DesignatedProver,
+					meta.Shasta().GetEventData().Id,
+					meta.GetProposer(),
 				); err != nil {
 					log.Error(
 						"Failed to check Shasta proof status and submit proof",
-						"batchID", meta.Shasta().GetProposal().Id,
-						"derivationSources", len(meta.Shasta().GetDerivation().Sources),
+						"batchID", meta.Shasta().GetEventData().Id,
+						"derivationSources", len(meta.Shasta().GetEventData().Sources),
 						"maxRetries", h.backOffMaxRetries,
 						"error", err,
 					)
@@ -123,13 +115,9 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	batchID *big.Int,
 	designatedProver common.Address,
 ) error {
-	// Check whether the batch has been verified.
-	var (
-		coreState = h.indexer.GetLastCoreState()
-		record    = h.indexer.GetTransitionRecordByProposalID(batchID.Uint64())
-	)
-	if coreState == nil {
-		return fmt.Errorf("core state is nil")
+	coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
 
 	if batchID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
@@ -138,46 +126,6 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			"batchID", batchID,
 			"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		)
-		return nil
-	}
-
-	if record != nil {
-		header, err := h.rpc.L2.HeaderByNumber(ctx, record.Transition.Checkpoint.BlockNumber)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 header by number: %w", err)
-		}
-
-		proposalHash, err := h.rpc.GetShastaProposalHash(&bind.CallOpts{Context: ctx}, batchID)
-		if err != nil {
-			return fmt.Errorf("failed to get Shasta proposal hash: %w", err)
-		}
-		parentTransitionHash, err := transaction.BuildParentTransitionHash(ctx, h.rpc, h.indexer, batchID)
-		if err != nil {
-			return fmt.Errorf("failed to build parent Shasta transition hash: %w", err)
-		}
-
-		if record.Transition.Checkpoint.BlockHash == header.Hash() &&
-			record.Transition.ParentTransitionHash == parentTransitionHash &&
-			record.Transition.ProposalHash == proposalHash {
-			log.Info(
-				"A valid proof has been submitted, skip proving",
-				"batchID", batchID,
-				"parentBlockHash", header.ParentHash,
-				"parentTransitionHash", parentTransitionHash,
-				"proposalHash", common.Hash(record.Transition.ProposalHash),
-			)
-			return nil
-		}
-
-		log.Warn(
-			"Invalid Shasta proof onchain, submitting a new proof",
-			"batchID", batchID,
-			"parentBlockHash", header.ParentHash,
-			"parentTransitionHash", parentTransitionHash,
-			"proposalHash", common.Hash(record.Transition.ProposalHash),
-		)
-		// We need to submit a valid proof.
-		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 		return nil
 	}
 
@@ -191,7 +139,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	if !windowExpired && !h.shouldProve(designatedProver) {
 		log.Info(
 			"Proposed Shasta batch is not provable by current prover at the moment",
-			"batchID", meta.Shasta().GetProposal().Id,
+			"batchID", meta.Shasta().GetEventData().Id,
 			"designatedProver", designatedProver,
 			"timeToExpire", timeToExpire,
 			"localProposerAddresses", h.localProposerAddresses,
@@ -200,7 +148,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 		if h.proveUnassignedBlocks {
 			log.Info(
 				"Add proposed Shasta batch to wait for proof window expiration",
-				"batchID", meta.Shasta().GetProposal().Id,
+				"batchID", meta.Shasta().GetEventData().Id,
 				"designatedProver", designatedProver,
 				"timeToExpire", timeToExpire,
 				"localProposerAddresses", h.localProposerAddresses,
@@ -220,7 +168,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 	if !h.proveUnassignedBlocks && !h.shouldProve(designatedProver) {
 		log.Info(
 			"Expired Shasta batch is not provable by current prover",
-			"batchID", meta.Shasta().GetProposal().Id,
+			"batchID", meta.Shasta().GetEventData().Id,
 			"currentProver", h.proverAddress,
 			"currentProverSet", h.proverSetAddress,
 			"designatedProver", designatedProver,
@@ -231,7 +179,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 
 	log.Info(
 		"Proposed Shasta batch is provable",
-		"batchID", meta.Shasta().GetProposal().Id,
+		"batchID", meta.Shasta().GetEventData().Id,
 		"designatedProver", designatedProver,
 		"localProposerAddresses", h.localProposerAddresses,
 	)

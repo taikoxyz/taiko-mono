@@ -1,7 +1,5 @@
 //! Core proposer implementation for submitting block proposals.
 
-use std::sync::Arc;
-
 use alethia_reth_consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
@@ -9,7 +7,6 @@ use alloy::{
     eips::BlockNumberOrTag, primitives::U256, providers::Provider, rpc::types::Transaction,
 };
 use alloy_network::TransactionBuilder;
-use event_indexer::indexer::{ShastaEventIndexer, ShastaEventIndexerConfig};
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES};
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
@@ -45,24 +42,6 @@ impl Proposer {
             "initializing proposer"
         );
 
-        // Initialize RPC client.
-        let indexer = ShastaEventIndexer::new(ShastaEventIndexerConfig {
-            l1_subscription_source: cfg.l1_provider_source.clone(),
-            inbox_address: cfg.inbox_address,
-            use_local_codec_decoder: cfg.use_local_shasta_codec,
-        })
-        .await?;
-        indexer.clone().spawn();
-        indexer.wait_historical_indexing_finished().await;
-
-        Self::new_with_indexer(cfg, indexer).await
-    }
-
-    /// Creates a new proposer using an already-initialized event indexer.
-    pub async fn new_with_indexer(
-        cfg: ProposerConfigs,
-        indexer: Arc<ShastaEventIndexer>,
-    ) -> Result<Self> {
         let rpc_provider = Client::new_with_wallet(
             ClientConfig {
                 l1_provider_source: cfg.l1_provider_source.clone(),
@@ -77,7 +56,6 @@ impl Proposer {
 
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),
-            indexer,
             cfg.l2_suggested_fee_recipient,
         );
 
@@ -217,54 +195,5 @@ impl Proposer {
             &parent.header.inner,
             parent_block_time,
         )))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::borrow::Cow;
-
-    use super::*;
-    use alloy::{
-        primitives::{B256, aliases::U48},
-        rpc::client::NoParams,
-    };
-    use serial_test::serial;
-    use test_harness::{ShastaEnv, init_tracing};
-
-    #[serial]
-    #[tokio::test]
-    async fn propose_shasta_batches() -> anyhow::Result<()> {
-        init_tracing("debug");
-
-        let env = ShastaEnv::load_from_env().await?;
-
-        let proposer = env.proposer.clone();
-        let provider = proposer.rpc_client();
-
-        for i in 0..3 {
-            assert_eq!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
-
-            evm_mine(provider.clone()).await?;
-            proposer.fetch_and_propose().await?;
-
-            assert_ne!(B256::ZERO, get_proposal_hash(provider.clone(), U48::from(i + 1)).await?);
-        }
-
-        Ok(())
-    }
-
-    async fn evm_mine(client: ClientWithWallet) -> anyhow::Result<()> {
-        client
-            .l1_provider
-            .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
-            .await?;
-        Ok(())
-    }
-
-    async fn get_proposal_hash(client: ClientWithWallet, proposal_id: U48) -> anyhow::Result<B256> {
-        let hash: alloy::primitives::FixedBytes<32> =
-            client.shasta.inbox.getProposalHash(proposal_id).call().await?;
-        Ok(hash)
     }
 }

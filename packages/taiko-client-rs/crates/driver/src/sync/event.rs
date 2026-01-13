@@ -1,7 +1,14 @@
 //! Event sync logic.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
+};
 
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{Address, U256},
@@ -9,13 +16,18 @@ use alloy::{
 };
 use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
-use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
+use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
+use anyhow::anyhow;
+use async_trait::async_trait;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
-use metrics::counter;
-use protocol::shasta::constants::BOND_PROCESSING_DELAY;
-use tokio::spawn;
+use metrics::{counter, gauge, histogram};
+use tokio::{
+    spawn,
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
+    time::timeout,
+};
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
@@ -23,14 +35,27 @@ use tracing::{debug, error, info, instrument, warn};
 use super::{SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    derivation::ShastaDerivationPipeline,
+    error::DriverError,
+    jsonrpc::DriverRpcApi,
     metrics::DriverMetrics,
+    production::{
+        BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
+        ProductionInput, ProductionRouter,
+    },
 };
 
-use rpc::{blob::BlobDataSource, client::Client};
+use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 
-/// Two Ethereum epochs as a buffer to avoid resuming on a block that can still be reorged.
+/// Two Ethereum epochs worth of slots used as a reorg safety buffer.
+///
+/// When resuming event sync, the driver backs off by this many slots to ensure
+/// the anchor block cannot still be reorganized on L1.
 const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
+/// Default timeout for preconfirmation payload submission.
+///
+/// Covers both the enqueue operation and awaiting the processing response.
+const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -43,12 +68,199 @@ where
     cfg: DriverConfig,
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
+    /// Optional preconfirmation ingress sender for external producers.
+    preconf_tx: Option<PreconfSender>,
+    /// Optional preconfirmation ingress receiver consumed by the sync loop.
+    preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
+    /// Tracks the highest canonical proposal id processed from L1 events.
+    last_canonical_proposal_id: Arc<AtomicU64>,
+    /// Indicates whether the preconfirmation ingress loop is ready to accept submissions.
+    preconf_ingress_ready: Arc<AtomicBool>,
+    /// Notifier signaled when the preconfirmation ingress loop becomes ready.
+    preconf_ingress_notify: Arc<Notify>,
+}
+
+/// Maximum number of buffered preconfirmation payloads before backpressure applies.
+///
+/// When the channel is full, senders will block until space is available.
+const PRECONF_CHANNEL_CAPACITY: usize = 1024;
+
+/// Type aliases for preconfirmation payload channels.
+type PreconfSender = mpsc::Sender<PreconfJob>;
+type PreconfReceiver = mpsc::Receiver<PreconfJob>;
+
+/// A preconfirmation payload submission job.
+///
+/// Wraps a payload and a oneshot channel for returning the processing result
+/// back to the caller.
+pub struct PreconfJob {
+    /// The preconfirmation payload to be processed.
+    payload: Arc<PreconfPayload>,
+    /// Oneshot channel to send the processing result back to the caller.
+    respond_to: oneshot::Sender<Result<(), DriverError>>,
 }
 
 impl<P> EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Build the production router with the enabled paths.
+    fn build_router(
+        &self,
+        derivation: Arc<ShastaDerivationPipeline<P>>,
+    ) -> Arc<AsyncMutex<ProductionRouter>> {
+        let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
+
+        // Add canonical L1 proposal path.
+        let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
+            CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
+        );
+        paths.push(canonical_path);
+
+        // Add preconfirmation path if enabled.
+        if self.cfg.preconfirmation_enabled {
+            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
+                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
+            paths.push(preconf_path);
+        }
+
+        Arc::new(AsyncMutex::new(ProductionRouter::new(paths)))
+    }
+
+    /// Spawn the preconfirmation ingress processing loop.
+    fn spawn_preconf_ingress(
+        &self,
+        router: Arc<AsyncMutex<ProductionRouter>>,
+        rx: Arc<AsyncMutex<PreconfReceiver>>,
+        ready_flag: Arc<AtomicBool>,
+        ready_notify: Arc<Notify>,
+    ) {
+        spawn(async move {
+            // Start consuming externally supplied preconfirmation payloads.
+            info!(
+                queue_capacity = PRECONF_CHANNEL_CAPACITY,
+                "started preconfirmation ingress loop"
+            );
+            let mut rx = rx.lock().await;
+            // Signal that the ingress loop is ready to accept submissions.
+            ready_flag.store(true, Ordering::Release);
+            ready_notify.notify_waiters();
+            while let Some(job) = rx.recv().await {
+                // Track current backlog before processing this job.
+                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                let router = router.clone();
+                let start = Instant::now();
+                let block_number = job.payload.block_number();
+
+                // Single-shot injection; serialise via router lock to avoid interleaving.
+                let router_call = router
+                    .lock()
+                    .await
+                    .produce(ProductionInput::Preconfirmation(job.payload.clone()))
+                    .await;
+
+                let duration_secs = start.elapsed().as_secs_f64();
+                histogram!(DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS).record(duration_secs);
+
+                match router_call {
+                    Ok(_) => {
+                        counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
+                        info!(
+                            block_number,
+                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
+                            duration_secs,
+                            "preconfirmation payload injected"
+                        );
+                        // Return success to the original sender.
+                        let _ = job.respond_to.send(Ok(()));
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
+                        error!(
+                            ?err,
+                            block_number,
+                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
+                            duration_secs,
+                            "preconfirmation processing failed"
+                        );
+                        // Surface the error to the original sender.
+                        let _ = job.respond_to.send(Err(err));
+                    }
+                }
+                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+            }
+        });
+    }
+
+    /// Process a batch of proposal logs from the event scanner.
+    async fn process_log_batch(
+        &self,
+        router: Arc<AsyncMutex<ProductionRouter>>,
+        logs: Vec<Log>,
+    ) -> Result<(), SyncError> {
+        debug!(log_batch_size = logs.len(), "processing proposal log batch");
+        for log in logs {
+            let proposal_id = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())
+                .map(|event| event.id.to::<u64>())
+                .map_err(|e| SyncError::InvalidProposalLog {
+                    reason: e.to_string(),
+                    tx_hash: log.transaction_hash,
+                    block_number: log.block_number,
+                })?;
+
+            debug!(
+                block_number = log.block_number,
+                transaction_hash = ?log.transaction_hash,
+                "dispatching proposal log to derivation pipeline"
+            );
+            // Retry proposal processing on transient errors.
+            let retry_strategy =
+                ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
+
+            let router = router.clone();
+            let proposal_log = log.clone();
+            let outcomes = Retry::spawn(retry_strategy, move || {
+                let router = router.clone();
+                let log = proposal_log.clone();
+                async move {
+                    router
+                        // Lock router so L1 proposals and preconf inputs cannot interleave.
+                        .lock()
+                        .await
+                        .produce(ProductionInput::L1ProposalLog(log.clone()))
+                        .await
+                        .map_err(|err| {
+                            warn!(
+                                ?err,
+                                tx_hash = ?log.transaction_hash,
+                                block_number = log.block_number,
+                                "proposal derivation failed; retrying"
+                            );
+                            err
+                        })
+                }
+            })
+            .await
+            .map_err(|err| match err {
+                DriverError::Sync(sync_err) => sync_err,
+                DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
+                other => SyncError::Other(anyhow!(other)),
+            })?;
+
+            info!(
+                block_count = outcomes.len(),
+                last_block = outcomes.last().map(|outcome| outcome.block_number()),
+                last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
+                "successfully processed proposal into L2 blocks",
+            );
+
+            self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
+            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
+            counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
+        }
+        Ok(())
+    }
+
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
     pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
@@ -61,7 +273,134 @@ where
             .await
             .map_err(|err| SyncError::Other(err.into()))?,
         );
-        Ok(Self { rpc, cfg: cfg.clone(), blob_source })
+        let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
+            let (tx, rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
+            (Some(tx), Some(Arc::new(AsyncMutex::new(rx))))
+        } else {
+            (None, None)
+        };
+        Ok(Self {
+            rpc,
+            cfg: cfg.clone(),
+            blob_source,
+            preconf_tx,
+            preconf_rx,
+            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+            preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
+            preconf_ingress_notify: Arc::new(Notify::new()),
+        })
+    }
+
+    /// Return the latest canonical proposal id processed from L1 events.
+    pub fn last_canonical_proposal_id(&self) -> u64 {
+        self.last_canonical_proposal_id.load(Ordering::Relaxed)
+    }
+
+    /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
+    pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
+        self.preconf_tx.clone()
+    }
+
+    /// Wait until the preconfirmation ingress loop is ready to accept submissions.
+    ///
+    /// Returns `None` if preconfirmation is disabled.
+    pub async fn wait_preconf_ingress_ready(&self) -> Option<()> {
+        self.preconf_tx.as_ref()?;
+        loop {
+            let notified = self.preconf_ingress_notify.notified();
+            if self.preconf_ingress_ready.load(Ordering::Acquire) {
+                return Some(());
+            }
+            notified.await;
+        }
+    }
+
+    /// Submit a preconfirmation payload and await the processing result.
+    pub async fn submit_preconfirmation_payload(
+        &self,
+        payload: PreconfPayload,
+    ) -> Result<(), DriverError> {
+        self.submit_preconfirmation_payload_with_timeout(
+            payload,
+            PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
+        )
+        .await
+    }
+
+    /// Submit a preconfirmation payload with a caller-provided timeout for enqueue + response.
+    pub async fn submit_preconfirmation_payload_with_timeout(
+        &self,
+        payload: PreconfPayload,
+        timeout_duration: Duration,
+    ) -> Result<(), DriverError> {
+        let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
+
+        // Reject early if ingress loop is not ready yet.
+        if !self.preconf_ingress_ready.load(Ordering::Acquire) {
+            return Err(DriverError::PreconfIngressNotReady);
+        }
+
+        let block_number = payload.block_number();
+
+        debug!(block_number, "submitting preconfirmation payload to queue");
+
+        // Create oneshot channel for receiving the processing result.
+        let (resp_tx, resp_rx) = oneshot::channel();
+        // Enqueue the preconfirmation job with timeout.
+        let enqueue_result = timeout(
+            timeout_duration,
+            tx.send(PreconfJob { payload: Arc::new(payload), respond_to: resp_tx }),
+        )
+        .await;
+
+        match enqueue_result {
+            Err(_) => {
+                counter!(DriverMetrics::PRECONF_ENQUEUE_TIMEOUTS_TOTAL).increment(1);
+                error!(
+                    block_number,
+                    timeout_ms = timeout_duration.as_millis() as u64,
+                    "preconfirmation enqueue timed out"
+                );
+                return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
+            }
+            Ok(Err(err)) => {
+                counter!(DriverMetrics::PRECONF_ENQUEUE_FAILURES_TOTAL).increment(1);
+                error!(block_number, ?err, "preconfirmation enqueue failed");
+                return Err(DriverError::PreconfEnqueueFailed(err.to_string()));
+            }
+            Ok(Ok(())) => {
+                debug!(block_number, "preconfirmation payload enqueued successfully");
+            }
+        }
+
+        // Await the processing result with timeout.
+        let response_result = timeout(timeout_duration, resp_rx).await;
+
+        match response_result {
+            Err(_) => {
+                counter!(DriverMetrics::PRECONF_RESPONSE_TIMEOUTS_TOTAL).increment(1);
+                error!(
+                    block_number,
+                    timeout_ms = timeout_duration.as_millis() as u64,
+                    "preconfirmation response timed out"
+                );
+                return Err(DriverError::PreconfResponseTimeout { waited: timeout_duration });
+            }
+            Ok(Err(err)) => {
+                counter!(DriverMetrics::PRECONF_RESPONSE_DROPPED_TOTAL).increment(1);
+                error!(block_number, ?err, "preconfirmation response channel closed");
+                return Err(DriverError::PreconfResponseDropped { recv_error: err });
+            }
+            Ok(Ok(inner_result)) => {
+                if let Err(ref err) = inner_result {
+                    warn!(block_number, ?err, "preconfirmation processing returned error");
+                }
+                inner_result?;
+            }
+        }
+
+        debug!(block_number, "preconfirmation payload processed successfully");
+        Ok(())
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -77,27 +416,24 @@ where
             .get_block_by_number(BlockNumberOrTag::Latest)
             .full()
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingLatestExecutionBlock)?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
         let anchor_address = *self.rpc.shasta.anchor.address();
-        let latest_proposal_id = decode_anchor_proposal_id(&latest_block, anchor_address)?;
+        let latest_proposal_id = decode_anchor_proposal_id(&latest_block)?;
 
         // Determine the target block to extract the anchor block number from.
-        // First back off two epochs worth of proposals to survive L1 reorgs, then apply the bond
-        // processing delay so cached bond instructions are always available.
-        let delayed_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
-        let target_proposal_id = delayed_proposal_id.saturating_sub(BOND_PROCESSING_DELAY);
+        // Back off two epochs worth of proposals to survive L1 reorgs.
+        let target_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
         info!(
-            latest_proposal_id = latest_proposal_id,
-            delayed_proposal_id = delayed_proposal_id,
-            target_proposal_id = target_proposal_id,
+            latest_proposal_id,
+            target_proposal_id,
             latest_hash = ?latest_block.hash(),
             latest_number = latest_block.number(),
             "derived proposal id from latest anchorV4 transaction",
         );
-        if delayed_proposal_id == 0 {
+        if target_proposal_id == 0 {
             return Ok((0, U256::ZERO));
         }
 
@@ -105,7 +441,7 @@ where
             .rpc
             .last_block_id_by_batch_id(U256::from(target_proposal_id))
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
         let target_block = self
             .rpc
@@ -113,7 +449,7 @@ where
             .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
             .full()
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
@@ -128,10 +464,29 @@ where
             anchor_block_number,
             latest_hash = ?target_block.hash(),
             latest_number = target_block.number(),
-            delayed_proposal_id = delayed_proposal_id,
+            target_proposal_id = target_proposal_id,
             "derived anchor block number from anchorV4 transaction",
         );
-        Ok((anchor_block_number, U256::from(delayed_proposal_id)))
+        Ok((anchor_block_number, U256::from(target_proposal_id)))
+    }
+}
+
+#[async_trait]
+impl<P> DriverRpcApi for EventSyncer<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Submit a preconfirmation payload built by the client for injection.
+    async fn submit_execution_payload_v2(
+        &self,
+        payload: TaikoPayloadAttributes,
+    ) -> Result<(), DriverError> {
+        self.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
+    }
+
+    /// Return the last canonical proposal id processed by the event syncer.
+    fn last_canonical_proposal_id(&self) -> u64 {
+        self.last_canonical_proposal_id()
     }
 }
 
@@ -149,7 +504,7 @@ where
             .activationTimestamp()
             .call()
             .await
-            .map_err(|err| SyncError::Rpc(rpc::RpcClientError::Provider(err.to_string())))?
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .to::<u64>();
 
         if activation_time == 0 {
@@ -180,20 +535,27 @@ where
         if block.header.number == 0 {
             return self.activation_block_number().await;
         }
-        Ok(decode_anchor_call(block, anchor_address)?._blockParams.anchorBlockNumber.to::<u64>())
+        Ok(decode_anchor_call(block, anchor_address)?._checkpoint.blockNumber.to::<u64>())
     }
 }
 
-/// Parse the first transaction in `block` and recover the proposal id from the `anchorV4`
-/// calldata emitted by the goldentouch transaction.
-fn decode_anchor_proposal_id(
-    block: &RpcBlock<TxEnvelope>,
-    anchor_address: Address,
-) -> Result<u64, SyncError> {
+/// Recover the proposal id from header extra data.
+/// Byte layout: basefeeSharingPctg (byte 0), proposalId uint48 (bytes 1..6, big-endian).
+fn decode_anchor_proposal_id(block: &RpcBlock<TxEnvelope>) -> Result<u64, SyncError> {
     if block.header.number == 0 {
         return Ok(0);
     }
-    Ok(decode_anchor_call(block, anchor_address)?._proposalParams.proposalId.to::<u64>())
+    let extra_data = block.header.extra_data.as_ref();
+    if extra_data.len() < 7 {
+        return Err(SyncError::MissingAnchorTransaction {
+            block_number: block.header.number,
+            reason: "extra_data too short for proposal id",
+        });
+    }
+    let mut buf = [0u8; 8];
+    // Zero-pad the upper two bytes so the uint48 (bytes 1..6) becomes a big-endian u64.
+    buf[2..8].copy_from_slice(&extra_data[1..7]);
+    Ok(u64::from_be_bytes(buf))
 }
 
 /// Parse the first transaction in `block` and recover the `anchorV4` call data.
@@ -240,11 +602,8 @@ where
             initial_proposal_id,
         )
         .await?;
-        let derivation: Arc<
-            dyn DerivationPipeline<
-                Manifest = <ShastaDerivationPipeline<P> as DerivationPipeline>::Manifest,
-            >,
-        > = Arc::new(derivation_pipeline);
+        let derivation = Arc::new(derivation_pipeline);
+        let router = self.build_router(derivation.clone());
 
         let mut scanner = self
             .cfg
@@ -268,6 +627,16 @@ where
 
         info!("event scanner started; listening for inbox proposals");
 
+        // Spawn preconfirmation ingress loop if enabled.
+        if let Some(rx) = self.preconf_rx.clone() {
+            self.spawn_preconf_ingress(
+                router.clone(),
+                rx,
+                self.preconf_ingress_ready.clone(),
+                self.preconf_ingress_notify.clone(),
+            );
+        }
+
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
             let logs = match message {
@@ -287,47 +656,136 @@ where
                 }
             };
 
-            debug!(log_batch_size = logs.len(), "processing proposal log batch");
-            for log in logs {
-                debug!(
-                    block_number = log.block_number,
-                    transaction_hash = ?log.transaction_hash,
-                    "dispatching proposal log to derivation pipeline"
-                );
-                let retry_strategy =
-                    ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
-
-                let derivation = derivation.clone();
-                let rpc = self.rpc.clone();
-                let proposal_log = log.clone();
-                let outcomes = Retry::spawn(retry_strategy, move || {
-                    let derivation = derivation.clone();
-                    let rpc = rpc.clone();
-                    let log = proposal_log.clone();
-                    async move {
-                        derivation.process_proposal(&log, &rpc).await.map_err(|err| {
-                            warn!(
-                                ?err,
-                                tx_hash = ?log.transaction_hash,
-                                block_number = log.block_number,
-                                "proposal derivation failed; retrying"
-                            );
-                            err
-                        })
-                    }
-                })
-                .await?;
-
-                info!(
-                    block_count = outcomes.len(),
-                    last_block = outcomes.last().map(|outcome| outcome.block_number()),
-                    last_hash = ?outcomes.last().map(|outcome| outcome.block_hash()),
-                    "successfully processed proposal into L2 blocks",
-                );
-                counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL)
-                    .increment(outcomes.len() as u64);
-            }
+            self.process_log_batch(router.clone(), logs).await?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use alethia_reth_primitives::payload::attributes::{RpcL1Origin, TaikoBlockMetadata};
+    use alloy::{
+        primitives::{Address, B256, Bytes, U256},
+        transports::http::reqwest::Url,
+    };
+    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+    use alloy_transport::mock::Asserter;
+    use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
+    use rpc::{
+        SubscriptionSource,
+        blob::BlobDataSource,
+        client::{Client, ClientConfig, ShastaProtocolInstance},
+    };
+
+    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
+        let payload_attributes = EthPayloadAttributes {
+            timestamp: 0,
+            prev_randao: B256::ZERO,
+            suggested_fee_recipient: Address::ZERO,
+            withdrawals: Some(Vec::new()),
+            parent_beacon_block_root: None,
+        };
+        let block_metadata = TaikoBlockMetadata {
+            beneficiary: Address::ZERO,
+            gas_limit: 0,
+            timestamp: U256::ZERO,
+            mix_hash: B256::ZERO,
+            tx_list: Bytes::new(),
+            extra_data: Bytes::new(),
+        };
+        let l1_origin = RpcL1Origin {
+            block_id: U256::from(block_number),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        };
+
+        TaikoPayloadAttributes {
+            payload_attributes,
+            base_fee_per_gas: U256::ZERO,
+            block_metadata,
+            l1_origin,
+        }
+    }
+
+    fn mock_client() -> Client<RootProvider> {
+        let l1_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    async fn build_syncer() -> EventSyncer<RootProvider> {
+        let client_config = ClientConfig {
+            l1_provider_source: SubscriptionSource::Ws(
+                Url::parse("ws://localhost:8546").expect("valid ws url"),
+            ),
+            l2_provider_url: Url::parse("http://localhost:8545").expect("valid http url"),
+            l2_auth_provider_url: Url::parse("http://localhost:8551").expect("valid http url"),
+            jwt_secret: PathBuf::from("/dev/null"),
+            inbox_address: Address::ZERO,
+        };
+        let mut cfg = DriverConfig::new(
+            client_config,
+            Duration::from_secs(1),
+            Url::parse("http://localhost:5052").expect("valid beacon url"),
+            None,
+            None,
+        );
+        cfg.preconfirmation_enabled = true;
+
+        let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
+        let blob_source =
+            BlobDataSource::new(None, None, true).await.expect("blob data source should build");
+
+        EventSyncer {
+            rpc: mock_client(),
+            cfg,
+            blob_source: Arc::new(blob_source),
+            preconf_tx: Some(preconf_tx),
+            preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
+            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+            preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
+            preconf_ingress_notify: Arc::new(Notify::new()),
+        }
+    }
+
+    #[tokio::test]
+    async fn preconf_submit_rejected_when_ingress_not_ready() {
+        let syncer = build_syncer().await;
+        let payload = PreconfPayload::new(sample_payload(1));
+        let err = syncer
+            .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
+            .await
+            .expect_err("expected ingress not ready error");
+
+        assert!(matches!(err, DriverError::PreconfIngressNotReady));
+    }
+
+    #[test]
+    fn preconfirmation_submit_timeout_defaults_to_12_seconds() {
+        assert_eq!(
+            PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
+            Duration::from_secs(12),
+            "preconfirmation submit timeout should default to 12 seconds"
+        );
     }
 }

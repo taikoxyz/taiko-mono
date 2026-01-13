@@ -48,7 +48,7 @@ contract TestERC20Vault is CommonTest {
         register("bridged_erc20", address(new BridgedERC20(address(tVault))));
         register("taiko", address(taikoInbox));
 
-        // TODO(fix): shall we use "tValut" below?
+        // TODO(fix): shall we use "tVault" below?
         tUSDC = deployBridgedERC20(address(eVault), randAddress(), 100, 18, "USDC", "USDC coin");
         tUSDT = deployBridgedERC20(address(eVault), randAddress(), 100, 18, "USDT", "USDT coin");
         tStETH = deployBridgedERC20(

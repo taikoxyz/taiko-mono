@@ -37,6 +37,7 @@ func (s *SgxGethProofProducer) RequestProof(
 		"type", ProofTypeSgxGeth,
 		"batchID", batchID,
 		"time", time.Since(requestAt),
+		"dummy", s.Dummy,
 	)
 
 	if s.Dummy {
@@ -141,11 +142,10 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	if metas[0].IsShasta() {
 		for i, meta := range metas {
 			proposals = append(proposals, &RaikoProposals{
-				ProposalId:             meta.Shasta().GetProposal().Id,
+				ProposalId:             meta.Shasta().GetEventData().Id,
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
 				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],
-				ParentTransitionHash:   opts[i].ShastaOptions().ParentTransitionHash.Hex()[2:],
 				Checkpoint: &RaikoCheckpoint{
 					BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
 					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],

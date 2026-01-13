@@ -12,7 +12,7 @@ use alloy::{
 use eyre::Result;
 use futures_util::StreamExt;
 use tokio::{
-    sync::{Mutex, RwLock},
+    sync::{Mutex, Notify, RwLock},
     time::{interval, sleep},
 };
 use tracing::{debug, error, info, warn};
@@ -129,9 +129,9 @@ pub struct Monitor {
     beacon_client: BeaconClient,
     l1_signer: alloy::signers::local::PrivateKeySigner,
     l2_ws_url: Url,
+    l2_http_url: Url,
     l1_ws_url: Url,
     l1_http_url: Url,
-    target_block_time: Duration,
     eject_after: Duration,
     taiko_wrapper_address: Address,
     whitelist_address: Address,
@@ -143,15 +143,53 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    // Returns true if the node appears to be syncing or if the sync status cannot be parsed.
+    // The caller can use this to skip eject decisions when RPC health is uncertain.
+    async fn should_skip_due_to_sync_status<P>(provider: &P, node_label: &str) -> bool
+    where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        match provider.syncing().await {
+            Ok(syncing) => match serde_json::to_value(&syncing) {
+                Ok(serde_json::Value::Bool(false)) | Ok(serde_json::Value::Null) => false,
+                Ok(serde_json::Value::Object(_)) => {
+                    warn!(node = node_label, "Node is syncing; skipping eject this tick");
+                    true
+                }
+                Ok(unexpected) => {
+                    warn!(
+                        node = node_label,
+                        "Unexpected sync status format: {unexpected:?}; skipping eject this tick"
+                    );
+                    true
+                }
+                Err(e) => {
+                    warn!(
+                        node = node_label,
+                        "Failed to process sync status: {e:?}; skipping eject this tick"
+                    );
+                    true
+                }
+            },
+            Err(e) => {
+                warn!(
+                    node = node_label,
+                    "Failed to query sync status: {e:?}; skipping eject this tick"
+                );
+                true
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         beacon_client: BeaconClient,
         l1_signer: alloy::signers::local::PrivateKeySigner,
         l2_ws_url: Url,
+        l2_http_url: Url,
         l1_ws_url: Url,
         l1_http_url: Url,
-        target_block_time_secs: u64,
-        eject_after_n_slots_missed: u64,
+        eject_after_seconds: u64,
         taiko_wrapper_address: Address,
         whitelist_address: Address,
         handover_slots: u64,
@@ -160,17 +198,15 @@ impl Monitor {
         min_reorg_depth_for_eject: usize,
         reorg_ejection_enabled: bool,
     ) -> Self {
-        let target_block_time = Duration::from_secs(target_block_time_secs);
-        let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
-        let eject_after = Duration::from_secs(eject_after_secs);
+        let eject_after = Duration::from_secs(eject_after_seconds);
 
         Self {
             beacon_client,
             l1_signer,
             l2_ws_url,
+            l2_http_url,
             l1_ws_url,
             l1_http_url,
-            target_block_time,
             eject_after,
             taiko_wrapper_address,
             whitelist_address,
@@ -190,15 +226,21 @@ impl Monitor {
 
         let last_seen = Arc::new(Mutex::new(Instant::now()));
         let last_block_seen = Arc::new(Mutex::new(Instant::now()));
+        let last_l2_head_number = Arc::new(Mutex::new(None::<u64>));
+        let reconnect_notify = Arc::new(Notify::new());
         metrics::set_last_seen_drift_seconds(0);
         metrics::set_last_block_age_seconds(0);
-        let tick = self.target_block_time;
+        // Align watchdog tick with beacon slots to avoid spamming identical responsibility logs.
+        let tick = Duration::from_secs(self.beacon_client.seconds_per_slot);
         let max = self.eject_after;
         let last_seen_for_watch = last_seen.clone();
         let last_block_for_watch = last_block_seen.clone();
+        let last_l2_head_for_watch = last_l2_head_number.clone();
+        let reconnect_notify_for_watch = reconnect_notify.clone();
 
         let l1_http_url = self.l1_http_url.clone();
         let l1_ws_url = self.l1_ws_url.clone();
+        let l2_http_url = self.l2_http_url.clone();
         let taiko_wrapper_address = self.taiko_wrapper_address;
         let whitelist_address = self.whitelist_address;
         let signer = self.l1_signer.clone();
@@ -220,6 +262,7 @@ impl Monitor {
 
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+        let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
@@ -246,6 +289,7 @@ impl Monitor {
         // watchdog task
         let watchdog_l1_http_url = l1_http_url.clone();
         let watchdog_signer = signer.clone();
+        let mut shared_l2_http_provider = l2_http_provider;
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
             loop {
@@ -323,37 +367,77 @@ impl Monitor {
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
 
-                    // Query L1 sync state and decide whether to skip this tick.
-                    let mut skip_due_to_l1 = false;
-                    match http_provider.syncing().await {
-                        Ok(syncing) => match serde_json::to_value(&syncing) {
-                            Ok(serde_json::Value::Bool(false)) => {
-                                // Fully synced; proceed to eject
-                            }
-                            Ok(serde_json::Value::Object(_)) => {
-                                warn!("L1 node is syncing; skipping eject this tick");
-                                skip_due_to_l1 = true;
-                            }
-                            Ok(unexpected) => {
-                                warn!(
-                                    "Unexpected L1 sync status format: {unexpected:?}; skipping eject this tick"
-                                );
-                                skip_due_to_l1 = true;
+                    // L2 sanity check: if the L2 node is syncing or its head is advancing, avoid
+                    // ejecting based solely on a stalled WS subscription.
+                    let mut skip_due_to_l2 =
+                        Self::should_skip_due_to_sync_status(&shared_l2_http_provider, "L2").await;
+
+                    if !skip_due_to_l2 {
+                        match shared_l2_http_provider.get_block_number().await {
+                            Ok(l2_head) => {
+                                let mut guard = last_l2_head_for_watch.lock().await;
+                                match *guard {
+                                    Some(prev) if l2_head > prev => {
+                                        let ws_staleness =
+                                            last_block_for_watch.lock().await.elapsed();
+                                        let ws_fresh_enough = ws_staleness <= tick * 4;
+                                        if ws_fresh_enough {
+                                            warn!(
+                                                prev_l2_head = prev,
+                                                current_l2_head = l2_head,
+                                                ws_staleness_secs = ws_staleness.as_secs(),
+                                                "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
+                                            );
+                                            *guard = Some(l2_head);
+                                            skip_due_to_l2 = true;
+                                        } else {
+                                            warn!(
+                                                prev_l2_head = prev,
+                                                current_l2_head = l2_head,
+                                                ws_staleness_secs = ws_staleness.as_secs(),
+                                                "L2 head advanced but WS stream stale; reconnecting without skipping eject"
+                                            );
+                                            *guard = Some(l2_head);
+                                        }
+                                    }
+                                    Some(prev) if l2_head < prev => {
+                                        warn!(
+                                            prev_l2_head = prev,
+                                            current_l2_head = l2_head,
+                                            "L2 head number decreased; skipping eject and forcing resubscribe"
+                                        );
+                                        *guard = Some(l2_head);
+                                        skip_due_to_l2 = true;
+                                    }
+                                    None => {
+                                        *guard = Some(l2_head);
+                                    }
+                                    _ => {}
+                                }
                             }
                             Err(e) => {
+                                // Recreate the provider on failure to avoid sticking with a bad client.
+                                shared_l2_http_provider =
+                                    ProviderBuilder::new().connect_http(l2_http_url.clone());
                                 warn!(
-                                    "Failed to process L1 sync status: {e:?}; skipping eject this tick"
+                                    "Failed to query L2 block number: {e:?}; skipping eject this tick"
                                 );
-                                skip_due_to_l1 = true;
+                                skip_due_to_l2 = true;
                             }
-                        },
-                        Err(e) => {
-                            warn!(
-                                "Failed to query L1 sync status: {e:?}; skipping eject this tick"
-                            );
-                            skip_due_to_l1 = true;
                         }
                     }
+
+                    if skip_due_to_l2 {
+                        reconnect_notify_for_watch.notify_one();
+                        *last_seen_for_watch.lock().await = Instant::now();
+                        *last_block_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
+                        continue;
+                    }
+
+                    // Query L1 sync state and decide whether to skip this tick.
+                    let skip_due_to_l1 =
+                        Self::should_skip_due_to_sync_status(&http_provider, "L1").await;
 
                     if skip_due_to_l1 {
                         // Reset timer so we don't immediately eject when node catches up
@@ -392,7 +476,10 @@ impl Monitor {
                     metrics::inc_ws_reconnections();
                     // sanity
                     match provider.get_block_number().await {
-                        Ok(bn) => info!("WS get_block_number() = {bn}"),
+                        Ok(bn) => {
+                            info!("WS get_block_number() = {bn}");
+                            *last_l2_head_number.lock().await = Some(bn);
+                        }
                         Err(e) => warn!("WS RPC get_block_number failed: {e}"),
                     }
 
@@ -402,8 +489,13 @@ impl Monitor {
                             info!("Subscribed to block stream at {}", self.l2_ws_url);
 
                             loop {
-                                match stream.next().await {
-                                    Some(header) => {
+                                tokio::select! {
+                                    _ = reconnect_notify.notified() => {
+                                        warn!("Reconnect requested; resubscribing to L2 block stream");
+                                        break;
+                                    }
+                                    maybe_header = stream.next() => match maybe_header {
+                                        Some(header) => {
                                         info!(
                                             "New block header: number={:?} hash={:?}, coinbase={:?}",
                                             header.number, header.hash, header.beneficiary
@@ -438,6 +530,10 @@ impl Monitor {
                                             *guard = now;
                                         }
                                         metrics::set_last_block_age_seconds(0);
+                                        {
+                                            let mut guard = last_l2_head_number.lock().await;
+                                            *guard = Some(tracked_block.number);
+                                        }
                                         backoff = Duration::from_secs(1);
 
                                         if outcome.parent_not_found {
@@ -460,7 +556,16 @@ impl Monitor {
                                                 "Detected L2 reorg"
                                             );
 
-                                            metrics::note_reorg(reorg_depth);
+                                            if let Some(reverted_height) = outcome.reverted_to {
+                                                metrics::note_reorg(reorg_depth, reverted_height);
+                                            } else {
+                                                warn!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    "Reorg detected but revert height missing; revert height metric set to -1"
+                                                );
+                                                metrics::note_reorg(reorg_depth, u64::MAX);
+                                            }
 
                                             if !self.reorg_ejection_enabled {
                                                 info!(
@@ -566,11 +671,12 @@ impl Monitor {
                                                 }
                                             }
                                         }
-                                    }
-                                    None => {
+                                        }
+                                        None => {
                                         warn!("Block stream ended unexpectedly, reconnecting...");
                                         break; // exit inner loop to reconnect
                                     }
+                                }
                                 }
                             }
                         }
@@ -647,7 +753,7 @@ impl Monitor {
                                             cache.upsert(event.proposer, event.sequencer);
                                         }
 
-                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                        metrics::ensure_eject_metric_labels(&proposer_hex);
                                     }
                                     Err(e) => {
                                         warn!("OperatorAdded stream error: {e:?}");

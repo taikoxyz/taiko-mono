@@ -23,7 +23,6 @@ alloy-network = { workspace = true }
 # taiko
 alethia-reth-consensus = { workspace = true }
 bindings = { path = "../bindings" }
-event-indexer = { path = "../event-indexer" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
@@ -37,4 +36,5 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 serial_test = { workspace = true }
+test-context = { workspace = true }
 test-harness = { path = "../test-harness" }

@@ -5,7 +5,6 @@ use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
-use event_indexer::metrics::IndexerMetrics;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
 use rpc::SubscriptionSource;
 
@@ -40,7 +39,6 @@ impl ProposerSubCommand {
             l2_auth_provider_url: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
             jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
             inbox_address: self.common_flags.shasta_inbox_address,
-            use_local_shasta_codec: self.common_flags.use_local_shasta_codec,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
@@ -69,7 +67,6 @@ impl Subcommand for ProposerSubCommand {
     // Register proposer and indexer metrics.
     fn register_metrics(&self) -> Result<()> {
         ProposerMetrics::init();
-        IndexerMetrics::init();
         Ok(())
     }
 

@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -17,7 +16,6 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
@@ -31,7 +29,6 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 // ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
 type ProveBatchesTxBuilder struct {
 	rpc                *rpc.Client
-	indexer            *shastaIndexer.Indexer
 	pacayaInboxAddress common.Address
 	shastaInboxAddress common.Address
 	proverSetAddress   common.Address
@@ -40,12 +37,11 @@ type ProveBatchesTxBuilder struct {
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
 func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
 	proverSetAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, indexer, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc, pacayaInboxAddress, shastaInboxAddress, proverSetAddress}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
@@ -129,33 +125,56 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProducer.BatchProofs) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
-			proposals   = make([]shastaBindings.IInboxProposal, len(batchProof.ProofResponses))
-			transitions = make([]shastaBindings.IInboxTransition, len(batchProof.ProofResponses))
-			metadatas   = make([]shastaBindings.IInboxTransitionMetadata, len(batchProof.ProofResponses))
+			proposals = make([]*shastaBindings.ShastaInboxClientProposed, len(batchProof.ProofResponses))
+			input     = &shastaBindings.IInboxProveInput{
+				Commitment:          shastaBindings.IInboxCommitment{ActualProver: txOpts.From},
+				ForceCheckpointSync: false,
+			}
 		)
 
+		if len(batchProof.ProofResponses) == 0 {
+			return nil, fmt.Errorf("no proof responses in batch proof")
+		}
+
 		for i, proofResponse := range batchProof.ProofResponses {
-			proposals[i] = proofResponse.Meta.Shasta().GetProposal()
+			if len(proofResponse.Opts.ShastaOptions().Headers) == 0 {
+				return nil, fmt.Errorf(
+					"no headers in proof response options for proposal ID %d",
+					proofResponse.Meta.Shasta().GetEventData().Id,
+				)
+			}
+			proposals[i] = proofResponse.Meta.Shasta().GetEventData()
+			lastHeader := proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1]
 
 			proposalHash, err := a.rpc.GetShastaProposalHash(nil, proposals[i].Id)
 			if err != nil {
 				return nil, encoding.TryParsingCustomError(err)
 			}
-			transitions[i] = shastaBindings.IInboxTransition{
-				ProposalHash:         proposalHash,
-				ParentTransitionHash: batchProof.ProofResponses[i].Opts.ShastaOptions().ParentTransitionHash,
-				Checkpoint:           *batchProof.ProofResponses[i].Opts.ShastaOptions().Checkpoint,
+
+			// Set first proposal information.
+			if i == 0 {
+				input.Commitment.FirstProposalId = proposals[i].Id
+				input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
 			}
-			metadatas[i] = shastaBindings.IInboxTransitionMetadata{
-				DesignatedProver: batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
-				ActualProver:     txOpts.From,
+
+			// Set last proposal information.
+			if i == len(batchProof.ProofResponses)-1 {
+				input.Commitment.LastProposalHash = proposalHash
+				input.Commitment.EndBlockNumber = lastHeader.Number
+				input.Commitment.EndStateRoot = lastHeader.Root
 			}
+
+			// Set transition information.
+			input.Commitment.Transitions = append(input.Commitment.Transitions, shastaBindings.IInboxTransition{
+				Proposer:  proposals[i].Proposer,
+				Timestamp: new(big.Int).SetUint64(proofResponse.Meta.Shasta().GetTimestamp()),
+				BlockHash: lastHeader.Hash(),
+			})
 
 			log.Info(
 				"Build batch proof submission transaction",
 				"batchID", proposals[i].Id,
-				"proposalHash", common.Bytes2Hex(transitions[i].ProposalHash[:]),
-				"parentTransitionHash", common.Bytes2Hex(transitions[i].ParentTransitionHash[:]),
+				"proposalHash", proposalHash,
 				"start", proofResponse.Opts.ShastaOptions().Headers[0].Number,
 				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,
 				"designatedProver", batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
@@ -163,10 +182,17 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			)
 		}
 
-		inputData, err := a.rpc.EncodeProveInput(
-			&bind.CallOpts{Context: txOpts.Context},
-			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions, Metadata: metadatas},
-		)
+		// Validate consecutive proposals
+		for i := 1; i < len(proposals); i++ {
+			if proposals[i].Id.Uint64() != proposals[i-1].Id.Uint64()+1 {
+				return nil, fmt.Errorf(
+					"non-consecutive proposals: %d -> %d",
+					proposals[i-1].Id,
+					proposals[i].Id)
+			}
+		}
+
+		inputData, err := a.rpc.EncodeProveInput(&bind.CallOpts{Context: txOpts.Context}, input)
 		if err != nil {
 			return nil, encoding.TryParsingCustomError(err)
 		}
@@ -204,167 +230,4 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			GasLimit: txOpts.GasLimit,
 		}, nil
 	}
-}
-
-// GetShastaGenesisTransition fetches the genesis transition of Shasta.
-func GetShastaGenesisTransition(
-	ctx context.Context,
-	rpc *rpc.Client,
-) (*shastaBindings.IInboxTransition, error) {
-	// Use Pacaya Inbox to derive the last Pacaya block ID, which becomes the
-	// checkpoint of the Shasta genesis transition.
-	blockNumber, err := rpc.LastPacayaBlockID(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch last Pacaya block ID: %w", err)
-	}
-
-	header, err := rpc.L2.HeaderByNumber(ctx, blockNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch L2 header at last Pacaya block: %w", err)
-	}
-
-	return &shastaBindings.IInboxTransition{
-		ProposalHash:         common.Hash{},
-		ParentTransitionHash: common.Hash{},
-		Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-			BlockNumber: common.Big0,
-			BlockHash:   header.Hash(),
-			StateRoot:   common.Hash{},
-		},
-	}, nil
-}
-
-// GetShastaGenesisTransitionHash fetches the genesis transition hash of Shasta.
-func GetShastaGenesisTransitionHash(ctx context.Context, rpc *rpc.Client) (common.Hash, error) {
-	transition, err := GetShastaGenesisTransition(ctx, rpc)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to fetch genesis transition: %w", err)
-	}
-	return rpc.HashTransitionShasta(&bind.CallOpts{Context: ctx}, transition)
-}
-
-// BuildParentTransitionHash builds the parent transition hash for the given batchID.
-func BuildParentTransitionHash(
-	ctx context.Context,
-	rpc *rpc.Client,
-	indexer *shastaIndexer.Indexer,
-	batchID *big.Int,
-) (common.Hash, error) {
-	type transitionEntry struct {
-		transition *shastaBindings.IInboxTransition
-	}
-
-	targetBatchID := new(big.Int).Set(batchID)
-	var (
-		parentTransitions []transitionEntry
-		cursor            = new(big.Int).Sub(new(big.Int).Set(batchID), common.Big1)
-		coreState         = indexer.GetLastCoreState()
-	)
-
-	// If the parent transition already been just finalized, return the last finalized transition hash directly.
-	if cursor.Cmp(coreState.LastFinalizedProposalId) == 0 {
-		return coreState.LastFinalizedTransitionHash, nil
-	}
-
-	for {
-		if cursor.Cmp(common.Big0) == 0 {
-			transition, err := GetShastaGenesisTransition(ctx, rpc)
-			if err != nil {
-				return common.Hash{}, err
-			}
-			parentTransitions = append(
-				[]transitionEntry{{transition: transition}},
-				parentTransitions...,
-			)
-			break
-		}
-
-		if coreState.LastFinalizedProposalId.Cmp(cursor) == 0 {
-			if len(parentTransitions) != 0 {
-				parentTransitions[0].transition.ParentTransitionHash = coreState.LastFinalizedTransitionHash
-			}
-			break
-		}
-
-		if transition := indexer.GetTransitionRecordByProposalID(cursor.Uint64()); transition != nil {
-			log.Debug(
-				"Using cached Shasta transition record",
-				"proposalId", transition.ProposalId,
-				"hash", common.Hash(transition.TransitionRecord.TransitionHash),
-			)
-			var blockNumber *big.Int
-			if transition.Transition.Checkpoint.BlockNumber != nil {
-				blockNumber = new(big.Int).Set(transition.Transition.Checkpoint.BlockNumber)
-			}
-			transitionCopy := &shastaBindings.IInboxTransition{
-				ProposalHash:         transition.Transition.ProposalHash,
-				ParentTransitionHash: common.Hash{},
-				Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-					BlockNumber: blockNumber,
-					BlockHash:   transition.Transition.Checkpoint.BlockHash,
-					StateRoot:   transition.Transition.Checkpoint.StateRoot,
-				},
-			}
-			parentTransitions = append(
-				[]transitionEntry{{transition: transitionCopy}},
-				parentTransitions...,
-			)
-			cursor.Sub(cursor, common.Big1)
-			continue
-		}
-
-		proposal, err := indexer.GetProposalByID(cursor.Uint64())
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch proposal %d: %w", cursor.Uint64(), err)
-		}
-
-		checkpointL1Origin, err := rpc.L2.LastL1OriginByBatchID(ctx, proposal.Proposal.Id)
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch last L1 origin: %w", err)
-		}
-		checkpointHeader, err := rpc.L2.HeaderByNumber(ctx, checkpointL1Origin.BlockID)
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch checkpoint header: %w", err)
-		}
-		proposalHash, err := rpc.HashProposalShasta(&bind.CallOpts{Context: ctx}, proposal.Proposal)
-		if err != nil {
-			return common.Hash{}, fmt.Errorf("failed to fetch proposal hash: %w", err)
-		}
-
-		localTransition := &shastaBindings.IInboxTransition{
-			ProposalHash:         proposalHash,
-			ParentTransitionHash: common.Hash{},
-			Checkpoint: shastaBindings.ICheckpointStoreCheckpoint{
-				BlockNumber: checkpointHeader.Number,
-				BlockHash:   checkpointHeader.Hash(),
-				StateRoot:   checkpointHeader.Root,
-			},
-		}
-
-		parentTransitions = append(
-			[]transitionEntry{{transition: localTransition}},
-			parentTransitions...,
-		)
-		cursor.Sub(cursor, common.Big1)
-	}
-
-	if len(parentTransitions) == 0 {
-		return common.Hash{}, fmt.Errorf("no parent transition found for batchID %s", targetBatchID)
-	}
-
-	currentHash, err := rpc.HashTransitionShasta(&bind.CallOpts{Context: ctx}, parentTransitions[0].transition)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to hash Shasta transition: %w", err)
-	}
-	for i := 1; i < len(parentTransitions); i++ {
-		parentTransitions[i].transition.ParentTransitionHash = currentHash
-		if currentHash, err = rpc.HashTransitionShasta(
-			&bind.CallOpts{Context: ctx},
-			parentTransitions[i].transition,
-		); err != nil {
-			return common.Hash{}, fmt.Errorf("failed to hash Shasta transition: %w", err)
-		}
-	}
-
-	return currentHash, nil
 }

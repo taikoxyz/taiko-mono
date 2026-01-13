@@ -13,7 +13,9 @@ import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
 ## Enable a prover with simple-taiko-node
 
 <Aside>
-These are the bare minimum required settings along with a functional Taiko node to run a prover, feel free to customize the rest of the variables in the `.env` file as you see fit!
+  These are the bare minimum required settings along with a functional Taiko
+  node to run a prover, feel free to customize the rest of the variables in the
+  `.env` file as you see fit!
 </Aside>
 
 <Steps>
@@ -33,7 +35,8 @@ These are the bare minimum required settings along with a functional Taiko node 
 </Steps>
 
 <Aside>
-For Step 6, please use `docker compose -f docker-compose-hoodi.yml up -d` if you are running on Taiko Hoodi.
+  For Step 6, please use `docker compose -f docker-compose-hoodi.yml up -d` if
+  you are running on Taiko Hoodi.
 </Aside>
 
 Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
@@ -51,7 +54,9 @@ Please find all relevant bond, cooldown, and proving window information [here](/
 3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
 
    <Aside>
-      Please verify [contract addresses](/network-reference/contract-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
+     Please verify [contract addresses](/network-reference/contract-addresses)
+     are correct before moving forward. You can check the respective ENS domains
+     on Etherscan.
    </Aside>
 
 4. Set the amount to at least the minimum bond amount of 125 TAIKO.
@@ -93,6 +98,8 @@ You will need TTKOh deposited on the TaikoInbox contract to secure the bond for 
 </Steps>
 
 <Card title="Troubleshooting" icon="error">
-    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+  If you run into any problems, please visit the [node troubleshooting
+  page](/guides/node-operators/node-troubleshooting) for help. If you run into
+  an error that isn't yet listed, please reach out in our
+  [Discord](https://discord.com/invite/taikoxyz)!
 </Card>

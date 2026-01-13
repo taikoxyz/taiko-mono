@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title DevnetInboxLayout
 /// @notice Storage layout documentation for DevnetInbox
@@ -19,11 +19,8 @@ pragma solidity ^0.8.24;
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   activationTimestamp            | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
-//   conflictingTransitionDetected  | bool                                               | Slot: 251  | Offset: 6    | Bytes: 1   
-//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 254  | Offset: 0    | Bytes: 64  
-//   __gap                          | uint256[37]                                        | Slot: 256  | Offset: 0    | Bytes: 1184
-//   _reusableTransitionRecords     | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | Slot: 293  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[49]                                        | Slot: 294  | Offset: 0    | Bytes: 1568
-//   __gap                          | uint256[50]                                        | Slot: 343  | Offset: 0    | Bytes: 1600
+//   _coreState                     | struct IInbox.CoreState                            | Slot: 252  | Offset: 0    | Bytes: 64  
+//   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32  
+//   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
+//   _bondStorage                   | struct LibBonds.Storage                            | Slot: 257  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[43]                                        | Slot: 258  | Offset: 0    | Bytes: 1376

@@ -40,7 +40,6 @@ Get started with Taiko Alethia:
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |
 | [balance-monitor](./packages/balance-monitor)                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
-| [blobindexer-rs](./packages/blobindexer-rs/)                  | Service that indexes Ethereum L1 blobs.                            |
 | [bridge-ui](./packages/bridge-ui)                             | Bridge UI.                                                         |
 | [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
 | [ejector](./packages/ejector)                                 | Preconfirmation ejector service for operators with issues.         |

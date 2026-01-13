@@ -25,10 +25,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	eventDecoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator/event_decoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
@@ -207,17 +207,15 @@ func (c *Client) filterGenesisBlockVerified(
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
-func (c *Client) WaitTillL2ExecutionEngineSynced(
-	ctx context.Context,
-	lastShastaCoreState *shastaBindings.IInboxCoreState,
-) error {
+func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 	start := time.Now()
 
 	return backoff.Retry(
 		func() error {
 			newCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 			defer cancel()
-			progress, err := c.L2ExecutionEngineSyncProgress(newCtx, lastShastaCoreState)
+
+			progress, err := c.L2ExecutionEngineSyncProgress(newCtx)
 			if err != nil {
 				log.Error("Fetch L2 execution engine sync progress error", "error", encoding.TryParsingCustomError(err))
 				return err
@@ -569,10 +567,7 @@ func (p *L2SyncProgress) IsSyncing() bool {
 }
 
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
-func (c *Client) L2ExecutionEngineSyncProgress(
-	ctx context.Context,
-	lastShastaCoreState *shastaBindings.IInboxCoreState,
-) (*L2SyncProgress, error) {
+func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProgress, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
@@ -587,15 +582,16 @@ func (c *Client) L2ExecutionEngineSyncProgress(
 		return err
 	})
 	g.Go(func() error {
-		if lastShastaCoreState != nil {
-			// If the next proposal ID is 1, it means there is no proposal has been made on L2 yet.
-			if lastShastaCoreState.NextProposalId.Cmp(common.Big1) <= 0 {
-				progress.HighestOriginBlockID = common.Big0
-				return nil
-			}
+		coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return err
+		}
+
+		// If the next proposal ID is 1, it means there is no Shasta proposal has been made on L2 yet.
+		if coreState.NextProposalId.Cmp(common.Big1) > 0 {
 			l1Origin, err := c.L2.LastL1OriginByBatchID(
 				ctx,
-				new(big.Int).Sub(lastShastaCoreState.NextProposalId, common.Big1),
+				new(big.Int).Sub(coreState.NextProposalId, common.Big1),
 			)
 			if err != nil && err.Error() != ethereum.NotFound.Error() {
 				return err
@@ -955,7 +951,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	var method *abi.Method
 	if method, err = encoding.ShastaAnchorABI.MethodById(tx.Data()); err != nil {
 		if method, err = encoding.TaikoAnchorABI.MethodById(tx.Data()); err != nil {
-			return common.Hash{}, 0, 0, fmt.Errorf("failed to get TaikoAnchor.AnchorV3 method by ID: %w", err)
+			return common.Hash{}, 0, 0, fmt.Errorf("failed to get anchor method by ID: %w", err)
 		}
 	}
 
@@ -996,23 +992,23 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 			return common.Hash{}, 0, 0, err
 		}
 
-		blockParams, exists := args["_blockParams"]
+		checkpointParams, exists := args["_checkpoint"]
 		if !exists {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("anchor transaction calldata missing block params")
+				errors.New("anchor transaction calldata missing checkpoint params")
 		}
 
-		blockValue := reflect.ValueOf(blockParams)
+		blockValue := reflect.ValueOf(checkpointParams)
 		if blockValue.Kind() != reflect.Struct {
 			return common.Hash{},
 				0,
 				0,
-				errors.New("unexpected block params type in anchor transaction calldata")
+				errors.New("unexpected checkpoint params type in anchor transaction calldata")
 		}
 
-		blockNumberField := blockValue.FieldByName("AnchorBlockNumber")
+		blockNumberField := blockValue.FieldByName("BlockNumber")
 		if !blockNumberField.IsValid() {
 			return common.Hash{},
 				0,
@@ -1029,7 +1025,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 		}
 		l1Height = blockNumber.Uint64()
 
-		stateRootField := blockValue.FieldByName("AnchorStateRoot")
+		stateRootField := blockValue.FieldByName("StateRoot")
 		if !stateRootField.IsValid() {
 			return common.Hash{},
 				0,
@@ -1460,7 +1456,6 @@ func (c *Client) GetShastaProposalHash(opts *bind.CallOpts, proposalID *big.Int)
 // GetShastaAnchorState gets the anchor state from Shasta Anchor contract.
 func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
 	*shastaBindings.AnchorBlockState,
-	*shastaBindings.AnchorProposalState,
 	error,
 ) {
 	var cancel context.CancelFunc
@@ -1472,15 +1467,10 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
 
 	blockState, err := c.ShastaClients.Anchor.GetBlockState(opts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get the Shasta Anchor block state: %w", err)
+		return nil, fmt.Errorf("failed to get the Shasta Anchor block state: %w", err)
 	}
 
-	proposalState, err := c.ShastaClients.Anchor.GetProposalState(opts)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get the Shasta Anchor proposal state: %w", err)
-	}
-
-	return &blockState, &proposalState, nil
+	return &blockState, nil
 }
 
 // GetShastaInboxConfigs gets the Shasta Inbox contract configurations.
@@ -1500,8 +1490,8 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 	return &cfg, nil
 }
 
-// HashProposalShasta hashes the proposal by Shasta Inbox Codec contract.
-func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBindings.IInboxProposal) (common.Hash, error) {
+// GetCoreStateShasta gets the core state from Shasta Inbox contract.
+func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1509,22 +1499,66 @@ func (c *Client) HashProposalShasta(opts *bind.CallOpts, proposal *shastaBinding
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxCodec.HashProposal(opts, *proposal)
+	state, err := c.ShastaClients.Inbox.GetCoreState(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the Shasta Inbox core state: %w", err)
+	}
+
+	return &state, nil
 }
 
-// HashTransitionShasta hashes the transition by Shasta Inbox Codec contract.
-func (c *Client) HashTransitionShasta(opts *bind.CallOpts, ts *shastaBindings.IInboxTransition) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+// GetProposalByIDShasta gets the proposal by ID from Shasta Inbox contract.
+func (c *Client) GetProposalByIDShasta(
+	ctx context.Context,
+	proposalID *big.Int,
+) (*shastaBindings.ShastaInboxClientProposed, *types.Log, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxCodec.HashTransition(opts, *ts)
+	blockID, err := c.L2.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get last block ID by batch ID %d: %w", proposalID, err)
+	}
+
+	block, err := c.L2.BlockByNumber(ctxWithTimeout, blockID.ToInt())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockID.ToInt(), err)
+	}
+
+	_, anchorNumber, _, err := c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get synced L1 snippet from anchor transaction: %w", err)
+	}
+
+	end := anchorNumber + manifest.AnchorMaxOffset
+	iter, err := c.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{
+		Start:   anchorNumber,
+		End:     &end,
+		Context: ctxWithTimeout,
+	}, []*big.Int{proposalID}, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to filter proposed events from Shasta Inbox: %w", err)
+	}
+
+	var (
+		event *shastaBindings.ShastaInboxClientProposed
+		log   *types.Log
+	)
+	for iter.Next() {
+		if iter.Event.Id.Cmp(proposalID) != 0 {
+			continue
+		}
+		event = iter.Event
+		log = &iter.Event.Raw
+	}
+	if event == nil || log == nil {
+		return nil, nil, fmt.Errorf("proposal event not found for ID %d", proposalID)
+	}
+
+	return event, log, nil
 }
 
-// EncodeProveInput encodes the prove method input by Shasta Inbox Codec contract.
+// EncodeProveInput encodes the prove method input using the Shasta Inbox contract.
 func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1533,10 +1567,10 @@ func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IIn
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxCodec.EncodeProveInput(opts, *input)
+	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
 }
 
-// EncodeProposeInput encodes the propose method input by Shasta Inbox Codec contract.
+// EncodeProposeInput encodes the propose method input using the Shasta Inbox contract.
 func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.IInboxProposeInput) ([]byte, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1545,10 +1579,10 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	return c.ShastaClients.InboxCodec.EncodeProposeInput(opts, *input)
+	return c.ShastaClients.Inbox.EncodeProposeInput(opts, *input)
 }
 
-// DecodeProposeInput decodes the propose method input by Shasta Inbox Codec contract.
+// DecodeProposeInput decodes the propose method input using the Shasta Inbox contract.
 func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProposeInput, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1557,75 +1591,10 @@ func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBi
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	input, err := c.ShastaClients.InboxCodec.DecodeProposeInput(opts, data)
+	input, err := c.ShastaClients.Inbox.DecodeProposeInput(opts, data)
 	if err != nil {
 		return nil, err
 	}
 
 	return &input, nil
-}
-
-// DecodeProveInput decodes the prove method input by Shasta Inbox Codec contract.
-func (c *Client) DecodeProveInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProveInput, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	input, err := c.ShastaClients.InboxCodec.DecodeProveInput(opts, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &input, nil
-}
-
-// DecodeProvedEventPayload decodes the Proved event payload by Shasta Inbox Codec contract.
-func (c *Client) DecodeProvedEventPayload(opts *bind.CallOpts, data []byte) (
-	*shastaBindings.IInboxProvedEventPayload,
-	error,
-) {
-	if c.UseLocalShastaDecoder() {
-		return eventDecoder.DecodeProvedEvent(data)
-	}
-
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	payload, err := c.ShastaClients.InboxCodec.DecodeProvedEvent(opts, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &payload, nil
-}
-
-// DecodeProposedEventPayload decodes the Proposed event payload by Shasta Inbox Codec contract.
-func (c *Client) DecodeProposedEventPayload(opts *bind.CallOpts, data []byte) (
-	*shastaBindings.IInboxProposedEventPayload,
-	error,
-) {
-	if c.UseLocalShastaDecoder() {
-		return eventDecoder.DecodeProposedEvent(data)
-	}
-
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	payload, err := c.ShastaClients.InboxCodec.DecodeProposedEvent(opts, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &payload, nil
 }
