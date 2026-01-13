@@ -337,7 +337,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
 	// and generate a proof.
 	if len(p.hops) == 0 {
-		latestBlockID, err := p.latestSyncedBlockID(ctx, p.srcChainId.Uint64(), p.destChainId.Uint64())
+		latestBlockID, err := p.latestSyncedBlockID(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
 		if err != nil {
 			return nil, err
 		}
