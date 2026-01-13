@@ -31,7 +31,7 @@ use crate::{
     metrics::PreconfirmationClientMetrics,
     storage::{CommitmentStore, InMemoryCommitmentStore},
     subscription::{EventHandler, PreconfirmationEvent},
-    sync::tip_catchup::TipCatchup,
+    sync::TipCatchup,
 };
 
 /// Capacity for the broadcast event channel used by the client.

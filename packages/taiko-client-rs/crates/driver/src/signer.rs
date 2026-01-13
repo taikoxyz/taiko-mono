@@ -1,3 +1,5 @@
+//! Deterministic secp256k1 signer with fixed-k signing support.
+
 use alloy::signers::{Result as SignerResult, Signer, SignerSync};
 use alloy_primitives::{Address, B256, Signature as AlloySignature, U256, hex};
 use async_trait::async_trait;

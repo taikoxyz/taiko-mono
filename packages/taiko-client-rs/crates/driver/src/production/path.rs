@@ -2,15 +2,13 @@
 
 use std::{sync::Arc, time::Instant};
 
-use super::{ProductionError, ProductionPathKind, kind::ProductionInput};
+use super::{ProductionError, ProductionInput, ProductionPathKind};
+pub use crate::sync::engine::EngineBlockOutcome;
 use crate::{
     derivation::DerivationPipeline,
     error::DriverError,
     metrics::DriverMetrics,
-    sync::{
-        engine::{EngineBlockOutcome, PayloadApplier},
-        error::SyncError,
-    },
+    sync::{engine::PayloadApplier, error::SyncError},
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;

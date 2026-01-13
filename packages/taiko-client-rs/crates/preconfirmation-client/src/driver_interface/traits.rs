@@ -4,7 +4,7 @@ use alloy_primitives::U256;
 use async_trait::async_trait;
 use preconfirmation_types::SignedCommitment;
 
-use crate::{error::Result, validation::rules::is_eop_only};
+use crate::{error::Result, validation::is_eop_only};
 
 /// Preconfirmation input handed to the driver for ordered processing.
 #[derive(Debug, Clone)]

@@ -25,10 +25,7 @@ use crate::preconfirmation::lookahead::{
 use crate::preconfirmation::lookahead::resolver::epoch::current_unix_timestamp;
 
 use super::{
-    super::{
-        PreconfSignerResolver,
-        error::{LookaheadError, Result},
-    },
+    super::{LookaheadError, PreconfSignerResolver, Result},
     epoch::{
         MAX_BACKWARD_STEPS, SECONDS_IN_EPOCH, SECONDS_IN_SLOT, earliest_allowed_timestamp,
         earliest_allowed_timestamp_at, epoch_start_for, genesis_timestamp_for_chain,

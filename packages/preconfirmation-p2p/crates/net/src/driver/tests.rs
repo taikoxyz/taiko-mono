@@ -137,13 +137,9 @@ fn build_memory_parts(chain_id: u64, cfg: &NetworkConfig) -> BuiltParts {
         libp2p::gossipsub::IdentTopic::new(preconfirmation_types::topic_raw_txlists(chain_id)),
     );
     let protocols = crate::codec::Protocols {
-        commitments: crate::codec::SszProtocol(
-            preconfirmation_types::protocol_get_commitments_by_number(chain_id),
-        ),
-        raw_txlists: crate::codec::SszProtocol(preconfirmation_types::protocol_get_raw_txlist(
-            chain_id,
-        )),
-        head: crate::codec::SszProtocol(preconfirmation_types::protocol_get_head(chain_id)),
+        commitments: preconfirmation_types::protocol_get_commitments_by_number(chain_id),
+        raw_txlists: preconfirmation_types::protocol_get_raw_txlist(chain_id),
+        head: preconfirmation_types::protocol_get_head(chain_id),
     };
     let behaviour =
         NetBehaviour::new(keypair.clone(), topics.clone(), protocols, cfg).expect("behaviour");
