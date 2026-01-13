@@ -3,7 +3,7 @@
 //! This module defines the [`NetworkCommand`] enum, which represents actions
 //! that the service layer can request from the network driver.
 
-use libp2p::PeerId;
+use libp2p::{Multiaddr, PeerId};
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, Uint256};
 use tokio::sync::oneshot;
 
@@ -70,5 +70,18 @@ pub enum NetworkCommand {
     UpdateHead {
         /// The new `PreconfHead` to be served.
         head: preconfirmation_types::PreconfHead,
+    },
+    /// Dial a peer at the given multiaddr.
+    Dial {
+        /// The multiaddr to dial. Should include the peer ID suffix (e.g., `/p2p/<peer_id>`).
+        addr: Multiaddr,
+        /// Optional responder to notify when the dial attempt completes.
+        /// Returns `Ok(())` if the dial was initiated, or an error string if it failed.
+        respond_to: Option<oneshot::Sender<Result<(), String>>>,
+    },
+    /// Get the current listening addresses.
+    GetListeningAddrs {
+        /// Responder to deliver the listening addresses.
+        respond_to: oneshot::Sender<Vec<Multiaddr>>,
     },
 }

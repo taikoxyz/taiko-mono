@@ -91,6 +91,7 @@ thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
+secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde_json = "1"
 sha2 = "0.10"
 

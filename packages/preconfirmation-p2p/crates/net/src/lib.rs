@@ -28,6 +28,7 @@ pub use discovery::spawn_discovery;
 pub use driver::{NetworkDriver, NetworkHandle};
 pub use event::{NetworkError, NetworkErrorKind, NetworkEvent};
 pub use handle::P2pHandle;
+pub use libp2p::{Multiaddr, PeerId};
 pub use node::P2pNode;
 pub use reputation::{
     PeerAction, PeerReputation, PeerScore, ReputationConfig, ReputationEvent, ReqRespKind,

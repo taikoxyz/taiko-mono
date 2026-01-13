@@ -36,6 +36,15 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
+driver = { path = "../driver" }
 rand = { workspace = true }
-secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
+secp256k1 = { workspace = true }
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness", features = ["preconfirmation"] }
 tokio = { workspace = true, features = ["full"] }
+tracing-subscriber = { workspace = true }
+
+[[test]]
+name = "p2p_integration"
+path = "tests/p2p_integration.rs"
