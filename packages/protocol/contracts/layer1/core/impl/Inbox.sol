@@ -275,9 +275,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
-
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp.max(
-                state.lastFinalizedTimestamp);
+            uint256 proposalAge = block.timestamp
+                - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
 
             // ---------------------------------------------------------
@@ -318,8 +317,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 );
                 state.lastCheckpointTimestamp = uint48(block.timestamp);
             }
-
-
 
             // ---------------------------------------------------------
             // 5. Update core state and emit event
@@ -761,9 +758,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         if (proverCount == 0) return false;
 
         if (!isWhitelisted) {
-            require(
-                _proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted()
-            );
+            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
         }
         return true;
     }

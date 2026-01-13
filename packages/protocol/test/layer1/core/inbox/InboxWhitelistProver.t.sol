@@ -87,9 +87,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: p1.proposer,
-            timestamp: p1Timestamp,
-            blockHash: keccak256("checkpoint1")
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
         });
 
         IInbox.ProveInput memory input = _buildInputWithProver(
@@ -112,9 +110,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: p1.proposer,
-            timestamp: p1Timestamp,
-            blockHash: keccak256("checkpoint1")
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
         });
 
         IInbox.ProveInput memory input = _buildInputWithProver(
