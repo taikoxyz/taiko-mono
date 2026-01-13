@@ -3,6 +3,8 @@
 //! This module provides [`P2pHandle`], a minimal interface for sending commands
 //! to the network and receiving events from it.
 
+use std::time::Duration;
+
 use anyhow::Result;
 use futures::Stream;
 use libp2p::{Multiaddr, PeerId};
@@ -42,6 +44,8 @@ pub struct P2pHandle {
     events: Receiver<NetworkEvent>,
     /// The local peer ID for this node.
     local_peer_id: PeerId,
+    /// Optional timeout for waiting on the first listen address.
+    listen_addr_timeout: Option<Duration>,
 }
 
 impl P2pHandle {
@@ -53,6 +57,7 @@ impl P2pHandle {
             commands: handle.commands,
             events: handle.events,
             local_peer_id: handle.local_peer_id,
+            listen_addr_timeout: handle.listen_addr_timeout,
         }
     }
 
@@ -87,11 +92,13 @@ impl P2pHandle {
     ///
     /// # Returns
     ///
-    /// The `PeerId` of the connected peer, or a `NetworkError` if the event stream closes.
+    /// The `PeerId` of the connected peer, or a `NetworkError` if the event stream closes
+    /// or a network error is received.
     pub async fn wait_for_peer_connected(&mut self) -> Result<PeerId, NetworkError> {
         loop {
             match self.events.recv().await {
                 Some(NetworkEvent::PeerConnected(peer_id)) => return Ok(peer_id),
+                Some(NetworkEvent::Error(err)) => return Err(err),
                 Some(_) => continue,
                 None => {
                     return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"))
@@ -100,18 +107,76 @@ impl P2pHandle {
         }
     }
 
+    /// Wait for a peer to connect with an optional timeout.
+    ///
+    /// If `timeout` is `Some`, the wait will be bounded by that duration.
+    /// If `timeout` is `None`, this behaves identically to [`wait_for_peer_connected`].
+    ///
+    /// # Returns
+    ///
+    /// The `PeerId` of the connected peer, or a `NetworkError` if the timeout expires,
+    /// the event stream closes, or a network error is received.
+    pub async fn wait_for_peer_connected_with_timeout(
+        &mut self,
+        timeout: Option<Duration>,
+    ) -> Result<PeerId, NetworkError> {
+        match timeout {
+            Some(duration) => tokio::time::timeout(duration, self.wait_for_peer_connected())
+                .await
+                .map_err(|_| {
+                    NetworkError::new(
+                        NetworkErrorKind::ReqRespTimeout,
+                        "timed out waiting for peer connection",
+                    )
+                })?,
+            None => self.wait_for_peer_connected().await,
+        }
+    }
+
     /// Wait for the first listening address to be announced by the swarm.
     ///
     /// This waits for the `NewListenAddr` event and returns the address when received.
+    ///
+    /// # Returns
+    ///
+    /// The listening `Multiaddr`, or a `NetworkError` if the event stream closes
+    /// or a network error is received.
     pub async fn wait_for_listen_addr(&mut self) -> Result<Multiaddr, NetworkError> {
         loop {
             match self.events.recv().await {
                 Some(NetworkEvent::NewListenAddr(addr)) => return Ok(addr),
+                Some(NetworkEvent::Error(err)) => return Err(err),
                 Some(_) => continue,
                 None => {
                     return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"))
                 }
             }
+        }
+    }
+
+    /// Wait for the first listening address with an optional timeout.
+    ///
+    /// If `timeout` is `Some`, the wait will be bounded by that duration.
+    /// If `timeout` is `None`, this behaves identically to [`wait_for_listen_addr`].
+    ///
+    /// # Returns
+    ///
+    /// The listening `Multiaddr`, or a `NetworkError` if the timeout expires,
+    /// the event stream closes, or a network error is received.
+    pub async fn wait_for_listen_addr_with_timeout(
+        &mut self,
+        timeout: Option<Duration>,
+    ) -> Result<Multiaddr, NetworkError> {
+        match timeout {
+            Some(duration) => {
+                tokio::time::timeout(duration, self.wait_for_listen_addr()).await.map_err(|_| {
+                    NetworkError::new(
+                        NetworkErrorKind::ReqRespTimeout,
+                        "timed out waiting for listen address",
+                    )
+                })?
+            }
+            None => self.wait_for_listen_addr().await,
         }
     }
 
@@ -330,15 +395,34 @@ impl P2pHandle {
     ///
     /// A dialable multiaddr with the peer ID suffix, or an error if no listeners are available.
     pub async fn dialable_addr(&mut self) -> Result<Multiaddr, NetworkError> {
-        let addrs = self.listening_addrs().await?;
-        let addr = if let Some(first) = addrs.into_iter().next() {
-            first
-        } else {
-            self.wait_for_listen_addr().await?
-        };
+        self.dialable_addr_with_timeout(None).await
+    }
 
-        let mut full_addr = addr;
-        full_addr.push(libp2p::multiaddr::Protocol::P2p(self.local_peer_id));
-        Ok(full_addr)
+    /// Get a full dialable address with an optional timeout for waiting on listen address.
+    ///
+    /// This is a convenience method that retrieves the first listening address and
+    /// appends the local peer ID suffix. If no addresses are available yet and
+    /// `timeout` is `Some`, the wait for the first listen address will be bounded.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - Optional timeout for waiting on the first listen address.
+    ///
+    /// # Returns
+    ///
+    /// A dialable multiaddr with the peer ID suffix, or an error if no listeners are available
+    /// or the timeout expires.
+    pub async fn dialable_addr_with_timeout(
+        &mut self,
+        timeout: Option<Duration>,
+    ) -> Result<Multiaddr, NetworkError> {
+        let effective_timeout = timeout.or(self.listen_addr_timeout);
+        let addrs = self.listening_addrs().await?;
+        let mut addr = match addrs.into_iter().next() {
+            Some(first) => first,
+            None => self.wait_for_listen_addr_with_timeout(effective_timeout).await?,
+        };
+        addr.push(libp2p::multiaddr::Protocol::P2p(self.local_peer_id));
+        Ok(addr)
     }
 }

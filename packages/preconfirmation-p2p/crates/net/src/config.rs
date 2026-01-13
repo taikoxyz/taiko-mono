@@ -32,6 +32,10 @@ pub struct P2pConfig {
     pub bootnodes: Vec<String>,
     /// Static peers to dial on startup (multiaddr including `/p2p/<peer_id>`).
     pub pre_dial_peers: Vec<Multiaddr>,
+    /// Optional timeout for waiting on pre-dial peer connection.
+    pub pre_dial_timeout: Option<Duration>,
+    /// Optional timeout for waiting on the first listen address.
+    pub listen_addr_timeout: Option<Duration>,
     /// Enable QUIC transport (requires `quic-transport` feature).
     pub enable_quic: bool,
     /// Enable TCP transport.
@@ -61,6 +65,8 @@ pub struct NetworkConfig {
     pub discv5_listen: SocketAddr,
     /// Bootnodes as ENR or multiaddr strings. These are used for initial peer discovery.
     pub bootnodes: Vec<String>,
+    /// Optional timeout for waiting on the first listen address.
+    pub listen_addr_timeout: Option<Duration>,
     /// Enable QUIC transport. If true, the network will attempt to use QUIC when
     /// the `quic-transport` feature is enabled.
     pub enable_quic: bool,
@@ -122,6 +128,8 @@ impl Default for P2pConfig {
             discovery_listen: base.discv5_listen,
             bootnodes: base.bootnodes,
             pre_dial_peers: Vec::new(),
+            pre_dial_timeout: None,
+            listen_addr_timeout: None,
             enable_quic: base.enable_quic,
             enable_tcp: base.enable_tcp,
             request_timeout: base.request_timeout,
@@ -148,6 +156,7 @@ impl From<P2pConfig> for NetworkConfig {
             discv5_listen: cfg.discovery_listen,
             enable_discovery: cfg.enable_discovery,
             bootnodes: cfg.bootnodes,
+            listen_addr_timeout: cfg.listen_addr_timeout,
             enable_quic: cfg.enable_quic,
             enable_tcp: cfg.enable_tcp,
             request_timeout: cfg.request_timeout,
@@ -172,6 +181,7 @@ impl Default for NetworkConfig {
             listen_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9000),
             discv5_listen: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 9001),
             bootnodes: Vec::new(),
+            listen_addr_timeout: None,
             enable_quic: true,
             enable_tcp: true,
             gossipsub_heartbeat: *kona_gossip::GOSSIP_HEARTBEAT,

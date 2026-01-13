@@ -11,7 +11,7 @@ mod reqresp;
 #[cfg(test)]
 mod tests;
 
-use std::{collections::HashMap, num::NonZeroU8, str::FromStr, sync::Arc};
+use std::{collections::HashMap, num::NonZeroU8, str::FromStr, sync::Arc, time::Duration};
 
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
 use tokio::sync::mpsc::{self, Receiver, Sender, error::TrySendError};
@@ -42,6 +42,8 @@ pub struct NetworkHandle {
     pub commands: Sender<NetworkCommand>,
     /// The local peer ID for this node.
     pub local_peer_id: PeerId,
+    /// Optional timeout for waiting on the first listen address.
+    pub listen_addr_timeout: Option<Duration>,
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
@@ -178,7 +180,12 @@ impl NetworkDriver {
                 kona_gater: build_kona_gater(&cfg),
                 storage: storage.unwrap_or_else(default_storage),
             },
-            NetworkHandle { events: events_rx, commands: cmd_tx, local_peer_id: peer_id },
+            NetworkHandle {
+                events: events_rx,
+                commands: cmd_tx,
+                local_peer_id: peer_id,
+                listen_addr_timeout: cfg.listen_addr_timeout,
+            },
         ))
     }
 

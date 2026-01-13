@@ -251,13 +251,15 @@ where
         let node_handle = tokio::spawn(async move { node.run().await });
 
         // If pre-dial peers are configured, dial them and wait for a connection
-        // before attempting catch-up.
+        // before attempting catch-up. Use the pre_dial_timeout if configured.
         let pre_dial_result: Result<()> = async {
             if !config.p2p.pre_dial_peers.is_empty() {
                 for addr in config.p2p.pre_dial_peers.iter().cloned() {
                     handle.dial(addr).await?;
                 }
-                let peer_id = handle.wait_for_peer_connected().await?;
+                let peer_id = handle
+                    .wait_for_peer_connected_with_timeout(config.p2p.pre_dial_timeout)
+                    .await?;
                 info!(peer_id = %peer_id, "peer connected before catch-up");
                 if let Err(err) =
                     event_tx.send(PreconfirmationEvent::PeerConnected(peer_id.to_string()))

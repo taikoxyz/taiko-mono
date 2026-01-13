@@ -186,7 +186,12 @@ fn driver_from_parts(
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
         },
-        NetworkHandle { events: events_rx, commands: cmd_tx, local_peer_id: peer_id },
+        NetworkHandle {
+            events: events_rx,
+            commands: cmd_tx,
+            local_peer_id: peer_id,
+            listen_addr_timeout: None,
+        },
     )
 }
 
@@ -237,19 +242,18 @@ async fn gossipsub_and_reqresp_roundtrip() {
         let sk1 = secp256k1::SecretKey::new(&mut rand::thread_rng());
         let lookahead = Arc::new(StaticLookaheadResolver { signer: signer_for_sk(&sk1) });
         let validator1 = Box::new(LookaheadValidationAdapter::new(None, lookahead.clone()));
-        let Ok((driver1, mut handle1)) = NetworkDriver::new_with_validator(cfg.clone(), validator1)
+        let Ok((mut driver1, mut handle1)) =
+            NetworkDriver::new_with_validator(cfg.clone(), validator1)
         else {
             eprintln!("skipping: environment may block local TCP (driver init failed)");
             return;
         };
         let validator2 = Box::new(LookaheadValidationAdapter::new(None, lookahead));
-        let Ok((driver2, mut handle2)) = NetworkDriver::new_with_validator(cfg, validator2) else {
+        let Ok((mut driver2, mut handle2)) = NetworkDriver::new_with_validator(cfg, validator2)
+        else {
             eprintln!("skipping: environment may block local TCP (driver init failed)");
             return;
         };
-
-        let mut driver1 = driver1;
-        let mut driver2 = driver2;
 
         let _addr1 = listen_on(&mut driver1).await;
         let addr2 = listen_on(&mut driver2).await;
