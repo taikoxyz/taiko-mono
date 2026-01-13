@@ -13,7 +13,9 @@ import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
 ## Enable a prover with simple-taiko-node
 
 <Aside>
-These are the bare minimum required settings along with a functional Taiko node to run a prover, feel free to customize the rest of the variables in the `.env` file as you see fit!
+  These are the bare minimum required settings along with a functional Taiko
+  node to run a prover, feel free to customize the rest of the variables in the
+  `.env` file as you see fit!
 </Aside>
 
 <Steps>
@@ -33,7 +35,8 @@ These are the bare minimum required settings along with a functional Taiko node 
 </Steps>
 
 <Aside>
-For Step 6, please use `docker compose -f docker-compose-hekla.yml up -d` if you are running on Taiko Hekla, and `docker compose -f docker-compose-hoodi.yml up -d` if you are running on Taiko Hoodi.
+  For Step 6, please use `docker compose -f docker-compose-hoodi.yml up -d` if
+  you are running on Taiko Hoodi.
 </Aside>
 
 Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
@@ -51,7 +54,9 @@ Please find all relevant bond, cooldown, and proving window information [here](/
 3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
 
    <Aside>
-      Please verify [contract addresses](/network-reference/contract-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
+     Please verify [contract addresses](/network-reference/contract-addresses)
+     are correct before moving forward. You can check the respective ENS domains
+     on Etherscan.
    </Aside>
 
 4. Set the amount to at least the minimum bond amount of 125 TAIKO.
@@ -61,32 +66,6 @@ Please find all relevant bond, cooldown, and proving window information [here](/
    If you have bonded TAIKO in the TaikoInbox contract, it will be used first before more is taken from your allowance.
 
    For an explanation on bonds, please refer to the terminology section [here](/resources/terminology).
-
-5. Finally, click the **Write** button.
-
-</Steps>
-
-### Approve TaikoInbox as TTKOh spender (Taiko Hekla)
-
-You will need TTKOh deposited on the TaikoInbox contract to secure the bond for the proofs you generate.
-
-<Steps>
-
-1. Approve the TaikoInbox contract as a spender.
-
-   Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
-
-2. Click the **Connect to Web3** button.
-
-3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
-
-4. Set the amount to at least the minimum bond amount of 125 TTKOh.
-
-   You will need at least 125 TTKOh for the `livenessBond`. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
-
-   If you have bonded TTKOh in the TaikoInbox contract, it will be used first before more is taken from your allowance.
-
-   For an explanation of the difference between these bonds, please refer to the terminology section [here](/resources/terminology).
 
 5. Finally, click the **Write** button.
 
@@ -104,7 +83,7 @@ You will need TTKOh deposited on the TaikoInbox contract to secure the bond for 
 
 2. Click the **Connect to Web3** button.
 
-3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0x50A576435E2D9c179124D657d804eb56A10b6999`.
+3. Click the **approve** function and set the spender address to the TaikoInbox contract address: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`.
 
 4. Set the amount to at least the minimum bond amount of 125 TTKOh.
 
@@ -119,6 +98,8 @@ You will need TTKOh deposited on the TaikoInbox contract to secure the bond for 
 </Steps>
 
 <Card title="Troubleshooting" icon="error">
-    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+  If you run into any problems, please visit the [node troubleshooting
+  page](/guides/node-operators/node-troubleshooting) for help. If you run into
+  an error that isn't yet listed, please reach out in our
+  [Discord](https://discord.com/invite/taikoxyz)!
 </Card>

@@ -7,8 +7,9 @@ import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1Ve
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import { CodecOptimized } from "src/layer1/core/impl/CodecOptimized.sol";
+
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
 import "src/layer1/devnet/OpVerifier.sol";
@@ -50,9 +51,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
+        address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
+        uint64 minBond;
+        uint64 livenessBond;
+        uint48 withdrawalDelay;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -100,9 +105,14 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
+        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
+        config.minBond = uint64(vm.envOr("MIN_BOND_GWEI", uint256(0)));
+        config.livenessBond = uint64(vm.envOr("LIVENESS_BOND_GWEI", uint256(0)));
+        config.withdrawalDelay = uint48(vm.envOr("WITHDRAWAL_DELAY", uint256(0)));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -166,30 +176,32 @@ contract DeployProtocolOnL1 is DeployCapability {
         returns (address shastaInbox)
     {
         // Deploy whitelist
-        address whitelist = deployProxy({
-            name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner, 0, 2))
-        });
+        address whitelist = config.preconfWhitelist;
+        if (whitelist == address(0)) {
+            whitelist = deployProxy({
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
+            });
+        } else {
+            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
+        }
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
+        // Deploy prover whitelist
+        address proverWhitelist = deployProxy({
+            name: "prover_whitelist",
+            impl: address(new ProverWhitelist()),
+            data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
+        });
+        console2.log("ProverWhitelist deployed:", proverWhitelist);
+
         // Get dependencies
-        address bondToken =
-            IResolver(sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
+        address signalService =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
 
-        address signalService;
-        bool signalServiceExists = true;
-        try IResolver(sharedResolver)
-            .resolve(uint64(block.chainid), "signal_service", false) returns (
-            address existing
-        ) {
-            signalService = existing;
-        } catch {
-            signalServiceExists = false;
-        }
-
-        if (!signalServiceExists) {
+        if (signalService == address(0)) {
             SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
             signalService = deployProxy({
                 name: "signal_service",
@@ -200,13 +212,23 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("SignalService deployed:", signalService);
         }
 
-        address codec = address(new CodecOptimized());
+        address taikoToken =
+            IResolver(sharedResolver).resolve(uint64(block.chainid), "taiko_token", true);
 
         // Deploy inbox
         shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
-                new DevnetInbox(codec, proofVerifier, whitelist, bondToken, signalService)
+                new DevnetInbox(
+                    proofVerifier,
+                    whitelist,
+                    proverWhitelist,
+                    signalService,
+                    taikoToken,
+                    config.minBond,
+                    config.livenessBond,
+                    config.withdrawalDelay
+                )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))
         });
@@ -216,16 +238,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
 
-        if (!signalServiceExists) {
-            SignalService upgradedSignalServiceImpl =
-                new SignalService(shastaInbox, config.remoteSigSvc);
-            SignalService(signalService).upgradeTo(address(upgradedSignalServiceImpl));
-            console2.log("SignalService upgraded with Shasta inbox authorized syncer");
+        SignalService(signalService)
+            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
+        console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
-            if (config.contractOwner != msg.sender) {
-                Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
-                console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
-            }
+        if (config.contractOwner != msg.sender) {
+            Ownable2StepUpgradeable(signalService).transferOwnership(config.contractOwner);
+            console2.log("SignalService ownership transfer initiated to:", config.contractOwner);
         }
     }
 
@@ -285,9 +304,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             register(sharedResolver, "taiko_token", taikoToken);
         }
-
-        // Register as bond token as well
-        register(sharedResolver, "bond_token", taikoToken);
     }
 
     function _deployBridge(address sharedResolver, DeploymentConfig memory config) private {

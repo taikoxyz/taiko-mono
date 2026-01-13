@@ -13,11 +13,11 @@ interface IProofVerifier {
     ///        Verifiers should interpret _proposalAge == 0 as "not applicable" rather than
     ///        "instant proof". This parameter enables age-based verification logic, such as
     ///        detecting and handling prover-killer proposals differently.
-    /// @param _transitionsHash The hash of the transitions to verify
-    /// @param _proof The proof data for the transitions
+    /// @param _commitmentHash Hash of the last proposal hash and commitment data
+    /// @param _proof The proof data
     function verifyProof(
         uint256 _proposalAge,
-        bytes32 _transitionsHash,
+        bytes32 _commitmentHash,
         bytes calldata _proof
     )
         external

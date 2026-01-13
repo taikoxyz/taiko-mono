@@ -89,25 +89,14 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
+		// VerifierIDs
+		sgxGethVerifierID   uint8 = 1
+		sgxRethVerifierID   uint8 = 4
+		risc0RethVerifierID uint8 = 5
+		sp1RethVerifierID   uint8 = 6
+
 		err error
 	)
-	// Proof verifiers addresses.
-	sgxGethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SGXGETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-	sgxRethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SGXRETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-	risc0RethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.RISC0RETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-	sp1RethVerifierID, err := p.rpc.ShastaClients.ComposeVerifier.SP1RETH(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
 
 	sgxGethProducer := &producer.SgxGethProofProducer{
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
@@ -165,12 +154,12 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 	}
 
 	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
+		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotifyShasta,
 		p.proofSubmissionCh,
-		p.shastaIndexer,
 		&proofSubmitter.SenderOptions{
 			RPCClient:        p.rpc,
 			Txmgr:            p.txmgr,
@@ -275,6 +264,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	}
 
 	if p.proofSubmitterPacaya, err = proofSubmitter.NewProofSubmitterPacaya(
+		p.ctx,
 		baseLevelProofProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
@@ -354,7 +344,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 
 // initL1Current initializes prover's L1Current cursor.
 func (p *Prover) initL1Current(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
 		return err
 	}
 
@@ -419,42 +409,42 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 
 // initL1CurrentShasta initializes prover's L1Current cursor for Shasta protocol.
 func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
 		return err
 	}
 
-	lastProposal := p.shastaIndexer.GetLastProposal()
-	if lastProposal == nil || lastProposal.Proposal.Id.Cmp(common.Big0) == 0 {
-		return fmt.Errorf("empty core state")
+	coreState, err := p.rpc.GetCoreStateShasta(&bind.CallOpts{Context: p.ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
 	if startingBatchID == nil {
-		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+		startingBatchID = coreState.LastFinalizedProposalId
 	}
 
-	if startingBatchID.Cmp(lastProposal.Proposal.Id) > 0 {
+	if startingBatchID.Cmp(coreState.NextProposalId) >= 0 {
 		log.Warn(
 			"Provided startingBatchID is greater than the last proposal ID, using last finalized proposal ID instead",
 			"providedStartingBatchID", startingBatchID,
-			"lastProposalID", lastProposal.Proposal.Id,
+			"nextProposalId", coreState.NextProposalId,
 		)
-		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+		startingBatchID = coreState.LastFinalizedProposalId
 	}
-	if startingBatchID.Cmp(lastProposal.CoreState.LastFinalizedProposalId) < 0 {
+	if startingBatchID.Cmp(coreState.LastFinalizedProposalId) < 0 {
 		log.Warn(
 			"Provided startingBatchID is less than the last finalized proposal ID, using last finalized proposal ID instead",
 			"providedStartingBatchID", startingBatchID,
-			"lastFinalizedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
+			"lastFinalizedProposalID", coreState.LastFinalizedProposalId,
 		)
-		startingBatchID = lastProposal.CoreState.LastFinalizedProposalId
+		startingBatchID = coreState.LastFinalizedProposalId
 	}
 
 	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
 
-	startingProposal, err := p.shastaIndexer.GetProposalByID(startingBatchID.Uint64())
+	_, eventLog, err := p.rpc.GetProposalByIDShasta(p.ctx, startingBatchID)
 	if err != nil {
 		return fmt.Errorf("failed to get proposal by ID: %d", startingBatchID)
 	}
-	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, startingProposal.RawBlockHash)
+	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, eventLog.BlockHash)
 	if err != nil {
 		return err
 	}
@@ -471,7 +461,6 @@ func (p *Prover) initEventHandlers() error {
 		ProverAddress:          p.ProverAddress(),
 		ProverSetAddress:       p.cfg.ProverSetAddress,
 		RPC:                    p.rpc,
-		Indexer:                p.shastaIndexer,
 		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
 		AssignmentExpiredCh:    p.assignmentExpiredCh,
 		ProofSubmissionCh:      p.proofSubmissionCh,
@@ -483,7 +472,6 @@ func (p *Prover) initEventHandlers() error {
 	// ------- BatchesProved -------
 	p.eventHandlers.batchesProvedHandler = handler.NewBatchesProvedEventHandler(
 		p.rpc,
-		p.shastaIndexer,
 		p.proofSubmissionCh,
 	)
 	// ------- AssignmentExpired -------

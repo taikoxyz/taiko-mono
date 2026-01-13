@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "@eth-fabric/urc/lib/MerkleTree.sol";
 import "src/layer1/preconf/iface/IBlacklist.sol";
@@ -9,16 +9,13 @@ import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
-import "./LookaheadSlasher_Layout.sol"; // DO NOT DELETE
-
 /// @title LookaheadSlasher
+/// @dev This is a stateless contract intended to be delegatecall-ed to by the `UnifiedSlasher`
 /// @custom:security-contact security@taiko.xyz
-contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
+contract LookaheadSlasher is ILookaheadSlasher {
     address public immutable urc;
     address public immutable lookaheadStore;
     uint256 public immutable slashAmount;
-
-    uint256[50] private __gap;
 
     constructor(address _urc, address _lookaheadStore, uint256 _slashAmount) {
         urc = _urc;
@@ -26,23 +23,20 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         slashAmount = _slashAmount;
     }
 
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-
-    /// @inheritdoc ISlasher
+    /// @inheritdoc ILookaheadSlasher
     function slash(
-        Delegation calldata, /*_delegation*/
-        Commitment calldata _commitment,
-        address, /*_committer*/
-        bytes calldata _evidence,
-        address /*_challenger*/
+        ISlasher.Commitment calldata _commitment,
+        bytes calldata _evidence
     )
         external
-        nonReentrant
-        onlyFrom(urc)
+        view
         returns (uint256)
     {
+        require(
+            _commitment.commitmentType == LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
+            InvalidCommitmentType()
+        );
+
         // Todo: move to calldata
         ILookaheadStore.LookaheadSlot[] memory lookaheadSlots =
             abi.decode(_commitment.payload, (ILookaheadStore.LookaheadSlot[]));
@@ -283,4 +277,16 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             z.offset := add(zOuterOffset, 0x20)
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidCommitmentType();
+    error InvalidLookaheadSlotsIndex();
+    error InvalidRegistrationProofValidator();
+    error LookaheadHashMismatch();
+    error PreconfValidatorIsSameAsBeaconValidator();
+    error PreconfValidatorIsNotRegistered();
+    error RegistrationRootMismatch();
 }

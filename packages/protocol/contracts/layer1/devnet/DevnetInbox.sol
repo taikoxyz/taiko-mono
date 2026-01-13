@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { InboxOptimized2 } from "src/layer1/core/impl/InboxOptimized2.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
@@ -11,7 +10,7 @@ import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract DevnetInbox is InboxOptimized2 {
+contract DevnetInbox is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -31,22 +30,26 @@ contract DevnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _codec,
         address _proofVerifier,
         address _proposerChecker,
-        address _taikoToken,
-        address _checkpointStore
+        address _proverWhitelist,
+        address _signalService,
+        address _bondToken,
+        uint64 _minBond,
+        uint64 _livenessBond,
+        uint48 _withdrawalDelay
     )
-        InboxOptimized2(IInbox.Config({
-                bondToken: _taikoToken,
-                checkpointStore: _checkpointStore,
-                codec: _codec,
+        Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
+                proverWhitelist: _proverWhitelist,
+                signalService: _signalService,
+                bondToken: _bondToken,
+                minBond: _minBond,
+                livenessBond: _livenessBond,
+                withdrawalDelay: _withdrawalDelay,
                 provingWindow: 2 hours,
-                extendedProvingWindow: 4 hours,
-                maxFinalizationCount: 16,
-                finalizationGracePeriod: 768 seconds, // 2 epochs
+                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
@@ -54,8 +57,7 @@ contract DevnetInbox is InboxOptimized2 {
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5,
-                compositeKeyVersion: 1
+                permissionlessInclusionMultiplier: 5
             }))
     { }
 
@@ -70,10 +72,4 @@ contract DevnetInbox is InboxOptimized2 {
     function _loadReentryLock() internal view override returns (uint8) {
         return LibFasterReentryLock.loadReentryLock();
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidCoreState();
 }

@@ -14,13 +14,12 @@
     "editor.formatOnSave": true
   },
   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2025-09-27"],
-    "rust-analyzer.linkedProjects": [
-      "packages/blobindexer-rs/Cargo.toml",
-      "packages/overseer-rs/Cargo.toml",
-      "packages/taiko-client-rs/Cargo.toml",
-      "packages/ejector/Cargo.toml",
-      "packages/urcindexer-rs/Cargo.toml",
-    ],
+  "rust-analyzer.linkedProjects": [
+    "packages/overseer-rs/Cargo.toml",
+    "packages/taiko-client-rs/Cargo.toml",
+    "packages/ejector/Cargo.toml",
+    "packages/urcindexer-rs/Cargo.toml"
+  ],
   "solidity.compileUsingRemoteVersion": "v0.8.24+commit.e11b9ed9",
   "solidity.formatter": "forge",
   "i18n-ally.keystyle": "nested",

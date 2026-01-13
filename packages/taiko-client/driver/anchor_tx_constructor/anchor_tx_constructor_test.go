@@ -2,6 +2,7 @@ package anchortxconstructor
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -37,6 +38,29 @@ func TestAssembleAnchorV3Tx(t *testing.T) {
 		&pacayaBindings.LibSharedDataBaseFeeConfig{},
 		[][32]byte{},
 		common.Big1,
+		common.Big256,
+	)
+	require.Nil(t, err)
+	require.NotNil(t, tx)
+}
+
+func TestAssembleAnchorV4Tx(t *testing.T) {
+	client := newTestClient(t)
+	l1Head, err := client.L1.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
+
+	c, err := New(client)
+	require.Nil(t, err)
+	head, err := client.L2.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
+	tx, err := c.AssembleAnchorV4Tx(
+		context.Background(),
+		head,
+		l1Head.Number,
+		l1Head.Hash(),
+		l1Head.Root,
+		common.Big0,
+		new(big.Int).Add(head.Number, common.Big1),
 		common.Big256,
 	)
 	require.Nil(t, err)

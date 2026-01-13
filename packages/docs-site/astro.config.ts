@@ -1,5 +1,5 @@
-import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { defineConfig } from "astro/config";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
 
@@ -16,6 +16,7 @@ export default defineConfig({
     starlight({
       plugins: [
         starlightLinksValidator({
+          errorOnLocalLinks: false,
           exclude: [
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
@@ -230,10 +231,6 @@ export default defineConfig({
                 {
                   label: "Run a node for Taiko Alethia",
                   link: "/guides/node-operators/run-a-node-for-taiko-alethia/",
-                },
-                {
-                  label: "Run a node for Taiko Hekla",
-                  link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
                 },
                 {
                   label: "Run a node for Taiko Hoodi",

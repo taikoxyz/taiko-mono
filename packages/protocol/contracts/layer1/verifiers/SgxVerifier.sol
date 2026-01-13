@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
@@ -71,9 +71,12 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
+    error INVALID_CHAIN_ID();
+    error INVALID_AUTOMATA_DCAP_ATTESTATION();
 
     constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
-        require(_taikoChainId != 0, "Invalid chain id");
+        if (_taikoChainId == 0) revert INVALID_CHAIN_ID();
+        if (_automataDcapAttestation == address(0)) revert INVALID_AUTOMATA_DCAP_ATTESTATION();
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
 

@@ -20,7 +20,7 @@ jobs:
 
     steps:
       # Check out the repo to access release-please-config.json
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Clean up old releases
         shell: bash

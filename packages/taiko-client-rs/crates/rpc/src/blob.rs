@@ -13,7 +13,10 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::beacon::{BeaconClient, BeaconSidecar};
+use crate::{
+    beacon::{BeaconClient, BeaconSidecar},
+    client::DEFAULT_HTTP_TIMEOUT,
+};
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
@@ -69,7 +72,10 @@ impl BlobDataSource {
     /// Access the HTTP client used for blob fetches.
     fn http_client(&self) -> Result<&HttpClient, BlobDataError> {
         self.client.get_or_try_init(|| {
-            HttpClient::builder().build().map_err(|err| BlobDataError::Other(err.into()))
+            HttpClient::builder()
+                .timeout(DEFAULT_HTTP_TIMEOUT)
+                .build()
+                .map_err(|err| BlobDataError::Other(err.into()))
         })
     }
 
@@ -112,6 +118,19 @@ impl BlobDataSource {
         }
 
         Err(BlobDataError::Beacon("no beacon or blob server available for blob retrieval".into()))
+    }
+
+    /// Look up the execution-layer block number associated with a given timestamp via the beacon
+    /// endpoint.
+    pub async fn execution_block_number_by_timestamp(
+        &self,
+        timestamp: u64,
+    ) -> Result<u64, BlobDataError> {
+        let beacon = self
+            .beacon
+            .as_ref()
+            .ok_or_else(|| BlobDataError::Beacon("beacon endpoint not configured".into()))?;
+        beacon.execution_block_number_by_timestamp(timestamp).await
     }
 
     async fn fetch_from_blob_server(

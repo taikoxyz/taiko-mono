@@ -3,7 +3,7 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
-    "crates/event-indexer",
+    "crates/preconfirmation-client",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
@@ -22,6 +22,8 @@ repository = "https://github.com/taikoxyz/taiko-mono"
 [workspace.dependencies]
 # async
 async-trait = "0.1"
+rand = { version = "0.8", features = ["std", "std_rng"] }
+serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-retry = "0.3.0"
 tokio-stream = "0.1"
@@ -41,42 +43,43 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.4", features = ["timeout", "util"] }
 
 # ethereum
-alloy = "1.0.36"
-alloy-consensus = { version = "1.0.36", default-features = false, features = [
+alloy = "1.1.2"
+alloy-consensus = { version = "1.1.2", default-features = false, features = [
   "serde",
 ] }
-alloy-contract = { version = "1.0.36", default-features = false }
-alloy-eips = { version = "1.0.36", default-features = false }
-alloy-hardforks = { version = "0.4", default-features = false }
-alloy-json-rpc = { version = "1.0.36", default-features = false }
-alloy-network = { version = "1.0.36", default-features = false }
-alloy-node-bindings = { version = "1.0.36" }
-alloy-primitives = { version = "1.0.36", default-features = false }
-alloy-provider = { version = "1.0.36", default-features = false }
+alloy-contract = { version = "1.1.2", default-features = false }
+alloy-eips = { version = "1.1.2", default-features = false }
+alloy-hardforks = { version = "0.4.4", default-features = false }
+alloy-json-rpc = { version = "1.1.2", default-features = false }
+alloy-network = { version = "1.1.2", default-features = false }
+alloy-node-bindings = { version = "1.1.2" }
+alloy-primitives = { version = "1.4.1", default-features = false }
+alloy-provider = { version = "1.1.2", default-features = false }
 alloy-rlp = { version = "0.3.12", default-features = false }
-alloy-rpc-client = { version = "1.0.36", default-features = false }
-alloy-rpc-types = { version = "1.0.36", default-features = false }
-alloy-rpc-types-engine = { version = "1.0.36", default-features = false }
-alloy-rpc-types-eth = { version = "1.0.36", default-features = false }
-alloy-signer-local = { version = "1.0.36", default-features = false }
-alloy-sol-macro = { version = "1.0.36", default-features = false, features = [
+alloy-rpc-client = { version = "1.1.2", default-features = false }
+alloy-rpc-types = { version = "1.1.2", default-features = false }
+alloy-rpc-types-engine = { version = "1.1.2", default-features = false }
+alloy-rpc-types-eth = { version = "1.1.2", default-features = false }
+alloy-signer-local = { version = "1.1.2", default-features = false }
+alloy-sol-macro = { version = "1.4.1", default-features = false, features = [
   "json",
 ] }
-alloy-sol-types = { version = "1.0.36", default-features = false }
-alloy-transport = { version = "1.0.36", default-features = false }
-alloy-transport-http = { version = "1.0.36", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.5.0-alpha"
+alloy-sol-types = { version = "1.4.1", default-features = false }
+alloy-transport = { version = "1.1.2", default-features = false }
+alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
+event-scanner = "=1.0.0-rc.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", branch = "main" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", branch = "main" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", branch = "main", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "e07c13fc011798adfa5436f24646b7305337cdf3", features = [
   "serde",
 ] }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", branch = "main" }
+alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
 
 # types
 anyhow = "1"
@@ -88,8 +91,30 @@ thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 
 # testing
 serial_test = { version = "3", features = ["async"] }
+test-context = "0.3"
+
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package]
+proptest.opt-level = 3
+rand_chacha.opt-level = 3
+rand_xorshift.opt-level = 3
+unarray.opt-level = 3
+
+[profile.debug-fast]
+inherits = "release"
+debug = true
+lto = "thin"
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+incremental = false

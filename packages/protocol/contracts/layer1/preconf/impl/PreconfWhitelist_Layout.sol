@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title PreconfWhitelistLayout
 /// @notice Storage layout documentation for PreconfWhitelist
@@ -21,8 +21,9 @@ pragma solidity ^0.8.24;
 //   operators                      | mapping(address => struct PreconfWhitelist.OperatorInfo) | Slot: 251  | Offset: 0    | Bytes: 32  
 //   operatorMapping                | mapping(uint256 => address)                        | Slot: 252  | Offset: 0    | Bytes: 32  
 //   operatorCount                  | uint8                                              | Slot: 253  | Offset: 0    | Bytes: 1   
-//   operatorChangeDelay            | uint8                                              | Slot: 253  | Offset: 1    | Bytes: 1   
-//   randomnessDelay                | uint8                                              | Slot: 253  | Offset: 2    | Bytes: 1   
-//   havingPerfectOperators         | bool                                               | Slot: 253  | Offset: 3    | Bytes: 1   
+//   _deprecatedOperatorChangeDelay | uint8                                              | Slot: 253  | Offset: 1    | Bytes: 1   
+//   _deprecatedRandomnessDelay     | uint8                                              | Slot: 253  | Offset: 2    | Bytes: 1   
+//   _deprecatedHavingPerfectOperators | bool                                               | Slot: 253  | Offset: 3    | Bytes: 1   
+//   latestActivationEpoch          | uint32                                             | Slot: 253  | Offset: 4    | Bytes: 4   
 //   ejecters                       | mapping(address => bool)                           | Slot: 254  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[45]                                        | Slot: 255  | Offset: 0    | Bytes: 1440

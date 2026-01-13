@@ -1,7 +1,7 @@
 {
   "name": "docs-site",
   "type": "module",
-  "version": "1.32.3",
+  "version": "1.32.6",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "format": "prettier --write .",
-    "lint": "eslint . --ext .js,.ts,.astro"
+    "lint": "eslint . --ext .js,.ts,.astro",
+    "lint:mdx": "prettier --log-level warn --write \"src/content/**/*.{md,mdx}\""
   },
   "dependencies": {
     "@astrojs/check": "^0.8.0",

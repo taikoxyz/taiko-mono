@@ -1,14 +1,5 @@
 {
-  "forced_inclusion_multiple_Inbox": "113688",
-  "forced_inclusion_multiple_InboxOptimized1": "113682",
-  "forced_inclusion_multiple_InboxOptimized2": "106068",
-  "forced_inclusion_single_Inbox": "109249",
-  "forced_inclusion_single_InboxOptimized1": "109238",
-  "forced_inclusion_single_InboxOptimized2": "102418",
-  "propose_reuse_ring_buffer_Inbox": "64777",
-  "propose_reuse_ring_buffer_InboxOptimized1": "65132",
-  "propose_reuse_ring_buffer_InboxOptimized2": "49946",
-  "propose_single_empty_ring_buffer_Inbox": "73935",
-  "propose_single_empty_ring_buffer_InboxOptimized1": "73929",
-  "propose_single_empty_ring_buffer_InboxOptimized2": "68082"
+  "propose_after_ring_buffer_wrap": "44615",
+  "propose_forced_inclusion": "58427",
+  "propose_single": "70915"
 }

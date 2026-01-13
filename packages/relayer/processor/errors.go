@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	//lint:ignore ST1005 allow `errMaxPriorityFeePerGasNotFound` to be capitalized.
+	// lint:ignore ST1005 allow `errMaxPriorityFeePerGasNotFound` to be capitalized.
 	errMaxPriorityFeePerGasNotFound = errors.New(
 		"Method eth_maxPriorityFeePerGas not found",
 	)

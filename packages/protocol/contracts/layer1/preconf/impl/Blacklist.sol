@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "src/layer1/preconf/iface/IBlacklist.sol";
 
@@ -104,4 +104,17 @@ abstract contract Blacklist is IBlacklist {
         BlacklistTimestamps memory blacklistTimestamps = blacklist[operatorRegistrationRoot];
         return blacklistTimestamps.blacklistedAt > blacklistTimestamps.unBlacklistedAt;
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error BlacklistDelayNotMet();
+    error NotOverseer();
+    error NotOwnerOrOverseer();
+    error OperatorAlreadyBlacklisted();
+    error OperatorNotBlacklisted();
+    error UnblacklistDelayNotMet();
+    error OverseerAlreadyExists();
+    error OverseerDoesNotExist();
 }

@@ -5,12 +5,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -21,7 +21,6 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -29,7 +28,6 @@ import (
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
-	shastaStateIndexer      *shastaIndexer.Indexer
 	proposerPrivateKey      *ecdsa.PrivateKey
 	pacayaInboxAddress      common.Address
 	shastaInboxAddress      common.Address
@@ -44,7 +42,6 @@ type BlobTransactionBuilder struct {
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
-	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	pacayaInboxAddress common.Address,
 	shastaInboxAddress common.Address,
@@ -57,7 +54,6 @@ func NewBlobTransactionBuilder(
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
-		shastaStateIndexer,
 		proposerPrivateKey,
 		pacayaInboxAddress,
 		shastaInboxAddress,
@@ -179,89 +175,49 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	txBatch []types.Transactions,
 	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
-	proverAuth []byte,
 ) (*txmgr.TxCandidate, error) {
 	var (
-		to    = &b.shastaInboxAddress
-		blobs []*eth.Blob
-		data  []byte
+		to                       = &b.shastaInboxAddress
+		derivationSourceManifest = &manifest.DerivationSourceManifest{}
+		blobs                    []*eth.Blob
+		data                     []byte
 	)
 	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
-	}
-
-	config, err := b.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
-	}
-
-	// Fetch proposals and transitions from the state indexer.
-	// We need to fetch up to 2 proposals and MaxFinalizationCount transition records.
-	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
-	}
-
-	var (
-		parentProposals          []shastaBindings.IInboxProposal
-		transitionRecords        []shastaBindings.IInboxTransitionRecord
-		checkpoint               = shastaBindings.ICheckpointStoreCheckpoint{BlockNumber: common.Big0}
-		derivationSourceManifest = &manifest.DerivationSourceManifest{ProverAuthBytes: proverAuth}
-	)
-	for i, p := range proposals {
-		log.Info(
-			"Fetched proposal from state indexer",
-			"index", i,
-			"id", p.Proposal.Id,
-			"coreStateHash", common.Bytes2Hex(p.Proposal.CoreStateHash[:]),
-		)
-		parentProposals = append(parentProposals, *p.Proposal)
-	}
-	for i, t := range transitions {
-		log.Info(
-			"Fetched transition from state indexer",
-			"index", i,
-			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
-			"checkpointBlockNumber", t.Transition.Checkpoint.BlockNumber.Uint64(),
-		)
-		if i == len(transitions)-1 {
-			checkpoint = t.Transition.Checkpoint
-		}
-		transitionRecords = append(transitionRecords, *t.TransitionRecord)
 	}
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	// The L1 head must be greater than AnchorMinOffset to propose a new proposal.
-	if l1Head.Number.Uint64() <= manifest.AnchorMinOffset {
-		return nil, fmt.Errorf(
-			"L1 head number %d is lower than required min offset %d",
-			l1Head.Number.Uint64(),
-			manifest.AnchorMinOffset,
-		)
+
+	anchorBlockNumber := l1Head.Number.Uint64()
+
+	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
+	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	var gasLimit = l2Head.GasLimit - consensus.AnchorV3V4GasLimit
+	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
+		gasLimit = manifest.MaxBlockGasLimit
 	}
 
 	for i, txs := range txBatch {
-		// For the first block, we set the anchor block number to
-		// (L1 head - AnchorMinOffset - 1).
-		var anchorBlockNumber = uint64(0)
-		if i == 0 {
-			anchorBlockNumber = l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1)
-			log.Info(
-				"Set anchor block number for the first block in the batch",
-				"anchorBlockNumber", anchorBlockNumber,
-				"l1Head", l1Head.Number.Uint64(),
-				"anchorMinOffset", manifest.AnchorMinOffset,
-			)
-		}
-
+		log.Info(
+			"Setting up derivation source manifest block",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", anchorBlockNumber,
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
 		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
-			Timestamp:         uint64(time.Now().Unix()),
+			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: anchorBlockNumber,
-			GasLimit:          0,
+			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
 	}
@@ -281,11 +237,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	inputData, err := b.rpc.EncodeProposeInput(
 		&bind.CallOpts{Context: ctx},
 		&shastaBindings.IInboxProposeInput{
-			Deadline:          common.Big0,
-			CoreState:         *proposals[0].CoreState,
-			ParentProposals:   parentProposals,
-			TransitionRecords: transitionRecords,
-			Checkpoint:        checkpoint,
+			Deadline: common.Big0,
 			BlobReference: shastaBindings.LibBlobsBlobReference{
 				BlobStartIndex: 0,
 				NumBlobs:       uint16(len(blobs)),

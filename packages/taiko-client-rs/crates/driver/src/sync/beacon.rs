@@ -6,14 +6,18 @@ use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
 use alloy_consensus::{self, Block, TxEnvelope};
 use alloy_eips::BlockNumberOrTag;
-use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
 use anyhow::anyhow;
-use metrics::gauge;
-use rpc::{client::Client, error::RpcClientError, l1_origin::L1Origin};
+use metrics::{counter, gauge};
+use rpc::{
+    client::{Client, connect_http_with_timeout},
+    error::RpcClientError,
+    l1_origin::L1Origin,
+};
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, info, instrument, warn};
 
@@ -41,10 +45,8 @@ where
     /// Construct a new beacon syncer from the provided configuration and RPC client.
     #[instrument(skip(config, rpc))]
     pub fn new(config: &DriverConfig, rpc: Client<P>) -> Self {
-        let checkpoint = config
-            .l2_checkpoint_url
-            .as_ref()
-            .map(|url| ProviderBuilder::default().connect_http(url.clone()));
+        let checkpoint =
+            config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
 
         Self { retry_interval: config.retry_interval, rpc, checkpoint, _marker: PhantomData }
     }
@@ -137,22 +139,19 @@ where
     /// missing blocks to the local execution engine.
     #[instrument(skip(self), name = "beacon_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        // If no checkpoint endpoint is configured, skip this stage.
         if self.checkpoint.is_none() {
-            debug!("skipping beacon sync stage; checkpoint endpoint not configured");
-            info!("no checkpoint endpoint configured; skip beacon sync stage");
+            info!("no checkpoint endpoint configured; skipping beacon sync stage");
             return Ok(());
         }
 
-        // If the checkpoint node has no L1 origin, we cannot proceed.
         let Some(mut checkpoint_head) =
             self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
         else {
             return Err(SyncError::CheckpointNoOrigin);
         };
 
-        info!(?checkpoint_head, "initial checkpoint head");
-        debug!(?checkpoint_head, "fetched initial checkpoint head");
+        gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
+        info!(checkpoint_head, "initial checkpoint head");
 
         let poll_interval = if self.retry_interval.is_zero() {
             DEFAULT_BEACON_SYNC_POLL_INTERVAL
@@ -161,12 +160,9 @@ where
         };
 
         let mut ticker = interval(poll_interval);
-        // Use MissedTickBehavior::Skip to prevent tick accumulation during slow operations.
-        // This ensures that if the sync loop is delayed, we do not process multiple ticks at once.
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         info!(interval_secs = poll_interval.as_secs(), "beacon sync stage started");
-        debug!(interval_secs = poll_interval.as_secs(), "beacon sync ticker initialised");
 
         loop {
             ticker.tick().await;
@@ -174,7 +170,7 @@ where
             let local_head =
                 match self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from) {
                     Ok(block_id) => {
-                        gauge!(DriverMetrics::BEACON_HEAD_BLOCK_ID).set(block_id as f64);
+                        gauge!(DriverMetrics::BEACON_SYNC_LOCAL_HEAD_BLOCK).set(block_id as f64);
                         block_id
                     }
                     Err(err) => {
@@ -188,13 +184,15 @@ where
                 .await
                 .map_err(SyncError::CheckpointQuery)?
                 .ok_or(SyncError::CheckpointNoOrigin)?;
+            gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
+            gauge!(DriverMetrics::BEACON_SYNC_HEAD_LAG_BLOCKS)
+                .set(checkpoint_head.saturating_sub(local_head) as f64);
 
             if checkpoint_head > local_head {
                 info!(
                     checkpoint_head,
-                    local_head, "checkpoint head ahead of local engine; attempting to sync"
+                    local_head, "checkpoint head ahead of local engine; syncing"
                 );
-                debug!(checkpoint_head, local_head, "attempting remote block submission");
                 let checkpoint_provider =
                     self.checkpoint.as_ref().ok_or(SyncError::CheckpointNoOrigin)?;
 
@@ -219,12 +217,9 @@ where
                         error: err.into(),
                     }
                 })?;
+                counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
             } else {
-                info!(
-                    checkpoint_head,
-                    local_head, "local engine at or ahead of checkpoint head; no action needed"
-                );
-                debug!(checkpoint_head, local_head, "beacon sync up to date");
+                info!(checkpoint_head, local_head, "local engine at or ahead of checkpoint; done");
                 break Ok(());
             }
         }

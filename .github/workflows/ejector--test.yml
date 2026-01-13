@@ -28,12 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # Toolchain + components (rustfmt, clippy)
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.100
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       # Cache target/ and cargo registry/git
@@ -61,11 +62,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.100
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Cache cargo
@@ -86,11 +88,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.100
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
@@ -109,7 +112,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: lcov.info
           path: packages/ejector/lcov.info
