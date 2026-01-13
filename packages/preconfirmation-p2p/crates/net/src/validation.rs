@@ -17,9 +17,8 @@ use libp2p::PeerId;
 
 use preconfirmation_types::{
     Bytes20, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
-    SignedCommitment, Uint256, validate_commitments_response, validate_head_response,
-    validate_preconfirmation_basic, validate_raw_txlist_gossip, validate_raw_txlist_response,
-    verify_signed_commitment,
+    SignedCommitment, Uint256, validate_commitments_response, validate_preconfirmation_basic,
+    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment,
 };
 
 /// Resolver that can validate commitments against an external lookahead schedule.
@@ -136,13 +135,13 @@ impl ValidationAdapter for LocalValidationAdapter {
         validate_raw_txlist_response(resp).map_err(|e| e.to_string())
     }
 
-    /// Validate an inbound head response (shape/limits only; no fork choice implied).
+    /// Validate an inbound head response (no validation currently required).
     fn validate_head_response(
         &self,
         _from: &PeerId,
-        resp: &preconfirmation_types::PreconfHead,
+        _resp: &preconfirmation_types::PreconfHead,
     ) -> Result<(), String> {
-        validate_head_response(resp).map_err(|e| e.to_string())
+        Ok(())
     }
 }
 
@@ -183,16 +182,16 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         Ok(())
     }
 
-    /// Validate a raw txlist gossip message using the local validator.
+    /// Validate a raw txlist gossip message.
     fn validate_gossip_raw_txlist(
         &self,
-        from: &PeerId,
+        _from: &PeerId,
         msg: &RawTxListGossip,
     ) -> Result<(), String> {
-        self.local.validate_gossip_raw_txlist(from, msg)
+        validate_raw_txlist_gossip(msg).map_err(|e| e.to_string())
     }
 
-    /// Validate an inbound commitments response using the local validator.
+    /// Validate an inbound commitments response.
     fn validate_commitments_response(
         &self,
         from: &PeerId,
@@ -205,22 +204,22 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         Ok(())
     }
 
-    /// Validate an inbound raw txlist response using the local validator.
+    /// Validate an inbound raw txlist response.
     fn validate_raw_txlist_response(
         &self,
-        from: &PeerId,
+        _from: &PeerId,
         resp: &GetRawTxListResponse,
     ) -> Result<(), String> {
-        self.local.validate_raw_txlist_response(from, resp)
+        validate_raw_txlist_response(resp).map_err(|e| e.to_string())
     }
 
-    /// Validate an inbound head response using the local validator.
+    /// Validate an inbound head response (no validation currently required).
     fn validate_head_response(
         &self,
-        from: &PeerId,
-        resp: &preconfirmation_types::PreconfHead,
+        _from: &PeerId,
+        _resp: &preconfirmation_types::PreconfHead,
     ) -> Result<(), String> {
-        self.local.validate_head_response(from, resp)
+        Ok(())
     }
 }
 

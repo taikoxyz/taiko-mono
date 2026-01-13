@@ -43,20 +43,11 @@ pub(super) struct PendingRequest {
 }
 
 impl NetworkDriver {
-    /// Returns the metric label for a req/resp kind.
-    fn reqresp_kind_label(kind: ReqRespKind) -> &'static str {
+    /// Returns the metric/error label for a req/resp kind.
+    fn reqresp_label(kind: ReqRespKind) -> &'static str {
         match kind {
             ReqRespKind::Commitments => "commitments",
             ReqRespKind::RawTxList => "raw_txlists",
-            ReqRespKind::Head => "head",
-        }
-    }
-
-    /// Returns the human-readable label used in error strings.
-    fn reqresp_kind_error_label(kind: ReqRespKind) -> &'static str {
-        match kind {
-            ReqRespKind::Commitments => "commitments",
-            ReqRespKind::RawTxList => "raw-txlist",
             ReqRespKind::Head => "head",
         }
     }
@@ -69,7 +60,7 @@ impl NetworkDriver {
         start: tokio::time::Instant,
     ) {
         let elapsed = start.elapsed().as_secs_f64();
-        let proto = Self::reqresp_kind_label(kind);
+        let proto = Self::reqresp_label(kind);
         metrics::histogram!("p2p_reqresp_rtt_seconds", "protocol" => proto, "outcome" => outcome)
             .record(elapsed);
     }
@@ -117,7 +108,7 @@ impl NetworkDriver {
         kind: ReqRespKind,
         responder: Option<ReqRespResponder>,
     ) {
-        let kind_label = Self::reqresp_kind_label(kind);
+        let kind_label = Self::reqresp_label(kind);
         let err = NetworkError::new(
             NetworkErrorKind::ReqRespBackpressure,
             format!("req-resp {kind_label}: no peers available"),
@@ -138,7 +129,7 @@ impl NetworkDriver {
         cx: &mut Context<'_>,
         rate_limited_msg: &'static str,
     ) -> bool {
-        let kind_label = Self::reqresp_kind_label(kind);
+        let kind_label = Self::reqresp_label(kind);
         if self.reputation.is_banned(peer) {
             metrics::counter!("p2p_reqresp_dropped", "kind" => kind_label, "reason" => "banned")
                 .increment(1);
@@ -163,7 +154,7 @@ impl NetworkDriver {
         request_id: rr::OutboundRequestId,
         detail: &'static str,
     ) {
-        let kind_label = Self::reqresp_kind_label(kind);
+        let kind_label = Self::reqresp_label(kind);
         metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "validation")
             .increment(1);
         self.apply_reputation(peer, PeerAction::ReqRespError);
@@ -186,8 +177,8 @@ impl NetworkDriver {
         error: rr::OutboundFailure,
         request_id: rr::OutboundRequestId,
     ) {
-        let kind_label = Self::reqresp_kind_label(kind);
-        let err_label = Self::reqresp_kind_error_label(kind);
+        let kind_label = Self::reqresp_label(kind);
+        let err_label = Self::reqresp_label(kind);
         metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "outbound_failure")
             .increment(1);
         self.apply_reputation(peer, PeerAction::ReqRespError);
@@ -218,8 +209,8 @@ impl NetworkDriver {
         peer: PeerId,
         error: rr::InboundFailure,
     ) {
-        let kind_label = Self::reqresp_kind_label(kind);
-        let err_label = Self::reqresp_kind_error_label(kind);
+        let kind_label = Self::reqresp_label(kind);
+        let err_label = Self::reqresp_label(kind);
         metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "inbound_failure")
             .increment(1);
         self.apply_reputation(peer, PeerAction::ReqRespError);

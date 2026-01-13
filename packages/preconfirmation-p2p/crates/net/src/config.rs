@@ -193,32 +193,7 @@ impl Default for NetworkConfig {
     }
 }
 
-/// Logical grouping for the resolved connection caps and dial factor returned by
-/// `NetworkConfig::resolve_connection_caps`.
-pub(crate) type ConnectionCaps = (
-    Option<u32>, // pending inbound cap
-    Option<u32>, // pending outbound cap
-    Option<u32>, // established inbound cap
-    Option<u32>, // established outbound cap
-    Option<u32>, // total established cap
-    Option<u32>, // established per peer cap
-    u8,          // dial concurrency factor
-);
-
 impl NetworkConfig {
-    /// Resolve connection caps and dial factor.
-    pub(crate) fn resolve_connection_caps(&self) -> ConnectionCaps {
-        (
-            self.max_pending_incoming,
-            self.max_pending_outgoing,
-            self.max_established_incoming,
-            self.max_established_outgoing,
-            self.max_established_total,
-            self.max_established_per_peer,
-            self.dial_concurrency_factor,
-        )
-    }
-
     /// Ensure rate-limit parameters are sane before constructing a limiter.
     pub(crate) fn validate_request_rate_limits(&self) {
         debug_assert!(self.request_window > Duration::ZERO, "request_window must be > 0");

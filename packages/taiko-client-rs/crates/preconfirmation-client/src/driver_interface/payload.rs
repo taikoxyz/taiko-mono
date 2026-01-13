@@ -91,16 +91,9 @@ pub async fn build_taiko_payload_attributes(
             parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
         )
     };
-    let tx_list = encode_tx_list(
-        &input
-            .transactions
-            .as_ref()
-            .ok_or(DriverApiError::MissingTransactions)?
-            .iter()
-            .cloned()
-            .map(Bytes::from)
-            .collect::<Vec<_>>(),
-    );
+    let transactions = input.transactions.as_ref().ok_or(DriverApiError::MissingTransactions)?;
+    let tx_list =
+        encode_tx_list(&transactions.iter().map(|tx| Bytes::from(tx.clone())).collect::<Vec<_>>());
 
     let l1_origin = RpcL1Origin {
         block_id: U256::from(block_number),
