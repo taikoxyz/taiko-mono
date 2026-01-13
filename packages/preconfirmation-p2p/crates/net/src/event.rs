@@ -1,5 +1,6 @@
 //! Error and event surfaces for the preconfirmation P2P driver.
 
+use libp2p::Multiaddr;
 use preconfirmation_types::{
     GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip, SignedCommitment,
 };
@@ -108,6 +109,8 @@ impl Error for NetworkError {}
 /// High-level events emitted by the network driver for consumption by the service.
 #[derive(Debug, Clone)]
 pub enum NetworkEvent {
+    /// A new listening address was registered by the swarm.
+    NewListenAddr(Multiaddr),
     /// A peer successfully connected.
     PeerConnected(libp2p::PeerId),
     /// A peer disconnected.

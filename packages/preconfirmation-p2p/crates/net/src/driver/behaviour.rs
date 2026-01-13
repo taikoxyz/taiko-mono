@@ -64,6 +64,9 @@ impl NetworkDriver {
     fn handle_swarm_event(&mut self, event: SwarmEvent<NetBehaviourEvent>, cx: &mut Context<'_>) {
         match event {
             SwarmEvent::Behaviour(ev) => self.handle_behaviour_event(ev, cx),
+            SwarmEvent::NewListenAddr { address, .. } => {
+                let _ = self.events_tx.try_send(NetworkEvent::NewListenAddr(address));
+            }
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 self.connected_peers += 1;
                 metrics::gauge!("p2p_connected_peers").set(self.connected_peers as f64);
@@ -193,6 +196,16 @@ impl NetworkDriver {
             }
             NetworkCommand::UpdateHead { head } => {
                 self.head = head;
+            }
+            NetworkCommand::Dial { addr, respond_to } => {
+                let result = self.swarm.dial(addr.clone()).map_err(|e| e.to_string());
+                if let Some(tx) = respond_to {
+                    let _ = tx.send(result);
+                }
+            }
+            NetworkCommand::GetListeningAddrs { respond_to } => {
+                let addrs: Vec<_> = self.swarm.listeners().cloned().collect();
+                let _ = respond_to.send(addrs);
             }
         }
     }

@@ -11,7 +11,7 @@ mod reqresp;
 #[cfg(test)]
 mod tests;
 
-use std::{collections::HashMap, num::NonZeroU8, str::FromStr, sync::Arc};
+use std::{collections::HashMap, num::NonZeroU8, str::FromStr, sync::Arc, time::Duration};
 
 use libp2p::{Multiaddr, PeerId, futures::StreamExt, gossipsub, swarm::Swarm};
 use tokio::sync::mpsc::{self, Receiver, Sender, error::TrySendError};
@@ -40,6 +40,10 @@ pub struct NetworkHandle {
     pub events: Receiver<NetworkEvent>,
     /// Sender for commands targeting the driver.
     pub commands: Sender<NetworkCommand>,
+    /// The local peer ID for this node.
+    pub local_peer_id: PeerId,
+    /// Optional timeout for waiting on the first listen address.
+    pub listen_addr_timeout: Option<Duration>,
 }
 
 /// Poll-driven swarm driver that owns the libp2p `Swarm` and associated behaviours.
@@ -111,10 +115,8 @@ impl NetworkDriver {
         validator: Box<dyn ValidationAdapter>,
         storage: Option<Arc<dyn PreconfStorage>>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
-        let dial_factor = {
-            let (_, _, _, _, _, _, dial) = cfg.resolve_connection_caps();
-            NonZeroU8::new(dial).unwrap_or_else(|| NonZeroU8::new(1).unwrap())
-        };
+        let dial_factor =
+            NonZeroU8::new(cfg.dial_concurrency_factor).unwrap_or(NonZeroU8::new(1).unwrap());
 
         let parts = build_transport_and_behaviour(&cfg)?;
         let peer_id = parts.keypair.public().to_peer_id();
@@ -178,7 +180,12 @@ impl NetworkDriver {
                 kona_gater: build_kona_gater(&cfg),
                 storage: storage.unwrap_or_else(default_storage),
             },
-            NetworkHandle { events: events_rx, commands: cmd_tx },
+            NetworkHandle {
+                events: events_rx,
+                commands: cmd_tx,
+                local_peer_id: peer_id,
+                listen_addr_timeout: cfg.listen_addr_timeout,
+            },
         ))
     }
 

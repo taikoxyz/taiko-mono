@@ -70,7 +70,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: packages/taiko-client-rs
+          context: .
           file: packages/taiko-client-rs/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true

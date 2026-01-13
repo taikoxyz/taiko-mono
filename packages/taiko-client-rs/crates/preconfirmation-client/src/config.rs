@@ -2,6 +2,7 @@
 
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
+    sync::Arc,
     time::Duration,
 };
 
@@ -9,7 +10,7 @@ use alloy_primitives::Address;
 use alloy_provider::Provider;
 use preconfirmation_net::P2pConfig;
 use preconfirmation_types::Bytes20;
-use protocol::preconfirmation::LookaheadResolver;
+use protocol::preconfirmation::{LookaheadResolver, PreconfSignerResolver};
 
 use crate::Result;
 
@@ -30,7 +31,7 @@ pub struct PreconfirmationClientConfig {
     /// Optional concurrency limit for catch-up txlist fetches (None = default 4).
     pub txlist_fetch_concurrency: Option<usize>,
     /// Lookahead resolver used for signer/slot validation.
-    pub lookahead_resolver: LookaheadResolver,
+    pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
     /// Maximum number of commitments/txlists retained in memory.
     pub retention_limit: usize,
 }
@@ -44,7 +45,7 @@ impl Debug for PreconfirmationClientConfig {
             .field("request_timeout", &self.request_timeout)
             .field("catchup_batch_size", &self.catchup_batch_size)
             .field("txlist_fetch_concurrency", &self.txlist_fetch_concurrency)
-            .field("lookahead_resolver", &"<LookaheadResolver>")
+            .field("lookahead_resolver", &"<PreconfSignerResolver>")
             .field("retention_limit", &self.retention_limit)
             .finish()
     }
@@ -56,7 +57,7 @@ impl PreconfirmationClientConfig {
     where
         P: Provider + Clone + Send + Sync + 'static,
     {
-        let lookahead_resolver = LookaheadResolver::build(inbox_address, provider).await?;
+        let lookahead_resolver = Arc::new(LookaheadResolver::build(inbox_address, provider).await?);
         Ok(Self {
             p2p,
             expected_slasher: None,
@@ -66,6 +67,22 @@ impl PreconfirmationClientConfig {
             lookahead_resolver,
             retention_limit: DEFAULT_RETENTION_LIMIT,
         })
+    }
+
+    /// Build a configuration with a caller-provided lookahead resolver.
+    pub fn new_with_resolver(
+        p2p: P2pConfig,
+        lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
+    ) -> Self {
+        Self {
+            p2p,
+            expected_slasher: None,
+            request_timeout: Duration::from_secs(10),
+            catchup_batch_size: 64,
+            txlist_fetch_concurrency: None,
+            lookahead_resolver,
+            retention_limit: DEFAULT_RETENTION_LIMIT,
+        }
     }
 
     /// Validate configuration parameters.
@@ -90,13 +107,51 @@ impl PreconfirmationClientConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use alloy_primitives::Address;
     use alloy_provider::ProviderBuilder;
     use alloy_transport::mock::Asserter;
     use preconfirmation_net::P2pConfig;
 
-    use super::PreconfirmationClientConfig;
-    use crate::error::PreconfirmationClientError;
+    use super::{DEFAULT_RETENTION_LIMIT, PreconfirmationClientConfig};
+
+    /// Create a minimal test config with the given parameters.
+    fn test_config(catchup_batch_size: u32, retention_limit: usize) -> PreconfirmationClientConfig {
+        use async_trait::async_trait;
+        use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
+
+        struct NoopResolver;
+
+        #[async_trait]
+        impl PreconfSignerResolver for NoopResolver {
+            async fn signer_for_timestamp(
+                &self,
+                _: alloy_primitives::U256,
+            ) -> protocol::preconfirmation::Result<Address> {
+                Ok(Address::ZERO)
+            }
+            async fn slot_info_for_timestamp(
+                &self,
+                _: alloy_primitives::U256,
+            ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
+                Ok(PreconfSlotInfo {
+                    signer: Address::ZERO,
+                    submission_window_end: alloy_primitives::U256::ZERO,
+                })
+            }
+        }
+
+        PreconfirmationClientConfig {
+            p2p: P2pConfig::default(),
+            expected_slasher: None,
+            request_timeout: std::time::Duration::from_secs(10),
+            catchup_batch_size,
+            txlist_fetch_concurrency: None,
+            lookahead_resolver: Arc::new(NoopResolver),
+            retention_limit,
+        }
+    }
 
     /// Config constructor surfaces provider failures.
     #[tokio::test]
@@ -115,11 +170,8 @@ mod tests {
     /// Validation rejects zero catchup_batch_size.
     #[test]
     fn validate_rejects_zero_catchup_batch_size() {
-        // Test validation logic directly.
-        let catchup_batch_size = 0u32;
-        let retention_limit = 100usize;
-
-        let result = validate_params(catchup_batch_size, retention_limit);
+        let config = test_config(0, DEFAULT_RETENTION_LIMIT);
+        let result = config.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("catchup_batch_size"));
     }
@@ -127,11 +179,8 @@ mod tests {
     /// Validation rejects zero retention_limit.
     #[test]
     fn validate_rejects_zero_retention_limit() {
-        // Test validation logic directly.
-        let catchup_batch_size = 64u32;
-        let retention_limit = 0usize;
-
-        let result = validate_params(catchup_batch_size, retention_limit);
+        let config = test_config(64, 0);
+        let result = config.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("retention_limit"));
     }
@@ -139,24 +188,7 @@ mod tests {
     /// Validation passes for valid parameters.
     #[test]
     fn validate_accepts_valid_params() {
-        let catchup_batch_size = 64u32;
-        let retention_limit = 100usize;
-
-        assert!(validate_params(catchup_batch_size, retention_limit).is_ok());
-    }
-
-    /// Helper to test validation logic without constructing a full config.
-    fn validate_params(catchup_batch_size: u32, retention_limit: usize) -> crate::Result<()> {
-        if catchup_batch_size == 0 {
-            return Err(PreconfirmationClientError::Config(
-                "catchup_batch_size must be greater than 0".to_string(),
-            ));
-        }
-        if retention_limit == 0 {
-            return Err(PreconfirmationClientError::Config(
-                "retention_limit must be greater than 0".to_string(),
-            ));
-        }
-        Ok(())
+        let config = test_config(64, DEFAULT_RETENTION_LIMIT);
+        assert!(config.validate().is_ok());
     }
 }

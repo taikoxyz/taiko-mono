@@ -141,71 +141,28 @@ pub struct GetRawTxListResponse {
 // ---------- Convenience conversions between alloy U256 and SSZ Uint256 ----------
 
 /// Convert an `alloy_primitives::U256` into the SSZ `Uint256` wrapper.
-///
-/// # Arguments
-///
-/// * `value` - The `U256` value to convert.
-///
-/// # Returns
-///
-/// The corresponding SSZ `Uint256` value.
 pub fn u256_to_uint256(value: U256) -> Uint256 {
     Uint256::from_bytes_le(value.to_le_bytes())
 }
 
 /// Convert an SSZ `Uint256` back to `alloy_primitives::U256`.
-///
-/// # Arguments
-///
-/// * `value` - A reference to the SSZ `Uint256` value to convert.
-///
-/// # Returns
-///
-/// The corresponding `alloy_primitives::U256` value.
 pub fn uint256_to_u256(value: &Uint256) -> U256 {
-    let bytes = value.to_bytes_le();
-    let mut buf = [0u8; 32];
-    buf.copy_from_slice(&bytes);
-    U256::from_le_bytes(buf)
+    U256::from_le_slice(&value.to_bytes_le())
 }
 
 // ---------- Helpers for address/hash bridging ----------
 
 /// Convert an Ethereum `Address` into an SSZ fixed `Bytes20`.
-///
-/// # Arguments
-///
-/// * `addr` - The `Address` to convert.
-///
-/// # Returns
-///
-/// The corresponding SSZ `Bytes20` value.
 pub fn address_to_bytes20(addr: Address) -> Bytes20 {
     Vector::try_from(addr.0.to_vec()).expect("addr length 20")
 }
 
 /// Convert a `B256` hash into an SSZ fixed `Bytes32`.
-///
-/// # Arguments
-///
-/// * `value` - The `B256` hash to convert.
-///
-/// # Returns
-///
-/// The corresponding SSZ `Bytes32` value.
 pub fn b256_to_bytes32(value: B256) -> Bytes32 {
     Vector::try_from(value.to_vec()).expect("hash length 32")
 }
 
 /// Convert an SSZ `Bytes32` hash back into a `B256`.
-///
-/// # Arguments
-///
-/// * `value` - A reference to the SSZ `Bytes32` hash to convert.
-///
-/// # Returns
-///
-/// The corresponding `B256` hash.
 pub fn bytes32_to_b256(value: &Bytes32) -> B256 {
     B256::from_slice(value.as_ref())
 }

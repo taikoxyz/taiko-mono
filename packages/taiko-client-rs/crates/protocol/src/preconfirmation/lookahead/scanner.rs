@@ -8,16 +8,13 @@ use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 
 use super::{
-    LookaheadResolverWithDefaultProvider,
-    error::LookaheadError,
+    LookaheadError, LookaheadResolverWithDefaultProvider, Result,
     resolver::{LookaheadResolver, SECONDS_IN_EPOCH, SECONDS_IN_SLOT},
 };
 use crate::{
     preconfirmation::lookahead::resolver::scanner_handle::LookaheadScannerHandle,
     subscription_source::SubscriptionSource,
 };
-
-use super::error::Result;
 
 /// Initial backoff delay in milliseconds when ingesting lookahead logs fails.
 const INGEST_BACKOFF_BASE_MS: u64 = 200;
@@ -29,7 +26,7 @@ const SCAN_EPOCH_LOOKBACK: u64 = 3;
 /// Error wrapper used to classify ingest failures; all variants are retryable.
 #[derive(Debug)]
 enum IngestError {
-    Retryable(super::error::LookaheadError),
+    Retryable(LookaheadError),
 }
 
 impl LookaheadResolver {

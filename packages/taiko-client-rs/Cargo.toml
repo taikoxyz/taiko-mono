@@ -43,7 +43,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.4", features = ["timeout", "util"] }
 
 # ethereum
 alloy = "1.1.2"
@@ -79,6 +79,7 @@ alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", pa
   "serde",
 ] }
 alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
 
 # types
 anyhow = "1"
@@ -90,7 +91,9 @@ thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
+secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde_json = "1"
+sha2 = "0.10"
 
 # testing
 serial_test = { version = "3", features = ["async"] }
