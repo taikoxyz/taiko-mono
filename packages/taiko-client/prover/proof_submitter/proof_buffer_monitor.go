@@ -123,7 +123,7 @@ func removeFinalizedProofsFromCache(
 		id, ok := new(big.Int).SetString(proposalID, 10)
 		if !ok {
 			log.Error("Failed to parse proof from cache", "proposalID", proposalID)
-			return
+			continue
 		}
 		if id.Cmp(lastFinalizedProposalID) <= 0 {
 			log.Info("Removing finalized proof from cache", "proposalID", proposalID)
