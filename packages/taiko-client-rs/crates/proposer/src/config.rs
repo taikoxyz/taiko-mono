@@ -30,6 +30,4 @@ pub struct ProposerConfigs {
     pub l1_proposer_private_key: B256,
     /// Optional gas limit for proposal transactions. If not set, uses provider's estimation.
     pub gas_limit: Option<u64>,
-    /// Anchor block offset from current L1 head.
-    pub anchor_offset: u64,
 }

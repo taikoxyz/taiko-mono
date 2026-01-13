@@ -3,6 +3,7 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
+    "crates/preconfirmation-client",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
@@ -42,7 +43,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.4", features = ["timeout", "util"] }
 
 # ethereum
 alloy = "1.1.2"
@@ -69,7 +70,7 @@ alloy-sol-macro = { version = "1.4.1", default-features = false, features = [
 alloy-sol-types = { version = "1.4.1", default-features = false }
 alloy-transport = { version = "1.1.2", default-features = false }
 alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
-event-scanner = "=0.9.0-alpha"
+event-scanner = "=1.0.0-rc.1"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
@@ -78,6 +79,7 @@ alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", pa
   "serde",
 ] }
 alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
+reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
 
 # types
 anyhow = "1"
@@ -89,8 +91,31 @@ thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 
 # serialization
+secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde_json = "1"
+sha2 = "0.10"
 
 # testing
 serial_test = { version = "3", features = ["async"] }
 test-context = "0.3"
+
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.dev.package]
+proptest.opt-level = 3
+rand_chacha.opt-level = 3
+rand_xorshift.opt-level = 3
+unarray.opt-level = 3
+
+[profile.debug-fast]
+inherits = "release"
+debug = true
+lto = "thin"
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+incremental = false

@@ -2,22 +2,19 @@ package manifest
 
 import (
 	"context"
-	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -29,11 +26,9 @@ type ShastaBlockPayload struct {
 
 // ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
 type ShastaDerivationSourcePayload struct {
-	ProverAuthBytes   []byte
-	BlockPayloads     []*ShastaBlockPayload
-	Default           bool
-	ParentBlock       *types.Block
-	IsLowBondProposal bool
+	BlockPayloads []*ShastaBlockPayload
+	Default       bool
+	ParentBlock   *types.Block
 }
 
 // ShastaDerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.
@@ -59,13 +54,16 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offset is invalid,
 	// return the default payload.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
-		meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
+		meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
 			uint64(manifest.BlobBytes*len(meta.GetBlobHashes(derivationIdx))-64) {
 		return &ShastaDerivationSourcePayload{Default: true}, nil
 	}
 
 	blobBytes, err := f.fetchBlobs(ctx, meta, derivationIdx)
 	if err != nil {
+		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
+			return &ShastaDerivationSourcePayload{Default: true}, nil
+		}
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
 	}
 
@@ -83,8 +81,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	derivationIdx int,
 ) (*ShastaDerivationSourcePayload, error) {
 	var (
-		proverAuth               []byte
-		offset                   = int(meta.GetDerivation().Sources[derivationIdx].BlobSlice.Offset.Uint64())
+		offset                   = int(meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64())
 		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
 		derivationSourceManifest = new(manifest.DerivationSourceManifest)
 	)
@@ -131,19 +128,16 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	if derivationIdx != len(meta.GetDerivation().Sources)-1 {
+	if derivationIdx != len(meta.GetEventData().Sources)-1 {
 		// For forced-inclusion source, ensure it contains exactly one block.
 		if len(derivationSourceManifest.Blocks) != 1 {
 			log.Warn(
 				"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
-				"blobs", len(meta.GetDerivation().Sources[derivationIdx].BlobSlice.BlobHashes),
+				"blobs", len(meta.GetEventData().Sources[derivationIdx].BlobSlice.BlobHashes),
 				"blocks", len(derivationSourceManifest.Blocks),
 			)
 			return defaultPayload, nil
 		}
-	} else {
-		// Only use the prover auth from the last source (non-forced-inclusion source).
-		proverAuth = derivationSourceManifest.ProverAuthBytes
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
@@ -158,8 +152,7 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 
 	// Convert protocol derivation manifest to ShastaDerivationSourcePayload.
 	payload := &ShastaDerivationSourcePayload{
-		ProverAuthBytes: proverAuth,
-		BlockPayloads:   make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
+		BlockPayloads: make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
 	}
 	for i, block := range derivationSourceManifest.Blocks {
 		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
@@ -176,56 +169,16 @@ func (f *ShastaDerivationSourceFetcher) fetchBlobs(
 ) ([]byte, error) {
 	blobHashes := meta.GetBlobHashes(derivationIdx)
 	// Fetch the L1 block sidecars.
-	sidecars, err := f.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(derivationIdx), blobHashes)
+	b, err := f.dataSource.GetBlobBytes(ctx, meta.GetBlobTimestamp(derivationIdx), blobHashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
-
-	if len(sidecars) != len(blobHashes) {
-		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
-	}
-
 	log.Info(
 		"Fetch sidecars",
-		"proposalID", meta.GetProposal().Id,
+		"proposalID", meta.GetEventData().Id,
 		"l1Height", meta.GetRawBlockHeight(),
-		"sidecars", len(sidecars),
+		"sidecars", len(blobHashes),
 	)
-	// Build a map of blobHash -> blobBytes for O(1) lookup.
-	blobMap := make(map[common.Hash][]byte, len(sidecars))
-	for j, sidecar := range sidecars {
-		log.Debug(
-			"Block sidecar",
-			"index", j,
-			"KzgCommitment", sidecar.KzgCommitment,
-		)
-
-		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		hash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
-
-		blob := eth.Blob(common.FromHex(sidecar.Blob))
-		bytes, err := blob.ToData()
-		if err != nil {
-			return nil, err
-		}
-		blobMap[hash] = bytes
-	}
-
-	// Append in the order of blobHashes to preserve semantics.
-	var b []byte
-	for _, h := range blobHashes {
-		bytes, ok := blobMap[h]
-		if !ok {
-			// If any requested blob is missing, surface a clear error.
-			return nil, fmt.Errorf("requested blob hash %s not found in sidecars", h.Hex())
-		}
-		b = append(b, bytes...)
-	}
-
-	if len(b) == 0 {
-		return nil, pkg.ErrSidecarNotFound
-	}
-
 	return b, nil
 }
 
@@ -280,7 +233,8 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 func ValidateMetadata(
 	rpc *rpc.Client,
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
+	proposalTimestamp uint64,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
 	isForcedInclusion bool,
@@ -289,7 +243,7 @@ func ValidateMetadata(
 		return false
 	}
 
-	if !validateMetadataTimestamp(sourcePayload, proposal, rpc.ShastaClients.ForkTime) {
+	if !validateMetadataTimestamp(sourcePayload, event, proposalTimestamp, rpc.ShastaClients.ForkTime) {
 		return false
 	}
 
@@ -297,7 +251,7 @@ func ValidateMetadata(
 		sourcePayload,
 		originBlockNumber,
 		parentAnchorBlockNumber,
-		proposal,
+		event,
 		isForcedInclusion,
 	) {
 		return false
@@ -317,12 +271,12 @@ func ValidateMetadata(
 // validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
 func validateMetadataTimestamp(
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
+	proposalTimestamp uint64,
 	forkTime uint64,
 ) bool {
 	var (
-		parentTimestamp   = sourcePayload.ParentBlock.Time()
-		proposalTimestamp = proposal.Timestamp.Uint64()
+		parentTimestamp = sourcePayload.ParentBlock.Time()
 	)
 
 	for i := range sourcePayload.BlockPayloads {
@@ -378,7 +332,7 @@ func validateAnchorBlockNumber(
 	sourcePayload *ShastaDerivationSourcePayload,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
 	isForcedInclusion bool,
 ) bool {
 	var (
@@ -391,7 +345,7 @@ func validateAnchorBlockNumber(
 		if anchorBlockNumber < parentAnchorBlockNumber {
 			log.Info(
 				"Invalid anchor block number: non-monotonic progression",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
@@ -402,7 +356,7 @@ func validateAnchorBlockNumber(
 		if anchorBlockNumber > originBlockNumber {
 			log.Info(
 				"Invalid anchor block number: cannot be newer than origin block",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
@@ -414,7 +368,7 @@ func validateAnchorBlockNumber(
 			anchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Info(
 				"Invalid anchor block number: excessive lag",
-				"proposal", proposal.Id,
+				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
@@ -435,7 +389,7 @@ func validateAnchorBlockNumber(
 	if !isForcedInclusion && highestAnchorNumber <= originalParentAnchorNumber {
 		log.Info(
 			"Invalid anchor block numbers: no valid anchor numbers greater than parent's",
-			"proposal", proposal.Id,
+			"proposal", event.Id,
 			"highestAnchorBlockNumber", highestAnchorNumber,
 			"parentAnchorBlockNumber", originalParentAnchorNumber,
 			"isForcedInclusion", isForcedInclusion,
@@ -461,12 +415,12 @@ func validateGasLimit(
 	}
 	for i := range sourcePayload.BlockPayloads {
 		upperGasBound := min(
-			parentGasLimit*(manifest.GasLimitChangeDenominator+manifest.MaxBlockGasLimitChangePermyriad)/
+			parentGasLimit*(manifest.GasLimitChangeDenominator+manifest.MaxBlockGasLimitMaxChange)/
 				manifest.GasLimitChangeDenominator,
 			manifest.MaxBlockGasLimit,
 		)
 		lowerGasBound := min(max(
-			parentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitChangePermyriad)/
+			parentGasLimit*(manifest.GasLimitChangeDenominator-manifest.MaxBlockGasLimitMaxChange)/
 				manifest.GasLimitChangeDenominator,
 			manifest.MinBlockGasLimit,
 		), upperGasBound)
@@ -493,7 +447,8 @@ func validateGasLimit(
 // from the parent block metadata.
 func ApplyInheritedMetadata(
 	sourcePayload *ShastaDerivationSourcePayload,
-	proposal shastaBindings.IInboxProposal,
+	event *shastaBindings.ShastaInboxClientProposed,
+	timestamp uint64,
 	anchorBlockNumber uint64,
 	forkTime uint64,
 ) {
@@ -506,10 +461,10 @@ func ApplyInheritedMetadata(
 	}
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposal.Timestamp.Uint64(), forkTime)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime)
 
 		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
-		sourcePayload.BlockPayloads[i].Coinbase = proposal.Proposer
+		sourcePayload.BlockPayloads[i].Coinbase = event.Proposer
 		sourcePayload.BlockPayloads[i].AnchorBlockNumber = anchorBlockNumber
 		sourcePayload.BlockPayloads[i].GasLimit = parentGasLimit
 

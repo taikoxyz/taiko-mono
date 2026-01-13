@@ -14,18 +14,19 @@ var _ TaikoProposalMetaData = (*TaikoProposalMetadataShasta)(nil)
 
 // TaikoProposalMetadataShasta is the metadata of a Shasta Taiko blocks batch.
 type TaikoProposalMetadataShasta struct {
-	shastaBindings.IInboxProposal
-	shastaBindings.IInboxDerivation
-	types.Log
+	*shastaBindings.ShastaInboxClientProposed
+	timestamp uint64
 }
 
 // NewTaikoProposalMetadataShasta creates a new instance of TaikoProposalMetadataShasta
 // from the ShastaTaikoInbox.Proposed event.
-func NewTaikoProposalMetadataShasta(e *shastaBindings.IInboxProposedEventPayload, log types.Log) *TaikoProposalMetadataShasta {
+func NewTaikoProposalMetadataShasta(
+	e *shastaBindings.ShastaInboxClientProposed,
+	timestamp uint64,
+) *TaikoProposalMetadataShasta {
 	return &TaikoProposalMetadataShasta{
-		IInboxProposal:   e.Proposal,
-		IInboxDerivation: e.Derivation,
-		Log:              log,
+		ShastaInboxClientProposed: e,
+		timestamp:                 timestamp,
 	}
 }
 
@@ -51,22 +52,22 @@ func (m *TaikoProposalMetadataShasta) IsShasta() bool {
 
 // GetRawBlockHeight returns the raw L1 block height.
 func (m *TaikoProposalMetadataShasta) GetRawBlockHeight() *big.Int {
-	return new(big.Int).SetUint64(m.BlockNumber)
+	return new(big.Int).SetUint64(m.Raw.BlockNumber)
 }
 
 // GetRawBlockHash returns the raw L1 block hash.
 func (m *TaikoProposalMetadataShasta) GetRawBlockHash() common.Hash {
-	return m.BlockHash
+	return m.Raw.BlockHash
 }
 
 // GetTxIndex returns the transaction index.
 func (m *TaikoProposalMetadataShasta) GetTxIndex() uint {
-	return m.Log.TxIndex
+	return m.Raw.TxIndex
 }
 
 // GetTxHash returns the transaction hash.
 func (m *TaikoProposalMetadataShasta) GetTxHash() common.Hash {
-	return m.Log.TxHash
+	return m.Raw.TxHash
 }
 
 // GetProposer returns the proposer of this batch.
@@ -80,16 +81,16 @@ func (m *TaikoProposalMetadataShasta) GetCoinbase() common.Address {
 }
 
 func (m *TaikoProposalMetadataShasta) GetLog() *types.Log {
-	return &m.Log
+	return &m.Raw
 }
 
 // GetBlobHashes returns blob hashes in this proposal.
 func (m *TaikoProposalMetadataShasta) GetBlobHashes(idx int) []common.Hash {
 	var blobHashes []common.Hash
-	if len(m.GetDerivation().Sources) <= idx {
+	if len(m.Sources) <= idx {
 		return blobHashes
 	}
-	for _, hash := range m.GetDerivation().Sources[idx].BlobSlice.BlobHashes {
+	for _, hash := range m.Sources[idx].BlobSlice.BlobHashes {
 		blobHashes = append(blobHashes, hash)
 	}
 	return blobHashes
@@ -97,23 +98,23 @@ func (m *TaikoProposalMetadataShasta) GetBlobHashes(idx int) []common.Hash {
 
 // GetBlobTimestamp returns the timestamp of the blob slice in this proposal.
 func (m *TaikoProposalMetadataShasta) GetBlobTimestamp(idx int) uint64 {
-	if len(m.GetDerivation().Sources) <= idx {
+	if len(m.Sources) <= idx {
 		return 0
 	}
-	return m.GetDerivation().Sources[idx].BlobSlice.Timestamp.Uint64()
-}
-
-// GetProposal returns the transaction hash.
-func (m *TaikoProposalMetadataShasta) GetProposal() shastaBindings.IInboxProposal {
-	return m.IInboxProposal
+	return m.Sources[idx].BlobSlice.Timestamp.Uint64()
 }
 
 // GetProposalID returns proposal ID.
 func (m *TaikoProposalMetadataShasta) GetProposalID() *big.Int {
-	return m.IInboxProposal.Id
+	return m.Id
 }
 
-// GetDerivation returns the transaction hash.
-func (m *TaikoProposalMetadataShasta) GetDerivation() shastaBindings.IInboxDerivation {
-	return m.IInboxDerivation
+// GetEventData returns the underlying event data.
+func (m *TaikoProposalMetadataShasta) GetEventData() *shastaBindings.ShastaInboxClientProposed {
+	return m.ShastaInboxClientProposed
+}
+
+// GetTimestamp returns the timestamp of the proposal.
+func (m *TaikoProposalMetadataShasta) GetTimestamp() uint64 {
+	return m.timestamp
 }

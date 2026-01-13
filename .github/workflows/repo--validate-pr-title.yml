@@ -27,7 +27,6 @@ jobs:
           scopes: |
             repo
             main
-            blobindexer-rs
             deps
             deps-dev
             docs-site
@@ -38,6 +37,7 @@ jobs:
             fork-diff
             geth-rpc-gateway
             overseer-rs
+            preconfirmation-p2p
             protocol
             relayer
             urcindexer-rs

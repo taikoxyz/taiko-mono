@@ -45,11 +45,6 @@ export async function deployTaikoAnchor(
         chainId,
         config.contractAddresses,
         config.param1559,
-        config.livenessBond,
-        config.provabilityBond,
-        config.withdrawalDelay,
-        config.minBond,
-        config.bondToken,
         config.pacayaTaikoAnchor,
         config.remoteSignalService,
     );
@@ -140,11 +135,6 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    livenessBond: string | number,
-    provabilityBond: string | number,
-    withdrawalDelay: number,
-    minBond: number,
-    bondToken: string,
     pacayaTaikoAnchor: string,
     remoteSignalService: string,
 ): Promise<any> {
@@ -195,9 +185,6 @@ async function generateContractConfigs(
                 "./DefaultResolver.sol/DefaultResolver.json",
             ),
         ),
-        BondManagerImpl: require(
-            path.join(ARTIFACTS_PATH, "./BondManager.sol/BondManager.json"),
-        ),
         AnchorForkRouterImpl: require(
             path.join(
                 ARTIFACTS_PATH,
@@ -207,9 +194,6 @@ async function generateContractConfigs(
         // Libraries
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
-        ),
-        LibBonds: require(
-            path.join(ARTIFACTS_PATH, "./LibBonds.sol/LibBonds.json"),
         ),
     };
 
@@ -227,7 +211,6 @@ async function generateContractConfigs(
     // Rollup Contracts
     contractArtifacts.TaikoAnchor = proxy;
     contractArtifacts.RollupResolver = proxy;
-    contractArtifacts.BondManager = proxy;
 
     const addressMap: any = {};
 
@@ -241,24 +224,12 @@ async function generateContractConfigs(
     );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
-        getImmutableReference("Anchor", [
-            "checkpointStore",
-            "livenessBond",
-            "provabilityBond",
-            "bondManager",
-            "l1ChainId",
-        ]),
+        getImmutableReference("Anchor", ["checkpointStore", "l1ChainId"]),
     );
     const anchorForkRouterReferencesMap: any = getImmutableReference(
         "AnchorForkRouter",
         ["oldFork", "newFork"],
     );
-    const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
-        "authorized",
-        "bondToken",
-        "minBond",
-        "withdrawalDelay",
-    ]);
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
     ]);
@@ -668,74 +639,6 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        // Rollup Contracts
-        BondManagerImpl: {
-            address: addressMap.BondManagerImpl,
-            deployedBytecode: linkContractLibs(
-                replaceImmutableValues(contractArtifacts.BondManagerImpl, [
-                    {
-                        id: uupsImmutableReferencesMap.__self.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.BondManagerImpl,
-                            32,
-                        ),
-                    },
-                    {
-                        id: essentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
-                            32,
-                        ),
-                    },
-                    {
-                        id: bondManagerReferencesMap.authorized.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.TaikoAnchor,
-                            32,
-                        ),
-                    },
-                    {
-                        id: bondManagerReferencesMap.bondToken.id,
-                        value: ethers.utils.hexZeroPad(bondToken, 32),
-                    },
-                    {
-                        id: bondManagerReferencesMap.minBond.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(minBond),
-                            32,
-                        ),
-                    },
-                    {
-                        id: bondManagerReferencesMap.withdrawalDelay.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(withdrawalDelay),
-                            32,
-                        ),
-                    },
-                ]),
-                addressMap,
-            ),
-            variables: {},
-        },
-        BondManager: {
-            address: addressMap.BondManager,
-            deployedBytecode:
-                contractArtifacts.BondManager.deployedBytecode.object,
-            variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 1, // _FALSE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
-                _owner: contractOwner,
-            },
-            slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.BondManagerImpl,
-            },
-            isProxy: true,
-        },
         AnchorForkRouterImpl: {
             address: addressMap.AnchorForkRouterImpl,
             deployedBytecode: replaceImmutableValues(
@@ -773,29 +676,6 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SignalService,
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.livenessBond.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.BigNumber.from(livenessBond).toHexString(),
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.provabilityBond.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.BigNumber.from(
-                                provabilityBond,
-                            ).toHexString(),
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.bondManager.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.BondManager,
                             32,
                         ),
                     },
@@ -879,11 +759,6 @@ async function generateContractConfigs(
             address: addressMap.LibNetwork,
             deployedBytecode:
                 contractArtifacts.LibNetwork.deployedBytecode.object,
-        },
-        LibBonds: {
-            address: addressMap.LibBonds,
-            deployedBytecode:
-                contractArtifacts.LibBonds.deployedBytecode.object,
         },
     };
 }

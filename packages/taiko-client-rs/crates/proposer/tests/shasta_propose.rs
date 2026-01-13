@@ -20,7 +20,6 @@ async fn propose_shasta_batches(env: &mut ShastaEnv) -> anyhow::Result<()> {
         propose_interval: Duration::from_secs(0),
         l1_proposer_private_key: env.l1_proposer_private_key,
         gas_limit: None,
-        anchor_offset: 2,
     };
 
     let proposer = Proposer::new(proposer_config).await?;

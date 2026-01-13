@@ -224,6 +224,17 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
 		}
+
+		if cfg.SrcSignalServiceAddress == ZeroAddress {
+			slog.Info("using fork router address for chainDataSynced events",
+				"addr", cfg.SrcSignalServiceForkRouterAddress.Hex(),
+			)
+
+			signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
+			if err != nil {
+				return errors.Wrap(err, "signalservice.NewSignalService")
+			}
+		}
 	}
 
 	srcChainID, err := srcEthClient.ChainID(context.Background())
@@ -376,9 +387,15 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
 
-			i.latestIndexedBlockNumber = *i.targetBlockNumber
+			if *i.targetBlockNumber == 0 {
+				slog.Error("invalid targetBlockNumber, must be greater than 0", "targetBlockNumber", *i.targetBlockNumber)
 
-			endBlockID = i.latestIndexedBlockNumber + 1
+				return errors.New("targetBlockNumber must be greater than 0")
+			}
+
+			i.latestIndexedBlockNumber = *i.targetBlockNumber - 1
+
+			endBlockID = *i.targetBlockNumber
 		} else {
 			// set the initial processing block back to either 0 or the genesis block again.
 			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
@@ -645,7 +662,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		group.Go(func() error {
 			err := i.handleChainDataSyncedEvent(ctx, event, true)
 			if err != nil {
-				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+				relayer.ChainDataSyncedEventsIndexingErrors.Inc()
 
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling chainDataSynced", "err", err.Error())

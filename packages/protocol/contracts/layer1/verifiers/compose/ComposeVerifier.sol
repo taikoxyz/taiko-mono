@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "../IProofVerifier.sol";
 
@@ -10,19 +10,20 @@ import "../IProofVerifier.sol";
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ComposeVerifier is IProofVerifier {
-    struct SubProof {
-        uint8 verifierId;
-        bytes proof;
+    enum VerifierType {
+        NONE,
+        SGX_GETH,
+        TDX_GETH,
+        OP,
+        SGX_RETH,
+        RISC0_RETH,
+        SP1_RETH
     }
 
-    /// @notice Enum for verifier identification using stable IDs
-    uint8 public constant NONE = 0;
-    uint8 public constant SGX_GETH = 1;
-    uint8 public constant TDX_GETH = 2;
-    uint8 public constant OP = 3;
-    uint8 public constant SGX_RETH = 4;
-    uint8 public constant RISC0_RETH = 5;
-    uint8 public constant SP1_RETH = 6;
+    struct SubProof {
+        VerifierType verifierId;
+        bytes proof;
+    }
 
     /// @notice Immutable verifier addresses
     /// The sgx/tdx-GethVerifier is the core verifier required in every proof.
@@ -57,7 +58,7 @@ abstract contract ComposeVerifier is IProofVerifier {
     /// @inheritdoc IProofVerifier
     function verifyProof(
         uint256 _proposalAge,
-        bytes32 _transitionsHash,
+        bytes32 _commitmentHash,
         bytes calldata _proof
     )
         external
@@ -68,18 +69,18 @@ abstract contract ComposeVerifier is IProofVerifier {
         uint256 size = subProofs.length;
         address[] memory verifiers = new address[](size);
 
-        uint8 lastVerifierId;
+        VerifierType lastVerifierId;
 
         for (uint256 i; i < size; ++i) {
-            uint8 verifierId = subProofs[i].verifierId;
+            VerifierType verifierId = subProofs[i].verifierId;
 
-            require(verifierId != NONE, CV_INVALID_SUB_VERIFIER());
+            require(verifierId != VerifierType.NONE, CV_INVALID_SUB_VERIFIER());
             require(verifierId > lastVerifierId, CV_INVALID_SUB_VERIFIER_ORDER());
 
             address verifier = getVerifierAddress(verifierId);
             require(verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
-            IProofVerifier(verifier).verifyProof(_proposalAge, _transitionsHash, subProofs[i].proof);
+            IProofVerifier(verifier).verifyProof(_proposalAge, _commitmentHash, subProofs[i].proof);
 
             verifiers[i] = verifier;
             lastVerifierId = verifierId;
@@ -91,13 +92,13 @@ abstract contract ComposeVerifier is IProofVerifier {
     /// @notice Returns the verifier address for a given verifier ID
     /// @param _verifierId The verifier ID to query
     /// @return The address of the verifier (or address(0) if invalid)
-    function getVerifierAddress(uint8 _verifierId) public view returns (address) {
-        if (_verifierId == SGX_GETH) return sgxGethVerifier;
-        if (_verifierId == TDX_GETH) return tdxGethVerifier;
-        if (_verifierId == OP) return opVerifier;
-        if (_verifierId == SGX_RETH) return sgxRethVerifier;
-        if (_verifierId == RISC0_RETH) return risc0RethVerifier;
-        if (_verifierId == SP1_RETH) return sp1RethVerifier;
+    function getVerifierAddress(VerifierType _verifierId) public view returns (address) {
+        if (_verifierId == VerifierType.SGX_GETH) return sgxGethVerifier;
+        if (_verifierId == VerifierType.TDX_GETH) return tdxGethVerifier;
+        if (_verifierId == VerifierType.OP) return opVerifier;
+        if (_verifierId == VerifierType.SGX_RETH) return sgxRethVerifier;
+        if (_verifierId == VerifierType.RISC0_RETH) return risc0RethVerifier;
+        if (_verifierId == VerifierType.SP1_RETH) return sp1RethVerifier;
         return address(0);
     }
 

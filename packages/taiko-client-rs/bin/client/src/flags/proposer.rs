@@ -32,11 +32,4 @@ pub struct ProposerArgs {
         help = "Optional gas limit for proposal transactions. If not set, uses provider's estimation"
     )]
     pub gas_limit: Option<u64>,
-    #[clap(
-        long = "propose.anchorOffset",
-        env = "PROPOSE_ANCHOR_OFFSET",
-        default_value = "2",
-        help = "Anchor block offset from L1 head"
-    )]
-    pub anchor_offset: u64,
 }

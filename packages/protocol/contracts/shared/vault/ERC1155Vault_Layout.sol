@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title ERC1155VaultLayout
 /// @notice Storage layout documentation for ERC1155Vault

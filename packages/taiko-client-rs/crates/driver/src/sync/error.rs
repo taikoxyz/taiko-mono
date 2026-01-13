@@ -1,5 +1,6 @@
 //! Synchronization error types.
 
+use alloy::primitives::B256;
 use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
@@ -48,6 +49,10 @@ pub enum SyncError {
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
     #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
     MissingAnchorTransaction { block_number: u64, reason: &'static str },
+
+    /// Event sync: failed to decode a proposal log from the inbox contract.
+    #[error("invalid proposal log in block {block_number:?}, tx {tx_hash:?}: {reason}")]
+    InvalidProposalLog { reason: String, tx_hash: Option<B256>, block_number: Option<u64> },
 
     /// Event sync: derivation failed.
     #[error("derivation failed")]

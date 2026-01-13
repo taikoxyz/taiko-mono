@@ -57,7 +57,6 @@ impl Proposer {
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
-            cfg.anchor_offset,
         );
 
         Ok(Self { rpc_provider, cfg, transaction_builder })

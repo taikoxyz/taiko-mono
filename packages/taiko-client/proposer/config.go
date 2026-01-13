@@ -35,7 +35,6 @@ type Config struct {
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
 	FallbackTimeout         time.Duration
-	AnchorOffset            uint64
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -107,6 +106,5 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
-		AnchorOffset:    c.Uint64(flags.AnchorOffset.Name),
 	}, nil
 }

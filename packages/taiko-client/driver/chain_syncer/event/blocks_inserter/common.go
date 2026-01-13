@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
@@ -322,7 +323,6 @@ func isKnownCanonicalBatchShasta(
 				sourcePayload,
 				parentHeader,
 				i,
-				sourcePayload.IsLowBondProposal,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to assemble Shasta execution payload creation metadata: %w", err)
@@ -422,21 +422,6 @@ func isKnownCanonicalBlock(
 		logUnknown("L1Origin not found")
 		return nil, false, nil
 	}
-	// If the payload ID matches, it means this block is already in the canonical chain.
-	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
-		logUnknown(fmt.Sprintf(
-			"payload ID mismatch: l1Origin payload id: %s, current payload id %s, parentHash: %s, "+
-				"timestamp: %d, suggestedFeeRecipient: %s, difficulty: %s, txListHash: %s",
-			engine.PayloadID(l1Origin.BuildPayloadArgsID),
-			id,
-			meta.Parent.Hash().Hex(),
-			meta.Timestamp,
-			meta.SuggestedFeeRecipient.Hex(),
-			meta.Difficulty.Hex(),
-			txListHash.Hex(),
-		))
-		return nil, false, nil
-	}
 
 	if block.ParentHash() != meta.Parent.Hash() {
 		logUnknown(fmt.Sprintf("parent hash mismatch: %s != %s", block.ParentHash(), meta.Parent.Hash()))
@@ -488,6 +473,21 @@ func isKnownCanonicalBlock(
 	}
 	if block.Withdrawals().Len() != 0 {
 		logUnknown(fmt.Sprintf("withdrawals mismatch: %d != 0", block.Withdrawals().Len()))
+		return nil, false, nil
+	}
+	// If the payload ID matches, it means this block is already in the canonical chain.
+	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
+		logUnknown(fmt.Sprintf(
+			"payload ID mismatch: l1Origin payload id: %s, current payload id %s, parentHash: %s, "+
+				"timestamp: %d, suggestedFeeRecipient: %s, difficulty: %s, txListHash: %s",
+			engine.PayloadID(l1Origin.BuildPayloadArgsID),
+			id,
+			meta.Parent.Hash().Hex(),
+			meta.Timestamp,
+			meta.SuggestedFeeRecipient.Hex(),
+			meta.Difficulty.Hex(),
+			txListHash.Hex(),
+		))
 		return nil, false, nil
 	}
 
@@ -605,7 +605,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
-	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
 		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
@@ -657,13 +656,10 @@ func assembleCreateExecutionPayloadMetaShasta(
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
-		meta.GetProposal().Id,
-		meta.GetProposal().Proposer,
-		sourcePayload.ProverAuthBytes,
 		anchorBlockID,
 		anchorBlockHeaderHash,
 		anchorBlockHeaderRoot,
-		meta.GetProposal().EndOfSubmissionWindowTimestamp,
+		meta.GetEventData().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,
 	)
@@ -671,8 +667,8 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
-	// Encode extraData with basefeeSharingPctg and isLowBondProposal.
-	extraData, err := encodeShastaExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
+	// Encode extraData with basefeeSharingPctg and proposal ID.
+	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -680,7 +676,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	// Set batchID only for the last block in the proposal
 	var batchID *big.Int
 	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
-		batchID = meta.GetProposal().Id
+		batchID = meta.GetEventData().Id
 	}
 
 	return &createExecutionPayloadsMetaData{
@@ -819,29 +815,39 @@ func updateL1OriginForBatchShasta(
 		func(i int) *big.Int {
 			return new(big.Int).SetUint64(lastBlockID - uint64(len(sourcePayload.BlockPayloads)-1-i))
 		},
-		func() *big.Int { return meta.GetProposal().Id },
+		func() *big.Int { return meta.GetEventData().Id },
 		meta.GetRawBlockHeight(),
 		meta.GetRawBlockHash(),
 	)
 }
 
-// encodeShastaExtraData encodes the basefeeSharingPctg and isLowBondProposal into extraData field.
+// encodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
+// Format (7 bytes):
+//   - Byte 0: basefeeSharingPctg (uint8)
+//   - Bytes 1-6: proposalID (uint48, big-endian)
 func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
-	isLowBondProposal bool,
+	proposalID *big.Int,
 ) ([]byte, error) {
-	// Create a 2-byte array for extraData
-	extraData := make([]byte, 2)
-
-	// First byte: basefeeSharingPctg
-	extraData[0] = basefeeSharingPctg
-
-	// Second byte: isLowBondProposal in the lowest bit
-	if isLowBondProposal {
-		extraData[1] = 0x01
-	} else {
-		extraData[1] = 0x00
+	if proposalID == nil {
+		return nil, errors.New("proposal ID is nil")
 	}
+	if proposalID.Sign() < 0 {
+		return nil, fmt.Errorf("proposal ID is negative: %s", proposalID.String())
+	}
+	if proposalID.BitLen() > params.ShastaExtraDataProposalIDLength*8 {
+		return nil, fmt.Errorf("proposal ID too large for extraData: %s", proposalID.String())
+	}
+
+	extraData := make([]byte, params.ShastaExtraDataLen)
+
+	// First byte: basefeeSharingPctg.
+	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
+
+	// Bytes 1..6: proposal ID (uint48, big-endian).
+	proposalBytes := proposalID.Bytes()
+	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
+	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
 
 	return extraData, nil
 }

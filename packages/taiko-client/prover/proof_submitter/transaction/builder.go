@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -124,7 +125,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProducer.BatchProofs) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
-			proposals = make([]shastaBindings.IInboxProposal, len(batchProof.ProofResponses))
+			proposals = make([]*shastaBindings.ShastaInboxClientProposed, len(batchProof.ProofResponses))
 			input     = &shastaBindings.IInboxProveInput{
 				Commitment:          shastaBindings.IInboxCommitment{ActualProver: txOpts.From},
 				ForceCheckpointSync: false,
@@ -139,10 +140,10 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			if len(proofResponse.Opts.ShastaOptions().Headers) == 0 {
 				return nil, fmt.Errorf(
 					"no headers in proof response options for proposal ID %d",
-					proofResponse.Meta.Shasta().GetProposal(),
+					proofResponse.Meta.Shasta().GetEventData().Id,
 				)
 			}
-			proposals[i] = proofResponse.Meta.Shasta().GetProposal()
+			proposals[i] = proofResponse.Meta.Shasta().GetEventData()
 			lastHeader := proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1]
 
 			proposalHash, err := a.rpc.GetShastaProposalHash(nil, proposals[i].Id)
@@ -163,19 +164,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				input.Commitment.EndStateRoot = lastHeader.Root
 			}
 
-			// Fetch anchor proposal state, which contains the designated prover for the proposal.
-			_, anchorProposalState, err := a.rpc.GetShastaAnchorState(
-				&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()},
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch anchor proposal state: %w", err)
-			}
-
+			// Set transition information.
 			input.Commitment.Transitions = append(input.Commitment.Transitions, shastaBindings.IInboxTransition{
-				Proposer:         proposals[i].Proposer,
-				DesignatedProver: anchorProposalState.DesignatedProver,
-				Timestamp:        proposals[i].Timestamp,
-				BlockHash:        lastHeader.Hash(),
+				Proposer:  proposals[i].Proposer,
+				Timestamp: new(big.Int).SetUint64(proofResponse.Meta.Shasta().GetTimestamp()),
+				BlockHash: lastHeader.Hash(),
 			})
 
 			log.Info(

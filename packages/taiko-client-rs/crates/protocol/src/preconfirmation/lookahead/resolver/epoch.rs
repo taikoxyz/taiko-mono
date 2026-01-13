@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::super::error::{LookaheadError, Result};
+use super::super::{LookaheadError, Result};
 
 /// Duration of a single preconfirmation slot in seconds.
 pub const SECONDS_IN_SLOT: u64 = 12;

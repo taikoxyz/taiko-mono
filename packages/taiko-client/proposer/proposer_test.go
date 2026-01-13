@@ -142,7 +142,6 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 		true,
 		true,
 		true,
-		0,
 	)
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
@@ -378,7 +377,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 
 	// Propose txs in L2 execution engine's mempool
 	sink1 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub1, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink1)
+	sub1, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink1, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -393,10 +392,11 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	s.Nil(s.p.ProposeOp(context.Background()))
 
 	event := <-sink1
-	payload, err := s.RPCClient.DecodeProposedEventPayload(nil, event.Data)
+	header, err := s.RPCClient.L1.HeaderByNumber(context.Background(), big.NewInt(int64(event.Raw.BlockNumber)))
 	s.Nil(err)
+	s.NotNil(header)
 
-	meta := metadata.NewTaikoProposalMetadataShasta(payload, event.Raw)
+	meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
 	s.Nil(err)

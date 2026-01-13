@@ -105,14 +105,6 @@ var (
 		Value:    2 * time.Minute,
 		EnvVars:  []string{"PRECONFIRMATION_FALLBACK_FORCE_PUSH_TIMEOUT"},
 	}
-	// Anchor offset
-	AnchorOffset = &cli.Uint64Flag{
-		Name:     "propose.anchorOffset",
-		Usage:    "Anchor block offset from L1 head",
-		Category: proposerCategory,
-		Value:    2,
-		EnvVars:  []string{"PROPOSE_ANCHOR_OFFSET"},
-	}
 )
 
 // ProposerFlags All proposer flags.
@@ -135,5 +127,4 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	FallbackToCalldata,
 	RevertProtectionEnabled,
 	FallbackTimeout,
-	AnchorOffset,
 }, TxmgrFlags)
