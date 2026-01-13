@@ -26,7 +26,6 @@ type ProofBuffer struct {
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
 		buffer:      make([]*ProofResponse, 0, maxLength),
-		firstItemAt: time.Now(),
 		MaxLength:   maxLength,
 	}
 }
