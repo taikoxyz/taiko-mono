@@ -63,9 +63,7 @@ contract InboxBondManagerNativeETHTest is InboxTestBase {
 
         assertEq(inbox.getBond(recipient).balance, amount, "recipient bond balance");
         assertEq(
-            address(inbox).balance,
-            inboxBalanceBefore + _toTokenAmount(amount),
-            "inbox ETH balance"
+            address(inbox).balance, inboxBalanceBefore + _toTokenAmount(amount), "inbox ETH balance"
         );
     }
 
@@ -132,9 +130,7 @@ contract InboxBondManagerNativeETHTest is InboxTestBase {
         assertEq(inbox.getBond(account).balance, 0, "bond balance cleared");
         assertEq(inbox.getBond(account).withdrawalRequestedAt, 0, "withdrawal request cleared");
         assertEq(
-            account.balance,
-            accountBalanceBefore + _toTokenAmount(balance),
-            "account ETH balance"
+            account.balance, accountBalanceBefore + _toTokenAmount(balance), "account ETH balance"
         );
         assertEq(
             address(inbox).balance,

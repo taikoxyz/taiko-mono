@@ -252,7 +252,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint64 _amount) external nonReentrant {
-        _bondStorage.withdraw(IERC20(_bondToken), msg.sender, _to, _amount, _minBond, _withdrawalDelay);
+        _bondStorage.withdraw(
+            IERC20(_bondToken), msg.sender, _to, _amount, _minBond, _withdrawalDelay
+        );
     }
 
     /// @inheritdoc IBondManager

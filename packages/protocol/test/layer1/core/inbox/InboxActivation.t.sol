@@ -148,7 +148,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         vm.expectRevert(LibInboxSetup.SignalServiceZero.selector);
         new Inbox(cfg);
     }
-    
+
     function test_validateConfig_RevertWhen_ProvingWindowZero() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.provingWindow = 0;
