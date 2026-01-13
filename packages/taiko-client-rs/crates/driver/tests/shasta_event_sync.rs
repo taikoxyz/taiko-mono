@@ -90,9 +90,11 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     ensure!(!outcomes.is_empty(), "derivation pipeline returned no block outcomes");
 
     let l2_head_after = driver_client.l2_provider.get_block_number().await?;
+    let max_outcome_block =
+        outcomes.iter().map(|outcome| outcome.block_number()).max().unwrap_or(l2_head_before);
     ensure!(
-        l2_head_after > l2_head_before,
-        "expected L2 head to advance after proposal processing"
+        l2_head_after >= max_outcome_block,
+        "expected L2 head to include derived proposal blocks"
     );
 
     verify_anchor_block(&driver_client, env.taiko_anchor_address)
