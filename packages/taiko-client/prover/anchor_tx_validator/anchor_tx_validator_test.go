@@ -46,7 +46,7 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 	s.ErrorContains(s.v.ValidateAnchorTx(tx), "invalid anchor transaction recipient")
 
 	// invalid sender
-	dynamicFeeTxTx := &types.DynamicFeeTx{
+	dynamicFeeTx := &types.DynamicFeeTx{
 		ChainID:    s.v.rpc.L2.ChainID,
 		Nonce:      0,
 		GasTipCap:  common.Big1,
@@ -59,14 +59,14 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 	}
 
 	signer := types.LatestSignerForChainID(s.v.rpc.L2.ChainID)
-	tx = types.MustSignNewTx(wrongPrivKey, signer, dynamicFeeTxTx)
+	tx = types.MustSignNewTx(wrongPrivKey, signer, dynamicFeeTx)
 
 	s.ErrorContains(
 		s.v.ValidateAnchorTx(tx), "invalid anchor transaction sender",
 	)
 
 	// invalid method selector
-	tx = types.MustSignNewTx(goldenTouchPriKey, signer, dynamicFeeTxTx)
+	tx = types.MustSignNewTx(goldenTouchPriKey, signer, dynamicFeeTx)
 	s.ErrorContains(s.v.ValidateAnchorTx(tx), "failed to get anchor transaction method")
 }
 
