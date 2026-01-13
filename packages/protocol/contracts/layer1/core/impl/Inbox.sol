@@ -233,7 +233,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IInbox
-    ///
+    /// @dev When prover whitelist is enabled, only the whitested prover(s) can prove. If
+    /// there are not proofs submitted for `permissionlessProvingDelay` seconds, proving becomes
+    /// permisionless.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
@@ -275,6 +277,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
+            // We count proposalAge as the time since it became available for proving.
             uint256 proposalAge = block.timestamp
                 - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
             bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
