@@ -90,7 +90,6 @@ fn validate_raw_txlist_parts(hash: &Bytes32, txlist: &TxListBytes) -> Result<(),
     Ok(())
 }
 
-
 /// Validates a `GetCommitmentsByNumberResponse` against the per-message cap.
 pub fn validate_commitments_response(
     resp: &GetCommitmentsByNumberResponse,
@@ -198,5 +197,4 @@ mod tests {
             Err(ValidationError::MaxCountExceeded(_, _))
         ));
     }
-
 }
