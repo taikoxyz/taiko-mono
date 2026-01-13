@@ -66,8 +66,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
 
-    /// @notice ERC20 token used as bond.
-    IERC20 internal immutable _bondToken;
+    /// @notice ERC20 token used as bond, or address(0) for native ETH.
+    address internal immutable _bondToken;
 
     /// @notice Minimum bond the proposer is required to have in gwei.
     uint64 internal immutable _minBond;
@@ -147,7 +147,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
-        _bondToken = IERC20(_config.bondToken);
+        _bondToken = _config.bondToken;
         _minBond = _config.minBond;
         _livenessBond = _config.livenessBond;
         _withdrawalDelay = _config.withdrawalDelay;
@@ -241,18 +241,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IBondManager
-    function deposit(uint64 _amount) external nonReentrant {
-        _bondStorage.deposit(_bondToken, msg.sender, msg.sender, _amount, true);
+    function deposit(uint64 _amount) external payable nonReentrant {
+        _bondStorage.deposit(IERC20(_bondToken), msg.sender, msg.sender, _amount, true);
     }
 
     /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint64 _amount) external nonReentrant {
-        _bondStorage.deposit(_bondToken, msg.sender, _recipient, _amount, false);
+    function depositTo(address _recipient, uint64 _amount) external payable nonReentrant {
+        _bondStorage.deposit(IERC20(_bondToken), msg.sender, _recipient, _amount, false);
     }
 
     /// @inheritdoc IBondManager
     function withdraw(address _to, uint64 _amount) external nonReentrant {
-        _bondStorage.withdraw(_bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay);
+        _bondStorage.withdraw(IERC20(_bondToken), msg.sender, _to, _amount, _minBond, _withdrawalDelay);
     }
 
     /// @inheritdoc IBondManager
@@ -372,7 +372,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             proposerChecker: address(_proposerChecker),
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
-            bondToken: address(_bondToken),
+            bondToken: _bondToken,
             minBond: _minBond,
             livenessBond: _livenessBond,
             withdrawalDelay: _withdrawalDelay,
