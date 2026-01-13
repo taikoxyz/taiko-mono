@@ -24,8 +24,9 @@ var (
 
 func testMysql(t *testing.T) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "mysql:latest",
-		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
+		AlwaysPullImage: true,
+		Image:           "mysql:latest",
+		ExposedPorts:    []string{"3306/tcp", "33060/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
