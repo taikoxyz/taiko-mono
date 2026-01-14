@@ -17,7 +17,7 @@ use alloy_eips::{BlockId, BlockNumberOrTag, eip2718::Encodable2718};
 use alloy_primitives::{Address, B64, B256, Bloom, Bytes, TxKind, U256};
 use alloy_provider::Provider;
 use alloy_rlp::encode as rlp_encode;
-use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt, eth::Block as RpcBlock};
+use alloy_rpc_types::{TransactionReceipt, eth::Block as RpcBlock};
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result, anyhow, ensure};
@@ -384,7 +384,7 @@ async fn wait_for_commitment_and_txlist(
 }
 
 fn map_block_transactions(block: RpcBlock) -> RpcBlock<TxEnvelope> {
-    block.map_transactions(|tx: RpcTransaction| TxEnvelope::from(tx))
+    block.map_transactions(TxEnvelope::from)
 }
 
 async fn fetch_block_by_number<P>(provider: &P, block_number: u64) -> Result<RpcBlock<TxEnvelope>>
@@ -569,7 +569,7 @@ where
 
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread")]
 async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     init_tracing("info");
 
