@@ -14,4 +14,3 @@ cd "${PROTOCOL_DIR}" &&
     --ffi \
     --private-key "$PRIVATE_KEY" \
     --block-gas-limit 200000000 \
-    --legacy
