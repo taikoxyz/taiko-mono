@@ -45,8 +45,8 @@ abstract contract InboxTestBase is CommonTest {
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
-    uint64 internal constant MIN_BOND_GWEI = 10_000_000_000;
-    uint64 internal constant LIVENESS_BOND_GWEI = 2_000_000_000;
+    uint64 internal constant MIN_BOND = 10 ether;
+    uint64 internal constant LIVENESS_BOND = 2 ether;
     uint48 internal constant WITHDRAWAL_DELAY = 7 days;
 
     function setUp() public virtual override {
@@ -83,8 +83,8 @@ abstract contract InboxTestBase is CommonTest {
             proverWhitelist: address(proverWhitelistContract),
             signalService: address(signalService),
             bondToken: address(bondToken),
-            minBond: MIN_BOND_GWEI,
-            livenessBond: LIVENESS_BOND_GWEI,
+            minBond: MIN_BOND,
+            livenessBond: LIVENESS_BOND,
             withdrawalDelay: WITHDRAWAL_DELAY,
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
@@ -259,11 +259,11 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _seedBondBalances() internal {
-        uint64 initialBond = MIN_BOND_GWEI + LIVENESS_BOND_GWEI;
+        uint64 initialBond = MIN_BOND + LIVENESS_BOND;
 
-        bondToken.mint(proposer, _toTokenAmount(initialBond));
-        bondToken.mint(prover, _toTokenAmount(initialBond));
-        bondToken.mint(David, _toTokenAmount(initialBond));
+        bondToken.mint(proposer, initialBond);
+        bondToken.mint(prover, initialBond);
+        bondToken.mint(David, initialBond);
 
         vm.startPrank(proposer);
         bondToken.approve(address(inbox), type(uint256).max);
@@ -279,10 +279,6 @@ abstract contract InboxTestBase is CommonTest {
         bondToken.approve(address(inbox), type(uint256).max);
         inbox.deposit(initialBond);
         vm.stopPrank();
-    }
-
-    function _toTokenAmount(uint64 _amount) internal pure returns (uint256) {
-        return uint256(_amount) * 1 gwei;
     }
 
     // ---------------------------------------------------------------------

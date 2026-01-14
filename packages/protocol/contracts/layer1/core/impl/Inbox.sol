@@ -75,10 +75,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice ERC20 token used as bond. When address(0), native ETH is used instead.
     IERC20 internal immutable _bondToken;
 
-    /// @notice Minimum bond the proposer is required to have in gwei.
+    /// @notice Minimum bond the proposer is required to have in wei.
     uint64 internal immutable _minBond;
 
-    /// @notice Liveness bond amount in gwei.
+    /// @notice Liveness bond amount in wei.
     uint64 internal immutable _livenessBond;
 
     /// @notice Time delay required before withdrawal after request.

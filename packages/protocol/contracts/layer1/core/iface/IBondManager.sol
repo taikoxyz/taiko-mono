@@ -11,7 +11,7 @@ interface IBondManager {
 
     /// @notice Represents a bond for a given address.
     struct Bond {
-        /// @notice The bond balance in gwei.
+        /// @notice The bond balance in wei.
         uint64 balance;
         /// @notice The timestamp when the withdrawal was requested.
         /// @dev 0 = active, >0 = withdrawal requested timestamp
@@ -25,12 +25,12 @@ interface IBondManager {
     /// @notice Emitted when a bond is deposited.
     /// @param depositor The account that made the deposit.
     /// @param recipient The account that received the bond credit.
-    /// @param amount The amount deposited in gwei.
+    /// @param amount The amount deposited in wei.
     event BondDeposited(address indexed depositor, address indexed recipient, uint64 amount);
 
     /// @notice Emitted when a bond is withdrawn.
     /// @param account The account that withdrew the bond.
-    /// @param amount The amount withdrawn in gwei.
+    /// @param amount The amount withdrawn in wei.
     event BondWithdrawn(address indexed account, uint64 amount);
 
     /// @notice Emitted when a withdrawal is requested.
@@ -45,9 +45,9 @@ interface IBondManager {
     /// @notice Emitted when a liveness bond is settled.
     /// @param payer The account that paid the liveness bond.
     /// @param payee The account that received the liveness bond.
-    /// @param livenessBond The value of the liveness bond in gwei.
-    /// @param credited The amount of the liveness bond that was credited to the payee in gwei.
-    /// @param slashed The amount of the liveness bond that was slashed in gwei.
+    /// @param livenessBond The value of the liveness bond in wei.
+    /// @param credited The amount of the liveness bond that was credited to the payee in wei.
+    /// @param slashed The amount of the liveness bond that was slashed in wei.
     event LivenessBondSettled(
         address indexed payer,
         address indexed payee,
@@ -63,7 +63,7 @@ interface IBondManager {
     /// @notice Deposits bond tokens for the caller.
     /// @dev Clears the caller's pending withdrawal request, if any.
     /// @dev When bond token is address(0), msg.value must equal the amount in wei.
-    /// @param _amount The amount to deposit in gwei.
+    /// @param _amount The amount to deposit in wei.
     function deposit(uint64 _amount) external payable;
 
     /// @notice Deposits bond tokens for a recipient.
@@ -71,7 +71,7 @@ interface IBondManager {
     /// even if the recipient is the caller.
     /// @dev When bond token is address(0), msg.value must equal the amount in wei.
     /// @param _recipient The address to credit the bond to.
-    /// @param _amount The amount to deposit in gwei.
+    /// @param _amount The amount to deposit in wei.
     function depositTo(address _recipient, uint64 _amount) external payable;
 
     /// @notice Withdraws bond to a recipient.
@@ -80,7 +80,7 @@ interface IBondManager {
     /// If this withdrawal debits the entire bond balance, any pending withdrawal request is
     /// cleared.
     /// @param _to The recipient of withdrawn funds.
-    /// @param _amount The amount to withdraw in gwei.
+    /// @param _amount The amount to withdraw in wei.
     function withdraw(address _to, uint64 _amount) external;
 
     /// @notice Requests to start the withdrawal process.

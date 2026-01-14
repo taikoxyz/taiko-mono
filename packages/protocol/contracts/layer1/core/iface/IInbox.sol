@@ -19,9 +19,9 @@ interface IInbox {
         address signalService;
         /// @notice The ERC20 bond token address. Use address(0) to use native ETH instead.
         address bondToken;
-        /// @notice The minimum bond a proposer is required to have in gwei
+        /// @notice The minimum bond a proposer is required to have in wei
         uint64 minBond;
-        /// @notice The liveness bond amount in gwei
+        /// @notice The liveness bond amount in wei
         uint64 livenessBond;
         /// @notice The withdrawal delay in seconds
         uint48 withdrawalDelay;

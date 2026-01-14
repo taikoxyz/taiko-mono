@@ -15,12 +15,6 @@ library LibBonds {
     using LibAddress for address;
 
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    uint256 internal constant GWEI_UNIT = 1 gwei;
-
-    // ---------------------------------------------------------------
     // Storage
     // ---------------------------------------------------------------
 
@@ -33,7 +27,7 @@ library LibBonds {
     // Internal Functions meant to be called by contracts that use this library
     // ---------------------------------------------------------------
 
-    /// @dev Deposits bond tokens in gwei units and credits the recipient.
+    /// @dev Deposits bond tokens in wei and credits the recipient.
     /// If `_cancelWithdrawal` is true, the pending withdrawal request is cleared.
     /// @dev When `_bondToken` is address(0), native ETH is used via msg.value.
     function deposit(
@@ -53,7 +47,7 @@ library LibBonds {
             $.bonds[_recipient].withdrawalRequestedAt = 0;
         }
 
-        uint256 tokenAmount = _toTokenAmount(_amount);
+        uint256 tokenAmount = uint256(_amount);
         if (address(_bondToken) == address(0)) {
             // Native ETH mode
             require(msg.value == tokenAmount, InsufficientETH());
@@ -65,7 +59,7 @@ library LibBonds {
         emit IBondManager.BondDeposited(_depositor, _recipient, _amount);
     }
 
-    /// @dev Withdraws bond tokens in gwei units to a recipient.
+    /// @dev Withdraws bond tokens in wei to a recipient.
     /// If the full balance is withdrawn, the pending withdrawal request is cleared.
     /// @dev When `_bondToken` is address(0), native ETH is transferred instead.
     function withdraw(
@@ -98,7 +92,7 @@ library LibBonds {
             bond_.withdrawalRequestedAt = 0;
         }
 
-        uint256 tokenAmount = _toTokenAmount(debited_);
+        uint256 tokenAmount = uint256(debited_);
         if (address(_bondToken) == address(0)) {
             // Native ETH mode
             _to.sendEtherAndVerify(tokenAmount);
@@ -165,7 +159,7 @@ library LibBonds {
     /// @param $ Storage reference.
     /// @param _payer Account whose bond is debited.
     /// @param _payee Account credited with half of the debited bond.
-    /// @param _livenessBond Liveness bond amount in gwei.
+    /// @param _livenessBond Liveness bond amount in wei.
     function settleLivenessBond(
         Storage storage $,
         address _payer,
@@ -218,11 +212,6 @@ library LibBonds {
     function _creditBond(Storage storage $, address _account, uint64 _amount) private {
         IBondManager.Bond storage bond_ = $.bonds[_account];
         bond_.balance = bond_.balance + _amount;
-    }
-
-    /// @dev Converts bond amounts in gwei to token units (18 decimals).
-    function _toTokenAmount(uint64 _amount) private pure returns (uint256) {
-        return uint256(_amount) * GWEI_UNIT;
     }
 
     // ---------------------------------------------------------------

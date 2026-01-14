@@ -7,11 +7,11 @@ import { LibBonds } from "src/layer1/core/libs/LibBonds.sol";
 
 contract InboxBondManagerTest is InboxTestBase {
     function test_depositTo_creditsRecipient() public {
-        uint64 amount = 5_000_000_000; // 5 tokens in gwei
+        uint64 amount = 5 ether;
         address depositor = Emma;
         address recipient = Alice;
 
-        bondToken.mint(depositor, _toTokenAmount(amount));
+        bondToken.mint(depositor, amount);
 
         uint256 inboxBalanceBefore = bondToken.balanceOf(address(inbox));
 
@@ -22,16 +22,14 @@ contract InboxBondManagerTest is InboxTestBase {
 
         assertEq(inbox.getBond(recipient).balance, amount, "recipient bond balance");
         assertEq(
-            bondToken.balanceOf(address(inbox)),
-            inboxBalanceBefore + _toTokenAmount(amount),
-            "inbox token balance"
+            bondToken.balanceOf(address(inbox)), inboxBalanceBefore + amount, "inbox token balance"
         );
     }
 
     function test_depositTo_RevertWhen_RecipientZero() public {
-        uint64 amount = 1_000_000_000;
+        uint64 amount = 1 ether;
 
-        bondToken.mint(Emma, _toTokenAmount(amount));
+        bondToken.mint(Emma, amount);
 
         vm.startPrank(Emma);
         bondToken.approve(address(inbox), type(uint256).max);
@@ -47,7 +45,7 @@ contract InboxBondManagerTest is InboxTestBase {
     }
 
     function test_withdraw_RevertWhen_DropsBelowMinBond() public {
-        uint64 amount = LIVENESS_BOND_GWEI + 1;
+        uint64 amount = LIVENESS_BOND + 1;
 
         vm.startPrank(proposer);
         vm.expectRevert(LibBonds.MustMaintainMinBond.selector);
@@ -73,14 +71,10 @@ contract InboxBondManagerTest is InboxTestBase {
         assertEq(inbox.getBond(account).balance, 0, "bond balance cleared");
         assertEq(inbox.getBond(account).withdrawalRequestedAt, 0, "withdrawal request cleared");
         assertEq(
-            bondToken.balanceOf(account),
-            accountBalanceBefore + _toTokenAmount(balance),
-            "account token balance"
+            bondToken.balanceOf(account), accountBalanceBefore + balance, "account token balance"
         );
         assertEq(
-            bondToken.balanceOf(address(inbox)),
-            inboxBalanceBefore - _toTokenAmount(balance),
-            "inbox token balance"
+            bondToken.balanceOf(address(inbox)), inboxBalanceBefore - balance, "inbox token balance"
         );
     }
 
@@ -134,14 +128,14 @@ contract InboxBondManagerTest is InboxTestBase {
     }
 
     function test_deposit_CancelsWithdrawal() public {
-        uint64 amount = 1_000_000_000;
+        uint64 amount = 1 ether;
 
         vm.prank(proposer);
         inbox.requestWithdrawal();
         assertGt(inbox.getBond(proposer).withdrawalRequestedAt, 0, "withdrawal requested");
         uint64 balanceBefore = inbox.getBond(proposer).balance;
 
-        bondToken.mint(proposer, _toTokenAmount(amount));
+        bondToken.mint(proposer, amount);
 
         vm.startPrank(proposer);
         bondToken.approve(address(inbox), type(uint256).max);
@@ -154,7 +148,7 @@ contract InboxBondManagerTest is InboxTestBase {
     }
 
     function test_depositTo_DoesNotCancelWithdrawal() public {
-        uint64 amount = 1_000_000_000;
+        uint64 amount = 1 ether;
 
         vm.prank(proposer);
         inbox.requestWithdrawal();
@@ -162,7 +156,7 @@ contract InboxBondManagerTest is InboxTestBase {
         assertGt(requestedAt, 0, "withdrawal requested");
         uint64 balanceBefore = inbox.getBond(proposer).balance;
 
-        bondToken.mint(Emma, _toTokenAmount(amount));
+        bondToken.mint(Emma, amount);
 
         vm.startPrank(Emma);
         bondToken.approve(address(inbox), type(uint256).max);
