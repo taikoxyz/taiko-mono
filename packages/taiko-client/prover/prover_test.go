@@ -651,6 +651,8 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 func (s *ProverTestSuite) TestForceAggregate() {
 	batchSize := 3
+	restoreMonitorInterval := proofSubmitter.SetProofBufferMonitorInterval(50 * time.Millisecond)
+	defer restoreMonitorInterval()
 	// Init a batch prover
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
@@ -680,7 +682,7 @@ func (s *ProverTestSuite) TestForceAggregate() {
 		BackOffMaxRetries:         12,
 		SGXProofBufferSize:        uint64(batchSize),
 		ZKVMProofBufferSize:       uint64(batchSize),
-		ForceBatchProvingInterval: 5 * time.Second,
+		ForceBatchProvingInterval: 500 * time.Millisecond,
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < 1; i++ {
@@ -699,11 +701,13 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	req1 := <-batchProver.proofSubmissionCh
 	s.Nil(batchProver.requestProofOp(req1.Meta))
 
-	time.Sleep(5 * time.Second)
-
-	proofType := <-batchProver.batchesAggregationNotifyPacaya
-	log.Info("Received agg request", "proofType", proofType)
-	s.Nil(batchProver.aggregateOp(proofType, false))
+	select {
+	case proofType := <-batchProver.batchesAggregationNotifyPacaya:
+		log.Info("Received agg request", "proofType", proofType)
+		s.Nil(batchProver.aggregateOp(proofType, false))
+	case <-time.After(3 * time.Second):
+		s.Fail("timeout waiting for agg request")
+	}
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
 

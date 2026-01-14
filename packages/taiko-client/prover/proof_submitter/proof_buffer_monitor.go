@@ -16,7 +16,16 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-const monitorInterval = 5 * time.Minute
+var monitorInterval = 5 * time.Minute
+
+// SetProofBufferMonitorInterval overrides the monitor interval.
+func SetProofBufferMonitorInterval(interval time.Duration) func() {
+	previous := monitorInterval
+	monitorInterval = interval
+	return func() {
+		monitorInterval = previous
+	}
+}
 
 // startProofBufferMonitors launches a monitor goroutine per proof type so we can
 // enforce forced aggregation deadlines in the background.
