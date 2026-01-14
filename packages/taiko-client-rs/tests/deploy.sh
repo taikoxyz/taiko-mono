@@ -12,7 +12,6 @@ cd "${PROTOCOL_DIR}" &&
     --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \
-    -vvvvv \
     --private-key "$PRIVATE_KEY" \
     --block-gas-limit 200000000 \
     --legacy
