@@ -70,7 +70,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
+			L1Endpoint:                  c.String(flags.L1HTTPEndpoint.Name),
 			L2Endpoint:                  c.String(flags.L2WSEndpoint.Name),
 			PacayaInboxAddress:          common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
 			ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
@@ -96,7 +96,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		FallbackToCalldata:      c.Bool(flags.FallbackToCalldata.Name),
 		RevertProtectionEnabled: c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1WSEndpoint.Name),
+			c.String(flags.L1HTTPEndpoint.Name),
 			l1ProposerPrivKey,
 			c,
 		),

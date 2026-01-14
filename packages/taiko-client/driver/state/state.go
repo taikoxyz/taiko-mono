@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,10 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+)
+
+const (
+	l1HeadPollInterval = time.Second
+	l1LogPollMaxRange  = uint64(1000)
 )
 
 // State contains all states which will be used by driver.
@@ -105,71 +109,149 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	var (
 		// Channels for subscriptions.
-		l1HeadCh                = make(chan *types.Header, 10)
-		l2HeadCh                = make(chan *types.Header, 10)
-		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
-		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
-		proposedShastaCh        = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
-		provedShastaCh          = make(chan *shastaBindings.ShastaInboxClientProved, 10)
+		l2HeadCh = make(chan *types.Header, 10)
 
 		// Subscriptions.
-		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub                  = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BatchesVerifiedPacayaSub = rpc.SubscribeBatchesVerifiedPacaya(
-			s.rpc.PacayaClients.TaikoInbox,
-			batchesVerifiedPacayaCh,
-		)
-		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
-		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
-		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
+		l2HeadSub = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
 	)
 
 	defer func() {
-		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
-		l2BatchesVerifiedPacayaSub.Unsubscribe()
-		l2BatchesProvedPacayaSub.Unsubscribe()
-		l2ProposedShastaSub.Unsubscribe()
-		l2ProvedShastaSub.Unsubscribe()
 	}()
+
+	l1HeadPoller := time.NewTicker(l1HeadPollInterval)
+	defer l1HeadPoller.Stop()
+
+	lastL1HeadNumber := s.GetL1Head().Number.Uint64()
+	lastL1EventBlock := lastL1HeadNumber
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-batchesProvedPacayaCh:
-			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
-		case e := <-provedShastaCh:
-			coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		case <-l1HeadPoller.C:
+			latest, err := s.rpc.L1.BlockNumber(ctx)
 			if err != nil {
-				log.Error("Failed to get Shasta core state", "err", err)
+				log.Warn("Failed to poll L1 head number", "error", err)
 				continue
 			}
-			header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
-			if err != nil {
-				log.Error("Failed to get Shasta finalized block header", "err", err)
+			if latest == lastL1HeadNumber {
 				continue
 			}
-			log.Info(
-				"📈 Shasta batches proven and verified",
-				"firstBatchID", e.FirstNewProposalId,
-				"lastBatchID", e.LastProposalId,
-				"checkpointNumber", header.Number,
-				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
-			)
-		case e := <-batchesVerifiedPacayaCh:
-			log.Info(
-				"📈 Pacaya batches verified",
-				"lastVerifiedBatchID", e.BatchId,
-				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
-			)
-		case newHead := <-l1HeadCh:
-			s.setL1Head(newHead)
-			s.l1HeadsFeed.Send(newHead)
+			header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(latest))
+			if err != nil {
+				log.Warn("Failed to fetch L1 head header", "error", err, "height", latest)
+				continue
+			}
+			start := lastL1EventBlock + 1
+			if latest < lastL1EventBlock {
+				log.Warn(
+					"L1 head regressed; rewinding L1 event polling cursor",
+					"latest", latest,
+					"lastL1EventBlock", lastL1EventBlock,
+				)
+				start = latest
+			}
+			lastL1HeadNumber = latest
+			s.setL1Head(header)
+			s.l1HeadsFeed.Send(header)
+			if start <= latest {
+				if err := s.pollL1Events(ctx, start, latest); err != nil {
+					log.Warn("Failed to poll L1 protocol events", "error", err)
+				} else {
+					lastL1EventBlock = latest
+				}
+			}
 		case newHead := <-l2HeadCh:
 			s.setL2Head(newHead)
 		}
 	}
+}
+
+func (s *State) pollL1Events(ctx context.Context, start, end uint64) error {
+	if start > end {
+		return nil
+	}
+	for from := start; from <= end; {
+		to := from + l1LogPollMaxRange - 1
+		if to < from || to > end {
+			to = end
+		}
+		if err := s.handleL1EventRange(ctx, from, to); err != nil {
+			return err
+		}
+		if to == end {
+			break
+		}
+		from = to + 1
+	}
+	return nil
+}
+
+func (s *State) handleL1EventRange(ctx context.Context, start, end uint64) error {
+	endHeight := end
+	opts := &bind.FilterOpts{Start: start, End: &endHeight, Context: ctx}
+
+	verifiedIter, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchesVerified(opts)
+	if err != nil {
+		return err
+	}
+	defer verifiedIter.Close()
+	for verifiedIter.Next() {
+		e := verifiedIter.Event
+		log.Info(
+			"📈 Pacaya batches verified",
+			"lastVerifiedBatchID", e.BatchId,
+			"lastVerifiedBlockHash", common.Hash(e.BlockHash),
+		)
+	}
+	if err := verifiedIter.Error(); err != nil {
+		return err
+	}
+
+	provedIter, err := s.rpc.PacayaClients.TaikoInbox.FilterBatchesProved(opts)
+	if err != nil {
+		return err
+	}
+	defer provedIter.Close()
+	for provedIter.Next() {
+		e := provedIter.Event
+		log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
+	}
+	if err := provedIter.Error(); err != nil {
+		return err
+	}
+
+	shastaProvedIter, err := s.rpc.ShastaClients.Inbox.FilterProved(opts, nil)
+	if err != nil {
+		return err
+	}
+	defer shastaProvedIter.Close()
+	for shastaProvedIter.Next() {
+		e := shastaProvedIter.Event
+		coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			log.Error("Failed to get Shasta core state", "err", err)
+			continue
+		}
+		header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
+		if err != nil {
+			log.Error("Failed to get Shasta finalized block header", "err", err)
+			continue
+		}
+		log.Info(
+			"📈 Shasta batches proven and verified",
+			"firstBatchID", e.FirstNewProposalId,
+			"lastBatchID", e.LastProposalId,
+			"checkpointNumber", header.Number,
+			"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
+		)
+	}
+	if err := shastaProvedIter.Error(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // setL1Head sets the L1 head concurrent safely.

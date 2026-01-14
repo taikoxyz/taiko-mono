@@ -8,7 +8,6 @@ export PROTOCOL_DIR
 echo "Starting docker compose services..."
 
 export L1_HTTP=http://localhost:18545
-export L1_WS=ws://localhost:18545
 export L2_HTTP=http://localhost:28545
 export L2_WS=ws://localhost:28546
 export L2_AUTH=http://localhost:28551
@@ -39,7 +38,7 @@ docker compose -f tests/docker/docker-compose.test.yaml up -d
 trap "docker compose -f tests/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR
 
 # check until L1 node is ready
-until cast chain-id --rpc-url "$L1_WS" 2> /dev/null; do
+until cast chain-id --rpc-url "$L1_HTTP" 2> /dev/null; do
     sleep 1
 done
 

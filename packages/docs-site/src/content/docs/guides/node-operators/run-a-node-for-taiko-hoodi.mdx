@@ -140,7 +140,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
         </Aside>
 
         ```bash
-        export L1_WS=...  # the WS address for the node to sync from.
+        export L1_HTTP=...  # the HTTP address for the node to sync from.
         export L1_BEACON_URL=... # URL address for the L1 Beacon-node HTTP endpoint to use.
         ```
 
@@ -160,7 +160,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
         ```bash
             ./bin/taiko-client driver \
-                --l1.ws ${L1_ENDPOINT_WS} \
+                --l1.http ${L1_HTTP} \
                 --l2.ws ws://l2_execution_engine:8546 \
                 --l1.beacon ${L1_BEACON_HTTP} \
                 --l2.auth http://l2_execution_engine:8551 \

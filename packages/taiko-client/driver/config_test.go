@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	l1Endpoint       = os.Getenv("L1_WS")
-	l1BeaconEndpoint = os.Getenv("L1_HTTP")
+	l1Endpoint       = os.Getenv("L1_HTTP")
+	l1BeaconEndpoint = os.Getenv("L1_BEACON")
 	l2Endpoint       = os.Getenv("L2_WS")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
@@ -50,7 +50,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 
 	s.Nil(app.Run([]string{
 		"TestNewConfigFromCliContext",
-		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1HTTPEndpoint.Name, l1Endpoint,
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
@@ -90,7 +90,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = flags.MergeFlags([]cli.Flag{
-		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.L1HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
@@ -137,7 +137,7 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 
 	s.Nil(app.Run([]string{
 		"GetDefaultP2PConfig",
-		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1HTTPEndpoint.Name, l1Endpoint,
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,

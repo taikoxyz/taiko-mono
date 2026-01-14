@@ -21,7 +21,7 @@ import (
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
-	L1WsEndpoint              string
+	L1HttpEndpoint            string
 	L2WsEndpoint              string
 	L2HttpEndpoint            string
 	PacayaInboxAddress        common.Address
@@ -97,7 +97,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
 	return &Config{
-		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
+		L1HttpEndpoint:         c.String(flags.L1HTTPEndpoint.Name),
 		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
 		PacayaInboxAddress:     common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
@@ -121,7 +121,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		Allowance:              allowance,
 		LocalProposerAddresses: localProposerAddresses,
 		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
+		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1HTTPEndpoint.Name), l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,

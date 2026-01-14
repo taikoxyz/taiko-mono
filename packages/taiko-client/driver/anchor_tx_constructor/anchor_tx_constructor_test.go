@@ -147,7 +147,7 @@ func TestSignShortHash(t *testing.T) {
 
 func newTestClient(t *testing.T) *rpc.Client {
 	client, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                  os.Getenv("L1_WS"),
+		L1Endpoint:                  os.Getenv("L1_HTTP"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
 		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),

@@ -10,12 +10,12 @@ use url::Url;
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct CommonArgs {
     #[clap(
-        long = "l1.ws",
-        env = "L1_WS",
+        long = "l1.http",
+        env = "L1_HTTP",
         required = true,
-        help = "Websocket RPC endpoint of a L1 ethereum node"
+        help = "HTTP RPC endpoint of a L1 ethereum node"
     )]
-    pub l1_ws_endpoint: Url,
+    pub l1_http_endpoint: Url,
     #[clap(
         long = "l2.http",
         env = "L2_HTTP",

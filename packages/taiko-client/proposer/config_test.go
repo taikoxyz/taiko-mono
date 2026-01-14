@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	l1Endpoint      = os.Getenv("L1_WS")
+	l1Endpoint      = os.Getenv("L1_HTTP")
 	l2Endpoint      = os.Getenv("L2_WS")
 	pacayaInbox     = os.Getenv("PACAYA_INBOX")
 	shastaInbox     = os.Getenv("SHASTA_INBOX")
@@ -50,7 +50,7 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 
 	s.Nil(app.Run([]string{
 		"TestNewConfigFromCliContext",
-		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1HTTPEndpoint.Name, l1Endpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
 		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
@@ -88,7 +88,7 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContextL2RecipErr() {
 func (s *ProposerTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.L1HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
 		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},

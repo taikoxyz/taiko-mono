@@ -16,20 +16,18 @@ use alloy::{
 };
 use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
 use alloy_provider::Provider;
-use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
+use alloy_rpc_types::{Filter, Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
-use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::timeout,
+    time::{interval, timeout, MissedTickBehavior},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
-use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{SyncError, SyncStage};
@@ -56,6 +54,8 @@ const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+const L1_POLL_INTERVAL: Duration = Duration::from_secs(1);
+const L1_LOG_POLL_MAX_BLOCK_RANGE: u64 = 1000;
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -192,7 +192,7 @@ where
         });
     }
 
-    /// Process a batch of proposal logs from the event scanner.
+    /// Process a batch of proposal logs from L1.
     async fn process_log_batch(
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
@@ -605,27 +605,15 @@ where
         let derivation = Arc::new(derivation_pipeline);
         let router = self.build_router(derivation.clone());
 
-        let mut scanner = self
-            .cfg
-            .client
-            .l1_provider_source
-            .to_event_scanner_from_tag(start_tag)
-            .await
-            .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
-        let filter = EventFilter::new()
-            .contract_address(self.cfg.client.inbox_address)
-            .event(Proposed::SIGNATURE);
+        let mut next_block = anchor_block_number;
+        let mut poller = interval(L1_POLL_INTERVAL);
+        poller.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
-        let mut stream = scanner.subscribe(filter);
-        debug!("subscribed to inbox proposal event filter");
-
-        spawn(async move {
-            if let Err(err) = scanner.start().await {
-                error!(?err, "event scanner terminated unexpectedly");
-            }
-        });
-
-        info!("event scanner started; listening for inbox proposals");
+        info!(
+            start_block = next_block,
+            poll_interval_secs = L1_POLL_INTERVAL.as_secs_f64(),
+            "starting L1 proposal log polling"
+        );
 
         // Spawn preconfirmation ingress loop if enabled.
         if let Some(rx) = self.preconf_rx.clone() {
@@ -637,28 +625,70 @@ where
             );
         }
 
-        while let Some(message) = stream.next().await {
-            debug!(?message, "received inbox proposal message from event scanner");
-            let logs = match message {
-                Ok(ScannerMessage::Data(logs)) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                    counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
-                    logs
-                }
-                Ok(ScannerMessage::Notification(notification)) => {
-                    info!(?notification, "event scanner notification");
-                    continue;
-                }
+        loop {
+            poller.tick().await;
+
+            let latest = match self.rpc.l1_provider.get_block_number().await {
+                Ok(latest) => latest,
                 Err(err) => {
                     counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "error receiving proposal logs from event scanner");
+                    error!(?err, "failed to poll L1 block number");
                     continue;
                 }
             };
 
-            self.process_log_batch(router.clone(), logs).await?;
+            let latest_plus_one = latest.saturating_add(1);
+            if latest_plus_one < next_block {
+                let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+                warn!(
+                    latest,
+                    next_block,
+                    rewind_to,
+                    "L1 head regressed; rewinding proposal scan"
+                );
+                next_block = rewind_to;
+                continue;
+            }
+            if latest_plus_one == next_block {
+                continue;
+            }
+
+            let mut from_block = next_block;
+            while from_block <= latest {
+                let to_block = from_block
+                    .saturating_add(L1_LOG_POLL_MAX_BLOCK_RANGE.saturating_sub(1))
+                    .min(latest);
+                let filter = Filter::new()
+                    .from_block(BlockNumberOrTag::Number(from_block))
+                    .to_block(BlockNumberOrTag::Number(to_block))
+                    .address(self.cfg.client.inbox_address)
+                    .event(Proposed::SIGNATURE);
+
+                let logs = match self.rpc.l1_provider.get_logs(&filter).await {
+                    Ok(logs) => logs,
+                    Err(err) => {
+                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        error!(
+                            ?err,
+                            from_block,
+                            to_block,
+                            "failed to fetch proposal logs from L1"
+                        );
+                        break;
+                    }
+                };
+
+                counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
+                counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+
+                if !logs.is_empty() {
+                    self.process_log_batch(router.clone(), logs).await?;
+                }
+
+                from_block = to_block.saturating_add(1);
+                next_block = from_block;
+            }
         }
-        Ok(())
     }
 }
 
@@ -735,8 +765,8 @@ mod tests {
 
     async fn build_syncer() -> EventSyncer<RootProvider> {
         let client_config = ClientConfig {
-            l1_provider_source: SubscriptionSource::Ws(
-                Url::parse("ws://localhost:8546").expect("valid ws url"),
+            l1_provider_source: SubscriptionSource::Http(
+                Url::parse("http://localhost:8546").expect("valid http url"),
             ),
             l2_provider_url: Url::parse("http://localhost:8545").expect("valid http url"),
             l2_auth_provider_url: Url::parse("http://localhost:8551").expect("valid http url"),

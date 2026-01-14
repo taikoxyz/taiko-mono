@@ -3,7 +3,7 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # check until L1 chain is ready
-L1_PROBE_URL=ws://localhost:$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
+L1_PROBE_URL=http://localhost:$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
 until cast chain-id --rpc-url "$L1_PROBE_URL" 2> /dev/null; do
     sleep 1
 done
@@ -16,7 +16,7 @@ done
 
 L1_NODE_PORT=$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
 export L1_HTTP=http://localhost:$L1_NODE_PORT
-export L1_WS=ws://localhost:$L1_NODE_PORT
+export L1_BEACON=$L1_HTTP
 
 export L2_HTTP=http://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==1 {print $2}')
 export L2_WS=ws://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==2 {print $2}')
@@ -27,7 +27,7 @@ echo -e "L1_NODE PORTS: \n\t$(docker port l1_node)"
 echo -e "L2_NODE PORTS: \n\t$(docker port $L2_NODE)"
 
 echo "L1_HTTP: $L1_HTTP"
-echo "L1_WS: $L1_WS"
+echo "L1_BEACON: $L1_BEACON"
 echo "L2_HTTP: $L2_HTTP"
 echo "L2_WS: $L2_WS"
 echo "L2_AUTH: $L2_AUTH"

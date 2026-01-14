@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,7 +55,7 @@ func (s *ProverTestSuite) SetupTest() {
 		log.Root(),
 		&metrics.TxMgrMetrics,
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
+			L1RPCURL:                  os.Getenv("L1_HTTP"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
@@ -76,7 +77,7 @@ func (s *ProverTestSuite) SetupTest() {
 		log.Root(),
 		&metrics.TxMgrMetrics,
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
+			L1RPCURL:                  os.Getenv("L1_HTTP"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
@@ -105,7 +106,7 @@ func (s *ProverTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         os.Getenv("L1_WS"),
+			L1Endpoint:         os.Getenv("L1_HTTP"),
 			L2Endpoint:         os.Getenv("L2_WS"),
 			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
 			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
@@ -120,7 +121,7 @@ func (s *ProverTestSuite) SetupTest() {
 	// Init proposer
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  os.Getenv("L1_WS"),
+			L1Endpoint:                  os.Getenv("L1_HTTP"),
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
@@ -157,7 +158,7 @@ func (s *ProverTestSuite) TestInitError() {
 	)
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L1HttpEndpoint:        os.Getenv("L1_HTTP"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
@@ -246,13 +247,10 @@ func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.True(m.IsPacaya())
 
-	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved)
-	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	startBlock, err := s.p.rpc.L1.BlockNumber(ctx)
 	s.Nil(err)
-	defer func() {
-		sub1.Unsubscribe()
-		close(sink1)
-	}()
 	s.Nil(s.p.proveOp())
 
 	req := <-s.p.proofSubmissionCh
@@ -266,7 +264,8 @@ func (s *ProverTestSuite) TestProveOp() {
 		blockID    *big.Int
 	)
 
-	e := <-sink1
+	e, err := s.waitForBatchesProvedEvent(ctx, startBlock)
+	s.Nil(err)
 	tran := e.Transitions[len(e.Transitions)-1]
 	blockHash = common.BytesToHash(tran.BlockHash[:])
 	parentHash = common.BytesToHash(tran.ParentHash[:])
@@ -370,7 +369,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	s.Nil(err)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L1HttpEndpoint:        os.Getenv("L1_HTTP"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
@@ -392,14 +391,6 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	for i := 0; i < batchSize; i++ {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
-
-	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
-	sub1, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink1)
-	s.Nil(err)
-	defer func() {
-		sub1.Unsubscribe()
-		close(sink1)
-	}()
 
 	s.Nil(s.p.proveOp())
 	s.Nil(batchProver.proveOp())
@@ -428,7 +419,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	s.Nil(err)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L1HttpEndpoint:        os.Getenv("L1_HTTP"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
@@ -450,14 +441,6 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	for i := 0; i < batchSize; i++ {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
-
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
-	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
 
 	s.Nil(batchProver.proveOp())
 	for i := 0; i < batchSize; i++ {
@@ -498,6 +481,52 @@ func (s *ProverTestSuite) TearDownTest() {
 		s.cancel()
 	}
 	s.p.Close(context.Background())
+}
+
+func (s *ProverTestSuite) waitForBatchesProvedEvent(
+	ctx context.Context,
+	startBlock uint64,
+) (*pacayaBindings.TaikoInboxClientBatchesProved, error) {
+	start := startBlock + 1
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		head, err := s.p.rpc.L1.BlockNumber(ctx)
+		if err != nil {
+			<-ticker.C
+			continue
+		}
+		if head < start {
+			<-ticker.C
+			continue
+		}
+
+		end := head
+		iter, err := s.p.rpc.PacayaClients.TaikoInbox.FilterBatchesProved(
+			&bind.FilterOpts{Start: start, End: &end, Context: ctx},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		for iter.Next() {
+			event := iter.Event
+			iter.Close()
+			return event, nil
+		}
+		if err := iter.Error(); err != nil {
+			iter.Close()
+			return nil, err
+		}
+		iter.Close()
+
+		<-ticker.C
+	}
 }
 
 func (s *ProverTestSuite) TestInvalidPacayaProof() {
@@ -661,7 +690,7 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	s.NotZero(decimal)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L1HttpEndpoint:        os.Getenv("L1_HTTP"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
@@ -688,14 +717,6 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	for i := 0; i < 1; i++ {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	}
-
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
-	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
 
 	s.Nil(batchProver.proveOp())
 	req1 := <-batchProver.proofSubmissionCh
@@ -725,7 +746,7 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:           os.Getenv("L1_WS"),
+		L1HttpEndpoint:         os.Getenv("L1_HTTP"),
 		L2WsEndpoint:           os.Getenv("L2_WS"),
 		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
 		PacayaInboxAddress:     common.HexToAddress(os.Getenv("PACAYA_INBOX")),

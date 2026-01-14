@@ -83,7 +83,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:              c.String(flags.L1WSEndpoint.Name),
+			L1Endpoint:              c.String(flags.L1HTTPEndpoint.Name),
 			L1BeaconEndpoint:        beaconEndpoint,
 			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
 			L2CheckPoint:            l2CheckPoint,

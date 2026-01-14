@@ -24,6 +24,8 @@ pub type JoinedRecommendedFillersWithWallet =
 pub enum SubscriptionSource {
     /// Consume Ethereum logs from a local IPC endpoint.
     Ipc(PathBuf),
+    /// Consume Ethereum logs from a remote HTTP endpoint.
+    Http(Url),
     /// Consume Ethereum logs from a remote WebSocket endpoint.
     Ws(Url),
 }
@@ -50,6 +52,11 @@ impl SubscriptionSource {
         matches!(self, SubscriptionSource::Ws(_))
     }
 
+    /// Return true if the source is an HTTP endpoint.
+    pub fn is_http(&self) -> bool {
+        matches!(self, SubscriptionSource::Http(_))
+    }
+
     /// Convert the source into a `FillProvider` built via `ProviderBuilder::new()`.
     pub async fn to_provider(
         &self,
@@ -60,6 +67,7 @@ impl SubscriptionSource {
                 .connect_ipc(IpcConnect::new(path.clone()))
                 .await
                 .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
+            SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
             SubscriptionSource::Ws(url) => builder
                 .connect_ws(WsConnect::new(url.to_string()))
                 .await
@@ -86,6 +94,7 @@ impl SubscriptionSource {
                 .connect_ipc(IpcConnect::new(path.clone()))
                 .await
                 .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
+            SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
             SubscriptionSource::Ws(url) => builder
                 .connect_ws(WsConnect::new(url.to_string()))
                 .await
@@ -122,7 +131,7 @@ impl SubscriptionSource {
 
 /// Try to convert a string to a [`SubscriptionSource`].
 ///
-/// Returns an error string if the WebSocket URL is invalid.
+/// Returns an error string if the WebSocket or HTTP URL is invalid.
 impl TryFrom<&str> for SubscriptionSource {
     type Error = String;
 
@@ -132,6 +141,11 @@ impl TryFrom<&str> for SubscriptionSource {
                 .parse::<Url>()
                 .map(SubscriptionSource::Ws)
                 .map_err(|e| format!("invalid websocket url: {}", e))
+        } else if value.starts_with("http://") || value.starts_with("https://") {
+            value
+                .parse::<Url>()
+                .map(SubscriptionSource::Http)
+                .map_err(|e| format!("invalid http url: {}", e))
         } else {
             Ok(SubscriptionSource::Ipc(PathBuf::from(value)))
         }
@@ -147,12 +161,22 @@ mod tests {
         let source = SubscriptionSource::try_from("/path/to/ipc").unwrap();
         assert!(source.is_ipc());
         assert!(!source.is_ws());
+        assert!(!source.is_http());
     }
 
     #[test]
     fn subscription_source_try_from_ws() {
         let source = SubscriptionSource::try_from("ws://localhost:8546").unwrap();
         assert!(source.is_ws());
+        assert!(!source.is_ipc());
+        assert!(!source.is_http());
+    }
+
+    #[test]
+    fn subscription_source_try_from_http() {
+        let source = SubscriptionSource::try_from("http://localhost:8545").unwrap();
+        assert!(source.is_http());
+        assert!(!source.is_ws());
         assert!(!source.is_ipc());
     }
 

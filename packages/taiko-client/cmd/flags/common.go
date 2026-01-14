@@ -21,12 +21,12 @@ var (
 
 // Required flags used by all client software.
 var (
-	L1WSEndpoint = &cli.StringFlag{
-		Name:     "l1.ws",
-		Usage:    "Websocket RPC endpoint of a L1 ethereum node",
+	L1HTTPEndpoint = &cli.StringFlag{
+		Name:     "l1.http",
+		Usage:    "HTTP RPC endpoint of a L1 ethereum node",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"L1_WS"},
+		EnvVars:  []string{"L1_HTTP"},
 	}
 	L1PrivateEndpoint = &cli.StringFlag{
 		Name:     "l1.private",
@@ -173,7 +173,7 @@ var (
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
-	L1WSEndpoint,
+	L1HTTPEndpoint,
 	PacayaInboxAddress,
 	ShastaInboxAddress,
 	TaikoAnchorAddress,

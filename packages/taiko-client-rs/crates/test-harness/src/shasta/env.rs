@@ -66,7 +66,6 @@ impl ShastaEnv {
         init_tracing("info");
 
         // Read all required endpoints, secrets, and addresses from the harness environment.
-        let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
         let l1_http =
             env::var("L1_HTTP").context("L1_HTTP env var is required for cleanup snapshots")?;
         let l2_http = env::var("L2_HTTP").context("L2_HTTP env var is required")?;
@@ -80,8 +79,8 @@ impl ShastaEnv {
         let anchor = env::var("TAIKO_ANCHOR").context("TAIKO_ANCHOR env var is required")?;
 
         // Parse raw strings into URLs, paths, and addresses.
-        let l1_source = SubscriptionSource::Ws(
-            RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?,
+        let l1_source = SubscriptionSource::Http(
+            RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?,
         );
         let l1_http_url = RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
         let l2_http_url = RpcUrl::parse(l2_http.as_str()).context("invalid L2_HTTP endpoint")?;
