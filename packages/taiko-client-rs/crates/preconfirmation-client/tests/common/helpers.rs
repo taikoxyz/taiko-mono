@@ -70,7 +70,10 @@ impl ExternalP2pNode {
 // Signer Utilities
 // ============================================================================
 
-/// Derives an address from a deterministic secret key seed.
+/// Derives a secret key and address from a deterministic seed byte.
+///
+/// The seed is repeated 32 times to form the private key bytes.
+/// Each unique seed produces a distinct, reproducible keypair for testing.
 pub fn derive_signer(seed: u8) -> (SecretKey, Address) {
     let sk = SecretKey::from_slice(&[seed; 32]).expect("valid secret key");
     let pk = PublicKey::from_secret_key(&Secp256k1::new(), &sk);
@@ -92,17 +95,18 @@ pub struct PreparedBlock {
 pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
     let rlp_payload = encode(&vec![tx_payload]);
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(rlp_payload.as_ref())?;
-    let compressed = encoder.finish()?;
-    TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
+    compress_to_txlist_bytes(&rlp_payload)
 }
 
 /// Build a minimal compressed txlist (empty RLP list).
 pub fn build_empty_txlist() -> Result<TxListBytes> {
-    let rlp_payload = vec![0xC0];
+    compress_to_txlist_bytes(&[0xC0])
+}
+
+/// Compress raw bytes to TxListBytes using zlib.
+fn compress_to_txlist_bytes(data: &[u8]) -> Result<TxListBytes> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&rlp_payload)?;
+    encoder.write_all(data)?;
     let compressed = encoder.finish()?;
     TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
 }
@@ -115,7 +119,8 @@ pub fn compute_txlist_hash(txlist_bytes: &TxListBytes) -> Result<Bytes32> {
 
 /// Assembles a compressed txlist and signed commitment for P2P gossip.
 ///
-/// Use `eop = true` for end-of-period commitments, `eop = false` otherwise.
+/// When `eop` is true, includes a deterministic payload based on block number.
+/// When `eop` is false, uses an empty txlist (minimal RLP encoding).
 pub fn build_publish_payloads(
     signer_sk: &SecretKey,
     signer: Address,
@@ -126,7 +131,31 @@ pub fn build_publish_payloads(
     eop: bool,
 ) -> Result<PreparedBlock> {
     let txlist_bytes = if eop { build_txlist_bytes(block_number)? } else { build_empty_txlist()? };
+    build_prepared_block(
+        signer_sk,
+        signer,
+        block_number,
+        timestamp,
+        gas_limit,
+        submission_window_end,
+        eop,
+        txlist_bytes,
+        None,
+    )
+}
 
+/// Internal helper to build a PreparedBlock with optional parent hash.
+fn build_prepared_block(
+    signer_sk: &SecretKey,
+    signer: Address,
+    block_number: u64,
+    timestamp: u64,
+    gas_limit: u64,
+    submission_window_end: U256,
+    eop: bool,
+    txlist_bytes: TxListBytes,
+    parent_hash: Option<Bytes32>,
+) -> Result<PreparedBlock> {
     let raw_tx_list_hash = compute_txlist_hash(&txlist_bytes)?;
     let txlist =
         RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
@@ -140,6 +169,8 @@ pub fn build_publish_payloads(
         coinbase: address_to_bytes20(signer),
         submission_window_end: u256_to_uint256(submission_window_end),
         raw_tx_list_hash,
+        parent_preconfirmation_hash: parent_hash
+            .unwrap_or_else(|| Bytes32::try_from(vec![0u8; 32]).expect("zero hash")),
         ..Default::default()
     };
 
@@ -245,34 +276,85 @@ pub fn build_commitment_chain(
 
     for i in 0..count {
         let block_number = start_block + i as u64;
+        let timestamp = 100 + i as u64;
         let txlist_bytes = build_txlist_bytes(block_number)?;
-        let raw_tx_list_hash = compute_txlist_hash(&txlist_bytes)?;
-        let txlist =
-            RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
 
-        let preconf = Preconfirmation {
-            eop: false,
-            block_number: u256_to_uint256(U256::from(block_number)),
-            timestamp: u256_to_uint256(U256::from(100 + i as u64)),
-            gas_limit: u256_to_uint256(U256::from(gas_limit)),
-            proposal_id: u256_to_uint256(U256::from(block_number)),
-            coinbase: address_to_bytes20(signer),
-            submission_window_end: u256_to_uint256(submission_window_end),
-            raw_tx_list_hash,
-            parent_preconfirmation_hash: parent_hash.clone(),
-            ..Default::default()
-        };
+        let block = build_prepared_block(
+            signer_sk,
+            signer,
+            block_number,
+            timestamp,
+            gas_limit,
+            submission_window_end,
+            false,
+            txlist_bytes,
+            Some(parent_hash),
+        )?;
 
-        let commitment = PreconfCommitment { preconf, slasher_address: Bytes20::default() };
-        let signature = sign_commitment(&commitment, signer_sk)?;
-        let signed = SignedCommitment { commitment, signature };
-
-        let hash = preconfirmation_hash(&signed.commitment.preconf)
+        let hash = preconfirmation_hash(&block.commitment.commitment.preconf)
             .map_err(|err| anyhow!("preconfirmation hash error: {err}"))?;
         parent_hash = Bytes32::try_from(hash.as_slice().to_vec()).expect("parent hash bytes32");
 
-        chain.push(PreparedBlock { txlist, commitment: signed });
+        chain.push(block);
     }
 
     Ok(chain)
+}
+
+// ============================================================================
+// Dual Driver Setup (for multi-client P2P tests)
+// ============================================================================
+
+/// Dual-driver test setup for spawning two interconnected P2P nodes.
+///
+/// This helper creates two P2P nodes with distinct ports and connects them
+/// via manual dial, forming a P2P mesh suitable for dual-driver testing scenarios.
+pub struct DualDriverSetup {
+    /// P2P handle for node A.
+    pub handle_a: P2pHandle,
+    /// P2P handle for node B.
+    pub handle_b: P2pHandle,
+    /// Storage for node A.
+    pub storage_a: Arc<dyn PreconfStorage>,
+    /// Storage for node B.
+    pub storage_b: Arc<dyn PreconfStorage>,
+    /// Background task for node A.
+    task_a: JoinHandle<anyhow::Result<()>>,
+    /// Background task for node B.
+    task_b: JoinHandle<anyhow::Result<()>>,
+}
+
+impl DualDriverSetup {
+    /// Spawn two P2P nodes with distinct ports and connect them.
+    pub async fn spawn() -> Result<Self> {
+        let validator_a: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
+        let storage_a: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
+        let (mut handle_a, node_a) = P2pNode::new_with_validator_and_storage(
+            test_p2p_config(),
+            validator_a,
+            storage_a.clone(),
+        )?;
+        let task_a = tokio::spawn(async move { node_a.run().await });
+
+        let addr_a = handle_a.dialable_addr().await?;
+
+        let validator_b: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
+        let storage_b: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
+        let (handle_b, node_b) = P2pNode::new_with_validator_and_storage(
+            test_p2p_config(),
+            validator_b,
+            storage_b.clone(),
+        )?;
+        let task_b = tokio::spawn(async move { node_b.run().await });
+
+        handle_b.dial(addr_a).await?;
+
+        Ok(Self { handle_a, handle_b, storage_a, storage_b, task_a, task_b })
+    }
+
+    /// Abort both P2P node background tasks.
+    pub fn abort(&self) {
+        self.task_a.abort();
+        self.task_b.abort();
+    }
 }

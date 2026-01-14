@@ -13,8 +13,8 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::U256;
 use helpers::{
-    ExternalP2pNode, build_publish_payloads, compute_starting_block, derive_signer, test_p2p_config,
-    wait_for_commitments_and_txlists, wait_for_peer_connected,
+    ExternalP2pNode, build_publish_payloads, compute_starting_block, derive_signer,
+    test_p2p_config, wait_for_commitments_and_txlists, wait_for_peer_connected,
 };
 use mock_driver::MockDriver;
 use serial_test::serial;

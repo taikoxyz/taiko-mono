@@ -16,8 +16,8 @@ use driver::{
     jsonrpc::{DriverRpcApi, DriverRpcServer},
 };
 use helpers::{
-    ExternalP2pNode, PreparedBlock, build_publish_payloads, compute_starting_block, test_p2p_config,
-    wait_for_commitment_and_txlist, wait_for_peer_connected,
+    ExternalP2pNode, PreparedBlock, build_publish_payloads, compute_starting_block,
+    test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
 };
 use preconfirmation_client::{
     PreconfirmationClient, PreconfirmationClientConfig,
@@ -32,7 +32,7 @@ use test_context::test_context;
 use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
 use tokio::sync::Notify;
 
-/// Driver client wrapper that falls back to the latest tip if safe tip is unavailable.
+/// Driver client wrapper that falls back to the preconf tip if event sync tip is unavailable.
 struct SafeTipDriver {
     inner: JsonRpcDriverClient,
 }

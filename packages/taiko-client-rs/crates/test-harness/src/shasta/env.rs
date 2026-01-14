@@ -15,7 +15,7 @@ use url::Url;
 
 use super::helpers::{
     RpcClient, create_snapshot, ensure_preconf_whitelist_active, reset_head_l1_origin,
-    revert_snapshot,
+    reset_to_base_block, revert_snapshot,
 };
 use crate::BlobServer;
 
@@ -36,6 +36,12 @@ pub struct ShastaEnv {
     cleanup_provider: RootProvider,
     snapshot_id: String,
     blob_server: Option<BlobServer>,
+    /// Secondary L2 HTTP endpoint for dual-driver E2E tests.
+    pub l2_http_1: RpcUrl,
+    /// Secondary L2 WebSocket endpoint for dual-driver E2E tests.
+    pub l2_ws_1: RpcUrl,
+    /// Secondary L2 Auth endpoint for dual-driver E2E tests.
+    pub l2_auth_1: RpcUrl,
 }
 
 impl fmt::Debug for ShastaEnv {
@@ -53,11 +59,28 @@ impl fmt::Debug for ShastaEnv {
             .field("client_config", &self.client_config)
             .field("client", &self.client)
             .field("blob_server", &self.blob_server.as_ref().map(|server| server.base_url()))
+            .field("l2_http_1", &self.l2_http_1)
+            .field("l2_ws_1", &self.l2_ws_1)
+            .field("l2_auth_1", &self.l2_auth_1)
             .finish()
     }
 }
 
 impl ShastaEnv {
+    fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl, RpcUrl)> {
+        let l2_http_1 = env::var("L2_HTTP_1").context("L2_HTTP_1 env var is required")?;
+        let l2_ws_1 = env::var("L2_WS_1").context("L2_WS_1 env var is required")?;
+        let l2_auth_1 = env::var("L2_AUTH_1").context("L2_AUTH_1 env var is required")?;
+
+        let l2_http_1_url =
+            RpcUrl::parse(l2_http_1.as_str()).context("invalid L2_HTTP_1 endpoint")?;
+        let l2_ws_1_url = RpcUrl::parse(l2_ws_1.as_str()).context("invalid L2_WS_1 endpoint")?;
+        let l2_auth_1_url =
+            RpcUrl::parse(l2_auth_1.as_str()).context("invalid L2_AUTH_1 endpoint")?;
+
+        Ok((l2_http_1_url, l2_ws_1_url, l2_auth_1_url))
+    }
+
     /// Resolves required environment variables and builds a default RPC client bundle.
     pub async fn load_from_env() -> Result<Self> {
         let started = Instant::now();
@@ -94,6 +117,7 @@ impl ShastaEnv {
             proposer_key.parse().context("invalid L1_PROPOSER_PRIVATE_KEY hex value")?;
         let taiko_anchor_address =
             Address::from_str(anchor.as_str()).context("invalid TAIKO_ANCHOR address")?;
+        let (l2_http_1, l2_ws_1, l2_auth_1) = Self::load_l2_secondary_endpoints()?;
 
         // Build shared RPC client bundle and a dedicated HTTP provider for snapshots.
         let client_config = ClientConfig {
@@ -105,8 +129,22 @@ impl ShastaEnv {
         };
         let client = Client::new(client_config.clone()).await?;
 
-        // Take a fresh snapshot and activate preconf whitelist before tests run.
+        // Reset both L2 nodes to a known base block before tests run.
+        reset_to_base_block(&client).await?;
         reset_head_l1_origin(&client).await?;
+
+        let secondary_config = ClientConfig {
+            l1_provider_source: l1_source.clone(),
+            l2_provider_url: l2_http_1.clone(),
+            l2_auth_provider_url: l2_auth_1.clone(),
+            jwt_secret: jwt_secret_path.clone(),
+            inbox_address,
+        };
+        let secondary_client = Client::new(secondary_config).await?;
+        reset_to_base_block(&secondary_client).await?;
+        reset_head_l1_origin(&secondary_client).await?;
+
+        // Take a fresh snapshot and activate preconf whitelist before tests run.
         let cleanup_provider = connect_http_with_timeout(l1_http_url.clone());
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
@@ -126,6 +164,9 @@ impl ShastaEnv {
             cleanup_provider,
             snapshot_id,
             blob_server: None,
+            l2_http_1,
+            l2_ws_1,
+            l2_auth_1,
         })
     }
 
@@ -170,5 +211,71 @@ impl AsyncTestContext for ShastaEnv {
     /// Teardown the ShastaEnv after each test.
     async fn teardown(self) {
         self.shutdown().await.unwrap_or_else(|err| panic!("ShastaEnv teardown failed: {err:?}"));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ShastaEnv;
+    use once_cell::sync::Lazy;
+    use std::{env, sync::Mutex};
+
+    static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    struct EnvGuard {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = env::var(key).ok();
+            // SAFETY: tests are serialized with ENV_LOCK and this only mutates
+            // test-scoped environment variables.
+            unsafe { env::set_var(key, value) };
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            // SAFETY: tests are serialized with ENV_LOCK.
+            unsafe {
+                match &self.previous {
+                    Some(value) => env::set_var(self.key, value),
+                    None => env::remove_var(self.key),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn secondary_l2_endpoints_are_loaded_when_set() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _http = EnvGuard::set("L2_HTTP_1", "http://localhost:38545");
+        let _ws = EnvGuard::set("L2_WS_1", "ws://localhost:38546");
+        let _auth = EnvGuard::set("L2_AUTH_1", "http://localhost:38551");
+
+        let result = ShastaEnv::load_l2_secondary_endpoints();
+
+        assert!(result.is_ok());
+        let (l2_http_1, l2_ws_1, l2_auth_1) = result.unwrap();
+        assert_eq!(l2_http_1.as_str(), "http://localhost:38545/");
+        assert_eq!(l2_ws_1.as_str(), "ws://localhost:38546/");
+        assert_eq!(l2_auth_1.as_str(), "http://localhost:38551/");
+    }
+
+    #[test]
+    fn secondary_l2_endpoints_fail_when_unset() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        unsafe {
+            env::remove_var("L2_HTTP_1");
+            env::remove_var("L2_WS_1");
+            env::remove_var("L2_AUTH_1");
+        }
+
+        let result = ShastaEnv::load_l2_secondary_endpoints();
+
+        assert!(result.is_err());
     }
 }

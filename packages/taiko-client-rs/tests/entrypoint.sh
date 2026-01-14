@@ -12,6 +12,9 @@ export L1_WS=ws://localhost:18545
 export L2_HTTP=http://localhost:28545
 export L2_WS=ws://localhost:28546
 export L2_AUTH=http://localhost:28551
+export L2_HTTP_1=http://localhost:38545
+export L2_WS_1=ws://localhost:38546
+export L2_AUTH_1=http://localhost:38551
 export JWT_SECRET=$DIR/docker/jwt.hex
 
 # Environment variables for deploying protocol contracts on L1.
@@ -45,6 +48,11 @@ done
 
 # check until L2 node is ready
 until cast chain-id --rpc-url "$L2_WS" 2> /dev/null; do
+    sleep 1
+done
+
+# check until secondary L2 node is ready
+until cast chain-id --rpc-url "$L2_WS_1" 2> /dev/null; do
     sleep 1
 done
 

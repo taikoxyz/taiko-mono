@@ -12138,12 +12138,15 @@ dependencies = [
 name = "test-harness"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-primitives",
  "alloy",
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
  "alloy-provider",
+ "alloy-rlp",
  "alloy-rpc-types",
+ "alloy-rpc-types-engine",
  "alloy-sol-types",
  "anyhow",
  "async-trait",

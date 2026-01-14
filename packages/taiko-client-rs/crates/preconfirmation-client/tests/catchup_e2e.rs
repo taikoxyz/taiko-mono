@@ -14,8 +14,8 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use anyhow::anyhow;
 use helpers::{
-    ExternalP2pNode, build_commitment_chain, compute_starting_block, derive_signer, test_p2p_config,
-    wait_for_peer_connected, wait_for_synced,
+    ExternalP2pNode, build_commitment_chain, compute_starting_block, derive_signer,
+    test_p2p_config, wait_for_peer_connected, wait_for_synced,
 };
 use mock_driver::MockDriver;
 use preconfirmation_client::{PreconfirmationClient, PreconfirmationClientConfig};
