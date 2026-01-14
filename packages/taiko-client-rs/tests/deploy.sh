@@ -13,4 +13,4 @@ cd "${PROTOCOL_DIR}" &&
     --broadcast \
     --ffi \
     --private-key "$PRIVATE_KEY" \
-    --block-gas-limit 200000000 \
+    --block-gas-limit 200000000
