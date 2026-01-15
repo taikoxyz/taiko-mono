@@ -1,7 +1,7 @@
 //! Shasta protocol constants and limits.
 
 use crate::shasta::error::{ForkConfigResult, ShastaForkConfigError};
-use alloy_eips::eip4844::{FIELD_ELEMENTS_PER_BLOB, USABLE_BITS_PER_FIELD_ELEMENT};
+use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
 
 /// The maximum number of blocks allowed in a proposal. If we assume block time is as
@@ -33,8 +33,7 @@ pub const BOND_PROCESSING_DELAY: u64 = 6;
 pub const SHASTA_PAYLOAD_VERSION: u8 = 0x1;
 
 /// The maximum size of a blob data, in bytes.
-pub const PROPOSAL_MAX_BLOB_BYTES: usize =
-    (USABLE_BITS_PER_FIELD_ELEMENT - 1) * FIELD_ELEMENTS_PER_BLOB as usize;
+pub const PROPOSAL_MAX_BLOB_BYTES: usize = BYTES_PER_BLOB;
 
 /// Shasta fork activation on Taiko Devnet.
 pub const SHASTA_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
