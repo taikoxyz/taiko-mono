@@ -538,7 +538,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _ringBufferSize > uint256(_nextProposalId) - uint256(_lastFinalizedProposalId),
+                _ringBufferSize > uint256(_nextProposalId - _lastFinalizedProposalId),
                 NotEnoughCapacity()
             );
 
