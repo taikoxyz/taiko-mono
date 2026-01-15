@@ -18,6 +18,7 @@ func (i *Indexer) getBlockByTimestamp(ctx context.Context, targetTimestamp uint6
 	if err != nil {
 		return 0, errors.Wrap(err, "srcEthClient.HeaderByNumber(latest)")
 	}
+
 	latestBlock := latestHeader.Number.Uint64()
 	latestTimestamp := latestHeader.Time
 
@@ -30,6 +31,7 @@ func (i *Indexer) getBlockByTimestamp(ctx context.Context, targetTimestamp uint6
 	if err != nil {
 		return 0, errors.Wrap(err, "srcEthClient.HeaderByNumber(block 1)")
 	}
+
 	if targetTimestamp < genesisHeader.Time {
 		return 1, nil
 	}
@@ -42,13 +44,15 @@ func (i *Indexer) getBlockByTimestamp(ctx context.Context, targetTimestamp uint6
 	// 4. Define search range
 	searchMargin := uint64(1000)
 	low := uint64(1)
+
 	if estimatedBlock > searchMargin {
 		low = estimatedBlock - searchMargin
 	}
+
 	high := min(estimatedBlock+searchMargin, latestBlock)
 
 	// 5. Binary search
-	var result uint64 = low
+	result := low
 
 	for low <= high {
 		mid := low + (high-low)/2
