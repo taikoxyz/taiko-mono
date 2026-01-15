@@ -11,7 +11,7 @@ use std::{
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
-    primitives::{Address, U256},
+    primitives::{Address, B256, U256},
     sol_types::SolEvent,
 };
 use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
@@ -606,6 +606,8 @@ where
         let router = self.build_router(derivation.clone());
 
         let mut next_block = anchor_block_number;
+        let mut last_head_number: Option<u64> = None;
+        let mut last_head_hash: Option<B256> = None;
         let mut poller = interval(L1_POLL_INTERVAL);
         poller.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
@@ -628,14 +630,47 @@ where
         loop {
             poller.tick().await;
 
-            let latest = match self.rpc.l1_provider.get_block_number().await {
-                Ok(latest) => latest,
+            let latest_block = match self
+                .rpc
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await
+            {
+                Ok(Some(block)) => block,
+                Ok(None) => {
+                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                    warn!("missing latest L1 block; retrying");
+                    continue;
+                }
                 Err(err) => {
                     counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "failed to poll L1 block number");
+                    error!(?err, "failed to fetch latest L1 block");
                     continue;
                 }
             };
+            let latest = latest_block.number();
+            let latest_hash = latest_block.hash();
+
+            if let (Some(last_number), Some(last_hash), Some(current_hash)) =
+                (last_head_number, last_head_hash, latest_hash)
+            {
+                if latest == last_number && current_hash != last_hash {
+                    let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+                    warn!(
+                        latest,
+                        next_block,
+                        rewind_to,
+                        last_head_hash = ?last_hash,
+                        latest_head_hash = ?current_hash,
+                        "L1 head hash changed; rewinding proposal scan"
+                    );
+                    if rewind_to < next_block {
+                        next_block = rewind_to;
+                    }
+                }
+            }
+            last_head_number = Some(latest);
+            last_head_hash = latest_hash;
 
             let latest_plus_one = latest.saturating_add(1);
             if latest_plus_one < next_block {

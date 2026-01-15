@@ -123,6 +123,7 @@ func (s *State) eventLoop(ctx context.Context) {
 	defer l1HeadPoller.Stop()
 
 	lastL1HeadNumber := s.GetL1Head().Number.Uint64()
+	lastL1HeadHash := s.GetL1Head().Hash()
 	lastL1EventBlock := lastL1HeadNumber
 
 	for {
@@ -135,12 +136,14 @@ func (s *State) eventLoop(ctx context.Context) {
 				log.Warn("Failed to poll L1 head number", "error", err)
 				continue
 			}
-			if latest == lastL1HeadNumber {
-				continue
-			}
 			header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(latest))
 			if err != nil {
 				log.Warn("Failed to fetch L1 head header", "error", err, "height", latest)
+				continue
+			}
+			sameHeight := latest == lastL1HeadNumber
+			sameHash := header.Hash() == lastL1HeadHash
+			if sameHeight && sameHash {
 				continue
 			}
 			start := lastL1EventBlock + 1
@@ -151,8 +154,17 @@ func (s *State) eventLoop(ctx context.Context) {
 					"lastL1EventBlock", lastL1EventBlock,
 				)
 				start = latest
+			} else if sameHeight && !sameHash {
+				log.Warn(
+					"L1 head hash changed; rewinding L1 event polling cursor",
+					"height", latest,
+					"hash", header.Hash(),
+					"previous", lastL1HeadHash,
+				)
+				start = latest
 			}
 			lastL1HeadNumber = latest
+			lastL1HeadHash = header.Hash()
 			s.setL1Head(header)
 			s.l1HeadsFeed.Send(header)
 			if start <= latest {

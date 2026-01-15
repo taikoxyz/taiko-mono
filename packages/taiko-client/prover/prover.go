@@ -231,15 +231,34 @@ func (p *Prover) eventLoop() {
 	defer l1EventPoller.Stop()
 
 	var (
-		lastL1HeadNumber   uint64
-		lastConfirmedBlock uint64
+		lastL1HeadNumber      uint64
+		lastL1HeadHash        common.Hash
+		lastConfirmedBlock    uint64
+		lastConfirmedHash     common.Hash
+		lastConfirmedHashInit bool
 	)
 	if head, err := p.rpc.L1.BlockNumber(p.ctx); err != nil {
 		log.Warn("Failed to fetch initial L1 head number", "error", err)
 	} else {
 		lastL1HeadNumber = head
+		if header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(head)); err != nil {
+			log.Warn("Failed to fetch initial L1 head header", "error", err, "height", head)
+		} else {
+			lastL1HeadHash = header.Hash()
+		}
 		if confirmed, ok := confirmedL1Block(head, p.cfg.BlockConfirmations); ok {
 			lastConfirmedBlock = confirmed
+			if confirmed != head {
+				if header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(confirmed)); err != nil {
+					log.Warn("Failed to fetch initial confirmed L1 header", "error", err, "height", confirmed)
+				} else {
+					lastConfirmedHash = header.Hash()
+					lastConfirmedHashInit = true
+				}
+			} else if lastL1HeadHash != (common.Hash{}) {
+				lastConfirmedHash = lastL1HeadHash
+				lastConfirmedHashInit = true
+			}
 		}
 	}
 
@@ -269,29 +288,67 @@ func (p *Prover) eventLoop() {
 				log.Warn("Failed to poll L1 head number", "error", err)
 				continue
 			}
+			headHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(head))
+			if err != nil {
+				log.Warn("Failed to fetch L1 head header", "error", err, "height", head)
+				continue
+			}
+			headHash := headHeader.Hash()
 			if head != lastL1HeadNumber {
 				if head > lastL1HeadNumber {
 					reqProving()
 				} else {
 					log.Warn("L1 head regressed", "from", lastL1HeadNumber, "to", head)
 				}
-				lastL1HeadNumber = head
+			} else if headHash != lastL1HeadHash {
+				log.Warn(
+					"L1 head hash changed",
+					"height", head,
+					"hash", headHash,
+					"previous", lastL1HeadHash,
+				)
+				reqProving()
 			}
+			lastL1HeadNumber = head
+			lastL1HeadHash = headHash
 
 			confirmedHead, ok := confirmedL1Block(head, p.cfg.BlockConfirmations)
 			if !ok {
 				continue
 			}
+			confirmedHeader := headHeader
+			if confirmedHead != head {
+				confirmedHeader, err = p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(confirmedHead))
+				if err != nil {
+					log.Warn("Failed to fetch confirmed L1 head header", "error", err, "height", confirmedHead)
+					continue
+				}
+			}
+			confirmedHash := confirmedHeader.Hash()
 			start := lastConfirmedBlock + 1
 			if confirmedHead < lastConfirmedBlock {
 				log.Warn("L1 confirmed head moved backwards", "from", lastConfirmedBlock, "to", confirmedHead)
 				start = confirmedHead
+			} else if confirmedHead == lastConfirmedBlock && lastConfirmedHashInit && confirmedHash != lastConfirmedHash {
+				log.Warn(
+					"L1 confirmed head hash changed",
+					"height", confirmedHead,
+					"hash", confirmedHash,
+					"previous", lastConfirmedHash,
+				)
+				start = confirmedHead
+			}
+			if !lastConfirmedHashInit {
+				lastConfirmedHash = confirmedHash
+				lastConfirmedHashInit = true
 			}
 			if start <= confirmedHead {
 				if err := p.pollL1Events(p.ctx, start, confirmedHead); err != nil {
 					log.Warn("Failed to poll L1 protocol events", "error", err)
 				} else {
 					lastConfirmedBlock = confirmedHead
+					lastConfirmedHash = confirmedHash
+					lastConfirmedHashInit = true
 				}
 			}
 		case <-forceProvingTicker.C:
