@@ -15,6 +15,7 @@ use crate::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
     error::{ProtocolError, Result},
 };
+use tracing::warn;
 
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
@@ -57,24 +58,34 @@ impl DerivationSourceManifest {
 
     /// Decompress and decode a derivation source manifest from the Shasta protocol payload bytes.
     /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
-    pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
-        let decoded = decode_manifest_payload(bytes, offset)?;
+    pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Option<Self>> {
+        let decoded = match decode_manifest_payload(bytes, offset) {
+            Ok(d) => d,
+            Err(err) => {
+                warn!(?err, "failed to decode manifest payload; returning None");
+                return Ok(None);
+            }
+        };
 
         let mut decoded_slice = decoded.as_slice();
-        let manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
-            .map_err(|err| {
-                ProtocolError::Rlp(format!("failed to decode derivation manifest: {err}"))
-            })?;
+        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
+            Ok(m) => m,
+            Err(err) => {
+                warn!(?err, "failed to decode derivation manifest RLP; returning None");
+                return Ok(None);
+            }
+        };
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
-            return Err(ProtocolError::InvalidPayload(format!(
-                "manifest contains too many blocks: {} exceeds maximum {}",
-                manifest.blocks.len(),
-                PROPOSAL_MAX_BLOCKS
-            )));
+            warn!(
+                blocks = manifest.blocks.len(),
+                max = PROPOSAL_MAX_BLOCKS,
+                "manifest contains too many blocks; returning None"
+            );
+            return Ok(None);
         }
 
-        Ok(manifest)
+        Ok(Some(manifest))
     }
 }
 
@@ -215,9 +226,23 @@ mod tests {
         payload.extend_from_slice(&len_bytes);
         payload.extend_from_slice(&compressed);
 
-        let result = DerivationSourceManifest::decompress_and_decode(&payload, 0);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("failed to decode derivation manifest"));
+        let result = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_derivation_manifest_too_many_blocks() {
+        // Create manifest with PROPOSAL_MAX_BLOCKS + 1 blocks
+        let blocks: Vec<BlockManifest> =
+            (0..=PROPOSAL_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+        let manifest = DerivationSourceManifest { blocks };
+
+        // Encode the manifest
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        // Verify decoding returns None
+        let result = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert!(result.is_none());
     }
 
     #[test]
@@ -228,7 +253,9 @@ mod tests {
         assert!(encoded.len() >= 64);
         assert_eq!(encoded[31], SHASTA_PAYLOAD_VERSION);
 
-        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0)
+            .unwrap()
+            .expect("should decode successfully");
         assert_eq!(decoded.blocks.len(), manifest.blocks.len());
     }
 }
