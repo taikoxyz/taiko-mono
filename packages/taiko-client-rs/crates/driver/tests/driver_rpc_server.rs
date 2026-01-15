@@ -57,7 +57,7 @@ fn jsonrpc_request(method: &str, params: Value) -> Value {
 }
 
 /// Ensure requests without JWT are rejected.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn rejects_requests_without_jwt() -> TestResult {
     let secret = JwtSecret::random();
     let api = Arc::new(StubApi::default());
@@ -77,7 +77,7 @@ async fn rejects_requests_without_jwt() -> TestResult {
 }
 
 /// Ensure the server returns the last canonical proposal id.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn last_canonical_proposal_id_is_exposed_over_rpc() -> TestResult {
     let secret = JwtSecret::random();
     let api = Arc::new(StubApi::default());
@@ -103,7 +103,7 @@ async fn last_canonical_proposal_id_is_exposed_over_rpc() -> TestResult {
 }
 
 /// Ensure the IPC server can start and stop successfully.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn ipc_server_starts_and_stops() -> TestResult {
     let ipc_path = PathBuf::from(format!("/tmp/driver-test-{}.ipc", std::process::id()));
     let _ = std::fs::remove_file(&ipc_path);
@@ -120,7 +120,7 @@ async fn ipc_server_starts_and_stops() -> TestResult {
 }
 
 /// Ensure the IPC server auto-creates missing parent directories.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn ipc_server_creates_parent_directory() -> TestResult {
     let base_dir = PathBuf::from(format!("/tmp/driver-test-nested-{}/subdir", std::process::id()));
     let ipc_path = base_dir.join("driver.ipc");
@@ -145,7 +145,7 @@ async fn ipc_server_creates_parent_directory() -> TestResult {
 
 /// Ensure the IPC server removes a stale socket file on startup.
 #[cfg(unix)]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn ipc_server_removes_stale_socket_on_startup() -> TestResult {
     use std::os::unix::net::UnixListener;
 
@@ -168,7 +168,7 @@ async fn ipc_server_removes_stale_socket_on_startup() -> TestResult {
 
 /// Ensure starting a second IPC server on an active socket fails.
 #[cfg(unix)]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn ipc_server_rejects_active_socket() -> TestResult {
     let ipc_path = PathBuf::from(format!("/tmp/driver-test-active-{}.ipc", std::process::id()));
     let _ = std::fs::remove_file(&ipc_path);
@@ -191,7 +191,7 @@ async fn ipc_server_rejects_active_socket() -> TestResult {
 
 /// Ensure the IPC server errors if a non-socket file exists at the path.
 #[cfg(unix)]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn ipc_server_errors_on_non_socket_file() -> TestResult {
     let ipc_path = PathBuf::from(format!("/tmp/driver-test-regular-{}.ipc", std::process::id()));
 
@@ -208,7 +208,7 @@ async fn ipc_server_errors_on_non_socket_file() -> TestResult {
 }
 
 /// Ensure the IPC socket file is removed on shutdown.
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn ipc_socket_removed_on_shutdown() -> TestResult {
     let ipc_path = PathBuf::from(format!("/tmp/driver-test-cleanup-{}.ipc", std::process::id()));
     let _ = std::fs::remove_file(&ipc_path);
