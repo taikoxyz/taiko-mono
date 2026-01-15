@@ -22,8 +22,12 @@ use super::helpers::{
 /// Holds resolved endpoints, credentials, and clients needed to drive Shasta integration flows.
 pub struct ShastaEnv {
     pub l1_source: SubscriptionSource,
-    pub l2_http: RpcUrl,
-    pub l2_auth: RpcUrl,
+    /// Primary L2 HTTP endpoint.
+    pub l2_http_0: RpcUrl,
+    /// Primary L2 WebSocket endpoint.
+    pub l2_ws_0: RpcUrl,
+    /// Primary L2 Auth endpoint.
+    pub l2_auth_0: RpcUrl,
     pub jwt_secret: PathBuf,
     pub inbox_address: Address,
     pub l2_suggested_fee_recipient: Address,
@@ -46,8 +50,9 @@ impl fmt::Debug for ShastaEnv {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ShastaEnv")
             .field("l1_source", &self.l1_source)
-            .field("l2_http", &self.l2_http)
-            .field("l2_auth", &self.l2_auth)
+            .field("l2_http_0", &self.l2_http_0)
+            .field("l2_ws_0", &self.l2_ws_0)
+            .field("l2_auth_0", &self.l2_auth_0)
             .field("jwt_secret", &self.jwt_secret)
             .field("inbox_address", &self.inbox_address)
             .field("l2_suggested_fee_recipient", &self.l2_suggested_fee_recipient)
@@ -88,8 +93,9 @@ impl ShastaEnv {
         let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
         let l1_http =
             env::var("L1_HTTP").context("L1_HTTP env var is required for cleanup snapshots")?;
-        let l2_http = env::var("L2_HTTP").context("L2_HTTP env var is required")?;
-        let l2_auth = env::var("L2_AUTH").context("L2_AUTH env var is required")?;
+        let l2_http_0 = env::var("L2_HTTP_0").context("L2_HTTP_0 env var is required")?;
+        let l2_ws_0 = env::var("L2_WS_0").context("L2_WS_0 env var is required")?;
+        let l2_auth_0 = env::var("L2_AUTH_0").context("L2_AUTH_0 env var is required")?;
         let jwt_secret = env::var("JWT_SECRET").context("JWT_SECRET env var is required")?;
         let inbox = env::var("SHASTA_INBOX").context("SHASTA_INBOX env var is required")?;
         let fee_recipient = env::var("L2_SUGGESTED_FEE_RECIPIENT")
@@ -103,8 +109,11 @@ impl ShastaEnv {
             RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?,
         );
         let l1_http_url = RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
-        let l2_http_url = RpcUrl::parse(l2_http.as_str()).context("invalid L2_HTTP endpoint")?;
-        let l2_auth_url = RpcUrl::parse(l2_auth.as_str()).context("invalid L2_AUTH endpoint")?;
+        let l2_http_0_url =
+            RpcUrl::parse(l2_http_0.as_str()).context("invalid L2_HTTP_0 endpoint")?;
+        let l2_ws_0_url = RpcUrl::parse(l2_ws_0.as_str()).context("invalid L2_WS_0 endpoint")?;
+        let l2_auth_0_url =
+            RpcUrl::parse(l2_auth_0.as_str()).context("invalid L2_AUTH_0 endpoint")?;
         let jwt_secret_path = PathBuf::from(jwt_secret);
         let inbox_address = Address::from_str(inbox.as_str()).context("invalid SHASTA_INBOX")?;
         let l2_suggested_fee_recipient = Address::from_str(fee_recipient.as_str())
@@ -118,8 +127,8 @@ impl ShastaEnv {
         // Build shared RPC client bundle and a dedicated HTTP provider for snapshots.
         let client_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
-            l2_provider_url: l2_http_url.clone(),
-            l2_auth_provider_url: l2_auth_url.clone(),
+            l2_provider_url: l2_http_0_url.clone(),
+            l2_auth_provider_url: l2_auth_0_url.clone(),
             jwt_secret: jwt_secret_path.clone(),
             inbox_address,
         };
@@ -148,8 +157,9 @@ impl ShastaEnv {
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
         Ok(Self {
             l1_source,
-            l2_http: l2_http_url,
-            l2_auth: l2_auth_url,
+            l2_http_0: l2_http_0_url,
+            l2_ws_0: l2_ws_0_url,
+            l2_auth_0: l2_auth_0_url,
             jwt_secret: jwt_secret_path,
             inbox_address,
             l2_suggested_fee_recipient,

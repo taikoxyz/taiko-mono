@@ -16,57 +16,21 @@ use driver::{
     jsonrpc::{DriverRpcApi, DriverRpcServer},
 };
 use helpers::{
-    ExternalP2pNode, PreparedBlock, build_publish_payloads, compute_starting_block,
+    ExternalP2pNode, PreparedBlock, build_publish_payloads, compute_starting_block, derive_signer,
     test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
 };
 use preconfirmation_client::{
     PreconfirmationClient, PreconfirmationClientConfig,
-    driver_interface::{
-        DriverClient, JsonRpcDriverClient, JsonRpcDriverClientConfig, PreconfirmationInput,
-    },
+    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
 };
 use rpc::client::read_jwt_secret;
-use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
+use test_harness::{
+    ShastaEnv,
+    preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
+};
 use tokio::sync::Notify;
-
-/// Driver client wrapper that falls back to the preconf tip if event sync tip is unavailable.
-struct SafeTipDriver {
-    inner: JsonRpcDriverClient,
-}
-
-impl SafeTipDriver {
-    fn new(inner: JsonRpcDriverClient) -> Self {
-        Self { inner }
-    }
-}
-
-#[async_trait]
-impl DriverClient for SafeTipDriver {
-    async fn submit_preconfirmation(
-        &self,
-        input: PreconfirmationInput,
-    ) -> preconfirmation_client::Result<()> {
-        self.inner.submit_preconfirmation(input).await
-    }
-
-    async fn wait_event_sync(&self) -> preconfirmation_client::Result<()> {
-        self.inner.wait_event_sync().await
-    }
-
-    async fn event_sync_tip(&self) -> preconfirmation_client::Result<U256> {
-        match self.inner.event_sync_tip().await {
-            Ok(tip) => Ok(tip),
-            Err(_) => self.inner.preconf_tip().await,
-        }
-    }
-
-    async fn preconf_tip(&self) -> preconfirmation_client::Result<U256> {
-        self.inner.preconf_tip().await
-    }
-}
 
 /// Driver RPC stub that records submission calls.
 #[derive(Default)]
@@ -121,7 +85,7 @@ async fn p2p_gossip_submits_preconfirmation(env: &mut ShastaEnv) -> anyhow::Resu
     let l1_http = std::env::var("L1_HTTP")?;
     let driver_rpc_url: url::Url = rpc_server.http_url().parse()?;
     let l1_rpc_url: url::Url = l1_http.parse()?;
-    let l2_rpc_url: url::Url = env.l2_http.to_string().parse()?;
+    let l2_rpc_url: url::Url = env.l2_http_0.to_string().parse()?;
 
     let driver_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
         driver_rpc_url,
@@ -130,12 +94,10 @@ async fn p2p_gossip_submits_preconfirmation(env: &mut ShastaEnv) -> anyhow::Resu
         l2_rpc_url,
         env.inbox_address,
     );
-    let driver_client = SafeTipDriver::new(JsonRpcDriverClient::new(driver_client_cfg).await?);
+    let driver_client =
+        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver_client_cfg).await?);
 
-    let signer_sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
-    let signer = preconfirmation_types::public_key_to_address(
-        &secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &signer_sk),
-    );
+    let (signer_sk, signer) = derive_signer(1);
     let submission_window_end = U256::from(1000u64);
     let commitment_block = compute_starting_block(&driver_client).await?;
 

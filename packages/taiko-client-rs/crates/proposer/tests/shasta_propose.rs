@@ -12,8 +12,8 @@ use test_harness::{ShastaEnv, evm_mine, shasta::get_proposal_hash};
 async fn propose_shasta_batches(env: &mut ShastaEnv) -> anyhow::Result<()> {
     let proposer_config = ProposerConfigs {
         l1_provider_source: env.l1_source.clone(),
-        l2_provider_url: env.l2_http.clone(),
-        l2_auth_provider_url: env.l2_auth.clone(),
+        l2_provider_url: env.l2_http_0.clone(),
+        l2_auth_provider_url: env.l2_auth_0.clone(),
         jwt_secret: env.jwt_secret.clone(),
         inbox_address: env.inbox_address,
         l2_suggested_fee_recipient: env.l2_suggested_fee_recipient,

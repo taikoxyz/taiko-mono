@@ -9,9 +9,9 @@ echo "Starting docker compose services..."
 
 export L1_HTTP=http://localhost:18545
 export L1_WS=ws://localhost:18545
-export L2_HTTP=http://localhost:28545
-export L2_WS=ws://localhost:28546
-export L2_AUTH=http://localhost:28551
+export L2_HTTP_0=http://localhost:28545
+export L2_WS_0=ws://localhost:28546
+export L2_AUTH_0=http://localhost:28551
 export L2_HTTP_1=http://localhost:38545
 export L2_WS_1=ws://localhost:38546
 export L2_AUTH_1=http://localhost:38551
@@ -47,7 +47,7 @@ until cast chain-id --rpc-url "$L1_WS" 2> /dev/null; do
 done
 
 # check until L2 node is ready
-until cast chain-id --rpc-url "$L2_WS" 2> /dev/null; do
+until cast chain-id --rpc-url "$L2_WS_0" 2> /dev/null; do
     sleep 1
 done
 
@@ -63,7 +63,7 @@ export L2_GENESIS_HASH=$(
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","id":0,"method":"eth_getBlockByNumber","params":["0x0", false]}' \
-        $L2_HTTP | jq .result.hash | sed 's/\"//g'
+        $L2_HTTP_0 | jq .result.hash | sed 's/\"//g'
 )
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
 

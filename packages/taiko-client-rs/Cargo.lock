@@ -12162,6 +12162,7 @@ dependencies = [
 name = "test-harness"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-consensus",
  "alethia-reth-primitives",
  "alloy",
  "alloy-consensus",
@@ -12171,10 +12172,14 @@ dependencies = [
  "alloy-rlp",
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
+ "alloy-signer",
+ "alloy-signer-local",
  "alloy-sol-types",
  "anyhow",
  "async-trait",
  "bindings",
+ "driver",
+ "flate2",
  "http-body-util",
  "hyper",
  "hyper-util",
