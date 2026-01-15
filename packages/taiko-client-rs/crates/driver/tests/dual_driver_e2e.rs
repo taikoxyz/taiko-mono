@@ -4,7 +4,6 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_consensus::transaction::SignerRecoverable;
 use alloy_primitives::{Address, U256};
-use alloy_provider::Provider;
 use anyhow::{Context, Result, anyhow, ensure};
 use driver::{
     DriverConfig,
@@ -24,13 +23,13 @@ use rpc::{
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, ShastaEnv, build_anchor_tx_bytes, build_signed_transfer,
-    compute_next_block_base_fee, fetch_block_by_number,
+    BeaconStubServer, PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
+    fetch_block_by_number,
     preconfirmation::{
         SafeTipDriverClient, StaticLookaheadResolver, build_publish_payloads_with_txs,
         derive_signer, test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
-    wait_for_block,
+    wait_for_block_or_loop_error,
 };
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
 use tracing::{info, warn};
@@ -209,9 +208,9 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let mut events1 = preconf_client1.subscribe();
 
     let mut event_loop1 = preconf_client1.sync_and_catchup().await?;
-    let (event_loop1_tx, mut event_loop1_rx) = oneshot::channel();
+    let (event_loop1_tx, mut event_loop1_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop1_handle = spawn(async move {
-        let _ = event_loop1_tx.send(event_loop1.run().await);
+        let _ = event_loop1_tx.send(event_loop1.run().await.map_err(Into::into));
     });
 
     info!("waiting for preconf client 1 to connect to external publisher");
@@ -228,60 +227,21 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let mut events2 = preconf_client2.subscribe();
 
     let mut event_loop2 = preconf_client2.sync_and_catchup().await?;
-    let (event_loop2_tx, mut event_loop2_rx) = oneshot::channel();
+    let (event_loop2_tx, mut event_loop2_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop2_handle = spawn(async move {
-        let _ = event_loop2_tx.send(event_loop2.run().await);
+        let _ = event_loop2_tx.send(event_loop2.run().await.map_err(Into::into));
     });
 
     info!("waiting for preconf client 2 to join the mesh");
     wait_for_peer_connected(&mut events2).await;
 
-    let anchor_tx = build_anchor_tx_bytes(
+    let PreconfTxList { raw_tx_bytes, transfers } = build_preconf_txlist(
         &env.client,
         parent_block.header.hash,
         commitment_block_num,
         preconf_base_fee,
     )
     .await?;
-
-    let test_key = std::env::var("TEST_ACCOUNT_PRIVATE_KEY")?;
-    let test_signer: alloy_signer_local::PrivateKeySigner = test_key.parse()?;
-    let test_address = test_signer.address();
-    let test_balance = env.client.l2_provider.get_balance(test_address).await?;
-
-    let mut transfers = Vec::new();
-    if test_balance.is_zero() {
-        let funder_key = std::env::var("PRIVATE_KEY")?;
-        let funder_signer: alloy_signer_local::PrivateKeySigner = funder_key.parse()?;
-        let funder_balance = env.client.l2_provider.get_balance(funder_signer.address()).await?;
-        let fund_amount = U256::from(1_000_000_000_000_000_000u128);
-        ensure!(funder_balance > fund_amount, "funder balance too low to seed test account");
-
-        transfers.push(
-            build_signed_transfer(
-                &env.client.l2_provider,
-                commitment_block_num,
-                &funder_key,
-                test_address,
-                fund_amount,
-            )
-            .await?,
-        );
-    }
-
-    transfers.push(
-        build_signed_transfer(
-            &env.client.l2_provider,
-            commitment_block_num,
-            &test_key,
-            Address::repeat_byte(0x11),
-            U256::from(1u64),
-        )
-        .await?,
-    );
-
-    let mut txlist_transactions = vec![anchor_tx];
-    txlist_transactions.extend(transfers.iter().map(|t| t.raw_bytes.clone()));
 
     let (txlist, signed_commitment) = build_publish_payloads_with_txs(
         &signer_sk,
@@ -290,7 +250,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
         commitment_block,
         preconf_timestamp,
         preconf_gas_limit,
-        txlist_transactions,
+        raw_tx_bytes,
     )?;
 
     info!(block_number = commitment_block_num, "publishing preconfirmation via external node");
@@ -306,28 +266,24 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let block_timeout = Duration::from_secs(30);
 
     info!("waiting for block {} on L2 node 0", commitment_block_num);
-    let block_node0 = tokio::select! {
-        block = wait_for_block(&env.client.l2_provider, commitment_block_num, block_timeout) => block?,
-        result = &mut event_loop1_rx => {
-            return Err(match result {
-                Ok(Ok(())) => anyhow!("preconf event loop 1 exited unexpectedly"),
-                Ok(Err(err)) => anyhow!("preconf event loop 1 error: {err}"),
-                Err(_) => anyhow!("preconf event loop 1 handle dropped"),
-            });
-        }
-    };
+    let block_node0 = wait_for_block_or_loop_error(
+        &env.client.l2_provider,
+        commitment_block_num,
+        block_timeout,
+        &mut event_loop1_rx,
+        "preconf event loop 1",
+    )
+    .await?;
 
     info!("waiting for block {} on L2 node 1", commitment_block_num);
-    let block_node1 = tokio::select! {
-        block = wait_for_block(&l2_provider_1, commitment_block_num, block_timeout) => block?,
-        result = &mut event_loop2_rx => {
-            return Err(match result {
-                Ok(Ok(())) => anyhow!("preconf event loop 2 exited unexpectedly"),
-                Ok(Err(err)) => anyhow!("preconf event loop 2 error: {err}"),
-                Err(_) => anyhow!("preconf event loop 2 handle dropped"),
-            });
-        }
-    };
+    let block_node1 = wait_for_block_or_loop_error(
+        &l2_provider_1,
+        commitment_block_num,
+        block_timeout,
+        &mut event_loop2_rx,
+        "preconf event loop 2",
+    )
+    .await?;
 
     info!("verifying both L2 nodes produced identical blocks");
     ensure!(

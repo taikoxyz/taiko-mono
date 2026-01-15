@@ -12,6 +12,11 @@
 //! - [`test_p2p_config`]: Creates a local-only P2P config for isolated tests.
 //! - [`ExternalP2pNode`]: A spawned P2P node for publishing gossip.
 //!
+//! ## Client Setup
+//! - [`RunningPreconfClient`]: A running client with event receiver and task handle.
+//! - [`TestPreconfClientConfig`]: Configuration options for test clients.
+//! - [`spawn_test_preconf_client`]: Spawns a configured preconf client.
+//!
 //! ## Event Waiting
 //! - [`wait_for_peer_connected`]: Waits for a P2P peer connection.
 //! - [`wait_for_commitment_and_txlist`]: Waits for gossip to arrive.
@@ -22,19 +27,24 @@
 //! - [`build_publish_payloads`]: Assembles preconfirmation payloads.
 //! - [`derive_signer`]: Creates deterministic test signers.
 
+mod client;
 mod driver;
 mod events;
 mod lookahead;
 mod p2p;
 mod payloads;
 
+pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
 pub use driver::{MockDriverClient, SafeTipDriverClient};
 pub use events::{
     wait_for_commitment_and_txlist, wait_for_commitments_and_txlists, wait_for_peer_connected,
     wait_for_synced,
 };
 pub use lookahead::{EchoLookaheadResolver, StaticLookaheadResolver};
-pub use p2p::{ExternalP2pNode, test_p2p_config};
+pub use p2p::{
+    ConnectedP2pMesh, ExternalP2pNode, spawn_connected_p2p_mesh,
+    spawn_connected_p2p_mesh_with_error_handling, test_p2p_config,
+};
 pub use payloads::{
     PreparedBlock, build_commitment_chain, build_empty_txlist, build_publish_payloads,
     build_publish_payloads_with_txs, build_txlist_bytes, compute_starting_block,

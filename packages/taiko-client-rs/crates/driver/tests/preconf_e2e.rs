@@ -28,13 +28,13 @@ use rpc::client::{Client, ClientConfig, read_jwt_secret};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, ShastaEnv, TransferPayload, build_anchor_tx_bytes, build_signed_transfer,
+    BeaconStubServer, PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist,
     compute_next_block_base_fee, fetch_block_by_number,
     preconfirmation::{
         SafeTipDriverClient, StaticLookaheadResolver, build_publish_payloads_with_txs,
         derive_signer, test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
-    verify_anchor_block, wait_for_block,
+    verify_anchor_block, wait_for_block_or_loop_error,
 };
 use tokio::{spawn, sync::oneshot};
 
@@ -286,64 +286,23 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     let mut events = internal_client.subscribe();
 
     let mut event_loop = internal_client.sync_and_catchup().await?;
-    let (event_loop_tx, mut event_loop_rx) = oneshot::channel();
+    let (event_loop_tx, mut event_loop_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop_handle = spawn(async move {
-        let _ = event_loop_tx.send(event_loop.run().await);
+        let _ = event_loop_tx.send(event_loop.run().await.map_err(Into::into));
     });
 
     // Wait for peer connection.
     wait_for_peer_connected(&mut events).await;
     ext_handle.wait_for_peer_connected().await?;
 
-    // Build anchor transaction.
-    let anchor_tx = build_anchor_tx_bytes(
+    // Build anchor + test transfers using helper.
+    let PreconfTxList { raw_tx_bytes, transfers } = build_preconf_txlist(
         &env.client,
         parent_block.header.hash,
         commitment_block_num,
         preconf_base_fee,
     )
     .await?;
-
-    // Build transfer transactions, funding test account if needed.
-    let test_key = std::env::var("TEST_ACCOUNT_PRIVATE_KEY")?;
-    let test_signer: alloy_signer_local::PrivateKeySigner = test_key.parse()?;
-    let test_address = test_signer.address();
-    let test_balance = env.client.l2_provider.get_balance(test_address).await?;
-
-    let mut transfers = Vec::new();
-    if test_balance.is_zero() {
-        let funder_key = std::env::var("PRIVATE_KEY")?;
-        let funder_signer: alloy_signer_local::PrivateKeySigner = funder_key.parse()?;
-        let funder_balance = env.client.l2_provider.get_balance(funder_signer.address()).await?;
-        let fund_amount = U256::from(1_000_000_000_000_000_000u128); // 1 ETH
-        ensure!(funder_balance > fund_amount, "funder balance too low to seed test account");
-
-        transfers.push(
-            build_signed_transfer(
-                &env.client.l2_provider,
-                commitment_block_num,
-                &funder_key,
-                test_address,
-                fund_amount,
-            )
-            .await?,
-        );
-    }
-
-    transfers.push(
-        build_signed_transfer(
-            &env.client.l2_provider,
-            commitment_block_num,
-            &test_key,
-            Address::repeat_byte(0x11),
-            U256::from(1u64),
-        )
-        .await?,
-    );
-
-    // Build transaction list: anchor first, then transfers.
-    let mut txlist_transactions = vec![anchor_tx];
-    txlist_transactions.extend(transfers.iter().map(|t| t.raw_bytes.clone()));
 
     let (txlist, signed_commitment) = build_publish_payloads_with_txs(
         &signer_sk,
@@ -352,7 +311,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         commitment_block,
         preconf_timestamp,
         preconf_gas_limit,
-        txlist_transactions,
+        raw_tx_bytes,
     )?;
 
     // Publish over P2P.
@@ -361,17 +320,14 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     wait_for_commitment_and_txlist(&mut events).await;
 
     // Wait for block production or event loop failure.
-    let produced_block = tokio::select! {
-        block = wait_for_block(&env.client.l2_provider, commitment_block_num, Duration::from_secs(30)) => block?,
-        result = &mut event_loop_rx => {
-            let err_msg = match result {
-                Ok(Ok(())) => "preconfirmation event loop exited unexpectedly",
-                Ok(Err(err)) => return Err(anyhow!("preconfirmation event loop error: {err}")),
-                Err(_) => "preconfirmation event loop handle dropped",
-            };
-            return Err(anyhow!(err_msg));
-        }
-    };
+    let produced_block = wait_for_block_or_loop_error(
+        &env.client.l2_provider,
+        commitment_block_num,
+        Duration::from_secs(30),
+        &mut event_loop_rx,
+        "preconfirmation event loop",
+    )
+    .await?;
 
     // Verify block contents.
     let inbox_config = env.client.shasta.inbox.getConfig().call().await?;

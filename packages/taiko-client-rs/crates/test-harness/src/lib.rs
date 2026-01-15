@@ -10,15 +10,19 @@
 //! ## Block Utilities
 //! - [`blocks::fetch_block_by_number`]: Fetches a block with full transactions.
 //! - [`blocks::wait_for_block`]: Polls until a block appears.
+//! - [`blocks::wait_for_block_or_loop_error`]: Waits for block with event loop monitoring.
+//! - [`blocks::wait_for_block_on_both`]: Waits for block on two providers.
 //!
 //! ## Transaction Utilities
 //! - [`transactions::TransferPayload`]: A signed transfer for assertions.
 //! - [`transactions::build_signed_transfer`]: Builds an EIP-1559 transfer.
 //! - [`transactions::build_anchor_tx_bytes`]: Constructs anchor transactions.
 //! - [`transactions::compute_next_block_base_fee`]: Calculates EIP-4396 base fee.
+//! - [`transactions::build_test_transfers`]: Builds test transfers with auto-funding.
+//! - [`transactions::build_preconf_txlist`]: Builds anchor + transfers in one call.
 //!
 //! ## Preconfirmation Utilities (feature-gated)
-//! See [`preconfirmation`] module for P2P, event, and payload helpers.
+//! See [`preconfirmation`] module for P2P, event, client setup, and payload helpers.
 
 use std::sync::OnceLock;
 
@@ -34,11 +38,15 @@ pub mod transactions;
 pub mod preconfirmation;
 
 pub use beacon_stub::BeaconStubServer;
-pub use blocks::{fetch_block_by_number, wait_for_block};
+pub use blocks::{
+    fetch_block_by_number, wait_for_block, wait_for_block_on_both, wait_for_block_or_loop_error,
+};
 pub use helper::{PRIORITY_FEE_GWEI, evm_mine, mine_l1_block};
 pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
 pub use transactions::{
-    TransferPayload, build_anchor_tx_bytes, build_signed_transfer, compute_next_block_base_fee,
+    PreconfTxList, TransferPayload, build_anchor_tx_bytes, build_preconf_txlist,
+    build_preconf_txlist_with_transfers, build_signed_transfer, build_test_transfers,
+    compute_next_block_base_fee, ensure_test_account_funded,
 };
 
 /// Initialise tracing for tests using a single global subscriber.
