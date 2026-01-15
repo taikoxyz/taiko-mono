@@ -15,7 +15,7 @@ use crate::shasta::{
     constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
     error::{ProtocolError, Result},
 };
-use tracing::info;
+
 /// Manifest of a single block proposal, matching `LibManifest.ProtocolBlockManifest`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, RlpEncodable, RlpDecodable)]
 #[serde(rename_all = "camelCase")]
@@ -61,18 +61,17 @@ impl DerivationSourceManifest {
         let decoded = decode_manifest_payload(bytes, offset)?;
 
         let mut decoded_slice = decoded.as_slice();
-        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
-             {
-               Ok(manifest) => manifest,
-            Err(err) => {
-                info!(?err, "failed to decode derivation manifest r
-            }lp; returning default manifest");
-                return Ok(DerivationSourceManifest::default());
-            }
-        };
+        let manifest = <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice)
+            .map_err(|err| {
+                ProtocolError::Rlp(format!("failed to decode derivation manifest: {err}"))
+            })?;
 
         if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
-            return Ok(DerivationSourceManifest::default());
+            return Err(ProtocolError::InvalidPayload(format!(
+                "manifest contains too many blocks: {} exceeds maximum {}",
+                manifest.blocks.len(),
+                PROPOSAL_MAX_BLOCKS
+            )));
         }
 
         Ok(manifest)
@@ -216,8 +215,9 @@ mod tests {
         payload.extend_from_slice(&len_bytes);
         payload.extend_from_slice(&compressed);
 
-        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
-        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        let result = DerivationSourceManifest::decompress_and_decode(&payload, 0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("failed to decode derivation manifest"));
     }
 
     #[test]
