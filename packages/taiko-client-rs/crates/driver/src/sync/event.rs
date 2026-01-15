@@ -698,8 +698,7 @@ where
                             counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
                             error!(
                                 ?err,
-                                last_number,
-                                "failed to fetch canonical L1 block for last head"
+                                last_number, "failed to fetch canonical L1 block for last head"
                             );
                             continue;
                         }

@@ -14,9 +14,15 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
+	_ = func() struct{} {
+		utils.LoadEnv()
+		return struct{}{}
+	}()
+
 	l1Endpoint       = os.Getenv("L1_HTTP")
 	l1BeaconEndpoint = os.Getenv("L1_BEACON")
 	l2Endpoint       = os.Getenv("L2_WS")
@@ -91,6 +97,7 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = flags.MergeFlags([]cli.Flag{
 		&cli.StringFlag{Name: flags.L1HTTPEndpoint.Name},
+		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},

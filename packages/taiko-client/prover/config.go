@@ -96,8 +96,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
+	l1Endpoint, err := flags.ResolveL1Endpoint(c)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		L1HttpEndpoint:         c.String(flags.L1HTTPEndpoint.Name),
+		L1HttpEndpoint:         l1Endpoint,
 		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
 		PacayaInboxAddress:     common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
@@ -121,7 +126,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		Allowance:              allowance,
 		LocalProposerAddresses: localProposerAddresses,
 		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1HTTPEndpoint.Name), l1ProverPrivKey, c),
+		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(l1Endpoint, l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,
