@@ -662,8 +662,8 @@ where
                         next_block = rewind_to;
                     }
                 }
-                if latest == last_number.saturating_add(1)
-                    && latest_block.header.parent_hash != last_hash
+                if latest == last_number.saturating_add(1) && 
+                   latest_block.header.parent_hash != last_hash
                 {
                     let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
                     warn!(
