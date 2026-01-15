@@ -46,7 +46,11 @@ contract ProverWhitelist is EssentialContract, IProverWhitelist {
     /// @param _enabled True to enable the prover, false to disable
     function whitelistProver(address _prover, bool _enabled) external onlyOwner {
         bool currentStatus = _provers[_prover];
-        require(currentStatus != _enabled, ProverWhitelistedAlready());
+        if (_enabled) {
+            require(!currentStatus, ProverWhitelistedAlready());
+        } else {
+            require(currentStatus, ProverNotWhitelisted());
+        }
 
         _provers[_prover] = _enabled;
         if (_enabled) {
@@ -73,6 +77,8 @@ contract ProverWhitelist is EssentialContract, IProverWhitelist {
     // Errors
     // ---------------------------------------------------------------
 
-    /// @dev Reverts when the requested whitelist status is unchanged.
+    /// @dev Reverts when attempting to whitelist an already whitelisted prover.
     error ProverWhitelistedAlready();
+    /// @dev Reverts when attempting to disable a prover that is not whitelisted.
+    error ProverNotWhitelisted();
 }
