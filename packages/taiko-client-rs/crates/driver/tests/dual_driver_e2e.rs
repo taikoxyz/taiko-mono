@@ -1,7 +1,7 @@
 //! Dual-driver E2E test that verifies P2P gossip propagation between two drivers.
 
 use std::{
-    io::Write as IoWrite,
+    io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
     time::Duration,
@@ -22,7 +22,6 @@ use alloy_rpc_types::eth::Block as RpcBlock;
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result, anyhow, ensure};
-use async_trait::async_trait;
 use driver::{
     DriverConfig,
     derivation::pipeline::shasta::anchor::{AnchorTxConstructor, AnchorV4Input},
@@ -31,12 +30,9 @@ use driver::{
 };
 use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_client::{
-    PreconfirmationClient, PreconfirmationClientConfig,
+    DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
     codec::ZlibTxListCodec,
-    driver_interface::{
-        DriverClient, JsonRpcDriverClient, JsonRpcDriverClientConfig, PreconfirmationInput,
-    },
-    error::{DriverApiError, PreconfirmationClientError, Result as PreconfResult},
+    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
     subscription::PreconfirmationEvent,
 };
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pConfig, P2pNode};
@@ -52,115 +48,26 @@ use rpc::{
 use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
-use tokio::{
-    net::TcpListener,
-    select, spawn,
-    sync::{Notify, oneshot},
-    task::JoinHandle,
-    time::sleep,
+use test_harness::{
+    BeaconStubServer, ShastaEnv, init_tracing,
+    preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
 };
+use tokio::{spawn, sync::oneshot, task::JoinHandle, time::sleep};
 use tracing::{info, warn};
 use url::Url;
 
-// === Beacon stub ===
-
-struct BeaconStubServer {
-    endpoint: Url,
-    shutdown: Arc<Notify>,
-    handle: JoinHandle<()>,
-}
-
-impl BeaconStubServer {
-    async fn start() -> Result<Self> {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let addr = listener.local_addr()?;
-        let endpoint = Url::parse(&format!("http://{addr}"))?;
-
-        let shutdown = Arc::new(Notify::new());
-        let cancel = shutdown.clone();
-
-        let handle = spawn(async move {
-            loop {
-                select! {
-                    _ = cancel.notified() => break,
-                    accept_result = listener.accept() => {
-                        let Ok((stream, _)) = accept_result else { continue };
-                        spawn(async move {
-                            let io = hyper_util::rt::TokioIo::new(stream);
-                            let service = hyper::service::service_fn(|req| async move {
-                                Ok::<_, hyper::Error>(handle_beacon_request(req))
-                            });
-                            let _ = hyper::server::conn::http1::Builder::new()
-                                .serve_connection(io, service)
-                                .await;
-                        });
-                    }
-                }
-            }
-        });
-
-        Ok(Self { endpoint, shutdown, handle })
-    }
-
-    fn endpoint(&self) -> &Url {
-        &self.endpoint
-    }
-
-    async fn shutdown(self) -> Result<()> {
-        self.shutdown.notify_waiters();
-        self.handle.await?;
-        Ok(())
-    }
-}
-
-fn handle_beacon_request(
-    req: hyper::Request<hyper::body::Incoming>,
-) -> hyper::Response<http_body_util::Full<hyper::body::Bytes>> {
-    use http_body_util::Full;
-    use hyper::{Method, StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE};
-
-    if req.method() != Method::GET {
-        return hyper::Response::builder()
-            .status(StatusCode::METHOD_NOT_ALLOWED)
-            .body(Full::new(HyperBytes::new()))
-            .unwrap();
-    }
-
-    let path = req.uri().path();
-    let json = match path {
-        "/eth/v1/beacon/genesis" => r#"{"data":{"genesis_time":"0"}}"#,
-        "/eth/v1/config/spec" => r#"{"data":{"SECONDS_PER_SLOT":"12"}}"#,
-        _ if path.starts_with("/eth/v2/beacon/blocks/") => {
-            r#"{"data":{"message":{"body":{"execution_payload":{"block_number":"0"}}}}}"#
-        }
-        _ => {
-            return hyper::Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body(Full::new(HyperBytes::new()))
-                .unwrap();
-        }
-    };
-
-    hyper::Response::builder()
-        .status(StatusCode::OK)
-        .header(CONTENT_TYPE, "application/json")
-        .body(Full::new(HyperBytes::from(json)))
-        .unwrap()
-}
-
 // === Helpers ===
 
-fn test_p2p_config_with_port(port: u16) -> P2pConfig {
-    let listen_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    let discovery_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port + 1000);
+/// Creates a local-only P2P config for tests (ephemeral ports, discovery disabled).
+fn test_p2p_config() -> P2pConfig {
+    let localhost_ephemeral = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
     let chain_id =
         std::env::var("L2_CHAIN_ID").ok().and_then(|v| v.parse().ok()).unwrap_or(167_001);
 
     P2pConfig {
         chain_id,
-        listen_addr,
-        discovery_listen: discovery_addr,
+        listen_addr: localhost_ephemeral,
+        discovery_listen: localhost_ephemeral,
         enable_discovery: false,
         ..P2pConfig::default()
     }
@@ -170,45 +77,6 @@ struct TransferPayload {
     raw_bytes: Bytes,
     hash: B256,
     from: Address,
-}
-
-#[derive(Clone)]
-struct DriverClientSafeFallback {
-    inner: JsonRpcDriverClient,
-}
-
-#[async_trait]
-impl DriverClient for DriverClientSafeFallback {
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> PreconfResult<()> {
-        let block_number =
-            uint256_to_u256(&input.commitment.commitment.preconf.block_number).to::<u64>();
-
-        let result = self.inner.submit_preconfirmation(input).await;
-        match &result {
-            Ok(()) => info!(block_number, "driver preconfirmation submission accepted"),
-            Err(err) => {
-                warn!(block_number, error = %err, "driver preconfirmation submission failed")
-            }
-        }
-        result
-    }
-
-    async fn wait_event_sync(&self) -> PreconfResult<()> {
-        self.inner.wait_event_sync().await
-    }
-
-    async fn event_sync_tip(&self) -> PreconfResult<U256> {
-        match self.inner.event_sync_tip().await {
-            Err(PreconfirmationClientError::DriverInterface(DriverApiError::MissingSafeBlock)) => {
-                self.inner.preconf_tip().await
-            }
-            other => other,
-        }
-    }
-
-    async fn preconf_tip(&self) -> PreconfResult<U256> {
-        self.inner.preconf_tip().await
-    }
 }
 
 async fn compute_next_block_base_fee<P>(provider: &P, parent_block_number: u64) -> Result<u64>
@@ -323,7 +191,7 @@ fn build_publish_payloads(
     ensure!(first_byte >= 0xc0, "tx list is not an RLP list (first byte 0x{first_byte:02x})");
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    IoWrite::write_all(&mut encoder, &tx_list)?;
+    Write::write_all(&mut encoder, &tx_list)?;
     let compressed = encoder.finish()?;
 
     let txlist_bytes = TxListBytes::try_from(compressed)
@@ -536,7 +404,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
         env.inbox_address,
     );
     let driver1_client =
-        DriverClientSafeFallback { inner: JsonRpcDriverClient::new(driver1_client_cfg).await? };
+        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver1_client_cfg).await?);
 
     let driver2_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
         driver2.http_url().parse()?,
@@ -546,7 +414,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
         env.inbox_address,
     );
     let driver2_client =
-        DriverClientSafeFallback { inner: JsonRpcDriverClient::new(driver2_client_cfg).await? };
+        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver2_client_cfg).await?);
 
     let signer_sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
     let signer = preconfirmation_types::public_key_to_address(
@@ -572,7 +440,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     .await?;
 
     let (mut ext_handle, ext_node) = P2pNode::new_with_validator_and_storage(
-        test_p2p_config_with_port(19000),
+        test_p2p_config(),
         Box::new(LocalValidationAdapter::new(None)),
         Arc::new(InMemoryStorage::default()),
     )?;
@@ -580,7 +448,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let ext_dial_addr = ext_handle.dialable_addr().await?;
 
     let mut preconf1_cfg = PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config_with_port(19100),
+        test_p2p_config(),
         Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
     );
     preconf1_cfg.p2p.pre_dial_peers = vec![ext_dial_addr.clone()];
@@ -599,7 +467,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     ext_handle.wait_for_peer_connected().await?;
 
     let mut preconf2_cfg = PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config_with_port(19200),
+        test_p2p_config(),
         Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
     );
     preconf2_cfg.p2p.pre_dial_peers = vec![ext_dial_addr.clone()];

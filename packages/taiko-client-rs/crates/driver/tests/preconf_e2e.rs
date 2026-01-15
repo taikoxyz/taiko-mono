@@ -21,7 +21,6 @@ use alloy_rpc_types::{TransactionReceipt, eth::Block as RpcBlock};
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result, anyhow, ensure};
-use async_trait::async_trait;
 use driver::{
     DriverConfig,
     derivation::pipeline::shasta::anchor::{AnchorTxConstructor, AnchorV4Input},
@@ -30,12 +29,9 @@ use driver::{
 };
 use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_client::{
-    PreconfirmationClient, PreconfirmationClientConfig,
+    DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
     codec::ZlibTxListCodec,
-    driver_interface::{
-        DriverClient, JsonRpcDriverClient, JsonRpcDriverClientConfig, PreconfirmationInput,
-    },
-    error::{DriverApiError, PreconfirmationClientError, Result as PreconfResult},
+    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
     subscription::PreconfirmationEvent,
 };
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pConfig, P2pNode};
@@ -50,99 +46,15 @@ use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver, verify_anchor_block,
+    BeaconStubServer, ShastaEnv, init_tracing,
+    preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
+    verify_anchor_block,
 };
 use tokio::{
-    net::TcpListener,
-    select, spawn,
-    sync::{Notify, oneshot},
-    task::JoinHandle,
+    spawn,
+    sync::oneshot,
     time::sleep,
 };
-use tracing::{info, warn};
-use url::Url;
-
-/// Minimal beacon API stub for driver startup (genesis/spec/block endpoints).
-struct BeaconStubServer {
-    endpoint: Url,
-    shutdown: Arc<Notify>,
-    handle: JoinHandle<()>,
-}
-
-impl BeaconStubServer {
-    async fn start() -> Result<Self> {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let addr = listener.local_addr()?;
-        let endpoint = Url::parse(&format!("http://{addr}"))?;
-
-        let shutdown = Arc::new(Notify::new());
-        let cancel = shutdown.clone();
-
-        let handle = spawn(async move {
-            loop {
-                select! {
-                    _ = cancel.notified() => break,
-                    accept_result = listener.accept() => {
-                        let Ok((stream, _)) = accept_result else { continue };
-                        spawn(async move {
-                            let io = hyper_util::rt::TokioIo::new(stream);
-                            let service = hyper::service::service_fn(|req| async move {
-                                Ok::<_, hyper::Error>(handle_beacon_request(req))
-                            });
-                            let _ = hyper::server::conn::http1::Builder::new()
-                                .serve_connection(io, service)
-                                .await;
-                        });
-                    }
-                }
-            }
-        });
-
-        Ok(Self { endpoint, shutdown, handle })
-    }
-
-    fn endpoint(&self) -> &Url {
-        &self.endpoint
-    }
-
-    async fn shutdown(self) -> Result<()> {
-        self.shutdown.notify_waiters();
-        self.handle.await?;
-        Ok(())
-    }
-}
-
-fn handle_beacon_request(
-    req: hyper::Request<hyper::body::Incoming>,
-) -> hyper::Response<http_body_util::Full<hyper::body::Bytes>> {
-    use http_body_util::Full;
-    use hyper::{Method, StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE};
-
-    let empty_response = |status| {
-        hyper::Response::builder().status(status).body(Full::new(HyperBytes::new())).unwrap()
-    };
-
-    if req.method() != Method::GET {
-        return empty_response(StatusCode::METHOD_NOT_ALLOWED);
-    }
-
-    let path = req.uri().path();
-    let json = match path {
-        "/eth/v1/beacon/genesis" => r#"{"data":{"genesis_time":"0"}}"#,
-        "/eth/v1/config/spec" => r#"{"data":{"SECONDS_PER_SLOT":"12"}}"#,
-        _ if path.starts_with("/eth/v2/beacon/blocks/") => {
-            r#"{"data":{"message":{"body":{"execution_payload":{"block_number":"0"}}}}}"#
-        }
-        _ => return empty_response(StatusCode::NOT_FOUND),
-    };
-
-    hyper::Response::builder()
-        .status(StatusCode::OK)
-        .header(CONTENT_TYPE, "application/json")
-        .body(Full::new(HyperBytes::from(json)))
-        .unwrap()
-}
-
 /// Creates a local-only P2P config for tests (ephemeral ports, discovery disabled).
 fn test_p2p_config() -> P2pConfig {
     let localhost_ephemeral = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
@@ -163,46 +75,6 @@ struct TransferPayload {
     raw_bytes: Bytes,
     hash: B256,
     from: Address,
-}
-
-/// Wraps the driver JSON-RPC client with a safe-tip fallback for event sync.
-#[derive(Clone)]
-struct DriverClientSafeFallback {
-    inner: JsonRpcDriverClient,
-}
-
-#[async_trait]
-impl DriverClient for DriverClientSafeFallback {
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> PreconfResult<()> {
-        let block_number =
-            uint256_to_u256(&input.commitment.commitment.preconf.block_number).to::<u64>();
-
-        let result = self.inner.submit_preconfirmation(input).await;
-        match &result {
-            Ok(()) => info!(block_number, "driver preconfirmation submission accepted"),
-            Err(err) => {
-                warn!(block_number, error = %err, "driver preconfirmation submission failed")
-            }
-        }
-        result
-    }
-
-    async fn wait_event_sync(&self) -> PreconfResult<()> {
-        self.inner.wait_event_sync().await
-    }
-
-    async fn event_sync_tip(&self) -> PreconfResult<U256> {
-        match self.inner.event_sync_tip().await {
-            Err(PreconfirmationClientError::DriverInterface(DriverApiError::MissingSafeBlock)) => {
-                self.inner.preconf_tip().await
-            }
-            other => other,
-        }
-    }
-
-    async fn preconf_tip(&self) -> PreconfResult<U256> {
-        self.inner.preconf_tip().await
-    }
 }
 
 async fn compute_next_block_base_fee<P>(provider: &P, parent_block_number: u64) -> Result<u64>
@@ -618,7 +490,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         env.inbox_address,
     );
     let driver_client =
-        DriverClientSafeFallback { inner: JsonRpcDriverClient::new(driver_client_cfg).await? };
+        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver_client_cfg).await?);
 
     // Derive signer from deterministic secret key.
     let signer_sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");

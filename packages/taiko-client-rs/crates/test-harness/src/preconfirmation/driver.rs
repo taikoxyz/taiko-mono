@@ -4,9 +4,14 @@ use std::sync::Arc;
 
 use alloy_primitives::U256;
 use async_trait::async_trait;
+use preconfirmation_client::{
+    DriverClient, PreconfirmationInput, Result,
+    driver_interface::JsonRpcDriverClient,
+    error::{DriverApiError, PreconfirmationClientError},
+};
+use preconfirmation_types::uint256_to_u256;
 use tokio::sync::{Mutex, Notify};
-
-use preconfirmation_client::{DriverClient, PreconfirmationInput, Result};
+use tracing::{info, warn};
 
 /// A mock driver client that records submissions for test verification.
 ///
@@ -144,6 +149,56 @@ impl DriverClient for MockDriverClient {
 
     async fn preconf_tip(&self) -> Result<U256> {
         Ok(*self.preconf_tip.lock().await)
+    }
+}
+
+/// Wraps a JSON-RPC driver client with safe-tip fallback for event sync.
+///
+/// When `event_sync_tip` returns `MissingSafeBlock`, falls back to `preconf_tip`.
+/// Also logs submission results for debugging.
+#[derive(Clone)]
+pub struct SafeTipDriverClient {
+    inner: JsonRpcDriverClient,
+}
+
+impl SafeTipDriverClient {
+    /// Create a new safe-tip driver client wrapper.
+    pub fn new(inner: JsonRpcDriverClient) -> Self {
+        Self { inner }
+    }
+}
+
+#[async_trait]
+impl DriverClient for SafeTipDriverClient {
+    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
+        let block_number =
+            uint256_to_u256(&input.commitment.commitment.preconf.block_number).to::<u64>();
+
+        let result = self.inner.submit_preconfirmation(input).await;
+        match &result {
+            Ok(()) => info!(block_number, "driver preconfirmation submission accepted"),
+            Err(err) => {
+                warn!(block_number, error = %err, "driver preconfirmation submission failed")
+            }
+        }
+        result
+    }
+
+    async fn wait_event_sync(&self) -> Result<()> {
+        self.inner.wait_event_sync().await
+    }
+
+    async fn event_sync_tip(&self) -> Result<U256> {
+        match self.inner.event_sync_tip().await {
+            Err(PreconfirmationClientError::DriverInterface(DriverApiError::MissingSafeBlock)) => {
+                self.inner.preconf_tip().await
+            }
+            other => other,
+        }
+    }
+
+    async fn preconf_tip(&self) -> Result<U256> {
+        self.inner.preconf_tip().await
     }
 }
 

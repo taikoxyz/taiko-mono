@@ -24,91 +24,9 @@ use rpc::{
 };
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, verify_anchor_block};
-use tokio::{net::TcpListener, select, spawn, sync::Notify, task::JoinHandle, time::sleep};
+use test_harness::{BeaconStubServer, ShastaEnv, init_tracing, verify_anchor_block};
+use tokio::{spawn, time::sleep};
 use tracing::{info, warn};
-use url::Url;
-
-/// Minimal beacon API stub for driver startup (genesis/spec/block endpoints).
-struct BeaconStubServer {
-    endpoint: Url,
-    shutdown: Arc<Notify>,
-    handle: JoinHandle<()>,
-}
-
-impl BeaconStubServer {
-    async fn start() -> Result<Self> {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let addr = listener.local_addr()?;
-        let endpoint = Url::parse(&format!("http://{addr}"))?;
-
-        let shutdown = Arc::new(Notify::new());
-        let cancel = shutdown.clone();
-
-        let handle = spawn(async move {
-            loop {
-                select! {
-                    _ = cancel.notified() => break,
-                    accept_result = listener.accept() => {
-                        let Ok((stream, _)) = accept_result else { continue };
-                        spawn(async move {
-                            let io = hyper_util::rt::TokioIo::new(stream);
-                            let service = hyper::service::service_fn(|req| async move {
-                                Ok::<_, hyper::Error>(handle_beacon_request(req))
-                            });
-                            let _ = hyper::server::conn::http1::Builder::new()
-                                .serve_connection(io, service)
-                                .await;
-                        });
-                    }
-                }
-            }
-        });
-
-        Ok(Self { endpoint, shutdown, handle })
-    }
-
-    fn endpoint(&self) -> &Url {
-        &self.endpoint
-    }
-
-    async fn shutdown(self) -> Result<()> {
-        self.shutdown.notify_waiters();
-        self.handle.await?;
-        Ok(())
-    }
-}
-
-fn handle_beacon_request(
-    req: hyper::Request<hyper::body::Incoming>,
-) -> hyper::Response<http_body_util::Full<hyper::body::Bytes>> {
-    use http_body_util::Full;
-    use hyper::{Method, StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE};
-
-    let empty_response = |status| {
-        hyper::Response::builder().status(status).body(Full::new(HyperBytes::new())).unwrap()
-    };
-
-    if req.method() != Method::GET {
-        return empty_response(StatusCode::METHOD_NOT_ALLOWED);
-    }
-
-    let path = req.uri().path();
-    let json = match path {
-        "/eth/v1/beacon/genesis" => r#"{"data":{"genesis_time":"0"}}"#,
-        "/eth/v1/config/spec" => r#"{"data":{"SECONDS_PER_SLOT":"12"}}"#,
-        _ if path.starts_with("/eth/v2/beacon/blocks/") => {
-            r#"{"data":{"message":{"body":{"execution_payload":{"block_number":"0"}}}}}"#
-        }
-        _ => return empty_response(StatusCode::NOT_FOUND),
-    };
-
-    hyper::Response::builder()
-        .status(StatusCode::OK)
-        .header(CONTENT_TYPE, "application/json")
-        .body(Full::new(HyperBytes::from(json)))
-        .unwrap()
-}
 
 fn client_config(env: &ShastaEnv) -> ClientConfig {
     ClientConfig {

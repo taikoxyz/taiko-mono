@@ -8,5 +8,5 @@
 mod driver;
 mod lookahead;
 
-pub use driver::MockDriverClient;
+pub use driver::{MockDriverClient, SafeTipDriverClient};
 pub use lookahead::{EchoLookaheadResolver, StaticLookaheadResolver};
