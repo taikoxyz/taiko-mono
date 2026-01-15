@@ -292,14 +292,6 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
         block_node0.header.hash,
         block_node1.header.hash
     );
-    ensure!(
-        block_node0.header.inner.state_root == block_node1.header.inner.state_root,
-        "state root mismatch"
-    );
-    ensure!(
-        block_node0.header.inner.transactions_root == block_node1.header.inner.transactions_root,
-        "transactions root mismatch"
-    );
 
     let header = &block_node0.header.inner;
     let preconf = &signed_commitment.commitment.preconf;
