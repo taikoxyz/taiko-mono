@@ -21,14 +21,16 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component** | **Description**                                                         |
-| ---------------------- | ----------------------------------------------------------------------- |
-| **id**                 | A unique, sequential identifier for the proposal                        |
-| **proposer**           | The address that proposed the proposal                                  |
-| **timestamp**          | The timestamp when the proposal was accepted on L1                      |
-| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
-| **originBlockHash**    | The hash of `originBlockNumber` block                                   |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                             |
+| **Metadata Component**             | **Description**                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| **id**                             | A unique, sequential identifier for the proposal                        |
+| **proposer**                       | The address that proposed the proposal                                  |
+| **timestamp**                      | The timestamp when the proposal was accepted on L1                      |
+| **endOfSubmissionWindowTimestamp** | The last slot timestamp where the current preconfer can propose         |
+| **parentProposalHash**             | The hash of the parent proposal                                         |
+| **originBlockNumber**              | The L1 block number from **one block before** the proposal was accepted |
+| **originBlockHash**                | The hash of `originBlockNumber` block                                   |
+| **basefeeSharingPctg**             | The percentage of base fee paid to coinbase                             |
 
 ### Derivation Source-level Metadata
 
@@ -57,20 +59,21 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 The metadata preparation process initiates with a subscription to the inbox's `Proposed` event (see
 [`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L174-L188)).
 
-The other fields can be derived by querying the L1 and the inbox contract:
+The other fields can be derived by querying the L1:
 
 - `timestamp` comes from the L1 block that emitted the log; `originBlockHash/Number` come from its parent block (event block - 1).
-- `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
 
 The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                | Value Assignment             |
-| ----------------------------- | ---------------------------- |
-| `metadata.id`                 | `payload.id`                 |
-| `metadata.proposer`           | `payload.proposer`           |
-| `metadata.basefeeSharingPctg` | `payload.basefeeSharingPctg` |
+| Metadata Field                            | Value Assignment                         |
+| ----------------------------------------- | ---------------------------------------- |
+| `metadata.id`                             | `payload.id`                             |
+| `metadata.proposer`                       | `payload.proposer`                       |
+| `metadata.parentProposalHash`             | `payload.parentProposalHash`             |
+| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp` |
+| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
 
 **Derivation source-level assignments (for source `i`):**
 
@@ -228,7 +231,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber > proposal.originBlockNumber`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
-**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == false`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
+**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -248,7 +251,6 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 **Validation process**:
 
 1. **Define bounds**:
-
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
    - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
@@ -256,10 +258,6 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
    - If `manifest.blocks[i].gasLimit` falls outside `[lowerBound, upperBound]`: Replace the entire derivation source with the default source manifest.
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
-
-#### Bond instruction processing
-
-Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
 
 ### Additional Metadata Fields
 
@@ -317,7 +315,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with the L1 checkpoint fields:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the `Anchor` contract (via `AnchorForkRouter` on fork-aware deployments) with the L1 checkpoint fields:
 
 | Parameter         | Type    | Description                                     |
 | ----------------- | ------- | ----------------------------------------------- |
@@ -330,7 +328,6 @@ The anchor transaction serves as a privileged system transaction responsible for
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
-
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
@@ -342,6 +339,10 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
+
+## L1 Proof and Liveness Bond Settlement
+
+Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
 
 ## Base Fee Calculation
 

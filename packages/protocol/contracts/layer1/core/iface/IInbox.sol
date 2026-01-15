@@ -44,7 +44,7 @@ interface IInbox {
         /// @notice Queue size at which the fee doubles
         uint64 forcedInclusionFeeDoubleThreshold;
         /// @notice The minimum delay between checkpoints in seconds
-        /// @dev Must be less than or equal to finalization grace period
+        /// @dev Used to rate-limit checkpoint syncing in `prove`.
         uint16 minCheckpointDelay;
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
