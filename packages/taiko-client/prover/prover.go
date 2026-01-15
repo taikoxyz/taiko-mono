@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	l1EventPollInterval = time.Second
-	l1LogPollMaxRange   = uint64(1000)
+	l1EventPollInterval   = time.Second
+	l1EventPollMaxBackoff = 30 * time.Second
+	l1LogPollMaxRange     = uint64(1000)
 )
 
 // eventHandlers contains all event handlers which will be used by the prover.
@@ -230,12 +231,25 @@ func (p *Prover) eventLoop() {
 	l1EventPoller := time.NewTicker(l1EventPollInterval)
 	defer l1EventPoller.Stop()
 
+	type l1PollResult struct {
+		processed       uint64
+		processedAny    bool
+		processedHash   common.Hash
+		processedHashOk bool
+		err             error
+	}
+
+	l1PollResultCh := make(chan l1PollResult, 1)
+
 	var (
 		lastL1HeadNumber      uint64
 		lastL1HeadHash        common.Hash
 		lastConfirmedBlock    uint64
 		lastConfirmedHash     common.Hash
 		lastConfirmedHashInit bool
+		l1EventBackoff        time.Duration
+		nextL1EventPoll       time.Time
+		pollInFlight          bool
 	)
 	if head, err := p.rpc.L1.BlockNumber(p.ctx); err != nil {
 		log.Warn("Failed to fetch initial L1 head number", "error", err)
@@ -266,6 +280,23 @@ func (p *Prover) eventLoop() {
 		select {
 		case <-p.ctx.Done():
 			return
+		case pollResult := <-l1PollResultCh:
+			pollInFlight = false
+			if pollResult.processedAny && pollResult.processedHashOk {
+				lastConfirmedBlock = pollResult.processed
+				lastConfirmedHash = pollResult.processedHash
+				lastConfirmedHashInit = true
+			}
+			if pollResult.err != nil {
+				if p.ctx.Err() != nil {
+					return
+				}
+				log.Warn(
+					"Failed to poll L1 protocol events",
+					"error", pollResult.err,
+					"processedThrough", pollResult.processed,
+				)
+			}
 		case batchProof := <-p.batchProofGenerationCh:
 			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
@@ -283,20 +314,59 @@ func (p *Prover) eventLoop() {
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-l1EventPoller.C:
+			if !nextL1EventPoll.IsZero() && time.Now().Before(nextL1EventPoll) {
+				continue
+			}
 			head, err := p.rpc.L1.BlockNumber(p.ctx)
 			if err != nil {
+				if p.ctx.Err() != nil {
+					return
+				}
 				log.Warn("Failed to poll L1 head number", "error", err)
+				l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+				nextL1EventPoll = time.Now().Add(l1EventBackoff)
 				continue
 			}
 			headHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(head))
 			if err != nil {
+				if p.ctx.Err() != nil {
+					return
+				}
 				log.Warn("Failed to fetch L1 head header", "error", err, "height", head)
+				l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+				nextL1EventPoll = time.Now().Add(l1EventBackoff)
 				continue
 			}
+			l1EventBackoff = 0
+			nextL1EventPoll = time.Time{}
 			headHash := headHeader.Hash()
 			parentMismatch := head == lastL1HeadNumber+1 &&
 				lastL1HeadHash != (common.Hash{}) &&
 				headHeader.ParentHash != lastL1HeadHash
+			if head > lastL1HeadNumber+1 && lastL1HeadHash != (common.Hash{}) {
+				prevHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(lastL1HeadNumber))
+				if err != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to fetch previous L1 head header",
+						"error", err,
+						"height", lastL1HeadNumber,
+					)
+					l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+					nextL1EventPoll = time.Now().Add(l1EventBackoff)
+					continue
+				}
+				if prevHeader.Hash() != lastL1HeadHash {
+					log.Warn(
+						"L1 head changed across skipped heights",
+						"previousHeight", lastL1HeadNumber,
+						"previousHash", lastL1HeadHash,
+						"canonicalHash", prevHeader.Hash(),
+					)
+				}
+			}
 			if head != lastL1HeadNumber {
 				if head > lastL1HeadNumber {
 					if parentMismatch {
@@ -331,7 +401,12 @@ func (p *Prover) eventLoop() {
 			if confirmedHead != head {
 				confirmedHeader, err = p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(confirmedHead))
 				if err != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
 					log.Warn("Failed to fetch confirmed L1 head header", "error", err, "height", confirmedHead)
+					l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+					nextL1EventPoll = time.Now().Add(l1EventBackoff)
 					continue
 				}
 			}
@@ -358,9 +433,38 @@ func (p *Prover) eventLoop() {
 					"parent", confirmedHeader.ParentHash,
 					"previous", lastConfirmedHash,
 				)
-				reorgStart := confirmedHead - 1
+				reorgStart := confirmedHead
+				if confirmedHead > 0 {
+					reorgStart = confirmedHead - 1
+				}
 				if reorgStart < start {
 					start = reorgStart
+				}
+			} else if confirmedHead > lastConfirmedBlock+1 && lastConfirmedHashInit {
+				prevHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(lastConfirmedBlock))
+				if err != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to fetch previous confirmed L1 header",
+						"error", err,
+						"height", lastConfirmedBlock,
+					)
+					l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+					nextL1EventPoll = time.Now().Add(l1EventBackoff)
+					continue
+				}
+				if prevHeader.Hash() != lastConfirmedHash {
+					log.Warn(
+						"L1 confirmed head changed across skipped heights",
+						"previousHeight", lastConfirmedBlock,
+						"previousHash", lastConfirmedHash,
+						"canonicalHash", prevHeader.Hash(),
+					)
+					if lastConfirmedBlock < start {
+						start = lastConfirmedBlock
+					}
 				}
 			}
 			if !lastConfirmedHashInit {
@@ -368,13 +472,41 @@ func (p *Prover) eventLoop() {
 				lastConfirmedHashInit = true
 			}
 			if start <= confirmedHead {
-				if err := p.pollL1Events(p.ctx, start, confirmedHead); err != nil {
-					log.Warn("Failed to poll L1 protocol events", "error", err)
-				} else {
-					lastConfirmedBlock = confirmedHead
-					lastConfirmedHash = confirmedHash
-					lastConfirmedHashInit = true
+				if pollInFlight {
+					continue
 				}
+				pollInFlight = true
+				startPoll := start
+				endPoll := confirmedHead
+				endHash := confirmedHash
+				go func() {
+					processed, processedAny, err := p.pollL1Events(p.ctx, startPoll, endPoll)
+					result := l1PollResult{
+						processed:    processed,
+						processedAny: processedAny,
+						err:          err,
+					}
+					if processedAny {
+						if processed == endPoll {
+							result.processedHash = endHash
+							result.processedHashOk = true
+						} else {
+							header, hashErr := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(processed))
+							if hashErr != nil {
+								if result.err == nil {
+									result.err = hashErr
+								}
+							} else {
+								result.processedHash = header.Hash()
+								result.processedHashOk = true
+							}
+						}
+					}
+					select {
+					case l1PollResultCh <- result:
+					case <-p.ctx.Done():
+					}
+				}()
 			}
 		case <-forceProvingTicker.C:
 			reqProving()
@@ -397,24 +529,39 @@ func confirmedL1Block(head uint64, confirmations uint64) (uint64, bool) {
 	return head - confirmations, true
 }
 
-func (p *Prover) pollL1Events(ctx context.Context, start, end uint64) error {
+func (p *Prover) pollL1Events(ctx context.Context, start, end uint64) (uint64, bool, error) {
 	if start > end {
-		return nil
+		return 0, false, nil
 	}
+	var processed uint64
+	var processedAny bool
 	for from := start; from <= end; {
 		to := from + l1LogPollMaxRange - 1
 		if to < from || to > end {
 			to = end
 		}
 		if err := p.handleL1EventRange(ctx, from, to); err != nil {
-			return err
+			return processed, processedAny, err
 		}
+		processed = to
+		processedAny = true
 		if to == end {
 			break
 		}
 		from = to + 1
 	}
-	return nil
+	return processed, processedAny, nil
+}
+
+func nextL1PollBackoff(current time.Duration, min, max time.Duration) time.Duration {
+	if current < min {
+		return min
+	}
+	next := current * 2
+	if next > max {
+		return max
+	}
+	return next
 }
 
 func (p *Prover) handleL1EventRange(ctx context.Context, start, end uint64) error {

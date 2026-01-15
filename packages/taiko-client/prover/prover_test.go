@@ -197,7 +197,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
-	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 
 	// Propose and prove the second Shasta proposal.
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
@@ -205,7 +205,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
-	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {

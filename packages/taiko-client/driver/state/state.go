@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	l1HeadPollInterval = time.Second
-	l1LogPollMaxRange  = uint64(1000)
+	l1HeadPollInterval   = time.Second
+	l1HeadPollMaxBackoff = 30 * time.Second
+	l1LogPollMaxRange    = uint64(1000)
 )
 
 // State contains all states which will be used by driver.
@@ -113,6 +114,9 @@ func (s *State) eventLoop(ctx context.Context) {
 
 		// Subscriptions.
 		l2HeadSub = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+
+		l1HeadBackoff  time.Duration
+		nextL1HeadPoll time.Time
 	)
 
 	defer func() {
@@ -124,6 +128,7 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	lastL1HeadNumber := s.GetL1Head().Number.Uint64()
 	lastL1HeadHash := s.GetL1Head().Hash()
+	// lastL1EventBlock is owned by this event loop goroutine.
 	lastL1EventBlock := lastL1HeadNumber
 
 	for {
@@ -131,16 +136,31 @@ func (s *State) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-l1HeadPoller.C:
+			if !nextL1HeadPoll.IsZero() && time.Now().Before(nextL1HeadPoll) {
+				continue
+			}
 			latest, err := s.rpc.L1.BlockNumber(ctx)
 			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 				log.Warn("Failed to poll L1 head number", "error", err)
+				l1HeadBackoff = nextL1PollBackoff(l1HeadBackoff, l1HeadPollInterval, l1HeadPollMaxBackoff)
+				nextL1HeadPoll = time.Now().Add(l1HeadBackoff)
 				continue
 			}
 			header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(latest))
 			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 				log.Warn("Failed to fetch L1 head header", "error", err, "height", latest)
+				l1HeadBackoff = nextL1PollBackoff(l1HeadBackoff, l1HeadPollInterval, l1HeadPollMaxBackoff)
+				nextL1HeadPoll = time.Now().Add(l1HeadBackoff)
 				continue
 			}
+			l1HeadBackoff = 0
+			nextL1HeadPoll = time.Time{}
 			sameHeight := latest == lastL1HeadNumber
 			sameHash := header.Hash() == lastL1HeadHash
 			parentMismatch := latest == lastL1HeadNumber+1 && header.ParentHash != lastL1HeadHash
@@ -170,9 +190,38 @@ func (s *State) eventLoop(ctx context.Context) {
 					"parent", header.ParentHash,
 					"previous", lastL1HeadHash,
 				)
-				reorgStart := latest - 1
+				reorgStart := latest
+				if latest > 0 {
+					reorgStart = latest - 1
+				}
 				if reorgStart < start {
 					start = reorgStart
+				}
+			} else if latest > lastL1HeadNumber+1 && lastL1HeadHash != (common.Hash{}) {
+				prevHeader, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(lastL1HeadNumber))
+				if err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to fetch previous L1 head header",
+						"error", err,
+						"height", lastL1HeadNumber,
+					)
+					l1HeadBackoff = nextL1PollBackoff(l1HeadBackoff, l1HeadPollInterval, l1HeadPollMaxBackoff)
+					nextL1HeadPoll = time.Now().Add(l1HeadBackoff)
+					continue
+				}
+				if prevHeader.Hash() != lastL1HeadHash {
+					log.Warn(
+						"L1 head changed across skipped heights; rewinding L1 event polling cursor",
+						"previousHeight", lastL1HeadNumber,
+						"previousHash", lastL1HeadHash,
+						"canonicalHash", prevHeader.Hash(),
+					)
+					if lastL1HeadNumber < start {
+						start = lastL1HeadNumber
+					}
 				}
 			}
 			lastL1HeadNumber = latest
@@ -180,10 +229,19 @@ func (s *State) eventLoop(ctx context.Context) {
 			s.setL1Head(header)
 			s.l1HeadsFeed.Send(header)
 			if start <= latest {
-				if err := s.pollL1Events(ctx, start, latest); err != nil {
-					log.Warn("Failed to poll L1 protocol events", "error", err)
-				} else {
-					lastL1EventBlock = latest
+				processed, processedAny, err := s.pollL1Events(ctx, start, latest)
+				if processedAny {
+					lastL1EventBlock = processed
+				}
+				if err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to poll L1 protocol events",
+						"error", err,
+						"processedThrough", processed,
+					)
 				}
 			}
 		case newHead := <-l2HeadCh:
@@ -192,24 +250,39 @@ func (s *State) eventLoop(ctx context.Context) {
 	}
 }
 
-func (s *State) pollL1Events(ctx context.Context, start, end uint64) error {
+func (s *State) pollL1Events(ctx context.Context, start, end uint64) (uint64, bool, error) {
 	if start > end {
-		return nil
+		return 0, false, nil
 	}
+	var processed uint64
+	var processedAny bool
 	for from := start; from <= end; {
 		to := from + l1LogPollMaxRange - 1
 		if to < from || to > end {
 			to = end
 		}
 		if err := s.handleL1EventRange(ctx, from, to); err != nil {
-			return err
+			return processed, processedAny, err
 		}
+		processed = to
+		processedAny = true
 		if to == end {
 			break
 		}
 		from = to + 1
 	}
-	return nil
+	return processed, processedAny, nil
+}
+
+func nextL1PollBackoff(current time.Duration, min, max time.Duration) time.Duration {
+	if current < min {
+		return min
+	}
+	next := current * 2
+	if next > max {
+		return max
+	}
+	return next
 }
 
 func (s *State) handleL1EventRange(ctx context.Context, start, end uint64) error {
