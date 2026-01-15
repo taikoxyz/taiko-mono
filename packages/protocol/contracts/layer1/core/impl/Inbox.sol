@@ -538,7 +538,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0,
+                _ringBufferSize > uint256(_nextProposalId) - uint256(_lastFinalizedProposalId),
                 NotEnoughCapacity()
             );
 
@@ -711,25 +711,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Private View/Pure Functions
     // ---------------------------------------------------------------
-
-    /// @dev Calculates remaining capacity for new proposals
-    /// Subtracts unfinalized proposals from total capacity
-    /// @param _nextProposalId The next proposal ID
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(
-        uint48 _nextProposalId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        view
-        returns (uint256)
-    {
-        unchecked {
-            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
-        }
-    }
 
     /// @dev Validates propose function inputs.
     /// @param _input The ProposeInput to validate
