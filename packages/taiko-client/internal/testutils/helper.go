@@ -169,12 +169,13 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	cursor := NewProposalEventCursor(l1Head.Number.Uint64())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+	var txHash common.Hash
 
 	// RLP encoded empty list
 	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-	meta, txHash, cursor, err := s.WaitForNextProposalEvent(ctx, cursor)
+	meta, _, cursor, err := s.WaitForNextProposalEvent(ctx, cursor)
 	s.Nil(err)
 	metadataList = append(metadataList, meta)
 
@@ -182,7 +183,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.InitShastaGenesisProposal()
 	s.ProposeValidBlock(proposer)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-	meta, txHash, cursor, err = s.WaitForNextProposalEvent(ctx, cursor)
+	meta, _, cursor, err = s.WaitForNextProposalEvent(ctx, cursor)
 	s.Nil(err)
 	metadataList = append(metadataList, meta)
 
@@ -190,7 +191,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.InitShastaGenesisProposal()
 	s.proposeEmptyBlockOp(context.Background(), proposer)
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
-	meta, txHash, cursor, err = s.WaitForNextProposalEvent(ctx, cursor)
+	meta, txHash, _, err = s.WaitForNextProposalEvent(ctx, cursor)
 	s.Nil(err)
 	metadataList = append(metadataList, meta)
 
@@ -263,10 +264,10 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Minute)
+	defer syncCancel()
 
-	s.Nil(backoff.Retry(func() error { return chainSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
+	s.Nil(backoff.Retry(func() error { return chainSyncer.ProcessL1Blocks(syncCtx) }, backoff.NewExponentialBackOff()))
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
