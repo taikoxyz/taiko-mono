@@ -116,11 +116,34 @@ func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 // all new L1 blocks.
 func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	var (
-		l1End          = s.state.GetL1Head()
 		startL1Current = s.state.GetL1Current()
 	)
+	l1End, err := s.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to fetch L1 head: %w", err)
+	}
 	// If there is a L1 reorg, sometimes this will happen.
-	if startL1Current.Number.Uint64() >= l1End.Number.Uint64() && startL1Current.Hash() != l1End.Hash() {
+	if startL1Current.Number.Uint64() > l1End.Number.Uint64() {
+		rewindTo := new(big.Int).Set(l1End.Number)
+		if l1End.Number.Cmp(common.Big0) > 0 {
+			rewindTo = new(big.Int).Sub(l1End.Number, common.Big1)
+		}
+		newL1Current, err := s.rpc.L1.HeaderByNumber(ctx, rewindTo)
+		if err != nil {
+			return fmt.Errorf("failed to fetch L1 header during reorg rewind: %w", err)
+		}
+		log.Info(
+			"L1 current ahead of head; rewinding cursor",
+			"oldL1CurrentHeight", startL1Current.Number,
+			"oldL1CurrentHash", startL1Current.Hash(),
+			"newL1CurrentHeight", newL1Current.Number,
+			"newL1CurrentHash", newL1Current.Hash(),
+			"l1Head", l1End.Number,
+		)
+		s.state.SetL1Current(newL1Current)
+		s.lastInsertedBatchID = nil
+		startL1Current = newL1Current
+	} else if startL1Current.Number.Uint64() == l1End.Number.Uint64() && startL1Current.Hash() != l1End.Hash() {
 		newL1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).Sub(l1End.Number, common.Big1))
 		if err != nil {
 			return fmt.Errorf("failed to fetch L1 header during reorg detection: %w", err)
@@ -137,11 +160,30 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 
 		s.state.SetL1Current(newL1Current)
 		s.lastInsertedBatchID = nil
+		startL1Current = newL1Current
+	} else if startL1Current.Number.Uint64()+1 == l1End.Number.Uint64() && l1End.ParentHash != startL1Current.Hash() {
+		newL1Current, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).Sub(l1End.Number, common.Big1))
+		if err != nil {
+			return fmt.Errorf("failed to fetch L1 header during reorg detection: %w", err)
+		}
+
+		log.Info(
+			"Reorg detected (parent mismatch)",
+			"oldL1CurrentHeight", startL1Current.Number,
+			"oldL1CurrentHash", startL1Current.Hash(),
+			"newL1CurrentHeight", newL1Current.Number,
+			"newL1CurrentHash", newL1Current.Hash(),
+			"l1Head", l1End.Number,
+		)
+
+		s.state.SetL1Current(newL1Current)
+		s.lastInsertedBatchID = nil
+		startL1Current = newL1Current
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		RpcClient:            s.rpc,
-		StartHeight:          s.state.GetL1Current().Number,
+		StartHeight:          startL1Current.Number,
 		EndHeight:            l1End.Number,
 		OnBatchProposedEvent: s.onBatchProposed,
 	})
