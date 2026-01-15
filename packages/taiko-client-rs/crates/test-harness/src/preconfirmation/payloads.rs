@@ -196,6 +196,7 @@ fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
 }
 
 /// Internal helper to build a PreparedBlock with optional parent hash.
+#[allow(clippy::too_many_arguments)]
 fn build_prepared_block(
     signer_sk: &SecretKey,
     signer: Address,
@@ -247,6 +248,7 @@ fn build_prepared_block(
 /// * `submission_window_end` - End of the submission window for all commitments.
 /// * `start_block` - First block number in the chain.
 /// * `count` - Number of blocks to generate.
+/// * `base_timestamp` - Base timestamp for the first block (typically parent timestamp + 1).
 ///
 /// # Returns
 ///
@@ -256,9 +258,9 @@ fn build_prepared_block(
 /// # Example
 ///
 /// ```ignore
-/// let chain = build_commitment_chain(&sk, addr, window_end, 100, 5)?;
-/// // chain[0] has parent_hash = 0x00...
-/// // chain[1] has parent_hash = hash(chain[0].commitment)
+/// let chain = build_commitment_chain(&sk, addr, window_end, 100, 5, 1000)?;
+/// // chain[0] has parent_hash = 0x00..., timestamp = 1000
+/// // chain[1] has parent_hash = hash(chain[0].commitment), timestamp = 1001
 /// // etc.
 /// ```
 pub fn build_commitment_chain(
@@ -267,6 +269,7 @@ pub fn build_commitment_chain(
     submission_window_end: U256,
     start_block: u64,
     count: usize,
+    base_timestamp: u64,
 ) -> Result<Vec<PreparedBlock>> {
     use preconfirmation_types::preconfirmation_hash;
 
@@ -276,7 +279,7 @@ pub fn build_commitment_chain(
 
     for i in 0..count {
         let block_number = start_block + i as u64;
-        let timestamp = 100 + i as u64;
+        let timestamp = base_timestamp + i as u64;
         let txlist_bytes = build_txlist_bytes(block_number)?;
 
         let block = build_prepared_block(

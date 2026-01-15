@@ -2,11 +2,14 @@
 //!
 //! This module provides utilities for testing the preconfirmation client:
 //!
-//! ## Mock Implementations
+//! ## Driver Implementations
 //! - [`MockDriverClient`]: A mock driver client that records submissions for verification.
+//! - [`SafeTipDriverClient`]: Wraps a real driver client with safe-tip fallback.
+//! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
+//!
+//! ## Lookahead Resolvers
 //! - [`StaticLookaheadResolver`]: A static lookahead resolver for deterministic tests.
 //! - [`EchoLookaheadResolver`]: A resolver that echoes the timestamp as submission window end.
-//! - [`SafeTipDriverClient`]: Wraps a real driver client with safe-tip fallback.
 //!
 //! ## P2P Testing
 //! - [`test_p2p_config`]: Creates a local-only P2P config for isolated tests.
@@ -35,7 +38,7 @@ mod p2p;
 mod payloads;
 
 pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
-pub use driver::{MockDriverClient, SafeTipDriverClient};
+pub use driver::{MockDriverClient, RealDriverSetup, SafeTipDriverClient, StartingBlockInfo};
 pub use events::{
     wait_for_commitment_and_txlist, wait_for_commitments_and_txlists, wait_for_peer_connected,
     wait_for_synced,

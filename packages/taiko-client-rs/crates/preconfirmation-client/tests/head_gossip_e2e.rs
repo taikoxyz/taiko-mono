@@ -5,8 +5,6 @@
 
 #[path = "common/helpers.rs"]
 mod helpers;
-#[path = "common/mock_driver.rs"]
-mod mock_driver;
 
 use std::{
     sync::Arc,
@@ -16,15 +14,18 @@ use std::{
 use alloy_primitives::U256;
 use anyhow::{Result, anyhow};
 use helpers::{
-    ExternalP2pNode, PreparedBlock, build_publish_payloads, compute_starting_block, derive_signer,
-    test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
+    ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, test_p2p_config,
+    wait_for_commitment_and_txlist, wait_for_peer_connected,
 };
-use mock_driver::MockDriver;
 use preconfirmation_net::P2pHandle;
 use preconfirmation_types::uint256_to_u256;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
+use test_harness::{
+    ShastaEnv,
+    preconfirmation::{RealDriverSetup, StaticLookaheadResolver},
+    wait_for_block,
+};
 use tokio::time::sleep;
 
 async fn wait_for_head(
@@ -52,14 +53,13 @@ async fn wait_for_head(
 #[test_context(ShastaEnv)]
 #[serial]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
-async fn head_update_propagates_to_peer(_env: &mut ShastaEnv) -> anyhow::Result<()> {
-    let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
+async fn head_update_propagates_to_peer(env: &mut ShastaEnv) -> anyhow::Result<()> {
+    let setup = RealDriverSetup::start(env).await?;
 
     let (signer_sk, signer) = derive_signer(7);
     let submission_window_end = U256::from(2500u64);
 
-    let commitment_block_num = compute_starting_block(&driver_client).await?;
-    let commitment_block = U256::from(commitment_block_num);
+    let block_info = setup.compute_starting_block_info_full().await?;
 
     let resolver = StaticLookaheadResolver::new(signer, submission_window_end);
 
@@ -75,7 +75,7 @@ async fn head_update_propagates_to_peer(_env: &mut ShastaEnv) -> anyhow::Result<
     int_cfg.p2p.pre_dial_peers = vec![ext_dial_addr];
 
     let internal_client =
-        preconfirmation_client::PreconfirmationClient::new(int_cfg, driver_client.clone())?;
+        preconfirmation_client::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
     let mut event_loop = internal_client.sync_and_catchup().await?;
@@ -87,9 +87,9 @@ async fn head_update_propagates_to_peer(_env: &mut ShastaEnv) -> anyhow::Result<
     let PreparedBlock { txlist, commitment } = build_publish_payloads(
         &signer_sk,
         signer,
-        commitment_block_num,
-        1,
-        30_000_000,
+        block_info.block_number,
+        block_info.base_timestamp,
+        block_info.parent_gas_limit,
         submission_window_end,
         false,
     )?;
@@ -97,11 +97,19 @@ async fn head_update_propagates_to_peer(_env: &mut ShastaEnv) -> anyhow::Result<
     ext_node.handle.publish_commitment(commitment).await?;
 
     wait_for_commitment_and_txlist(&mut events).await;
-    driver_client.wait_for_submissions(1).await;
 
+    // Wait for actual block to be produced on chain.
+    let block =
+        wait_for_block(&setup.l2_provider, block_info.block_number, Duration::from_secs(30))
+            .await?;
+    assert_eq!(block.header.inner.number, block_info.block_number, "block number mismatch");
+
+    // Verify head propagated to peer.
+    let commitment_block = U256::from(block_info.block_number);
     wait_for_head(&mut ext_node.handle, commitment_block, Duration::from_secs(3)).await?;
 
     event_loop_handle.abort();
     ext_node.abort();
+    setup.stop().await?;
     Ok(())
 }

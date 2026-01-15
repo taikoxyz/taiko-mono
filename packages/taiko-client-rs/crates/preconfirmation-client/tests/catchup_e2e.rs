@@ -6,44 +6,46 @@
 
 #[path = "common/helpers.rs"]
 mod helpers;
-#[path = "common/mock_driver.rs"]
-mod mock_driver;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::{B256, U256};
 use anyhow::anyhow;
 use helpers::{
-    ExternalP2pNode, build_commitment_chain, compute_starting_block, derive_signer,
-    test_p2p_config, wait_for_peer_connected, wait_for_synced,
+    ExternalP2pNode, build_commitment_chain, derive_signer, test_p2p_config,
+    wait_for_peer_connected, wait_for_synced,
 };
-use mock_driver::MockDriver;
 use preconfirmation_client::{PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{PreconfHead, u256_to_uint256, uint256_to_u256};
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
+use test_harness::{
+    ShastaEnv,
+    preconfirmation::{RealDriverSetup, StaticLookaheadResolver},
+    wait_for_block,
+};
 
-/// Catch-up should backfill commitments, fetch txlists, and submit in order.
+/// Catch-up should backfill commitments, fetch txlists, and produce blocks in order.
 #[test_context(ShastaEnv)]
 #[serial]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
-async fn catchup_backfills_and_fetches_txlists(_env: &mut ShastaEnv) -> anyhow::Result<()> {
-    let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
+async fn catchup_backfills_and_fetches_txlists(env: &mut ShastaEnv) -> anyhow::Result<()> {
+    let setup = RealDriverSetup::start(env).await?;
 
     let (signer_sk, signer) = derive_signer(9);
     let submission_window_end = U256::from(5000u64);
 
-    let start_block_num = compute_starting_block(&driver_client).await?;
+    let (start_block_num, base_timestamp) = setup.compute_starting_block_info().await?;
 
-    let chain_len = 3;
+    let chain_len = 3usize;
     let chain = build_commitment_chain(
         &signer_sk,
         signer,
         submission_window_end,
         start_block_num,
         chain_len,
+        base_timestamp,
     )?;
 
     // External P2P node seeded with commitments and txlists.
@@ -75,7 +77,7 @@ async fn catchup_backfills_and_fetches_txlists(_env: &mut ShastaEnv) -> anyhow::
         PreconfirmationClientConfig::new_with_resolver(test_p2p_config(), Arc::new(resolver));
     int_cfg.p2p.pre_dial_peers = vec![ext_dial_addr];
 
-    let internal_client = PreconfirmationClient::new(int_cfg, driver_client.clone())?;
+    let internal_client = PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
     let mut event_loop = internal_client.sync_and_catchup().await?;
@@ -84,16 +86,20 @@ async fn catchup_backfills_and_fetches_txlists(_env: &mut ShastaEnv) -> anyhow::
     wait_for_peer_connected(&mut events).await;
     wait_for_synced(&mut events).await;
 
-    driver_client.wait_for_submissions(chain_len).await;
-
-    let submitted = driver_client.submitted_blocks();
-    assert_eq!(submitted.len(), chain_len);
-    for (i, &block_num) in submitted.iter().enumerate() {
-        let expected = start_block_num + i as u64;
-        assert_eq!(block_num, expected, "block {} should be {}, got {}", i, expected, block_num);
+    // Wait for all blocks to be produced on chain.
+    let timeout = Duration::from_secs(30);
+    for i in 0..chain_len {
+        let block_num = start_block_num + i as u64;
+        let block = wait_for_block(&setup.l2_provider, block_num, timeout).await?;
+        assert_eq!(
+            block.header.inner.number, block_num,
+            "block {} should be {}, got {}",
+            i, block_num, block.header.inner.number
+        );
     }
 
     event_loop_handle.abort();
     ext_node.abort();
+    setup.stop().await?;
     Ok(())
 }
