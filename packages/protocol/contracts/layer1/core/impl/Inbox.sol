@@ -87,6 +87,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
+    /// @notice The delay after which proving becomes permissionless when whitelist is enabled.
+    uint48 internal immutable _permissionlessProvingDelay;
+
     /// @notice Maximum delay allowed between sequential proofs to remain on time.
     uint48 internal immutable _maxProofSubmissionDelay;
 
@@ -158,6 +161,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _livenessBond = _config.livenessBond;
         _withdrawalDelay = _config.withdrawalDelay;
         _provingWindow = _config.provingWindow;
+        _permissionlessProvingDelay = _config.permissionlessProvingDelay;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
@@ -229,7 +233,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IInbox
-    ///
+    /// @dev When prover whitelist is enabled, only the whitested prover(s) can prove. If
+    /// there are not proofs submitted for `permissionlessProvingDelay` seconds, proving becomes
+    /// permisionless.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
     /// can start at or before the last finalized proposal to handle race conditions where
@@ -259,7 +265,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
@@ -271,6 +276,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // `offset` is the index of the next-to-finalize proposal in the transitions array.
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
+
+            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
+            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
 
             // ---------------------------------------------------------
             // 2. Verify checkpoint hash continuity and last proposal hash
@@ -312,17 +320,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             // ---------------------------------------------------------
-            // 5. Compute proposalAge (for single-proposal proofs only)
-            // ---------------------------------------------------------
-            uint256 proposalAge;
-            if (numProposals == 1) {
-                // We count proposalAge as the time since it became available for proving.
-                proposalAge = block.timestamp
-                    - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
-            }
-
-            // ---------------------------------------------------------
-            // 6. Update core state and emit event
+            // 5. Update core state and emit event
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
@@ -339,10 +337,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             );
 
             // ---------------------------------------------------------
-            // 7. Verify the proof
+            // 6. Verify the proof
             // ---------------------------------------------------------
+            // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
+            // Single-proposal proofs pass actual age for age-based verification logic.
             _proofVerifier.verifyProof(
-                proposalAge, LibHashOptimized.hashCommitment(commitment), _proof
+                numProposals - offset == 1 ? proposalAge : 0,
+                LibHashOptimized.hashCommitment(commitment),
+                _proof
             );
         }
     }
@@ -484,6 +486,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             livenessBond: _livenessBond,
             withdrawalDelay: _withdrawalDelay,
             provingWindow: _provingWindow,
+            permissionlessProvingDelay: _permissionlessProvingDelay,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
@@ -737,16 +740,27 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Checks if the caller is an authorized prover
-    /// @param _addr The address of the caller to check
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
-    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
+    /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
+    ///      becomes permissionless once a proposal is older than the permissionless delay.
+    /// @param _addr The address of the caller to check.
+    /// @param _proposalAge The age in seconds since the proposal became available for proving.
+    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise.
+    function _checkProver(
+        address _addr,
+        uint256 _proposalAge
+    )
+        private
+        view
+        returns (bool whitelistEnabled_)
+    {
         if (address(_proverWhitelist) == address(0)) return false;
 
         (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
         if (proverCount == 0) return false;
 
-        require(isWhitelisted, ProverNotWhitelisted());
+        if (!isWhitelisted) {
+            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
+        }
         return true;
     }
 
