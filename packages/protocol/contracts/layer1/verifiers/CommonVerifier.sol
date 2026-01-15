@@ -33,8 +33,9 @@ contract CommonVerifier is ComposeVerifier {
     {
         if (_verifiers.length != 2) return false;
 
-        return _verifiers[0] == sgxGethVerifier && (_verifiers[1] == sgxRethVerifier
-            || _verifiers[1] == risc0RethVerifier
-            || _verifiers[1] == sp1RethVerifier);
+        return _verifiers[0] == sgxGethVerifier
+            && (_verifiers[1] == sgxRethVerifier
+                || _verifiers[1] == risc0RethVerifier
+                || _verifiers[1] == sp1RethVerifier);
     }
 }
