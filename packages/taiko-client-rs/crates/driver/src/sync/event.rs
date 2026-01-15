@@ -678,6 +678,48 @@ where
                         next_block = rewind_to;
                     }
                 }
+                if latest > last_number.saturating_add(1) {
+                    let canonical_block = match self
+                        .rpc
+                        .l1_provider
+                        .get_block_by_number(BlockNumberOrTag::Number(last_number))
+                        .await
+                    {
+                        Ok(Some(block)) => block,
+                        Ok(None) => {
+                            counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                            warn!(
+                                last_number,
+                                "missing canonical L1 block for last head; retrying"
+                            );
+                            continue;
+                        }
+                        Err(err) => {
+                            counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                            error!(
+                                ?err,
+                                last_number,
+                                "failed to fetch canonical L1 block for last head"
+                            );
+                            continue;
+                        }
+                    };
+                    let canonical_hash = canonical_block.hash();
+                    if canonical_hash != last_hash {
+                        let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+                        warn!(
+                            latest,
+                            next_block,
+                            rewind_to,
+                            last_head_hash = ?last_hash,
+                            canonical_hash = ?canonical_hash,
+                            "L1 head skipped blocks and last head hash changed; rewinding proposal scan"
+                        );
+                        if rewind_to < next_block {
+                            next_block = rewind_to;
+                        }
+                    }
+                }
             }
             last_head_number = Some(latest);
             last_head_hash = Some(latest_hash);

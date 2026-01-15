@@ -17,6 +17,8 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -210,17 +212,8 @@ func (p *Prover) eventLoop() {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
-	// reqProving requests performing a proving operation, won't block
-	// if we are already proving.
-	reqProving := func() {
-		select {
-		case p.proveNotify <- struct{}{}:
-		default:
-		}
-	}
-
-	// Call reqProving() right away to catch up with the latest state.
-	reqProving()
+	// Call requestProving() right away to catch up with the latest state.
+	p.requestProving()
 
 	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoInbox contract, there will be no
 	// new BatchProposed event temporarily, so except the BatchProposed subscription, we need another trigger to start
@@ -228,18 +221,48 @@ func (p *Prover) eventLoop() {
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		p.l1EventPollLoop()
+	}()
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case batchProof := <-p.batchProofGenerationCh:
+			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
+		case req := <-p.proofSubmissionCh:
+			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
+		case <-p.proveNotify:
+			if err := p.proveOp(); err != nil {
+				log.Error("Prove new blocks error", "error", err)
+			}
+		case proofType := <-p.batchesAggregationNotifyPacaya:
+			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
+		case proofType := <-p.batchesAggregationNotifyShasta:
+			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
+		case proofType := <-p.flushCacheNotify:
+			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
+		case m := <-p.assignmentExpiredCh:
+			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
+		case <-forceProvingTicker.C:
+			p.requestProving()
+		}
+	}
+}
+
+func (p *Prover) requestProving() {
+	select {
+	case p.proveNotify <- struct{}{}:
+	default:
+	}
+}
+
+func (p *Prover) l1EventPollLoop() {
 	l1EventPoller := time.NewTicker(l1EventPollInterval)
 	defer l1EventPoller.Stop()
-
-	type l1PollResult struct {
-		processed       uint64
-		processedAny    bool
-		processedHash   common.Hash
-		processedHashOk bool
-		err             error
-	}
-
-	l1PollResultCh := make(chan l1PollResult, 1)
 
 	var (
 		lastL1HeadNumber      uint64
@@ -249,8 +272,8 @@ func (p *Prover) eventLoop() {
 		lastConfirmedHashInit bool
 		l1EventBackoff        time.Duration
 		nextL1EventPoll       time.Time
-		pollInFlight          bool
 	)
+
 	if head, err := p.rpc.L1.BlockNumber(p.ctx); err != nil {
 		log.Warn("Failed to fetch initial L1 head number", "error", err)
 	} else {
@@ -280,39 +303,6 @@ func (p *Prover) eventLoop() {
 		select {
 		case <-p.ctx.Done():
 			return
-		case pollResult := <-l1PollResultCh:
-			pollInFlight = false
-			if pollResult.processedAny && pollResult.processedHashOk {
-				lastConfirmedBlock = pollResult.processed
-				lastConfirmedHash = pollResult.processedHash
-				lastConfirmedHashInit = true
-			}
-			if pollResult.err != nil {
-				if p.ctx.Err() != nil {
-					return
-				}
-				log.Warn(
-					"Failed to poll L1 protocol events",
-					"error", pollResult.err,
-					"processedThrough", pollResult.processed,
-				)
-			}
-		case batchProof := <-p.batchProofGenerationCh:
-			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
-		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
-		case <-p.proveNotify:
-			if err := p.proveOp(); err != nil {
-				log.Error("Prove new blocks error", "error", err)
-			}
-		case proofType := <-p.batchesAggregationNotifyPacaya:
-			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
-		case proofType := <-p.batchesAggregationNotifyShasta:
-			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
-		case proofType := <-p.flushCacheNotify:
-			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
-		case m := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-l1EventPoller.C:
 			if !nextL1EventPoll.IsZero() && time.Now().Before(nextL1EventPoll) {
 				continue
@@ -377,7 +367,7 @@ func (p *Prover) eventLoop() {
 							"previous", lastL1HeadHash,
 						)
 					}
-					reqProving()
+					p.requestProving()
 				} else {
 					log.Warn("L1 head regressed", "from", lastL1HeadNumber, "to", head)
 				}
@@ -388,7 +378,7 @@ func (p *Prover) eventLoop() {
 					"hash", headHash,
 					"previous", lastL1HeadHash,
 				)
-				reqProving()
+				p.requestProving()
 			}
 			lastL1HeadNumber = head
 			lastL1HeadHash = headHash
@@ -472,44 +462,41 @@ func (p *Prover) eventLoop() {
 				lastConfirmedHashInit = true
 			}
 			if start <= confirmedHead {
-				if pollInFlight {
-					continue
-				}
-				pollInFlight = true
-				startPoll := start
-				endPoll := confirmedHead
-				endHash := confirmedHash
-				go func() {
-					processed, processedAny, err := p.pollL1Events(p.ctx, startPoll, endPoll)
-					result := l1PollResult{
-						processed:    processed,
-						processedAny: processedAny,
-						err:          err,
-					}
-					if processedAny {
-						if processed == endPoll {
-							result.processedHash = endHash
-							result.processedHashOk = true
-						} else {
-							header, hashErr := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(processed))
-							if hashErr != nil {
-								if result.err == nil {
-									result.err = hashErr
-								}
-							} else {
-								result.processedHash = header.Hash()
-								result.processedHashOk = true
+				processed, processedAny, pollErr := p.pollL1Events(p.ctx, start, confirmedHead)
+				processedHashOk := false
+				var processedHash common.Hash
+				if processedAny {
+					if processed == confirmedHead {
+						processedHash = confirmedHash
+						processedHashOk = true
+					} else {
+						header, hashErr := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(processed))
+						if hashErr != nil {
+							if pollErr == nil {
+								pollErr = hashErr
 							}
+						} else {
+							processedHash = header.Hash()
+							processedHashOk = true
 						}
 					}
-					select {
-					case l1PollResultCh <- result:
-					case <-p.ctx.Done():
+				}
+				if processedAny && processedHashOk {
+					lastConfirmedBlock = processed
+					lastConfirmedHash = processedHash
+					lastConfirmedHashInit = true
+				}
+				if pollErr != nil {
+					if p.ctx.Err() != nil {
+						return
 					}
-				}()
+					log.Warn(
+						"Failed to poll L1 protocol events",
+						"error", pollErr,
+						"processedThrough", processed,
+					)
+				}
 			}
-		case <-forceProvingTicker.C:
-			reqProving()
 		}
 	}
 }
@@ -564,12 +551,28 @@ func nextL1PollBackoff(current time.Duration, min, max time.Duration) time.Durat
 	return next
 }
 
+func (p *Prover) retryL1Filter(ctx context.Context, f func() error) error {
+	bo := backoff.NewExponentialBackOff()
+	bo.InitialInterval = p.cfg.BackOffRetryInterval
+	bo.MaxInterval = l1EventPollMaxBackoff
+	bo.MaxElapsedTime = 0
+	bo.Reset()
+	return backoff.Retry(f, backoff.WithContext(backoff.WithMaxRetries(bo, p.cfg.BackOffMaxRetries), ctx))
+}
+
 func (p *Prover) handleL1EventRange(ctx context.Context, start, end uint64) error {
 	endHeight := end
 	opts := &bind.FilterOpts{Start: start, End: &endHeight, Context: ctx}
 
-	verifiedIter, err := p.rpc.PacayaClients.TaikoInbox.FilterBatchesVerified(opts)
-	if err != nil {
+	var verifiedIter *pacayaBindings.TaikoInboxClientBatchesVerifiedIterator
+	if err := p.retryL1Filter(ctx, func() error {
+		iter, err := p.rpc.PacayaClients.TaikoInbox.FilterBatchesVerified(opts)
+		if err != nil {
+			return err
+		}
+		verifiedIter = iter
+		return nil
+	}); err != nil {
 		return err
 	}
 	defer verifiedIter.Close()
@@ -582,8 +585,15 @@ func (p *Prover) handleL1EventRange(ctx context.Context, start, end uint64) erro
 		return err
 	}
 
-	provedIter, err := p.rpc.PacayaClients.TaikoInbox.FilterBatchesProved(opts)
-	if err != nil {
+	var provedIter *pacayaBindings.TaikoInboxClientBatchesProvedIterator
+	if err := p.retryL1Filter(ctx, func() error {
+		iter, err := p.rpc.PacayaClients.TaikoInbox.FilterBatchesProved(opts)
+		if err != nil {
+			return err
+		}
+		provedIter = iter
+		return nil
+	}); err != nil {
 		return err
 	}
 	defer provedIter.Close()
@@ -595,8 +605,15 @@ func (p *Prover) handleL1EventRange(ctx context.Context, start, end uint64) erro
 		return err
 	}
 
-	shastaProvedIter, err := p.rpc.ShastaClients.Inbox.FilterProved(opts, nil)
-	if err != nil {
+	var shastaProvedIter *shastaBindings.ShastaInboxClientProvedIterator
+	if err := p.retryL1Filter(ctx, func() error {
+		iter, err := p.rpc.ShastaClients.Inbox.FilterProved(opts, nil)
+		if err != nil {
+			return err
+		}
+		shastaProvedIter = iter
+		return nil
+	}); err != nil {
 		return err
 	}
 	defer shastaProvedIter.Close()
