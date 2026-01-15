@@ -187,6 +187,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var taikoInboxV3 *v3.TaikoInbox
 
+	var shastaInbox *v4Inbox.ShastaInboxClient
+
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
 
@@ -203,6 +205,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		taikoInboxV3, err = v3.NewTaikoInbox(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "v3.NewTaikoInbox")
+		}
+
+		shastaInbox, err = v4Inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v4Inbox.NewShastaInboxClient")
 		}
 	}
 
@@ -259,6 +266,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.taikol1 = taikoL1
 	i.taikoL1V2 = taikoL1V2
 	i.taikoInboxV3 = taikoInboxV3
+	i.shastaInbox = shastaInbox
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)
