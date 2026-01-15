@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
 	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
+	v4Inbox "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/inbox"
 	v4 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -102,6 +103,7 @@ type Indexer struct {
 	taikol1      *taikol1.TaikoL1
 	taikoL1V2    *v2.TaikoL1
 	taikoInboxV3 *v3.TaikoInbox
+	shastaInbox  *v4Inbox.ShastaInboxClient
 
 	queue queue.Queue
 

@@ -13,7 +13,8 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	mode SyncMode,
 	chainID *big.Int,
 ) error {
-	var startingBlock uint64 = 0
+	if err != nil {
+		var startingBlock uint64 = 0
 
 	if i.taikol1 != nil {
 		slotA, _, err := i.taikol1.GetStateVariables(nil)
@@ -21,9 +22,18 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 			// use v2 bindings
 			slotA, _, err := i.taikoL1V2.GetStateVariables(nil)
 			if err != nil {
+				// use v3 bindings
 				stats, err := i.taikoInboxV3.GetStats1(nil)
 				if err != nil {
-					return errors.Wrap(err, "v3.taikoInboxV3.GetStats1")
+					// use v4 bindings
+					ts, err := i.shastaInbox.ActivationTimestamp(nil)
+					if err != nil {
+						return errors.Wrap(err, "shastaInbox.ActivationTimestamp")
+					}
+
+					if startingBlock, err = i.getBlockByTimestamp(i.ctx, ts.Uint64()); err != nil {
+						return errors.Wrap(err, "getBlockByTimestamp")
+					}
 				}
 
 				startingBlock = stats.GenesisHeight - 1
