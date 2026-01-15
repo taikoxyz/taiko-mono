@@ -25,7 +25,7 @@ use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::{interval, timeout, MissedTickBehavior},
+    time::{MissedTickBehavior, interval, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tracing::{debug, error, info, instrument, warn};
@@ -630,24 +630,20 @@ where
         loop {
             poller.tick().await;
 
-            let latest_block = match self
-                .rpc
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await
-            {
-                Ok(Some(block)) => block,
-                Ok(None) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    warn!("missing latest L1 block; retrying");
-                    continue;
-                }
-                Err(err) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "failed to fetch latest L1 block");
-                    continue;
-                }
-            };
+            let latest_block =
+                match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Latest).await {
+                    Ok(Some(block)) => block,
+                    Ok(None) => {
+                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        warn!("missing latest L1 block; retrying");
+                        continue;
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        error!(?err, "failed to fetch latest L1 block");
+                        continue;
+                    }
+                };
             let latest = latest_block.number();
             let latest_hash = latest_block.hash();
 
@@ -675,12 +671,7 @@ where
             let latest_plus_one = latest.saturating_add(1);
             if latest_plus_one < next_block {
                 let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
-                warn!(
-                    latest,
-                    next_block,
-                    rewind_to,
-                    "L1 head regressed; rewinding proposal scan"
-                );
+                warn!(latest, next_block, rewind_to, "L1 head regressed; rewinding proposal scan");
                 next_block = rewind_to;
                 continue;
             }
@@ -703,12 +694,7 @@ where
                     Ok(logs) => logs,
                     Err(err) => {
                         counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                        error!(
-                            ?err,
-                            from_block,
-                            to_block,
-                            "failed to fetch proposal logs from L1"
-                        );
+                        error!(?err, from_block, to_block, "failed to fetch proposal logs from L1");
                         break;
                     }
                 };

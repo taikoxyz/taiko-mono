@@ -30,9 +30,8 @@ pub struct ProposerSubCommand {
 impl ProposerSubCommand {
     /// Build proposer configuration from command-line arguments.
     fn build_config(&self) -> Result<ProposerConfigs> {
-        let l1_provider_source = SubscriptionSource::Http(RpcUrl::parse(
-            self.common_flags.l1_http_endpoint.as_str(),
-        )?);
+        let l1_provider_source =
+            SubscriptionSource::Http(RpcUrl::parse(self.common_flags.l1_http_endpoint.as_str())?);
 
         Ok(ProposerConfigs {
             l1_provider_source,
