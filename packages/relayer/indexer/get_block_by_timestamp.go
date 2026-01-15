@@ -39,7 +39,13 @@ func (i *Indexer) getBlockByTimestamp(ctx context.Context, targetTimestamp uint6
 	// 3. Estimate target block
 	timeDiff := latestTimestamp - targetTimestamp
 	estimatedBlocksBack := timeDiff / avgBlockTime
-	estimatedBlock := latestBlock - estimatedBlocksBack
+
+	// Prevent underflow: if estimation suggests going back further than the chain exists,
+	// clamp to block 1. Binary search will still find the correct block.
+	var estimatedBlock uint64 = 1
+	if estimatedBlocksBack < latestBlock {
+		estimatedBlock = latestBlock - estimatedBlocksBack
+	}
 
 	// 4. Define search range
 	searchMargin := uint64(1000)
