@@ -1,8 +1,4 @@
-//! End-to-end tests for proposer → driver event sync flows.
-//!
-//! These tests verify that L1 proposals emitted by the proposer are consumed by the
-//! driver's EventSyncer to produce L2 blocks, and that the derivation pipeline
-//! detects already-canonical blocks (known-canonical fast path).
+//! E2E tests for proposer -> driver event sync flows.
 
 use std::{sync::Arc, time::Duration};
 
@@ -50,6 +46,7 @@ fn decode_proposal_id(log: &Log) -> Result<u64> {
         .map_err(|err| anyhow!("decode proposal log failed: {err}"))
 }
 
+/// Submits a proposal transaction and returns the proposal ID and log.
 async fn submit_proposal(
     proposer: &ClientWithWallet,
     request: TransactionRequest,
@@ -68,6 +65,7 @@ async fn submit_proposal(
     Ok((proposal_id, proposal_log))
 }
 
+/// Waits for the event syncer to process a specific proposal.
 async fn wait_for_proposal_processed<P>(
     event_syncer: &EventSyncer<P>,
     driver_client: &Client<P>,
@@ -102,6 +100,7 @@ where
     }
 }
 
+/// Tests the proposer -> driver event sync flow.
 #[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
@@ -111,14 +110,13 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let beacon_stub = BeaconStubServer::start().await?;
     let proposer = proposer_client(env).await?;
 
-    // Build a proposal and start the blob server with its sidecar.
+    // Build a proposal and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()]).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
-    env.start_blob_server(sidecar).await?;
-    let blob_endpoint = env.blob_server_endpoint()?;
+    beacon_stub.set_default_blob_sidecar(sidecar);
 
     // Start event syncer before submitting the proposal.
     let driver_config = DriverConfig::new(
@@ -126,7 +124,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
-        Some(blob_endpoint.clone()),
+        None,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
@@ -172,6 +170,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     Ok(())
 }
 
+/// Tests the known-canonical fast path in the derivation pipeline.
 #[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
@@ -179,6 +178,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     init_tracing("info");
 
     let beacon_stub = BeaconStubServer::start().await?;
+    let beacon_endpoint = beacon_stub.endpoint().clone();
     let proposer = proposer_client(env).await?;
 
     let builder =
@@ -186,15 +186,14 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()]).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
-    env.start_blob_server(sidecar).await?;
-    let blob_endpoint = env.blob_server_endpoint()?;
+    beacon_stub.set_default_blob_sidecar(sidecar);
 
     let driver_config = DriverConfig::new(
         client_config(env),
         Duration::from_millis(50),
-        beacon_stub.endpoint().clone(),
+        beacon_endpoint.clone(),
         None,
-        Some(blob_endpoint.clone()),
+        None,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
@@ -230,9 +229,8 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let canonical_hash = canonical_block.hash();
 
     // Re-process the same proposal via the derivation pipeline.
-    let blob_source = Arc::new(
-        BlobDataSource::new(Some(blob_endpoint.clone()), Some(blob_endpoint.clone()), true).await?,
-    );
+    let blob_source =
+        Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
     let pipeline =
         ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
     let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
@@ -262,6 +260,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     Ok(())
 }
 
+/// Tests processing multiple sequential proposals.
 #[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
@@ -271,21 +270,20 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let beacon_stub = BeaconStubServer::start().await?;
     let proposer = proposer_client(env).await?;
 
-    // Build a proposal once and reuse its sidecar (blob server only serves one sidecar).
+    // Build a proposal once and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()]).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
-    env.start_blob_server(sidecar).await?;
-    let blob_endpoint = env.blob_server_endpoint()?;
+    beacon_stub.set_default_blob_sidecar(sidecar);
 
     let driver_config = DriverConfig::new(
         client_config(env),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
-        Some(blob_endpoint.clone()),
+        None,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);

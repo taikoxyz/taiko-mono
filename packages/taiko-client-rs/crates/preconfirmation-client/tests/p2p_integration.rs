@@ -107,6 +107,7 @@ impl DriverRpcApi for SubmissionSpy {
     }
 }
 
+/// Tests that P2P gossip messages received from an external node trigger driver submission.
 #[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread")]

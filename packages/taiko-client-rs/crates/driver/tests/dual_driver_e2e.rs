@@ -1,4 +1,4 @@
-//! Dual-driver E2E test that verifies P2P gossip propagation between two drivers.
+//! E2E test verifying P2P gossip propagation between two drivers.
 
 use std::{
     io::Write,
@@ -49,14 +49,17 @@ use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, ShastaEnv, init_tracing,
+    BeaconStubServer, PRIORITY_FEE_GWEI, ShastaEnv, init_tracing,
     preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
 };
-use tokio::{spawn, sync::oneshot, task::JoinHandle, time::sleep};
+use tokio::{
+    spawn,
+    sync::oneshot,
+    task::JoinHandle,
+    time::{Instant, sleep},
+};
 use tracing::{info, warn};
 use url::Url;
-
-// === Helpers ===
 
 /// Creates a local-only P2P config for tests (ephemeral ports, discovery disabled).
 fn test_p2p_config() -> P2pConfig {
@@ -73,12 +76,14 @@ fn test_p2p_config() -> P2pConfig {
     }
 }
 
+/// Signed transfer transaction with expected hash and sender for assertions.
 struct TransferPayload {
     raw_bytes: Bytes,
     hash: B256,
     from: Address,
 }
 
+/// Computes the expected base fee for the next block using EIP-4396 rules.
 async fn compute_next_block_base_fee<P>(provider: &P, parent_block_number: u64) -> Result<u64>
 where
     P: Provider + Send + Sync,
@@ -103,8 +108,7 @@ where
     Ok(calculate_next_block_eip4396_base_fee(&parent_header, time_delta))
 }
 
-const PRIORITY_FEE_GWEI: u128 = 10_000_000_000; // 10 gwei
-
+/// Builds and signs an EIP-1559 transfer transaction.
 async fn build_signed_transfer<P>(
     provider: &P,
     block_number: u64,
@@ -142,6 +146,7 @@ where
     Ok(TransferPayload { raw_bytes: envelope.encoded_2718().into(), hash: *envelope.hash(), from })
 }
 
+/// Constructs the anchor transaction bytes for a preconfirmation block.
 async fn build_anchor_tx_bytes<P>(
     client: &Client<P>,
     parent_hash: B256,
@@ -175,6 +180,7 @@ where
     Ok(tx.encoded_2718().into())
 }
 
+/// Assembles a compressed txlist and signed commitment for P2P gossip.
 fn build_publish_payloads(
     signer_sk: &SecretKey,
     signer: Address,
@@ -225,6 +231,7 @@ fn build_publish_payloads(
     Ok((txlist, SignedCommitment { commitment, signature }))
 }
 
+/// Waits for a peer connection event.
 async fn wait_for_peer_connected(
     events: &mut tokio::sync::broadcast::Receiver<PreconfirmationEvent>,
 ) {
@@ -237,6 +244,7 @@ async fn wait_for_peer_connected(
     }
 }
 
+/// Waits for both a commitment and its transaction list to be received.
 async fn wait_for_commitment_and_txlist(
     events: &mut tokio::sync::broadcast::Receiver<PreconfirmationEvent>,
 ) {
@@ -253,6 +261,7 @@ async fn wait_for_commitment_and_txlist(
     }
 }
 
+/// Fetches a block by number with full transaction details.
 async fn fetch_block_by_number<P>(provider: &P, block_number: u64) -> Result<RpcBlock<TxEnvelope>>
 where
     P: Provider + Send + Sync,
@@ -265,6 +274,7 @@ where
         .ok_or_else(|| anyhow!("missing block {block_number}"))
 }
 
+/// Polls for a block until it appears or timeout expires.
 async fn wait_for_block<P>(
     provider: &P,
     block_number: u64,
@@ -273,10 +283,10 @@ async fn wait_for_block<P>(
 where
     P: Provider + Send + Sync,
 {
-    let deadline = tokio::time::Instant::now() + timeout;
+    let deadline = Instant::now() + timeout;
 
     loop {
-        if tokio::time::Instant::now() >= deadline {
+        if Instant::now() >= deadline {
             return Err(anyhow!("timed out waiting for block {block_number}"));
         }
 
@@ -290,12 +300,14 @@ where
     }
 }
 
+/// Running driver instance with its RPC server and background tasks.
 struct DriverInstance {
     rpc_server: DriverRpcServer,
     event_handle: JoinHandle<()>,
 }
 
 impl DriverInstance {
+    /// Starts a new driver instance connected to the specified L2 node.
     async fn start(
         l2_http: &Url,
         l2_auth: &Url,
@@ -357,6 +369,7 @@ impl DriverInstance {
     }
 }
 
+/// Tests that P2P gossip propagates to multiple drivers producing identical blocks.
 #[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread")]

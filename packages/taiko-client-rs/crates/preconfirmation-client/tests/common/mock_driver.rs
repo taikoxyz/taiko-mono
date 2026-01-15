@@ -21,6 +21,7 @@ pub struct MockDriver {
     inner: Arc<MockDriverInner>,
 }
 
+/// Internal state for mock driver.
 struct MockDriverInner {
     submissions: AtomicUsize,
     preconf_tip: AtomicU64,
@@ -30,6 +31,7 @@ struct MockDriverInner {
 }
 
 impl MockDriver {
+    /// Creates a new mock driver with the specified initial tips.
     pub fn new(event_sync_tip: U256, preconf_tip: U256) -> Self {
         Self {
             inner: Arc::new(MockDriverInner {
@@ -42,6 +44,7 @@ impl MockDriver {
         }
     }
 
+    /// Waits until at least `count` submissions have been recorded.
     pub async fn wait_for_submissions(&self, count: usize) {
         loop {
             let notified = self.inner.notify.notified();
@@ -52,10 +55,12 @@ impl MockDriver {
         }
     }
 
+    /// Returns a clone of all submitted block numbers in order.
     pub fn submitted_blocks(&self) -> Vec<u64> {
         self.inner.submitted_blocks.lock().unwrap().clone()
     }
 
+    /// Returns the current submission count.
     pub fn submission_count(&self) -> usize {
         self.inner.submissions.load(Ordering::Acquire)
     }

@@ -1,3 +1,5 @@
+//! E2E tests for P2P preconfirmation block production.
+
 use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -46,15 +48,12 @@ use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, ShastaEnv, init_tracing,
+    BeaconStubServer, PRIORITY_FEE_GWEI, ShastaEnv, init_tracing,
     preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
     verify_anchor_block,
 };
-use tokio::{
-    spawn,
-    sync::oneshot,
-    time::sleep,
-};
+use tokio::{spawn, sync::oneshot, time::sleep};
+
 /// Creates a local-only P2P config for tests (ephemeral ports, discovery disabled).
 fn test_p2p_config() -> P2pConfig {
     let localhost_ephemeral = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
@@ -70,13 +69,14 @@ fn test_p2p_config() -> P2pConfig {
     }
 }
 
-/// Raw transfer bytes with expected hash and signer for assertions.
+/// Signed transfer transaction with expected hash and sender for assertions.
 struct TransferPayload {
     raw_bytes: Bytes,
     hash: B256,
     from: Address,
 }
 
+/// Computes the expected base fee for the next block using EIP-4396 rules.
 async fn compute_next_block_base_fee<P>(provider: &P, parent_block_number: u64) -> Result<u64>
 where
     P: Provider + Send + Sync,
@@ -102,8 +102,7 @@ where
     Ok(calculate_next_block_eip4396_base_fee(&parent_header, time_delta))
 }
 
-const PRIORITY_FEE_GWEI: u128 = 10_000_000_000; // 10 gwei
-
+/// Builds and signs an EIP-1559 transfer transaction.
 async fn build_signed_transfer<P>(
     provider: &P,
     block_number: u64,
@@ -141,6 +140,7 @@ where
     Ok(TransferPayload { raw_bytes: envelope.encoded_2718().into(), hash: *envelope.hash(), from })
 }
 
+/// Constructs the anchor transaction bytes for a preconfirmation block.
 async fn build_anchor_tx_bytes<P>(
     client: &Client<P>,
     parent_hash: B256,
@@ -227,6 +227,7 @@ fn build_publish_payloads(
     Ok((txlist, SignedCommitment { commitment, signature }))
 }
 
+/// Waits for a peer connection event.
 async fn wait_for_peer_connected(
     events: &mut tokio::sync::broadcast::Receiver<PreconfirmationEvent>,
 ) {
@@ -239,6 +240,7 @@ async fn wait_for_peer_connected(
     }
 }
 
+/// Waits for both a commitment and its transaction list to be received.
 async fn wait_for_commitment_and_txlist(
     events: &mut tokio::sync::broadcast::Receiver<PreconfirmationEvent>,
 ) {
@@ -259,6 +261,7 @@ fn map_block_transactions(block: RpcBlock) -> RpcBlock<TxEnvelope> {
     block.map_transactions(TxEnvelope::from)
 }
 
+/// Fetches a block by number with full transaction details.
 async fn fetch_block_by_number<P>(provider: &P, block_number: u64) -> Result<RpcBlock<TxEnvelope>>
 where
     P: Provider + Send + Sync,
@@ -271,6 +274,7 @@ where
         .ok_or_else(|| anyhow!("missing block {block_number}"))
 }
 
+/// Polls for a block until it appears or timeout expires.
 async fn wait_for_block<P>(
     provider: &P,
     block_number: u64,
@@ -296,7 +300,7 @@ where
     }
 }
 
-/// Validates the produced block header and transactions against the preconfirmation commitment.
+/// Validates the produced block against the preconfirmation commitment.
 async fn assert_block_fields<P>(
     provider: &P,
     block: &RpcBlock<TxEnvelope>,
@@ -439,6 +443,7 @@ where
     Ok(())
 }
 
+/// Tests P2P preconfirmation block production end-to-end.
 #[test_context(ShastaEnv)]
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
