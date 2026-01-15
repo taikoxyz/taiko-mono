@@ -13,8 +13,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	mode SyncMode,
 	chainID *big.Int,
 ) error {
-	if err != nil {
-		var startingBlock uint64 = 0
+	var startingBlock uint64 = 0
 
 	if i.taikol1 != nil {
 		slotA, _, err := i.taikol1.GetStateVariables(nil)
