@@ -3,7 +3,7 @@ services:
     container_name: l1_node
     image: ghcr.io/foundry-rs/foundry:stable
     restart: unless-stopped
-    pull_policy: if_not_present
+    pull_policy: always
     ports:
       - "18545:8545"
     entrypoint:
@@ -17,7 +17,7 @@ services:
     container_name: l2_node
     image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
     restart: unless-stopped
-    pull_policy: if_not_present
+    pull_policy: always
     volumes:
       - .:/host
     ports:
