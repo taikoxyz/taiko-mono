@@ -143,6 +143,7 @@ func (s *State) eventLoop(ctx context.Context) {
 			}
 			sameHeight := latest == lastL1HeadNumber
 			sameHash := header.Hash() == lastL1HeadHash
+			parentMismatch := latest == lastL1HeadNumber+1 && header.ParentHash != lastL1HeadHash
 			if sameHeight && sameHash {
 				continue
 			}
@@ -162,6 +163,17 @@ func (s *State) eventLoop(ctx context.Context) {
 					"previous", lastL1HeadHash,
 				)
 				start = latest
+			} else if parentMismatch {
+				log.Warn(
+					"L1 head parent hash changed; rewinding L1 event polling cursor",
+					"height", latest,
+					"parent", header.ParentHash,
+					"previous", lastL1HeadHash,
+				)
+				reorgStart := latest - 1
+				if reorgStart < start {
+					start = reorgStart
+				}
 			}
 			lastL1HeadNumber = latest
 			lastL1HeadHash = header.Hash()

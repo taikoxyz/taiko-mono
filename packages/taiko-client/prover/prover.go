@@ -294,8 +294,19 @@ func (p *Prover) eventLoop() {
 				continue
 			}
 			headHash := headHeader.Hash()
+			parentMismatch := head == lastL1HeadNumber+1 &&
+				lastL1HeadHash != (common.Hash{}) &&
+				headHeader.ParentHash != lastL1HeadHash
 			if head != lastL1HeadNumber {
 				if head > lastL1HeadNumber {
+					if parentMismatch {
+						log.Warn(
+							"L1 head parent hash changed",
+							"height", head,
+							"parent", headHeader.ParentHash,
+							"previous", lastL1HeadHash,
+						)
+					}
 					reqProving()
 				} else {
 					log.Warn("L1 head regressed", "from", lastL1HeadNumber, "to", head)
@@ -325,6 +336,9 @@ func (p *Prover) eventLoop() {
 				}
 			}
 			confirmedHash := confirmedHeader.Hash()
+			parentMismatchConfirmed := confirmedHead == lastConfirmedBlock+1 &&
+				lastConfirmedHashInit &&
+				confirmedHeader.ParentHash != lastConfirmedHash
 			start := lastConfirmedBlock + 1
 			if confirmedHead < lastConfirmedBlock {
 				log.Warn("L1 confirmed head moved backwards", "from", lastConfirmedBlock, "to", confirmedHead)
@@ -337,6 +351,17 @@ func (p *Prover) eventLoop() {
 					"previous", lastConfirmedHash,
 				)
 				start = confirmedHead
+			} else if parentMismatchConfirmed {
+				log.Warn(
+					"L1 confirmed head parent hash changed",
+					"height", confirmedHead,
+					"parent", confirmedHeader.ParentHash,
+					"previous", lastConfirmedHash,
+				)
+				reorgStart := confirmedHead - 1
+				if reorgStart < start {
+					start = reorgStart
+				}
 			}
 			if !lastConfirmedHashInit {
 				lastConfirmedHash = confirmedHash

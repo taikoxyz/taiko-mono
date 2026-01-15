@@ -647,18 +647,32 @@ where
             let latest = latest_block.number();
             let latest_hash = latest_block.hash();
 
-            if let (Some(last_number), Some(last_hash), Some(current_hash)) =
-                (last_head_number, last_head_hash, latest_hash)
-            {
-                if latest == last_number && current_hash != last_hash {
+            if let (Some(last_number), Some(last_hash)) = (last_head_number, last_head_hash) {
+                if latest == last_number && latest_hash != last_hash {
                     let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
                     warn!(
                         latest,
                         next_block,
                         rewind_to,
                         last_head_hash = ?last_hash,
-                        latest_head_hash = ?current_hash,
+                        latest_head_hash = ?latest_hash,
                         "L1 head hash changed; rewinding proposal scan"
+                    );
+                    if rewind_to < next_block {
+                        next_block = rewind_to;
+                    }
+                }
+                if latest == last_number.saturating_add(1)
+                    && latest_block.header.parent_hash != last_hash
+                {
+                    let rewind_to = latest.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+                    warn!(
+                        latest,
+                        next_block,
+                        rewind_to,
+                        last_head_hash = ?last_hash,
+                        parent_hash = ?latest_block.header.parent_hash,
+                        "L1 head parent hash changed; rewinding proposal scan"
                     );
                     if rewind_to < next_block {
                         next_block = rewind_to;
@@ -666,7 +680,7 @@ where
                 }
             }
             last_head_number = Some(latest);
-            last_head_hash = latest_hash;
+            last_head_hash = Some(latest_hash);
 
             let latest_plus_one = latest.saturating_add(1);
             if latest_plus_one < next_block {
