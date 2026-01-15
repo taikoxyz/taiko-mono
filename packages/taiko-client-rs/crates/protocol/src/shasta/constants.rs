@@ -8,8 +8,6 @@ use alloy_hardforks::ForkCondition;
 /// small as one second, 384 blocks will cover an Ethereum epoch.
 /// NOTE: Should be same with `PROPOSAL_MAX_BLOCKS` in contracts/layer1/libs/LibManifest.sol.
 pub const PROPOSAL_MAX_BLOCKS: usize = 384;
-/// Alias for the per-derivation-source block limit.
-pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = PROPOSAL_MAX_BLOCKS;
 
 /// The maximum anchor block number offset from the proposal origin block number.
 /// NOTE: Should be same with `MAX_ANCHOR_OFFSET` in contracts/layer1/libs/LibManifest.sol.

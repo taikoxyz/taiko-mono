@@ -13,8 +13,6 @@ const (
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal, refer to LibManifest.PROPOSAL_MAX_BLOCKS.
 	ProposalMaxBlocks = 384
-	// DerivationSourceMaxBlocks Alias for the per-derivation-source block limit.
-	DerivationSourceMaxBlocks = ProposalMaxBlocks
 	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp, refer to LibManifest.TIMESTAMP_MAX_OFFSET.
 	TimestampMaxOffset = 12 * 32
 	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number, refer to LibManifest.MIN_ANCHOR_OFFSET.
