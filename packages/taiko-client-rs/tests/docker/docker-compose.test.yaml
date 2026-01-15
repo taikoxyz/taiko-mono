@@ -10,6 +10,8 @@ services:
       - anvil
       - --host
       - "0.0.0.0"
+      - --gas-limit
+      - "200000000"
 
   l2_node:
     container_name: l2_node
