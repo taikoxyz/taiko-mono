@@ -59,5 +59,6 @@ serde_json = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+test-log = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }

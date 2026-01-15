@@ -24,7 +24,7 @@ use preconfirmation_net::P2pHandle;
 use preconfirmation_types::uint256_to_u256;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
+use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
 use tokio::time::sleep;
 
 async fn wait_for_head(
@@ -51,10 +51,8 @@ async fn wait_for_head(
 
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn head_update_propagates_to_peer(_env: &mut ShastaEnv) -> anyhow::Result<()> {
-    init_tracing("info");
-
     let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
 
     let (signer_sk, signer) = derive_signer(7);

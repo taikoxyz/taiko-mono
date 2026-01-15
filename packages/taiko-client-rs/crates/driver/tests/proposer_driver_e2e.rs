@@ -20,7 +20,7 @@ use rpc::{
 };
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{BeaconStubServer, ShastaEnv, init_tracing, verify_anchor_block};
+use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::{spawn, time::sleep};
 use tracing::{info, warn};
 
@@ -103,10 +103,8 @@ where
 /// Tests the proposer -> driver event sync flow.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
-    init_tracing("info");
-
     let beacon_stub = BeaconStubServer::start().await?;
     let proposer = proposer_client(env).await?;
 
@@ -173,10 +171,8 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
 /// Tests the known-canonical fast path in the derivation pipeline.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
-    init_tracing("info");
-
     let beacon_stub = BeaconStubServer::start().await?;
     let beacon_endpoint = beacon_stub.endpoint().clone();
     let proposer = proposer_client(env).await?;
@@ -263,10 +259,8 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
 /// Tests processing multiple sequential proposals.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
-    init_tracing("info");
-
     let beacon_stub = BeaconStubServer::start().await?;
     let proposer = proposer_client(env).await?;
 

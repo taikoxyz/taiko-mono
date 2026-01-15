@@ -8,14 +8,11 @@ mod helpers;
 
 use helpers::DualDriverSetup;
 use serial_test::serial;
-use test_harness::init_tracing;
 
 /// Tests that DualDriverSetup correctly spawns two P2P nodes and establishes peer connections.
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn dual_driver_setup_spawns_two_peers() -> anyhow::Result<()> {
-    init_tracing("info");
-
     let mut setup = DualDriverSetup::spawn().await?;
 
     assert!(

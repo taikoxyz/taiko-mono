@@ -48,7 +48,7 @@ use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, PRIORITY_FEE_GWEI, ShastaEnv, init_tracing,
+    BeaconStubServer, PRIORITY_FEE_GWEI, ShastaEnv,
     preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
     verify_anchor_block,
 };
@@ -446,10 +446,8 @@ where
 /// Tests P2P preconfirmation block production end-to-end.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
-    init_tracing("info");
-
     let beacon_server = BeaconStubServer::start().await?;
     let jwt_secret =
         read_jwt_secret(env.jwt_secret.clone()).ok_or_else(|| anyhow!("missing jwt secret"))?;

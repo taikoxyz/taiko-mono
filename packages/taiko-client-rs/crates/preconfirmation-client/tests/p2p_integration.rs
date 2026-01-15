@@ -29,7 +29,7 @@ use rpc::client::read_jwt_secret;
 use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
+use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
 use tokio::sync::Notify;
 
 /// Driver client wrapper that falls back to the preconf tip if event sync tip is unavailable.
@@ -110,10 +110,8 @@ impl DriverRpcApi for SubmissionSpy {
 /// Tests that P2P gossip messages received from an external node trigger driver submission.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn p2p_gossip_submits_preconfirmation(env: &mut ShastaEnv) -> anyhow::Result<()> {
-    init_tracing("info");
-
     let jwt_secret = read_jwt_secret(env.jwt_secret.clone())
         .ok_or_else(|| anyhow::anyhow!("missing jwt secret"))?;
     let spy = SubmissionSpy::new();

@@ -19,7 +19,7 @@ use helpers::{
 use mock_driver::MockDriver;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
+use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
 use tokio::time::sleep;
 
 /// Test that blocks arriving out of order are buffered and submitted correctly.
@@ -30,12 +30,10 @@ use tokio::time::sleep;
 /// 3. Verifies blocks are submitted in correct sequential order (N, N+1)
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn out_of_order_blocks_buffered_and_submitted_in_order(
     _env: &mut ShastaEnv,
 ) -> anyhow::Result<()> {
-    init_tracing("info");
-
     let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
 
     let (signer_sk, signer) = derive_signer(1);
@@ -127,10 +125,8 @@ async fn out_of_order_blocks_buffered_and_submitted_in_order(
 /// 5. Verifies N+2 and N+3 are now submitted in order
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn partial_gap_filled_triggers_submission(_env: &mut ShastaEnv) -> anyhow::Result<()> {
-    init_tracing("info");
-
     let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
 
     let (signer_sk, signer) = derive_signer(5);

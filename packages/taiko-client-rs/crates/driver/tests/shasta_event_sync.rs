@@ -20,7 +20,7 @@ use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let proposer_client = Client::new_with_wallet(
         ClientConfig {

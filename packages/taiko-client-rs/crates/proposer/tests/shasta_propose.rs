@@ -8,7 +8,7 @@ use test_harness::{ShastaEnv, evm_mine, shasta::get_proposal_hash};
 
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn propose_shasta_batches(env: &mut ShastaEnv) -> anyhow::Result<()> {
     let proposer_config = ProposerConfigs {
         l1_provider_source: env.l1_source.clone(),

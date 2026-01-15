@@ -23,15 +23,13 @@ use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{PreconfHead, u256_to_uint256, uint256_to_u256};
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
+use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
 
 /// Catch-up should backfill commitments, fetch txlists, and submit in order.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn catchup_backfills_and_fetches_txlists(_env: &mut ShastaEnv) -> anyhow::Result<()> {
-    init_tracing("info");
-
     let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
 
     let (signer_sk, signer) = derive_signer(9);

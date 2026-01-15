@@ -49,7 +49,7 @@ use secp256k1::SecretKey;
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, PRIORITY_FEE_GWEI, ShastaEnv, init_tracing,
+    BeaconStubServer, PRIORITY_FEE_GWEI, ShastaEnv,
     preconfirmation::{SafeTipDriverClient, StaticLookaheadResolver},
 };
 use tokio::{
@@ -372,10 +372,8 @@ impl DriverInstance {
 /// Tests that P2P gossip propagates to multiple drivers producing identical blocks.
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<()> {
-    init_tracing("info");
-
     let l2_http_1: Url = env.l2_http_1.clone().into();
     let l2_auth_1: Url = env.l2_auth_1.clone().into();
 

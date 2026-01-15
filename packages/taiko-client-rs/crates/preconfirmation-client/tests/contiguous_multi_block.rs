@@ -18,7 +18,7 @@ use helpers::{
 use mock_driver::MockDriver;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadResolver};
+use test_harness::{ShastaEnv, preconfirmation::StaticLookaheadResolver};
 
 /// Test that multiple blocks submitted in sequential order are processed correctly.
 ///
@@ -28,10 +28,8 @@ use test_harness::{ShastaEnv, init_tracing, preconfirmation::StaticLookaheadReso
 /// 3. Verifies all blocks are submitted to the driver in correct order
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test(flavor = "multi_thread")]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn contiguous_blocks_submitted_in_order(_env: &mut ShastaEnv) -> anyhow::Result<()> {
-    init_tracing("info");
-
     let driver_client = MockDriver::new(U256::ZERO, U256::ZERO);
 
     let (signer_sk, signer) = derive_signer(1);
