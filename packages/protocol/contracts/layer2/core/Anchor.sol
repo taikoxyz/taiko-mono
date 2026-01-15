@@ -147,11 +147,29 @@ contract Anchor is EssentialContract {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Processes a block and anchors L1 data.
-    /// @dev Core function that anchors L1 block data for cross-chain verification.
+    /// @notice Processes a block and anchors L1 data (Whitelist preconfs V4 signature)
+    /// @param _checkpoint Checkpoint data for the L1 block being anchored.
+    function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
+        external
+        onlyValidSender
+        nonReentrant
+    {
+        uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
+
+        _processAncestorsHash();
+        _saveCheckpointBlock(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
+        _recordParentBlockHash();
+
+        emit Anchored(
+            prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash
+        );
+    }
+
+    /// @notice Processes a block and anchors L1 data with preconf metadata
+    /// (permissionless preconfs V5).
     /// @param _proposalParams Proposal-level parameters.
     /// @param _blockParams Block-level parameters.
-    function anchorV4(
+    function anchorV5(
         ProposalParams calldata _proposalParams,
         BlockParams calldata _blockParams
     )
@@ -164,8 +182,7 @@ contract Anchor is EssentialContract {
 
         _storePreconfMetadata(_proposalParams, _blockParams);
 
-        uint256 parentNumber = block.number - 1;
-        blockHashes[parentNumber] = blockhash(parentNumber);
+        _recordParentBlockHash();
 
         emit Anchored(
             prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash
@@ -216,24 +233,12 @@ contract Anchor is EssentialContract {
     /// @dev Validates and processes block-level data.
     /// @param _blockParams Anchor block data from L1.
     function _validateBlock(BlockParams calldata _blockParams) private {
-        // Verify and update ancestors hash
-        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
-        if (_blockState.ancestorsHash != bytes32(0)) {
-            require(_blockState.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
-        }
-        _blockState.ancestorsHash = newAncestorsHash;
-
-        // Anchor checkpoint data if a fresher L1 block is provided
-        if (_blockParams.anchorBlockNumber > _blockState.anchorBlockNumber) {
-            checkpointStore.saveCheckpoint(
-                ICheckpointStore.Checkpoint({
-                    blockNumber: _blockParams.anchorBlockNumber,
-                    blockHash: _blockParams.anchorBlockHash,
-                    stateRoot: _blockParams.anchorStateRoot
-                })
-            );
-            _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
-        }
+        _processAncestorsHash();
+        _saveCheckpointBlock(
+            _blockParams.anchorBlockNumber,
+            _blockParams.anchorBlockHash,
+            _blockParams.anchorStateRoot
+        );
     }
 
     /// @dev Stores preconfirmation metadata for the given proposal and block.
@@ -254,6 +259,41 @@ contract Anchor is EssentialContract {
             rawTxListHash: _blockParams.rawTxListHash,
             parentRawTxListHash: parentPreconfMetadata.rawTxListHash
         });
+    }
+
+    /// @dev Ensures the ancestor hash chain is continuous and stores the new hash.
+    function _processAncestorsHash() private {
+        (bytes32 oldAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash();
+        if (_blockState.ancestorsHash != bytes32(0)) {
+            require(_blockState.ancestorsHash == oldAncestorsHash, AncestorsHashMismatch());
+        }
+        _blockState.ancestorsHash = newAncestorsHash;
+    }
+
+    /// @dev Saves the checkpoint if it is fresher than the current anchor.
+    function _saveCheckpointBlock(
+        uint48 _anchorBlockNumber,
+        bytes32 _anchorBlockHash,
+        bytes32 _anchorStateRoot
+    )
+        private
+    {
+        if (_anchorBlockNumber > _blockState.anchorBlockNumber) {
+            checkpointStore.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: _anchorBlockNumber,
+                    blockHash: _anchorBlockHash,
+                    stateRoot: _anchorStateRoot
+                })
+            );
+            _blockState.anchorBlockNumber = _anchorBlockNumber;
+        }
+    }
+
+    /// @dev Records the parent block hash for ancestor hash calculations.
+    function _recordParentBlockHash() private {
+        uint256 parentNumber = block.number - 1;
+        blockHashes[parentNumber] = blockhash(parentNumber);
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
