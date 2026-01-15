@@ -73,5 +73,6 @@ contract ProverWhitelist is EssentialContract, IProverWhitelist {
     // Errors
     // ---------------------------------------------------------------
 
+    /// @dev Reverts when the requested whitelist status is unchanged.
     error ProverWhitelistedAlready();
 }
