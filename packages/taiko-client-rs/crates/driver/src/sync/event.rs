@@ -616,14 +616,9 @@ where
             .contract_address(self.cfg.client.inbox_address)
             .event(Proposed::SIGNATURE);
 
-        let mut stream = scanner.subscribe(filter);
-        debug!("subscribed to inbox proposal event filter");
-
-        spawn(async move {
-            if let Err(err) = scanner.start().await {
-                error!(?err, "event scanner terminated unexpectedly");
-            }
-        });
+        let mut stream = scanner.subscribe(filter).stream(
+            &scanner.start().await.map_err(|err| SyncError::EventScannerInit(err.to_string()))?,
+        );
 
         info!("event scanner started; listening for inbox proposals");
 
