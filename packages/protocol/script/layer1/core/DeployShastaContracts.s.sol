@@ -72,7 +72,6 @@ contract DeployShastaContracts is DeployCapability {
             console2.log("Add prover into ProverWhitelist:", config.provers[i]);
             ProverWhitelist(proverWhitelist).whitelistProver(config.provers[i], true);
         }
-        // Need to accept ownership in upgrade contract
         Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
 
         // TODO: question about whether the Bridge contract is compatible and whether a Bridge contract upgrade is required.
@@ -184,7 +183,7 @@ contract DeployShastaContracts is DeployCapability {
 
         // Deploy ZK verifiers (RISC0 and SP1)
         (verifiers.risc0, verifiers.sp1) =
-            _deployZKVerifiers(config.contractOwner, config.l2ChainId);
+            _deployZKVerifiers(config);
     }
 
     function _deployZKVerifiers(DeploymentConfig memory config)
