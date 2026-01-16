@@ -191,7 +191,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 					startAt = time.Now()
 				} else {
 					if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-						log.Debug("ZK proof was not chosen, attempting to request SGX proof",
+						log.Debug(
+							"ZK proof was not chosen, attempting to request SGX proof",
 							"proposalID", opts.ProposalID,
 							"err", err,
 						)
