@@ -122,7 +122,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
     You will need either an RPC provider, or run a full Ethereum node yourself.
 
     ```bash
-    export L1_WS=...  # the WS address for the node to sync from.
+    export L1_HTTP=...  # the HTTP address for the node to sync from.
     export L1_BEACON_URL=... # URL address for the L1 Beacon-node HTTP endpoint to use.
     ```
 
@@ -142,7 +142,7 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
         ```bash
             ./bin/taiko-client driver \
-                --l1.ws ${L1_WS} \
+                --l1.http ${L1_HTTP} \
                 --l2.ws ws://localhost:8546 \
                 --l1.beacon ${L1_BEACON_URL} \
                 --l2.auth http://localhost:8551 \

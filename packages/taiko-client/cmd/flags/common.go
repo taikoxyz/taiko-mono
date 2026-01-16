@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -19,12 +21,17 @@ var (
 	txmgrCategory    = "TX_MANAGER"
 )
 
-// Required flags used by all client software.
+// L1 endpoint flags (one required) and other required flags used by all client software.
 var (
+	L1HTTPEndpoint = &cli.StringFlag{
+		Name:     "l1.http",
+		Usage:    "HTTP RPC endpoint of a L1 ethereum node",
+		Category: commonCategory,
+		EnvVars:  []string{"L1_HTTP"},
+	}
 	L1WSEndpoint = &cli.StringFlag{
 		Name:     "l1.ws",
 		Usage:    "Websocket RPC endpoint of a L1 ethereum node",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
@@ -173,6 +180,7 @@ var (
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
+	L1HTTPEndpoint,
 	L1WSEndpoint,
 	PacayaInboxAddress,
 	ShastaInboxAddress,
@@ -189,6 +197,22 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
+}
+
+// ResolveL1Endpoint selects a single L1 endpoint from the HTTP/WS flags.
+func ResolveL1Endpoint(c *cli.Context) (string, error) {
+	l1HTTP := strings.TrimSpace(c.String(L1HTTPEndpoint.Name))
+	l1WS := strings.TrimSpace(c.String(L1WSEndpoint.Name))
+	if l1HTTP != "" && l1WS != "" {
+		return "", fmt.Errorf("only one of --%s or --%s can be set", L1HTTPEndpoint.Name, L1WSEndpoint.Name)
+	}
+	if l1HTTP != "" {
+		return l1HTTP, nil
+	}
+	if l1WS != "" {
+		return l1WS, nil
+	}
+	return "", fmt.Errorf("missing L1 endpoint: set --%s or --%s", L1HTTPEndpoint.Name, L1WSEndpoint.Name)
 }
 
 // MergeFlags merges the given flag slices.

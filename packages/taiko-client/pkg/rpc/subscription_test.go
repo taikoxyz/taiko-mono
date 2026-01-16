@@ -17,7 +17,7 @@ func TestSubscribeEvent(t *testing.T) {
 
 func TestSubscribeChainHead(t *testing.T) {
 	require.NotNil(t, SubscribeChainHead(
-		newTestClient(t).L1,
+		newTestClient(t).L2,
 		make(chan *types.Header, 1024)),
 	)
 }

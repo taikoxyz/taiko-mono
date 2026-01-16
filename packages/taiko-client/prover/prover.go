@@ -31,6 +31,12 @@ import (
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
+const (
+	l1EventPollInterval   = time.Second
+	l1EventPollMaxBackoff = 30 * time.Second
+	l1LogPollMaxRange     = uint64(1000)
+)
+
 // eventHandlers contains all event handlers which will be used by the prover.
 type eventHandlers struct {
 	batchProposedHandler     handler.BatchProposedHandler
@@ -102,7 +108,7 @@ func InitFromConfig(
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
-		L1Endpoint:         cfg.L1WsEndpoint,
+		L1Endpoint:         cfg.L1HttpEndpoint,
 		L2Endpoint:         cfg.L2WsEndpoint,
 		PacayaInboxAddress: cfg.PacayaInboxAddress,
 		ShastaInboxAddress: cfg.ShastaInboxAddress,
@@ -206,17 +212,8 @@ func (p *Prover) eventLoop() {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
-	// reqProving requests performing a proving operation, won't block
-	// if we are already proving.
-	reqProving := func() {
-		select {
-		case p.proveNotify <- struct{}{}:
-		default:
-		}
-	}
-
-	// Call reqProving() right away to catch up with the latest state.
-	reqProving()
+	// Call requestProving() right away to catch up with the latest state.
+	p.requestProving()
 
 	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoInbox contract, there will be no
 	// new BatchProposed event temporarily, so except the BatchProposed subscription, we need another trigger to start
@@ -224,26 +221,10 @@ func (p *Prover) eventLoop() {
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
-	// Channels
-	chBufferSize := p.protocolConfigs.MaxProposals()
-	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
-	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
-	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
-	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
-	shastaProvedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
-
-	// Subscriptions
-	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
-	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
-	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
-	shastaProposedSub := rpc.SubscribeProposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
-	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
-	defer func() {
-		batchProposedSub.Unsubscribe()
-		batchesVerifiedSub.Unsubscribe()
-		batchesProvedSub.Unsubscribe()
-		shastaProposedSub.Unsubscribe()
-		shastaProvedSub.Unsubscribe()
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		p.l1EventPollLoop()
 	}()
 
 	for {
@@ -264,22 +245,258 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
 		case proofType := <-p.flushCacheNotify:
 			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
-		case e := <-batchesVerifiedCh:
-			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
-				log.Error("Failed to handle new BatchesVerified event", "error", err)
-			}
-		case e := <-batchesProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) })
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
-		case <-batchProposedCh:
-			reqProving()
-		case <-shastaProposedCh:
-			reqProving()
-		case e := <-shastaProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
 		case <-forceProvingTicker.C:
-			reqProving()
+			p.requestProving()
+		}
+	}
+}
+
+func (p *Prover) requestProving() {
+	select {
+	case p.proveNotify <- struct{}{}:
+	default:
+	}
+}
+
+func (p *Prover) l1EventPollLoop() {
+	l1EventPoller := time.NewTicker(l1EventPollInterval)
+	defer l1EventPoller.Stop()
+
+	var (
+		lastL1HeadNumber      uint64
+		lastL1HeadHash        common.Hash
+		lastConfirmedBlock    uint64
+		lastConfirmedHash     common.Hash
+		lastConfirmedHashInit bool
+		l1EventBackoff        time.Duration
+		nextL1EventPoll       time.Time
+	)
+
+	if head, err := p.rpc.L1.BlockNumber(p.ctx); err != nil {
+		log.Warn("Failed to fetch initial L1 head number", "error", err)
+	} else {
+		lastL1HeadNumber = head
+		if header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(head)); err != nil {
+			log.Warn("Failed to fetch initial L1 head header", "error", err, "height", head)
+		} else {
+			lastL1HeadHash = header.Hash()
+		}
+		if confirmed, ok := confirmedL1Block(head, p.cfg.BlockConfirmations); ok {
+			lastConfirmedBlock = confirmed
+			if confirmed != head {
+				if header, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(confirmed)); err != nil {
+					log.Warn("Failed to fetch initial confirmed L1 header", "error", err, "height", confirmed)
+				} else {
+					lastConfirmedHash = header.Hash()
+					lastConfirmedHashInit = true
+				}
+			} else if lastL1HeadHash != (common.Hash{}) {
+				lastConfirmedHash = lastL1HeadHash
+				lastConfirmedHashInit = true
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-l1EventPoller.C:
+			if !nextL1EventPoll.IsZero() && time.Now().Before(nextL1EventPoll) {
+				continue
+			}
+			head, err := p.rpc.L1.BlockNumber(p.ctx)
+			if err != nil {
+				if p.ctx.Err() != nil {
+					return
+				}
+				log.Warn("Failed to poll L1 head number", "error", err)
+				l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+				nextL1EventPoll = time.Now().Add(l1EventBackoff)
+				continue
+			}
+			headHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(head))
+			if err != nil {
+				if p.ctx.Err() != nil {
+					return
+				}
+				log.Warn("Failed to fetch L1 head header", "error", err, "height", head)
+				l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+				nextL1EventPoll = time.Now().Add(l1EventBackoff)
+				continue
+			}
+			l1EventBackoff = 0
+			nextL1EventPoll = time.Time{}
+			headHash := headHeader.Hash()
+			parentMismatch := head == lastL1HeadNumber+1 &&
+				lastL1HeadHash != (common.Hash{}) &&
+				headHeader.ParentHash != lastL1HeadHash
+			if head > lastL1HeadNumber+1 && lastL1HeadHash != (common.Hash{}) {
+				prevHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(lastL1HeadNumber))
+				if err != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to fetch previous L1 head header",
+						"error", err,
+						"height", lastL1HeadNumber,
+					)
+					l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+					nextL1EventPoll = time.Now().Add(l1EventBackoff)
+					continue
+				}
+				if prevHeader.Hash() != lastL1HeadHash {
+					log.Warn(
+						"L1 head changed across skipped heights",
+						"previousHeight", lastL1HeadNumber,
+						"previousHash", lastL1HeadHash,
+						"canonicalHash", prevHeader.Hash(),
+					)
+				}
+			}
+			if head != lastL1HeadNumber {
+				if head > lastL1HeadNumber {
+					if parentMismatch {
+						log.Warn(
+							"L1 head parent hash changed",
+							"height", head,
+							"parent", headHeader.ParentHash,
+							"previous", lastL1HeadHash,
+						)
+					}
+					p.requestProving()
+				} else {
+					log.Warn("L1 head regressed", "from", lastL1HeadNumber, "to", head)
+				}
+			} else if headHash != lastL1HeadHash {
+				log.Warn(
+					"L1 head hash changed",
+					"height", head,
+					"hash", headHash,
+					"previous", lastL1HeadHash,
+				)
+				p.requestProving()
+			}
+			lastL1HeadNumber = head
+			lastL1HeadHash = headHash
+
+			confirmedHead, ok := confirmedL1Block(head, p.cfg.BlockConfirmations)
+			if !ok {
+				continue
+			}
+			confirmedHeader := headHeader
+			if confirmedHead != head {
+				confirmedHeader, err = p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(confirmedHead))
+				if err != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
+					log.Warn("Failed to fetch confirmed L1 head header", "error", err, "height", confirmedHead)
+					l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+					nextL1EventPoll = time.Now().Add(l1EventBackoff)
+					continue
+				}
+			}
+			confirmedHash := confirmedHeader.Hash()
+			parentMismatchConfirmed := confirmedHead == lastConfirmedBlock+1 &&
+				lastConfirmedHashInit &&
+				confirmedHeader.ParentHash != lastConfirmedHash
+			start := lastConfirmedBlock + 1
+			if confirmedHead < lastConfirmedBlock {
+				log.Warn("L1 confirmed head moved backwards", "from", lastConfirmedBlock, "to", confirmedHead)
+				start = confirmedHead
+			} else if confirmedHead == lastConfirmedBlock && lastConfirmedHashInit && confirmedHash != lastConfirmedHash {
+				log.Warn(
+					"L1 confirmed head hash changed",
+					"height", confirmedHead,
+					"hash", confirmedHash,
+					"previous", lastConfirmedHash,
+				)
+				start = confirmedHead
+			} else if parentMismatchConfirmed {
+				log.Warn(
+					"L1 confirmed head parent hash changed",
+					"height", confirmedHead,
+					"parent", confirmedHeader.ParentHash,
+					"previous", lastConfirmedHash,
+				)
+				reorgStart := confirmedHead
+				if confirmedHead > 0 {
+					reorgStart = confirmedHead - 1
+				}
+				if reorgStart < start {
+					start = reorgStart
+				}
+			} else if confirmedHead > lastConfirmedBlock+1 && lastConfirmedHashInit {
+				prevHeader, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(lastConfirmedBlock))
+				if err != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to fetch previous confirmed L1 header",
+						"error", err,
+						"height", lastConfirmedBlock,
+					)
+					l1EventBackoff = nextL1PollBackoff(l1EventBackoff, l1EventPollInterval, l1EventPollMaxBackoff)
+					nextL1EventPoll = time.Now().Add(l1EventBackoff)
+					continue
+				}
+				if prevHeader.Hash() != lastConfirmedHash {
+					log.Warn(
+						"L1 confirmed head changed across skipped heights",
+						"previousHeight", lastConfirmedBlock,
+						"previousHash", lastConfirmedHash,
+						"canonicalHash", prevHeader.Hash(),
+					)
+					if lastConfirmedBlock < start {
+						start = lastConfirmedBlock
+					}
+				}
+			}
+			if !lastConfirmedHashInit {
+				lastConfirmedHash = confirmedHash
+				lastConfirmedHashInit = true
+			}
+			if start <= confirmedHead {
+				processed, processedAny, pollErr := p.pollL1Events(p.ctx, start, confirmedHead)
+				processedHashOk := false
+				var processedHash common.Hash
+				if processedAny {
+					if processed == confirmedHead {
+						processedHash = confirmedHash
+						processedHashOk = true
+					} else {
+						header, hashErr := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(processed))
+						if hashErr != nil {
+							if pollErr == nil {
+								pollErr = hashErr
+							}
+						} else {
+							processedHash = header.Hash()
+							processedHashOk = true
+						}
+					}
+				}
+				if processedAny && processedHashOk {
+					lastConfirmedBlock = processed
+					lastConfirmedHash = processedHash
+					lastConfirmedHashInit = true
+				}
+				if pollErr != nil {
+					if p.ctx.Err() != nil {
+						return
+					}
+					log.Warn(
+						"Failed to poll L1 protocol events",
+						"error", pollErr,
+						"processedThrough", processed,
+					)
+				}
+			}
 		}
 	}
 }
@@ -287,6 +504,128 @@ func (p *Prover) eventLoop() {
 // Close closes the prover instance.
 func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
+}
+
+func confirmedL1Block(head uint64, confirmations uint64) (uint64, bool) {
+	if confirmations == 0 {
+		return head, true
+	}
+	if head < confirmations {
+		return 0, false
+	}
+	return head - confirmations, true
+}
+
+func (p *Prover) pollL1Events(ctx context.Context, start, end uint64) (uint64, bool, error) {
+	if start > end {
+		return 0, false, nil
+	}
+	var processed uint64
+	var processedAny bool
+	for from := start; from <= end; {
+		to := from + l1LogPollMaxRange - 1
+		if to < from || to > end {
+			to = end
+		}
+		if err := p.handleL1EventRange(ctx, from, to); err != nil {
+			return processed, processedAny, err
+		}
+		processed = to
+		processedAny = true
+		if to == end {
+			break
+		}
+		from = to + 1
+	}
+	return processed, processedAny, nil
+}
+
+func nextL1PollBackoff(current time.Duration, min, max time.Duration) time.Duration {
+	if current < min {
+		return min
+	}
+	next := current * 2
+	if next > max {
+		return max
+	}
+	return next
+}
+
+func (p *Prover) retryL1Filter(ctx context.Context, f func() error) error {
+	bo := backoff.NewExponentialBackOff()
+	bo.InitialInterval = p.cfg.BackOffRetryInterval
+	bo.MaxInterval = l1EventPollMaxBackoff
+	bo.MaxElapsedTime = 0
+	bo.Reset()
+	return backoff.Retry(f, backoff.WithContext(backoff.WithMaxRetries(bo, p.cfg.BackOffMaxRetries), ctx))
+}
+
+func (p *Prover) handleL1EventRange(ctx context.Context, start, end uint64) error {
+	endHeight := end
+	opts := &bind.FilterOpts{Start: start, End: &endHeight, Context: ctx}
+
+	var verifiedIter *pacayaBindings.TaikoInboxClientBatchesVerifiedIterator
+	if err := p.retryL1Filter(ctx, func() error {
+		iter, err := p.rpc.PacayaClients.TaikoInbox.FilterBatchesVerified(opts)
+		if err != nil {
+			return err
+		}
+		verifiedIter = iter
+		return nil
+	}); err != nil {
+		return err
+	}
+	defer verifiedIter.Close()
+	for verifiedIter.Next() {
+		if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(ctx, verifiedIter.Event); err != nil {
+			log.Error("Failed to handle new BatchesVerified event", "error", err)
+		}
+	}
+	if err := verifiedIter.Error(); err != nil {
+		return err
+	}
+
+	var provedIter *pacayaBindings.TaikoInboxClientBatchesProvedIterator
+	if err := p.retryL1Filter(ctx, func() error {
+		iter, err := p.rpc.PacayaClients.TaikoInbox.FilterBatchesProved(opts)
+		if err != nil {
+			return err
+		}
+		provedIter = iter
+		return nil
+	}); err != nil {
+		return err
+	}
+	defer provedIter.Close()
+	for provedIter.Next() {
+		e := provedIter.Event
+		p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(ctx, e) })
+	}
+	if err := provedIter.Error(); err != nil {
+		return err
+	}
+
+	var shastaProvedIter *shastaBindings.ShastaInboxClientProvedIterator
+	if err := p.retryL1Filter(ctx, func() error {
+		iter, err := p.rpc.ShastaClients.Inbox.FilterProved(opts, nil)
+		if err != nil {
+			return err
+		}
+		shastaProvedIter = iter
+		return nil
+	}); err != nil {
+		return err
+	}
+	defer shastaProvedIter.Close()
+	for shastaProvedIter.Next() {
+		e := shastaProvedIter.Event
+		p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(ctx, e) })
+	}
+	if err := shastaProvedIter.Error(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // proveOp iterates through BatchProposed events.

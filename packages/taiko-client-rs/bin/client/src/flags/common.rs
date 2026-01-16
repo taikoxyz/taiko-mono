@@ -3,19 +3,30 @@
 use std::path::PathBuf;
 
 use alloy_primitives::Address;
+use anyhow::{Result, bail};
 use clap::Parser;
+use rpc::SubscriptionSource;
 use tracing::Level;
 use url::Url;
 
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct CommonArgs {
     #[clap(
+        long = "l1.http",
+        env = "L1_HTTP",
+        required_unless_present = "l1_ws_endpoint",
+        conflicts_with = "l1_ws_endpoint",
+        help = "HTTP RPC endpoint of a L1 ethereum node"
+    )]
+    pub l1_http_endpoint: Option<Url>,
+    #[clap(
         long = "l1.ws",
         env = "L1_WS",
-        required = true,
-        help = "Websocket RPC endpoint of a L1 ethereum node"
+        required_unless_present = "l1_http_endpoint",
+        conflicts_with = "l1_http_endpoint",
+        help = "WebSocket RPC endpoint of a L1 ethereum node"
     )]
-    pub l1_ws_endpoint: Url,
+    pub l1_ws_endpoint: Option<Url>,
     #[clap(
         long = "l2.http",
         env = "L2_HTTP",
@@ -84,6 +95,16 @@ impl CommonArgs {
             2 => Level::INFO,
             3 => Level::DEBUG,
             _ => Level::TRACE,
+        }
+    }
+
+    /// Resolve the L1 provider source from CLI flags.
+    pub fn l1_provider_source(&self) -> Result<SubscriptionSource> {
+        match (&self.l1_http_endpoint, &self.l1_ws_endpoint) {
+            (Some(http), None) => Ok(SubscriptionSource::Http(http.clone())),
+            (None, Some(ws)) => Ok(SubscriptionSource::Ws(ws.clone())),
+            (Some(_), Some(_)) => bail!("only one of --l1.http or --l1.ws can be set"),
+            (None, None) => bail!("either --l1.http or --l1.ws must be set"),
         }
     }
 }

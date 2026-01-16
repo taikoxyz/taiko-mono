@@ -15,7 +15,7 @@ import (
 )
 
 func getTestClient(t *testing.T) *rpc.EthClient {
-	endpoint := os.Getenv("L1_WS")
+	endpoint := os.Getenv("L1_HTTP")
 	require.NotEmpty(t, endpoint)
 
 	client, err := rpc.NewEthClient(context.Background(), endpoint, 30*time.Second)

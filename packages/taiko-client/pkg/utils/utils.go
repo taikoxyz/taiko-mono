@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -27,14 +28,26 @@ func LoadEnv() {
 	currentPath, err := os.Getwd()
 	if err != nil {
 		log.Debug("Failed to get current path", "error", err)
+		return
 	}
-	path := strings.Split(currentPath, "/taiko-client")
-	if len(path) == 0 {
-		log.Debug("Not a taiko-client repo")
+	repoRoot := currentPath
+	needle := string(os.PathSeparator) + "packages" + string(os.PathSeparator) + "taiko-client"
+	if idx := strings.Index(currentPath, needle); idx != -1 {
+		repoRoot = currentPath[:idx]
 	}
-	if loadErr := godotenv.Load(fmt.Sprintf("%s/taiko-client/integration_test/.env", path[0])); loadErr != nil {
-		log.Debug("Failed to load test env", "current path", currentPath, "error", loadErr)
+	candidates := []string{
+		filepath.Join(currentPath, "integration_test", ".env"),
+		filepath.Join(repoRoot, "packages", "taiko-client", "integration_test", ".env"),
 	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			if loadErr := godotenv.Load(candidate); loadErr != nil {
+				log.Debug("Failed to load test env", "current path", currentPath, "error", loadErr)
+			}
+			return
+		}
+	}
+	log.Debug("Failed to load test env", "current path", currentPath)
 }
 
 // IsNil checks if the interface is empty.

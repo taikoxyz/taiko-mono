@@ -12,7 +12,7 @@ import (
 
 func newTestClient(t *testing.T) *Client {
 	client, err := NewClient(context.Background(), &ClientConfig{
-		L1Endpoint:                  os.Getenv("L1_WS"),
+		L1Endpoint:                  os.Getenv("L1_HTTP"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
 		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
@@ -33,7 +33,7 @@ func newTestClient(t *testing.T) *Client {
 
 func newTestClientWithTimeout(t *testing.T) *Client {
 	client, err := NewClient(context.Background(), &ClientConfig{
-		L1Endpoint:                  os.Getenv("L1_WS"),
+		L1Endpoint:                  os.Getenv("L1_HTTP"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
 		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),

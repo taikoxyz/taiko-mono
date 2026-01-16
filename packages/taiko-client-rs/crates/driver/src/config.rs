@@ -77,8 +77,8 @@ mod tests {
     fn dummy_client_config() -> ClientConfig {
         use rpc::SubscriptionSource;
         ClientConfig {
-            l1_provider_source: SubscriptionSource::Ws(
-                "ws://localhost:8545".parse().expect("ws url"),
+            l1_provider_source: SubscriptionSource::Http(
+                "http://localhost:8545".parse().expect("http url"),
             ),
             l2_provider_url: "http://localhost:8546".parse().expect("l2 url"),
             l2_auth_provider_url: "http://localhost:8551".parse().expect("auth url"),

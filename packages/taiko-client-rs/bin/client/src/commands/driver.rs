@@ -5,7 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
-use rpc::{SubscriptionSource, client::ClientConfig};
+use rpc::client::ClientConfig;
 
 use crate::{
     commands::Subcommand,
@@ -27,8 +27,7 @@ pub struct DriverSubCommand {
 impl DriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
-        let l1_source =
-            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
+        let l1_source = self.common_flags.l1_provider_source()?;
         let l2_http = RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?;
         let l2_auth = RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?;
         let l1_beacon = RpcUrl::parse(self.driver_flags.l1_beacon_endpoint.as_str())?;

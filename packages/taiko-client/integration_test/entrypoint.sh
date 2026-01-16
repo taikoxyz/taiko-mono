@@ -30,7 +30,7 @@ source integration_test/test_env.sh
 
 # Make sure environment variables are set
 check_env "L1_HTTP"
-check_env "L1_WS"
+check_env "L1_BEACON"
 check_env "L2_HTTP"
 check_env "L2_WS"
 check_env "L2_AUTH"

@@ -21,8 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -70,7 +68,7 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.Nil(p.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  os.Getenv("L1_WS"),
+			L1Endpoint:                  os.Getenv("L1_HTTP"),
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
@@ -91,7 +89,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		BlobAllowed:             true,
 		FallbackToCalldata:      true,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
+			L1RPCURL:                  os.Getenv("L1_HTTP"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
@@ -106,7 +104,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
 		PrivateTxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
+			L1RPCURL:                  os.Getenv("L1_HTTP"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
@@ -375,15 +373,11 @@ func (s *ProposerTestSuite) TestName() {
 func (s *ProposerTestSuite) TestProposeOp() {
 	s.ForkIntoShasta(s.p, s.s)
 
-	// Propose txs in L2 execution engine's mempool
-	sink1 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub1, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink1, nil, nil)
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-
-	defer func() {
-		sub1.Unsubscribe()
-		close(sink1)
-	}()
+	cursor := testutils.NewProposalEventCursor(l1Head.Number.Uint64())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
 	to := common.BytesToAddress(testutils.RandomBytes(32))
 	_, err = testutils.SendDynamicFeeTx(s.p.rpc.L2, s.TestAddrPrivKey, &to, common.Big1, nil)
@@ -391,12 +385,9 @@ func (s *ProposerTestSuite) TestProposeOp() {
 
 	s.Nil(s.p.ProposeOp(context.Background()))
 
-	event := <-sink1
-	header, err := s.RPCClient.L1.HeaderByNumber(context.Background(), big.NewInt(int64(event.Raw.BlockNumber)))
+	meta, _, _, err := s.WaitForNextProposalEvent(ctx, cursor)
 	s.Nil(err)
-	s.NotNil(header)
-
-	meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
+	s.True(meta.IsShasta())
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
 	s.Nil(err)

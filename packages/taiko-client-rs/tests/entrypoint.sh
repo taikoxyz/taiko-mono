@@ -42,7 +42,7 @@ docker compose -f tests/docker/docker-compose.test.yaml up -d
 trap "docker compose -f tests/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR
 
 # check until L1 node is ready
-until cast chain-id --rpc-url "$L1_WS" 2> /dev/null; do
+until cast chain-id --rpc-url "$L1_HTTP" 2> /dev/null; do
     sleep 1
 done
 

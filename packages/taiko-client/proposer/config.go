@@ -68,9 +68,14 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		)
 	}
 
+	l1Endpoint, err := flags.ResolveL1Endpoint(c)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
+			L1Endpoint:                  l1Endpoint,
 			L2Endpoint:                  c.String(flags.L2WSEndpoint.Name),
 			PacayaInboxAddress:          common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
 			ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
@@ -95,11 +100,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BlobAllowed:             c.Bool(flags.BlobAllowed.Name),
 		FallbackToCalldata:      c.Bool(flags.FallbackToCalldata.Name),
 		RevertProtectionEnabled: c.Bool(flags.RevertProtectionEnabled.Name),
-		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1WSEndpoint.Name),
-			l1ProposerPrivKey,
-			c,
-		),
+		TxmgrConfigs:            pkgFlags.InitTxmgrConfigsFromCli(l1Endpoint, l1ProposerPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProposerPrivKey,

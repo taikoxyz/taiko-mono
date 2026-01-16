@@ -61,7 +61,7 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                  os.Getenv("L1_WS"),
+		L1Endpoint:                  os.Getenv("L1_HTTP"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
 		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
@@ -200,7 +200,7 @@ func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxMana
 		log.Root(),
 		new(metrics.NoopTxMetrics),
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
+			L1RPCURL:                  os.Getenv("L1_HTTP"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(key)),

@@ -53,6 +53,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty L2 check point URL")
 	}
 
+	l1Endpoint, err := flags.ResolveL1Endpoint(c)
+	if err != nil {
+		return nil, err
+	}
+
 	var beaconEndpoint string
 	if c.IsSet(flags.L1BeaconEndpoint.Name) {
 		beaconEndpoint = c.String(flags.L1BeaconEndpoint.Name)
@@ -83,7 +88,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:              c.String(flags.L1WSEndpoint.Name),
+			L1Endpoint:              l1Endpoint,
 			L1BeaconEndpoint:        beaconEndpoint,
 			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
 			L2CheckPoint:            l2CheckPoint,

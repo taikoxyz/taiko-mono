@@ -1,17 +1,15 @@
 //! Proposer Subcommand.
 use std::time::Duration;
 
+use crate::{
+    commands::Subcommand,
+    flags::{common::CommonArgs, proposer::ProposerArgs},
+};
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
-use rpc::SubscriptionSource;
-
-use crate::{
-    commands::Subcommand,
-    flags::{common::CommonArgs, proposer::ProposerArgs},
-};
 
 /// Command-line interface for running a proposer.
 ///
@@ -30,8 +28,7 @@ pub struct ProposerSubCommand {
 impl ProposerSubCommand {
     /// Build proposer configuration from command-line arguments.
     fn build_config(&self) -> Result<ProposerConfigs> {
-        let l1_provider_source =
-            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
+        let l1_provider_source = self.common_flags.l1_provider_source()?;
 
         Ok(ProposerConfigs {
             l1_provider_source,
