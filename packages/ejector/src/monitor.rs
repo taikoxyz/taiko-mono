@@ -418,12 +418,9 @@ impl Monitor {
 
                     // L2 sanity check: if the L2 node is syncing or its head is advancing, avoid
                     // ejecting based solely on a stalled WS subscription.
-                    let mut skip_due_to_l2 = Self::should_skip_due_to_sync_status(
-                        &shared_l2_http_provider,
-                        "L2",
-                        true,
-                    )
-                    .await;
+                    let mut skip_due_to_l2 =
+                        Self::should_skip_due_to_sync_status(&shared_l2_http_provider, "L2", true)
+                            .await;
 
                     if !skip_due_to_l2 {
                         match shared_l2_http_provider.get_block_number().await {
@@ -852,12 +849,12 @@ pub async fn are_preconfs_enabled(
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_sync_status, should_skip_for_sync_class, SyncStatusClass};
     use super::Monitor;
+    use super::{SyncStatusClass, classify_sync_status, should_skip_for_sync_class};
     use alloy::providers::ProviderBuilder;
     use serde_json::json;
-    use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::{body_partial_json, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn classify_sync_status_cases() {
