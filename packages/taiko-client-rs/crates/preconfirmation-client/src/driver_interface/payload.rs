@@ -10,7 +10,7 @@ use alethia_reth_primitives::payload::{
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types::{Header as RpcHeader, eth::Withdrawal};
+use alloy_rpc_types::Header as RpcHeader;
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use preconfirmation_types::uint256_to_u256;
@@ -74,7 +74,6 @@ pub async fn build_taiko_payload_attributes(
         B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
         block_number,
     );
-    let withdrawals: Vec<Withdrawal> = Vec::new();
     let base_fee_per_gas = if parent_header.inner.number == 0 {
         SHASTA_INITIAL_BASE_FEE
     } else {
@@ -111,7 +110,7 @@ pub async fn build_taiko_payload_attributes(
         timestamp,
         prev_randao: mix_hash,
         suggested_fee_recipient: fee_recipient,
-        withdrawals: Some(withdrawals),
+        withdrawals: Some(Vec::new()),
         parent_beacon_block_root: None,
     };
 

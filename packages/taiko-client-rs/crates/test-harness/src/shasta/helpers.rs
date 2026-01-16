@@ -10,10 +10,7 @@ use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use alloy_rlp::{BytesMut, encode_list};
-use alloy_rpc_types::{
-    Transaction as RpcTransaction,
-    eth::{Block as RpcBlock, Withdrawal},
-};
+use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadAttributes,
     PayloadStatusEnum,
@@ -168,13 +165,11 @@ async fn fork_to(
         })
         .unwrap_or_default();
 
-    let withdrawals: Vec<Withdrawal> = Vec::new();
-
     let payload_attributes = PayloadAttributes {
         timestamp,
         prev_randao: mix_digest,
         suggested_fee_recipient: coinbase,
-        withdrawals: Some(withdrawals.clone()),
+        withdrawals: Some(Vec::new()),
         parent_beacon_block_root: None,
     };
 

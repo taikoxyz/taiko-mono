@@ -9,7 +9,7 @@ use alloy::{
     providers::Provider,
 };
 use alloy_consensus::{Header, TxEnvelope};
-use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
+use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
 use protocol::shasta::{
@@ -495,8 +495,6 @@ where
         let tx_list = encode_transactions(transactions);
         let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
 
-        let withdrawals: Vec<Withdrawal> = Vec::new();
-
         // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
         // add it back here.
         let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_V4_GAS_LIMIT);
@@ -514,7 +512,7 @@ where
             timestamp: block.timestamp,
             prev_randao: difficulty,
             suggested_fee_recipient: block.coinbase,
-            withdrawals: Some(withdrawals),
+            withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
         };
 
