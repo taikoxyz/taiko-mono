@@ -918,8 +918,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_skip_on_malformed_json() {
-        let response = ResponseTemplate::new(200)
-            .set_body_raw("not-json", "application/json");
+        let response = ResponseTemplate::new(200).set_body_raw("not-json", "application/json");
         let skip = run_sync_status_check_with_response(response).await;
         assert!(skip);
     }
