@@ -1,6 +1,7 @@
 use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
-use alethia_reth_primitives::payload::attributes::{
-    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+use alethia_reth_primitives::payload::{
+    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+    builder::payload_id_taiko,
 };
 use alloy::{
     eips::BlockNumberOrTag,
@@ -12,9 +13,9 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Withdrawal};
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
 use protocol::shasta::{
-    calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data,
-    encode_transactions,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
+    payload_id_to_bytes,
 };
 
 use crate::{
@@ -22,6 +23,7 @@ use crate::{
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
+
 use tracing::{debug, info, instrument, warn};
 
 use super::{
@@ -494,24 +496,6 @@ where
         let extra_data = encode_extra_data(meta.basefee_sharing_pctg, meta.proposal_id);
 
         let withdrawals: Vec<Withdrawal> = Vec::new();
-        let build_payload_args_id = compute_build_payload_args_id(
-            parent_hash,
-            block.timestamp,
-            difficulty,
-            block.coinbase,
-            &withdrawals,
-            &tx_list,
-        );
-
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: Some(U256::from(meta.l1_block_number)),
-            l1_block_hash: Some(l1_block_hash),
-            build_payload_args_id,
-            is_forced_inclusion: position.is_forced_inclusion(),
-            signature: [0u8; 65],
-        };
 
         // Gas limit in manifest excludes the reserved budget for the anchor transaction, so
         // add it back here.
@@ -522,7 +506,7 @@ where
             gas_limit,
             timestamp: U256::from(block.timestamp),
             mix_hash: difficulty,
-            tx_list,
+            tx_list: Some(tx_list),
             extra_data,
         };
 
@@ -534,18 +518,34 @@ where
             parent_beacon_block_root: None,
         };
 
-        debug!(
-            l1_origin = ?l1_origin,
-            payload_attributes = ?payload_attributes,
-            "constructed payload attributes"
-        );
+        let l1_origin = RpcL1Origin {
+            block_id: U256::from(block_number),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: Some(U256::from(meta.l1_block_number)),
+            l1_block_hash: Some(l1_block_hash),
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: position.is_forced_inclusion(),
+            signature: [0u8; 65],
+        };
 
-        TaikoPayloadAttributes {
+        let mut payload = TaikoPayloadAttributes {
             payload_attributes,
             base_fee_per_gas: U256::from(block_base_fee),
             block_metadata,
             l1_origin,
-        }
+            anchor_transaction: None,
+        };
+
+        let build_payload_args_id = payload_id_taiko(&parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
+        payload.l1_origin.build_payload_args_id = payload_id_to_bytes(build_payload_args_id);
+
+        debug!(
+            l1_origin = ?payload.l1_origin,
+            payload_attributes = ?payload.payload_attributes,
+            "constructed payload attributes"
+        );
+
+        payload
     }
 
     /// Synchronise the execution engine's L1 origin tables with the derived block metadata.

@@ -690,7 +690,7 @@ mod tests {
             gas_limit: 0,
             timestamp: U256::ZERO,
             mix_hash: B256::ZERO,
-            tx_list: Bytes::new(),
+            tx_list: Some(Bytes::new()),
             extra_data: Bytes::new(),
         };
         let l1_origin = RpcL1Origin {
@@ -708,6 +708,7 @@ mod tests {
             base_fee_per_gas: U256::ZERO,
             block_metadata,
             l1_origin,
+            anchor_transaction: None,
         }
     }
 

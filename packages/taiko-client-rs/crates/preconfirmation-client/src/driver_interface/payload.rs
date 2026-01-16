@@ -3,8 +3,9 @@
 use alethia_reth_consensus::eip4396::{
     SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
-use alethia_reth_primitives::payload::attributes::{
-    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+use alethia_reth_primitives::payload::{
+    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+    builder::payload_id_taiko,
 };
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -17,7 +18,8 @@ use preconfirmation_types::uint256_to_u256;
 use super::traits::PreconfirmationInput;
 use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
-    calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data, encode_tx_list,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_tx_list,
+    payload_id_to_bytes,
 };
 
 /// Maximum value for a `uint48`.
@@ -94,32 +96,15 @@ pub async fn build_taiko_payload_attributes(
     let transactions = input.transactions.as_ref().ok_or(DriverApiError::MissingTransactions)?;
     let tx_list =
         encode_tx_list(&transactions.iter().map(|tx| Bytes::from(tx.clone())).collect::<Vec<_>>());
-
-    let l1_origin = RpcL1Origin {
-        block_id: U256::from(block_number),
-        l2_block_hash: B256::ZERO,
-        l1_block_height: None,
-        l1_block_hash: None,
-        build_payload_args_id: compute_build_payload_args_id(
-            parent_header.hash,
-            timestamp,
-            mix_hash,
-            fee_recipient,
-            &withdrawals,
-            &tx_list,
-        ),
-        // Deprecated fields.
-        is_forced_inclusion: false,
-        signature: [0u8; 65],
-    };
+    let extra_data = encode_extra_data(basefee_sharing_pctg, proposal_id);
 
     let block_metadata = TaikoBlockMetadata {
         beneficiary: fee_recipient,
         gas_limit,
         timestamp: U256::from(timestamp),
         mix_hash,
-        tx_list,
-        extra_data: encode_extra_data(basefee_sharing_pctg, proposal_id),
+        tx_list: Some(tx_list),
+        extra_data,
     };
 
     let payload_attributes = EthPayloadAttributes {
@@ -130,12 +115,30 @@ pub async fn build_taiko_payload_attributes(
         parent_beacon_block_root: None,
     };
 
-    Ok(TaikoPayloadAttributes {
+    let l1_origin = RpcL1Origin {
+        block_id: U256::from(block_number),
+        l2_block_hash: B256::ZERO,
+        l1_block_height: None,
+        l1_block_hash: None,
+        build_payload_args_id: [0u8; 8],
+        // Deprecated fields.
+        is_forced_inclusion: false,
+        signature: [0u8; 65],
+    };
+
+    let mut payload = TaikoPayloadAttributes {
         payload_attributes,
         base_fee_per_gas: U256::from(base_fee_per_gas),
         block_metadata,
         l1_origin,
-    })
+        anchor_transaction: None,
+    };
+
+    let build_payload_args_id =
+        payload_id_taiko(&parent_header.hash, &payload, PAYLOAD_ID_VERSION_V2);
+    payload.l1_origin.build_payload_args_id = payload_id_to_bytes(build_payload_args_id);
+
+    Ok(payload)
 }
 
 #[cfg(test)]
@@ -209,14 +212,43 @@ mod tests {
         let expected_mix_hash = calculate_shasta_difficulty(parent_difficulty, 5);
         let transactions = vec![Bytes::from(vec![0x01, 0x02])];
         let tx_list = encode_tx_list(&transactions);
-        let expected_build_payload_args_id = compute_build_payload_args_id(
-            parent_header.hash,
-            10,
-            expected_mix_hash,
-            Address::from([1u8; 20]),
-            &[],
-            &tx_list,
-        );
+        let extra_data = encode_extra_data(basefee_sharing_pctg, 7); // proposal_id = 7
+        let expected_block_metadata = TaikoBlockMetadata {
+            beneficiary: Address::from([1u8; 20]),
+            gas_limit: 30_000_000,
+            timestamp: U256::from(10),
+            mix_hash: expected_mix_hash,
+            tx_list: Some(tx_list),
+            extra_data,
+        };
+        let expected_payload_attributes = EthPayloadAttributes {
+            timestamp: 10,
+            prev_randao: expected_mix_hash,
+            suggested_fee_recipient: Address::from([1u8; 20]),
+            withdrawals: Some(vec![]),
+            parent_beacon_block_root: None,
+        };
+        let expected_l1_origin = RpcL1Origin {
+            block_id: U256::from(5),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        };
+        let expected_payload = TaikoPayloadAttributes {
+            payload_attributes: expected_payload_attributes,
+            base_fee_per_gas: U256::from(900_000_000),
+            block_metadata: expected_block_metadata,
+            l1_origin: expected_l1_origin,
+            anchor_transaction: None,
+        };
+        let expected_build_payload_args_id = payload_id_to_bytes(payload_id_taiko(
+            &parent_header.hash,
+            &expected_payload,
+            PAYLOAD_ID_VERSION_V2,
+        ));
         assert_eq!(payload.payload_attributes.timestamp, 10);
         assert_eq!(payload.block_metadata.gas_limit, 30_000_000);
         assert_eq!(payload.block_metadata.beneficiary, Address::from([1u8; 20]));

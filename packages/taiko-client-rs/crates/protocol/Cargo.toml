@@ -25,9 +25,9 @@ alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
 alloy-sol-types = { workspace = true }
 event-scanner = { workspace = true }
-sha2 = { workspace = true }
 
 # taiko
 bindings = { path = "../bindings" }

@@ -183,7 +183,7 @@ async fn fork_to(
         gas_limit,
         timestamp: U256::from(timestamp),
         mix_hash: mix_digest,
-        tx_list,
+        tx_list: Some(tx_list),
         extra_data,
     };
 
@@ -202,6 +202,7 @@ async fn fork_to(
         base_fee_per_gas: U256::from(base_fee),
         block_metadata,
         l1_origin: l1_origin_attrs,
+        anchor_transaction: None,
     };
 
     let forkchoice_state = ForkchoiceState {
