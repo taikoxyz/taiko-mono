@@ -19,7 +19,8 @@ const BRIDGED_TOKEN_DEPLOYED_ABIS = {
 };
 
 async function getLastScannedBlock(dataDir, networkName, vaultName) {
-  const dir = path.join(dataDir, networkName.replaceAll(" ", "_"), `BridgedTokenDeployed_${vaultName}`);
+  const safeName = networkName.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const dir = path.join(dataDir, safeName, `BridgedTokenDeployed_${vaultName}`);
   try {
     const files = await fs.readdir(dir);
     const chunkFiles = files.filter(f => f.startsWith("chunk_") && f.endsWith(".json"));
