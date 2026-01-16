@@ -71,7 +71,7 @@ alloy-sol-macro = { version = "1.4.1", default-features = false, features = [
 alloy-sol-types = { version = "1.4.1", default-features = false }
 alloy-transport = { version = "1.1.2", default-features = false }
 alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
-event-scanner = "=1.0.0-rc.1"
+event-scanner = "1.0.0"
 jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 

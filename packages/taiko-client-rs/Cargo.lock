@@ -3708,15 +3708,15 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "1.0.0-rc.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46510962fd989569a54cfa6fc529410937f528cf56b2dad2fe329891e4f59c07"
+checksum = "1a379baea9e6bccfcf5eaae8b52d2b66b87dcd807ad30a3bcd00cfb895d8321b"
 dependencies = [
  "alloy",
  "alloy-node-bindings",
  "anyhow",
- "backon",
  "futures",
+ "robust-provider",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
@@ -10944,6 +10944,24 @@ checksum = "19e8d2cfa184d94d0726d650a9f4a1be7f9b76ac9fdb954219878dc00c1c1e7b"
 dependencies = [
  "bytemuck",
  "byteorder",
+]
+
+[[package]]
+name = "robust-provider"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9154764a69ea2fd9b5511346a75d63820371a0207fbef148e934aa5ec7d05d72"
+dependencies = [
+ "alloy",
+ "alloy-node-bindings",
+ "anyhow",
+ "backon",
+ "futures",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
