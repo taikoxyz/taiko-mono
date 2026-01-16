@@ -29,7 +29,6 @@ New trusted image IDs to be added:
 
 - `0x718c5f47ae60739a571681c9f02c1895c791346eece96f58b345159cc6f97c9f` (boundless-aggregation)
 - `0x3c98171d6744a78a55289aed44281780bca067906e3618aca5ba657595572c25` (boundless-batch)
-- `0x22e8f4b2f051e6630a90fabe99d1034b87daaedb47b62f0b41b1b8158c33dc45` (boundless-shasta-aggregation)
 
 ### 2. SGX Attestation Updates (`raiko:1.13.0` / `raiko:1.13.0-edmm`)
 
