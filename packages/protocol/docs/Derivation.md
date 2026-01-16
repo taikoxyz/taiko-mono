@@ -21,16 +21,16 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component**             | **Description**                                                         |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| **id**                             | A unique, sequential identifier for the proposal                        |
-| **proposer**                       | The address that proposed the proposal                                  |
-| **timestamp**                      | The timestamp when the proposal was accepted on L1                      |
-| **endOfSubmissionWindowTimestamp** | The last slot timestamp where the current preconfer can propose         |
-| **parentProposalHash**             | The hash of the parent proposal                                         |
-| **originBlockNumber**              | The L1 block number from **one block before** the proposal was accepted |
-| **originBlockHash**                | The hash of `originBlockNumber` block                                   |
-| **basefeeSharingPctg**             | The percentage of base fee paid to coinbase                             |
+| **Metadata Component**             | **Description**                                                                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **id**                             | A unique, sequential identifier for the proposal                                                      |
+| **proposer**                       | The address that proposed the proposal                                                                |
+| **timestamp**                      | The timestamp when the proposal was accepted on L1                                                    |
+| **endOfSubmissionWindowTimestamp** | The last slot timestamp where the current preconfer can propose. `0` for whitelisted preconfirmations |
+| **parentProposalHash**             | The hash of the parent proposal                                                                       |
+| **originBlockNumber**              | The L1 block number from **one block before** the proposal was accepted                               |
+| **originBlockHash**                | The hash of `originBlockNumber` block                                                                 |
+| **basefeeSharingPctg**             | The percentage of base fee paid to coinbase                                                           |
 
 ### Derivation Source-level Metadata
 
