@@ -5,6 +5,9 @@ use alloy_provider::Provider;
 use anyhow::Context;
 use rpc::client::{Client, ClientWithWallet};
 
+/// Default priority fee for test transactions (10 gwei).
+pub const PRIORITY_FEE_GWEI: u128 = 10_000_000_000;
+
 /// Mines a single empty L1 block via the connected execution engine.
 pub async fn mine_l1_block<P>(client: &Client<P>) -> anyhow::Result<()>
 where

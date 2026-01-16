@@ -12,8 +12,7 @@ cd ${PACAYA_FORK_TAIKO_MONO}/packages/protocol &&
     --ffi \
     --evm-version cancun \
     --private-key "$PRIVATE_KEY" \
-    --block-gas-limit 200000000 \
-    --legacy &&
+    --block-gas-limit 200000000 &&
   cd -
 
 # Get deployed contract address.

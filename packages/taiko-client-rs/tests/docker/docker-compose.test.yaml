@@ -10,9 +10,11 @@ services:
       - anvil
       - --host
       - "0.0.0.0"
+      - --gas-limit
+      - "200000000"
 
-  l2_node:
-    container_name: l2_node
+  l2_node_0:
+    container_name: l2_node_0
     image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
     restart: unless-stopped
     pull_policy: always
@@ -22,6 +24,37 @@ services:
       - "28545:8545"
       - "28546:8546"
       - "28551:8551"
+    entrypoint:
+      - ./alethia-reth
+      - node
+      - --http
+      - --http.addr
+      - "0.0.0.0"
+      - --http.api
+      - eth,net,debug,trace,rpc
+      - --ws
+      - --ws.addr
+      - "0.0.0.0"
+      - --chain
+      - devnet
+      - --disable-discovery
+      - --authrpc.jwtsecret
+      - /host/jwt.hex
+      - --authrpc.addr
+      - "0.0.0.0"
+      - -vvvv
+
+  l2_node_1:
+    container_name: l2_node_1
+    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - .:/host
+    ports:
+      - "38545:8545"
+      - "38546:8546"
+      - "38551:8551"
     entrypoint:
       - ./alethia-reth
       - node

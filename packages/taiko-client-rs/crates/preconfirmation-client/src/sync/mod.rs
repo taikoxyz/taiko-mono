@@ -168,7 +168,7 @@ impl TipCatchup {
                     Err(err) => {
                         return Err(PreconfirmationClientError::Catchup(format!(
                             "txlist task failed: {err}"
-                        )))
+                        )));
                     }
                 }
 

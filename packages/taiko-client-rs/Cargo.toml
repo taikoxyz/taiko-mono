@@ -43,7 +43,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
-tower = { version = "0.4", features = ["timeout", "util"] }
+tower = { version = "0.5", features = ["timeout", "util"] }
 
 # ethereum
 alloy = "1.1.2"
@@ -63,6 +63,7 @@ alloy-rpc-client = { version = "1.1.2", default-features = false }
 alloy-rpc-types = { version = "1.1.2", default-features = false }
 alloy-rpc-types-engine = { version = "1.1.2", default-features = false }
 alloy-rpc-types-eth = { version = "1.1.2", default-features = false }
+alloy-signer = { version = "1.1.2", default-features = false }
 alloy-signer-local = { version = "1.1.2", default-features = false }
 alloy-sol-macro = { version = "1.4.1", default-features = false, features = [
   "json",
@@ -71,6 +72,8 @@ alloy-sol-types = { version = "1.4.1", default-features = false }
 alloy-transport = { version = "1.1.2", default-features = false }
 alloy-transport-http = { version = "1.1.2", features = ["hyper", "jwt-auth"] }
 event-scanner = "=1.0.0-rc.1"
+jsonrpsee = { version = "0.26", features = ["server"] }
+k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "e07c13fc011798adfa5436f24646b7305337cdf3" }
@@ -98,6 +101,7 @@ sha2 = "0.10"
 # testing
 serial_test = { version = "3", features = ["async"] }
 test-context = "0.3"
+test-log = { version = "0.2", features = ["trace"] }
 
 [profile.dev]
 debug = "line-tables-only"

@@ -8,6 +8,7 @@ publish = false
 default = []
 # Enable preconfirmation test utilities (mock driver, mock lookahead, etc.)
 preconfirmation = [
+    "dep:flate2",
     "dep:preconfirmation-client",
     "dep:preconfirmation-net",
     "dep:preconfirmation-types",
@@ -17,16 +18,24 @@ preconfirmation = [
 ]
 
 [dependencies]
+alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
+alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
 bindings = { path = "../bindings" }
+driver = { path = "../driver" }
+flate2 = { workspace = true, optional = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
@@ -44,3 +53,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+test-log = { workspace = true }
+tokio = { workspace = true }
