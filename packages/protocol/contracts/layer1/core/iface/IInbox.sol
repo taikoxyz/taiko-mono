@@ -34,7 +34,7 @@ interface IInbox {
         /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
         uint48 maxProofSubmissionDelay;
         /// @notice The ring buffer size for storing proposal hashes
-        uint256 ringBufferSize;
+        uint48 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
         uint8 basefeeSharingPctg;
         /// @notice The minimum number of forced inclusions that the proposer is forced to process

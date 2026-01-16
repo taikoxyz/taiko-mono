@@ -25,7 +25,7 @@ contract MainnetInbox is Inbox {
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 14) / 12 / 6
     ///                     = 16800
-    uint64 private constant _RING_BUFFER_SIZE = 16_800;
+    uint48 private constant _RING_BUFFER_SIZE = 16_800;
 
     // ---------------------------------------------------------------
     // Constructor
