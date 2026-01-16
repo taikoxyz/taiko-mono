@@ -91,7 +91,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     uint48 internal immutable _maxProofSubmissionDelay;
 
     /// @notice The ring buffer size for storing proposal hashes.
-    uint256 internal immutable _ringBufferSize;
+    uint48 internal immutable _ringBufferSize;
 
     /// @notice The percentage of basefee paid to coinbase.
     uint8 internal immutable _basefeeSharingPctg;
@@ -538,8 +538,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _ringBufferSize > uint256(_nextProposalId - _lastFinalizedProposalId),
-                NotEnoughCapacity()
+                _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
             );
 
             ConsumptionResult memory result =

@@ -17,7 +17,7 @@ library LibInboxSetup {
     /// @dev The time window during which activate() can be called after the first activation.
     uint256 public constant ACTIVATION_WINDOW = 2 hours;
     /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
-    uint256 public constant MIN_RING_BUFFER_SIZE = 2;
+    uint48 public constant MIN_RING_BUFFER_SIZE = 2;
 
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
