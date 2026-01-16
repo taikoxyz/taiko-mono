@@ -105,42 +105,31 @@ func Decompress(compressedTxList []byte) ([]byte, error) {
 	return b, nil
 }
 
-// GWeiToWei converts gwei value to wei value.
-func GWeiToWei(gwei float64) (*big.Int, error) {
-	if math.IsNaN(gwei) || math.IsInf(gwei, 0) {
-		return nil, fmt.Errorf("invalid gwei value: %v", gwei)
+func floatToWei(value float64, multiplier float64, unitName string) (*big.Int, error) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return nil, fmt.Errorf("invalid %s value: %v", unitName, value)
 	}
 
-	// convert float GWei value into integer Wei value
 	wei, _ := new(big.Float).Mul(
-		big.NewFloat(gwei),
-		big.NewFloat(params.GWei)).
+		big.NewFloat(value),
+		big.NewFloat(multiplier)).
 		Int(nil)
 
 	if wei.Cmp(abi.MaxUint256) == 1 {
-		return nil, errors.New("gwei value larger than max uint256")
+		return nil, errors.New(unitName + " value larger than max uint256")
 	}
 
 	return wei, nil
 }
 
+// GWeiToWei converts gwei value to wei value.
+func GWeiToWei(gwei float64) (*big.Int, error) {
+	return floatToWei(gwei, params.GWei, "gwei")
+}
+
 // EtherToWei converts ether value to wei value.
 func EtherToWei(ether float64) (*big.Int, error) {
-	if math.IsNaN(ether) || math.IsInf(ether, 0) {
-		return nil, fmt.Errorf("invalid ether value: %v", ether)
-	}
-
-	// convert float GWei value into integer Wei value
-	wei, _ := new(big.Float).Mul(
-		big.NewFloat(ether),
-		big.NewFloat(params.Ether)).
-		Int(nil)
-
-	if wei.Cmp(abi.MaxUint256) == 1 {
-		return nil, errors.New("ether value larger than max uint256")
-	}
-
-	return wei, nil
+	return floatToWei(ether, params.Ether, "ether")
 }
 
 // WeiToEther converts wei value to ether value.
