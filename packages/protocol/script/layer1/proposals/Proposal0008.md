@@ -17,7 +17,6 @@ New trusted program VKeys to be added:
 - `0x005208749e76b13f5d72368ee12957ae9de239110b51e00a77b16cbb1c2a9381` (sp1-aggregation, vk bn256)
 - `0x29043a4f1dac4fd72e46d1dc12957ae96f11c8882d4780296f62d9761c2a9381` (sp1-aggregation, vk hash_bytes)
 - `0x009d1daf24137c3fb08e1dd65bc517e0f66f07f2c9b2cadb870f235a99ae0905` (sp1-batch, vk bn256)
-- `0x4e8ed79204df0fec11c3bacb3c517e0f33783f9626cb2b6e0e1e46b519ae0905` (sp1-batch, vk hash_bytes)
 - `0x69640eee59d46fae18ecadf92189b4b20b63eb206bf4034d5aaf2bcf68a8b53b` (sp1-shasta-aggregation, vk hash_bytes)
 
 #### 1.2 Risc0 Verifier Updates
