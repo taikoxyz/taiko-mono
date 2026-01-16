@@ -196,15 +196,19 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 							useZK = false
 							startAt = time.Now()
 						} else {
-							return fmt.Errorf("zk proof is WIP, status: %w", err)
+							log.Debug("zk proof is WIP", "status", err)
+							return err
 						}
-					} else {
-						log.Debug(
-							"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
+					} else if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+						log.Debug("ZK proof was not chosen, attempting to request SGX proof",
 							"batchID", opts.BatchID,
+							"status", err,
 						)
 						useZK = false
 						startAt = time.Now()
+					} else {
+						log.Debug("Got unexpected error, retrying", "err", err)
+						return err
 					}
 				}
 			}
