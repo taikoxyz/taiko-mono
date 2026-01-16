@@ -17,7 +17,7 @@ New trusted program VKeys to be added:
 - `0x005208749e76b13f5d72368ee12957ae9de239110b51e00a77b16cbb1c2a9381` (sp1-aggregation, vk bn256)
 - `0x29043a4f1dac4fd72e46d1dc12957ae96f11c8882d4780296f62d9761c2a9381` (sp1-aggregation, vk hash_bytes)
 - `0x009d1daf24137c3fb08e1dd65bc517e0f66f07f2c9b2cadb870f235a99ae0905` (sp1-batch, vk bn256)
-- `0x69640eee59d46fae18ecadf92189b4b20b63eb206bf4034d5aaf2bcf68a8b53b` (sp1-shasta-aggregation, vk hash_bytes)
+- `0x4e8ed79204df0fec11c3bacb3c517e0f33783f9626cb2b6e0e1e46b519ae0905` (sp1-batch, vk hash_bytes)
 
 #### 1.2 Risc0 Verifier Updates
 
@@ -68,8 +68,6 @@ boundless elf image id: 718c5f47ae60739a571681c9f02c1895c791346eece96f58b345159c
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-aggregation"
 boundless elf image id: 3c98171d6744a78a55289aed44281780bca067906e3618aca5ba657595572c25
 "/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-batch"
-boundless elf image id: 22e8f4b2f051e6630a90fabe99d1034b87daaedb47b62f0b41b1b8158c33dc45
-"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-shasta-aggregation"
 
 ## sp1
 
@@ -79,9 +77,6 @@ sp1 elf vk hash_bytes is: 29043a4f1dac4fd72e46d1dc12957ae96f11c8882d4780296f62d9
 "/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-batch"
 sp1 elf vk bn256 is: 0x009d1daf24137c3fb08e1dd65bc517e0f66f07f2c9b2cadb870f235a99ae0905
 sp1 elf vk hash_bytes is: 4e8ed79204df0fec11c3bacb3c517e0f33783f9626cb2b6e0e1e46b519ae0905
-"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-shasta-aggregation"
-sp1 elf vk bn256 is: 0x00d2c81ddd6751beb8c7656fca189b4b216c7d641afd00d36d5795e7e8a8b53b
-sp1 elf vk hash_bytes is: 69640eee59d46fae18ecadf92189b4b20b63eb206bf4034d5aaf2bcf68a8b53b
 
 # v1.13.0
 

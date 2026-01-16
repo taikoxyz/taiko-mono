@@ -16,9 +16,9 @@ contract Proposal0008 is BuildProposal {
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](12);
+        actions = new Controller.Action[](9);
 
-        // SP1 Verifier Actions (6 calls)
+        // SP1 Verifier Actions (4 calls)
         actions[0] = Controller.Action({
             target: SP1_VERIFIER,
             value: 0,
@@ -55,26 +55,8 @@ contract Proposal0008 is BuildProposal {
             )
         });
 
+        // Risc0 Verifier Actions (2 calls)
         actions[4] = Controller.Action({
-            target: SP1_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x00d2c81ddd6751beb8c7656fca189b4b216c7d641afd00d36d5795e7e8a8b53b, true)
-            )
-        });
-
-        actions[5] = Controller.Action({
-            target: SP1_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x69640eee59d46fae18ecadf92189b4b20b63eb206bf4034d5aaf2bcf68a8b53b, true)
-            )
-        });
-
-        // Risc0 Verifier Actions (3 calls)
-        actions[6] = Controller.Action({
             target: RISC0_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -83,7 +65,7 @@ contract Proposal0008 is BuildProposal {
             )
         });
 
-        actions[7] = Controller.Action({
+        actions[5] = Controller.Action({
             target: RISC0_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -92,17 +74,8 @@ contract Proposal0008 is BuildProposal {
             )
         });
 
-        actions[8] = Controller.Action({
-            target: RISC0_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (0x22e8f4b2f051e6630a90fabe99d1034b87daaedb47b62f0b41b1b8158c33dc45, true)
-            )
-        });
-
         // SGX Attestation Updates (3 calls)
-        actions[9] = Controller.Action({
+        actions[6] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
@@ -112,7 +85,7 @@ contract Proposal0008 is BuildProposal {
             )
         });
 
-        actions[10] = Controller.Action({
+        actions[7] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
@@ -122,7 +95,7 @@ contract Proposal0008 is BuildProposal {
             )
         });
 
-        actions[11] = Controller.Action({
+        actions[8] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
