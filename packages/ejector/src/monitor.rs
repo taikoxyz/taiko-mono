@@ -142,41 +142,90 @@ pub struct Monitor {
     reorg_ejection_enabled: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SyncStatusClass {
+    NotSyncing,
+    Syncing,
+    Unknown,
+}
+
+fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
+    match value {
+        serde_json::Value::Bool(false) | serde_json::Value::Null => SyncStatusClass::NotSyncing,
+        serde_json::Value::Object(_) => SyncStatusClass::Syncing,
+        _ => SyncStatusClass::Unknown,
+    }
+}
+
+fn should_skip_for_sync_class(class: SyncStatusClass, skip_on_unknown: bool) -> bool {
+    matches!(class, SyncStatusClass::Syncing)
+        || (skip_on_unknown && matches!(class, SyncStatusClass::Unknown))
+}
+
 impl Monitor {
-    // Returns true if the node appears to be syncing or if the sync status cannot be parsed.
-    // The caller can use this to skip eject decisions when RPC health is uncertain.
-    async fn should_skip_due_to_sync_status<P>(provider: &P, node_label: &str) -> bool
+    // Returns true if the node appears to be syncing. If `skip_on_unknown` is true, also returns
+    // true when the sync status cannot be determined.
+    async fn should_skip_due_to_sync_status<P>(
+        provider: &P,
+        node_label: &str,
+        skip_on_unknown: bool,
+    ) -> bool
     where
         P: Provider + Clone + Send + Sync + 'static,
     {
         match provider.syncing().await {
             Ok(syncing) => match serde_json::to_value(&syncing) {
-                Ok(serde_json::Value::Bool(false)) | Ok(serde_json::Value::Null) => false,
-                Ok(serde_json::Value::Object(_)) => {
-                    warn!(node = node_label, "Node is syncing; skipping eject this tick");
-                    true
-                }
-                Ok(unexpected) => {
-                    warn!(
-                        node = node_label,
-                        "Unexpected sync status format: {unexpected:?}; skipping eject this tick"
-                    );
-                    true
+                Ok(value) => {
+                    let class = classify_sync_status(&value);
+                    match class {
+                        SyncStatusClass::NotSyncing => {}
+                        SyncStatusClass::Syncing => {
+                            warn!(node = node_label, "Node is syncing; skipping eject this tick");
+                        }
+                        SyncStatusClass::Unknown => {
+                            if skip_on_unknown {
+                                warn!(
+                                    node = node_label,
+                                    "Unexpected sync status format: {value:?}; skipping eject this tick"
+                                );
+                            } else {
+                                warn!(
+                                    node = node_label,
+                                    "Unexpected sync status format: {value:?}; continuing with eject checks"
+                                );
+                            }
+                        }
+                    }
+                    should_skip_for_sync_class(class, skip_on_unknown)
                 }
                 Err(e) => {
-                    warn!(
-                        node = node_label,
-                        "Failed to process sync status: {e:?}; skipping eject this tick"
-                    );
-                    true
+                    if skip_on_unknown {
+                        warn!(
+                            node = node_label,
+                            "Failed to process sync status: {e:?}; skipping eject this tick"
+                        );
+                    } else {
+                        warn!(
+                            node = node_label,
+                            "Failed to process sync status: {e:?}; continuing with eject checks"
+                        );
+                    }
+                    skip_on_unknown
                 }
             },
             Err(e) => {
-                warn!(
-                    node = node_label,
-                    "Failed to query sync status: {e:?}; skipping eject this tick"
-                );
-                true
+                if skip_on_unknown {
+                    warn!(
+                        node = node_label,
+                        "Failed to query sync status: {e:?}; skipping eject this tick"
+                    );
+                } else {
+                    warn!(
+                        node = node_label,
+                        "Failed to query sync status: {e:?}; continuing with eject checks"
+                    );
+                }
+                skip_on_unknown
             }
         }
     }
@@ -369,8 +418,12 @@ impl Monitor {
 
                     // L2 sanity check: if the L2 node is syncing or its head is advancing, avoid
                     // ejecting based solely on a stalled WS subscription.
-                    let mut skip_due_to_l2 =
-                        Self::should_skip_due_to_sync_status(&shared_l2_http_provider, "L2").await;
+                    let mut skip_due_to_l2 = Self::should_skip_due_to_sync_status(
+                        &shared_l2_http_provider,
+                        "L2",
+                        true,
+                    )
+                    .await;
 
                     if !skip_due_to_l2 {
                         match shared_l2_http_provider.get_block_number().await {
@@ -437,7 +490,7 @@ impl Monitor {
 
                     // Query L1 sync state and decide whether to skip this tick.
                     let skip_due_to_l1 =
-                        Self::should_skip_due_to_sync_status(&http_provider, "L1").await;
+                        Self::should_skip_due_to_sync_status(&http_provider, "L1", true).await;
 
                     if skip_due_to_l1 {
                         // Reset timer so we don't immediately eject when node catches up
@@ -795,4 +848,62 @@ pub async fn are_preconfs_enabled(
     let preconf_router = taiko_wrapper.preconfRouter().call().await?;
 
     Ok(!preconf_router.is_zero())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{classify_sync_status, should_skip_for_sync_class, SyncStatusClass};
+    use super::Monitor;
+    use alloy::providers::ProviderBuilder;
+    use serde_json::json;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::{body_partial_json, method, path};
+
+    #[test]
+    fn classify_sync_status_cases() {
+        assert_eq!(classify_sync_status(&json!(false)), SyncStatusClass::NotSyncing);
+        assert_eq!(classify_sync_status(&serde_json::Value::Null), SyncStatusClass::NotSyncing);
+        assert_eq!(
+            classify_sync_status(&json!({"startingBlock": "0x1"})),
+            SyncStatusClass::Syncing
+        );
+        assert_eq!(classify_sync_status(&json!("weird")), SyncStatusClass::Unknown);
+        assert_eq!(classify_sync_status(&json!(123)), SyncStatusClass::Unknown);
+    }
+
+    #[test]
+    fn should_skip_for_sync_class_respects_unknown_flag() {
+        assert!(!should_skip_for_sync_class(SyncStatusClass::NotSyncing, true));
+        assert!(should_skip_for_sync_class(SyncStatusClass::Syncing, false));
+        assert!(!should_skip_for_sync_class(SyncStatusClass::Unknown, false));
+        assert!(should_skip_for_sync_class(SyncStatusClass::Unknown, true));
+    }
+
+    #[tokio::test]
+    async fn should_skip_when_syncing_response_is_object() {
+        let server = MockServer::start().await;
+        let expected_body = json!({ "method": "eth_syncing" });
+
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .and(body_partial_json(&expected_body))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "startingBlock": "0x1",
+                    "currentBlock": "0x2",
+                    "highestBlock": "0x3"
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let url = alloy::transports::http::reqwest::Url::parse(&server.uri())
+            .expect("mock server url should parse");
+        let provider = ProviderBuilder::new().connect_http(url);
+
+        let skip = Monitor::should_skip_due_to_sync_status(&provider, "L2", true).await;
+        assert!(skip);
+    }
 }
