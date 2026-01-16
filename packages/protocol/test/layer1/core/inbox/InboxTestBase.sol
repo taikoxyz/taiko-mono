@@ -87,11 +87,12 @@ abstract contract InboxTestBase is CommonTest {
             livenessBond: LIVENESS_BOND_GWEI,
             withdrawalDelay: WITHDRAWAL_DELAY,
             provingWindow: 2 hours,
+            permissionlessProvingDelay: 24 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
             minForcedInclusionCount: 1,
-            forcedInclusionDelay: 384,
+            forcedInclusionDelay: 384 seconds,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
             minCheckpointDelay: 60_000, // large enough for skipping checkpoints in prove benches

@@ -49,6 +49,7 @@ contract DevnetInbox is Inbox {
                 livenessBond: _livenessBond,
                 withdrawalDelay: _withdrawalDelay,
                 provingWindow: 2 hours,
+                permissionlessProvingDelay: 24 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,

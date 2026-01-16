@@ -27,6 +27,9 @@ interface IInbox {
         uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
+        /// @notice The delay after which proving becomes permissionless when whitelist is enabled
+        /// @dev Must be greater than provingWindow
+        uint48 permissionlessProvingDelay;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
         /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
         uint48 maxProofSubmissionDelay;
@@ -44,7 +47,7 @@ interface IInbox {
         /// @notice Queue size at which the fee doubles
         uint64 forcedInclusionFeeDoubleThreshold;
         /// @notice The minimum delay between checkpoints in seconds
-        /// @dev Must be less than or equal to finalization grace period
+        /// @dev Used to rate-limit checkpoint syncing in `prove`.
         uint16 minCheckpointDelay;
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
@@ -86,16 +89,16 @@ interface IInbox {
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The last L1 block ID where a proposal was made.
+        /// @notice The L1 block number where the most recent proposal was made.
         uint48 lastProposalBlockId;
-        /// @notice The ID of the last finalized proposal.
+        /// @notice The ID of the last proven (finalized) proposal.
         uint48 lastFinalizedProposalId;
-        /// @notice The timestamp when the last proposal was finalized.
+        /// @notice The timestamp when the last proposal was proven (finalized).
         uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
         /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
         uint48 lastCheckpointTimestamp;
-        /// @notice The block hash of the last finalized proposal.
+        /// @notice The block hash of the last proven (finalized) proposal.
         bytes32 lastFinalizedBlockHash;
     }
 

@@ -50,11 +50,12 @@ contract MainnetInbox is Inbox {
                 livenessBond: _livenessBond,
                 withdrawalDelay: _withdrawalDelay,
                 provingWindow: 4 hours,
+                permissionlessProvingDelay: 72 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 384, // 1 epoch
+                forcedInclusionDelay: 384 seconds, // 1 epoch
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch

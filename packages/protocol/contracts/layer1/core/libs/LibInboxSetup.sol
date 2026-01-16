@@ -28,6 +28,10 @@ library LibInboxSetup {
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.bondToken != address(0), BondTokenZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
+        require(
+            _config.permissionlessProvingDelay > _config.provingWindow,
+            PermissionlessProvingDelayTooSmall()
+        );
         require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
@@ -96,6 +100,7 @@ library LibInboxSetup {
     error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaBlockHash();
     error MinForcedInclusionCountZero();
+    error PermissionlessProvingDelayTooSmall();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
