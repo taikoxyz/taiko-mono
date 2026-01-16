@@ -25,8 +25,8 @@ type ProofBuffer struct {
 // NewProofBuffer creates a new ProofBuffer instance.
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
-		buffer:      make([]*ProofResponse, 0, maxLength),
-		MaxLength:   maxLength,
+		buffer:    make([]*ProofResponse, 0, maxLength),
+		MaxLength: maxLength,
 	}
 }
 
