@@ -130,7 +130,7 @@ async function withRetry(fn, retries = 3, delayMs = 1000) {
           allEvents.push(...chunkRecords);
 
           const chunkLabel = `${startBlock}_${chunkEnd}`;
-          const safeName = name.replaceAll(" ", "_");
+          const safeName = name.replace(/[^a-zA-Z0-9-_]/g, "_");
           const chunkDir = path.join(outputDir, safeName, `BridgedTokenDeployed_${vault.name}`);
           await fs.mkdir(chunkDir, { recursive: true });
 
