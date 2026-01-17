@@ -10,7 +10,7 @@ pub mod rpc_methods;
 pub use blob_coder::BlobCoder;
 pub use error::{ForkConfigResult, ProtocolError, Result, ShastaForkConfigError};
 pub use payload_helpers::{
-    calculate_shasta_difficulty, compute_build_payload_args_id, encode_extra_data,
-    encode_transactions, encode_tx_list,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
+    encode_tx_list, payload_id_to_bytes,
 };
 pub use rpc_methods::DriverRpcMethod;
