@@ -88,6 +88,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"PACAYA_FORK_HEIGHT"},
 	}
+	ShastaForkHeight = &cli.Uint64Flag{
+		Name:     "shastaForkHeight",
+		Usage:    "Block number shasta fork height happened",
+		Value:    0,
+		Category: indexerCategory,
+		EnvVars:  []string{"SHASTA_FORK_HEIGHT"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -103,4 +110,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexERC20s,
 	OntakeForkHeight,
 	PacayaForkHeight,
+	ShastaForkHeight,
 })
