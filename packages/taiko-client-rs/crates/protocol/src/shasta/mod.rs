@@ -1,5 +1,6 @@
 //! Shasta protocol implementation.
 
+pub mod anchor;
 pub mod blob_coder;
 pub mod constants;
 pub mod error;
@@ -7,6 +8,7 @@ pub mod manifest;
 pub mod payload_helpers;
 pub mod rpc_methods;
 
+pub use anchor::{AnchorTxConstructor, AnchorTxConstructorError, AnchorV4Input};
 pub use blob_coder::BlobCoder;
 pub use error::{ForkConfigResult, ProtocolError, Result, ShastaForkConfigError};
 pub use payload_helpers::{

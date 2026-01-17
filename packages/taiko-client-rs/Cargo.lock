@@ -7611,6 +7611,8 @@ dependencies = [
 name = "protocol"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-consensus",
+ "alethia-reth-evm",
  "alloy",
  "alloy-consensus",
  "alloy-contract",
@@ -7629,6 +7631,7 @@ dependencies = [
  "dashmap 6.1.0",
  "event-scanner",
  "flate2",
+ "k256",
  "rand 0.8.5",
  "serde",
  "thiserror 2.0.17",

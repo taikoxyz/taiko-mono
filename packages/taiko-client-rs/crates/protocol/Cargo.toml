@@ -29,7 +29,12 @@ alloy-rpc-types-engine = { workspace = true }
 alloy-sol-types = { workspace = true }
 event-scanner = { workspace = true }
 
+# crypto
+k256 = { workspace = true }
+
 # taiko
+alethia-reth-consensus = { workspace = true }
+alethia-reth-evm = { workspace = true }
 bindings = { path = "../bindings" }
 
 # types
@@ -44,3 +49,4 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 rand = { workspace = true, features = ["std", "std_rng"] }
+tokio = { workspace = true }

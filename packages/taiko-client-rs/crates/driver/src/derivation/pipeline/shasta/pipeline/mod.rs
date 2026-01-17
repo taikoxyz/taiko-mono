@@ -17,17 +17,16 @@ use protocol::shasta::{
     constants::{PROPOSAL_MAX_BLOB_BYTES, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
 };
+use alloy_provider::RootProvider;
 use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
-    derivation::{
-        manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
-        pipeline::shasta::anchor::AnchorTxConstructor,
-    },
+    derivation::manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
+use protocol::shasta::AnchorTxConstructor;
 
 use super::super::{DerivationError, DerivationPipeline};
 
@@ -94,7 +93,7 @@ where
     P: Provider + Clone + 'static,
 {
     rpc: Client<P>,
-    anchor_constructor: AnchorTxConstructor<P>,
+    anchor_constructor: AnchorTxConstructor<RootProvider>,
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     shasta_fork_timestamp: u64,
@@ -117,7 +116,9 @@ where
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
             Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
-        let anchor_constructor = AnchorTxConstructor::new(rpc.clone()).await?;
+        let anchor_address = *rpc.shasta.anchor.address();
+        let anchor_constructor =
+            AnchorTxConstructor::new(rpc.l2_provider.clone(), anchor_address).await?;
         let chain_id = rpc.l2_provider.get_chain_id().await?;
         let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| DerivationError::Other(err.into()))?;
