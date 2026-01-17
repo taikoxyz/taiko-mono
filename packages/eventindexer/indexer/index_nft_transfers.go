@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -114,8 +113,8 @@ func (i *Indexer) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog ty
 
 // saveERC721Transfer updates the user's balances on the from and to of a ERC721 transfer event
 func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
-	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[1].Bytes()[12:]))
-	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
+	from := addressHexFromTopic(vLog.Topics[1])
+	to := addressHexFromTopic(vLog.Topics[2])
 	tokenID := vLog.Topics[3].Big().Int64()
 
 	slog.Info(
@@ -161,8 +160,8 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 // saveERC1155Transfer parses and saves either a TransferSingle or TransferBatch event to
 // the database and updates the user's balances
 func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
-	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
-	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
+	from := addressHexFromTopic(vLog.Topics[2])
+	to := addressHexFromTopic(vLog.Topics[3])
 
 	slog.Info("erc1155 found")
 
