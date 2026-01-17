@@ -14,6 +14,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/pacaya/taikoinbox"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/shasta/inbox"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/v2/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
@@ -54,10 +55,11 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1    *taikol1.TaikoL1
-	taikol1V2  *v2.TaikoL1
-	bridge     *bridge.Bridge
-	taikoInbox *taikoinbox.TaikoInbox
+	taikol1     *taikol1.TaikoL1
+	taikol1V2   *v2.TaikoL1
+	bridge      *bridge.Bridge
+	taikoInbox  *taikoinbox.TaikoInbox
+	shastaInbox *inbox.Inbox
 
 	indexNfts   bool
 	indexERC20s bool
@@ -75,6 +77,7 @@ type Indexer struct {
 
 	ontakeForkHeight              uint64
 	pacayaForkHeight              uint64
+	shastaForkHeight              uint64
 	isPostOntakeForkHeightReached bool
 	isPostPacayaForkHeightReached bool
 }
@@ -174,6 +177,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var taikoInbox *taikoinbox.TaikoInbox
 
+	var shastaInbox *inbox.Inbox
+
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
 		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
 
@@ -190,6 +195,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		taikoInbox, err = taikoinbox.NewTaikoInbox(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "taikonbox.NewTaikoInbox")
+		}
+
+		shastaInbox, err = inbox.NewInbox(cfg.L1TaikoAddress, ethClient)
+		if err != nil {
+			return errors.Wrap(err, "inbox.Inbox")
 		}
 	}
 
@@ -218,6 +228,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.taikol1 = taikoL1
 	i.taikoInbox = taikoInbox
 	i.taikol1V2 = taikol1V2
+	i.shastaInbox = shastaInbox
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
@@ -231,6 +242,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.contractToMetadataMutex = &sync.Mutex{}
 	i.ontakeForkHeight = cfg.OntakeForkHeight
 	i.pacayaForkHeight = cfg.PacayaForkHeight
+	i.shastaForkHeight = cfg.ShastaForkHeight
 
 	return nil
 }

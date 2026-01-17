@@ -33,6 +33,7 @@ type Config struct {
 	Layer                   string
 	OntakeForkHeight        uint64
 	PacayaForkHeight        uint64
+	ShastaForkHeight        uint64
 	OpenDBFunc              func() (db.DB, error)
 }
 
@@ -59,6 +60,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		Layer:                   c.String(flags.Layer.Name),
 		OntakeForkHeight:        c.Uint64(flags.OntakeForkHeight.Name),
 		PacayaForkHeight:        c.Uint64(flags.PacayaForkHeight.Name),
+		ShastaForkHeight:        c.Uint64(flags.ShastaForkHeight.Name),
 		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
