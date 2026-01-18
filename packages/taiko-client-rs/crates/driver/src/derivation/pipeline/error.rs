@@ -9,10 +9,7 @@ use rpc::RpcClientError;
 use thiserror::Error;
 
 use crate::{
-    derivation::{
-        manifest::ManifestFetcherError,
-        pipeline::shasta::validation::ValidationError,
-    },
+    derivation::{manifest::ManifestFetcherError, pipeline::shasta::validation::ValidationError},
     sync::error::EngineSubmissionError,
 };
 use protocol::shasta::AnchorTxConstructorError;

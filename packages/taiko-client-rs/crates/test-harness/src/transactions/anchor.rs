@@ -58,8 +58,7 @@ where
         .ok_or_else(|| anyhow!("missing L1 anchor block {anchor_block_number}"))?;
 
     let anchor_address = *client.shasta.anchor.address();
-    let constructor =
-        AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address).await?;
+    let constructor = AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address).await?;
     let tx = constructor
         .assemble_anchor_v4_tx(
             parent_hash,

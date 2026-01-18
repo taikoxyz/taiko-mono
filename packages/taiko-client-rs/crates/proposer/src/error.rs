@@ -27,6 +27,22 @@ pub enum ProposerError {
     #[error("parent block {0} not found")]
     ParentBlockNotFound(u64),
 
+    /// Failed to decode extra data from parent block.
+    #[error("invalid extra data in parent block")]
+    InvalidExtraData,
+
+    /// FCU returned invalid status.
+    #[error("forkchoice updated failed: {0}")]
+    FcuFailed(String),
+
+    /// FCU did not return a payload ID.
+    #[error("FCU did not return payload ID (node may be syncing)")]
+    NoPayloadId,
+
+    /// Failed to build anchor transaction.
+    #[error("anchor transaction construction failed: {0}")]
+    AnchorConstruction(#[from] protocol::shasta::AnchorTxConstructorError),
+
     /// Contract error
     #[error("contract error: {0}")]
     Contract(#[from] alloy::contract::Error),

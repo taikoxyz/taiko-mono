@@ -40,7 +40,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
-    let request = builder.build(vec![Vec::new()]).await?;
+    let request = builder.build(vec![Vec::new()], None).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
 

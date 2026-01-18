@@ -8,6 +8,7 @@ use alloy::{
     sol_types::SolEvent,
 };
 use alloy_consensus::TxEnvelope;
+use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -17,7 +18,6 @@ use protocol::shasta::{
     constants::{PROPOSAL_MAX_BLOB_BYTES, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
 };
-use alloy_provider::RootProvider;
 use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
 
