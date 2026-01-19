@@ -25,7 +25,10 @@ contract MainnetInbox is Inbox {
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 14) / 12 / 6
     ///                     = 16800
-    uint48 private constant _RING_BUFFER_SIZE = 16_800;
+    // uint48 private constant _RING_BUFFER_SIZE = 16_800; 
+
+    uint48 private constant _RING_BUFFER_SIZE = 21_600;  // 3 days of worst scenario(1 proposal per L1 slot)
+
 
     // ---------------------------------------------------------------
     // Constructor
@@ -40,26 +43,27 @@ contract MainnetInbox is Inbox {
         uint64 _livenessBond,
         uint48 _withdrawalDelay
     )
+
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
                 bondToken: _bondToken,
-                minBond: _minBond,
-                livenessBond: _livenessBond,
-                withdrawalDelay: _withdrawalDelay,
-                provingWindow: 4 hours,
-                permissionlessProvingDelay: 72 hours,
+                minBond: 0,
+                livenessBond: 0,
+                withdrawalDelay: 1 weeks,
+                provingWindow: 4 hours, // internal target to submit every 2 hours
+                permissionlessProvingDelay: 5 days, // long enough such that the security council can intervine
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
-                basefeeSharingPctg: 0,
-                minForcedInclusionCount: 1,
-                forcedInclusionDelay: 384 seconds, // 1 epoch
-                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
-                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
-                minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                basefeeSharingPctg: 75,
+                minForcedInclusionCount: 3, // TODO: remove this, not a concern anymore. zk gas will fix it
+                forcedInclusionDelay: 576 seconds, // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their preconf window.
+                forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee. Too high??
+                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending. TODO: we don't have an objective mechanism yet
+                minCheckpointDelay: 384 * 4 seconds, // TODO: remove this, we expect to prove every ~2hs, so we can just checkpoint everytime
+                permissionlessInclusionMultiplier: 160 // 160 * 1.5 epochs = 240 epochs = 24 hours. 
             }))
     { }
 
