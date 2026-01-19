@@ -14,7 +14,8 @@ use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use metrics::{counter, gauge};
 use protocol::shasta::{
-    constants::shasta_fork_timestamp_for_chain, manifest::DerivationSourceManifest,
+    constants::{PROPOSAL_MAX_BLOB_BYTES, shasta_fork_timestamp_for_chain},
+    manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
@@ -55,6 +56,13 @@ pub use bundle::ShastaProposalBundle;
 /// Convert a derivation source's blob slice into ordered blob hashes for manifest fetch.
 fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
     source.blobSlice.blobHashes.iter().map(|hash| B256::from_slice(hash.as_ref())).collect()
+}
+
+/// Check if a derivation source has a valid blob offset.
+/// Returns true if the source has non-empty blob hashes and the offset is within bounds.
+fn is_source_offset_valid(source: &DerivationSource) -> bool {
+    !source.blobSlice.blobHashes.is_empty() &&
+        source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
 }
 
 /// Ensure forced-inclusion manifests adhere to protocol rules (single block) or default them.
@@ -269,10 +277,18 @@ where
         // Fetch and validate all source manifests sequentially in order.
         let mut manifest_segments = Vec::with_capacity(sources.len());
         for source in sources {
-            let manifest = self
-                .fetch_and_decode_manifest(self.derivation_source_manifest_fetcher.as_ref(), source)
-                .await?;
-            let manifest = validate_forced_inclusion_manifest(proposal_id, source, manifest);
+            // If source has no blob hashes or invalid offset, use default manifest.
+            let manifest = if !is_source_offset_valid(source) {
+                DerivationSourceManifest::default()
+            } else {
+                let manifest = self
+                    .fetch_and_decode_manifest(
+                        self.derivation_source_manifest_fetcher.as_ref(),
+                        source,
+                    )
+                    .await?;
+                validate_forced_inclusion_manifest(proposal_id, source, manifest)
+            };
             manifest_segments.push(SourceManifestSegment {
                 manifest,
                 is_forced_inclusion: source.isForcedInclusion,

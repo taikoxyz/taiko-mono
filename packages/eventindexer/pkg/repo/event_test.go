@@ -70,6 +70,132 @@ func TestIntegration_Event_Save(t *testing.T) {
 	}
 }
 
+func TestIntegration_Event_FindUniqueProvers_MultipleAddresses(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	addr1 := "0xaaaa"
+	addr2 := "0xbbbb"
+
+	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameTransitionProved,
+		Address:      addr1,
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameTransitionProved,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
+	})
+	assert.Equal(t, nil, err)
+
+	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBatchesProven,
+		Address:      addr1,
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameBatchesProven,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
+	})
+	assert.Equal(t, nil, err)
+
+	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameTransitionProved,
+		Address:      addr2,
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameTransitionProved,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
+	})
+	assert.Equal(t, nil, err)
+
+	resp, err := eventRepo.FindUniqueProvers(context.Background())
+	assert.Equal(t, nil, err)
+
+	expected := map[string]int{
+		addr1: 2,
+		addr2: 1,
+	}
+
+	assert.Equal(t, len(expected), len(resp))
+
+	actual := make(map[string]int)
+	for _, v := range resp {
+		actual[v.Address] = v.Count
+	}
+
+	assert.Equal(t, expected, actual)
+}
+
+func TestIntegration_Event_FindUniqueProposers_MultipleAddresses(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	addr1 := "0xcccc"
+	addr2 := "0xdddd"
+
+	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBlockProposed,
+		Address:      addr1,
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameBlockProposed,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
+	})
+	assert.Equal(t, nil, err)
+
+	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBatchProposed,
+		Address:      addr1,
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameBatchProposed,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
+	})
+	assert.Equal(t, nil, err)
+
+	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameBlockProposed,
+		Address:      addr2,
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameBlockProposed,
+		ChainID:      big.NewInt(1),
+		BlockID:      &blockID,
+		TransactedAt: time.Now(),
+	})
+	assert.Equal(t, nil, err)
+
+	resp, err := eventRepo.FindUniqueProposers(context.Background())
+	assert.Equal(t, nil, err)
+
+	expected := map[string]int{
+		addr1: 2,
+		addr2: 1,
+	}
+
+	assert.Equal(t, len(expected), len(resp))
+
+	actual := make(map[string]int)
+	for _, v := range resp {
+		actual[v.Address] = v.Count
+	}
+
+	assert.Equal(t, expected, actual)
+}
+
 func TestIntegration_Event_FindUniqueProvers(t *testing.T) {
 	db, close, err := testMysql(t)
 	assert.Equal(t, nil, err)

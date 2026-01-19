@@ -28,7 +28,6 @@ import (
 )
 
 var (
-	zeroAddress          = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	errUnprocessable     = errors.New("message is unprocessable")
 	errAlreadyProcessing = errors.New("already processing txHash")
 )
@@ -202,7 +201,7 @@ func (p *Processor) processMessage(
 		// don't check quota for NFTs
 		if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
 			// default to ETH (zero address) and msg value, overwrite if ERC20
-			var tokenAddress = zeroAddress
+			var tokenAddress = relayer.ZeroAddress
 
 			var value = msgBody.Event.Message.Value
 
@@ -337,7 +336,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
 	// and generate a proof.
 	if len(p.hops) == 0 {
-		latestBlockID, err := p.latestSyncedBlockID(ctx, p.srcChainId.Uint64(), p.destChainId.Uint64())
+		latestBlockID, err := p.latestSyncedBlockID(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
 		if err != nil {
 			return nil, err
 		}

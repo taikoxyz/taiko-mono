@@ -747,7 +747,7 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
 ```solidity
 library IInbox {
     struct Commitment { uint48 firstProposalId; bytes32 firstProposalParentBlockHash; bytes32 lastProposalHash; address actualProver; uint48 endBlockNumber; bytes32 endStateRoot; Transition[] transitions; }
-    struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 maxProofSubmissionDelay; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+    struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 permissionlessProvingDelay; uint48 maxProofSubmissionDelay; uint48 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
     struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
     struct DerivationSource { bool isForcedInclusion; LibBlobs.BlobSlice blobSlice; }
     struct Proposal { uint48 id; uint48 timestamp; uint48 endOfSubmissionWindowTimestamp; address proposer; bytes32 parentProposalHash; uint48 originBlockNumber; bytes32 originBlockHash; uint8 basefeeSharingPctg; DerivationSource[] sources; }
@@ -1135,7 +1135,7 @@ struct Commitment { uint48 firstProposalId; bytes32 firstProposalParentBlockHash
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 maxProofSubmissionDelay; uint256 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
+struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 permissionlessProvingDelay; uint48 maxProofSubmissionDelay; uint48 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint16 minCheckpointDelay; uint8 permissionlessInclusionMultiplier; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1159,9 +1159,11 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
         #[allow(missing_docs)]
         pub provingWindow: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
+        pub permissionlessProvingDelay: alloy::sol_types::private::primitives::aliases::U48,
+        #[allow(missing_docs)]
         pub maxProofSubmissionDelay: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
-        pub ringBufferSize: alloy::sol_types::private::primitives::aliases::U256,
+        pub ringBufferSize: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub basefeeSharingPctg: u8,
         #[allow(missing_docs)]
@@ -1197,7 +1199,8 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<48>,
-            alloy::sol_types::sol_data::Uint<256>,
+            alloy::sol_types::sol_data::Uint<48>,
+            alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<8>,
             alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<16>,
@@ -1218,7 +1221,8 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
             alloy::sol_types::private::primitives::aliases::U48,
             alloy::sol_types::private::primitives::aliases::U48,
             alloy::sol_types::private::primitives::aliases::U48,
-            alloy::sol_types::private::primitives::aliases::U256,
+            alloy::sol_types::private::primitives::aliases::U48,
+            alloy::sol_types::private::primitives::aliases::U48,
             u8,
             alloy::sol_types::private::primitives::aliases::U256,
             u16,
@@ -1252,6 +1256,7 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     value.livenessBond,
                     value.withdrawalDelay,
                     value.provingWindow,
+                    value.permissionlessProvingDelay,
                     value.maxProofSubmissionDelay,
                     value.ringBufferSize,
                     value.basefeeSharingPctg,
@@ -1278,15 +1283,16 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     livenessBond: tuple.6,
                     withdrawalDelay: tuple.7,
                     provingWindow: tuple.8,
-                    maxProofSubmissionDelay: tuple.9,
-                    ringBufferSize: tuple.10,
-                    basefeeSharingPctg: tuple.11,
-                    minForcedInclusionCount: tuple.12,
-                    forcedInclusionDelay: tuple.13,
-                    forcedInclusionFeeInGwei: tuple.14,
-                    forcedInclusionFeeDoubleThreshold: tuple.15,
-                    minCheckpointDelay: tuple.16,
-                    permissionlessInclusionMultiplier: tuple.17,
+                    permissionlessProvingDelay: tuple.9,
+                    maxProofSubmissionDelay: tuple.10,
+                    ringBufferSize: tuple.11,
+                    basefeeSharingPctg: tuple.12,
+                    minForcedInclusionCount: tuple.13,
+                    forcedInclusionDelay: tuple.14,
+                    forcedInclusionFeeInGwei: tuple.15,
+                    forcedInclusionFeeDoubleThreshold: tuple.16,
+                    minCheckpointDelay: tuple.17,
+                    permissionlessInclusionMultiplier: tuple.18,
                 }
             }
         }
@@ -1329,10 +1335,15 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::SolType>::tokenize(
+                        &self.permissionlessProvingDelay,
+                    ),
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::tokenize(
                         &self.maxProofSubmissionDelay,
                     ),
                     <alloy::sol_types::sol_data::Uint<
-                        256,
+                        48,
                     > as alloy_sol_types::SolType>::tokenize(&self.ringBufferSize),
                     <alloy::sol_types::sol_data::Uint<
                         8,
@@ -1437,7 +1448,7 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,address bondToken,uint64 minBond,uint64 livenessBond,uint48 withdrawalDelay,uint48 provingWindow,uint48 maxProofSubmissionDelay,uint256 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
+                    "Config(address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,address bondToken,uint64 minBond,uint64 livenessBond,uint48 withdrawalDelay,uint48 provingWindow,uint48 permissionlessProvingDelay,uint48 maxProofSubmissionDelay,uint48 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint16 minCheckpointDelay,uint8 permissionlessInclusionMultiplier)",
                 )
             }
             #[inline]
@@ -1494,11 +1505,17 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::SolType>::eip712_data_word(
+                            &self.permissionlessProvingDelay,
+                        )
+                        .0,
+                    <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.maxProofSubmissionDelay,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
-                        256,
+                        48,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.ringBufferSize,
                         )
@@ -1592,10 +1609,15 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     + <alloy::sol_types::sol_data::Uint<
                         48,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
+                        &rust.permissionlessProvingDelay,
+                    )
+                    + <alloy::sol_types::sol_data::Uint<
+                        48,
+                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.maxProofSubmissionDelay,
                     )
                     + <alloy::sol_types::sol_data::Uint<
-                        256,
+                        48,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.ringBufferSize,
                     )
@@ -1690,11 +1712,17 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                 <alloy::sol_types::sol_data::Uint<
                     48,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
+                    &rust.permissionlessProvingDelay,
+                    out,
+                );
+                <alloy::sol_types::sol_data::Uint<
+                    48,
+                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.maxProofSubmissionDelay,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
-                    256,
+                    48,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.ringBufferSize,
                     out,
@@ -4271,8 +4299,9 @@ library IInbox {
         uint64 livenessBond;
         uint48 withdrawalDelay;
         uint48 provingWindow;
+        uint48 permissionlessProvingDelay;
         uint48 maxProofSubmissionDelay;
-        uint256 ringBufferSize;
+        uint48 ringBufferSize;
         uint8 basefeeSharingPctg;
         uint256 minForcedInclusionCount;
         uint16 forcedInclusionDelay;
@@ -4483,14 +4512,19 @@ interface Inbox {
             "internalType": "uint48"
           },
           {
+            "name": "permissionlessProvingDelay",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
             "name": "maxProofSubmissionDelay",
             "type": "uint48",
             "internalType": "uint48"
           },
           {
             "name": "ringBufferSize",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint48",
+            "internalType": "uint48"
           },
           {
             "name": "basefeeSharingPctg",
@@ -4966,14 +5000,19 @@ interface Inbox {
             "internalType": "uint48"
           },
           {
+            "name": "permissionlessProvingDelay",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
             "name": "maxProofSubmissionDelay",
             "type": "uint48",
             "internalType": "uint48"
           },
           {
             "name": "ringBufferSize",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint48",
+            "internalType": "uint48"
           },
           {
             "name": "basefeeSharingPctg",

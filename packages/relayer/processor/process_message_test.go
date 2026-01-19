@@ -15,6 +15,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
@@ -318,4 +319,71 @@ func Test_ProcessMessage_continuesOutsideShastaForkWindow(t *testing.T) {
 	shouldRequeue, _, err := p.processMessage(context.Background(), msg)
 	assert.Nil(t, err)
 	assert.True(t, shouldRequeue)
+}
+
+func TestGenerateEncodedSignalProofUsesDestChainCheckpoint(t *testing.T) {
+	const (
+		srcChainID  = uint64(1)
+		destChainID = uint64(2)
+	)
+
+	repo := mock.NewEventRepository()
+	repo.LatestChainDataSyncedEventFunc = func(
+		ctx context.Context,
+		chainID uint64,
+		syncedChainID uint64,
+	) (uint64, error) {
+		if chainID != destChainID || syncedChainID != srcChainID {
+			return 0, errors.New("unexpected chain IDs")
+		}
+
+		return 1, nil
+	}
+	repo.LatestCheckpointSyncedEventFunc = func(
+		ctx context.Context,
+		chainID uint64,
+		syncedChainID uint64,
+	) (uint64, error) {
+		if chainID != destChainID || syncedChainID != srcChainID {
+			return 0, errors.New("unexpected chain IDs")
+		}
+
+		return 10, nil
+	}
+
+	ethClient := &mock.EthClient{}
+	prover, err := proof.New(ethClient, 0)
+	assert.Nil(t, err)
+
+	p := &Processor{
+		eventRepo:               repo,
+		srcChainId:              big.NewInt(int64(srcChainID)),
+		destChainId:             big.NewInt(int64(destChainID)),
+		srcEthClient:            ethClient,
+		srcCaller:               &mock.Caller{},
+		prover:                  prover,
+		srcSignalService:        &mock.SignalService{},
+		srcSignalServiceAddress: common.HexToAddress("0x0000000000000000000000000000000000000001"),
+		ethClientTimeout:        time.Second,
+	}
+
+	event := &bridge.BridgeMessageSent{
+		MsgHash: [32]byte{0x01},
+		Message: bridge.IBridgeMessage{
+			SrcChainId:  srcChainID,
+			DestChainId: destChainID,
+			From:        common.HexToAddress("0x0000000000000000000000000000000000000002"),
+			SrcOwner:    common.HexToAddress("0x0000000000000000000000000000000000000002"),
+			DestOwner:   common.HexToAddress("0x0000000000000000000000000000000000000002"),
+			To:          common.HexToAddress("0x0000000000000000000000000000000000000002"),
+			GasLimit:    1,
+		},
+		Raw: types.Log{
+			Address:     common.HexToAddress("0x0000000000000000000000000000000000000003"),
+			BlockNumber: 1,
+		},
+	}
+
+	_, err = p.generateEncodedSignalProof(context.Background(), event)
+	assert.Nil(t, err)
 }

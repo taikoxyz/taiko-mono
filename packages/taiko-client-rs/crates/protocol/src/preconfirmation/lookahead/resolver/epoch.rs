@@ -52,6 +52,23 @@ pub(crate) fn current_unix_timestamp() -> Result<u64> {
         .as_secs())
 }
 
+/// Return the beacon genesis timestamp for known chains.
+///
+/// Mappings are derived from `LibPreconfConstants` and `LibNetwork`:
+/// - 1: Ethereum mainnet (1_606_824_023)
+/// - 17_000: Holesky (1_695_902_400)
+/// - 560_048: Hoodi (1_742_213_400)
+///
+/// Any other chain ID yields `None` and surfaces as `UnknownChain` to callers.
+pub(crate) fn genesis_timestamp_for_chain(chain_id: u64) -> Option<u64> {
+    match chain_id {
+        1 => Some(1_606_824_023),
+        17_000 => Some(1_695_902_400),
+        560_048 => Some(1_742_213_400),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -91,22 +108,5 @@ mod tests {
     fn current_time_monotonic_non_zero() {
         let now = current_unix_timestamp().unwrap();
         assert!(now > 0);
-    }
-}
-
-/// Return the beacon genesis timestamp for known chains.
-///
-/// Mappings are derived from `LibPreconfConstants` and `LibNetwork`:
-/// - 1: Ethereum mainnet (1_606_824_023)
-/// - 17_000: Holesky (1_695_902_400)
-/// - 560_048: Hoodi (1_742_213_400)
-///
-/// Any other chain ID yields `None` and surfaces as `UnknownChain` to callers.
-pub(crate) fn genesis_timestamp_for_chain(chain_id: u64) -> Option<u64> {
-    match chain_id {
-        1 => Some(1_606_824_023),
-        17_000 => Some(1_695_902_400),
-        560_048 => Some(1_742_213_400),
-        _ => None,
     }
 }

@@ -87,7 +87,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"invalidManifest", sourcePayload.Default,
 	)
 
-	coreState, err := i.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := i.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx, BlockHash: metadata.GetRawBlockHash()})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Shasta core state: %w", err)
 	}

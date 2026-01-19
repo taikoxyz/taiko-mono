@@ -42,9 +42,26 @@ secp256k1 = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+test-log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber = { workspace = true }
 
 [[test]]
 name = "p2p_integration"
 path = "tests/p2p_integration.rs"
+
+[[test]]
+name = "contiguous_multi_block"
+path = "tests/contiguous_multi_block.rs"
+
+[[test]]
+name = "out_of_order_arrival"
+path = "tests/out_of_order_arrival.rs"
+
+[[test]]
+name = "catchup_e2e"
+path = "tests/catchup_e2e.rs"
+
+[[test]]
+name = "head_gossip_e2e"
+path = "tests/head_gossip_e2e.rs"
