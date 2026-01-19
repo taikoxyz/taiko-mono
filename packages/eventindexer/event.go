@@ -21,6 +21,8 @@ var (
 	EventNameBatchesVerified     = "BatchesVerified"
 	EventNameBlockAssigned       = "BlockAssigned"
 	EventNameBlockVerified       = "BlockVerified"
+	EventNameProved              = "Proved"
+	EventNameProposed            = "Proposed"
 	EventNameMessageSent         = "MessageSent"
 	EventNameSwap                = "Swap"
 	EventNameMint                = "Mint"

@@ -30,6 +30,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
 	}
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInboxAddress",
+		Usage:    "Address of the Inbox contract for Shasta",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"SHASTA_INBOX_ADDRESS"},
+	}
 	BridgeAddress = &cli.StringFlag{
 		Name:     "bridgeAddress",
 		Usage:    "Address of the Bridge contract",
@@ -88,13 +95,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"PACAYA_FORK_HEIGHT"},
 	}
-	ShastaForkHeight = &cli.Uint64Flag{
-		Name:     "shastaForkHeight",
-		Usage:    "Block number shasta fork height happened",
-		Value:    0,
-		Category: indexerCategory,
-		EnvVars:  []string{"SHASTA_FORK_HEIGHT"},
-	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -102,6 +102,7 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	// optional
 	ETHClientTimeout,
 	L1TaikoAddress,
+	ShastaInboxAddress,
 	BridgeAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,
@@ -110,5 +111,4 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexERC20s,
 	OntakeForkHeight,
 	PacayaForkHeight,
-	ShastaForkHeight,
 })

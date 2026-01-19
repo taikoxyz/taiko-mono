@@ -85,6 +85,36 @@ func filterFunc(
 		})
 	}
 
+	if i.shastaInbox != nil {
+		wg.Go(func() error {
+			provedEvents, err := i.shastaInbox.FilterProved(filterOpts, nil)
+			if err != nil {
+				return errors.Wrap(err, "i.shastaInbox.FilterProved")
+			}
+
+			err = i.saveProvedEvents(ctx, chainID, provedEvents)
+			if err != nil {
+				return errors.Wrap(err, "i.saveProvedEvents")
+			}
+
+			return nil
+		})
+
+		wg.Go(func() error {
+			proposedEvents, err := i.shastaInbox.FilterProposed(filterOpts, nil, nil)
+			if err != nil {
+				return errors.Wrap(err, "i.shastaInbox.FilterProposed")
+			}
+
+			err = i.saveProposedEvents(ctx, chainID, proposedEvents)
+			if err != nil {
+				return errors.Wrap(err, "i.saveProposedEvents")
+			}
+
+			return nil
+		})
+	}
+
 	if i.bridge != nil {
 		wg.Go(func() error {
 			messagesSent, err := i.bridge.FilterMessageSent(filterOpts, nil)
