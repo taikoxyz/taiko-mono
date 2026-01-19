@@ -1306,6 +1306,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				Withdrawals:  make([]*types.Withdrawal, 0),
 				Version:      engine.PayloadV2,
 				TxListHash:   &txListHash,
+				Extra:        cachedParent.Payload.ExtraData,
 			}
 			payloadID = args.Id()
 			parentID = new(big.Int).SetUint64(uint64(cachedParent.Payload.BlockNumber))

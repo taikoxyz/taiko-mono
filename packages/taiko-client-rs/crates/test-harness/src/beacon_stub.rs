@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use alloy_eips::eip4844::BlobTransactionSidecar;
+use alloy_eips::eip7594::BlobTransactionSidecarVariant;
 use alloy_primitives::hex;
 use anyhow::Result;
 use http_body_util::Full;
@@ -101,7 +101,7 @@ impl BeaconStubServer {
     }
 
     /// Add a blob sidecar for the given slot. Can be called multiple times for the same slot.
-    pub fn add_blob_sidecar(&self, slot: u64, sidecar: BlobTransactionSidecar) {
+    pub fn add_blob_sidecar(&self, slot: u64, sidecar: BlobTransactionSidecarVariant) {
         let mut store = self.blob_sidecars.write().unwrap();
         let entry = store.by_slot.entry(slot).or_default();
         Self::append_sidecar_data(entry, &sidecar);
@@ -109,12 +109,18 @@ impl BeaconStubServer {
 
     /// Set default blob sidecars to return for ANY slot that has no specific sidecars.
     /// Useful for tests that don't know the exact slot ahead of time.
-    pub fn set_default_blob_sidecar(&self, sidecar: BlobTransactionSidecar) {
+    pub fn set_default_blob_sidecar(&self, sidecar: BlobTransactionSidecarVariant) {
         let mut store = self.blob_sidecars.write().unwrap();
         Self::append_sidecar_data(&mut store.default, &sidecar);
     }
 
-    fn append_sidecar_data(target: &mut Vec<BlobSidecarData>, sidecar: &BlobTransactionSidecar) {
+    fn append_sidecar_data(
+        target: &mut Vec<BlobSidecarData>,
+        sidecar: &BlobTransactionSidecarVariant,
+    ) {
+        // Extract the EIP-4844 sidecar from the variant
+        let sidecar = sidecar.as_eip4844().expect("Expected EIP-4844 sidecar variant");
+
         for (i, blob) in sidecar.blobs.iter().enumerate() {
             let commitment = sidecar.commitments.get(i).map(|c| c.as_slice()).unwrap_or(&[]);
             let proof = sidecar.proofs.get(i).map(|p| p.as_slice()).unwrap_or(&[]);

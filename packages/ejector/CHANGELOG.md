@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.0...ejector-v0.4.1) (2026-01-17)
+
+
+### Bug Fixes
+
+* **ejector:** fix ejector to not eject when L2 is down or out of sync ([#21181](https://github.com/taikoxyz/taiko-mono/issues/21181)) ([a7eff95](https://github.com/taikoxyz/taiko-mono/commit/a7eff951f54e03c1662a586abee6408da609c577))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 5 directories with 2 updates ([#21116](https://github.com/taikoxyz/taiko-mono/issues/21116)) ([c76e37a](https://github.com/taikoxyz/taiko-mono/commit/c76e37a28d153f5b6407538f70ca28f0a93c82db))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.3.0...ejector-v0.4.0) (2025-12-30)
 
 

@@ -616,14 +616,9 @@ where
             .contract_address(self.cfg.client.inbox_address)
             .event(Proposed::SIGNATURE);
 
-        let mut stream = scanner.subscribe(filter);
-        debug!("subscribed to inbox proposal event filter");
-
-        spawn(async move {
-            if let Err(err) = scanner.start().await {
-                error!(?err, "event scanner terminated unexpectedly");
-            }
-        });
+        let mut stream = scanner.subscribe(filter).stream(
+            &scanner.start().await.map_err(|err| SyncError::EventScannerInit(err.to_string()))?,
+        );
 
         info!("event scanner started; listening for inbox proposals");
 
@@ -695,7 +690,7 @@ mod tests {
             gas_limit: 0,
             timestamp: U256::ZERO,
             mix_hash: B256::ZERO,
-            tx_list: Bytes::new(),
+            tx_list: Some(Bytes::new()),
             extra_data: Bytes::new(),
         };
         let l1_origin = RpcL1Origin {
@@ -713,6 +708,7 @@ mod tests {
             base_fee_per_gas: U256::ZERO,
             block_metadata,
             l1_origin,
+            anchor_transaction: None,
         }
     }
 
