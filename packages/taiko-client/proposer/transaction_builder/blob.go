@@ -194,8 +194,6 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
 
-	anchorBlockNumber := l1Head.Number.Uint64()
-
 	// For Shasta proposals submission in current implementation, we always use the parent block's gas limit.
 	l2Head, err := b.rpc.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -312,14 +310,14 @@ func (b *BlobTransactionBuilder) lowTimestamp(
 			"index", i,
 			"numTxs", len(txs),
 			"timestamp", 1,
-			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"anchorBlockNumber", l1Head.Number.Uint64(),
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit,
 		)
 		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         1,
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			AnchorBlockNumber: l1Head.Number.Uint64(),
 			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
@@ -338,14 +336,14 @@ func (b *BlobTransactionBuilder) highTimestamp(
 			"index", i,
 			"numTxs", len(txs),
 			"timestamp", l1Head.Time+200,
-			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"anchorBlockNumber", l1Head.Number.Uint64(),
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit,
 		)
 		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + 200,
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			AnchorBlockNumber: l1Head.Number.Uint64(),
 			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
@@ -364,14 +362,14 @@ func (b *BlobTransactionBuilder) lowGasLimit(
 			"index", i,
 			"numTxs", len(txs),
 			"timestamp", l1Head.Time+uint64(i),
-			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"anchorBlockNumber", l1Head.Number.Uint64(),
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit/2,
 		)
 		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			AnchorBlockNumber: l1Head.Number.Uint64(),
 			GasLimit:          gasLimit / 2,
 			Transactions:      txs,
 		})
@@ -390,14 +388,14 @@ func (b *BlobTransactionBuilder) highGasLimit(
 			"index", i,
 			"numTxs", len(txs),
 			"timestamp", l1Head.Time+uint64(i),
-			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"anchorBlockNumber", l1Head.Number.Uint64(),
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit*2,
 		)
 		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			AnchorBlockNumber: l1Head.Number.Uint64(),
 			GasLimit:          gasLimit * 2,
 			Transactions:      txs,
 		})
@@ -416,14 +414,14 @@ func (b *BlobTransactionBuilder) lowAnchorBlockNumberOffset(
 			"index", i,
 			"numTxs", len(txs),
 			"timestamp", l1Head.Time+uint64(i),
-			"anchorBlockNumber", l1Head.Number.Uint64()-manifest.AnchorMinOffset+1,
+			"anchorBlockNumber", l1Head.Number.Uint64()+10,
 			"coinbase", b.l2SuggestedFeeRecipient,
 			"gasLimit", gasLimit,
 		)
 		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
 			Timestamp:         l1Head.Time + uint64(i),
 			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: l1Head.Number.Uint64() - manifest.AnchorMinOffset + 1,
+			AnchorBlockNumber: l1Head.Number.Uint64() + 10,
 			GasLimit:          gasLimit,
 			Transactions:      txs,
 		})
