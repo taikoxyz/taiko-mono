@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -37,6 +38,7 @@ type BlobTransactionBuilder struct {
 	gasLimit                uint64
 	chainConfig             *config.ChainConfig
 	revertProtectionEnabled bool
+	manifestBuilderCounter  uint32
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -63,6 +65,7 @@ func NewBlobTransactionBuilder(
 		gasLimit,
 		chainConfig,
 		revertProtectionEnabled,
+		0,
 	}
 }
 
@@ -203,24 +206,18 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		gasLimit = manifest.MaxBlockGasLimit
 	}
 
-	for i, txs := range txBatch {
-		log.Info(
-			"Setting up derivation source manifest block",
-			"index", i,
-			"numTxs", len(txs),
-			"timestamp", l1Head.Time+uint64(i),
-			"anchorBlockNumber", anchorBlockNumber,
-			"coinbase", b.l2SuggestedFeeRecipient,
-			"gasLimit", gasLimit,
-		)
-		derivationSourceManifest.Blocks = append(derivationSourceManifest.Blocks, &manifest.BlockManifest{
-			Timestamp:         l1Head.Time + uint64(i),
-			Coinbase:          b.l2SuggestedFeeRecipient,
-			AnchorBlockNumber: anchorBlockNumber,
-			GasLimit:          gasLimit,
-			Transactions:      txs,
-		})
+	// Populate the derivation source manifest with one boundary test case at a time (round-robin).
+	builders := []func(*manifest.DerivationSourceManifest, []types.Transactions, *types.Header, uint64){
+		b.lowTimestamp,
+		b.highTimestamp,
+		b.lowGasLimit,
+		b.highGasLimit,
+		b.lowAnchorBlockNumberOffset,
+		b.highAnchorBlockNumberOffset,
 	}
+	idx := atomic.AddUint32(&b.manifestBuilderCounter, 1) - 1
+	buildFn := builders[idx%uint32(len(builders))]
+	buildFn(derivationSourceManifest, txBatch, l1Head, gasLimit)
 
 	// Encode the derivation source manifest.
 	sourceManifestBytes, err := EncodeSourceManifestShasta(derivationSourceManifest)
@@ -301,4 +298,160 @@ func EncodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifes
 	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
 	return append(blobBytesPrefix, sourceManifestBytes...), nil
+}
+
+func (b *BlobTransactionBuilder) lowTimestamp(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing test case for testing the lower bound of the timestamp.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", 1,
+			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         1,
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			GasLimit:          gasLimit,
+			Transactions:      txs,
+		})
+	}
+}
+
+func (b *BlobTransactionBuilder) highTimestamp(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing test case for testing the higher bound of the timestamp.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+200,
+			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + 200,
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			GasLimit:          gasLimit,
+			Transactions:      txs,
+		})
+	}
+}
+
+func (b *BlobTransactionBuilder) lowGasLimit(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing test case for testing the lower bound of the gas limit.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit/2,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			GasLimit:          gasLimit / 2,
+			Transactions:      txs,
+		})
+	}
+}
+
+func (b *BlobTransactionBuilder) highGasLimit(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing test case for testing the higher bound of the gas limit.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64()-(manifest.AnchorMinOffset+1),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit*2,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1),
+			GasLimit:          gasLimit * 2,
+			Transactions:      txs,
+		})
+	}
+}
+
+func (b *BlobTransactionBuilder) lowAnchorBlockNumberOffset(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing test case for testing the lower bound of the anchor block number offset.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64()-manifest.AnchorMinOffset+1,
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64() - manifest.AnchorMinOffset + 1,
+			GasLimit:          gasLimit,
+			Transactions:      txs,
+		})
+	}
+}
+
+func (b *BlobTransactionBuilder) highAnchorBlockNumberOffset(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing test case for testing the higher bound of the anchor block number Offset.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64()-manifest.AnchorMaxOffset-1,
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64() - manifest.AnchorMaxOffset - 1,
+			GasLimit:          gasLimit,
+			Transactions:      txs,
+		})
+	}
 }
