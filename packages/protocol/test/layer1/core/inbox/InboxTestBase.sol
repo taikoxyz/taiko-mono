@@ -11,7 +11,6 @@ import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
@@ -304,13 +303,7 @@ abstract contract InboxTestBase is CommonTest {
             }
             proposalTimestamp = uint48(block.timestamp);
 
-            // Generate a unique checkpoint for this proposal and hash it
-            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: keccak256(abi.encode("blockHash", i + 1)),
-                stateRoot: keccak256(abi.encode("stateRoot", i + 1))
-            });
-            bytes32 blockHash = keccak256(abi.encode(checkpoint));
+            bytes32 blockHash = keccak256(abi.encode("blockHash", i + 1));
             transitions[i] = _transitionFor(payload, proposalTimestamp, blockHash);
         }
 

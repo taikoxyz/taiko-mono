@@ -41,17 +41,17 @@ contract MainnetInbox is Inbox {
                 proverWhitelist: _proverWhitelist,
                 signalService: LibL1Addrs.SIGNAL_SERVICE,
                 bondToken: _bondToken,
-                minBond: 0,
+                minBond: 0, // During prover whitelist, bond is not necessary
                 livenessBond: 0,
                 withdrawalDelay: 1 weeks,
-                provingWindow: 4 hours, // internal target to submit every 2 hours
-                permissionlessProvingDelay: 5 days, // long enough such that the security council can intervine
+                provingWindow: 4 hours, // internal target is still to submit every ~2 hours
+                permissionlessProvingDelay: 5 days, // long enough that the security council can intervine in case of a bug
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
                 forcedInclusionDelay: 576 seconds, // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their preconf window.
-                forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee. Too high??
-                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending. TODO: we don't have an objective mechanism yet
+                forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee.
+                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 permissionlessInclusionMultiplier: 160 // 160 * 1.5 epochs = 240 epochs = 24 hours. 
             }))
     { }

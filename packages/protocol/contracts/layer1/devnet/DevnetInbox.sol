@@ -15,14 +15,6 @@ contract DevnetInbox is Inbox {
     // Constants
     // ---------------------------------------------------------------
     /// @dev Ring buffer size for storing proposal hashes.
-    /// Assumptions:
-    /// - D = 2: Proposals may continue without finalization for up to 2 days.
-    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
-    ///
-    /// Calculation:
-    ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
-    ///                     = (86400 * 2) / 12 / 6
-    ///                     = 2400
     uint48 private constant _RING_BUFFER_SIZE = 100;
 
     // ---------------------------------------------------------------
@@ -39,6 +31,7 @@ contract DevnetInbox is Inbox {
         uint64 _livenessBond,
         uint48 _withdrawalDelay
     )
+        // See `MainnetInbox.sol` for details on the configuration.
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
@@ -48,15 +41,15 @@ contract DevnetInbox is Inbox {
                 minBond: 0,
                 livenessBond: 0,
                 withdrawalDelay: 1 weeks,
-                provingWindow: 4 hours, // internal target to submit every 2 hours
-                permissionlessProvingDelay: 5 days, // long enough such that the security council can intervine
-                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
+                provingWindow: 4 hours, 
+                permissionlessProvingDelay: 5 days,
+                maxProofSubmissionDelay: 3 minutes, 
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
-                forcedInclusionDelay: 576 seconds, // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their preconf window.
-                forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee. Too high??
-                forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending. TODO: we don't have an objective mechanism yet
-                permissionlessInclusionMultiplier: 160 // 160 * 1.5 epochs = 240 epochs = 24 hours. 
+                forcedInclusionDelay: 576 seconds,
+                forcedInclusionFeeInGwei: 1_000_000,
+                forcedInclusionFeeDoubleThreshold: 50,
+                permissionlessInclusionMultiplier: 160
             }))
     { }
 
