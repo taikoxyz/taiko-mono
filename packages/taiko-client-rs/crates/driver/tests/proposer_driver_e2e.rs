@@ -111,7 +111,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     // Build a proposal and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()]).await?;
+    let request = builder.build(vec![Vec::new()], None).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
     beacon_stub.set_default_blob_sidecar(sidecar);
@@ -179,7 +179,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
 
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()]).await?;
+    let request = builder.build(vec![Vec::new()], None).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
     beacon_stub.set_default_blob_sidecar(sidecar);
@@ -267,7 +267,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     // Build a proposal once and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()]).await?;
+    let request = builder.build(vec![Vec::new()], None).await?;
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
     beacon_stub.set_default_blob_sidecar(sidecar);

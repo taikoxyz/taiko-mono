@@ -4,7 +4,7 @@ use alloy_eips::{BlockNumberOrTag, eip2718::Encodable2718};
 use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use anyhow::{Result, anyhow};
-use driver::derivation::pipeline::shasta::anchor::{AnchorTxConstructor, AnchorV4Input};
+use protocol::shasta::{AnchorTxConstructor, AnchorV4Input};
 use rpc::client::Client;
 
 /// Constructs the anchor transaction bytes for a preconfirmation block.
@@ -57,7 +57,8 @@ where
         .await?
         .ok_or_else(|| anyhow!("missing L1 anchor block {anchor_block_number}"))?;
 
-    let constructor = AnchorTxConstructor::new(client.clone()).await?;
+    let anchor_address = *client.shasta.anchor.address();
+    let constructor = AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address).await?;
     let tx = constructor
         .assemble_anchor_v4_tx(
             parent_hash,
