@@ -811,10 +811,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev A post proposal hook to execute extra logic after making a proposal
     function _afterPropose() internal virtual { }
 
-    /// @dev A pre proving hook to execute extra logic before proving a proposal
+    /// @dev A pre proving hook to execute extra logic before proving a range of proposals
     function _beforeProve() internal virtual { }
 
-    /// @dev A post proving hook to execute extra logic after proving a proposal
+    /// @dev A post proving hook to execute extra logic after proving a range of proposals
     function _afterProve() internal virtual { }
 
     /// @dev Builds forced inclusion derivation sources.

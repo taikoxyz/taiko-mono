@@ -36,6 +36,7 @@ library LibBonds {
     /// @dev Deposits bond tokens in gwei units and credits the recipient.
     /// If `_cancelWithdrawal` is true, the pending withdrawal request is cleared.
     /// When _bondToken is address(0), native ETH is used and msg.value must equal the deposit amount.
+    /// (after converting to wei)
     function deposit(
         Storage storage $,
         IERC20 _bondToken,
