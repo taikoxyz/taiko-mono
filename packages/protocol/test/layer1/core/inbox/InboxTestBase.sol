@@ -91,11 +91,9 @@ abstract contract InboxTestBase is CommonTest {
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
-            minForcedInclusionCount: 1,
             forcedInclusionDelay: 384 seconds,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
-            minCheckpointDelay: 60_000, // large enough for skipping checkpoints in prove benches
             permissionlessInclusionMultiplier: 5
         });
     }
@@ -329,8 +327,7 @@ abstract contract InboxTestBase is CommonTest {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("stateRoot", _count)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
     }
 

@@ -31,7 +31,7 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
 ///      - Bond accounting and liveness bond processing
-///      - Finalization of proven proposals with checkpoint rate limiting
+///      - Finalization of proven proposals with checkpoint syncing
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
     using LibAddress for address;
@@ -99,10 +99,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The percentage of basefee paid to coinbase.
     uint8 internal immutable _basefeeSharingPctg;
 
-    /// @notice The minimum number of forced inclusions that the proposer is forced to process if
-    /// they are due.
-    uint256 internal immutable _minForcedInclusionCount;
-
     /// @notice The delay for forced inclusions measured in seconds.
     uint16 internal immutable _forcedInclusionDelay;
 
@@ -111,9 +107,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice Queue size at which the fee doubles. See Config for formula details.
     uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
-
-    /// @notice The minimum delay between checkpoints in seconds.
-    uint16 internal immutable _minCheckpointDelay;
 
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
@@ -165,11 +158,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
-        _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
-        _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
     }
 
@@ -205,8 +196,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
-    ///         process at least `config.minForcedInclusionCount` if they are due.
+    ///      2. Process `input.numForcedInclusions` forced inclusions.
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
@@ -305,19 +295,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            bool checkpointSynced = input.forceCheckpointSync
-                || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay;
-
-            if (checkpointSynced) {
-                _signalService.saveCheckpoint(
-                    ICheckpointStore.Checkpoint({
-                        blockNumber: commitment.endBlockNumber,
-                        stateRoot: commitment.endStateRoot,
-                        blockHash: commitment.transitions[numProposals - 1].blockHash
-                    })
-                );
-                state.lastCheckpointTimestamp = uint48(block.timestamp);
-            }
+            _signalService.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: commitment.endBlockNumber,
+                    stateRoot: commitment.endStateRoot,
+                    blockHash: commitment.transitions[numProposals - 1].blockHash
+                })
+            );
+            state.lastCheckpointTimestamp = uint48(block.timestamp);
 
             // ---------------------------------------------------------
             // 5. Update core state and emit event
@@ -332,8 +317,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 commitment.firstProposalId,
                 commitment.firstProposalId + offset,
                 uint48(lastProposalId),
-                commitment.actualProver,
-                checkpointSynced
+                commitment.actualProver
             );
 
             // ---------------------------------------------------------
@@ -490,11 +474,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
-            minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
-            minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
@@ -606,22 +588,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 ? available
                 : _numForcedInclusionsRequested;
 
+            uint48 headAfter = head + uint48(toProcess);
+            if (available > toProcess) {
+                bool isOldestInclusionDue =
+                    $.isOldestForcedInclusionDue(headAfter, tail, _forcedInclusionDelay);
+                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            }
+
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
             (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
                 $, _feeRecipient, result_.sources, head, toProcess
             );
-
-            // We check the following conditions are met:
-            // 1. Proposer is willing to include at least the minimum required
-            // (_minForcedInclusionCount) OR
-            // 2. Proposer included all available inclusions that are due
-            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
-                bool isOldestInclusionDue =
-                    $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
-                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
-            }
 
             uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
                 * _permissionlessInclusionMultiplier + oldestTimestamp;
@@ -782,7 +761,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
-    error CheckpointDelayHasPassed();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();

@@ -43,7 +43,7 @@ contract DevnetInbox is Inbox {
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
-                signalService: LibL1Addrs.SIGNAL_SERVICE,
+                signalService: _signalService,
                 bondToken: _bondToken,
                 minBond: 0,
                 livenessBond: 0,
@@ -53,13 +53,11 @@ contract DevnetInbox is Inbox {
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
-                minForcedInclusionCount: 3, // TODO: remove this, not a concern anymore. zk gas will fix it
                 forcedInclusionDelay: 576 seconds, // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their preconf window.
                 forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee. Too high??
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending. TODO: we don't have an objective mechanism yet
-                minCheckpointDelay: 384 * 4 seconds, // TODO: remove this, we expect to prove every ~2hs, so we can just checkpoint everytime
                 permissionlessInclusionMultiplier: 160 // 160 * 1.5 epochs = 240 epochs = 24 hours. 
-            })
+            }))
     { }
 
     // ---------------------------------------------------------------

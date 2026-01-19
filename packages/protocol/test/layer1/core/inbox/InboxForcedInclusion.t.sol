@@ -263,24 +263,34 @@ contract InboxForcedInclusionTest is InboxTestBase {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
-        // Enqueue two inclusions
-        for (uint256 i; i < 2; ++i) {
-            LibBlobs.BlobReference memory forcedRef =
-                LibBlobs.BlobReference({ blobStartIndex: uint16(i + 1), numBlobs: 1, offset: 0 });
-            uint256 fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
-            vm.prank(proposer);
-            inbox.saveForcedInclusion{ value: fee }(forcedRef);
-        }
+        // Enqueue two inclusions with different timestamps so only the first becomes due.
+        uint48 firstInclusionTimestamp = uint48(block.timestamp);
+
+        LibBlobs.BlobReference memory forcedRef1 =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        uint256 fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: fee }(forcedRef1);
+
+        vm.warp(block.timestamp + 2);
+        vm.roll(block.number + 1);
+
+        LibBlobs.BlobReference memory forcedRef2 =
+            LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: fee }(forcedRef2);
 
         (uint48 headBefore, uint48 tailBefore) = inbox.getForcedInclusionState();
         assertEq(headBefore, 0, "head before processing");
         assertEq(tailBefore, 2, "tail after enqueues");
 
-        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.warp(uint256(firstInclusionTimestamp) + config.forcedInclusionDelay + 1);
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
+        _setBlobHashes(1);
         _proposeAndDecode(input);
 
         (uint48 headAfter, uint48 tailAfter) = inbox.getForcedInclusionState();

@@ -103,8 +103,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 1000,
                 endStateRoot: bytes32(uint256(88)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: true
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
@@ -154,7 +153,6 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.commitment.endStateRoot, input.commitment.endStateRoot, "endStateRoot");
         assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
-        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
     function test_encode_decode_proveInput_singleProposal() public pure {
@@ -172,8 +170,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 50,
                 endStateRoot: bytes32(uint256(66)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
@@ -183,7 +180,6 @@ contract LibCodecTest is Test {
         assertEq(decoded.commitment.transitions.length, 1, "transitions length");
         assertEq(decoded.commitment.transitions[0].proposer, address(0x5555), "proposer");
         assertEq(decoded.commitment.actualProver, address(0xBBBB), "actualProver");
-        assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
 
     function test_encode_decode_proveInput_emptyProposals() public pure {
@@ -198,8 +194,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 9999,
                 endStateRoot: bytes32(uint256(789)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
@@ -226,8 +221,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 888,
                 endStateRoot: bytes32(uint256(7777)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: true
+            })
         });
 
         bytes memory encoded1 = LibCodec.encodeProveInput(input);
@@ -239,8 +233,7 @@ contract LibCodecTest is Test {
 
     function testFuzz_encodeDecodeProveInput_PreservesFields(
         bytes32 seed,
-        uint8 transitionsLen,
-        bool forceCheckpointSync
+        uint8 transitionsLen
     )
         public
         pure
@@ -266,7 +259,6 @@ contract LibCodecTest is Test {
             endStateRoot: keccak256(abi.encode(seed, "endStateRoot")),
             transitions: transitions
         });
-        input.forceCheckpointSync = forceCheckpointSync;
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
         IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
@@ -310,8 +302,6 @@ contract LibCodecTest is Test {
                 "transition blockHash"
             );
         }
-
-        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
     function _addr(

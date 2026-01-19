@@ -70,9 +70,6 @@ library LibCodec {
         for (uint256 i; i < c.transitions.length; ++i) {
             ptr = LibTransitionCodec.encodeTransition(ptr, c.transitions[i]);
         }
-
-        // Encode forceCheckpointSync
-        P.packUint8(ptr, _input.forceCheckpointSync ? 1 : 0);
     }
 
     /// @dev Decodes prove input data using compact packing.
@@ -96,11 +93,6 @@ library LibCodec {
         for (uint256 i; i < transitionsLength; ++i) {
             (input_.commitment.transitions[i], ptr) = LibTransitionCodec.decodeTransition(ptr);
         }
-
-        // Decode forceCheckpointSync
-        uint8 forceCheckpointSyncByte;
-        (forceCheckpointSyncByte,) = P.unpackUint8(ptr);
-        input_.forceCheckpointSync = forceCheckpointSyncByte != 0;
     }
 
     // ---------------------------------------------------------------
@@ -124,9 +116,8 @@ library LibCodec {
             //   endBlockNumber: 6 bytes
             //   endStateRoot: 32 bytes
             //   transitions array length: 2 bytes
-            //   forceCheckpointSync: 1 byte
-            // Total fixed: 131 bytes
-            size_ = 131 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
+            // Total fixed: 130 bytes
+            size_ = 130 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
         }
     }
 }
