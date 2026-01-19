@@ -185,3 +185,23 @@ func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (
 
 	return nil, errors.New("not found")
 }
+
+func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if int(e.BatchID.Int64) == proposalID && e.Event == eventindexer.EventNameProposed {
+			return e, nil
+		}
+	}
+
+	return nil, errors.New("not found")
+}
+
+func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if int(e.BatchID.Int64) == proposalID && e.Event == eventindexer.EventNameProved {
+			return e, nil
+		}
+	}
+
+	return nil, errors.New("not found")
+}
