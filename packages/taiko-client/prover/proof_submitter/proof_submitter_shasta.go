@@ -133,6 +133,13 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return err
 	}
+	log.Info(
+		"Print lastBlockState",
+		"BlockID", lastOriginInLastProposal.BlockID,
+		"L2BlockHash", lastOriginInLastProposal.L2BlockHash,
+		"AnchorBlockNumber", lastBlockState.AnchorBlockNumber,
+		"AncestorsHash", lastBlockState.AncestorsHash,
+	)
 	proposalID := meta.Shasta().GetEventData().Id
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
