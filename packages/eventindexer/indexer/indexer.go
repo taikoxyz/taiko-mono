@@ -77,7 +77,6 @@ type Indexer struct {
 
 	ontakeForkHeight              uint64
 	pacayaForkHeight              uint64
-	shastaForkHeight              uint64
 	isPostOntakeForkHeightReached bool
 	isPostPacayaForkHeightReached bool
 }
@@ -177,8 +176,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var taikoInbox *taikoinbox.TaikoInbox
 
-	var shastaInbox *inbox.Inbox
-
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
 		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
 
@@ -196,8 +193,14 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		if err != nil {
 			return errors.Wrap(err, "taikonbox.NewTaikoInbox")
 		}
+	}
 
-		shastaInbox, err = inbox.NewInbox(cfg.L1TaikoAddress, ethClient)
+	var shastaInbox *inbox.Inbox
+
+	if cfg.ShastaInboxAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting shastaInboxAddress", "addr", cfg.ShastaInboxAddress.Hex())
+
+		shastaInbox, err = inbox.NewInbox(cfg.ShastaInboxAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "inbox.Inbox")
 		}
@@ -242,7 +245,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.contractToMetadataMutex = &sync.Mutex{}
 	i.ontakeForkHeight = cfg.OntakeForkHeight
 	i.pacayaForkHeight = cfg.PacayaForkHeight
-	i.shastaForkHeight = cfg.ShastaForkHeight
 
 	return nil
 }

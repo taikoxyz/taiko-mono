@@ -26,6 +26,14 @@ var (
 		Name: "block_assigned_events_processed_ops_total",
 		Help: "The total number of processed BlockAssigned events",
 	})
+	ProposedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "proposed_events_processed_ops_total",
+		Help: "The total number of processed Shasta Proposed events",
+	})
+	ProvedEventsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "proved_events_processed_ops_total",
+		Help: "The total number of processed Shasta Proved events",
+	})
 	BlockProposedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "block_proposed_events_processed_error_ops_total",
 		Help: "The total number of processed BlockProposed event errors encountered",
@@ -36,11 +44,11 @@ var (
 	})
 	ProposedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "proposed_events_processed_error_ops_total",
-		Help: "The total number of processed Proposed event errors encountered",
+		Help: "The total number of processed Shasta Proposed event errors encountered",
 	})
 	ProvedEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "proved_events_processed_error_ops_total",
-		Help: "The total number of processed Proved event errors encountered",
+		Help: "The total number of processed Shasta Proved event errors encountered",
 	})
 	BatchesProvenEventsProcessedError = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "batches_proven_events_processed_error_ops_total",
