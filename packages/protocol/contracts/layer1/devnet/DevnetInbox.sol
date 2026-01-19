@@ -26,10 +26,7 @@ contract DevnetInbox is Inbox {
         address _proposerChecker,
         address _proverWhitelist,
         address _signalService,
-        address _bondToken,
-        uint64 _minBond,
-        uint64 _livenessBond,
-        uint48 _withdrawalDelay
+        address _bondToken
     )
         // See `MainnetInbox.sol` for details on the configuration.
         Inbox(Config({
