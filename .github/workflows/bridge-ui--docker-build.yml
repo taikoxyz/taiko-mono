@@ -1,19 +1,40 @@
-name: "[Nethermind] Taiko Client - Build and Push Multi-Arch Docker Image"
+name: "[Nethermind] Bridge UI - Docker build and push"
 
 on:
   workflow_dispatch:
+    inputs:
+      configuredBridges:
+        description: 'JSON content for configuredBridges.json'
+        required: false
+        type: string
+      configuredChains:
+        description: 'JSON content for configuredChains.json'
+        required: false
+        type: string
+      configuredCustomTokens:
+        description: 'JSON content for configuredCustomTokens.json'
+        required: false
+        type: string
+      configuredRelayer:
+        description: 'JSON content for configuredRelayer.json'
+        required: false
+        type: string
+      configuredEventIndexer:
+        description: 'JSON content for configuredEventIndexer.json'
+        required: false
+        type: string
   pull_request:
     branches: [main]
     paths:
-      - "packages/taiko-client/**"
-      - ".github/workflows/taiko-client--docker-build.yml"
+      - "packages/bridge-ui/**"
+      - ".github/workflows/bridge-ui--docker-build.yaml"
   push:
     branches: [main]
     tags:
-      - "v*"
+      - "bridge-ui-v*"
     paths:
-      - "packages/taiko-client/**"
-      - ".github/workflows/taiko-client--docker-build.yml"
+      - "packages/bridge-ui/**"
+      - ".github/workflows/bridge-ui--docker-build.yaml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +47,9 @@ permissions:
 
 env:
   DOCKER_REGISTRY: docker.io
-  DOCKER_REPOSITORY: nethermind/taiko-client
+  DOCKER_REPOSITORY: nethermind/surge-bridge-ui
+  DOCKER_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
 jobs:
   build:
@@ -38,10 +61,8 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux/amd64
-            short: amd64
           - os: ubuntu-24.04-arm
             platform: linux/arm64
-            short: arm64
     steps:
       - name: Prepare Environment
         run: |
@@ -49,13 +70,38 @@ jobs:
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
+
+      - name: Write config files from inputs
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: packages/bridge-ui/config
+        run: |
+          if [ -n "${{ inputs.configuredBridges }}" ]; then
+            echo "${{ inputs.configuredBridges }}" | jq . > configuredBridges.json
+            echo "✓ Written configuredBridges.json"
+          fi
+          if [ -n "${{ inputs.configuredChains }}" ]; then
+            echo "${{ inputs.configuredChains }}" | jq . > configuredChains.json
+            echo "✓ Written configuredChains.json"
+          fi
+          if [ -n "${{ inputs.configuredCustomTokens }}" ]; then
+            echo "${{ inputs.configuredCustomTokens }}" | jq . > configuredCustomTokens.json
+            echo "✓ Written configuredCustomTokens.json"
+          fi
+          if [ -n "${{ inputs.configuredRelayer }}" ]; then
+            echo "${{ inputs.configuredRelayer }}" | jq . > configuredRelayer.json
+            echo "✓ Written configuredRelayer.json"
+          fi
+          if [ -n "${{ inputs.configuredEventIndexer }}" ]; then
+            echo "${{ inputs.configuredEventIndexer }}" | jq . > configuredEventIndexer.json
+            echo "✓ Written configuredEventIndexer.json"
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.12.0
+        uses: docker/setup-buildx-action@v3.11.1
         with:
           version: v0.29.1
           cache-binary: false
@@ -64,8 +110,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Docker meta
         id: meta
@@ -82,9 +128,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: packages/taiko-client/Dockerfile
           platforms: ${{ matrix.platform }}
+          context: packages/bridge-ui
           push: true
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -97,13 +142,12 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v5
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
-
 
   merge:
     runs-on: ubuntu-latest
@@ -111,14 +155,14 @@ jobs:
       - build
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v6
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.12.0
+        uses: docker/setup-buildx-action@v3.11.1
         with:
           version: v0.29.1
           cache-binary: false
@@ -127,47 +171,20 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-      - name: Determine event type and set tags
-        id: event
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "is_tag=false" >> $GITHUB_OUTPUT
-            echo "is_branch=false" >> $GITHUB_OUTPUT
-            {
-              echo "tag_list<<EOF"
-              echo "type=sha"
-              echo "type=ref,event=pr"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "is_tag=true" >> $GITHUB_OUTPUT
-            echo "is_branch=false" >> $GITHUB_OUTPUT
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            {
-              echo "tag_list<<EOF"
-              echo "type=raw,value=$VERSION"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "is_tag=false" >> $GITHUB_OUTPUT
-            echo "is_branch=true" >> $GITHUB_OUTPUT
-            {
-              echo "tag_list<<EOF"
-              echo "type=raw,value=latest"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          fi
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
-          tags: ${{ steps.event.outputs.tag_list }}
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -177,9 +194,10 @@ jobs:
 
       - name: Inspect image
         run: |
-          if [[ "${{ steps.event.outputs.is_tag }}" == "true" ]]; then
-            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}:${{ steps.event.outputs.version }}
-          elif [[ "${{ steps.event.outputs.is_branch }}" == "true" ]]; then
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}:$VERSION
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}:latest
           else
             echo "Skipping inspect for PR builds"

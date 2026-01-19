@@ -1,0 +1,5 @@
+FROM ghcr.io/kukymbr/goose-docker:3.22.1
+
+ENV GOOSE_DRIVER=mysql
+
+COPY migrations /migrations
