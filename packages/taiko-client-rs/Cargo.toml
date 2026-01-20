@@ -3,7 +3,7 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
-    "crates/preconfirmation-client",
+    "crates/preconfirmation-node",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
@@ -72,7 +72,7 @@ alloy-sol-types = { version = "1.5.0", default-features = false }
 alloy-transport = { version = "1.4.3", default-features = false }
 alloy-transport-http = { version = "1.4.3", features = ["hyper", "jwt-auth"] }
 event-scanner = "1.0.0"
-jsonrpsee = { version = "0.26", features = ["server"] }
+jsonrpsee = { version = "0.26", features = ["macros", "server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko

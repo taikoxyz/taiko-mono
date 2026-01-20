@@ -206,6 +206,11 @@ where
         self.handle.command_sender()
     }
 
+    /// Get the commitment store for local cache access.
+    pub fn store(&self) -> Arc<dyn CommitmentStore> {
+        Arc::clone(&self.store)
+    }
+
     /// Wait for driver event sync to complete, perform catchup, and return an event loop.
     ///
     /// This method consumes the client and:

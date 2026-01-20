@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+[features]
+default = []
+# Enable the standalone JSON-RPC server for preconfirmation injection.
+standalone-rpc = ["dep:jsonrpsee", "dep:tower", "dep:reth-ipc"]
+
 [dependencies]
 alethia-reth-consensus = { workspace = true }
 alethia-reth-evm = { workspace = true }
@@ -21,10 +26,10 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
 flate2 = { workspace = true }
-jsonrpsee = { workspace = true }
+jsonrpsee = { workspace = true, optional = true }
 k256 = { workspace = true }
 metrics = { workspace = true }
-reth-ipc = { workspace = true }
+reth-ipc = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -32,7 +37,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 tokio-stream = { workspace = true }
-tower = { workspace = true }
+tower = { workspace = true, optional = true }
 tracing = { workspace = true }
 url = { workspace = true }
 
@@ -49,8 +54,8 @@ anyhow = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
-preconfirmation-client = { path = "../preconfirmation-client" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+preconfirmation-node = { path = "../preconfirmation-node" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }
 rand = { workspace = true }

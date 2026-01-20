@@ -28,7 +28,7 @@ alloy = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
 
 # taiko
-driver = { path = "../../crates/driver" }
+driver = { path = "../../crates/driver", features = ["standalone-rpc"] }
 proposer = { path = "../../crates/proposer" }
 rpc = { path = "../../crates/rpc" }
 

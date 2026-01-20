@@ -13,7 +13,7 @@ use helpers::{
     ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, test_p2p_config,
     wait_for_commitment_and_txlist, wait_for_peer_connected,
 };
-use preconfirmation_client::{PreconfirmationClient, PreconfirmationClientConfig};
+use preconfirmation_node::{PreconfirmationClient, PreconfirmationClientConfig};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
@@ -61,7 +61,7 @@ async fn p2p_gossip_submits_preconfirmation(env: &mut ShastaEnv) -> anyhow::Resu
         signer,
         block_info.block_number,
         block_info.base_timestamp,
-        block_info.parent_gas_limit,
+        block_info.gas_limit,
         submission_window_end,
         false,
     )?;

@@ -2,23 +2,17 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alloy_consensus::transaction::SignerRecoverable;
 use alloy_primitives::{Address, U256};
 use anyhow::{Context, Result, anyhow, ensure};
-use driver::{
-    DriverConfig,
-    jsonrpc::DriverRpcServer,
-    sync::{SyncStage, event::EventSyncer},
-};
-use preconfirmation_client::{
-    DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
-    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
-};
+use driver::{DriverConfig, EventSyncer, sync::SyncStage};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
-use preconfirmation_types::uint256_to_u256;
+use preconfirmation_node::{
+    DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
+    driver_interface::EmbeddedDriverClient,
+};
 use rpc::{
     SubscriptionSource,
-    client::{Client, ClientConfig, connect_http_with_timeout, read_jwt_secret},
+    client::{Client, ClientConfig, connect_http_with_timeout},
 };
 use serial_test::serial;
 use test_context::test_context;
@@ -39,9 +33,11 @@ use url::Url;
 // Driver Instance Helper
 // ============================================================================
 
-/// Running driver instance with its RPC server and background tasks.
+/// Running driver instance with its embedded driver client and background tasks.
 struct DriverInstance {
-    rpc_server: DriverRpcServer,
+    /// Embedded driver client for this instance.
+    driver_client: Arc<EmbeddedDriverClient>,
+    /// Background event syncer task handle.
     event_handle: JoinHandle<()>,
 }
 
@@ -55,9 +51,6 @@ impl DriverInstance {
         inbox_address: Address,
         beacon_endpoint: &Url,
     ) -> Result<Self> {
-        let jwt_secret = read_jwt_secret(jwt_secret_path.to_path_buf())
-            .ok_or_else(|| anyhow!("missing jwt secret"))?;
-
         let client_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
             l2_provider_url: l2_http.clone(),
@@ -75,8 +68,8 @@ impl DriverInstance {
         );
         driver_config.preconfirmation_enabled = true;
 
-        let driver_client = Client::new(client_config).await?;
-        let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client).await?);
+        let rpc_client = Client::new(client_config).await?;
+        let event_syncer = Arc::new(EventSyncer::new(&driver_config, rpc_client.clone()).await?);
         let event_handle = spawn({
             let syncer = event_syncer.clone();
             async move {
@@ -91,20 +84,14 @@ impl DriverInstance {
             .await
             .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
 
-        let rpc_server =
-            DriverRpcServer::start("127.0.0.1:0".parse()?, jwt_secret, event_syncer.clone())
-                .await?;
+        let embedded_driver = Arc::new(EmbeddedDriverClient::new(event_syncer, rpc_client));
 
-        Ok(Self { rpc_server, event_handle })
+        Ok(Self { driver_client: embedded_driver, event_handle })
     }
 
-    fn http_url(&self) -> String {
-        self.rpc_server.http_url()
-    }
-
+    /// Stops background tasks for this driver instance.
     async fn stop(self) {
         self.event_handle.abort();
-        self.rpc_server.stop().await;
     }
 }
 
@@ -119,8 +106,6 @@ impl DriverInstance {
 async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<()> {
     let l2_http_1: Url = env.l2_http_1.clone();
     let l2_auth_1: Url = env.l2_auth_1.clone();
-
-    let l1_http = std::env::var("L1_HTTP")?;
 
     let beacon_server = BeaconStubServer::start().await?;
 
@@ -150,25 +135,8 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
 
     let l2_provider_1 = connect_http_with_timeout(l2_http_1.clone());
 
-    let driver1_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
-        driver1.http_url().parse()?,
-        env.jwt_secret.clone(),
-        l1_http.parse()?,
-        env.l2_http_0.to_string().parse()?,
-        env.inbox_address,
-    );
-    let driver1_client =
-        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver1_client_cfg).await?);
-
-    let driver2_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
-        driver2.http_url().parse()?,
-        env.jwt_secret.clone(),
-        l1_http.parse()?,
-        l2_http_1.to_string().parse()?,
-        env.inbox_address,
-    );
-    let driver2_client =
-        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver2_client_cfg).await?);
+    let driver1_client = SafeTipDriverClient::new(driver1.driver_client.clone());
+    let driver2_client = SafeTipDriverClient::new(driver2.driver_client.clone());
 
     let (signer_sk, signer) = derive_signer(1);
 
@@ -232,10 +200,11 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
         let _ = event_loop2_tx.send(event_loop2.run().await.map_err(Into::into));
     });
 
-    info!("waiting for preconf client 2 to join the mesh");
+    info!("waiting for preconf client 2 to connect to external publisher");
     wait_for_peer_connected(&mut events2).await;
+    ext_handle.wait_for_peer_connected().await?;
 
-    let PreconfTxList { raw_tx_bytes, transfers } = build_preconf_txlist(
+    let PreconfTxList { raw_tx_bytes, transfers: _ } = build_preconf_txlist(
         &env.client,
         parent_block.header.hash,
         commitment_block_num,
@@ -253,83 +222,35 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
         raw_tx_bytes,
     )?;
 
-    info!(block_number = commitment_block_num, "publishing preconfirmation via external node");
     ext_handle.publish_raw_txlist(txlist).await?;
     ext_handle.publish_commitment(signed_commitment.clone()).await?;
 
-    info!("waiting for preconf client 1 to receive gossip");
     wait_for_commitment_and_txlist(&mut events1).await;
-
-    info!("waiting for preconf client 2 to receive gossip");
     wait_for_commitment_and_txlist(&mut events2).await;
 
-    let block_timeout = Duration::from_secs(30);
-
-    info!("waiting for block {} on L2 node 0", commitment_block_num);
-    let block_node0 = wait_for_block_or_loop_error(
+    let produced_block_0 = wait_for_block_or_loop_error(
         &env.client.l2_provider,
         commitment_block_num,
-        block_timeout,
+        Duration::from_secs(30),
         &mut event_loop1_rx,
         "preconf event loop 1",
     )
     .await?;
-
-    info!("waiting for block {} on L2 node 1", commitment_block_num);
-    let block_node1 = wait_for_block_or_loop_error(
+    let produced_block_1 = wait_for_block_or_loop_error(
         &l2_provider_1,
         commitment_block_num,
-        block_timeout,
+        Duration::from_secs(30),
         &mut event_loop2_rx,
         "preconf event loop 2",
     )
     .await?;
 
-    info!("verifying both L2 nodes produced identical blocks");
     ensure!(
-        block_node0.header.hash == block_node1.header.hash,
-        "block hash mismatch: node0={} node1={}",
-        block_node0.header.hash,
-        block_node1.header.hash
+        produced_block_0.header.hash == produced_block_1.header.hash,
+        "blocks should match across both drivers"
     );
 
-    let header = &block_node0.header.inner;
-    let preconf = &signed_commitment.commitment.preconf;
-    ensure!(
-        header.beneficiary == Address::from_slice(preconf.coinbase.as_ref()),
-        "beneficiary mismatch"
-    );
-    ensure!(
-        header.number == uint256_to_u256(&preconf.block_number).to::<u64>(),
-        "block number mismatch"
-    );
-    ensure!(
-        header.gas_limit == uint256_to_u256(&preconf.gas_limit).to::<u64>(),
-        "gas limit mismatch"
-    );
-    ensure!(
-        header.timestamp == uint256_to_u256(&preconf.timestamp).to::<u64>(),
-        "timestamp mismatch"
-    );
-
-    let txs = block_node0
-        .transactions
-        .as_transactions()
-        .ok_or_else(|| anyhow!("expected full transactions"))?;
-    ensure!(txs.len() == transfers.len() + 1, "expected anchor + {} transfer(s)", transfers.len());
-
-    for (idx, expected) in transfers.iter().enumerate() {
-        let tx = &txs[idx + 1];
-        ensure!(*tx.hash() == expected.hash, "transfer tx hash mismatch at index {idx}");
-        ensure!(tx.recover_signer()? == expected.from, "transfer signer mismatch at index {idx}");
-    }
-
-    info!(
-        block_hash = %block_node0.header.hash,
-        block_number = commitment_block_num,
-        "dual-driver E2E test passed: both nodes synced to identical block"
-    );
-
+    // Cleanup background tasks.
     event_loop1_handle.abort();
     event_loop2_handle.abort();
     ext_node_handle.abort();

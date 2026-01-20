@@ -46,14 +46,14 @@ async fn contiguous_blocks_submitted_in_order(env: &mut ShastaEnv) -> anyhow::Re
     let ext_dial_addr = ext_node.handle.dialable_addr().await?;
 
     // Internal preconfirmation client.
-    let mut int_cfg = preconfirmation_client::PreconfirmationClientConfig::new_with_resolver(
+    let mut int_cfg = preconfirmation_node::PreconfirmationClientConfig::new_with_resolver(
         test_p2p_config(),
         Arc::new(resolver),
     );
     int_cfg.p2p.pre_dial_peers = vec![ext_dial_addr];
 
     let internal_client =
-        preconfirmation_client::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
+        preconfirmation_node::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
     let mut event_loop = internal_client.sync_and_catchup().await?;

@@ -1,5 +1,7 @@
 //! Driver interface trait definitions.
 
+use std::sync::Arc;
+
 use alloy_primitives::U256;
 use async_trait::async_trait;
 use preconfirmation_types::SignedCommitment;
@@ -47,6 +49,33 @@ pub trait DriverClient: Send + Sync {
     async fn preconf_tip(&self) -> Result<U256>;
 }
 
+/// Blanket implementation for `Arc<T>` where `T: DriverClient`.
+///
+/// This allows sharing driver clients across tasks while still using the
+/// `DriverClient` trait interface.
+#[async_trait]
+impl<T: DriverClient + ?Sized> DriverClient for Arc<T> {
+    /// Forward the submission to the inner driver client.
+    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
+        (**self).submit_preconfirmation(input).await
+    }
+
+    /// Forward the sync wait to the inner driver client.
+    async fn wait_event_sync(&self) -> Result<()> {
+        (**self).wait_event_sync().await
+    }
+
+    /// Forward the event sync tip query to the inner driver client.
+    async fn event_sync_tip(&self) -> Result<U256> {
+        (**self).event_sync_tip().await
+    }
+
+    /// Forward the preconfirmation tip query to the inner driver client.
+    async fn preconf_tip(&self) -> Result<U256> {
+        (**self).preconf_tip().await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::PreconfirmationInput;
@@ -54,6 +83,7 @@ mod tests {
         Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
     };
 
+    /// Build a commitment for test cases.
     fn build_commitment(eop: bool, raw_tx_list_hash: Bytes32) -> SignedCommitment {
         let preconf = Preconfirmation { eop, raw_tx_list_hash, ..Default::default() };
         let commitment = PreconfCommitment { preconf, ..Default::default() };
@@ -79,6 +109,7 @@ mod tests {
     }
 
     #[test]
+    /// Ensure EOP-only commitments skip submission when transactions are missing.
     fn eop_only_without_transactions_should_skip() {
         let zero_hash = Bytes32::try_from(vec![0u8; 32]).expect("zero hash");
         let commitment = build_commitment(true, zero_hash);
@@ -87,6 +118,7 @@ mod tests {
     }
 
     #[test]
+    /// Ensure EOP-only commitments with transactions do not skip submission.
     fn eop_only_with_transactions_should_not_skip() {
         let zero_hash = Bytes32::try_from(vec![0u8; 32]).expect("zero hash");
         let commitment = build_commitment(true, zero_hash);
@@ -95,6 +127,7 @@ mod tests {
     }
 
     #[test]
+    /// Ensure non-EOP commitments do not skip submission even without transactions.
     fn non_eop_without_transactions_should_not_skip() {
         let zero_hash = Bytes32::try_from(vec![0u8; 32]).expect("zero hash");
         let commitment = build_commitment(false, zero_hash);
@@ -103,6 +136,7 @@ mod tests {
     }
 
     #[test]
+    /// Ensure EOP commitments with non-zero hash do not skip submission.
     fn eop_true_with_nonzero_hash_should_not_skip() {
         let nonzero_hash = Bytes32::try_from(vec![1u8; 32]).expect("nonzero hash");
         let commitment = build_commitment(true, nonzero_hash);

@@ -1,17 +1,16 @@
-//! Error types for the preconfirmation client SDK.
+//! Error types for the preconfirmation node SDK.
 
 use alloy_contract::Error as ContractError;
 use alloy_transport::TransportError;
-use rpc::RpcClientError;
-use std::path::PathBuf;
+use driver::error::DriverError;
 use thiserror::Error;
 
-/// Result alias for preconfirmation client operations.
-pub type Result<T> = std::result::Result<T, PreconfirmationClientError>;
+/// Result alias for preconfirmation node operations.
+pub type Result<T> = std::result::Result<T, PreconfirmationNodeError>;
 
-/// Errors surfaced by the preconfirmation client SDK.
+/// Errors surfaced by the preconfirmation node SDK.
 #[derive(Debug, Error)]
-pub enum PreconfirmationClientError {
+pub enum PreconfirmationNodeError {
     /// Network error emitted by the P2P stack.
     #[error("network error: {0}")]
     Network(String),
@@ -36,6 +35,12 @@ pub enum PreconfirmationClientError {
     /// Invalid configuration parameter.
     #[error("config error: {0}")]
     Config(String),
+    /// Embedded driver error.
+    #[error("embedded driver error: {0}")]
+    Driver(#[from] DriverError),
+    /// JSON-RPC server error.
+    #[error("rpc server error: {0}")]
+    RpcServer(String),
 }
 
 /// Errors produced by driver interface operations.
@@ -47,24 +52,6 @@ pub enum DriverApiError {
     /// Contract call error while fetching on-chain state.
     #[error("contract error: {0}")]
     Contract(#[from] ContractError),
-    /// IPC connection failure when building the driver provider.
-    #[error("IPC connection failed for {path}: {source}")]
-    IpcConnectionFailed {
-        /// IPC socket path.
-        path: PathBuf,
-        /// Underlying RPC client error.
-        #[source]
-        source: RpcClientError,
-    },
-    /// HTTP endpoint configuration missing a JWT secret path.
-    #[error("HTTP endpoint requires JWT secret path")]
-    MissingJwtSecret,
-    /// Failed to read the JWT secret file.
-    #[error("failed to read jwt secret from {path}")]
-    JwtSecretReadError {
-        /// JWT secret path.
-        path: PathBuf,
-    },
     /// Requested block was not found.
     #[error("missing block {block_number}")]
     MissingBlock {
@@ -91,6 +78,9 @@ pub enum DriverApiError {
     ProposalIdOverflow,
 }
 
+/// Legacy type alias for backwards compatibility.
+pub type PreconfirmationClientError = PreconfirmationNodeError;
+
 impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {
     /// Convert a network error from the P2P layer.
     fn from(err: preconfirmation_net::NetworkError) -> Self {
@@ -109,13 +99,14 @@ impl From<protocol::preconfirmation::LookaheadError> for PreconfirmationClientEr
 mod tests {
     use super::{DriverApiError, PreconfirmationClientError};
 
+    /// Ensure error variants format correctly.
     #[test]
     fn error_display_works() {
-        // Create a validation error for formatting.
         let err = PreconfirmationClientError::Validation("bad signature".into());
         assert!(!err.to_string().is_empty());
     }
 
+    /// Ensure driver interface errors bubble with context.
     #[test]
     fn driver_interface_error_display_works() {
         let err = DriverApiError::MissingBlock { block_number: 42 };

@@ -3,6 +3,7 @@
 use std::{io, path::PathBuf, result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
+#[cfg(feature = "standalone-rpc")]
 use reth_ipc::server::IpcServerStartError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
@@ -37,6 +38,7 @@ pub enum DriverError {
     DriverRpcJwtSecretReadFailed,
 
     /// IPC server failed to start.
+    #[cfg(feature = "standalone-rpc")]
     #[error("failed to start IPC server: {0}")]
     IpcServerStart(#[from] IpcServerStartError),
 

@@ -1,3 +1,8 @@
+//! Driver JSON-RPC server tests.
+//!
+//! These tests require the standalone RPC feature.
+#![cfg(feature = "standalone-rpc")]
+
 use std::{
     error::Error,
     net::SocketAddr,

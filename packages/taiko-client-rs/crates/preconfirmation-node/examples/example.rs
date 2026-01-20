@@ -14,11 +14,11 @@ use std::io::Write;
 use alloy_primitives::{Address, U256};
 use async_trait::async_trait;
 use flate2::{Compression, write::ZlibEncoder};
-use preconfirmation_client::{
+use preconfirmation_net::{NetworkCommand, P2pConfig};
+use preconfirmation_node::{
     DriverClient, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationClientError,
     PreconfirmationInput, Result,
 };
-use preconfirmation_net::{NetworkCommand, P2pConfig};
 use preconfirmation_types::{
     Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
     TxListBytes, keccak256_bytes, sign_commitment,
@@ -83,6 +83,7 @@ fn build_publish_payloads() -> (RawTxListGossip, SignedCommitment) {
     (txlist, signed_commitment)
 }
 
+/// Run the example preconfirmation client.
 #[tokio::main]
 async fn main() -> Result<()> {
     // Configure the RPC endpoint for the lookahead resolver.

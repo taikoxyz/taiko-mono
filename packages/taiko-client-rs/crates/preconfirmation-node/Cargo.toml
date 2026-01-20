@@ -1,5 +1,5 @@
 [package]
-name = "preconfirmation-client"
+name = "preconfirmation-node"
 version.workspace = true
 edition.workspace = true
 publish = false
@@ -21,8 +21,11 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
+jsonrpsee = { workspace = true }
 metrics = { workspace = true }
+serde = { workspace = true }
 sha2 = { workspace = true }
+ssz_rs = "0.9.0"
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -30,13 +33,13 @@ tracing = { workspace = true }
 url = { workspace = true }
 
 bindings = { path = "../bindings" }
+driver = { path = "../driver" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
-driver = { path = "../driver" }
 rand = { workspace = true }
 secp256k1 = { workspace = true }
 serial_test = { workspace = true }

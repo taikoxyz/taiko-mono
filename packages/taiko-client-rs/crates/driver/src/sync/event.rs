@@ -33,11 +33,12 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{SyncError, SyncStage};
+#[cfg(feature = "standalone-rpc")]
+use crate::jsonrpc::DriverRpcApi;
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
     error::DriverError,
-    jsonrpc::DriverRpcApi,
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
@@ -471,6 +472,7 @@ where
     }
 }
 
+#[cfg(feature = "standalone-rpc")]
 #[async_trait]
 impl<P> DriverRpcApi for EventSyncer<P>
 where

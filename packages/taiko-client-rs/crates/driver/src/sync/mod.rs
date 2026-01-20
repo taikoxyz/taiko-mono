@@ -7,11 +7,7 @@ use async_trait::async_trait;
 use rpc::client::Client;
 use tracing::{info, instrument};
 
-use crate::{
-    config::DriverConfig,
-    error::DriverError,
-    sync::{beacon::BeaconSyncer, event::EventSyncer},
-};
+use crate::{config::DriverConfig, error::DriverError, sync::beacon::BeaconSyncer};
 
 pub mod beacon;
 pub mod engine;
@@ -19,6 +15,8 @@ pub mod error;
 pub mod event;
 
 pub use error::SyncError;
+/// Re-export the event syncer for embedded driver usage.
+pub use event::EventSyncer;
 
 /// High level trait to represent a driver sync stage.
 #[async_trait]
