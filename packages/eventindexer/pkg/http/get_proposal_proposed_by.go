@@ -34,6 +34,7 @@ func (srv *Server) GetProposalProposedBy(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.NoContent(http.StatusNotFound)
 		}
+
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 
