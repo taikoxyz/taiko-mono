@@ -751,7 +751,7 @@ library IInbox {
     struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
     struct DerivationSource { bool isForcedInclusion; LibBlobs.BlobSlice blobSlice; }
     struct Proposal { uint48 id; uint48 timestamp; uint48 endOfSubmissionWindowTimestamp; address proposer; bytes32 parentProposalHash; uint48 originBlockNumber; bytes32 originBlockHash; uint8 basefeeSharingPctg; DerivationSource[] sources; }
-    struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uint8 numForcedInclusions; }
+    struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uint16 numForcedInclusions; }
     struct ProveInput { Commitment commitment; }
     struct Transition { address proposer; uint48 timestamp; bytes32 blockHash; }
 }
@@ -2717,7 +2717,7 @@ struct Proposal { uint48 id; uint48 timestamp; uint48 endOfSubmissionWindowTimes
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uint8 numForcedInclusions; }
+struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uint16 numForcedInclusions; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -2727,7 +2727,7 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
         #[allow(missing_docs)]
         pub blobReference: <LibBlobs::BlobReference as alloy::sol_types::SolType>::RustType,
         #[allow(missing_docs)]
-        pub numForcedInclusions: u8,
+        pub numForcedInclusions: u16,
     }
     #[allow(
         non_camel_case_types,
@@ -2741,13 +2741,13 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
         type UnderlyingSolTuple<'a> = (
             alloy::sol_types::sol_data::Uint<48>,
             LibBlobs::BlobReference,
-            alloy::sol_types::sol_data::Uint<8>,
+            alloy::sol_types::sol_data::Uint<16>,
         );
         #[doc(hidden)]
         type UnderlyingRustTuple<'a> = (
             alloy::sol_types::private::primitives::aliases::U48,
             <LibBlobs::BlobReference as alloy::sol_types::SolType>::RustType,
-            u8,
+            u16,
         );
         #[cfg(test)]
         #[allow(dead_code, unreachable_patterns)]
@@ -2794,7 +2794,7 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
                         &self.blobReference,
                     ),
                     <alloy::sol_types::sol_data::Uint<
-                        8,
+                        16,
                     > as alloy_sol_types::SolType>::tokenize(&self.numForcedInclusions),
                 )
             }
@@ -2870,7 +2870,7 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "ProposeInput(uint48 deadline,BlobReference blobReference,uint8 numForcedInclusions)",
+                    "ProposeInput(uint48 deadline,BlobReference blobReference,uint16 numForcedInclusions)",
                 )
             }
             #[inline]
@@ -2900,7 +2900,7 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
-                        8,
+                        16,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.numForcedInclusions,
                         )
@@ -2923,7 +2923,7 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
                         &rust.blobReference,
                     )
                     + <alloy::sol_types::sol_data::Uint<
-                        8,
+                        16,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.numForcedInclusions,
                     )
@@ -2947,7 +2947,7 @@ struct ProposeInput { uint48 deadline; LibBlobs.BlobReference blobReference; uin
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
-                    8,
+                    16,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.numForcedInclusions,
                     out,
@@ -4256,7 +4256,7 @@ library IInbox {
     struct ProposeInput {
         uint48 deadline;
         LibBlobs.BlobReference blobReference;
-        uint8 numForcedInclusions;
+        uint16 numForcedInclusions;
     }
     struct ProveInput {
         Commitment commitment;
@@ -4559,8 +4559,8 @@ interface Inbox {
           },
           {
             "name": "numForcedInclusions",
-            "type": "uint8",
-            "internalType": "uint8"
+            "type": "uint16",
+            "internalType": "uint16"
           }
         ]
       }
@@ -4716,8 +4716,8 @@ interface Inbox {
           },
           {
             "name": "numForcedInclusions",
-            "type": "uint8",
-            "internalType": "uint8"
+            "type": "uint16",
+            "internalType": "uint16"
           }
         ]
       }
@@ -11417,7 +11417,7 @@ function depositTo(address _recipient, uint64 _amount) external;
     };
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    /**Function with signature `encodeProposeInput((uint48,(uint16,uint16,uint24),uint8))` and selector `0x2f1969b0`.
+    /**Function with signature `encodeProposeInput((uint48,(uint16,uint16,uint24),uint16))` and selector `0x1275a673`.
 ```solidity
 function encodeProposeInput(IInbox.ProposeInput memory _input) external pure returns (bytes memory encoded_);
 ```*/
@@ -11429,7 +11429,7 @@ function encodeProposeInput(IInbox.ProposeInput memory _input) external pure ret
     }
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
-    ///Container type for the return parameters of the [`encodeProposeInput((uint48,(uint16,uint16,uint24),uint8))`](encodeProposeInputCall) function.
+    ///Container type for the return parameters of the [`encodeProposeInput((uint48,(uint16,uint16,uint24),uint16))`](encodeProposeInputCall) function.
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
     pub struct encodeProposeInputReturn {
@@ -11523,8 +11523,8 @@ function encodeProposeInput(IInbox.ProposeInput memory _input) external pure ret
             type ReturnToken<'a> = <Self::ReturnTuple<
                 'a,
             > as alloy_sol_types::SolType>::Token<'a>;
-            const SIGNATURE: &'static str = "encodeProposeInput((uint48,(uint16,uint16,uint24),uint8))";
-            const SELECTOR: [u8; 4] = [47u8, 25u8, 105u8, 176u8];
+            const SIGNATURE: &'static str = "encodeProposeInput((uint48,(uint16,uint16,uint24),uint16))";
+            const SELECTOR: [u8; 4] = [18u8, 117u8, 166u8, 115u8];
             #[inline]
             fn new<'a>(
                 tuple: <Self::Parameters<'a> as alloy_sol_types::SolType>::RustType,
@@ -15977,10 +15977,10 @@ function withdraw(address _to, uint64 _amount) external;
             [4u8, 35u8, 199u8, 222u8],
             [4u8, 243u8, 188u8, 236u8],
             [13u8, 137u8, 18u8, 243u8],
+            [18u8, 117u8, 166u8, 115u8],
             [19u8, 118u8, 88u8, 56u8],
             [25u8, 171u8, 69u8, 60u8],
             [34u8, 97u8, 18u8, 128u8],
-            [47u8, 25u8, 105u8, 176u8],
             [48u8, 117u8, 219u8, 86u8],
             [54u8, 89u8, 207u8, 230u8],
             [63u8, 75u8, 168u8, 58u8],
@@ -16153,6 +16153,17 @@ function withdraw(address _to, uint64 _amount) external;
                     getBond
                 },
                 {
+                    fn encodeProposeInput(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxCalls> {
+                        <encodeProposeInputCall as alloy_sol_types::SolCall>::abi_decode_raw(
+                                data,
+                            )
+                            .map(InboxCalls::encodeProposeInput)
+                    }
+                    encodeProposeInput
+                },
+                {
                     fn deposit(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <depositCall as alloy_sol_types::SolCall>::abi_decode_raw(data)
                             .map(InboxCalls::deposit)
@@ -16176,17 +16187,6 @@ function withdraw(address _to, uint64 _amount) external;
                             .map(InboxCalls::cancelWithdrawal)
                     }
                     cancelWithdrawal
-                },
-                {
-                    fn encodeProposeInput(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <encodeProposeInputCall as alloy_sol_types::SolCall>::abi_decode_raw(
-                                data,
-                            )
-                            .map(InboxCalls::encodeProposeInput)
-                    }
-                    encodeProposeInput
                 },
                 {
                     fn inNonReentrant(
@@ -16525,6 +16525,17 @@ function withdraw(address _to, uint64 _amount) external;
                     getBond
                 },
                 {
+                    fn encodeProposeInput(
+                        data: &[u8],
+                    ) -> alloy_sol_types::Result<InboxCalls> {
+                        <encodeProposeInputCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
+                                data,
+                            )
+                            .map(InboxCalls::encodeProposeInput)
+                    }
+                    encodeProposeInput
+                },
+                {
                     fn deposit(data: &[u8]) -> alloy_sol_types::Result<InboxCalls> {
                         <depositCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
                                 data,
@@ -16552,17 +16563,6 @@ function withdraw(address _to, uint64 _amount) external;
                             .map(InboxCalls::cancelWithdrawal)
                     }
                     cancelWithdrawal
-                },
-                {
-                    fn encodeProposeInput(
-                        data: &[u8],
-                    ) -> alloy_sol_types::Result<InboxCalls> {
-                        <encodeProposeInputCall as alloy_sol_types::SolCall>::abi_decode_raw_validate(
-                                data,
-                            )
-                            .map(InboxCalls::encodeProposeInput)
-                    }
-                    encodeProposeInput
                 },
                 {
                     fn inNonReentrant(

@@ -244,7 +244,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 				Offset:         common.Big0,
 			},
 			// We try to include all the forced inclusions in the source manifest.
-			NumForcedInclusions: math.MaxUint8,
+			NumForcedInclusions: math.MaxUint16,
 		},
 	)
 	if err != nil {
