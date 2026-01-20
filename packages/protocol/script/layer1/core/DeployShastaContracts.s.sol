@@ -75,18 +75,6 @@ contract DeployShastaContracts is DeployCapability {
         Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
 
         // TODO: question about whether the Bridge contract is compatible and whether a Bridge contract upgrade is required.
-
-        address signalServiceImpl = address(new SignalService(msg.sender, config.l2SignalService));
-        new SignalServiceForkRouter(
-            config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
-        );
-        address signalServiceForkRouter = address(
-            new SignalServiceForkRouter(
-                config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
-            )
-        );
-        console2.log("SignalServiceForkRouter deployed:", signalServiceForkRouter);
-
         address shastaInbox = address(0);
         if (config.l2ChainId == LibNetwork.TAIKO_MAINNET) {
             shastaInbox = deployProxy({
@@ -124,6 +112,17 @@ contract DeployShastaContracts is DeployCapability {
             revert("Unexpected l2ChainId");
         }
         console2.log("ShastaInbox deployed:", shastaInbox);
+
+        address signalServiceImpl = address(new SignalService(shastaInbox, config.l2SignalService));
+        new SignalServiceForkRouter(
+            config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
+        );
+        address signalServiceForkRouter = address(
+            new SignalServiceForkRouter(
+                config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
+            )
+        );
+        console2.log("SignalServiceForkRouter deployed:", signalServiceForkRouter);
     }
 
     function _loadConfig() private view returns (DeploymentConfig memory config) {
@@ -182,8 +181,7 @@ contract DeployShastaContracts is DeployCapability {
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
-        (verifiers.risc0, verifiers.sp1) =
-            _deployZKVerifiers(config);
+        (verifiers.risc0, verifiers.sp1) = _deployZKVerifiers(config);
     }
 
     function _deployZKVerifiers(DeploymentConfig memory config)
