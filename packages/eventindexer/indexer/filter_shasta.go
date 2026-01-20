@@ -34,12 +34,12 @@ func filterFuncShasta(
 			return nil
 		})
 		wg.Go(func() error {
-			proposedEvent, err := i.shastaInbox.FilterProposed(filterOpts, nil, nil)
+			proposedEvents, err := i.shastaInbox.FilterProposed(filterOpts, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "i.shastaInbox.FilterProposed")
 			}
 
-			err = i.saveProposedEvents(ctx, chainID, proposedEvent)
+			err = i.saveProposedEvents(ctx, chainID, proposedEvents)
 			if err != nil {
 				return errors.Wrap(err, "i.saveProposedEvent")
 			}

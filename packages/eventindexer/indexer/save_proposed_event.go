@@ -27,10 +27,9 @@ func (i *Indexer) saveProposedEvents(
 	wg, ctx := errgroup.WithContext(ctx)
 
 	for {
-		event := events.Event
-
+		currentEvent := events.Event
 		wg.Go(func() error {
-			if err := i.saveProposedEvent(ctx, chainID, event); err != nil {
+			if err := i.saveProposedEvent(ctx, chainID, currentEvent); err != nil {
 				eventindexer.ProposedEventsProcessedError.Inc()
 
 				return errors.Wrap(err, "i.saveProposedEvent")

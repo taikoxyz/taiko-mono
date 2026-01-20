@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"math/big"
 	"math/rand"
@@ -24,14 +25,23 @@ func NewEventRepository() *EventRepository {
 	}
 }
 func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventOpts) (*eventindexer.Event, error) {
-	r.events = append(r.events, &eventindexer.Event{
+	e := &eventindexer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		Data:    datatypes.JSON(opts.Data),
 		ChainID: opts.ChainID.Int64(),
 		Name:    opts.Name,
 		Event:   opts.Event,
 		Address: opts.Address,
-	})
+	}
+
+	if opts.BatchID != nil {
+		e.BatchID = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.BatchID,
+		}
+	}
+
+	r.events = append(r.events, e)
 
 	return nil, nil
 }
@@ -193,7 +203,7 @@ func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID 
 		}
 	}
 
-	return nil, errors.New("not found")
+	return nil, nil
 }
 
 func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
@@ -203,5 +213,5 @@ func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID in
 		}
 	}
 
-	return nil, errors.New("not found")
+	return nil, nil
 }
