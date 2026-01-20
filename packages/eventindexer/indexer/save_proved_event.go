@@ -28,6 +28,7 @@ func (i *Indexer) saveProvedEvents(
 
 	for {
 		currentEvent := events.Event
+
 		wg.Go(func() error {
 			if err := i.saveProvedEvent(ctx, chainID, currentEvent); err != nil {
 				eventindexer.ProvedEventsProcessedError.Inc()
