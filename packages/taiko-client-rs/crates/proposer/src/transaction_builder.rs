@@ -47,8 +47,6 @@ impl ShastaProposalTransactionBuilder {
         txs_lists: TransactionsLists,
         engine_params: Option<EnginePayloadParams>,
     ) -> Result<TransactionRequest> {
-        let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
-
         // Use provided engine params or derive defaults.
         let (anchor_block_number, timestamp, gas_limit) = match engine_params {
             Some(params) => (params.anchor_block_number, params.timestamp, params.gas_limit),
