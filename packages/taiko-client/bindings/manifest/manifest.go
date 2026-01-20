@@ -12,7 +12,7 @@ const (
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal.
-	ProposalMaxBlocks = 384
+	ProposalMaxBlocks = 192
 	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp.
 	TimestampMaxOffset = 12 * 128
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number.
