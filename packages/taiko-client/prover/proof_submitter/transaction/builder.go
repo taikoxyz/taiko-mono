@@ -131,8 +131,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 		var (
 			proposals = make([]*shastaBindings.ShastaInboxClientProposed, len(batchProof.ProofResponses))
 			input     = &shastaBindings.IInboxProveInput{
-				Commitment:          shastaBindings.IInboxCommitment{ActualProver: txOpts.From},
-				ForceCheckpointSync: false,
+				Commitment: shastaBindings.IInboxCommitment{ActualProver: txOpts.From},
 			}
 		)
 

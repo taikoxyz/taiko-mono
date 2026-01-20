@@ -47,8 +47,6 @@ impl ShastaProposalTransactionBuilder {
         txs_lists: TransactionsLists,
         engine_params: Option<EnginePayloadParams>,
     ) -> Result<TransactionRequest> {
-        let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
-
         // Use provided engine params or derive defaults.
         let (anchor_block_number, timestamp, gas_limit) = match engine_params {
             Some(params) => (params.anchor_block_number, params.timestamp, params.gas_limit),
@@ -100,7 +98,8 @@ impl ShastaProposalTransactionBuilder {
                 numBlobs: sidecar.blobs.len() as u16,
                 offset: U24::ZERO,
             },
-            numForcedInclusions: config.minForcedInclusionCount.to(),
+            // Include all forced inclusions in the source manifest.
+            numForcedInclusions: u16::MAX,
         };
 
         // Build the transaction request with blob sidecar.
