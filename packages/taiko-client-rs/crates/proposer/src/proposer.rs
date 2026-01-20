@@ -250,8 +250,8 @@ impl Proposer {
     }
 
     /// Build forkchoice state from L2 chain.
-    /// Queries safe, finalized, and latest blocks to construct ForkchoiceState.
-    async fn build_forkchoice_state(&self) -> Result<ForkchoiceState> {
+    /// Returns the forkchoice state and the head block used.
+    async fn build_forkchoice_state(&self) -> Result<(ForkchoiceState, Block)> {
         let head = self
             .rpc_provider
             .l2_provider
@@ -275,11 +275,14 @@ impl Proposer {
             .map(|b| b.header.hash)
             .unwrap_or(head.header.hash);
 
-        Ok(ForkchoiceState {
-            head_block_hash: head.header.hash,
-            safe_block_hash: safe,
-            finalized_block_hash: finalized,
-        })
+        Ok((
+            ForkchoiceState {
+                head_block_hash: head.header.hash,
+                safe_block_hash: safe,
+                finalized_block_hash: finalized,
+            },
+            head,
+        ))
     }
 
     /// Build Taiko payload attributes for engine mode.
@@ -374,16 +377,8 @@ impl Proposer {
     /// with tx_list: None, then retrieve the built payload to extract transactions.
     /// Returns the transactions and the engine payload parameters used.
     async fn fetch_payload_transactions(&self) -> Result<(TransactionsLists, EnginePayloadParams)> {
-        // Get parent block for payload attributes.
-        let parent = self
-            .rpc_provider
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .ok_or(ProposerError::LatestBlockNotFound)?;
-
-        // Build forkchoice state.
-        let forkchoice_state = self.build_forkchoice_state().await?;
+        // Build forkchoice state and get the head block to use as parent.
+        let (forkchoice_state, parent) = self.build_forkchoice_state().await?;
 
         // Build payload attributes and capture the engine parameters used.
         let (payload_attributes, engine_params) = self.build_payload_attributes(&parent).await?;
