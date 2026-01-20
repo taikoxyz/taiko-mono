@@ -16,6 +16,7 @@ contract DeployShastaL2Contracts is DeployCapability {
         address oldSignalServiceImpl;
         address anchorProxy;
         address oldAnchorImpl;
+        uint64 shastaForkTimestamp;
     }
 
     modifier broadcast() {
@@ -46,16 +47,18 @@ contract DeployShastaL2Contracts is DeployCapability {
     }
 
     function _loadConfig() private view returns (DeploymentConfig memory config) {
-        config.l1ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
-        config.l1SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
+        config.l1ChainId = uint64(vm.envUint("L1_CHAIN_ID"));
+        config.l1SignalService = vm.envAddress("L1_SIGNAL_SERVICE");
         config.oldSignalServiceImpl = vm.envAddress("OLD_SIGNAL_SERVICE_IMPL");
         config.anchorProxy = vm.envAddress("ANCHOR_PROXY");
         config.oldAnchorImpl = vm.envAddress("OLD_ANCHOR_IMPL");
+        config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
 
-        require(config.l1ChainId != 0, "L2_CHAIN_ID not set");
-        require(config.l1SignalService != address(0), "L2_SIGNAL_SERVICE not set");
+        require(config.l1ChainId != 0, "L1_CHAIN_ID not set");
+        require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.oldSignalServiceImpl != address(0), "OLD_SIGNAL_SERVICE_IMPL not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
         require(config.oldAnchorImpl != address(0), "OLD_ANCHOR_IMPL not set");
+        require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
     }
 }

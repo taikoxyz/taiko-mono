@@ -114,9 +114,6 @@ contract DeployShastaContracts is DeployCapability {
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         address signalServiceImpl = address(new SignalService(shastaInbox, config.l2SignalService));
-        new SignalServiceForkRouter(
-            config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
-        );
         address signalServiceForkRouter = address(
             new SignalServiceForkRouter(
                 config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
