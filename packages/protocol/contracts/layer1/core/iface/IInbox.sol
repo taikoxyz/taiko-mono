@@ -90,7 +90,7 @@ interface IInbox {
         /// @notice The timestamp when the last proposal was proven (finalized).
         uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
-        /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
+        /// @dev This is 0 until the first successful `prove` call saves a checkpoint.
         uint48 lastCheckpointTimestamp;
         /// @notice The block hash of the last proven (finalized) proposal.
         bytes32 lastFinalizedBlockHash;
@@ -103,9 +103,9 @@ interface IInbox {
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
         /// @notice The number of forced inclusions that the proposer wants to process.
-        /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
-        /// that he wants to include.
-        uint8 numForcedInclusions;
+        /// @dev This can be set to 0 if no forced inclusions are due and the proposer does not
+        ///      wish to include any queued inclusions.
+        uint16 numForcedInclusions;
     }
 
     /// @notice Transition data for a proposal used in prove
@@ -114,7 +114,7 @@ interface IInbox {
         address proposer;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice end block hash for the proposal.
+        /// @notice The end block hash for the proposal.
         bytes32 blockHash;
     }
 
@@ -122,8 +122,8 @@ interface IInbox {
     struct Commitment {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The checkpoint hash of the parent of the first proposal, this is used
-        /// to verify checkpoint continuity in the proof.
+        /// @notice The block hash of the parent of the first proposal.
+        /// @dev Used to verify the proof range links to `CoreState.lastFinalizedBlockHash`.
         bytes32 firstProposalParentBlockHash;
         /// @notice The hash of the last proposal being proven.
         bytes32 lastProposalHash;

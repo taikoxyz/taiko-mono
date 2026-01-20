@@ -223,13 +223,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IInbox
-    /// @dev When prover whitelist is enabled, only the whitested prover(s) can prove. If
-    /// there are not proofs submitted for `permissionlessProvingDelay` seconds, proving becomes
-    /// permisionless.
+    /// @dev When the prover whitelist is enabled, only whitelisted
+    ///      provers may prove until a proposal becomes older than `permissionlessProvingDelay`,
+    ///      after which proving becomes permissionless for that proposal.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
-    /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
-    /// can start at or before the last finalized proposal to handle race conditions where
-    /// proposals get finalized between proof generation and submission.
+    ///      Transition structs, each with the proposal metadata and end block hash. The proof
+    ///      range can start at or before the last finalized proposal to handle race conditions
+    ///      where proposals get finalized between proof generation and submission.
     ///
     /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
     ///
@@ -271,7 +271,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
 
             // ---------------------------------------------------------
-            // 2. Verify checkpoint hash continuity and last proposal hash
+            // 2. Verify parent block-hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
             bytes32 expectedParentHash = offset == 0
@@ -540,8 +540,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
-                    // Only if there is a minimum bond set, execute this check
-                    require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
+                    // Only if thre is a minimum bond set, execute this check
+                    require(
+                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
+                    );
                 }
             }
 

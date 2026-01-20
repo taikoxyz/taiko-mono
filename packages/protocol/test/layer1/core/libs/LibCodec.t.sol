@@ -15,7 +15,7 @@ contract LibCodecTest is Test {
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -37,7 +37,7 @@ contract LibCodecTest is Test {
                 numBlobs: type(uint16).max,
                 offset: type(uint24).max
             }),
-            numForcedInclusions: type(uint8).max
+            numForcedInclusions: type(uint16).max
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
@@ -57,7 +57,7 @@ contract LibCodecTest is Test {
         uint16 blobStartIndex,
         uint16 numBlobs,
         uint24 offset,
-        uint8 numForcedInclusions
+        uint16 numForcedInclusions
     )
         public
         pure
@@ -71,7 +71,7 @@ contract LibCodecTest is Test {
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
