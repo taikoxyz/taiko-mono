@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 
 - `bin/client/` hosts the CLI entry point; keep orchestration light and delegate protocol logic to the crates.
+- `crates/preconfirmation-client/` contains the P2P client, gossip handlers, storage, and sync flows.
 - `crates/protocol`, `crates/proposer`, `crates/driver`, `crates/event-indexer`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
 - `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src`.
 - The entire `bindings` crate is auto-generated; do not modify any files there manually.
@@ -22,7 +23,7 @@
 
 - Target MSRV 1.88 and gate newer features with `#[cfg]` as needed.
 - Follow idiomatic Rust naming: snake_case for modules and functions, PascalCase for types, `SCREAMING_SNAKE_CASE` for constants. Prefer explicit `pub(crate)` boundaries.
-- Respect the shared `rustfmt.toml`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
+- Respect the shared `rustfmt.toml` and rely on `just fmt`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
 
 ## Testing Guidelines
 

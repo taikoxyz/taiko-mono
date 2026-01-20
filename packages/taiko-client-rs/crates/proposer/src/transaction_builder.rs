@@ -3,7 +3,7 @@
 use std::time::SystemTime;
 
 use alloy::{
-    consensus::SidecarBuilder,
+    consensus::{BlobTransactionSidecar, SidecarBuilder},
     primitives::{
         Address, Bytes,
         aliases::{U24, U48},
@@ -77,9 +77,10 @@ impl ShastaProposalTransactionBuilder {
         let manifest = DerivationSourceManifest { blocks: block_manifests };
 
         // Build the blob sidecar from the proposal manifest.
-        let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
-            .build()
-            .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
+        let sidecar: BlobTransactionSidecar =
+            SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
+                .build()
+                .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
         // Build the propose input.
         let input = ProposeInput {

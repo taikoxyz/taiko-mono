@@ -22,32 +22,11 @@ use crate::{
 };
 
 /// Keccak-256 hash of arbitrary bytes.
-///
-/// # Arguments
-///
-/// * `data` - The input data to be hashed.
-///
-/// # Returns
-///
-/// A `B256` (32-byte array) representing the Keccak-256 hash.
 pub fn keccak256_bytes(data: impl AsRef<[u8]>) -> B256 {
-    let digest = Keccak256::digest(data);
-    B256::from_slice(&digest)
+    B256::from_slice(&Keccak256::digest(data))
 }
 
-/// Keccak-256 hash of an SSZ-serializable value using the default preconfirmation domain.
-///
-/// This function serializes the given value using SSZ and then computes the Keccak-256 hash
-/// prepended with `DOMAIN_PRECONF`.
-///
-/// # Arguments
-///
-/// * `value` - A reference to the SSZ-serializable value.
-///
-/// # Returns
-///
-/// A `Result` which is `Ok(B256)` containing the hash on success, or `Err(CryptoError)`
-/// if SSZ serialization fails.
+/// Keccak-256 hash of an SSZ-serializable value using the default `DOMAIN_PRECONF`.
 pub fn keccak256_ssz<T: SimpleSerialize>(value: &T) -> Result<B256, CryptoError> {
     keccak256_ssz_with_domain(value, &crate::constants::DOMAIN_PRECONF)
 }
@@ -59,43 +38,18 @@ pub fn preconfirmation_hash(preconf: &Preconfirmation) -> Result<B256, CryptoErr
 }
 
 /// Keccak-256 hash of SSZ bytes with an explicit 32-byte domain separator.
-///
-/// This function serializes the given value using SSZ and then computes the Keccak-256 hash
-/// prepended with the provided `domain`.
-///
-/// # Arguments
-///
-/// * `value` - A reference to the SSZ-serializable value.
-/// * `domain` - A 32-byte array used as a domain separator.
-///
-/// # Returns
-///
-/// A `Result` which is `Ok(B256)` containing the hash on success, or `Err(CryptoError)`
-/// if SSZ serialization fails.
 pub fn keccak256_ssz_with_domain<T: SimpleSerialize>(
     value: &T,
     domain: &[u8; 32],
 ) -> Result<B256, CryptoError> {
-    let mut bytes = Vec::with_capacity(domain.len() + 256);
+    let ssz_bytes = ssz_rs::serialize(value).map_err(CryptoError::Ssz)?;
+    let mut bytes = Vec::with_capacity(32 + ssz_bytes.len());
     bytes.extend_from_slice(domain);
-    bytes.extend(ssz_rs::serialize(value).map_err(CryptoError::Ssz)?);
+    bytes.extend(ssz_bytes);
     Ok(keccak256_bytes(bytes))
 }
 
 /// Sign the SSZ-serialized commitment with a secp256k1 key, returning a 65-byte (r,s,v) signature.
-///
-/// The message to be signed is the Keccak-256 hash of the commitment, prefixed by the
-/// `DOMAIN_PRECONF`.
-///
-/// # Arguments
-///
-/// * `commitment` - A reference to the `PreconfCommitment` to be signed.
-/// * `sk` - A reference to the `SecretKey` used for signing.
-///
-/// # Returns
-///
-/// A `Result` which is `Ok(Bytes65)` containing the 65-byte signature on success,
-/// or `Err(CryptoError)` if hashing or signing fails.
 pub fn sign_commitment(
     commitment: &PreconfCommitment,
     sk: &SecretKey,
@@ -103,8 +57,7 @@ pub fn sign_commitment(
     let msg_hash = keccak256_ssz(commitment)?;
     let msg =
         Message::from_digest_slice(msg_hash.as_slice()).map_err(CryptoError::SignatureFormat)?;
-    let secp = Secp256k1::new();
-    let sig: RecoverableSignature = secp.sign_ecdsa_recoverable(&msg, sk);
+    let sig = Secp256k1::new().sign_ecdsa_recoverable(&msg, sk);
     let (rec_id, compact) = sig.serialize_compact();
     let mut out = [0u8; 65];
     out[..64].copy_from_slice(&compact);
@@ -114,19 +67,6 @@ pub fn sign_commitment(
 }
 
 /// Recover the signer address from a signature over SSZ(commitment).
-///
-/// The message used for recovery is the Keccak-256 hash of the commitment, prefixed by the
-/// `DOMAIN_PRECONF`.
-///
-/// # Arguments
-///
-/// * `commitment` - A reference to the `PreconfCommitment` that was signed.
-/// * `signature` - A reference to the 65-byte `Bytes65` signature.
-///
-/// # Returns
-///
-/// A `Result` which is `Ok(Address)` containing the recovered Ethereum address on success,
-/// or `Err(CryptoError)` if message parsing or recovery fails.
 pub fn recover_signer(
     commitment: &PreconfCommitment,
     signature: &Bytes65,
@@ -140,46 +80,21 @@ pub fn recover_signer(
     compact.copy_from_slice(&signature.as_ref()[..64]);
     let sig = RecoverableSignature::from_compact(&compact, rec_id)
         .map_err(CryptoError::SignatureFormat)?;
-    let secp = Secp256k1::new();
-    let pubkey = secp.recover_ecdsa(&msg, &sig).map_err(CryptoError::Recover)?;
+    let pubkey = Secp256k1::new().recover_ecdsa(&msg, &sig).map_err(CryptoError::Recover)?;
     Ok(public_key_to_address(&pubkey))
 }
 
 /// Verify a `SignedCommitment`, returning the recovered address on success.
-///
-/// This function acts as a convenience wrapper around `recover_signer`.
-///
-/// # Arguments
-///
-/// * `signed` - A reference to the `SignedCommitment` to be verified.
-///
-/// # Returns
-///
-/// A `Result` which is `Ok(Address)` containing the recovered Ethereum address on success,
-/// or `Err(CryptoError)` if verification fails.
 pub fn verify_signed_commitment(signed: &SignedCommitment) -> Result<Address, CryptoError> {
     recover_signer(&signed.commitment, &signed.signature)
 }
 
-/// Convert a secp256k1 public key into an Ethereum address.
-///
-/// The Ethereum address is derived by taking the Keccak-256 hash of the uncompressed
-/// public key (excluding the 0x04 prefix) and taking the last 20 bytes.
-///
-/// # Arguments
-///
-/// * `pk` - A reference to the `PublicKey` to convert.
-///
-/// # Returns
-///
-/// An `Address` representing the corresponding Ethereum address.
+/// Convert a secp256k1 public key into an Ethereum address (last 20 bytes of keccak256(pubkey)).
 pub fn public_key_to_address(pk: &PublicKey) -> Address {
     let uncompressed = pk.serialize_uncompressed();
     debug_assert_eq!(uncompressed[0], 0x04);
     let hash = keccak256_bytes(&uncompressed[1..]);
-    let mut out = [0u8; 20];
-    out.copy_from_slice(&hash.as_slice()[12..]);
-    Address::from(out)
+    Address::from_slice(&hash.as_slice()[12..])
 }
 
 #[cfg(test)]

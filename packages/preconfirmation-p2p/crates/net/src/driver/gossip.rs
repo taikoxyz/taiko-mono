@@ -12,34 +12,24 @@ use super::*;
 /// Identifies which gossip topic payload is being processed.
 #[derive(Clone, Copy)]
 enum GossipKind {
-    /// Signed commitment payloads on the commitments topic.
     Commitment,
-    /// Raw transaction list payloads on the raw txlists topic.
     RawTxList,
 }
 
 impl GossipKind {
-    /// Returns the label used for metrics for this gossip kind.
+    /// Returns the label used for metrics.
     fn label(self) -> &'static str {
         match self {
-            GossipKind::Commitment => "commitment",
-            GossipKind::RawTxList => "raw_txlists",
+            Self::Commitment => "commitment",
+            Self::RawTxList => "raw_txlists",
         }
     }
 
-    /// Returns the error string used when decoding fails.
-    fn decode_error(self) -> &'static str {
+    /// Returns the error string used for decode/validation failures.
+    fn error_msg(self) -> &'static str {
         match self {
-            GossipKind::Commitment => "invalid signed commitment gossip",
-            GossipKind::RawTxList => "invalid raw txlist gossip",
-        }
-    }
-
-    /// Returns the error string used when validation fails.
-    fn validation_error(self) -> &'static str {
-        match self {
-            GossipKind::Commitment => "invalid signed commitment gossip",
-            GossipKind::RawTxList => "invalid raw txlist gossip",
+            Self::Commitment => "invalid signed commitment gossip",
+            Self::RawTxList => "invalid raw txlist gossip",
         }
     }
 }
@@ -88,7 +78,7 @@ impl NetworkDriver {
                     );
                     metrics::counter!("p2p_gossip_invalid", "kind" => kind.label(), "reason" => "validation").increment(1);
                     self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                    self.emit_error(NetworkErrorKind::GossipValidation, kind.validation_error());
+                    self.emit_error(NetworkErrorKind::GossipValidation, kind.error_msg());
                 }
             }
             Err(_) => {
@@ -100,7 +90,7 @@ impl NetworkDriver {
                 metrics::counter!("p2p_gossip_invalid", "kind" => kind.label(), "reason" => "decode")
                     .increment(1);
                 self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
-                self.emit_error(NetworkErrorKind::GossipDecode, kind.decode_error());
+                self.emit_error(NetworkErrorKind::GossipDecode, kind.error_msg());
             }
         }
     }

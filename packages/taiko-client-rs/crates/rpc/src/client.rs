@@ -1,21 +1,26 @@
 //! RPC client for interacting with L1 and L2 nodes.
 
-use std::path::PathBuf;
+use std::{fs, io, path::PathBuf, time::Duration};
 
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    Provider, ProviderBuilder, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
+    IpcConnect, Provider, ProviderBuilder, RootProvider, fillers::FillProvider,
+    utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
 use hyper::body::Bytes;
-use hyper_util::{client::legacy::Client as HyperService, rt::TokioExecutor};
-use tower::ServiceBuilder;
+use hyper_util::{
+    client::legacy::{Client as HyperService, connect::HttpConnector},
+    rt::TokioExecutor,
+};
+use reqwest::Client as ReqwestClient;
+use tower::{ServiceBuilder, timeout::TimeoutLayer};
 use tracing::info;
 
 use crate::{
@@ -25,6 +30,9 @@ use crate::{
 
 /// Type alias for a Client with a provider that includes a wallet.
 pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
+
+/// Default HTTP timeout for RPC and auxiliary HTTP clients.
+pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Instances of Shasta protocol contracts.
 #[derive(Clone, Debug)]
@@ -91,12 +99,12 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
 impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
-        let l2_provider = ProviderBuilder::default().connect_http(config.l2_provider_url);
+        let l2_provider = connect_http_with_timeout(config.l2_provider_url);
         let jwt_secret = read_jwt_secret(config.jwt_secret.clone()).ok_or_else(|| {
             RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
         })?;
         let l2_auth_provider =
-            build_l2_auth_provider(config.l2_auth_provider_url.clone(), jwt_secret);
+            build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
         let anchor = AnchorInstance::new(
@@ -134,15 +142,28 @@ impl<P: Provider + Clone> Client<P> {
     }
 }
 
-/// Builds a RootProvider for the L2 auth provider using the provided URL and JWT secret.
-fn build_l2_auth_provider(url: Url, secret: JwtSecret) -> RootProvider {
-    let hyper_client: HyperService<
-        hyper_util::client::legacy::connect::HttpConnector,
-        Full<Bytes>,
-    > = HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
+/// Build a reqwest HTTP client with a bounded timeout.
+fn reqwest_client_with_timeout() -> ReqwestClient {
+    ReqwestClient::builder().timeout(DEFAULT_HTTP_TIMEOUT).build().expect("http client")
+}
+
+/// Build a [`RootProvider`] backed by a reqwest client with a bounded timeout.
+pub fn connect_http_with_timeout(url: Url) -> RootProvider {
+    ProviderBuilder::default().connect_reqwest(reqwest_client_with_timeout(), url)
+}
+
+/// Builds a [`RootProvider`] backed by an HTTP transport that authenticates each request
+/// using the Engine API JWT scheme.
+pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
+    let hyper_client: HyperService<HttpConnector, Full<Bytes>> =
+        HyperService::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
 
     let auth_layer = AuthLayer::new(secret);
-    let service = ServiceBuilder::new().layer(auth_layer).service(hyper_client);
+    let service = ServiceBuilder::new()
+        .map_err(io::Error::other)
+        .layer(TimeoutLayer::new(DEFAULT_HTTP_TIMEOUT))
+        .layer(auth_layer)
+        .service(hyper_client);
 
     let layer_transport = HyperClient::<Full<Bytes>, _>::with_service(service);
     let http_hyper = Http::with_client(layer_transport, url);
@@ -150,10 +171,20 @@ fn build_l2_auth_provider(url: Url, secret: JwtSecret) -> RootProvider {
     ProviderBuilder::default().connect_client(RpcClient::new(http_hyper, true))
 }
 
+/// Builds a [`RootProvider`] backed by an IPC transport.
+///
+/// IPC does not require JWT authentication; security relies on filesystem permissions.
+pub async fn build_ipc_provider(path: PathBuf) -> Result<RootProvider> {
+    ProviderBuilder::default()
+        .connect_ipc(IpcConnect::new(path))
+        .await
+        .map_err(|e| RpcClientError::Connection(e.to_string()))
+}
+
 /// Returns the JWT secret for the engine API
 /// using the provided [PathBuf]. If the file is not found, it will return [None].
 pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
-    if let Ok(secret) = std::fs::read_to_string(path) {
+    if let Ok(secret) = fs::read_to_string(path) {
         return JwtSecret::from_hex(secret).ok();
     };
 
@@ -185,5 +216,14 @@ mod tests {
         // Should return None for non-existent file
         let secret = read_jwt_secret(jwt_path);
         assert!(secret.is_none());
+    }
+
+    #[test]
+    fn test_default_http_timeout_covers_preconfirmation_budget() {
+        assert_eq!(
+            DEFAULT_HTTP_TIMEOUT,
+            Duration::from_secs(12),
+            "DEFAULT_HTTP_TIMEOUT should default to 12 seconds"
+        );
     }
 }

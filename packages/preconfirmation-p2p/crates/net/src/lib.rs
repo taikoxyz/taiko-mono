@@ -23,10 +23,12 @@ mod storage;
 mod validation;
 
 pub use command::NetworkCommand;
-pub use config::{P2pConfig, RateLimitConfig};
+pub use config::{NetworkConfig, P2pConfig, RateLimitConfig};
 pub use discovery::spawn_discovery;
+pub use driver::{NetworkDriver, NetworkHandle};
 pub use event::{NetworkError, NetworkErrorKind, NetworkEvent};
 pub use handle::P2pHandle;
+pub use libp2p::{Multiaddr, PeerId};
 pub use node::P2pNode;
 pub use reputation::{
     PeerAction, PeerReputation, PeerScore, ReputationConfig, ReputationEvent, ReqRespKind,

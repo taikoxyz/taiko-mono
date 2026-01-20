@@ -1,5 +1,7 @@
 //! Synchronization primitives for the driver.
 
+use std::sync::Arc;
+
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use rpc::client::Client;
@@ -26,12 +28,17 @@ pub trait SyncStage {
 }
 
 /// Factory helper assembling both sync stages.
+///
+/// Runs the beacon syncer first to catch up via checkpoint sync,
+/// then hands off to the event syncer for real-time L1 event processing.
 pub struct SyncPipeline<P>
 where
     P: Provider + Clone,
 {
+    /// Beacon syncer for checkpoint-based catch-up.
     beacon: BeaconSyncer<P>,
-    event: EventSyncer<P>,
+    /// Event syncer for following L1 inbox proposals in real time.
+    event: Arc<EventSyncer<P>>,
 }
 
 impl<P> SyncPipeline<P>
@@ -42,8 +49,13 @@ where
     #[instrument(skip(cfg, rpc), name = "sync_pipeline_new")]
     pub async fn new(cfg: DriverConfig, rpc: Client<P>) -> Result<Self, DriverError> {
         let beacon = BeaconSyncer::new(&cfg, rpc.clone());
-        let event = EventSyncer::new(&cfg, rpc).await?;
+        let event = Arc::new(EventSyncer::new(&cfg, rpc).await?);
         Ok(Self { beacon, event })
+    }
+
+    /// Access the event syncer instance.
+    pub fn event_syncer(&self) -> Arc<EventSyncer<P>> {
+        self.event.clone()
     }
 
     /// Start both syncers in order.

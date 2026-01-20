@@ -13,8 +13,8 @@ use crate::{
     constants::{MAX_COMMITMENTS_PER_RESPONSE, MAX_TXLIST_BYTES},
     crypto::{keccak256_bytes, preconfirmation_hash},
     types::{
-        Bytes32, GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse, GetHeadRequest,
-        GetRawTxListResponse, PreconfHead, Preconfirmation, RawTxListGossip, TxListBytes,
+        Bytes32, GetCommitmentsByNumberRequest, GetCommitmentsByNumberResponse,
+        GetRawTxListResponse, Preconfirmation, RawTxListGossip, TxListBytes,
     },
 };
 
@@ -56,45 +56,21 @@ pub enum CryptoError {
     Recover(secp256k1::Error),
 }
 
-/// Ensures a transaction list blob does not exceed the configured maximum size.
-///
-/// # Arguments
-///
-/// * `txlist` - A reference to the `TxListBytes` to validate.
-///
-/// # Returns
-///
-/// `Ok(())` if the txlist is within the size limit, otherwise
-/// `Err(ValidationError::TxListTooLarge)`.
+/// Ensures a transaction list blob does not exceed `MAX_TXLIST_BYTES`.
 pub fn validate_txlist(txlist: &TxListBytes) -> Result<(), ValidationError> {
-    let len = txlist.len();
-    if len > MAX_TXLIST_BYTES {
-        return Err(ValidationError::TxListTooLarge(len, MAX_TXLIST_BYTES));
+    if txlist.len() > MAX_TXLIST_BYTES {
+        return Err(ValidationError::TxListTooLarge(txlist.len(), MAX_TXLIST_BYTES));
     }
     Ok(())
 }
 
-/// Validates a `RawTxListGossip` payload.
-///
-/// Currently, this only checks if the embedded transaction list (`txlist`) exceeds the
-/// maximum allowed size.
-///
-/// # Arguments
-///
-/// * `msg` - A reference to the `RawTxListGossip` message to validate.
-///
-/// # Returns
-///
-/// `Ok(())` if the message is valid, otherwise `Err(ValidationError)`.
+/// Validates a `RawTxListGossip` payload (size cap + hash match).
 pub fn validate_raw_txlist_gossip(msg: &RawTxListGossip) -> Result<(), ValidationError> {
     validate_raw_txlist_parts(&msg.raw_tx_list_hash, &msg.txlist)
 }
 
-/// Validates a raw-txlist request/response payload.
-///
-/// This mirrors the gossip validation by enforcing the txlist size cap.
+/// Validates a raw-txlist response (empty body treated as "not found").
 pub fn validate_raw_txlist_response(msg: &GetRawTxListResponse) -> Result<(), ValidationError> {
-    // Empty body is treated as a "not found" response; skip hash validation in that case.
     if msg.txlist.is_empty() {
         return Ok(());
     }
@@ -114,33 +90,15 @@ fn validate_raw_txlist_parts(hash: &Bytes32, txlist: &TxListBytes) -> Result<(),
     Ok(())
 }
 
-/// Validates a head request (currently a no-op; kept for symmetry and future fields).
-pub fn validate_head_request(_req: &GetHeadRequest) -> Result<(), ValidationError> {
-    Ok(())
-}
-
-/// Validates a head response (currently a no-op; kept for symmetry and future fields).
-pub fn validate_head_response(_resp: &PreconfHead) -> Result<(), ValidationError> {
-    Ok(())
-}
-
-/// Validates a `GetCommitmentsByNumberResponse` against the per-message commitment cap.
-///
-/// Ensures that the number of commitments returned does not exceed `MAX_COMMITMENTS_PER_RESPONSE`.
-///
-/// # Arguments
-///
-/// * `resp` - A reference to the `GetCommitmentsByNumberResponse` to validate.
-///
-/// # Returns
-///
-/// `Ok(())` if the response is valid, otherwise `Err(ValidationError::TooManyCommitments)`.
+/// Validates a `GetCommitmentsByNumberResponse` against the per-message cap.
 pub fn validate_commitments_response(
     resp: &GetCommitmentsByNumberResponse,
 ) -> Result<(), ValidationError> {
-    let len = resp.commitments.len();
-    if len > MAX_COMMITMENTS_PER_RESPONSE {
-        return Err(ValidationError::TooManyCommitments(len, MAX_COMMITMENTS_PER_RESPONSE));
+    if resp.commitments.len() > MAX_COMMITMENTS_PER_RESPONSE {
+        return Err(ValidationError::TooManyCommitments(
+            resp.commitments.len(),
+            MAX_COMMITMENTS_PER_RESPONSE,
+        ));
     }
     Ok(())
 }
@@ -169,17 +127,6 @@ pub fn validate_parent_hash(
 }
 
 /// Validates a `GetCommitmentsByNumberRequest` against a caller-supplied `max_count` cap.
-///
-/// Ensures that the `max_count` requested does not exceed the provided `cap`.
-///
-/// # Arguments
-///
-/// * `req` - A reference to the `GetCommitmentsByNumberRequest` to validate.
-/// * `cap` - The maximum allowed value for `req.max_count`.
-///
-/// # Returns
-///
-/// `Ok(())` if the request is valid, otherwise `Err(ValidationError::MaxCountExceeded)`.
 pub fn validate_commitments_request(
     req: &GetCommitmentsByNumberRequest,
     cap: u32,
@@ -249,14 +196,5 @@ mod tests {
             validate_commitments_request(&req, 256),
             Err(ValidationError::MaxCountExceeded(_, _))
         ));
-    }
-
-    /// Head request/response validators are currently no-ops.
-    #[test]
-    fn head_validation_noop() {
-        let req = GetHeadRequest::default();
-        let resp = PreconfHead::default();
-        assert!(validate_head_request(&req).is_ok());
-        assert!(validate_head_response(&resp).is_ok());
     }
 }

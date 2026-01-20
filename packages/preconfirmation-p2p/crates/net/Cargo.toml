@@ -15,7 +15,6 @@ quic-transport = ["libp2p/quic"]
 alloy-primitives.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
-clap = { version = "4", features = ["derive"] }
 crossbeam-skiplist.workspace = true
 dashmap.workspace = true
 discv5.workspace = true
@@ -49,4 +48,5 @@ workspace = true
 workspace = true
 
 [dev-dependencies]
+clap = { version = "4", features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }

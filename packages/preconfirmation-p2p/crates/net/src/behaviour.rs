@@ -139,16 +139,13 @@ impl NetBehaviour {
             reqresp_cfg,
         );
 
-        let (pend_in, pend_out, est_in, est_out, est_total, per_peer, _dial_factor) =
-            cfg.resolve_connection_caps();
-
-        let mut limits = ConnectionLimits::default();
-        limits = limits.with_max_pending_incoming(pend_in);
-        limits = limits.with_max_pending_outgoing(pend_out);
-        limits = limits.with_max_established_incoming(est_in);
-        limits = limits.with_max_established_outgoing(est_out);
-        limits = limits.with_max_established(est_total);
-        limits = limits.with_max_established_per_peer(per_peer);
+        let limits = ConnectionLimits::default()
+            .with_max_pending_incoming(cfg.max_pending_incoming)
+            .with_max_pending_outgoing(cfg.max_pending_outgoing)
+            .with_max_established_incoming(cfg.max_established_incoming)
+            .with_max_established_outgoing(cfg.max_established_outgoing)
+            .with_max_established(cfg.max_established_total)
+            .with_max_established_per_peer(cfg.max_established_per_peer);
 
         let block_list = BlockListBehaviour::<BlockedPeers>::default();
         let conn_limits = ConnectionLimitsBehaviour::new(limits);

@@ -4,3 +4,4 @@ target/
 .code/
 crates/event-indexer/pkg/
 .worktrees/
+.vscode

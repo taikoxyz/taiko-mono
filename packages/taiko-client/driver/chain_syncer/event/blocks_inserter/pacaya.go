@@ -62,6 +62,26 @@ func NewBlocksInserterPacaya(
 	}
 }
 
+// FetchTxListBytes fetches the txList bytes from blob sidecars or calldata.
+func (i *Pacaya) FetchTxListBytes(
+	ctx context.Context,
+	meta metadata.TaikoBatchMetaDataPacaya,
+) ([]byte, error) {
+	if len(meta.GetBlobHashes()) != 0 {
+		txListBytes, err := i.blobFetcher.FetchPacaya(ctx, meta)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch tx list from blob: %w", err)
+		}
+		return txListBytes, nil
+	}
+
+	txListBytes, err := i.calldataFetcher.FetchPacaya(ctx, meta)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch tx list from calldata: %w", err)
+	}
+	return txListBytes, nil
+}
+
 // InsertBlocks inserts new Pacaya blocks to the L2 execution engine.
 func (i *Pacaya) InsertBlocks(
 	ctx context.Context,
@@ -71,18 +91,36 @@ func (i *Pacaya) InsertBlocks(
 	if !metadata.IsPacaya() {
 		return errors.New("metadata is not for Pacaya fork")
 	}
+	txListBytes, err := i.FetchTxListBytes(ctx, metadata.Pacaya())
+	if err != nil {
+		return err
+	}
+
+	return i.InsertBlocksWithTxListBytes(ctx, metadata, txListBytes)
+}
+
+// InsertBlocksWithTxListBytes inserts new Pacaya blocks using the provided txList bytes.
+func (i *Pacaya) InsertBlocksWithTxListBytes(
+	ctx context.Context,
+	metadata metadata.TaikoProposalMetaData,
+	txListBytes []byte,
+) (err error) {
+	meta := metadata.Pacaya()
+	// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
+	// to the channel.
+	latestSeenProposal := &encoding.LastSeenProposal{
+		TaikoProposalMetaData: metadata,
+		LastBlockID:           meta.GetLastBlockID(),
+	}
+	allTxs := i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
+
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
 	var (
-		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
-		// to the channel.
-		latestSeenProposal = &encoding.LastSeenProposal{
-			TaikoProposalMetaData: metadata,
-			LastBlockID:           metadata.Pacaya().GetLastBlockID(),
-		}
-		meta        = metadata.Pacaya()
-		txListBytes []byte
+		parent              *types.Header
+		lastPayloadData     *engine.ExecutableData
+		batchSafeCheckpoint *verifiedCheckpoint
 	)
 
 	log.Debug(
@@ -94,24 +132,6 @@ func (i *Pacaya) InsertBlocks(
 		"coinbase", meta.GetCoinbase(),
 		"numBlobs", len(meta.GetBlobHashes()),
 		"blocks", len(meta.GetBlocks()),
-	)
-
-	// Fetch transactions list.
-	if len(meta.GetBlobHashes()) != 0 {
-		if txListBytes, err = i.blobFetcher.FetchPacaya(ctx, meta); err != nil {
-			return fmt.Errorf("failed to fetch tx list from blob: %w", err)
-		}
-	} else {
-		if txListBytes, err = i.calldataFetcher.FetchPacaya(ctx, meta); err != nil {
-			return fmt.Errorf("failed to fetch tx list from calldata: %w", err)
-		}
-	}
-
-	var (
-		allTxs              = i.txListDecompressor.TryDecompress(txListBytes, len(meta.GetBlobHashes()) != 0)
-		parent              *types.Header
-		lastPayloadData     *engine.ExecutableData
-		batchSafeCheckpoint *verifiedCheckpoint
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)

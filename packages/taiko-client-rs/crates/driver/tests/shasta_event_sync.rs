@@ -16,17 +16,17 @@ use rpc::{
 };
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, verify_anchor_block};
+use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 
 #[test_context(ShastaEnv)]
 #[serial]
-#[tokio::test]
+#[test_log::test(tokio::test)]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let proposer_client = Client::new_with_wallet(
         ClientConfig {
             l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_http.clone(),
-            l2_auth_provider_url: env.l2_auth.clone(),
+            l2_provider_url: env.l2_http_0.clone(),
+            l2_auth_provider_url: env.l2_auth_0.clone(),
             jwt_secret: env.jwt_secret.clone(),
             inbox_address: env.inbox_address,
         },
@@ -44,13 +44,24 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let sidecar =
         request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
 
-    let blob_url = env.start_blob_server(sidecar).await?;
-    let blob_endpoint = env.blob_server_endpoint()?;
+    // Start beacon stub and inject the blob sidecar.
+    let beacon_stub = BeaconStubServer::start().await?;
+    let beacon_endpoint = beacon_stub.endpoint().clone();
 
     let pending_tx = proposer_client.l1_provider.send_transaction(request).await?;
     let receipt =
         pending_tx.get_receipt().await.context("fetching proposal transaction receipt")?;
     ensure!(receipt.status(), "proposal transaction failed");
+
+    // Get the block timestamp to compute the slot for blob injection.
+    let block = proposer_client
+        .l1_provider
+        .get_block_by_number(receipt.block_number.unwrap().into())
+        .await?
+        .context("missing block for proposal receipt")?;
+    let slot = BeaconStubServer::timestamp_to_slot(block.header.timestamp);
+    beacon_stub.add_blob_sidecar(slot, sidecar);
+
     let proposal_log: Log = receipt
         .logs()
         .iter()
@@ -61,22 +72,21 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let driver_config = DriverConfig::new(
         ClientConfig {
             l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_http.clone(),
-            l2_auth_provider_url: env.l2_auth.clone(),
+            l2_provider_url: env.l2_http_0.clone(),
+            l2_auth_provider_url: env.l2_auth_0.clone(),
             jwt_secret: env.jwt_secret.clone(),
             inbox_address: env.inbox_address,
         },
         Duration::from_millis(50),
-        blob_url.clone(),
+        beacon_endpoint.clone(),
         None,
-        Some(blob_url.clone()),
+        None,
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();
 
-    let blob_source = Arc::new(
-        BlobDataSource::new(Some(blob_endpoint.clone()), Some(blob_endpoint.clone()), true).await?,
-    );
+    let blob_source =
+        Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
     let pipeline =
         ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
 
@@ -90,14 +100,18 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     ensure!(!outcomes.is_empty(), "derivation pipeline returned no block outcomes");
 
     let l2_head_after = driver_client.l2_provider.get_block_number().await?;
+    let max_outcome_block =
+        outcomes.iter().map(|outcome| outcome.block_number()).max().unwrap_or(l2_head_before);
     ensure!(
-        l2_head_after > l2_head_before,
-        "expected L2 head to advance after proposal processing"
+        l2_head_after >= max_outcome_block,
+        "expected L2 head to include derived proposal blocks"
     );
 
     verify_anchor_block(&driver_client, env.taiko_anchor_address)
         .await
         .context("verifying anchor block on L2")?;
+
+    beacon_stub.shutdown().await?;
 
     Ok(())
 }

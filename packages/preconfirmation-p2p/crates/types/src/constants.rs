@@ -29,66 +29,26 @@ pub const MAX_GOSSIP_SIZE_BYTES: usize = 10 * 1024 * 1024; // 10 MiB
 pub const DOMAIN_PRECONF: [u8; 32] = *b"TAIKO_PRECONF_DOMAIN_PLACEHOLDER";
 
 /// Build the gossipsub topic string for preconfirmation commitments.
-///
-/// # Arguments
-///
-/// * `chain_id` - The chain ID to include in the topic path.
-///
-/// # Returns
-///
-/// A topic string in the format `/taiko/{chain_id}/0/preconfirmationCommitments`.
 pub fn topic_preconfirmation_commitments(chain_id: u64) -> String {
-    format!("/taiko/{}/0/preconfirmationCommitments", chain_id)
+    format!("/taiko/{chain_id}/0/preconfirmationCommitments")
 }
 
 /// Build the gossipsub topic string for raw transaction lists.
-///
-/// # Arguments
-///
-/// * `chain_id` - The chain ID to include in the topic path.
-///
-/// # Returns
-///
-/// A topic string in the format `/taiko/{chain_id}/0/rawTxLists`.
 pub fn topic_raw_txlists(chain_id: u64) -> String {
-    format!("/taiko/{}/0/rawTxLists", chain_id)
+    format!("/taiko/{chain_id}/0/rawTxLists")
 }
 
 /// Build the protocol ID string for the `get_head` request/response protocol.
-///
-/// # Arguments
-///
-/// * `chain_id` - The chain ID to include in the protocol path.
-///
-/// # Returns
-///
-/// A protocol ID string in the format `/taiko/{chain_id}/preconf/1/get_head`.
 pub fn protocol_get_head(chain_id: u64) -> String {
-    format!("/taiko/{}/preconf/1/get_head", chain_id)
+    format!("/taiko/{chain_id}/preconf/1/get_head")
 }
 
 /// Build the protocol ID string for the `get_commitments_by_number` request/response protocol.
-///
-/// # Arguments
-///
-/// * `chain_id` - The chain ID to include in the protocol path.
-///
-/// # Returns
-///
-/// A protocol ID string in the format `/taiko/{chain_id}/preconf/1/get_commitments_by_number`.
 pub fn protocol_get_commitments_by_number(chain_id: u64) -> String {
-    format!("/taiko/{}/preconf/1/get_commitments_by_number", chain_id)
+    format!("/taiko/{chain_id}/preconf/1/get_commitments_by_number")
 }
 
 /// Build the protocol ID string for the `get_raw_txlist` request/response protocol.
-///
-/// # Arguments
-///
-/// * `chain_id` - The chain ID to include in the protocol path.
-///
-/// # Returns
-///
-/// A protocol ID string in the format `/taiko/{chain_id}/preconf/1/get_raw_txlist`.
 pub fn protocol_get_raw_txlist(chain_id: u64) -> String {
-    format!("/taiko/{}/preconf/1/get_raw_txlist", chain_id)
+    format!("/taiko/{chain_id}/preconf/1/get_raw_txlist")
 }

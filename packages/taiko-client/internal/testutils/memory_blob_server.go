@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path"
+	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -101,36 +102,56 @@ type BlobInfo struct {
 type MemoryBlobServer struct {
 	blobs  map[common.Hash]*BlobInfo
 	server *httptest.Server
+	mu     sync.RWMutex
+	waitCh <-chan struct{}
+	hitCh  chan<- struct{}
 }
 
 // NewMemoryBlobServer creates a new MemoryBlobServer.
 func NewMemoryBlobServer() *MemoryBlobServer {
 	blobsMap := make(map[common.Hash]*BlobInfo)
-	return &MemoryBlobServer{
-		blobs: blobsMap,
-		server: httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			blobHash := path.Base(r.URL.Path)
+	s := &MemoryBlobServer{blobs: blobsMap}
+	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		blobHash := path.Base(r.URL.Path)
 
-			blobInfo, ok := blobsMap[common.HexToHash(blobHash)]
-			if !ok {
-				log.Error("Blob not found", "hash", blobHash)
-				w.WriteHeader(http.StatusNotFound)
+		s.mu.RLock()
+		blobInfo, ok := s.blobs[common.HexToHash(blobHash)]
+		waitCh := s.waitCh
+		hitCh := s.hitCh
+		s.mu.RUnlock()
+		if !ok {
+			log.Error("Blob not found", "hash", blobHash)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if hitCh != nil {
+			select {
+			case hitCh <- struct{}{}:
+			default:
+			}
+		}
+		if waitCh != nil {
+			select {
+			case <-waitCh:
+			case <-r.Context().Done():
 				return
 			}
+		}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			if err := json.NewEncoder(w).Encode(&rpc.BlobServerResponse{
-				Commitment:    blobInfo.Commitment,
-				Data:          blobInfo.Data,
-				VersionedHash: blobHash,
-			}); err != nil {
-				log.Error("Failed to encode blob server response", "err", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-		})),
-	}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(&rpc.BlobServerResponse{
+			Commitment:    blobInfo.Commitment,
+			Data:          blobInfo.Data,
+			VersionedHash: blobHash,
+		}); err != nil {
+			log.Error("Failed to encode blob server response", "err", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}))
+	return s
 }
 
 // Close closes the server.
@@ -147,6 +168,20 @@ func (s *MemoryBlobServer) URL() *url.URL {
 	return url
 }
 
+// SetRequestWaiter blocks blob responses until the channel is closed or the request is canceled.
+func (s *MemoryBlobServer) SetRequestWaiter(ch <-chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.waitCh = ch
+}
+
+// SetRequestNotifier emits on the provided channel when a blob request is received.
+func (s *MemoryBlobServer) SetRequestNotifier(ch chan<- struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hitCh = ch
+}
+
 // AddBlob adds a blob to the server.
 func (s *MemoryBlobServer) AddBlob(blobHashes []common.Hash, blobs []*eth.Blob) error {
 	for i, hash := range blobHashes {
@@ -155,10 +190,12 @@ func (s *MemoryBlobServer) AddBlob(blobHashes []common.Hash, blobs []*eth.Blob) 
 			return err
 		}
 
+		s.mu.Lock()
 		s.blobs[hash] = &BlobInfo{
 			Data:       blobs[i].String(),
 			Commitment: common.Bytes2Hex(commitment[:]),
 		}
+		s.mu.Unlock()
 
 		log.Info(
 			"New blob added to memory blob server",

@@ -52,15 +52,7 @@ pub struct PeerReputation {
 }
 
 impl PeerReputation {
-    /// Creates a new `PeerReputation` with a default score of 0.0 at the given `now` timestamp.
-    ///
-    /// # Arguments
-    ///
-    /// * `now` - The current `Instant`.
-    ///
-    /// # Returns
-    ///
-    /// A new `PeerReputation` instance.
+    /// Creates a new `PeerReputation` with a default score of 0.0.
     pub fn new(now: Instant) -> Self {
         Self { score: 0.0, last_updated: now }
     }
@@ -123,39 +115,17 @@ impl Default for PeerReputationStore {
 
 impl PeerReputationStore {
     /// Creates a new `PeerReputationStore` with the given configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `cfg` - The `ReputationConfig` to use.
-    ///
-    /// # Returns
-    ///
-    /// A new `PeerReputationStore` instance.
     pub fn new(cfg: ReputationConfig) -> Self {
-        let weights = ReputationChangeWeights::default();
         Self {
             scores: HashMap::new(),
             banned: HashSet::new(),
             greylisted: HashSet::new(),
             cfg,
-            weights,
+            weights: ReputationChangeWeights::default(),
         }
     }
 
-    /// Applies a `PeerAction` to a specific peer, updating its score and ban status.
-    ///
-    /// This is the primary method for updating a peer's reputation. It calculates
-    /// score decay, applies the action delta, and then updates the internal
-    /// banned/greylisted sets.
-    ///
-    /// # Arguments
-    ///
-    /// * `peer` - The `PeerId` of the peer to apply the action to.
-    /// * `action` - The `PeerAction` to apply.
-    ///
-    /// # Returns
-    ///
-    /// A `ReputationEvent` describing the outcome of the action.
+    /// Applies a `PeerAction` to a peer, updating its score and ban/greylist status.
     pub fn apply(&mut self, peer: PeerId, action: PeerAction) -> ReputationEvent {
         let now = Instant::now();
         let was_banned = self.banned.contains(&peer);
@@ -182,34 +152,12 @@ impl PeerReputationStore {
         }
     }
 
-    /// Checks if a peer is currently banned.
-    ///
-    /// # Arguments
-    ///
-    /// * `peer` - A reference to the `PeerId` to check.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the peer is banned, `false` otherwise.
+    /// Returns true if the peer is currently banned.
     pub fn is_banned(&self, peer: &PeerId) -> bool {
         self.banned.contains(peer)
     }
 
-    /// Calculates the decayed score of a peer.
-    ///
-    /// Applies an exponential decay to the score based on the time elapsed
-    /// since the last update and the configured halflife.
-    ///
-    /// # Arguments
-    ///
-    /// * `score` - The current raw score.
-    /// * `last` - The `Instant` of the last score update.
-    /// * `now` - The current `Instant`.
-    /// * `halflife` - The `Duration` representing the decay halflife.
-    ///
-    /// # Returns
-    ///
-    /// The decayed `PeerScore`.
+    /// Applies exponential decay to a score based on elapsed time and halflife.
     fn decayed(score: PeerScore, last: Instant, now: Instant, halflife: Duration) -> PeerScore {
         let dt = now.saturating_duration_since(last).as_secs_f64();
         if dt == 0.0 {
@@ -219,12 +167,7 @@ impl PeerReputationStore {
         score * (-lambda * dt).exp()
     }
 
-    /// Updates the internal banned and greylisted sets based on the peer's score.
-    ///
-    /// # Arguments
-    ///
-    /// * `peer` - The `PeerId` of the peer to update.
-    /// * `score` - The peer's current score.
+    /// Updates banned/greylisted sets based on the peer's score.
     fn update_lists(&mut self, peer: PeerId, score: PeerScore) {
         if score <= self.cfg.ban_threshold {
             // Ban takes precedence: ensure greylist entry is cleared to avoid conflicting states.

@@ -490,7 +490,13 @@ func (s *Syncer) processPacayaBatch(
 		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 		"blocks", len(meta.Pacaya().GetBlocks()),
 	)
-	if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, endIter); err != nil {
+	pacayaInserter := s.BlocksInserterPacaya()
+	// Fetch txList bytes before taking the inserter lock to avoid blocking preconf inserts on slow blob downloads.
+	txListBytes, err := pacayaInserter.FetchTxListBytes(ctx, meta.Pacaya())
+	if err != nil {
+		return fmt.Errorf("failed to fetch tx list bytes: %w", err)
+	}
+	if err := pacayaInserter.InsertBlocksWithTxListBytes(ctx, meta, txListBytes); err != nil {
 		return fmt.Errorf("failed to insert Pacaya blocks: %w", err)
 	}
 

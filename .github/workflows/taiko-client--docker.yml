@@ -1,33 +1,47 @@
-name: "Build and Push Multi-Arch Docker Image"
+name: "[Nethermind] Taiko Client - Build and Push Multi-Arch Docker Image"
 
 on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/taiko-client/**"
+      - ".github/workflows/taiko-client--docker-build.yml"
   push:
     branches: [main]
     tags:
-      - "taiko-alethia-client-v*"
+      - "v*"
     paths:
       - "packages/taiko-client/**"
+      - ".github/workflows/taiko-client--docker-build.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  id-token: write
+  attestations: write
+  contents: read
+
 env:
-  REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/taiko-client
+  DOCKER_REGISTRY: docker.io
+  DOCKER_REPOSITORY: nethermind/taiko-client
 
 jobs:
   build:
     name: Build and push docker image
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'NethermindEth/surge-taiko-mono'
     strategy:
       matrix:
         include:
-          - runner: arc-runner-set
+          - os: ubuntu-latest
             platform: linux/amd64
-          - runner: arc-runner-set-arm64
+            short: amd64
+          - os: ubuntu-24.04-arm
             platform: linux/arm64
-
-    runs-on: ${{ matrix.runner }}
-
+            short: arm64
     steps:
       - name: Prepare Environment
         run: |
@@ -36,13 +50,6 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Login to GAR
-        uses: docker/login-action@v3
-        with:
-          registry: us-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GAR_JSON_KEY }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -53,16 +60,23 @@ jobs:
           version: v0.29.1
           cache-binary: false
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY_IMAGE }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=ref,event=tag
             type=sha
+            type=ref,event=pr
+            type=ref,event=branch
+            type=ref,event=tag
 
       - name: Build and push by digest
         id: build
@@ -72,9 +86,9 @@ jobs:
           file: packages/taiko-client/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ env.REGISTRY_IMAGE }}
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -91,7 +105,7 @@ jobs:
           retention-days: 1
 
   merge:
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     needs:
       - build
     steps:
@@ -108,30 +122,73 @@ jobs:
           version: v0.29.1
           cache-binary: false
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Determine event type and set tags
+        id: event
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "is_tag=false" >> $GITHUB_OUTPUT
+            echo "is_branch=false" >> $GITHUB_OUTPUT
+            {
+              echo "tag_list<<EOF"
+              echo "type=sha"
+              echo "type=ref,event=pr"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "is_tag=true" >> $GITHUB_OUTPUT
+            echo "is_branch=false" >> $GITHUB_OUTPUT
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            {
+              echo "tag_list<<EOF"
+              echo "type=raw,value=$VERSION"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "is_tag=false" >> $GITHUB_OUTPUT
+            echo "is_branch=true" >> $GITHUB_OUTPUT
+            {
+              echo "tag_list<<EOF"
+              echo "type=raw,value=latest"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          fi
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=ref,event=tag
-            type=sha
-
-      - name: Login to GAR
-        uses: docker/login-action@v3
-        with:
-          registry: us-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GAR_JSON_KEY }}
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}
+          tags: ${{ steps.event.outputs.tag_list }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+            $(printf '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+          if [[ "${{ steps.event.outputs.is_tag }}" == "true" ]]; then
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}:${{ steps.event.outputs.version }}
+          elif [[ "${{ steps.event.outputs.is_branch }}" == "true" ]]; then
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY }}:latest
+          else
+            echo "Skipping inspect for PR builds"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Docker build completed :green_circle:" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r TAG; do
+            echo "- $TAG" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY

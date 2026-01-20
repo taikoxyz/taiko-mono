@@ -16,7 +16,7 @@ pub use core::LookaheadResolver;
 pub(crate) use epoch::{SECONDS_IN_EPOCH, SECONDS_IN_SLOT};
 pub use types::LookaheadBroadcast;
 
-use crate::preconfirmation::lookahead::error::Result;
+use super::Result;
 use alloy_primitives::Address;
 use alloy_rpc_types::eth::Block as RpcBlock;
 use async_trait::async_trait;

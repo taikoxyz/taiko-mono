@@ -71,6 +71,7 @@ func createPayloadAndSetHead(
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
+			Extra:        meta.ExtraData,
 		}
 	)
 	meta.L1Origin.BuildPayloadArgsID = args.Id()
@@ -402,6 +403,7 @@ func isKnownCanonicalBlock(
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
+			Extra:        meta.ExtraData,
 		}
 		id = args.Id()
 	)
@@ -930,6 +932,7 @@ func InsertPreconfBlockFromEnvelope(
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
+			Extra:        envelope.Payload.ExtraData,
 		}
 	)
 

@@ -145,7 +145,6 @@ func (s *SgxGethProofProducer) requestBatchProof(
 				ProposalId:             meta.Shasta().GetEventData().Id,
 				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
 				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
-				DesignatedProver:       opts[i].ShastaOptions().DesignatedProver.Hex()[2:],
 				Checkpoint: &RaikoCheckpoint{
 					BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
 					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],

@@ -1,0 +1,305 @@
+name: "[Nethermind] Relayer and Migrations - Docker build and push"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/relayer/**"
+      - ".github/workflows/relayer--docker-build.yml"
+  push:
+    branches: [main]
+    tags:
+      - "relayer-v*"
+    paths:
+      - "packages/relayer/**"
+      - ".github/workflows/relayer--docker-build.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  attestations: write
+  contents: read
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_REPOSITORY_MIGRATIONS: nethermind/surge-relayer-migrations
+  DOCKER_REPOSITORY_RELAYER: nethermind/surge-relayer
+  DOCKER_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+jobs:
+  build-migrations:
+    name: Build and push migrations docker image
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'NethermindEth/surge-taiko-mono'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+          - os: ubuntu-24.04-arm
+            platform: linux/arm64
+    steps:
+      - name: Prepare Environment
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          version: v0.29.1
+          cache-binary: false
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}
+          tags: |
+            type=sha
+            type=ref,event=pr
+            type=ref,event=branch
+            type=ref,event=tag
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          context: packages/relayer
+          file: packages/relayer/Dockerfile.migrations
+          push: true
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests-migrations
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests-migrations/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v5
+        with:
+          name: digests-migrations-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests-migrations/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-migrations:
+    runs-on: ubuntu-latest
+    needs:
+      - build-migrations
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v6
+        with:
+          path: /tmp/digests-migrations
+          pattern: digests-migrations-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          version: v0.29.1
+          cache-binary: false
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests-migrations
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}:$VERSION
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}:latest
+          else
+            echo "Skipping inspect for PR builds"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Docker build completed :green_circle:" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r TAG; do
+            echo "- $TAG" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
+
+  build-relayer:
+    name: Build and push relayer docker image
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'NethermindEth/surge-taiko-mono'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+          - os: ubuntu-24.04-arm
+            platform: linux/arm64
+    steps:
+      - name: Prepare Environment
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          version: v0.29.1
+          cache-binary: false
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}
+          tags: |
+            type=sha
+            type=ref,event=pr
+            type=ref,event=branch
+            type=ref,event=tag
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          context: .
+          file: packages/relayer/Dockerfile
+          push: true
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests-relayer
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests-relayer/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v5
+        with:
+          name: digests-relayer-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests-relayer/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-relayer:
+    runs-on: ubuntu-latest
+    needs:
+      - build-relayer
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v6
+        with:
+          path: /tmp/digests-relayer
+          pattern: digests-relayer-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        with:
+          version: v0.29.1
+          cache-binary: false
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests-relayer
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}:$VERSION
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker buildx imagetools inspect ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}:latest
+          else
+            echo "Skipping inspect for PR builds"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Docker build completed :green_circle:" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r TAG; do
+            echo "- $TAG" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY

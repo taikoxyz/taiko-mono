@@ -74,31 +74,15 @@ const HEAD_REQ_MAX_BYTES: usize = 128;
 /// Maximum encoded size for head response frames.
 const HEAD_RESP_MAX_BYTES: usize = 64 * 1024;
 
-#[derive(Clone)]
 /// Holds the protocol IDs for various request-response protocols.
+#[derive(Clone)]
 pub struct Protocols {
     /// Protocol ID for commitments request-response.
-    pub commitments: SszProtocol,
+    pub commitments: String,
     /// Protocol ID for raw transaction list request-response.
-    pub raw_txlists: SszProtocol,
+    pub raw_txlists: String,
     /// Protocol ID for get_head request-response.
-    pub head: SszProtocol,
-}
-
-#[derive(Clone)]
-/// A wrapper for a protocol ID string.
-///
-/// Implements `AsRef<str>` to allow easy conversion to `&str`.
-pub struct SszProtocol(
-    /// Protocol identifier string.
-    pub String,
-);
-
-impl AsRef<str> for SszProtocol {
-    /// Return the protocol identifier as a string slice.
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
+    pub head: String,
 }
 
 #[async_trait]
@@ -108,12 +92,12 @@ where
     Req: SimpleSerialize + Clone + Send + Sync + 'static,
     Resp: SimpleSerialize + Clone + Send + Sync + 'static,
 {
-    type Protocol = SszProtocol;
+    type Protocol = String;
     type Request = Req;
     type Response = Resp;
 
     /// Read and decode a request frame.
-    async fn read_request<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Request>
+    async fn read_request<R>(&mut self, _: &String, io: &mut R) -> io::Result<Self::Request>
     where
         R: AsyncRead + Unpin + Send,
     {
@@ -121,7 +105,7 @@ where
     }
 
     /// Read and decode a response frame.
-    async fn read_response<R>(&mut self, _: &SszProtocol, io: &mut R) -> io::Result<Self::Response>
+    async fn read_response<R>(&mut self, _: &String, io: &mut R) -> io::Result<Self::Response>
     where
         R: AsyncRead + Unpin + Send,
     {
@@ -131,7 +115,7 @@ where
     /// Encode and write a request frame.
     async fn write_request<W>(
         &mut self,
-        _: &SszProtocol,
+        _: &String,
         io: &mut W,
         req: Self::Request,
     ) -> io::Result<()>
@@ -144,7 +128,7 @@ where
     /// Encode and write a response frame.
     async fn write_response<W>(
         &mut self,
-        _: &SszProtocol,
+        _: &String,
         io: &mut W,
         res: Self::Response,
     ) -> io::Result<()>
@@ -160,7 +144,7 @@ where
 ///
 /// The function reads a u32 length encoded as unsigned-varint, rejects frames larger than
 /// `max_len`, then reads the payload and attempts SSZ deserialization.
-async fn read_ssz<T: SimpleSerialize + Default, R: AsyncRead + Unpin + Send>(
+async fn read_ssz<T: SimpleSerialize, R: AsyncRead + Unpin + Send>(
     io: &mut R,
     max_len: usize,
 ) -> io::Result<T> {
@@ -219,7 +203,7 @@ mod tests {
     #[tokio::test]
     async fn commitments_codec_roundtrip() {
         let mut codec = CommitmentsCodec::default();
-        let proto = SszProtocol("/taiko/test/commitments/1".into());
+        let proto = "/taiko/test/commitments/1".to_string();
 
         let req =
             GetCommitmentsByNumberRequest { start_block_number: Uint256::from(1u64), max_count: 5 };
@@ -241,7 +225,7 @@ mod tests {
     #[tokio::test]
     async fn oversized_response_is_rejected_on_read() {
         let mut codec = RawTxListCodec::default();
-        let proto = SszProtocol("/taiko/test/rawtx/1".into());
+        let proto = "/taiko/test/rawtx/1".to_string();
 
         // Craft a frame with a length one byte over the allowed bound.
         let over = RAW_TXLIST_RESP_MAX_BYTES + 1;
@@ -267,7 +251,7 @@ mod tests {
             16,
         >;
         let mut codec = TinyCodec::default();
-        let proto = SszProtocol("/taiko/test/rawtx/1".into());
+        let proto = "/taiko/test/rawtx/1".to_string();
 
         let txlist = preconfirmation_types::TxListBytes::try_from(vec![0u8; 32]).unwrap();
         let resp = GetRawTxListResponse {

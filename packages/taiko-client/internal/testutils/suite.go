@@ -369,4 +369,20 @@ func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHas
 	s.Nil(err)
 
 	s.Equal(attributes.L1Origin.BlockID.Uint64(), head.Number.Uint64())
+
+	// For Nethermind: clear txpool state after chain reorg
+	// After a reorg, stale txpool caches would reject transaction resubmissions
+	// with "already known" or "nonce too low". This clears hash cache, account cache, and pending txs.
+	// Pending txs must be cleared because tests resubmit transactions with the same hash/nonce,
+	// which would be rejected as "ReplacementNotAllowed" if they remain in the pool.
+	if os.Getenv("L2_NODE") == "l2_nmc" {
+		var cleared bool
+		err := s.RPCClient.L2Engine.CallContext(
+			context.Background(),
+			&cleared,
+			"taikoDebug_clearTxPoolForReorg",
+		)
+		s.Nil(err)
+		s.True(cleared, "TxPool clear failed after forkTo")
+	}
 }

@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::blob::BlobDataError;
+use crate::{blob::BlobDataError, client::DEFAULT_HTTP_TIMEOUT};
 
 /// JSON payload returned by `/eth/v1/beacon/genesis`.
 #[derive(Debug, Deserialize)]
@@ -115,6 +115,7 @@ impl BeaconClient {
     pub async fn new(endpoint: Url) -> Result<Self, BlobDataError> {
         let http = HttpClient::builder()
             .no_proxy()
+            .timeout(DEFAULT_HTTP_TIMEOUT)
             .build()
             .map_err(|err| BlobDataError::Other(err.into()))?;
 

@@ -15,7 +15,29 @@ import (
 )
 
 type EventRepository struct {
-	events []*relayer.Event
+	events                                         []*relayer.Event
+	ChainDataSyncedEventByBlockNumberOrGreaterFunc func(
+		ctx context.Context,
+		srcChainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*relayer.Event, error)
+	LatestChainDataSyncedEventFunc func(
+		ctx context.Context,
+		srcChainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
+	CheckpointSyncedEventByBlockNumberOrGreaterFunc func(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*relayer.Event, error)
+	LatestCheckpointSyncedEventFunc func(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
 }
 
 func NewEventRepository() *EventRepository {
@@ -190,6 +212,10 @@ func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 	syncedChainId uint64,
 	blockNumber uint64,
 ) (*relayer.Event, error) {
+	if r.ChainDataSyncedEventByBlockNumberOrGreaterFunc != nil {
+		return r.ChainDataSyncedEventByBlockNumberOrGreaterFunc(ctx, srcChainId, syncedChainId, blockNumber)
+	}
+
 	return &relayer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		ChainID: MockChainID.Int64(),
@@ -201,6 +227,10 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	srcChainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
+	if r.LatestChainDataSyncedEventFunc != nil {
+		return r.LatestChainDataSyncedEventFunc(ctx, srcChainId, syncedChainId)
+	}
+
 	return 5, nil
 }
 
@@ -210,6 +240,10 @@ func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
 	syncedChainId uint64,
 	blockNumber uint64,
 ) (*relayer.Event, error) {
+	if r.CheckpointSyncedEventByBlockNumberOrGreaterFunc != nil {
+		return r.CheckpointSyncedEventByBlockNumberOrGreaterFunc(ctx, chainId, syncedChainId, blockNumber)
+	}
+
 	return &relayer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		ChainID: MockChainID.Int64(),
@@ -221,6 +255,10 @@ func (r *EventRepository) LatestCheckpointSyncedEvent(
 	chainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
+	if r.LatestCheckpointSyncedEventFunc != nil {
+		return r.LatestCheckpointSyncedEventFunc(ctx, chainId, syncedChainId)
+	}
+
 	return 5, nil
 }
 

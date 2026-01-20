@@ -23,6 +23,7 @@ import (
 var (
 	MaxNumSupportedZkTypes    = 2
 	MaxNumSupportedProofTypes = 4
+	ErrCacheNotFound          = errors.New("cache not found")
 )
 
 const maxProofRequestTimeout = 1 * time.Hour
@@ -189,21 +190,22 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					meta,
 					startAt,
 				); err != nil {
-					if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
-						if time.Since(startAt) > maxProofRequestTimeout {
-							log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
-							useZK = false
-							startAt = time.Now()
-						} else {
-							return fmt.Errorf("zk proof is WIP, status: %w", err)
-						}
-					} else {
-						log.Debug(
-							"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
-							"batchID", opts.BatchID,
-						)
+					if time.Since(startAt) > maxProofRequestTimeout {
+						log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
 						useZK = false
 						startAt = time.Now()
+					} else {
+						if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+							log.Debug(
+								"ZK proof was not chosen, attempting to request SGX proof",
+								"batchID", opts.BatchID,
+								"err", err,
+							)
+							useZK = false
+							startAt = time.Now()
+						}
+						log.Debug("Got error, retrying", "err", err)
+						return err
 					}
 				}
 			}
@@ -502,4 +504,7 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	}
 
 	return invalidBatchIDs, nil
+}
+func (s *ProofSubmitterPacaya) FlushCache(_ context.Context, _ proofProducer.ProofType) error {
+	return errors.New("FlushCache is not supported in Pacaya fork")
 }

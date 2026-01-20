@@ -13,7 +13,10 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::beacon::{BeaconClient, BeaconSidecar};
+use crate::{
+    beacon::{BeaconClient, BeaconSidecar},
+    client::DEFAULT_HTTP_TIMEOUT,
+};
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
@@ -69,7 +72,10 @@ impl BlobDataSource {
     /// Access the HTTP client used for blob fetches.
     fn http_client(&self) -> Result<&HttpClient, BlobDataError> {
         self.client.get_or_try_init(|| {
-            HttpClient::builder().build().map_err(|err| BlobDataError::Other(err.into()))
+            HttpClient::builder()
+                .timeout(DEFAULT_HTTP_TIMEOUT)
+                .build()
+                .map_err(|err| BlobDataError::Other(err.into()))
         })
     }
 

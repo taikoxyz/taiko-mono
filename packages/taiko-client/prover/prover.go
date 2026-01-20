@@ -64,6 +64,7 @@ type Prover struct {
 	proveNotify                    chan struct{}
 	batchesAggregationNotifyPacaya chan proofProducer.ProofType
 	batchesAggregationNotifyShasta chan proofProducer.ProofType
+	flushCacheNotify               chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -128,6 +129,7 @@ func InitFromConfig(
 	p.proveNotify = make(chan struct{}, 1)
 	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.flushCacheNotify = make(chan proofProducer.ProofType, 1)
 
 	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -260,6 +262,8 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
 		case proofType := <-p.batchesAggregationNotifyShasta:
 			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
+		case proofType := <-p.flushCacheNotify:
+			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
 		case e := <-batchesVerifiedCh:
 			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
