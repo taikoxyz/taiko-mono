@@ -19,13 +19,13 @@ library LibCodec {
         pure
         returns (bytes memory encoded_)
     {
-        encoded_ = new bytes(14);
+        encoded_ = new bytes(15);
         uint256 ptr = P.dataPtr(encoded_);
         ptr = P.packUint48(ptr, _input.deadline);
         ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
         ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
         ptr = P.packUint24(ptr, _input.blobReference.offset);
-        ptr = P.packUint8(ptr, _input.numForcedInclusions);
+        ptr = P.packUint16(ptr, _input.numForcedInclusions);
     }
 
     /// @dev Decodes propose input data using compact packing.
@@ -39,7 +39,7 @@ library LibCodec {
         (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
-        (input_.numForcedInclusions,) = P.unpackUint8(ptr);
+        (input_.numForcedInclusions,) = P.unpackUint16(ptr);
     }
 
     // ---------------------------------------------------------------
@@ -70,9 +70,6 @@ library LibCodec {
         for (uint256 i; i < c.transitions.length; ++i) {
             ptr = LibTransitionCodec.encodeTransition(ptr, c.transitions[i]);
         }
-
-        // Encode forceCheckpointSync
-        P.packUint8(ptr, _input.forceCheckpointSync ? 1 : 0);
     }
 
     /// @dev Decodes prove input data using compact packing.
@@ -96,11 +93,6 @@ library LibCodec {
         for (uint256 i; i < transitionsLength; ++i) {
             (input_.commitment.transitions[i], ptr) = LibTransitionCodec.decodeTransition(ptr);
         }
-
-        // Decode forceCheckpointSync
-        uint8 forceCheckpointSyncByte;
-        (forceCheckpointSyncByte,) = P.unpackUint8(ptr);
-        input_.forceCheckpointSync = forceCheckpointSyncByte != 0;
     }
 
     // ---------------------------------------------------------------
@@ -124,9 +116,8 @@ library LibCodec {
             //   endBlockNumber: 6 bytes
             //   endStateRoot: 32 bytes
             //   transitions array length: 2 bytes
-            //   forceCheckpointSync: 1 byte
-            // Total fixed: 131 bytes
-            size_ = 131 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
+            // Total fixed: 130 bytes
+            size_ = 130 + (_numTransitions * LibTransitionCodec.TRANSITION_SIZE);
         }
     }
 }

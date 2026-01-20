@@ -99,8 +99,7 @@ contract InboxRingBufferTest is InboxTestBase {
                 endBlockNumber: endBlockNumber,
                 endStateRoot: endStateRoot,
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         _prove(proveInput);

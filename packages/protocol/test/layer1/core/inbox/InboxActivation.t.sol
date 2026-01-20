@@ -51,8 +51,7 @@ contract InboxActivationTest is InboxTestBase {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: bytes32(uint256(1)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
@@ -107,11 +106,6 @@ contract InboxActivationTest is InboxTestBase {
         );
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
-        assertEq(
-            cfg.minForcedInclusionCount,
-            config.minForcedInclusionCount,
-            "minForcedInclusionCount mismatch"
-        );
         assertEq(
             cfg.forcedInclusionFeeInGwei,
             config.forcedInclusionFeeInGwei,
@@ -190,14 +184,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.basefeeSharingPctg = 101; // Must be <= 100
 
         vm.expectRevert(LibInboxSetup.BasefeeSharingPctgTooLarge.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinForcedInclusionCountZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.minForcedInclusionCount = 0;
-
-        vm.expectRevert(LibInboxSetup.MinForcedInclusionCountZero.selector);
         new Inbox(cfg);
     }
 
