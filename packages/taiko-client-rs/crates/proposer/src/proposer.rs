@@ -56,6 +56,16 @@ pub struct EnginePayloadParams {
     pub gas_limit: u64,
 }
 
+/// Compute the effective gas limit for the manifest by removing the anchor transaction gas.
+/// Genesis block (parent_block_number == 0) uses the full gas limit since there's no anchor.
+fn effective_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
+    if parent_block_number == 0 {
+        parent_gas_limit
+    } else {
+        parent_gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
+    }
+}
+
 // Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 pub struct Proposer {
     rpc_provider: ClientWithWallet,
