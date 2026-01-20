@@ -258,7 +258,8 @@ contract InboxProveTest is InboxTestBase {
         assertEq(state.lastFinalizedBlockHash, fullBatch[2].blockHash, "checkpoint hash");
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp), "checkpoint timestamp");
 
-        ICheckpointStore.Checkpoint memory checkpoint2 = signalService.getCheckpoint(endBlockNumber2);
+        ICheckpointStore.Checkpoint memory checkpoint2 =
+            signalService.getCheckpoint(endBlockNumber2);
         assertEq(checkpoint2.blockHash, fullBatch[2].blockHash, "checkpoint2 blockHash");
         assertEq(checkpoint2.stateRoot, keccak256("stateRoot3"), "checkpoint2 stateRoot");
     }
