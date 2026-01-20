@@ -43,7 +43,7 @@ contract DevnetInbox is Inbox {
                 maxProofSubmissionDelay: 3 minutes,
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
-                forcedInclusionDelay: 576 seconds,
+                forcedInclusionDelay: 0,
                 forcedInclusionFeeInGwei: 1_000_000,
                 forcedInclusionFeeDoubleThreshold: 50,
                 permissionlessInclusionMultiplier: 160
