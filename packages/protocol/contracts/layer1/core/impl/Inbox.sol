@@ -94,7 +94,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     uint48 internal immutable _maxProofSubmissionDelay;
 
     /// @notice The ring buffer size for storing proposal hashes.
-    uint256 internal immutable _ringBufferSize;
+    uint48 internal immutable _ringBufferSize;
 
     /// @notice The percentage of basefee paid to coinbase.
     uint8 internal immutable _basefeeSharingPctg;
@@ -541,8 +541,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0,
-                NotEnoughCapacity()
+                _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
             );
 
             ConsumptionResult memory result =
@@ -714,25 +713,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Private View/Pure Functions
     // ---------------------------------------------------------------
-
-    /// @dev Calculates remaining capacity for new proposals
-    /// Subtracts unfinalized proposals from total capacity
-    /// @param _nextProposalId The next proposal ID
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(
-        uint48 _nextProposalId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        view
-        returns (uint256)
-    {
-        unchecked {
-            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
-        }
-    }
 
     /// @dev Validates propose function inputs.
     /// @param _input The ProposeInput to validate

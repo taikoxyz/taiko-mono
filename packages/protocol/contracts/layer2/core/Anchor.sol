@@ -69,7 +69,7 @@ contract Anchor is EssentialContract {
     BlockState internal _blockState;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[41] private __gap;
+    uint256[43] private __gap;
 
     // ---------------------------------------------------------------
     // Events
