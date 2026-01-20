@@ -25,7 +25,7 @@ contract MainnetInbox is Inbox {
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 14) / 12 / 6
     ///                     = 16800
-    uint64 private constant _RING_BUFFER_SIZE = 16_800;
+    uint48 private constant _RING_BUFFER_SIZE = 16_800;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -55,7 +55,7 @@ contract MainnetInbox is Inbox {
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
-                forcedInclusionDelay: 384, // 1 epoch
+                forcedInclusionDelay: 384 seconds, // 1 epoch
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 minCheckpointDelay: 384 seconds, // 1 epoch
