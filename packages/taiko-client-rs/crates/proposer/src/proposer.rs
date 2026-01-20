@@ -377,7 +377,7 @@ impl Proposer {
         let engine_params = EnginePayloadParams {
             anchor_block_number,
             timestamp,
-            gas_limit: parent.header.gas_limit,
+            gas_limit: effective_gas_limit(parent.header.number, parent.header.gas_limit),
         };
 
         Ok((payload_attributes, engine_params))
