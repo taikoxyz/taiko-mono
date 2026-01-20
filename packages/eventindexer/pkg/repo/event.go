@@ -386,7 +386,7 @@ func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID 
 		return nil, err
 	}
 
-	return e, nil
+	return nil, nil
 }
 
 func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
@@ -405,5 +405,5 @@ func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID in
 		return nil, err
 	}
 
-	return e, nil
+	return nil, nil
 }
