@@ -15,6 +15,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -126,10 +127,20 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 	// Request proof.
-	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
-		BlockHash: lastOriginInLastProposal.L2BlockHash,
-		Context:   ctx,
-	})
+	var (
+		lastBlockState shasta.AnchorBlockState
+	)
+	if lastOriginInLastProposal.BlockID.Cmp(common.Big0) == 0 {
+		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+			BlockNumber: common.Big0,
+			Context:     ctx,
+		})
+	} else {
+		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+			BlockHash: lastOriginInLastProposal.L2BlockHash,
+			Context:   ctx,
+		})
+	}
 	if err != nil {
 		return err
 	}
