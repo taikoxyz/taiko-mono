@@ -1,11 +1,13 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 // GetProposalProvedBy
@@ -29,6 +31,9 @@ func (srv *Server) GetProposalProvedBy(c echo.Context) error {
 		proposalID,
 	)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.NoContent(http.StatusNotFound)
+		}
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 	}
 

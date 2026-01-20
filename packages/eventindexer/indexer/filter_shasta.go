@@ -10,7 +10,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// nolint
 func filterFuncShasta(
 	ctx context.Context,
 	chainID *big.Int,
