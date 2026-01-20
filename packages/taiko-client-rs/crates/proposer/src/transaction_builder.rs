@@ -78,7 +78,7 @@ impl ShastaProposalTransactionBuilder {
                     coinbase: self.l2_suggested_fee_recipient,
                     anchor_block_number,
                     gas_limit,
-                    transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+                    transactions: txs.iter().cloned().map(Into::into).collect(),
                 }
             })
             .collect::<Vec<BlockManifest>>();

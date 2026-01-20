@@ -4,6 +4,7 @@ use alloy::{
     providers::PendingTransactionError,
     transports::{RpcError, TransportErrorKind},
 };
+use alloy_eips::eip2718::Eip2718Error;
 use protocol::shasta::ProtocolError;
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
@@ -38,6 +39,14 @@ pub enum ProposerError {
     /// FCU did not return a payload ID.
     #[error("FCU did not return payload ID (node may be syncing)")]
     NoPayloadId,
+
+    /// Failed to decode transaction from RLP bytes.
+    #[error("failed to decode transaction at index {index}: {source}")]
+    TxDecode { index: usize, source: Eip2718Error },
+
+    /// Failed to recover signer from transaction.
+    #[error("failed to recover signer for transaction at index {index}: {message}")]
+    SignerRecovery { index: usize, message: String },
 
     /// Failed to build anchor transaction.
     #[error("anchor transaction construction failed: {0}")]

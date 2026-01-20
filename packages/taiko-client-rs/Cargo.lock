@@ -7551,6 +7551,7 @@ dependencies = [
  "alloy-hardforks 0.4.7",
  "alloy-network",
  "alloy-provider",
+ "alloy-rpc-types",
  "alloy-rpc-types-engine",
  "anyhow",
  "bindings",

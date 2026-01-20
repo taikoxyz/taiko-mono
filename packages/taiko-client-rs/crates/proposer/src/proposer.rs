@@ -14,9 +14,13 @@ use alloy::{
     providers::Provider,
     rpc::types::{Block, Transaction},
 };
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{
+    TxEnvelope,
+    transaction::{Recovered, SignerRecoverable, TransactionInfo},
+};
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_network::TransactionBuilder;
+use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ForkchoiceState, PayloadAttributes as EthPayloadAttributes,
 };
@@ -446,14 +450,23 @@ impl Proposer {
         let txs: Vec<Transaction> = transactions
             .iter()
             .skip(1) // Skip anchor transaction
-            .filter_map(|tx_bytes: &Bytes| {
+            .enumerate()
+            .map(|(index, tx_bytes): (usize, &Bytes)| {
                 // Decode the transaction from RLP bytes.
-                TxEnvelope::decode_2718(&mut tx_bytes.as_ref()).ok().and_then(|tx| {
-                    // Convert TxEnvelope to rpc Transaction.
-                    serde_json::to_value(&tx).ok().and_then(|v| from_value::<Transaction>(v).ok())
-                })
+                let tx = TxEnvelope::decode_2718(&mut tx_bytes.as_ref())
+                    .map_err(|source| ProposerError::TxDecode { index, source })?;
+
+                // Recover the signer address from the transaction signature.
+                let signer = tx
+                    .recover_signer()
+                    .map_err(|e| ProposerError::SignerRecovery { index, message: e.to_string() })?;
+
+                Ok(RpcTransaction::from_transaction(
+                    Recovered::new_unchecked(tx, signer),
+                    TransactionInfo::default(),
+                ))
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         info!(
             tx_count = txs.len(),
