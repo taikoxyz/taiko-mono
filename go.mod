@@ -28,6 +28,7 @@ require (
 	github.com/libp2p/go-libp2p v0.36.5
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/morkid/paginate v1.1.10
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
@@ -219,7 +220,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
-	github.com/orcaman/concurrent-map/v2 v2.0.1 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
@@ -309,7 +309,7 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260116103249-30c426e19a67
+replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260119073654-f1856b66785e
 
 replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20251229030244-37aa83d15a8f
 
