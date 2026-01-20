@@ -33,45 +33,20 @@ func filterFuncShasta(
 
 			return nil
 		})
-
-		// dont run in goroutines, as the batchProposed events need to be processed in order and
-		// saved to the DB in order, as we need the previous one's "lastBlockId" to calculate
-		// the blockIds of the next batchProposed event, since they are no longer
-		// emitted in the event themself.
-		proposedEvent, err := i.shastaInbox.FilterProposed(filterOpts, nil, nil)
-		if err != nil {
-			return errors.Wrap(err, "i.shastaInbox.FilterProposed")
-		}
-
-		err = i.saveProposedEvents(ctx, chainID, proposedEvent)
-		if err != nil {
-			return errors.Wrap(err, "i.saveProposedEvent")
-		}
-	}
-
-	if i.bridge != nil {
 		wg.Go(func() error {
-			messagesSent, err := i.bridge.FilterMessageSent(filterOpts, nil)
+			proposedEvent, err := i.shastaInbox.FilterProposed(filterOpts, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.bridge.FilterMessageSent")
+				return errors.Wrap(err, "i.shastaInbox.FilterProposed")
 			}
 
-			err = i.saveMessageSentEvents(ctx, chainID, messagesSent)
+			err = i.saveProposedEvents(ctx, chainID, proposedEvent)
 			if err != nil {
-				return errors.Wrap(err, "i.saveMessageSentEvents")
+				return errors.Wrap(err, "i.saveProposedEvent")
 			}
 
 			return nil
 		})
 	}
-
-	wg.Go(func() error {
-		if err := i.indexRawBlockData(ctx, chainID, filterOpts.Start, *filterOpts.End); err != nil {
-			return errors.Wrap(err, "i.indexRawBlockData")
-		}
-
-		return nil
-	})
 
 	err := wg.Wait()
 
