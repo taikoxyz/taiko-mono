@@ -19,10 +19,11 @@ use protocol::shasta::{
 };
 
 use crate::{
-    derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
+    derivation::DerivationError,
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
+use protocol::shasta::AnchorV4Input;
 
 use tracing::{debug, info, instrument, warn};
 
@@ -918,7 +919,7 @@ mod tests {
     use alloy_primitives::{Bytes, TxKind};
     use anyhow::Result;
 
-    use crate::signer::FixedKSigner;
+    use protocol::FixedKSigner;
 
     #[test]
     fn anchor_signature_recovers_to_golden_touch() -> Result<()> {

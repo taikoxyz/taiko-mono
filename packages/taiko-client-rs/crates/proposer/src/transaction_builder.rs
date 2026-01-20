@@ -1,7 +1,5 @@
 //! Transaction builder for constructing proposal transactions.
 
-use std::time::SystemTime;
-
 use alloy::{
     consensus::{BlobTransactionSidecar, SidecarBuilder},
     primitives::{
@@ -23,7 +21,7 @@ use tracing::info;
 
 use crate::{
     error::{ProposerError, Result},
-    proposer::TransactionsLists,
+    proposer::{EnginePayloadParams, TransactionsLists, current_unix_timestamp},
 };
 
 /// A transaction builder for Shasta `propose` transactions.
@@ -41,13 +39,25 @@ impl ShastaProposalTransactionBuilder {
     }
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
-    pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
+    ///
+    /// If `engine_params` is provided (engine mode), those parameters will be used directly.
+    /// Otherwise, the current L1 head, current timestamp, and MAX_BLOCK_GAS_LIMIT are used.
+    pub async fn build(
+        &self,
+        txs_lists: TransactionsLists,
+        engine_params: Option<EnginePayloadParams>,
+    ) -> Result<TransactionRequest> {
         let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
 
-        let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
-        let anchor_block_number = current_l1_head;
-        let timestamp =
-            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+        // Use provided engine params or derive defaults.
+        let (anchor_block_number, timestamp, gas_limit) = match engine_params {
+            Some(params) => (params.anchor_block_number, params.timestamp, params.gas_limit),
+            None => (
+                self.rpc_provider.l1_provider.get_block_number().await?,
+                current_unix_timestamp(),
+                MAX_BLOCK_GAS_LIMIT,
+            ),
+        };
 
         // Build the block manifests.
         let block_manifests = txs_lists
@@ -59,7 +69,7 @@ impl ShastaProposalTransactionBuilder {
                     tx_count = txs.len(),
                     timestamp,
                     anchor_block_number,
-                    gas_limit = MAX_BLOCK_GAS_LIMIT,
+                    gas_limit,
                     coinbase = ?self.l2_suggested_fee_recipient,
                     "setting up derivation source manifest block"
                 );
@@ -67,8 +77,8 @@ impl ShastaProposalTransactionBuilder {
                     timestamp,
                     coinbase: self.l2_suggested_fee_recipient,
                     anchor_block_number,
-                    gas_limit: MAX_BLOCK_GAS_LIMIT,
-                    transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+                    gas_limit,
+                    transactions: txs.iter().cloned().map(Into::into).collect(),
                 }
             })
             .collect::<Vec<BlockManifest>>();

@@ -7544,10 +7544,15 @@ name = "proposer"
 version = "2.0.0"
 dependencies = [
  "alethia-reth-consensus",
+ "alethia-reth-primitives",
  "alloy",
+ "alloy-consensus",
  "alloy-eips",
  "alloy-hardforks 0.4.7",
  "alloy-network",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-rpc-types-engine",
  "anyhow",
  "bindings",
  "metrics 0.24.3",
@@ -7611,6 +7616,8 @@ dependencies = [
 name = "protocol"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-consensus",
+ "alethia-reth-evm",
  "alloy",
  "alloy-consensus",
  "alloy-contract",
@@ -7629,6 +7636,7 @@ dependencies = [
  "dashmap 6.1.0",
  "event-scanner",
  "flate2",
+ "k256",
  "rand 0.8.5",
  "serde",
  "thiserror 2.0.17",
