@@ -157,15 +157,19 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 
 			// Set first proposal information.
 			if i == 0 {
-				lastOriginInLastProposal, err := a.rpc.LastL1OriginInBatchShasta(
-					ctx,
-					new(big.Int).Sub(proposals[i].Id, common.Big1),
-				)
-				if err != nil {
-					return nil, err
-				}
 				input.Commitment.FirstProposalId = proposals[i].Id
-				input.Commitment.FirstProposalParentBlockHash = lastOriginInLastProposal.L2BlockHash
+				if proposals[i].Id.Cmp(common.Big1) == 0 {
+					input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
+				} else {
+					lastOriginInLastProposal, err := a.rpc.LastL1OriginInBatchShasta(
+						ctx,
+						new(big.Int).Sub(proposals[i].Id, common.Big1),
+					)
+					if err != nil {
+						return nil, err
+					}
+					input.Commitment.FirstProposalParentBlockHash = lastOriginInLastProposal.L2BlockHash
+				}
 			}
 
 			// Set last proposal information.
