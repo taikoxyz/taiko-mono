@@ -1,3 +1,5 @@
+//! Anchor transaction construction for Taiko Shasta.
+
 use std::borrow::Cow;
 
 use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
@@ -12,8 +14,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::ICheckpointStore::Checkpoint;
-use rpc::client::Client;
+use bindings::anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint};
 use thiserror::Error;
 use tracing::{info, instrument};
 
@@ -43,32 +44,43 @@ pub struct AnchorV4Input {
 }
 
 /// Builds Shasta anchor transactions for the golden touch account.
-pub struct AnchorTxConstructor<P>
+///
+/// Generic over the L2 provider type to avoid cyclic dependencies.
+pub struct AnchorTxConstructor<L2Provider>
 where
-    P: Provider + Clone,
+    L2Provider: Provider + Clone,
 {
-    rpc: Client<P>,
+    l2_provider: L2Provider,
+    anchor_instance: AnchorInstance<L2Provider>,
     chain_id: u64,
     signer: FixedKSigner,
     golden_touch_address: Address,
 }
 
-impl<P> AnchorTxConstructor<P>
+impl<L2Provider> AnchorTxConstructor<L2Provider>
 where
-    P: Provider + Clone + Send + Sync + 'static,
+    L2Provider: Provider + Clone + Send + Sync + 'static,
 {
     /// Create a new constructor using the shared golden touch key.
-    pub async fn new(rpc: Client<P>) -> Result<Self, AnchorTxConstructorError> {
+    ///
+    /// # Arguments
+    /// * `l2_provider` - Provider for L2 chain access
+    /// * `anchor_address` - Address of the anchor contract on L2
+    pub async fn new(
+        l2_provider: L2Provider,
+        anchor_address: Address,
+    ) -> Result<Self, AnchorTxConstructorError> {
         let signer = FixedKSigner::golden_touch()?;
         let golden_touch_address = Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS);
 
-        let chain_id = rpc
-            .l2_provider
+        let chain_id = l2_provider
             .get_chain_id()
             .await
             .map_err(|err| AnchorTxConstructorError::Provider(err.to_string()))?;
 
-        Ok(Self { rpc, chain_id, signer, golden_touch_address })
+        let anchor_instance = AnchorInstance::new(anchor_address, l2_provider.clone());
+
+        Ok(Self { l2_provider, anchor_instance, chain_id, signer, golden_touch_address })
     }
 
     /// Assemble an `anchorV4` transaction for the given parent header and parameters.
@@ -88,7 +100,6 @@ where
 
         // Fetch golden touch nonce at the parent header via EIP-1898 hash reference.
         let nonce: U256 = self
-            .rpc
             .l2_provider
             .raw_request(
                 Cow::Borrowed("eth_getTransactionCount"),
@@ -133,7 +144,7 @@ where
             stateRoot: anchor_state_root,
         };
 
-        let call_builder = self.rpc.shasta.anchor.anchorV4(checkpoint);
+        let call_builder = self.anchor_instance.anchorV4(checkpoint);
 
         let call_builder = call_builder
             .from(self.golden_touch_address)
@@ -144,7 +155,7 @@ where
             .max_priority_fee_per_gas(0);
 
         let calldata: Bytes = call_builder.calldata().clone();
-        let anchor_address = *self.rpc.shasta.anchor.address();
+        let anchor_address = *self.anchor_instance.address();
 
         let tx = TxEip1559 {
             chain_id: self.chain_id,

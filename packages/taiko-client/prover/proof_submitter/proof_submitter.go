@@ -22,7 +22,7 @@ import (
 
 var (
 	MaxNumSupportedZkTypes    = 2
-	MaxNumSupportedProofTypes = 4
+	MaxNumSupportedProofTypes = 3
 	ErrCacheNotFound          = errors.New("cache not found")
 )
 
