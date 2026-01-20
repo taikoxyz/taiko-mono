@@ -203,7 +203,7 @@ func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID 
 		}
 	}
 
-	return nil, nil
+	return nil, gorm.ErrRecordNotFound
 }
 
 func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
@@ -213,5 +213,5 @@ func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID in
 		}
 	}
 
-	return nil, nil
+	return nil, gorm.ErrRecordNotFound
 }
