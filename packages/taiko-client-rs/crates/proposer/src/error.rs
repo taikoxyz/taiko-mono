@@ -48,6 +48,10 @@ pub enum ProposerError {
     #[error("failed to recover signer for transaction at index {index}: {message}")]
     SignerRecovery { index: usize, message: String },
 
+    /// Anchor constructor not initialized (engine mode disabled).
+    #[error("anchor constructor not initialized (engine mode is disabled)")]
+    AnchorConstructorNotInitialized,
+
     /// Failed to build anchor transaction.
     #[error("anchor transaction construction failed: {0}")]
     AnchorConstruction(#[from] protocol::shasta::AnchorTxConstructorError),

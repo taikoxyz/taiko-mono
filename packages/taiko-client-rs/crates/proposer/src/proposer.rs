@@ -74,7 +74,7 @@ fn effective_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
 pub struct Proposer {
     rpc_provider: ClientWithWallet,
     transaction_builder: ShastaProposalTransactionBuilder,
-    anchor_constructor: AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>,
+    anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
     cfg: ProposerConfigs,
 }
 
@@ -106,12 +106,18 @@ impl Proposer {
             cfg.l2_suggested_fee_recipient,
         );
 
-        // Initialize anchor transaction constructor for engine mode.
-        let anchor_constructor = AnchorTxConstructor::new(
-            rpc_provider.l2_provider.clone(),
-            *rpc_provider.shasta.anchor.address(),
-        )
-        .await?;
+        // Initialize anchor transaction constructor only for engine mode.
+        let anchor_constructor = if cfg.use_engine_mode {
+            Some(
+                AnchorTxConstructor::new(
+                    rpc_provider.l2_provider.clone(),
+                    *rpc_provider.shasta.anchor.address(),
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
 
         Ok(Self { rpc_provider, cfg, transaction_builder, anchor_constructor })
     }
@@ -334,6 +340,8 @@ impl Proposer {
         // Build anchor transaction.
         let anchor_tx = self
             .anchor_constructor
+            .as_ref()
+            .ok_or(ProposerError::AnchorConstructorNotInitialized)?
             .assemble_anchor_v4_tx(
                 parent.header.hash,
                 AnchorV4Input {
