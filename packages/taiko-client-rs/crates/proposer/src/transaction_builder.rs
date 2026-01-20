@@ -42,8 +42,6 @@ impl ShastaProposalTransactionBuilder {
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
     pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
-        let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
-
         let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
         let anchor_block_number = current_l1_head;
         let timestamp =
@@ -90,7 +88,8 @@ impl ShastaProposalTransactionBuilder {
                 numBlobs: sidecar.blobs.len() as u16,
                 offset: U24::ZERO,
             },
-            numForcedInclusions: config.minForcedInclusionCount.to(),
+            // Include all forced inclusions in the source manifest.
+            numForcedInclusions: u8::MAX,
         };
 
         // Build the transaction request with blob sidecar.

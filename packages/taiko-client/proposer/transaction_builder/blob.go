@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -173,7 +174,6 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 func (b *BlobTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	minTxsPerForcedInclusion *big.Int,
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	var (
@@ -243,7 +243,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 				NumBlobs:       uint16(len(blobs)),
 				Offset:         common.Big0,
 			},
-			NumForcedInclusions: uint8(minTxsPerForcedInclusion.Uint64()),
+			// We try to include all the forced inclusions in the source manifest.
+			NumForcedInclusions: math.MaxUint8,
 		},
 	)
 	if err != nil {
