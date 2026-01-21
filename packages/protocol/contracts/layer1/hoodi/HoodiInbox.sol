@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
@@ -22,7 +22,7 @@ contract HoodiInbox is Inbox {
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 2) / 12 / 6
     ///                     = 2400
-    uint64 private constant _RING_BUFFER_SIZE = 16_800;
+    uint48 private constant _RING_BUFFER_SIZE = 16_800;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -33,10 +33,7 @@ contract HoodiInbox is Inbox {
         address _proposerChecker,
         address _proverWhitelist,
         address _signalService,
-        address _bondToken,
-        uint64 _minBond,
-        uint64 _livenessBond,
-        uint48 _withdrawalDelay
+        address _bondToken
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
@@ -44,19 +41,17 @@ contract HoodiInbox is Inbox {
                 proverWhitelist: _proverWhitelist,
                 signalService: _signalService,
                 bondToken: _bondToken,
-                minBond: _minBond,
-                livenessBond: _livenessBond,
-                withdrawalDelay: _withdrawalDelay,
+                minBond: 0,
+                livenessBond: 0,
+                withdrawalDelay: 1 weeks,
                 provingWindow: 4 hours,
                 permissionlessProvingDelay: 72 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 0,
-                minForcedInclusionCount: 1,
                 forcedInclusionDelay: 384, // 1 epoch
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
-                minCheckpointDelay: 384 seconds, // 1 epoch
                 permissionlessInclusionMultiplier: 5
             }))
     { }

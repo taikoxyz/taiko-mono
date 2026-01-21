@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import {
     SignalServiceForkRouter
@@ -28,7 +28,7 @@ contract UpgradeShastaContracts is DeployCapability {
         DeploymentConfig memory config = _loadConfig();
         PreconfWhitelist(config.preconfWhitelistProxy).upgradeTo(config.preconfWhitelistImpl);
         Ownable2StepUpgradeable(config.proverWhitelistProxy).acceptOwnership();
-        SignalServiceForkRouter(config.signalServiceProxy)
+        SignalServiceForkRouter(payable(config.signalServiceProxy))
             .upgradeTo(config.signalServiceForkRouterImpl);
     }
 

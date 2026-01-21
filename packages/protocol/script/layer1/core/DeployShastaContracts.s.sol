@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import { HoodiInbox } from "../../../contracts/layer1/hoodi/HooditInbox.sol";
+import { HoodiInbox } from "../../../contracts/layer1/hoodi/HoodiInbox.sol";
+import { Inbox } from "../../../contracts/layer1/core/impl/Inbox.sol";
 import { MainnetInbox } from "../../../contracts/layer1/mainnet/MainnetInbox.sol";
 import { CommonVerifier } from "../../../contracts/layer1/verifiers/CommonVerifier.sol";
 import {
@@ -26,12 +27,9 @@ contract DeployShastaContracts is DeployCapability {
     struct DeploymentConfig {
         address contractOwner;
         uint64 l2ChainId;
-        address sharedResolver;
+        address l1SignalService;
         address l2SignalService;
         address taikoToken;
-        uint64 minBond;
-        uint64 livenessBond;
-        uint48 withdrawalDelay;
         address sgxAutomataProxy;
         address sgxGethAutomataProxy;
         address r0Groth16Verifier;
@@ -84,10 +82,7 @@ contract DeployShastaContracts is DeployCapability {
                         proofVerifier,
                         config.preconfWhitelist,
                         proverWhitelist,
-                        config.taikoToken,
-                        config.minBond,
-                        config.livenessBond,
-                        config.withdrawalDelay
+                        config.taikoToken
                     )
                 ),
                 data: abi.encodeCall(Inbox.init, config.contractOwner)
@@ -100,10 +95,8 @@ contract DeployShastaContracts is DeployCapability {
                         proofVerifier,
                         config.preconfWhitelist,
                         proverWhitelist,
-                        config.taikoToken,
-                        config.minBond,
-                        config.livenessBond,
-                        config.withdrawalDelay
+                        config.l1SignalService,
+                        config.taikoToken
                     )
                 ),
                 data: abi.encodeCall(Inbox.init, config.contractOwner)
@@ -125,12 +118,9 @@ contract DeployShastaContracts is DeployCapability {
     function _loadConfig() private view returns (DeploymentConfig memory config) {
         config.contractOwner = vm.envAddress("CONTRACT_OWNER");
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
-        config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
+        config.l1SignalService = vm.envAddress("L1_SIGNAL_SERVICE");
         config.l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
-        config.minBond = uint64(vm.envUint("MIN_BOND_GWEI"));
-        config.livenessBond = uint64(vm.envUint("LIVENESS_BOND_GWEI"));
-        config.withdrawalDelay = uint48(vm.envUint("WITHDRAWAL_DELAY"));
         config.sgxAutomataProxy = vm.envAddress("SGX_AUTOMATA_PROXY");
         config.sgxGethAutomataProxy = vm.envAddress("SGX_GETH_AUTOMATA_PROXY");
         config.r0Groth16Verifier = vm.envAddress("R0_GROTH16_VERIFIER");
@@ -142,12 +132,9 @@ contract DeployShastaContracts is DeployCapability {
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2ChainId != 0, "L2_CHAIN_ID not set");
-        require(config.sharedResolver != address(0), "SHARED_RESOLVER not set");
+        require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.taikoToken != address(0), "TAIKO_TOKEN not set");
-        require(config.minBond != 0, "MIN_BOND_GWEI not set");
-        require(config.livenessBond != 0, "LIVENESS_BOND_GWEI not set");
-        require(config.withdrawalDelay != 0, "WITHDRAWAL_DELAY not set");
         require(config.sgxAutomataProxy != address(0), "SGX_AUTOMATA_PROXY not set");
         require(config.sgxGethAutomataProxy != address(0), "SGX_GETH_AUTOMATA_PROXY not set");
         require(config.r0Groth16Verifier != address(0), "R0_GROTH16_VERIFIER not set");

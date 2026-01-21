@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
+import { Controller } from "../../../contracts/shared/governance/Controller.sol";
 import { DelegateController } from "../../../contracts/layer2/governance/DelegateController.sol";
+import { IBridge } from "../../../contracts/shared/bridge/IBridge.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 
 contract UpgradeShastaL2Contracts is DeployCapability {
@@ -31,12 +34,12 @@ contract UpgradeShastaL2Contracts is DeployCapability {
         dcall[0] = Controller.Action({
             target: config.anchorProxy,
             value: 0,
-            data: abi.encodeCall(Ownable2StepUpgradeable.upgradeTo, config.anchorForkRouter)
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.anchorForkRouter)
         });
         dcall[1] = Controller.Action({
             target: config.signalServiceProxy,
             value: 0,
-            data: abi.encodeCall(Ownable2StepUpgradeable.upgradeTo, config.signalServiceForkRouter)
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.signalServiceForkRouter)
         });
 
         IBridge.Message memory message = IBridge.Message({
