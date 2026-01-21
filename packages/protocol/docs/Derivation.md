@@ -251,6 +251,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 **Validation process**:
 
 1. **Define bounds**:
+
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
    - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
@@ -328,6 +329,7 @@ The anchor transaction serves as a privileged system transaction responsible for
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
+
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
@@ -356,7 +358,7 @@ The following constants govern the block derivation process:
 
 | Constant                         | Value                         | Description                                                                                                                                                                |
 | -------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DERIVATION_SOURCE_MAX_BLOCKS** | `384`                         | The per-derivation-source block limit. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                                         |
+| **DERIVATION_SOURCE_MAX_BLOCKS** | `192`                         | The per-derivation-source block limit. If we assume block times of seconds,192 blocks will cover an Ethereum epoch.                                                        |
 | **MAX_ANCHOR_OFFSET**            | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                              |
 | **TIMESTAMP_MAX_OFFSET**         | `1536` (12 \* 128)            | The maximum number timestamp offset from the proposal origin timestamp. This is set to longer than an epoch to allow the next proposer to recover without causing a reorg. |
 | **BLOCK_GAS_LIMIT_MAX_CHANGE**   | `200`                         | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 200 = 200 / 1,000,000 = 0.02%.                                                     |

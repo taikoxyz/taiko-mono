@@ -180,8 +180,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("stateRoot", _count)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
     }
 
@@ -209,8 +208,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("stateRoot")),
                 transitions: _transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
     }
 }
