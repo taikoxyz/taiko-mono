@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { DelegateController } from "../../../contracts/layer2/governance/DelegateController.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { Controller } from "src/shared/governance/Controller.sol";
 import "test/shared/DeployCapability.sol";
 
 contract UpgradeShastaL2Contracts is DeployCapability {
@@ -26,17 +28,16 @@ contract UpgradeShastaL2Contracts is DeployCapability {
 
     function run() external broadcast {
         DeploymentConfig memory config = _loadConfig();
-        // TODO: We need to upgrade DelegateOwner to DelegateController on mainnet first.
         Controller.Action[] memory dcall = new Controller.Action[](2);
         dcall[0] = Controller.Action({
             target: config.anchorProxy,
             value: 0,
-            data: abi.encodeCall(Ownable2StepUpgradeable.upgradeTo, config.anchorForkRouter)
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.anchorForkRouter)
         });
         dcall[1] = Controller.Action({
             target: config.signalServiceProxy,
             value: 0,
-            data: abi.encodeCall(Ownable2StepUpgradeable.upgradeTo, config.signalServiceForkRouter)
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.signalServiceForkRouter)
         });
 
         IBridge.Message memory message = IBridge.Message({
@@ -51,7 +52,7 @@ contract UpgradeShastaL2Contracts is DeployCapability {
             to: config.delegateController,
             value: 0,
             data: abi.encodeCall(
-                DelegateController.onMessageInvocation,
+                IMessageInvocable.onMessageInvocation,
                 (abi.encodePacked(uint64(0), abi.encode(dcall)))
             )
         });

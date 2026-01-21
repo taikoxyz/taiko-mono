@@ -7,6 +7,7 @@ import { CommonVerifier } from "../../../contracts/layer1/verifiers/CommonVerifi
 import {
     SignalServiceForkRouter
 } from "../../../contracts/shared/signal/SignalServiceForkRouter.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -29,9 +30,6 @@ contract DeployShastaContracts is DeployCapability {
         address sharedResolver;
         address l2SignalService;
         address taikoToken;
-        uint64 minBond;
-        uint64 livenessBond;
-        uint48 withdrawalDelay;
         address sgxAutomataProxy;
         address sgxGethAutomataProxy;
         address r0Groth16Verifier;
@@ -40,6 +38,7 @@ contract DeployShastaContracts is DeployCapability {
         address oldSignalServiceImpl;
         uint64 shastaForkTimestamp;
         address preconfWhitelist;
+        address signalServiceProxy;
     }
 
     modifier broadcast() {
@@ -54,7 +53,7 @@ contract DeployShastaContracts is DeployCapability {
         DeploymentConfig memory config = _loadConfig();
         VerifierAddresses memory verifiers = _deployAllVerifiers(config);
         address proofVerifier = address(
-            new CommonVerifier(verifiers.sgxGeth, verifiers.sgx, verifiers.risc0, verifiers.sp1)
+            new CommonVerifier(verifiers.sgxGeth, verifiers.sgxReth, verifiers.risc0, verifiers.sp1)
         );
         console2.log("CommonVerifier deployed:", proofVerifier);
         address preconfWhitelist = address(new PreconfWhitelist());
@@ -74,20 +73,13 @@ contract DeployShastaContracts is DeployCapability {
         }
         Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
 
-        // TODO: question about whether the Bridge contract is compatible and whether a Bridge contract upgrade is required.
         address shastaInbox = address(0);
         if (config.l2ChainId == LibNetwork.TAIKO_MAINNET) {
             shastaInbox = deployProxy({
                 name: "shasta_inbox",
                 impl: address(
                     new MainnetInbox(
-                        proofVerifier,
-                        config.preconfWhitelist,
-                        proverWhitelist,
-                        config.taikoToken,
-                        config.minBond,
-                        config.livenessBond,
-                        config.withdrawalDelay
+                        proofVerifier, config.preconfWhitelist, proverWhitelist, config.taikoToken
                     )
                 ),
                 data: abi.encodeCall(Inbox.init, config.contractOwner)
@@ -100,10 +92,8 @@ contract DeployShastaContracts is DeployCapability {
                         proofVerifier,
                         config.preconfWhitelist,
                         proverWhitelist,
-                        config.taikoToken,
-                        config.minBond,
-                        config.livenessBond,
-                        config.withdrawalDelay
+                        config.signalServiceProxy,
+                        config.taikoToken
                     )
                 ),
                 data: abi.encodeCall(Inbox.init, config.contractOwner)
@@ -128,9 +118,6 @@ contract DeployShastaContracts is DeployCapability {
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
-        config.minBond = uint64(vm.envUint("MIN_BOND_GWEI"));
-        config.livenessBond = uint64(vm.envUint("LIVENESS_BOND_GWEI"));
-        config.withdrawalDelay = uint48(vm.envUint("WITHDRAWAL_DELAY"));
         config.sgxAutomataProxy = vm.envAddress("SGX_AUTOMATA_PROXY");
         config.sgxGethAutomataProxy = vm.envAddress("SGX_GETH_AUTOMATA_PROXY");
         config.r0Groth16Verifier = vm.envAddress("R0_GROTH16_VERIFIER");
@@ -139,15 +126,13 @@ contract DeployShastaContracts is DeployCapability {
         config.oldSignalServiceImpl = vm.envAddress("OLD_SIGNAL_SERVICE_IMPL");
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
         config.preconfWhitelist = vm.envAddress("PRECONF_WHITELIST");
+        config.signalServiceProxy = vm.envAddress("SIGNAL_SERVICE_PROXY");
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2ChainId != 0, "L2_CHAIN_ID not set");
         require(config.sharedResolver != address(0), "SHARED_RESOLVER not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.taikoToken != address(0), "TAIKO_TOKEN not set");
-        require(config.minBond != 0, "MIN_BOND_GWEI not set");
-        require(config.livenessBond != 0, "LIVENESS_BOND_GWEI not set");
-        require(config.withdrawalDelay != 0, "WITHDRAWAL_DELAY not set");
         require(config.sgxAutomataProxy != address(0), "SGX_AUTOMATA_PROXY not set");
         require(config.sgxGethAutomataProxy != address(0), "SGX_GETH_AUTOMATA_PROXY not set");
         require(config.r0Groth16Verifier != address(0), "R0_GROTH16_VERIFIER not set");
@@ -156,6 +141,7 @@ contract DeployShastaContracts is DeployCapability {
         require(config.oldSignalServiceImpl != address(0), "OLD_SIGNAL_SERVICE_IMPL not set");
         require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
         require(config.preconfWhitelist != address(0), "PRECONF_WHITELIST not set");
+        require(config.signalServiceProxy != address(0), "SIGNAL_SERVICE_PROXY not set");
 
         for (uint256 i = 0; i < config.provers.length; ++i) {
             require(config.provers[i] != address(0), "PROVERS contains zero address");
@@ -167,10 +153,10 @@ contract DeployShastaContracts is DeployCapability {
         returns (VerifierAddresses memory verifiers)
     {
         // Deploy SGX verifier
-        verifiers.sgx = address(
+        verifiers.sgxReth = address(
             new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxAutomataProxy)
         );
-        console2.log("SgxVerifier deployed:", verifiers.sgx);
+        console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
         verifiers.sgxGeth = address(
             new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy)

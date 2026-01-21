@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {
-    SignalServiceForkRouter
-} from "../../../contracts/shared/signal/SignalServiceForkRouter.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 
 contract UpgradeShastaContracts is DeployCapability {
@@ -26,9 +23,9 @@ contract UpgradeShastaContracts is DeployCapability {
 
     function run() external broadcast {
         DeploymentConfig memory config = _loadConfig();
-        PreconfWhitelist(config.preconfWhitelistProxy).upgradeTo(config.preconfWhitelistImpl);
+        UUPSUpgradeable(config.preconfWhitelistProxy).upgradeTo(config.preconfWhitelistImpl);
         Ownable2StepUpgradeable(config.proverWhitelistProxy).acceptOwnership();
-        SignalServiceForkRouter(config.signalServiceProxy)
+        UUPSUpgradeable(config.signalServiceProxy)
             .upgradeTo(config.signalServiceForkRouterImpl);
     }
 

@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
-
 /// @title HoodiInbox
 /// @dev This contract extends the base Inbox contract for devnet deployment
 /// with optimized reentrancy lock implementation.
@@ -14,15 +13,9 @@ contract HoodiInbox is Inbox {
     // Constants
     // ---------------------------------------------------------------
     /// @dev Ring buffer size for storing proposal hashes.
-    /// Assumptions:
-    /// - D = 2: Proposals may continue without finalization for up to 2 days.
-    /// - P = 6: On average, 1 proposal is submitted every 6 Ethereum slots (≈72s).
-    ///
-    /// Calculation:
-    ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
-    ///                     = (86400 * 2) / 12 / 6
-    ///                     = 2400
-    uint64 private constant _RING_BUFFER_SIZE = 16_800;
+    /// Sized for worst-case throughput (1 proposal per L1 slot) over 3 days without finalization:
+    ///   _RING_BUFFER_SIZE = (3 days × 86_400) / 12 = 21_600
+    uint48 private constant _RING_BUFFER_SIZE = 21_600;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -33,10 +26,7 @@ contract HoodiInbox is Inbox {
         address _proposerChecker,
         address _proverWhitelist,
         address _signalService,
-        address _bondToken,
-        uint64 _minBond,
-        uint64 _livenessBond,
-        uint48 _withdrawalDelay
+        address _bondToken
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
@@ -44,20 +34,21 @@ contract HoodiInbox is Inbox {
                 proverWhitelist: _proverWhitelist,
                 signalService: _signalService,
                 bondToken: _bondToken,
-                minBond: _minBond,
-                livenessBond: _livenessBond,
-                withdrawalDelay: _withdrawalDelay,
-                provingWindow: 4 hours,
-                permissionlessProvingDelay: 72 hours,
-                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
+                minBond: 0, // During prover whitelist, bonds are not necessary
+                livenessBond: 0,
+                withdrawalDelay: 1 weeks,
+                provingWindow: 4 hours, // internal target is still to submit every ~2 hours
+                // Allows the security council time to intervene if a bug is found.
+                permissionlessProvingDelay: 5 days,
+                maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
-                basefeeSharingPctg: 0,
-                minForcedInclusionCount: 1,
-                forcedInclusionDelay: 384, // 1 epoch
-                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
+                basefeeSharingPctg: 75,
+                // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their window.
+                forcedInclusionDelay: 576 seconds,
+                forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee.
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
-                minCheckpointDelay: 384 seconds, // 1 epoch
-                permissionlessInclusionMultiplier: 5
+                // 160 * 576s = 92_160s (~25.6 hours).
+                permissionlessInclusionMultiplier: 160
             }))
     { }
 
