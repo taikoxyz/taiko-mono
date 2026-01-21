@@ -12406,6 +12406,8 @@ dependencies = [
  "driver",
  "metrics 0.24.3",
  "metrics-exporter-prometheus 0.15.3",
+ "preconfirmation-driver",
+ "preconfirmation-net",
  "proposer",
  "rpc",
  "tokio",

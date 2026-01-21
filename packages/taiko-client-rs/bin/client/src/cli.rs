@@ -6,7 +6,10 @@ use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 use tokio::runtime::{Builder, Runtime};
 
-use crate::commands::{driver::DriverSubCommand, proposer::ProposerSubCommand};
+use crate::commands::{
+    driver::DriverSubCommand, preconfirmation_driver::PreconfirmationDriverSubCommand,
+    proposer::ProposerSubCommand,
+};
 
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
@@ -15,6 +18,8 @@ pub enum Commands {
     Proposer(Box<ProposerSubCommand>),
     /// Run the driver.
     Driver(Box<DriverSubCommand>),
+    /// Run the preconfirmation driver with P2P client.
+    PreconfirmationDriver(Box<PreconfirmationDriverSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -31,6 +36,7 @@ impl Cli {
         match self.subcommand {
             Commands::Proposer(proposer_cmd) => Self::run_until_ctrl_c(proposer_cmd.run()),
             Commands::Driver(driver_cmd) => Self::run_until_ctrl_c(driver_cmd.run()),
+            Commands::PreconfirmationDriver(cmd) => Self::run_until_ctrl_c(cmd.run()),
         }
     }
 
