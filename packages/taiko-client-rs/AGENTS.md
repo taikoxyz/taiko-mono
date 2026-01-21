@@ -3,8 +3,8 @@
 ## Project Structure & Module Organization
 
 - `bin/client/` hosts the CLI entry point; keep orchestration light and delegate protocol logic to the crates.
-- `crates/preconfirmation-node/` contains the P2P client, gossip handlers, storage, and sync flows.
-- `crates/protocol`, `crates/proposer`, `crates/driver`, `crates/event-indexer`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
+- `crates/preconfirmation-driver/` contains the preconfirmation driver with P2P client integration, gossip handlers, and sync flows.
+- `crates/protocol`, `crates/proposer`, `crates/driver`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
 - `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src`.
 - The entire `bindings` crate is auto-generated; do not modify any files there manually.
 - `tests/` contains Docker-backed integration assets run through `tests/entrypoint.sh`. Place every end-to-end scenario here and note any extra prerequisites.
