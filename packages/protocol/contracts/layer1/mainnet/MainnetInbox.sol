@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
-import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 
 import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
 
@@ -28,13 +27,14 @@ contract MainnetInbox is Inbox {
         address _proofVerifier,
         address _proposerChecker,
         address _proverWhitelist,
+        address _signalService,
         address _bondToken
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
-                signalService: LibL1Addrs.SIGNAL_SERVICE,
+                signalService: _signalService,
                 bondToken: _bondToken,
                 minBond: 0, // During prover whitelist, bonds are not necessary
                 livenessBond: 0,
