@@ -10,11 +10,8 @@ use driver::{
     jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_client::{
-    DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
-    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
-};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
+use preconfirmation_node::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_types::uint256_to_u256;
 use rpc::{
     SubscriptionSource,
@@ -26,8 +23,9 @@ use test_harness::{
     BeaconStubServer, PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
     fetch_block_by_number,
     preconfirmation::{
-        SafeTipDriverClient, StaticLookaheadResolver, build_publish_payloads_with_txs,
-        derive_signer, test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
+        RpcDriverClient, RpcDriverClientConfig, SafeTipDriverClient, StaticLookaheadResolver,
+        build_publish_payloads_with_txs, derive_signer, test_p2p_config,
+        wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
     wait_for_block_or_loop_error,
 };
@@ -150,25 +148,23 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
 
     let l2_provider_1 = connect_http_with_timeout(l2_http_1.clone());
 
-    let driver1_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
+    let driver1_client_cfg = RpcDriverClientConfig::with_http_endpoint(
         driver1.http_url().parse()?,
         env.jwt_secret.clone(),
         l1_http.parse()?,
         env.l2_http_0.to_string().parse()?,
         env.inbox_address,
     );
-    let driver1_client =
-        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver1_client_cfg).await?);
+    let driver1_client = SafeTipDriverClient::new(RpcDriverClient::new(driver1_client_cfg).await?);
 
-    let driver2_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
+    let driver2_client_cfg = RpcDriverClientConfig::with_http_endpoint(
         driver2.http_url().parse()?,
         env.jwt_secret.clone(),
         l1_http.parse()?,
         l2_http_1.to_string().parse()?,
         env.inbox_address,
     );
-    let driver2_client =
-        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver2_client_cfg).await?);
+    let driver2_client = SafeTipDriverClient::new(RpcDriverClient::new(driver2_client_cfg).await?);
 
     let (signer_sk, signer) = derive_signer(1);
 

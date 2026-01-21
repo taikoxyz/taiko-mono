@@ -89,6 +89,9 @@ pub enum DriverApiError {
     /// Proposal id exceeds the uint48 limit.
     #[error("proposal_id does not fit into uint48")]
     ProposalIdOverflow,
+    /// Channel closed unexpectedly (used by embedded driver client).
+    #[error("channel closed: {0}")]
+    ChannelClosed(String),
 }
 
 impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {

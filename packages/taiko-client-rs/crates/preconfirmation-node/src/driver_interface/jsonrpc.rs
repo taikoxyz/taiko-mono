@@ -1,4 +1,10 @@
 //! JSON-RPC implementation of the [`DriverClient`] interface.
+//!
+//! **DEPRECATED**: This module provides a legacy JSON-RPC based driver client.
+//! For new code, prefer using [`EmbeddedDriverClient`] which communicates
+//! directly with the driver via channels, avoiding serialization overhead.
+//!
+//! [`EmbeddedDriverClient`]: super::embedded::EmbeddedDriverClient
 
 use std::{borrow::Cow, path::PathBuf, time::Duration};
 
@@ -143,6 +149,18 @@ impl JsonRpcDriverClientConfig {
 /// JSON-RPC driver client for communicating with the driver.
 ///
 /// Supports both HTTP (with JWT authentication) and IPC (with filesystem permissions).
+///
+/// # Deprecation Notice
+///
+/// This client is deprecated in favor of [`EmbeddedDriverClient`] which provides
+/// better performance by using direct channel communication instead of JSON-RPC.
+/// Use [`EmbeddedDriverClient`] when running the driver in the same process.
+///
+/// [`EmbeddedDriverClient`]: super::embedded::EmbeddedDriverClient
+#[deprecated(
+    since = "2.0.0",
+    note = "Use EmbeddedDriverClient for in-process communication instead of JSON-RPC"
+)]
 #[derive(Clone, Debug)]
 pub struct JsonRpcDriverClient {
     /// Driver RPC provider (HTTP+JWT or IPC).

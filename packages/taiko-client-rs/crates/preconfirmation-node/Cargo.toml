@@ -1,5 +1,5 @@
 [package]
-name = "preconfirmation-client"
+name = "preconfirmation-node"
 version.workspace = true
 edition.workspace = true
 publish = false
@@ -21,7 +21,10 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
+jsonrpsee = { workspace = true }
 metrics = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
@@ -65,3 +68,7 @@ path = "tests/catchup_e2e.rs"
 [[test]]
 name = "head_gossip_e2e"
 path = "tests/head_gossip_e2e.rs"
+
+[[test]]
+name = "node_integration"
+path = "tests/node_integration.rs"

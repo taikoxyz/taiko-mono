@@ -3,7 +3,7 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
-    "crates/preconfirmation-client",
+    "crates/preconfirmation-node",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",

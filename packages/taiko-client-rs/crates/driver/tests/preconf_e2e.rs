@@ -17,11 +17,8 @@ use driver::{
     jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_client::{
-    DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
-    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
-};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
+use preconfirmation_node::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
 use protocol::shasta::{calculate_shasta_difficulty, encode_extra_data};
 use rpc::client::{Client, ClientConfig, read_jwt_secret};
@@ -31,8 +28,9 @@ use test_harness::{
     BeaconStubServer, PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist,
     compute_next_block_base_fee, fetch_block_by_number,
     preconfirmation::{
-        SafeTipDriverClient, StaticLookaheadResolver, build_publish_payloads_with_txs,
-        derive_signer, test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
+        RpcDriverClient, RpcDriverClientConfig, SafeTipDriverClient, StaticLookaheadResolver,
+        build_publish_payloads_with_txs, derive_signer, test_p2p_config,
+        wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
     verify_anchor_block, wait_for_block_or_loop_error,
 };
@@ -235,15 +233,14 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         DriverRpcServer::start("127.0.0.1:0".parse()?, jwt_secret, event_syncer).await?;
 
     // Set up driver client with safe-tip fallback.
-    let driver_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
+    let driver_client_cfg = RpcDriverClientConfig::with_http_endpoint(
         rpc_server.http_url().parse()?,
         env.jwt_secret.clone(),
         l1_http.parse()?,
         env.l2_http_0.to_string().parse()?,
         env.inbox_address,
     );
-    let driver_client =
-        SafeTipDriverClient::new(JsonRpcDriverClient::new(driver_client_cfg).await?);
+    let driver_client = SafeTipDriverClient::new(RpcDriverClient::new(driver_client_cfg).await?);
 
     // Derive signer from deterministic secret key.
     let (signer_sk, signer) = derive_signer(1);

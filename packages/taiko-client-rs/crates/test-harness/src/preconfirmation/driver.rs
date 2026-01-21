@@ -2,7 +2,7 @@
 //!
 //! This module provides:
 //! - [`MockDriverClient`]: Records submissions for unit-style tests.
-//! - [`SafeTipDriverClient`]: Wraps real RPC client with safe-tip fallback.
+//! - [`SafeTipDriverClient`]: Wraps a driver client with safe-tip fallback.
 //! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
 
 use std::{sync::Arc, time::Duration};
@@ -16,9 +16,8 @@ use driver::{
     jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_client::{
+use preconfirmation_node::{
     DriverClient, PreconfirmationInput, Result,
-    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
     error::{DriverApiError, PreconfirmationClientError},
 };
 use preconfirmation_types::uint256_to_u256;
@@ -29,6 +28,7 @@ use tokio::{
 };
 use tracing::{info, warn};
 
+use super::rpc_client::{RpcDriverClient, RpcDriverClientConfig};
 use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
 
 /// A mock driver client that records submissions for test verification.
@@ -170,18 +170,18 @@ impl DriverClient for MockDriverClient {
     }
 }
 
-/// Wraps a JSON-RPC driver client with safe-tip fallback for event sync.
+/// Wraps a driver client with safe-tip fallback for event sync.
 ///
 /// When `event_sync_tip` returns `MissingSafeBlock`, falls back to `preconf_tip`.
 /// Also logs submission results for debugging.
 #[derive(Clone)]
 pub struct SafeTipDriverClient {
-    inner: JsonRpcDriverClient,
+    inner: RpcDriverClient,
 }
 
 impl SafeTipDriverClient {
     /// Create a new safe-tip driver client wrapper.
-    pub fn new(inner: JsonRpcDriverClient) -> Self {
+    pub fn new(inner: RpcDriverClient) -> Self {
         Self { inner }
     }
 }
@@ -307,7 +307,7 @@ impl RealDriverSetup {
         let rpc_server =
             DriverRpcServer::start("127.0.0.1:0".parse()?, jwt_secret, event_syncer).await?;
 
-        let driver_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
+        let driver_client_cfg = RpcDriverClientConfig::with_http_endpoint(
             rpc_server.http_url().parse()?,
             env.jwt_secret.clone(),
             l1_http.parse()?,
@@ -315,7 +315,7 @@ impl RealDriverSetup {
             env.inbox_address,
         );
         let driver_client =
-            SafeTipDriverClient::new(JsonRpcDriverClient::new(driver_client_cfg).await?);
+            SafeTipDriverClient::new(RpcDriverClient::new(driver_client_cfg).await?);
 
         let l2_provider = connect_http_with_timeout(env.l2_http_0.clone());
 

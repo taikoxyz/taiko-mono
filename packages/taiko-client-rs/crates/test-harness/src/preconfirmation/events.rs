@@ -6,7 +6,7 @@
 //! - [`wait_for_commitments_and_txlists`]: Waits for multiple commitments/txlists.
 //! - [`wait_for_synced`]: Waits for the synced event.
 
-use preconfirmation_client::subscription::PreconfirmationEvent;
+use preconfirmation_node::subscription::PreconfirmationEvent;
 use tokio::sync::broadcast;
 
 // ============================================================================

@@ -36,6 +36,7 @@ mod events;
 mod lookahead;
 mod p2p;
 mod payloads;
+mod rpc_client;
 
 pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
 pub use driver::{MockDriverClient, RealDriverSetup, SafeTipDriverClient, StartingBlockInfo};
@@ -53,3 +54,4 @@ pub use payloads::{
     build_publish_payloads_with_txs, build_txlist_bytes, compute_starting_block,
     compute_txlist_hash, derive_signer,
 };
+pub use rpc_client::{DriverEndpoint, RpcDriverClient, RpcDriverClientConfig};
