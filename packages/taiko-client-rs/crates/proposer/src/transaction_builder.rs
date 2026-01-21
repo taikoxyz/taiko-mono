@@ -1,5 +1,6 @@
 //! Transaction builder for constructing proposal transactions.
 
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy::{
     consensus::{BlobTransactionSidecar, SidecarBuilder},
     primitives::{
@@ -48,8 +49,14 @@ impl ShastaProposalTransactionBuilder {
         engine_params: Option<EnginePayloadParams>,
     ) -> Result<TransactionRequest> {
         // Use provided engine params or derive defaults.
+        // For engine mode, subtract anchor gas from the manifest gas limit since the
+        // driver's validation expects gas_limit = parent_gas_limit - anchor_gas.
         let (anchor_block_number, timestamp, gas_limit) = match engine_params {
-            Some(params) => (params.anchor_block_number, params.timestamp, params.gas_limit),
+            Some(params) => (
+                params.anchor_block_number,
+                params.timestamp,
+                params.gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT),
+            ),
             None => (
                 self.rpc_provider.l1_provider.get_block_number().await?,
                 current_unix_timestamp(),
