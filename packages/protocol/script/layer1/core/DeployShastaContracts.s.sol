@@ -17,7 +17,7 @@ import "test/shared/DeployCapability.sol";
 
 contract DeployShastaContracts is DeployCapability {
     struct VerifierAddresses {
-        address sgx;
+        address sgxReth;
         address risc0;
         address sp1;
         address sgxGeth;
