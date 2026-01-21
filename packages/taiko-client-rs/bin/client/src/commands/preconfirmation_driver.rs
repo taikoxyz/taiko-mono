@@ -147,16 +147,22 @@ impl PreconfirmationDriverSubCommand {
 
 #[async_trait]
 impl Subcommand for PreconfirmationDriverSubCommand {
+    /// Returns a reference to the common CLI arguments.
     fn common_args(&self) -> &CommonArgs {
         &self.common_flags
     }
 
+    /// Registers driver and preconfirmation metrics with the global registry.
     fn register_metrics(&self) -> Result<()> {
         DriverMetrics::init();
         PreconfirmationClientMetrics::init();
         Ok(())
     }
 
+    /// Runs the preconfirmation driver with embedded P2P client.
+    ///
+    /// This method initializes the driver event syncer, waits for it to be ready,
+    /// then starts the preconfirmation P2P node and forwards inputs to the driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

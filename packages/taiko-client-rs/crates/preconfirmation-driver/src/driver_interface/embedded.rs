@@ -8,10 +8,16 @@ use super::traits::{DriverClient, PreconfirmationInput};
 use crate::error::{DriverApiError, Result};
 
 /// A driver client that communicates directly with an embedded driver via channels.
+///
+/// This client bypasses JSON-RPC serialization overhead by using Tokio channels
+/// for direct in-process communication with the driver.
 #[derive(Clone)]
 pub struct EmbeddedDriverClient {
+    /// Channel for sending preconfirmation inputs to the driver.
     input_sender: mpsc::Sender<PreconfirmationInput>,
+    /// Watch channel for receiving the latest canonical proposal ID from the driver.
     canonical_proposal_id: watch::Receiver<u64>,
+    /// Watch channel for receiving the latest preconfirmation tip from the driver.
     preconf_tip: watch::Receiver<U256>,
 }
 
@@ -25,6 +31,7 @@ impl EmbeddedDriverClient {
         Self { input_sender, canonical_proposal_id, preconf_tip }
     }
 
+    /// Returns the capacity of the input sender channel (for testing purposes).
     #[cfg(test)]
     pub fn input_sender_capacity(&self) -> usize {
         self.input_sender.capacity()
@@ -33,6 +40,9 @@ impl EmbeddedDriverClient {
 
 #[async_trait]
 impl DriverClient for EmbeddedDriverClient {
+    /// Sends a preconfirmation input to the driver via the channel.
+    ///
+    /// Returns an error if the receiver has been dropped.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
         self.input_sender
             .send(input)
@@ -41,6 +51,10 @@ impl DriverClient for EmbeddedDriverClient {
         Ok(())
     }
 
+    /// Waits until the driver has processed at least one L1 event.
+    ///
+    /// Returns immediately if the canonical proposal ID is already greater than zero.
+    /// Otherwise, blocks until the watch channel receives an update.
     async fn wait_event_sync(&self) -> Result<()> {
         let mut rx = self.canonical_proposal_id.clone();
         let initial = *rx.borrow();
@@ -60,10 +74,12 @@ impl DriverClient for EmbeddedDriverClient {
         }
     }
 
+    /// Returns the current canonical proposal ID as a U256.
     async fn event_sync_tip(&self) -> Result<U256> {
         Ok(U256::from(*self.canonical_proposal_id.borrow()))
     }
 
+    /// Returns the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256> {
         Ok(*self.preconf_tip.borrow())
     }

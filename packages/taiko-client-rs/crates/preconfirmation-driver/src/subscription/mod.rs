@@ -265,10 +265,10 @@ where
             return Ok(true);
         }
 
-        let txlist_hash = commitment.commitment.preconf.raw_tx_list_hash.clone();
-        let txlist = self.store.get_txlist(&B256::from_slice(txlist_hash.as_ref()));
+        let raw_tx_list_hash = commitment.commitment.preconf.raw_tx_list_hash.clone();
+        let txlist = self.store.get_txlist(&B256::from_slice(raw_tx_list_hash.as_ref()));
         let Some(txlist) = txlist else {
-            self.store.add_awaiting_txlist(&txlist_hash, commitment);
+            self.store.add_awaiting_txlist(&raw_tx_list_hash, commitment);
             return Ok(false);
         };
 

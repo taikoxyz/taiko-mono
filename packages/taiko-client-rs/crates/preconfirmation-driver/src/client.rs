@@ -206,6 +206,18 @@ where
         self.handle.command_sender()
     }
 
+    /// Get a reference to the P2P handle for querying network state.
+    pub fn p2p_handle(&self) -> &P2pHandle {
+        &self.handle
+    }
+
+    /// Get a reference to the lookahead resolver.
+    pub fn lookahead_resolver(
+        &self,
+    ) -> &Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync> {
+        &self.config.lookahead_resolver
+    }
+
     /// Wait for driver event sync to complete, perform catchup, and return an event loop.
     ///
     /// This method consumes the client and:
@@ -286,9 +298,9 @@ where
             let mut commit_iter = commitments.into_iter();
             if let Some(first) = commit_iter.next() {
                 handler.handle_catchup_commitment(first).await?;
-            }
-            for commitment in commit_iter {
-                handler.handle_commitment(commitment).await?;
+                for commitment in commit_iter {
+                    handler.handle_commitment(commitment).await?;
+                }
             }
 
             metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)

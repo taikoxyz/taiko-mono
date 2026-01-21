@@ -121,11 +121,14 @@ macro_rules! register_method {
     };
 }
 
+/// Internal context passed to all RPC method handlers.
 #[derive(Clone)]
 struct RpcContext {
+    /// The API implementation backing RPC calls.
     api: Arc<dyn PreconfRpcApi>,
 }
 
+/// Builds the JSON-RPC module with all preconfirmation methods registered.
 fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     let mut module = RpcModule::new(RpcContext { api });
 
@@ -151,6 +154,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     module
 }
 
+/// Records Prometheus metrics for an RPC request (duration, request count, error count).
 fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
     histogram!(METRIC_DURATION_SECONDS, "method" => method.to_string()).record(duration_secs);
     counter!(METRIC_REQUESTS_TOTAL, "method" => method.to_string()).increment(1);
@@ -161,6 +165,7 @@ fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
     }
 }
 
+/// Converts a preconfirmation client error to a JSON-RPC error object.
 fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     use PreconfRpcErrorCode::*;
     use PreconfirmationClientError::*;

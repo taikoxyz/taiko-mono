@@ -40,7 +40,9 @@ pub struct PublishCommitmentResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishTxListResponse {
+    /// The keccak256 hash of the published transaction list.
     pub tx_list_hash: B256,
+    /// The number of transactions in the published list.
     pub transaction_count: u64,
 }
 
@@ -48,10 +50,15 @@ pub struct PublishTxListResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeStatus {
+    /// Whether the node has completed initial sync with L1 events.
     pub is_synced: bool,
+    /// The highest preconfirmed block number known to this node.
     pub preconf_tip: U256,
+    /// The last canonical proposal ID from L1 inbox events.
     pub canonical_proposal_id: u64,
+    /// Number of connected P2P peers.
     pub peer_count: u64,
+    /// This node's libp2p peer ID.
     pub peer_id: String,
 }
 
@@ -59,8 +66,11 @@ pub struct NodeStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LookaheadInfo {
+    /// The Ethereum address of the current preconfirmer for this slot.
     pub current_preconfirmer: Address,
+    /// Unix timestamp when the current submission window ends.
     pub submission_window_end: U256,
+    /// The current beacon chain slot number, if available.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_slot: Option<u64>,
 }
@@ -69,7 +79,9 @@ pub struct LookaheadInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreconfHead {
+    /// The latest preconfirmed block number.
     pub block_number: U256,
+    /// Unix timestamp when the current submission window ends.
     pub submission_window_end: U256,
 }
 
@@ -77,19 +89,27 @@ pub struct PreconfHead {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum PreconfRpcErrorCode {
+    /// Internal server error occurred.
     InternalError = -32000,
+    /// The commitment format or signature is invalid.
     InvalidCommitment = -32001,
+    /// The transaction list format is invalid.
     InvalidTxList = -32002,
+    /// The node has not completed initial sync.
     NotSynced = -32003,
+    /// The submission window has expired for this slot.
     SubmissionWindowExpired = -32004,
+    /// The signer is not the expected preconfirmer for this slot.
     InvalidSigner = -32005,
 }
 
 impl PreconfRpcErrorCode {
+    /// Get the integer code for this error.
     pub const fn code(self) -> i32 {
         self as i32
     }
 
+    /// Get a human-readable message for this error.
     pub const fn message(self) -> &'static str {
         match self {
             Self::InternalError => "Internal error",

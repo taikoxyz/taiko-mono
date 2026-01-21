@@ -33,12 +33,14 @@ pub enum DriverEndpoint {
 }
 
 impl From<Url> for DriverEndpoint {
+    /// Constructs a `DriverEndpoint` from an HTTP URL.
     fn from(url: Url) -> Self {
         Self::Http(url)
     }
 }
 
 impl From<PathBuf> for DriverEndpoint {
+    /// Constructs a `DriverEndpoint` from an IPC path.
     fn from(path: PathBuf) -> Self {
         Self::Ipc(path)
     }
@@ -141,6 +143,7 @@ impl RpcDriverClient {
         })
     }
 
+    /// Fetches the last canonical proposal ID from the driver via JSON-RPC.
     async fn last_canonical_proposal_id(&self) -> Result<u64> {
         self.driver_provider
             .raw_request(Cow::Borrowed(DriverRpcMethod::LastCanonicalProposalId.as_str()), ())
@@ -154,6 +157,10 @@ impl RpcDriverClient {
 
 #[async_trait]
 impl DriverClient for RpcDriverClient {
+    /// Submits a preconfirmation payload to the driver via JSON-RPC.
+    ///
+    /// Builds payload attributes and sends them to the driver's
+    /// `submitPreconfirmationPayload` RPC method.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
         let preconf = &input.commitment.commitment.preconf;
         let block_number =
@@ -193,6 +200,10 @@ impl DriverClient for RpcDriverClient {
         }
     }
 
+    /// Waits until the driver has synced with L1 inbox events.
+    ///
+    /// Polls the driver's `lastCanonicalProposalId` until it matches or exceeds
+    /// the on-chain `nextProposalId - 1`.
     async fn wait_event_sync(&self) -> Result<()> {
         info!("starting wait for driver to sync with L1 inbox events");
 
@@ -220,6 +231,7 @@ impl DriverClient for RpcDriverClient {
         }
     }
 
+    /// Returns the safe block number from the L2 execution client.
     async fn event_sync_tip(&self) -> Result<U256> {
         let block = self
             .l2_provider
@@ -230,6 +242,7 @@ impl DriverClient for RpcDriverClient {
         Ok(U256::from(block.number()))
     }
 
+    /// Returns the latest block number from the L2 execution client.
     async fn preconf_tip(&self) -> Result<U256> {
         let block = self
             .l2_provider
