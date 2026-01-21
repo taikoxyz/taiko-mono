@@ -51,6 +51,11 @@ impl ShastaProposalTransactionBuilder {
         // Use provided engine params or derive defaults.
         // For engine mode, subtract anchor gas from the manifest gas limit since the
         // driver's validation expects gas_limit = parent_gas_limit - anchor_gas.
+        //
+        // Note: For the first block after genesis, this subtraction creates a mismatch
+        // with driver validation (which doesn't subtract for genesis parent), causing
+        // a fallback to default manifest. This is acceptable and self-corrects from
+        // the second block onward.
         let (anchor_block_number, timestamp, gas_limit) = match engine_params {
             Some(params) => (
                 params.anchor_block_number,
