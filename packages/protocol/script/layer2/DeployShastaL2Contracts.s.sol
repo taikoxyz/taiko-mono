@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {
     SignalServiceForkRouter
-} from "../../../contracts/shared/signal/SignalServiceForkRouter.sol";
+} from "../../contracts/shared/signal/SignalServiceForkRouter.sol";
 import { Anchor } from "../../contracts/layer2/core/Anchor.sol";
 import { AnchorForkRouter } from "../../contracts/layer2/core/AnchorForkRouter.sol";
 import "src/shared/signal/SignalService.sol";
@@ -29,7 +29,6 @@ contract DeployShastaL2Contracts is DeployCapability {
 
     function run() external broadcast {
         DeploymentConfig memory config = _loadConfig();
-        // TODO: question about whether the Bridge contract is compatible and whether a Bridge contract upgrade is required.
         address anchorImpl =
             address(new Anchor(ICheckpointStore(config.l1SignalService), config.l1ChainId));
         console2.log("New anchorImpl deployed:", anchorImpl);
