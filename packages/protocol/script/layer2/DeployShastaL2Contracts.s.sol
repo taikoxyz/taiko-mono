@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {
-    SignalServiceForkRouter
-} from "../../contracts/shared/signal/SignalServiceForkRouter.sol";
 import { Anchor } from "../../contracts/layer2/core/Anchor.sol";
 import { AnchorForkRouter } from "../../contracts/layer2/core/AnchorForkRouter.sol";
+import { SignalServiceForkRouter } from "../../contracts/shared/signal/SignalServiceForkRouter.sol";
 import "src/shared/signal/SignalService.sol";
 import "test/shared/DeployCapability.sol";
 
