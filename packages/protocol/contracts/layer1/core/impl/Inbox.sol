@@ -14,6 +14,7 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -198,6 +199,64 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _afterActivate();
         emit InboxActivated(_lastPacayaBlockHash);
     }
+
+    // ---------------------------------------------------------------
+    // Propose + real time proving (POC)
+    // ---------------------------------------------------------------
+
+    // Signer of the state update
+    address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+
+    struct StateUpdate {
+        uint48 blockNumber;
+        bytes32 stateRoot;
+        bytes32 blockHash;
+    }
+
+    function proposeWithProof(
+        bytes calldata _lookahead,
+        bytes calldata _data,
+        bytes calldata _proof
+    )
+        external
+        nonReentrant
+    {
+        _propose(_lookahead, _data);
+
+        // Hackish real time proving
+        // --------------------------
+
+        // Verify proof signer
+        StateUpdate memory stateUpdate = abi.decode(_proof[:96], (StateUpdate));
+        bytes32 digest = keccak256(abi.encode(stateUpdate));
+        require(ECDSA.recover(digest, _proof[96:]) == SIGNER, "proposeWithProof: Invalid signer");
+
+        // Sync state
+        _signalService.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: stateUpdate.blockNumber,
+                stateRoot: stateUpdate.stateRoot,
+                blockHash: stateUpdate.blockHash
+            })
+        );
+
+        // Update core state
+        _coreState.lastFinalizedProposalId = uint48(_coreState.nextProposalId - 1);
+        _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
+        _coreState.lastFinalizedBlockHash = stateUpdate.blockHash;
+
+        emit Proved(
+            uint48(_coreState.nextProposalId - 1),
+            uint48(_coreState.nextProposalId - 1),
+            uint48(_coreState.nextProposalId - 1),
+            SIGNER,
+            true
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // Previous functions
+    // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
