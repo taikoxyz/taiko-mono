@@ -16,7 +16,7 @@ use driver::{
     jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_node::{
+use preconfirmation_driver::{
     DriverClient, PreconfirmationInput, Result,
     error::{DriverApiError, PreconfirmationClientError},
 };

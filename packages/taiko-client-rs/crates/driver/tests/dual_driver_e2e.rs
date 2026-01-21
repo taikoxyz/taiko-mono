@@ -10,8 +10,8 @@ use driver::{
     jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
+use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
-use preconfirmation_node::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_types::uint256_to_u256;
 use rpc::{
     SubscriptionSource,

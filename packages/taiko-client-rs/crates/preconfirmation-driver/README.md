@@ -1,6 +1,6 @@
-# preconfirmation-node
+# preconfirmation-driver
 
-A complete preconfirmation node implementation for Taiko, combining P2P network participation, driver integration, and user-facing RPC API.
+A preconfirmation integration library for Taiko, combining P2P network participation with embedded driver communication via channels.
 
 ## Architecture
 
@@ -50,7 +50,7 @@ User-facing JSON-RPC methods:
 ### Basic Setup
 
 ```rust
-use preconfirmation_node::{
+use preconfirmation_driver::{
     PreconfirmationNode, PreconfirmationNodeConfig,
     PreconfirmationClientConfig, PreconfRpcServerConfig,
 };
@@ -75,7 +75,7 @@ node.run().await?;
 ### Using EmbeddedDriverClient Directly
 
 ```rust
-use preconfirmation_node::EmbeddedDriverClient;
+use preconfirmation_driver::EmbeddedDriverClient;
 use tokio::sync::{mpsc, watch};
 
 let (input_tx, input_rx) = mpsc::channel(256);
@@ -119,11 +119,11 @@ src/
 
 ```bash
 # Run unit tests
-cargo test -p preconfirmation-node --lib
+cargo test -p preconfirmation-driver --lib
 
 # Run integration tests
-cargo test -p preconfirmation-node --test node_integration
+cargo test -p preconfirmation-driver --test node_integration
 
 # Run E2E tests (requires test environment)
-PROTOCOL_DIR=/path/to/protocol cargo test -p preconfirmation-node
+PROTOCOL_DIR=/path/to/protocol cargo test -p preconfirmation-driver
 ```

@@ -15,8 +15,8 @@ use helpers::{
     ExternalP2pNode, build_commitment_chain, derive_signer, test_p2p_config,
     wait_for_peer_connected, wait_for_synced,
 };
+use preconfirmation_driver::{PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::NetworkCommand;
-use preconfirmation_node::{PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_types::{PreconfHead, u256_to_uint256, uint256_to_u256};
 use serial_test::serial;
 use test_context::test_context;

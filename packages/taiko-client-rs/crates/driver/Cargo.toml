@@ -49,8 +49,8 @@ anyhow = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
+preconfirmation-driver = { path = "../preconfirmation-driver" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
-preconfirmation-node = { path = "../preconfirmation-node" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }
 rand = { workspace = true }

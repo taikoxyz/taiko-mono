@@ -1,7 +1,7 @@
 //! Integration tests for PreconfirmationNode.
 
 use alloy_primitives::U256;
-use preconfirmation_node::{
+use preconfirmation_driver::{
     DriverChannels, EmbeddedDriverClient,
     driver_interface::{DriverClient, PreconfirmationInput},
     rpc::PreconfRpcServerConfig,

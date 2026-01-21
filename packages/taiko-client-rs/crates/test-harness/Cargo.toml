@@ -9,7 +9,7 @@ default = []
 # Enable preconfirmation test utilities (mock driver, mock lookahead, etc.)
 preconfirmation = [
     "dep:flate2",
-    "dep:preconfirmation-node",
+    "dep:preconfirmation-driver",
     "dep:preconfirmation-net",
     "dep:preconfirmation-types",
     "dep:async-trait",
@@ -39,8 +39,8 @@ http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 once_cell = { workspace = true }
+preconfirmation-driver = { path = "../preconfirmation-driver", optional = true }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net", optional = true }
-preconfirmation-node = { path = "../preconfirmation-node", optional = true }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types", optional = true }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }

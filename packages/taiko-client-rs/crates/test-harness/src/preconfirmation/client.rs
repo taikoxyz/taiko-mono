@@ -9,11 +9,11 @@ use std::sync::Arc;
 
 use alloy_primitives::{Address, U256};
 use anyhow::Result;
-use preconfirmation_net::Multiaddr;
-use preconfirmation_node::{
+use preconfirmation_driver::{
     DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
     subscription::PreconfirmationEvent,
 };
+use preconfirmation_net::Multiaddr;
 use secp256k1::SecretKey;
 use tokio::{
     sync::{broadcast, oneshot},

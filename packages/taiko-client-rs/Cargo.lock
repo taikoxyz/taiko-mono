@@ -3374,8 +3374,8 @@ dependencies = [
  "jsonrpsee",
  "k256",
  "metrics 0.24.3",
+ "preconfirmation-driver",
  "preconfirmation-net",
- "preconfirmation-node",
  "preconfirmation-types",
  "proposer",
  "protocol",
@@ -7310,43 +7310,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "preconfirmation-net"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "anyhow",
- "async-trait",
- "crossbeam-skiplist",
- "dashmap 6.1.0",
- "discv5 0.10.2",
- "futures",
- "ipnet",
- "kona-gossip",
- "kona-peers",
- "libp2p",
- "libp2p-allow-block-list",
- "libp2p-connection-limits",
- "libp2p-request-response",
- "metrics 0.24.3",
- "metrics-exporter-prometheus 0.15.3",
- "preconfirmation-types",
- "rand 0.8.5",
- "reth-discv5 1.9.3",
- "reth-network-types 1.9.3",
- "reth-tokio-util 1.9.3",
- "secp256k1 0.30.0",
- "serde",
- "serde_json",
- "ssz_rs",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "tracing-subscriber 0.3.22",
- "unsigned-varint 0.8.0",
-]
-
-[[package]]
-name = "preconfirmation-node"
+name = "preconfirmation-driver"
 version = "2.0.0"
 dependencies = [
  "alethia-reth-consensus",
@@ -7387,6 +7351,42 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.22",
  "url",
+]
+
+[[package]]
+name = "preconfirmation-net"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "crossbeam-skiplist",
+ "dashmap 6.1.0",
+ "discv5 0.10.2",
+ "futures",
+ "ipnet",
+ "kona-gossip",
+ "kona-peers",
+ "libp2p",
+ "libp2p-allow-block-list",
+ "libp2p-connection-limits",
+ "libp2p-request-response",
+ "metrics 0.24.3",
+ "metrics-exporter-prometheus 0.15.3",
+ "preconfirmation-types",
+ "rand 0.8.5",
+ "reth-discv5 1.9.3",
+ "reth-network-types 1.9.3",
+ "reth-tokio-util 1.9.3",
+ "secp256k1 0.30.0",
+ "serde",
+ "serde_json",
+ "ssz_rs",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.22",
+ "unsigned-varint 0.8.0",
 ]
 
 [[package]]
@@ -12491,8 +12491,8 @@ dependencies = [
  "hyper",
  "hyper-util",
  "once_cell",
+ "preconfirmation-driver",
  "preconfirmation-net",
- "preconfirmation-node",
  "preconfirmation-types",
  "protocol",
  "rpc",

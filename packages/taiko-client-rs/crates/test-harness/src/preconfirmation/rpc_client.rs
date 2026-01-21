@@ -10,7 +10,7 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, RootProvider};
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
-use preconfirmation_node::{
+use preconfirmation_driver::{
     DriverClient, PreconfirmationInput, Result,
     driver_interface::payload::build_taiko_payload_attributes,
     error::{DriverApiError, PreconfirmationClientError},

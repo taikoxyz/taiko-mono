@@ -1,4 +1,4 @@
-//! Error types for the preconfirmation client SDK.
+//! Error types for the preconfirmation node.
 
 use alloy_contract::Error as ContractError;
 use alloy_transport::TransportError;
@@ -9,7 +9,7 @@ use thiserror::Error;
 /// Result alias for preconfirmation client operations.
 pub type Result<T> = std::result::Result<T, PreconfirmationClientError>;
 
-/// Errors surfaced by the preconfirmation client SDK.
+/// Errors from the preconfirmation node.
 #[derive(Debug, Error)]
 pub enum PreconfirmationClientError {
     /// Network error emitted by the P2P stack.
@@ -102,7 +102,7 @@ impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {
 }
 
 impl From<protocol::preconfirmation::LookaheadError> for PreconfirmationClientError {
-    /// Convert a lookahead resolver error into an SDK error.
+    /// Convert a lookahead resolver error.
     fn from(err: protocol::preconfirmation::LookaheadError) -> Self {
         PreconfirmationClientError::Lookahead(err.to_string())
     }

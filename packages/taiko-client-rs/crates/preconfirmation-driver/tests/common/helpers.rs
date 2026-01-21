@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
-//! Test-only helpers for preconfirmation-node integration tests.
+//! Test-only helpers for preconfirmation-driver integration tests.
 //!
 //! This module re-exports shared helpers from test-harness and provides
-//! any test-local utilities specific to preconfirmation-node tests.
+//! any test-local utilities specific to preconfirmation-driver tests.
 
 // Re-export all shared P2P helpers from test-harness.
 pub use test_harness::preconfirmation::{
@@ -14,7 +14,7 @@ pub use test_harness::preconfirmation::{
 };
 
 // Re-export DualDriverSetup which is specific to multi-client P2P tests.
-// This struct remains here as it's only used by preconfirmation-node tests.
+// This struct remains here as it's only used by preconfirmation-driver tests.
 use std::sync::Arc;
 
 use anyhow::Result;

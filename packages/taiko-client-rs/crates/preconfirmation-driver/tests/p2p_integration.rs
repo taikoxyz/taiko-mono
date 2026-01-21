@@ -13,7 +13,7 @@ use helpers::{
     ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, test_p2p_config,
     wait_for_commitment_and_txlist, wait_for_peer_connected,
 };
-use preconfirmation_node::{PreconfirmationClient, PreconfirmationClientConfig};
+use preconfirmation_driver::{PreconfirmationClient, PreconfirmationClientConfig};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{

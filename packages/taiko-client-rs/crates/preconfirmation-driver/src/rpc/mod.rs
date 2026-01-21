@@ -16,7 +16,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use preconfirmation_node::rpc::{PreconfRpcServer, PreconfRpcServerConfig};
+//! use preconfirmation_driver::rpc::{PreconfRpcServer, PreconfRpcServerConfig};
 //!
 //! let config = PreconfRpcServerConfig {
 //!     listen_addr: "127.0.0.1:8550".parse()?,

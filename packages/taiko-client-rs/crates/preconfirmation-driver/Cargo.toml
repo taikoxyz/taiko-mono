@@ -1,5 +1,5 @@
 [package]
-name = "preconfirmation-node"
+name = "preconfirmation-driver"
 version.workspace = true
 edition.workspace = true
 publish = false

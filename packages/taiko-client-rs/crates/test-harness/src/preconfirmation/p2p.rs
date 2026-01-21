@@ -13,11 +13,11 @@ use std::{
 
 use alloy_primitives::{Address, U256};
 use anyhow::Result;
+use preconfirmation_driver::DriverClient;
 use preconfirmation_net::{
     InMemoryStorage, LocalValidationAdapter, P2pConfig, P2pHandle, P2pNode, PreconfStorage,
     ValidationAdapter,
 };
-use preconfirmation_node::DriverClient;
 use secp256k1::SecretKey;
 use tokio::task::JoinHandle;
 

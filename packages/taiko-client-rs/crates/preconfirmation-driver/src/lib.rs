@@ -1,18 +1,17 @@
-//! Preconfirmation node SDK.
+//! Preconfirmation driver integration library.
 //!
-//! This crate provides a complete preconfirmation node implementation for Taiko.
-//! It combines the P2P network participation, driver integration, and user-facing
-//! RPC API into a single embeddable component.
+//! This crate provides the preconfirmation integration layer for the Taiko driver.
+//! It combines P2P network participation with embedded driver communication via channels.
 //!
 //! # Architecture
 //!
-//! The preconfirmation node consists of:
+//! The preconfirmation driver consists of:
 //!
 //! - **PreconfirmationClient**: Handles P2P network operations including gossip, commitment
 //!   validation, and tip catch-up.
 //!
-//! - **EmbeddedDriverClient**: Communicates directly with an embedded driver via channels,
-//!   bypassing JSON-RPC serialization.
+//! - **EmbeddedDriverClient**: Communicates directly with the driver via channels, bypassing
+//!   JSON-RPC serialization.
 //!
 //! - **PreconfRpcServer**: Exposes a user-friendly JSON-RPC API for external clients to submit
 //!   preconfirmations.
@@ -33,7 +32,7 @@ pub mod codec;
 pub mod config;
 /// Driver integration traits and clients.
 pub mod driver_interface;
-/// Error types surfaced by the SDK.
+/// Error types.
 pub mod error;
 /// Metrics exposed by the preconfirmation node.
 pub mod metrics;

@@ -17,14 +17,14 @@ use crate::Result;
 /// Default number of commitments/txlists to retain in memory.
 pub const DEFAULT_RETENTION_LIMIT: usize = 384 * 10;
 
-/// Configuration for the preconfirmation client SDK.
+/// Configuration for the preconfirmation client.
 #[derive(Clone)]
 pub struct PreconfirmationClientConfig {
     /// P2P configuration covering chain ID, listen addresses, discovery, and bootnodes.
     pub p2p: P2pConfig,
     /// Optional slasher address expected on inbound commitments.
     pub expected_slasher: Option<Bytes20>,
-    /// Timeout applied to SDK-level request/response operations.
+    /// Timeout applied to request/response operations.
     pub request_timeout: Duration,
     /// Maximum number of commitments requested per catch-up batch.
     pub catchup_batch_size: u32,
