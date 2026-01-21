@@ -25,8 +25,8 @@ jsonrpsee = { workspace = true }
 metrics = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-ssz_rs = { workspace = true }
 sha2 = { workspace = true }
+ssz_rs = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

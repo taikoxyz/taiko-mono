@@ -196,7 +196,10 @@ impl PreconfRpcApi for NodeRpcApiImpl {
             .await
             .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
 
-        Ok(PublishCommitmentResponse { commitment_hash: B256::from(commitment_hash.0), tx_list_hash })
+        Ok(PublishCommitmentResponse {
+            commitment_hash: B256::from(commitment_hash.0),
+            tx_list_hash,
+        })
     }
 
     /// Publishes a transaction list to the P2P network.
@@ -252,14 +255,11 @@ impl PreconfRpcApi for NodeRpcApiImpl {
 
         // Query peer count via command channel
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let peer_count = match self
-            .command_sender
-            .send(NetworkCommand::GetPeerCount { respond_to: tx })
-            .await
-        {
-            Ok(()) => rx.await.unwrap_or(0),
-            Err(_) => 0,
-        };
+        let peer_count =
+            match self.command_sender.send(NetworkCommand::GetPeerCount { respond_to: tx }).await {
+                Ok(()) => rx.await.unwrap_or(0),
+                Err(_) => 0,
+            };
 
         Ok(NodeStatus {
             is_synced: canonical_proposal_id > 0,
@@ -277,11 +277,8 @@ impl PreconfRpcApi for NodeRpcApiImpl {
         let block_number = *self.preconf_tip_rx.borrow();
 
         // Try to get submission window from lookahead
-        let submission_window_end = self
-            .get_lookahead()
-            .await
-            .map(|info| info.submission_window_end)
-            .unwrap_or(U256::ZERO);
+        let submission_window_end =
+            self.get_lookahead().await.map(|info| info.submission_window_end).unwrap_or(U256::ZERO);
 
         Ok(PreconfHead { block_number, submission_window_end })
     }

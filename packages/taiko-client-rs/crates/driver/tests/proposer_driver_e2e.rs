@@ -21,7 +21,7 @@ use rpc::{
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
-use tokio::{spawn, time::sleep};
+use tokio::spawn;
 use tracing::{info, warn};
 
 fn client_config(env: &ShastaEnv) -> ClientConfig {
@@ -65,7 +65,7 @@ async fn submit_proposal(
     Ok((proposal_id, proposal_log))
 }
 
-/// Waits for the event syncer to process a specific proposal.
+/// Waits for the event syncer to process a specific proposal using event subscription.
 async fn wait_for_proposal_processed<P>(
     event_syncer: &EventSyncer<P>,
     driver_client: &Client<P>,
@@ -76,17 +76,14 @@ async fn wait_for_proposal_processed<P>(
 where
     P: Provider + Clone + 'static,
 {
+    let mut rx = event_syncer.subscribe_proposal_id();
     let deadline = tokio::time::Instant::now() + timeout;
 
     loop {
-        if tokio::time::Instant::now() >= deadline {
-            return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}"));
-        }
-
-        let current_proposal_id = event_syncer.last_canonical_proposal_id();
-        let l2_head = driver_client.l2_provider.get_block_number().await?;
-
+        // Check current value first
+        let current_proposal_id = *rx.borrow();
         if current_proposal_id >= expected_proposal_id {
+            let l2_head = driver_client.l2_provider.get_block_number().await?;
             if l2_head < l2_head_before {
                 warn!(
                     l2_head_before,
@@ -96,7 +93,17 @@ where
             return Ok(l2_head);
         }
 
-        sleep(Duration::from_millis(500)).await;
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}"));
+        }
+
+        // Wait for change notification instead of polling
+        match tokio::time::timeout(remaining, rx.changed()).await {
+            Ok(Ok(())) => continue, // Loop back to check new value
+            Ok(Err(_)) => return Err(anyhow!("proposal ID channel closed")),
+            Err(_) => return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}")),
+        }
     }
 }
 
