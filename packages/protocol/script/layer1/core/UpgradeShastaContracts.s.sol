@@ -25,8 +25,7 @@ contract UpgradeShastaContracts is DeployCapability {
         DeploymentConfig memory config = _loadConfig();
         UUPSUpgradeable(config.preconfWhitelistProxy).upgradeTo(config.preconfWhitelistImpl);
         Ownable2StepUpgradeable(config.proverWhitelistProxy).acceptOwnership();
-        UUPSUpgradeable(config.signalServiceProxy)
-            .upgradeTo(config.signalServiceForkRouterImpl);
+        UUPSUpgradeable(config.signalServiceProxy).upgradeTo(config.signalServiceForkRouterImpl);
     }
 
     function _loadConfig() private view returns (DeploymentConfig memory config) {
