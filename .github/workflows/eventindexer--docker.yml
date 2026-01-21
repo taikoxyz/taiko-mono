@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [main, ei-get_block_by_timestamp]
+    branches: [main]
     tags:
       - "eventindexer-v*"
     paths:
