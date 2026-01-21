@@ -1,8 +1,7 @@
 //! Core proposer implementation for submitting block proposals.
 
-use alethia_reth_consensus::{
-    eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee},
-    validation::ANCHOR_V3_V4_GAS_LIMIT,
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alethia_reth_primitives::{
     decode_shasta_proposal_id,
@@ -58,16 +57,6 @@ pub struct EnginePayloadParams {
     pub timestamp: u64,
     /// The gas limit for the block.
     pub gas_limit: u64,
-}
-
-/// Compute the effective gas limit for the manifest by removing the anchor transaction gas.
-/// Genesis block (parent_block_number == 0) uses the full gas limit since there's no anchor.
-fn effective_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
-    if parent_block_number == 0 {
-        parent_gas_limit
-    } else {
-        parent_gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
-    }
 }
 
 // Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
@@ -389,7 +378,7 @@ impl Proposer {
         let engine_params = EnginePayloadParams {
             anchor_block_number,
             timestamp,
-            gas_limit: effective_gas_limit(parent.header.number, parent.header.gas_limit),
+            gas_limit: parent.header.gas_limit,
         };
 
         Ok((payload_attributes, engine_params))
