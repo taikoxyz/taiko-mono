@@ -78,7 +78,6 @@ func (i *Indexer) getGenesisBlockHeight(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "shastaInbox.ActivationTimestamp")
 	}
-
 	blockNum, err := i.getBlockByTimestamp(ctx, ts.Uint64())
 	if err != nil {
 		return 0, errors.Wrap(err, "getBlockByTimestamp")
