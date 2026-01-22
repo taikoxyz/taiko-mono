@@ -450,7 +450,11 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 				[]byte{1},
 			)
 			if err != nil {
-				s.Equal("replacement transaction underpriced", err.Error())
+				if os.Getenv("L2_NODE") == "l2_nmc" {
+					s.Equal("ReplacementNotAllowed", err.Error())
+				} else {
+					s.Equal("replacement transaction underpriced", err.Error())
+				}
 			}
 			txsBatch[i] = append(txsBatch[i], tx)
 		}
