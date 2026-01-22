@@ -1,5 +1,6 @@
 //! Shasta protocol implementation.
 
+#[cfg(feature = "net")]
 pub mod anchor;
 pub mod blob_coder;
 pub mod constants;
@@ -8,6 +9,7 @@ pub mod manifest;
 pub mod payload_helpers;
 pub mod rpc_methods;
 
+#[cfg(feature = "net")]
 pub use anchor::{AnchorTxConstructor, AnchorTxConstructorError, AnchorV4Input};
 pub use blob_coder::BlobCoder;
 pub use error::{ForkConfigResult, ProtocolError, Result, ShastaForkConfigError};

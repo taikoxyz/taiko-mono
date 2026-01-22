@@ -8,9 +8,9 @@ license.workspace = true
 [dependencies]
 # async
 async-trait = { workspace = true }
-tokio = { workspace = true }
-tokio-retry = { workspace = true }
-tokio-stream = { workspace = true }
+tokio = { workspace = true, optional = true }
+tokio-retry = { workspace = true, optional = true }
+tokio-stream = { workspace = true, optional = true }
 
 # observability
 tracing = { workspace = true }
@@ -22,12 +22,12 @@ alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
-alloy-provider = { workspace = true }
+alloy-provider = { workspace = true, optional = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
 alloy-sol-types = { workspace = true }
-event-scanner = { workspace = true }
+event-scanner = { workspace = true, optional = true }
 
 # crypto
 k256 = { workspace = true }
@@ -49,4 +49,13 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 rand = { workspace = true, features = ["std", "std_rng"] }
-tokio = { workspace = true }
+
+[features]
+default = ["net"]
+net = [
+  "tokio",
+  "tokio-retry",
+  "tokio-stream",
+  "alloy-provider",
+  "event-scanner",
+]
