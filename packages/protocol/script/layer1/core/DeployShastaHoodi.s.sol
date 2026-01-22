@@ -12,6 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
+/// - ACTIVATOR: Address to set as initial inbox owner
 /// - PROVERS: Comma-separated list of prover addresses
 /// - SHASTA_FORK_TIMESTAMP: Unix timestamp for the Shasta fork
 contract DeployShastaHoodi is DeployShastaContracts {
@@ -31,6 +32,8 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E ;
         config.sp1PlonkVerifier = 0x801dcB74Ed6c45764c91B9e818Ec204B41EadA9B;
 
+        // Load deployment-specific values from environment
+        config.activator = vm.envAddress("ACTIVATOR");
         config.provers = vm.envAddress("PROVERS", ",");
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }

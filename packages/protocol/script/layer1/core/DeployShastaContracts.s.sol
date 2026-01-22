@@ -25,6 +25,7 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     struct DeploymentConfig {
         address contractOwner;
+        address activator;
         uint64 l2ChainId;
         address l1SignalService;
         address l2SignalService;
@@ -58,6 +59,7 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     function _validateConfig(DeploymentConfig memory config) internal pure {
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
+        require(config.activator != address(0), "ACTIVATOR not set");
         require(config.l2ChainId != 0, "L2_CHAIN_ID not set");
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
@@ -87,6 +89,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         address preconfWhitelist = address(new PreconfWhitelist());
         console2.log("PreconfWhitelist deployed:", preconfWhitelist);
 
+        // Set `msg.sender` as the owner by setting the owner to address(0)
         address proverWhitelist = deployProxy({
             name: "prover_whitelist",
             impl: address(new ProverWhitelist()),
@@ -100,6 +103,8 @@ abstract contract DeployShastaContracts is DeployCapability {
         }
         Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
 
+        // We set the activator as the initial owner of the inbox to allow activation.
+        // Ownership will be later transferred to the DAO.
         address shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
@@ -111,7 +116,7 @@ abstract contract DeployShastaContracts is DeployCapability {
                     config.taikoToken
                 )
             ),
-            data: abi.encodeCall(Inbox.init, config.contractOwner)
+            data: abi.encodeCall(Inbox.init, config.activator)
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
 
@@ -138,21 +143,14 @@ abstract contract DeployShastaContracts is DeployCapability {
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
-        (verifiers.risc0, verifiers.sp1) = _deployZKVerifiers(config);
-    }
-
-    function _deployZKVerifiers(DeploymentConfig memory config)
-        private
-        returns (address risc0Verifier, address sp1Verifier)
-    {
-        risc0Verifier = address(
+        verifiers.risc0 = address(
             new Risc0Verifier(config.l2ChainId, config.r0Groth16Verifier, config.contractOwner)
         );
-        console2.log("Risc0Verifier deployed:", risc0Verifier);
+        console2.log("Risc0Verifier deployed:", verifiers.risc0);
 
-        sp1Verifier = address(
+        verifiers.sp1 = address(
             new SP1Verifier(config.l2ChainId, config.sp1PlonkVerifier, config.contractOwner)
         );
-        console2.log("SP1Verifier deployed:", sp1Verifier);
+        console2.log("SP1Verifier deployed:", verifiers.sp1);
     }
 }
