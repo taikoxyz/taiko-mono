@@ -12,13 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - CONTRACT_OWNER: Owner address for deployed contracts
 /// - PROVERS: Comma-separated list of prover addresses
-/// - SGX_AUTOMATA_PROXY: SGX Automata proxy address
-/// - SGX_GETH_AUTOMATA_PROXY: SGX Geth Automata proxy address
-/// - R0_GROTH16_VERIFIER: RISC0 Groth16 verifier address
-/// - SP1_PLONK_VERIFIER: SP1 Plonk verifier address
-/// - OLD_SIGNAL_SERVICE_IMPL: Current signal service implementation address
 /// - SHASTA_FORK_TIMESTAMP: Unix timestamp for the Shasta fork
 contract DeployShastaMainnet is DeployShastaContracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
@@ -30,13 +24,17 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.preconfWhitelist = LibL1Addrs.PRECONF_WHITELIST;
         config.contractOwner = LibL1Addrs.DAO_CONTROLLER;
 
+        // TODO: Please review these addresses carefully
+        config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
+        config.r0Groth16Verifier = 0x7CCA385bdC790c25924333F5ADb7F4967F5d1599;
+        config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
+        // Reth
+        config.sgxAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+        config.sp1PlonkVerifier = 0xcdCEBD75cDcb9DEd637D537776431Db563Ff0821;
+
+
         // Load deployment-specific values from environment
-        config.sgxAutomataProxy = vm.envAddress("SGX_AUTOMATA_PROXY");
-        config.sgxGethAutomataProxy = vm.envAddress("SGX_GETH_AUTOMATA_PROXY");
-        config.r0Groth16Verifier = vm.envAddress("R0_GROTH16_VERIFIER");
-        config.sp1PlonkVerifier = vm.envAddress("SP1_PLONK_VERIFIER");
         config.provers = vm.envAddress("PROVERS", ",");
-        config.oldSignalServiceImpl = vm.envAddress("OLD_SIGNAL_SERVICE_IMPL");
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }
 }

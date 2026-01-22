@@ -2,40 +2,36 @@
 pragma solidity ^0.8.26;
 
 import { DeployShastaContracts } from "./DeployShastaContracts.s.sol";
+import { LibL1HoodiAddrs } from "src/layer1/hoodi/LibL1HoodiAddrs.sol";
+import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
+import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 
 /// @title DeployShastaHoodi
 /// @notice Deploys Shasta contracts for Hoodi testnet.
-/// All configuration is loaded from environment variables.
+/// Uses known Hoodi addresses from LibL1HoodiAddrs and LibL2HoodiAddrs.
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - CONTRACT_OWNER: Owner address for deployed contracts
-/// - L2_CHAIN_ID: Target L2 chain ID
-/// - L1_SIGNAL_SERVICE: L1 signal service proxy address
-/// - L2_SIGNAL_SERVICE: L2 signal service address
-/// - TAIKO_TOKEN: Taiko token address
-/// - PRECONF_WHITELIST: Preconf whitelist address
 /// - PROVERS: Comma-separated list of prover addresses
-/// - SGX_AUTOMATA_PROXY: SGX Automata proxy address
-/// - SGX_GETH_AUTOMATA_PROXY: SGX Geth Automata proxy address
-/// - R0_GROTH16_VERIFIER: RISC0 Groth16 verifier address
-/// - SP1_PLONK_VERIFIER: SP1 Plonk verifier address
-/// - OLD_SIGNAL_SERVICE_IMPL: Current signal service implementation address
 /// - SHASTA_FORK_TIMESTAMP: Unix timestamp for the Shasta fork
 contract DeployShastaHoodi is DeployShastaContracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
-        config.contractOwner = vm.envAddress("CONTRACT_OWNER");
-        config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
-        config.l1SignalService = vm.envAddress("L1_SIGNAL_SERVICE");
-        config.l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE");
-        config.taikoToken = vm.envAddress("TAIKO_TOKEN");
-        config.preconfWhitelist = vm.envAddress("PRECONF_WHITELIST");
-        config.sgxAutomataProxy = vm.envAddress("SGX_AUTOMATA_PROXY");
-        config.sgxGethAutomataProxy = vm.envAddress("SGX_GETH_AUTOMATA_PROXY");
-        config.r0Groth16Verifier = vm.envAddress("R0_GROTH16_VERIFIER");
-        config.sp1PlonkVerifier = vm.envAddress("SP1_PLONK_VERIFIER");
+        // Use known Hoodi constants
+        config.l2ChainId = LibNetwork.TAIKO_HOODI;
+        config.l1SignalService = LibL1HoodiAddrs.HOODI_SIGNAL_SERVICE;
+        config.l2SignalService = LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE;
+        config.taikoToken = LibL1HoodiAddrs.HOODI_TAIKO_TOKEN;
+        config.preconfWhitelist = LibL1HoodiAddrs.HOODI_PRECONF_WHITELIST;
+        config.contractOwner = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
+
+        config.oldSignalServiceImpl = 0x5776315840041c2bc2C9D16a33E52AD0DD359600;
+        config.r0Groth16Verifier = 0xD559e537CF82f2816096a3DDBC2026514e308CF7;
+        config.sgxGethAutomataProxy = 0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5;
+        // Reth
+        config.sgxAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E ;
+        config.sp1PlonkVerifier = 0x801dcB74Ed6c45764c91B9e818Ec204B41EadA9B;
+
         config.provers = vm.envAddress("PROVERS", ",");
-        config.oldSignalServiceImpl = vm.envAddress("OLD_SIGNAL_SERVICE_IMPL");
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }
 }

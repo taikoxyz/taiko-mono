@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
