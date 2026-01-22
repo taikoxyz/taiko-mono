@@ -8,7 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{Address, U256},
@@ -19,7 +18,6 @@ use alloy_provider::Provider;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
-use async_trait::async_trait;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
@@ -37,7 +35,6 @@ use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
     error::DriverError,
-    jsonrpc::DriverRpcApi,
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
@@ -484,25 +481,6 @@ where
     }
 }
 
-#[async_trait]
-impl<P> DriverRpcApi for EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Submit a preconfirmation payload built by the client for injection.
-    async fn submit_execution_payload_v2(
-        &self,
-        payload: TaikoPayloadAttributes,
-    ) -> Result<(), DriverError> {
-        self.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
-    }
-
-    /// Return the last canonical proposal id processed by the event syncer.
-    fn last_canonical_proposal_id(&self) -> u64 {
-        self.last_canonical_proposal_id()
-    }
-}
-
 impl<P> EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -675,7 +653,9 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use alethia_reth_primitives::payload::attributes::{RpcL1Origin, TaikoBlockMetadata};
+    use alethia_reth_primitives::payload::attributes::{
+        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+    };
     use alloy::{
         primitives::{Address, B256, Bytes, U256},
         transports::http::reqwest::Url,

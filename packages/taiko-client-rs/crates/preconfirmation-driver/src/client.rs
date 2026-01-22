@@ -51,7 +51,11 @@ where
 {
     config: PreconfirmationClientConfig,
     p2p_storage: Arc<dyn PreconfStorage>,
-    node_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
+    /// Handle to the P2P node task.
+    ///
+    /// The task returns a [`Result<()>`] using the crate's error type
+    /// rather than `anyhow::Result` for consistent error handling.
+    node_handle: tokio::task::JoinHandle<Result<()>>,
     handle: P2pHandle,
     handler: EventHandler<D>,
 }
@@ -122,7 +126,9 @@ where
 
         self.handle = handle;
         self.handler.set_command_sender(self.handle.command_sender());
-        self.node_handle = tokio::spawn(async move { node.run().await });
+        self.node_handle = tokio::spawn(async move {
+            node.run().await.map_err(|err| PreconfirmationClientError::Network(err.to_string()))
+        });
 
         Ok(())
     }
@@ -260,7 +266,10 @@ where
         );
 
         // Spawn the P2P node loop before running catch-up.
-        let node_handle = tokio::spawn(async move { node.run().await });
+        // Convert anyhow::Result from P2pNode::run() to our crate's Result type.
+        let node_handle = tokio::spawn(async move {
+            node.run().await.map_err(|err| PreconfirmationClientError::Network(err.to_string()))
+        });
 
         // If pre-dial peers are configured, dial them and wait for a connection
         // before attempting catch-up. Use the pre_dial_timeout if configured.

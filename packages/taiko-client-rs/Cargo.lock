@@ -3368,10 +3368,6 @@ dependencies = [
  "bindings",
  "event-scanner",
  "flate2",
- "http-body-util",
- "hyper",
- "hyper-util",
- "jsonrpsee",
  "k256",
  "metrics 0.24.3",
  "preconfirmation-driver",
@@ -3380,7 +3376,6 @@ dependencies = [
  "proposer",
  "protocol",
  "rand 0.8.5",
- "reth-ipc",
  "rpc",
  "secp256k1 0.30.0",
  "serde",
@@ -3394,7 +3389,6 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-stream",
- "tower",
  "tracing",
  "tracing-subscriber 0.3.22",
  "url",
@@ -7351,7 +7345,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber 0.3.22",
- "url",
 ]
 
 [[package]]
@@ -12401,7 +12394,6 @@ version = "2.0.0"
 dependencies = [
  "alloy",
  "alloy-primitives",
- "anyhow",
  "async-trait",
  "clap",
  "driver",
@@ -12411,6 +12403,7 @@ dependencies = [
  "preconfirmation-net",
  "proposer",
  "rpc",
+ "thiserror 2.0.17",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.22",

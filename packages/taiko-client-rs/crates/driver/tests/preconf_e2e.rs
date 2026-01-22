@@ -14,21 +14,20 @@ use alloy_rpc_types::{BlockNumberOrTag, TransactionReceipt, eth::Block as RpcBlo
 use anyhow::{Context, Result, anyhow, ensure};
 use driver::{
     DriverConfig,
-    jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
 use protocol::shasta::{calculate_shasta_difficulty, encode_extra_data};
-use rpc::client::{Client, ClientConfig, read_jwt_secret};
+use rpc::client::{Client, ClientConfig};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
     BeaconStubServer, PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist,
     compute_next_block_base_fee, fetch_block_by_number,
     preconfirmation::{
-        RpcDriverClient, RpcDriverClientConfig, SafeTipDriverClient, StaticLookaheadResolver,
+        EventSyncerDriverClient, SafeTipDriverClient, StaticLookaheadResolver,
         build_publish_payloads_with_txs, derive_signer, test_p2p_config,
         wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
@@ -197,9 +196,6 @@ where
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     let beacon_server = BeaconStubServer::start().await?;
-    let jwt_secret =
-        read_jwt_secret(env.jwt_secret.clone()).ok_or_else(|| anyhow!("missing jwt secret"))?;
-    let l1_http = std::env::var("L1_HTTP")?;
 
     // Configure and start the driver with preconfirmation enabled.
     let mut driver_config = DriverConfig::new(
@@ -217,8 +213,8 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     );
     driver_config.preconfirmation_enabled = true;
 
-    let driver_client = Client::new(driver_config.client.clone()).await?;
-    let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
+    let rpc_client = Client::new(driver_config.client.clone()).await?;
+    let event_syncer = Arc::new(EventSyncer::new(&driver_config, rpc_client.clone()).await?);
     let event_handle = spawn({
         let syncer = event_syncer.clone();
         async move { syncer.run().await }
@@ -229,18 +225,9 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         .await
         .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
 
-    let rpc_server =
-        DriverRpcServer::start("127.0.0.1:0".parse()?, jwt_secret, event_syncer).await?;
-
     // Set up driver client with safe-tip fallback.
-    let driver_client_cfg = RpcDriverClientConfig::with_http_endpoint(
-        rpc_server.http_url().parse()?,
-        env.jwt_secret.clone(),
-        l1_http.parse()?,
-        env.l2_http_0.to_string().parse()?,
-        env.inbox_address,
-    );
-    let driver_client = SafeTipDriverClient::new(RpcDriverClient::new(driver_client_cfg).await?);
+    let embedded_client = EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
+    let driver_client = SafeTipDriverClient::new(Arc::new(embedded_client));
 
     // Derive signer from deterministic secret key.
     let (signer_sk, signer) = derive_signer(1);
@@ -345,7 +332,6 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     event_loop_handle.abort();
     ext_node_handle.abort();
     event_handle.abort();
-    rpc_server.stop().await;
     beacon_server.shutdown().await?;
 
     Ok(())

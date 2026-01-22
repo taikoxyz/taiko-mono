@@ -1,8 +1,8 @@
 //! Proposer Subcommand.
 use std::time::Duration;
 
+use crate::error::Result;
 use alloy::transports::http::reqwest::Url as RpcUrl;
-use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};

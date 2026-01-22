@@ -4,10 +4,10 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_consensus::transaction::SignerRecoverable;
 use alloy_primitives::{Address, U256};
+use alloy_provider::{RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers};
 use anyhow::{Context, Result, anyhow, ensure};
 use driver::{
     DriverConfig,
-    jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
@@ -15,7 +15,7 @@ use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::uint256_to_u256;
 use rpc::{
     SubscriptionSource,
-    client::{Client, ClientConfig, connect_http_with_timeout, read_jwt_secret},
+    client::{Client, ClientConfig, connect_http_with_timeout},
 };
 use serial_test::serial;
 use test_context::test_context;
@@ -23,7 +23,7 @@ use test_harness::{
     BeaconStubServer, PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
     fetch_block_by_number,
     preconfirmation::{
-        RpcDriverClient, RpcDriverClientConfig, SafeTipDriverClient, StaticLookaheadResolver,
+        EventSyncerDriverClient, SafeTipDriverClient, StaticLookaheadResolver,
         build_publish_payloads_with_txs, derive_signer, test_p2p_config,
         wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
@@ -39,9 +39,13 @@ use url::Url;
 
 /// Running driver instance with its RPC server and background tasks.
 struct DriverInstance {
-    rpc_server: DriverRpcServer,
+    rpc_client: DriverRpcClient,
+    event_syncer: Arc<EventSyncer<DriverRpcProvider>>,
     event_handle: JoinHandle<()>,
 }
+
+type DriverRpcProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
+type DriverRpcClient = Client<DriverRpcProvider>;
 
 impl DriverInstance {
     /// Starts a new driver instance connected to the specified L2 node.
@@ -53,9 +57,6 @@ impl DriverInstance {
         inbox_address: Address,
         beacon_endpoint: &Url,
     ) -> Result<Self> {
-        let jwt_secret = read_jwt_secret(jwt_secret_path.to_path_buf())
-            .ok_or_else(|| anyhow!("missing jwt secret"))?;
-
         let client_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
             l2_provider_url: l2_http.clone(),
@@ -73,8 +74,8 @@ impl DriverInstance {
         );
         driver_config.preconfirmation_enabled = true;
 
-        let driver_client = Client::new(client_config).await?;
-        let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client).await?);
+        let rpc_client = Client::new(client_config).await?;
+        let event_syncer = Arc::new(EventSyncer::new(&driver_config, rpc_client.clone()).await?);
         let event_handle = spawn({
             let syncer = event_syncer.clone();
             async move {
@@ -89,20 +90,11 @@ impl DriverInstance {
             .await
             .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
 
-        let rpc_server =
-            DriverRpcServer::start("127.0.0.1:0".parse()?, jwt_secret, event_syncer.clone())
-                .await?;
-
-        Ok(Self { rpc_server, event_handle })
-    }
-
-    fn http_url(&self) -> String {
-        self.rpc_server.http_url()
+        Ok(Self { rpc_client, event_syncer, event_handle })
     }
 
     async fn stop(self) {
         self.event_handle.abort();
-        self.rpc_server.stop().await;
     }
 }
 
@@ -117,8 +109,6 @@ impl DriverInstance {
 async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<()> {
     let l2_http_1: Url = env.l2_http_1.clone();
     let l2_auth_1: Url = env.l2_auth_1.clone();
-
-    let l1_http = std::env::var("L1_HTTP")?;
 
     let beacon_server = BeaconStubServer::start().await?;
 
@@ -148,23 +138,13 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
 
     let l2_provider_1 = connect_http_with_timeout(l2_http_1.clone());
 
-    let driver1_client_cfg = RpcDriverClientConfig::with_http_endpoint(
-        driver1.http_url().parse()?,
-        env.jwt_secret.clone(),
-        l1_http.parse()?,
-        env.l2_http_0.to_string().parse()?,
-        env.inbox_address,
-    );
-    let driver1_client = SafeTipDriverClient::new(RpcDriverClient::new(driver1_client_cfg).await?);
+    let driver1_embedded =
+        EventSyncerDriverClient::new(driver1.event_syncer.clone(), driver1.rpc_client.clone());
+    let driver1_client = SafeTipDriverClient::new(Arc::new(driver1_embedded));
 
-    let driver2_client_cfg = RpcDriverClientConfig::with_http_endpoint(
-        driver2.http_url().parse()?,
-        env.jwt_secret.clone(),
-        l1_http.parse()?,
-        l2_http_1.to_string().parse()?,
-        env.inbox_address,
-    );
-    let driver2_client = SafeTipDriverClient::new(RpcDriverClient::new(driver2_client_cfg).await?);
+    let driver2_embedded =
+        EventSyncerDriverClient::new(driver2.event_syncer.clone(), driver2.rpc_client.clone());
+    let driver2_client = SafeTipDriverClient::new(Arc::new(driver2_embedded));
 
     let (signer_sk, signer) = derive_signer(1);
 

@@ -35,5 +35,5 @@ proposer = { path = "../../crates/proposer" }
 rpc = { path = "../../crates/rpc" }
 
 # types
-anyhow = { workspace = true }
+thiserror = { workspace = true }
 url = { workspace = true }

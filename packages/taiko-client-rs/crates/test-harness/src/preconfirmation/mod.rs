@@ -36,10 +36,12 @@ mod events;
 mod lookahead;
 mod p2p;
 mod payloads;
-mod rpc_client;
 
 pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
-pub use driver::{MockDriverClient, RealDriverSetup, SafeTipDriverClient, StartingBlockInfo};
+pub use driver::{
+    EventSyncerDriverClient, MockDriverClient, RealDriverSetup, SafeTipDriverClient,
+    StartingBlockInfo,
+};
 pub use events::{
     wait_for_commitment_and_txlist, wait_for_commitments_and_txlists, wait_for_peer_connected,
     wait_for_synced,
@@ -54,4 +56,3 @@ pub use payloads::{
     build_publish_payloads_with_txs, build_txlist_bytes, compute_starting_block,
     compute_txlist_hash, derive_signer,
 };
-pub use rpc_client::{DriverEndpoint, RpcDriverClient, RpcDriverClientConfig};

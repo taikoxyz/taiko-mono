@@ -54,19 +54,6 @@ impl PreconfirmationClientMetrics {
     pub const PAYLOAD_BUILD_FAILURES_TOTAL: &'static str =
         "preconf_client_payload_build_failures_total";
 
-    // Driver RPC metrics
-    /// Histogram tracking driver RPC submit preconfirmation duration in seconds.
-    pub const DRIVER_RPC_SUBMIT_DURATION_SECONDS: &'static str =
-        "preconf_client_driver_rpc_submit_duration_seconds";
-    /// Counter tracking driver RPC submit preconfirmation errors.
-    pub const DRIVER_RPC_SUBMIT_ERRORS_TOTAL: &'static str =
-        "preconf_client_driver_rpc_submit_errors_total";
-    /// Histogram tracking driver RPC last canonical proposal id duration in seconds.
-    pub const DRIVER_RPC_LAST_CANONICAL_DURATION_SECONDS: &'static str =
-        "preconf_client_driver_rpc_last_canonical_duration_seconds";
-    /// Counter tracking driver RPC last canonical proposal id errors.
-    pub const DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL: &'static str =
-        "preconf_client_driver_rpc_last_canonical_errors_total";
     /// Histogram tracking event sync wait duration in seconds.
     pub const EVENT_SYNC_WAIT_DURATION_SECONDS: &'static str =
         "preconf_client_event_sync_wait_duration_seconds";
@@ -156,27 +143,6 @@ impl PreconfirmationClientMetrics {
             "Total payload build failures"
         );
 
-        // Driver RPC metrics
-        metrics::describe_histogram!(
-            Self::DRIVER_RPC_SUBMIT_DURATION_SECONDS,
-            Unit::Seconds,
-            "Time spent on driver RPC submit preconfirmation calls"
-        );
-        metrics::describe_counter!(
-            Self::DRIVER_RPC_SUBMIT_ERRORS_TOTAL,
-            Unit::Count,
-            "Driver RPC submit preconfirmation errors"
-        );
-        metrics::describe_histogram!(
-            Self::DRIVER_RPC_LAST_CANONICAL_DURATION_SECONDS,
-            Unit::Seconds,
-            "Time spent on driver RPC last canonical proposal id calls"
-        );
-        metrics::describe_counter!(
-            Self::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL,
-            Unit::Count,
-            "Driver RPC last canonical proposal id errors"
-        );
         metrics::describe_histogram!(
             Self::EVENT_SYNC_WAIT_DURATION_SECONDS,
             Unit::Seconds,
@@ -193,9 +159,6 @@ impl PreconfirmationClientMetrics {
         metrics::counter!(Self::CATCHUP_BATCHES_TOTAL).absolute(0);
         metrics::counter!(Self::CATCHUP_ERRORS_TOTAL).absolute(0);
         metrics::counter!(Self::PAYLOAD_BUILD_FAILURES_TOTAL).absolute(0);
-        metrics::counter!(Self::DRIVER_RPC_SUBMIT_ERRORS_TOTAL).absolute(0);
-        metrics::counter!(Self::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL).absolute(0);
-
         // Reset gauges to zero.
         metrics::gauge!(Self::HEAD_BLOCK).set(0.0);
         metrics::gauge!(Self::AWAITING_TXLIST_DEPTH).set(0.0);
@@ -274,41 +237,9 @@ mod tests {
         );
     }
 
-    /// Verify that driver RPC metrics have correct names.
+    /// Verify that event sync metrics have correct names.
     #[test]
-    fn driver_rpc_metrics_have_correct_prefix() {
-        assert!(
-            PreconfirmationClientMetrics::DRIVER_RPC_SUBMIT_DURATION_SECONDS
-                .starts_with("preconf_client_")
-        );
-        assert_eq!(
-            PreconfirmationClientMetrics::DRIVER_RPC_SUBMIT_DURATION_SECONDS,
-            "preconf_client_driver_rpc_submit_duration_seconds"
-        );
-        assert!(
-            PreconfirmationClientMetrics::DRIVER_RPC_SUBMIT_ERRORS_TOTAL
-                .starts_with("preconf_client_")
-        );
-        assert_eq!(
-            PreconfirmationClientMetrics::DRIVER_RPC_SUBMIT_ERRORS_TOTAL,
-            "preconf_client_driver_rpc_submit_errors_total"
-        );
-        assert!(
-            PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_DURATION_SECONDS
-                .starts_with("preconf_client_")
-        );
-        assert_eq!(
-            PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_DURATION_SECONDS,
-            "preconf_client_driver_rpc_last_canonical_duration_seconds"
-        );
-        assert!(
-            PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL
-                .starts_with("preconf_client_")
-        );
-        assert_eq!(
-            PreconfirmationClientMetrics::DRIVER_RPC_LAST_CANONICAL_ERRORS_TOTAL,
-            "preconf_client_driver_rpc_last_canonical_errors_total"
-        );
+    fn event_sync_metrics_have_correct_prefix() {
         assert!(
             PreconfirmationClientMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
                 .starts_with("preconf_client_")

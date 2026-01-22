@@ -2,7 +2,7 @@
 
 use std::{io::IsTerminal, net::SocketAddr};
 
-use anyhow::Result;
+use crate::error::Result;
 use async_trait::async_trait;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use tracing::info;

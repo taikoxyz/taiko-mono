@@ -31,7 +31,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
-url = { workspace = true }
 
 bindings = { path = "../bindings" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }

@@ -5,6 +5,16 @@ edition.workspace = true
 publish = false
 license.workspace = true
 
+[features]
+default = ["net"]
+net = [
+    "tokio",
+    "tokio-retry",
+    "tokio-stream",
+    "alloy-provider",
+    "event-scanner",
+]
+
 [dependencies]
 # async
 async-trait = { workspace = true }
@@ -49,13 +59,3 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 rand = { workspace = true, features = ["std", "std_rng"] }
-
-[features]
-default = ["net"]
-net = [
-  "tokio",
-  "tokio-retry",
-  "tokio-stream",
-  "alloy-provider",
-  "event-scanner",
-]

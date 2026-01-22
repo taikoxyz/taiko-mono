@@ -2,8 +2,6 @@
 
 use alloy_contract::Error as ContractError;
 use alloy_transport::TransportError;
-use rpc::RpcClientError;
-use std::path::PathBuf;
 use thiserror::Error;
 
 /// Result alias for preconfirmation client operations.
@@ -47,24 +45,6 @@ pub enum DriverApiError {
     /// Contract call error while fetching on-chain state.
     #[error("contract error: {0}")]
     Contract(#[from] ContractError),
-    /// IPC connection failure when building the driver provider.
-    #[error("IPC connection failed for {path}: {source}")]
-    IpcConnectionFailed {
-        /// IPC socket path.
-        path: PathBuf,
-        /// Underlying RPC client error.
-        #[source]
-        source: RpcClientError,
-    },
-    /// HTTP endpoint configuration missing a JWT secret path.
-    #[error("HTTP endpoint requires JWT secret path")]
-    MissingJwtSecret,
-    /// Failed to read the JWT secret file.
-    #[error("failed to read jwt secret from {path}")]
-    JwtSecretReadError {
-        /// JWT secret path.
-        path: PathBuf,
-    },
     /// Requested block was not found.
     #[error("missing block {block_number}")]
     MissingBlock {

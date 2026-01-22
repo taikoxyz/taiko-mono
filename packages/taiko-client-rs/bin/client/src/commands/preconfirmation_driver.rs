@@ -4,13 +4,15 @@ use std::sync::Arc;
 
 use alloy::{providers::Provider, transports::http::reqwest::Url as RpcUrl};
 use alloy_primitives::U256;
-use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use clap::Parser;
-use driver::{DriverConfig, SyncStage, metrics::DriverMetrics, sync::event::EventSyncer};
+use driver::{
+    DriverConfig, PreconfPayload, SyncStage, metrics::DriverMetrics, sync::event::EventSyncer,
+};
 use preconfirmation_driver::{
     DriverChannels, PreconfirmationClientConfig, PreconfirmationClientMetrics, PreconfirmationNode,
-    PreconfirmationNodeConfig, rpc::PreconfRpcServerConfig,
+    PreconfirmationNodeConfig, driver_interface::payload::build_taiko_payload_attributes,
+    rpc::PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
 use rpc::{
@@ -21,6 +23,7 @@ use tracing::{error, info, warn};
 
 use crate::{
     commands::Subcommand,
+    error::{CliError, Result},
     flags::{common::CommonArgs, driver::DriverArgs, preconfirmation::PreconfirmationArgs},
 };
 
@@ -109,6 +112,7 @@ impl PreconfirmationDriverSubCommand {
     fn spawn_input_forwarder<P>(
         event_syncer: Arc<EventSyncer<P>>,
         mut channels: DriverChannels,
+        driver_client: Client<P>,
     ) -> tokio::task::JoinHandle<()>
     where
         P: Provider + Clone + Send + Sync + 'static,
@@ -129,10 +133,40 @@ impl PreconfirmationDriverSubCommand {
                 if input.should_skip_driver_submission() {
                     continue;
                 }
-                warn!(
-                    block_number = ?input.commitment.commitment.preconf.block_number,
-                    "received preconfirmation input (payload forwarding not yet implemented)"
-                );
+                let config = match driver_client.shasta.inbox.getConfig().call().await {
+                    Ok(config) => config,
+                    Err(err) => {
+                        error!(?err, "failed to fetch inbox config for payload build");
+                        continue;
+                    }
+                };
+                let payload = match build_taiko_payload_attributes(
+                    &input,
+                    config.basefeeSharingPctg,
+                    &driver_client.l2_provider,
+                )
+                .await
+                {
+                    Ok(payload) => payload,
+                    Err(err) => {
+                        error!(
+                            ?err,
+                            block_number = ?input.commitment.commitment.preconf.block_number,
+                            "failed to build preconfirmation payload"
+                        );
+                        continue;
+                    }
+                };
+
+                if let Err(err) =
+                    event_syncer.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
+                {
+                    error!(
+                        ?err,
+                        block_number = ?input.commitment.commitment.preconf.block_number,
+                        "failed to submit preconfirmation payload"
+                    );
+                }
             }
 
             state_update_handle.abort();
@@ -186,7 +220,7 @@ impl Subcommand for PreconfirmationDriverSubCommand {
         event_syncer
             .wait_preconf_ingress_ready()
             .await
-            .ok_or_else(|| anyhow!("preconfirmation ingress not enabled on driver"))?;
+            .ok_or(CliError::PreconfIngressNotEnabled)?;
 
         info!("driver ready, starting preconfirmation P2P client");
 
@@ -204,7 +238,8 @@ impl Subcommand for PreconfirmationDriverSubCommand {
         }
 
         let (node, channels) = PreconfirmationNode::new(node_config)?;
-        let forward_handle = Self::spawn_input_forwarder(event_syncer.clone(), channels);
+        let forward_handle =
+            Self::spawn_input_forwarder(event_syncer.clone(), channels, driver_client.clone());
 
         info!("starting preconfirmation P2P event loop");
 
