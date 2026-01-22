@@ -2,15 +2,15 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
-import { Controller } from "src/shared/governance/Controller.sol";
 import { LibL1HoodiAddrs } from "src/layer1/hoodi/LibL1HoodiAddrs.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title UpgradeShastaL2Contracts
-/// @notice Upgrades Shasta L2 contracts via bridge message. 
+/// @notice Upgrades Shasta L2 contracts via bridge message.
 /// This script CAN ONLY BE RUN ON HOODI. For mainnet, we need to use the `BuildProposal` format.
 ///
 /// Required environment variables:

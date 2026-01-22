@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { CommonVerifier } from "src/layer1/verifiers/CommonVerifier.sol";
-import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
+import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { CommonVerifier } from "src/layer1/verifiers/CommonVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/shared/signal/SignalService.sol";
+import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaContracts

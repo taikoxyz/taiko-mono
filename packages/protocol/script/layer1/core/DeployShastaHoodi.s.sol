@@ -29,7 +29,7 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.r0Groth16Verifier = 0xD559e537CF82f2816096a3DDBC2026514e308CF7;
         config.sgxGethAutomataProxy = 0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5;
         // Reth
-        config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E ;
+        config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E;
         config.sp1PlonkVerifier = 0x801dcB74Ed6c45764c91B9e818Ec204B41EadA9B;
 
         // Load deployment-specific values from environment

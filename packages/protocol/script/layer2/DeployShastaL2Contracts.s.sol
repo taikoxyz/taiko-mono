@@ -4,8 +4,8 @@ pragma solidity ^0.8.26;
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { AnchorForkRouter } from "src/layer2/core/AnchorForkRouter.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaL2Contracts

@@ -6,7 +6,7 @@ import { LibL1HoodiAddrs } from "src/layer1/hoodi/LibL1HoodiAddrs.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title UpgradeShastaContracts
-/// @notice Upgrades Shasta L1 contracts. 
+/// @notice Upgrades Shasta L1 contracts.
 /// This script CAN ONLY BE RUN ON HOODI. For mainnet, we need to use the `BuildProposal` format.
 ///
 /// Required environment variables:
