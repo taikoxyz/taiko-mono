@@ -4,21 +4,20 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
-import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL1HoodiAddrs } from "src/layer1/hoodi/LibL1HoodiAddrs.sol";
-import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title UpgradeShastaL2Contracts
-/// @notice Upgrades Shasta L2 contracts via bridge message. Automatically detects network based on chainId.
+/// @notice Upgrades Shasta L2 contracts via bridge message. 
+/// This script CAN ONLY BE RUN ON HOODI. For mainnet, we need to use the `BuildProposal` format.
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
 /// - ANCHOR_FORK_ROUTER: Anchor fork router implementation address
 /// - SIGNAL_SERVICE_FORK_ROUTER: Signal service fork router implementation address
-/// - DELEGATE_CONTROLLER: L2 delegate controller address (only for Hoodi)
+/// - DELEGATE_CONTROLLER: L2 delegate controller address
 contract UpgradeShastaL2Contracts is DeployCapability {
     struct UpgradeConfig {
         address delegateController;
@@ -46,35 +45,16 @@ contract UpgradeShastaL2Contracts is DeployCapability {
     }
 
     function _loadConfig() private view returns (UpgradeConfig memory config) {
-        if (block.chainid == LibNetwork.ETHEREUM_MAINNET) {
-            config = _loadMainnetConfig();
-        } else if (block.chainid == LibNetwork.ETHEREUM_HOODI) {
-            config = _loadHoodiConfig();
-        } else {
-            revert("Unsupported chainId");
-        }
-
-        // Load deployment-specific values from environment
-        config.anchorForkRouter = vm.envAddress("ANCHOR_FORK_ROUTER");
-        config.signalServiceForkRouter = vm.envAddress("SIGNAL_SERVICE_FORK_ROUTER");
-    }
-
-    function _loadMainnetConfig() private pure returns (UpgradeConfig memory config) {
-        config.delegateController = LibL2Addrs.DELEGATE_CONTROLLER;
-        config.l1Bridge = LibL1Addrs.BRIDGE;
-        config.anchorProxy = LibL2Addrs.ANCHOR;
-        config.signalServiceProxy = LibL2Addrs.SIGNAL_SERVICE;
-        config.srcChainId = uint64(LibNetwork.ETHEREUM_MAINNET);
-        config.destChainId = LibNetwork.TAIKO_MAINNET;
-    }
-
-    function _loadHoodiConfig() private view returns (UpgradeConfig memory config) {
-        config.delegateController = vm.envAddress("DELEGATE_CONTROLLER");
         config.l1Bridge = LibL1HoodiAddrs.HOODI_BRIDGE;
         config.anchorProxy = LibL2HoodiAddrs.HOODI_ANCHOR;
         config.signalServiceProxy = LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE;
         config.srcChainId = uint64(LibNetwork.ETHEREUM_HOODI);
         config.destChainId = LibNetwork.TAIKO_HOODI;
+
+        // Load deployment-specific values from environment
+        config.delegateController = vm.envAddress("DELEGATE_CONTROLLER");
+        config.anchorForkRouter = vm.envAddress("ANCHOR_FORK_ROUTER");
+        config.signalServiceForkRouter = vm.envAddress("SIGNAL_SERVICE_FORK_ROUTER");
     }
 
     function _validateConfig(UpgradeConfig memory config) private pure {

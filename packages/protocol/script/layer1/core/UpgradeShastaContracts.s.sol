@@ -2,13 +2,12 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL1HoodiAddrs } from "src/layer1/hoodi/LibL1HoodiAddrs.sol";
-import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title UpgradeShastaContracts
-/// @notice Upgrades Shasta L1 contracts. Automatically detects network based on chainId.
+/// @notice Upgrades Shasta L1 contracts. 
+/// This script CAN ONLY BE RUN ON HOODI. For mainnet, we need to use the `BuildProposal` format.
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
@@ -39,28 +38,13 @@ contract UpgradeShastaContracts is DeployCapability {
     }
 
     function _loadConfig() private view returns (UpgradeConfig memory config) {
-        if (block.chainid == LibNetwork.ETHEREUM_MAINNET) {
-            config = _loadMainnetConfig();
-        } else if (block.chainid == LibNetwork.ETHEREUM_HOODI) {
-            config = _loadHoodiConfig();
-        } else {
-            revert("Unsupported chainId");
-        }
+        config.preconfWhitelistProxy = LibL1HoodiAddrs.HOODI_PRECONF_WHITELIST;
+        config.signalServiceProxy = LibL1HoodiAddrs.HOODI_SIGNAL_SERVICE;
 
         // Load deployment-specific values from environment
         config.preconfWhitelistImpl = vm.envAddress("PRECONF_WHITELIST_IMPL");
         config.proverWhitelistProxy = vm.envAddress("PROVER_WHITELIST_PROXY");
         config.signalServiceForkRouterImpl = vm.envAddress("SIGNAL_SERVICE_FORK_ROUTER_IMPL");
-    }
-
-    function _loadMainnetConfig() private pure returns (UpgradeConfig memory config) {
-        config.preconfWhitelistProxy = LibL1Addrs.PRECONF_WHITELIST;
-        config.signalServiceProxy = LibL1Addrs.SIGNAL_SERVICE;
-    }
-
-    function _loadHoodiConfig() private pure returns (UpgradeConfig memory config) {
-        config.preconfWhitelistProxy = LibL1HoodiAddrs.HOODI_PRECONF_WHITELIST;
-        config.signalServiceProxy = LibL1HoodiAddrs.HOODI_SIGNAL_SERVICE;
     }
 
     function _validateConfig(UpgradeConfig memory config) private pure {
