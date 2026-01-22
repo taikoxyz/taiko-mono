@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "../verifiers/compose/ComposeVerifier.sol";
 
-/// @title CommonVerifier
+/// @title MainnetVerifier
 /// @notice SGX-GETH + (SGX or RISC0 or SP1) verifier
 /// @custom:security-contact security@taiko.xyz
-contract CommonVerifier is ComposeVerifier {
+contract MainnetVerifier is ComposeVerifier {
     constructor(
         address _sgxGethVerifier,
         address _sgxRethVerifier,
