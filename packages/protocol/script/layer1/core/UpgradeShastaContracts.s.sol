@@ -26,7 +26,7 @@ contract UpgradeShastaContracts is DeployCapability {
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set or invalid");
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
     }

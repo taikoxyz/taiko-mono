@@ -12,7 +12,7 @@ contract DeployTaikoToken is DeployCapability {
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
     }
