@@ -20,7 +20,7 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { SurgeTimelockController } from "src/layer1/surge/SurgeTimelockController.sol";
 import { SurgeVerifier } from "src/layer1/surge/SurgeVerifier.sol";
-import { SurgeInbox } from "src/layer1/surge/deployments/internal-devnet/SurgeInbox.sol";
+import { SurgeInbox } from "src/layer1/surge/deployments/internal-devnet/SurgeInboxPOC.sol";
 import { LibProofBitmap } from "src/layer1/surge/libs/LibProofBitmap.sol";
 import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
 import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
