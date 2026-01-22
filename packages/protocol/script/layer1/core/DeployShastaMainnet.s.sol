@@ -24,7 +24,6 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.preconfWhitelist = LibL1Addrs.PRECONF_WHITELIST;
         config.contractOwner = LibL1Addrs.DAO_CONTROLLER;
 
-        // TODO: Please review these addresses carefully
         config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
         config.r0Groth16Verifier = 0x7CCA385bdC790c25924333F5ADb7F4967F5d1599;
         config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;

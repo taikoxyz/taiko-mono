@@ -9,4 +9,5 @@ library LibL1HoodiAddrs {
     address public constant HOODI_TAIKO_TOKEN = 0xf3b83e226202ECf7E7bb2419a4C6e3eC99e963DA;
     address public constant HOODI_PRECONF_WHITELIST = 0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba;
     address public constant HOODI_CONTRACT_OWNER = 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190;
+    address public constant HOODI_BRIDGE = 0x6a4cf607DaC2C4784B7D934Bcb3AD7F2ED18Ed80;
 }
