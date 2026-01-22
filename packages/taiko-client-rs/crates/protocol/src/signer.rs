@@ -200,7 +200,7 @@ impl SignerSync for FixedKSigner {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "net"))]
 mod tests {
     use super::*;
     use k256::Scalar;
