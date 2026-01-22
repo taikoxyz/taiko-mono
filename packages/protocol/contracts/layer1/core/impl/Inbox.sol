@@ -32,7 +32,7 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
 ///      - Bond accounting and liveness bond processing
-///      - Finalization of proven proposals with checkpoint rate limiting
+///      - Finalization of proven proposals with checkpoint syncing
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
     using LibAddress for address;
@@ -88,18 +88,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
+    /// @notice The delay after which proving becomes permissionless when whitelist is enabled.
+    uint48 internal immutable _permissionlessProvingDelay;
+
     /// @notice Maximum delay allowed between sequential proofs to remain on time.
     uint48 internal immutable _maxProofSubmissionDelay;
 
     /// @notice The ring buffer size for storing proposal hashes.
-    uint256 internal immutable _ringBufferSize;
+    uint48 internal immutable _ringBufferSize;
 
     /// @notice The percentage of basefee paid to coinbase.
     uint8 internal immutable _basefeeSharingPctg;
-
-    /// @notice The minimum number of forced inclusions that the proposer is forced to process if
-    /// they are due.
-    uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
     uint16 internal immutable _forcedInclusionDelay;
@@ -109,9 +108,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice Queue size at which the fee doubles. See Config for formula details.
     uint64 internal immutable _forcedInclusionFeeDoubleThreshold;
-
-    /// @notice The minimum delay between checkpoints in seconds.
-    uint16 internal immutable _minCheckpointDelay;
 
     /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
     /// becomes permissionless
@@ -159,14 +155,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _livenessBond = _config.livenessBond;
         _withdrawalDelay = _config.withdrawalDelay;
         _provingWindow = _config.provingWindow;
+        _permissionlessProvingDelay = _config.permissionlessProvingDelay;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
-        _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
-        _minCheckpointDelay = _config.minCheckpointDelay;
         _permissionlessInclusionMultiplier = _config.permissionlessInclusionMultiplier;
     }
 
@@ -251,8 +246,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
-    ///         process at least `config.minForcedInclusionCount` if they are due.
+    ///      2. Process `input.numForcedInclusions` forced inclusions.
     ///      3. Updates core state and emits `Proposed` event
     /// @param _lookahead Additional data used for lookahead operations.
     /// @param _data The encoded proposal input data.
@@ -268,11 +262,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IInbox
-    ///
+    /// @dev When the prover whitelist is enabled, only whitelisted
+    ///      provers may prove until a proposal becomes older than `permissionlessProvingDelay`,
+    ///      after which proving becomes permissionless for that proposal.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
-    /// Transition structs, each with the proposal's metadata and checkpoint hash. The proof range
-    /// can start at or before the last finalized proposal to handle race conditions where
-    /// proposals get finalized between proof generation and submission.
+    ///      Transition structs, each with the proposal metadata and end block hash. The proof
+    ///      range can start at or before the last finalized proposal to handle race conditions
+    ///      where proposals get finalized between proof generation and submission.
     ///
     /// Example: Proving proposals 3-7 when lastFinalizedProposalId=4
     ///
@@ -441,14 +437,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             livenessBond: _livenessBond,
             withdrawalDelay: _withdrawalDelay,
             provingWindow: _provingWindow,
+            permissionlessProvingDelay: _permissionlessProvingDelay,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
-            minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
-            minCheckpointDelay: _minCheckpointDelay,
             permissionlessInclusionMultiplier: _permissionlessInclusionMultiplier
         });
     }
@@ -617,8 +612,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _getAvailableCapacity(_nextProposalId, _lastFinalizedProposalId) > 0,
-                NotEnoughCapacity()
+                _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
             );
 
             // Surge: extract consumption result logic to an internal virtual helper
@@ -631,7 +625,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             if (!result.allowsPermissionless) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
-                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
+                if (_minBond > 0) {
+                    // Only if thre is a minimum bond set, execute this check
+                    require(
+                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
+                    );
+                }
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -680,22 +679,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 ? available
                 : _numForcedInclusionsRequested;
 
+            uint48 headAfter = head + uint48(toProcess);
+            if (available > toProcess) {
+                bool isOldestInclusionDue =
+                    $.isOldestForcedInclusionDue(headAfter, tail, _forcedInclusionDelay);
+                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            }
+
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
             (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
                 $, _feeRecipient, result_.sources, head, toProcess
             );
-
-            // We check the following conditions are met:
-            // 1. Proposer is willing to include at least the minimum required
-            // (_minForcedInclusionCount) OR
-            // 2. Proposer included all available inclusions that are due
-            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
-                bool isOldestInclusionDue =
-                    $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
-                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
-            }
 
             uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
                 * _permissionlessInclusionMultiplier + oldestTimestamp;
@@ -788,41 +784,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Private View/Pure Functions
     // ---------------------------------------------------------------
 
-    /// @dev Calculates remaining capacity for new proposals
-    /// Subtracts unfinalized proposals from total capacity
-    /// @param _nextProposalId The next proposal ID
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(
-        uint48 _nextProposalId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        view
-        returns (uint256)
-    {
-        unchecked {
-            uint256 numUnfinalizedProposals = _nextProposalId - _lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
-        }
-    }
-
     /// @dev Validates propose function inputs.
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Checks if the caller is an authorized prover
-    /// @param _addr The address of the caller to check
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise
-    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
+    /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
+    ///      becomes permissionless once a proposal is older than the permissionless delay.
+    /// @param _addr The address of the caller to check.
+    /// @param _proposalAge The age in seconds since the proposal became available for proving.
+    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise.
+    function _checkProver(
+        address _addr,
+        uint256 _proposalAge
+    )
+        private
+        view
+        returns (bool whitelistEnabled_)
+    {
         if (address(_proverWhitelist) == address(0)) return false;
 
         (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
         if (proverCount == 0) return false;
 
-        require(isWhitelisted, ProverNotWhitelisted());
+        if (!isWhitelisted) {
+            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
+        }
         return true;
     }
 
@@ -907,7 +895,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     error ActivationRequired();
     error CannotProposeInCurrentBlock();
-    error CheckpointDelayHasPassed();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
