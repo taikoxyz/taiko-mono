@@ -28,7 +28,7 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.r0Groth16Verifier = 0x7CCA385bdC790c25924333F5ADb7F4967F5d1599;
         config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
         // Reth
-        config.sgxAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+        config.sgxRethAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
         config.sp1PlonkVerifier = 0xcdCEBD75cDcb9DEd637D537776431Db563Ff0821;
 
 

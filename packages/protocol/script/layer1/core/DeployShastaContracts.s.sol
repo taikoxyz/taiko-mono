@@ -29,7 +29,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         address l1SignalService;
         address l2SignalService;
         address taikoToken;
-        address sgxAutomataProxy;
+        address sgxRethAutomataProxy;
         address sgxGethAutomataProxy;
         address r0Groth16Verifier;
         address sp1PlonkVerifier;
@@ -62,7 +62,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.taikoToken != address(0), "TAIKO_TOKEN not set");
-        require(config.sgxAutomataProxy != address(0), "SGX_AUTOMATA_PROXY not set");
+        require(config.sgxRethAutomataProxy != address(0), "SGX_AUTOMATA_PROXY not set");
         require(config.sgxGethAutomataProxy != address(0), "SGX_GETH_AUTOMATA_PROXY not set");
         require(config.r0Groth16Verifier != address(0), "R0_GROTH16_VERIFIER not set");
         require(config.sp1PlonkVerifier != address(0), "SP1_PLONK_VERIFIER not set");
@@ -129,7 +129,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         returns (VerifierAddresses memory verifiers)
     {
         verifiers.sgxReth = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxAutomataProxy)
+            new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy)
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
