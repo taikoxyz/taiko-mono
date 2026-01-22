@@ -12,27 +12,9 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 ) error {
-	var startingBlock uint64 = 0
-	// only check stateVars on L1, otherwise sync from 0
-	if i.taikol1 != nil {
-		slotA, _, err := i.taikol1.GetStateVariables(nil)
-		if err != nil {
-			// check v2
-			slotA, _, err := i.taikol1V2.GetStateVariables(nil)
-			if err != nil {
-				// check v3
-				stats1, err := i.taikoInbox.GetStats1(nil)
-				if err != nil {
-					return errors.Wrap(err, "i.taikoInbox.GetStats1")
-				}
-
-				startingBlock = stats1.GenesisHeight
-			} else {
-				startingBlock = slotA.GenesisHeight
-			}
-		} else {
-			startingBlock = slotA.GenesisHeight
-		}
+	startingBlock, err := i.getGenesisBlockHeight(ctx)
+	if err != nil {
+		return err
 	}
 
 	switch mode {
@@ -59,4 +41,48 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	i.latestIndexedBlockNumber = startingBlock
 
 	return nil
+}
+
+// getGenesisBlockHeight returns the genesis block height by trying different
+// contract versions in order (v1 -> v2 -> v3 -> v4). Returns 0 if no TaikoL1
+// contract is configured.
+func (i *Indexer) getGenesisBlockHeight(ctx context.Context) (uint64, error) {
+	if i.taikol1 == nil {
+		return 0, nil
+	}
+
+	// Try v1 bindings
+	slotA, _, err := i.taikol1.GetStateVariables(nil)
+	if err == nil {
+		return slotA.GenesisHeight, nil
+	}
+
+	// Try v2 bindings
+	slotAV2, _, err := i.taikol1V2.GetStateVariables(nil)
+	if err == nil {
+		return slotAV2.GenesisHeight, nil
+	}
+
+	// Try v3 bindings
+	stats, err := i.taikoInbox.GetStats1(nil)
+	if err == nil {
+		return stats.GenesisHeight, nil
+	}
+
+	// Try v4 bindings
+	if i.shastaInbox == nil {
+		return 0, errors.New("no compatible TaikoL1 contract version found")
+	}
+
+	ts, err := i.shastaInbox.ActivationTimestamp(nil)
+	if err != nil {
+		return 0, errors.Wrap(err, "shastaInbox.ActivationTimestamp")
+	}
+
+	blockNum, err := i.getBlockByTimestamp(ctx, ts.Uint64())
+	if err != nil {
+		return 0, errors.Wrap(err, "getBlockByTimestamp")
+	}
+
+	return blockNum, nil
 }
