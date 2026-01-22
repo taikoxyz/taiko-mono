@@ -207,12 +207,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Signer of the state update
     address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
-    struct StateUpdate {
-        uint48 blockNumber;
-        bytes32 stateRoot;
-        bytes32 blockHash;
-    }
-
     function proposeWithProof(
         bytes calldata _lookahead,
         bytes calldata _data,
@@ -227,23 +221,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         // --------------------------
 
         // Verify proof signer
-        StateUpdate memory stateUpdate = abi.decode(_proof[:96], (StateUpdate));
-        bytes32 digest = keccak256(abi.encode(stateUpdate));
+        ICheckpointStore.Checkpoint memory checkpoint =
+            abi.decode(_proof[:96], (ICheckpointStore.Checkpoint));
+        bytes32 digest = keccak256(abi.encode(checkpoint));
         require(ECDSA.recover(digest, _proof[96:]) == SIGNER, "proposeWithProof: Invalid signer");
 
         // Sync state
-        _signalService.saveCheckpoint(
-            ICheckpointStore.Checkpoint({
-                blockNumber: stateUpdate.blockNumber,
-                stateRoot: stateUpdate.stateRoot,
-                blockHash: stateUpdate.blockHash
-            })
-        );
+        _signalService.saveCheckpoint(checkpoint);
 
         // Update core state
         _coreState.lastFinalizedProposalId = uint48(_coreState.nextProposalId - 1);
         _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
-        _coreState.lastFinalizedBlockHash = stateUpdate.blockHash;
+        _coreState.lastFinalizedBlockHash = checkpoint.blockHash;
 
         emit Proved(
             uint48(_coreState.nextProposalId - 1),
