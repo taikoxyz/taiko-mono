@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { MainnetVerifier } from "../../../contracts/layer1/mainnet/MainnetVerifier.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import {MainnetVerifier} from "../../../contracts/layer1/mainnet/MainnetVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
@@ -82,7 +82,9 @@ abstract contract DeployShastaContracts is DeployCapability {
         VerifierAddresses memory verifiers = _deployAllVerifiers(config);
 
         address proofVerifier = address(
-            new MainnetVerifier(verifiers.sgxGeth, verifiers.sgxReth, verifiers.risc0, verifiers.sp1)
+            new MainnetVerifier(
+                verifiers.sgxGeth, verifiers.sgxReth, verifiers.risc0, verifiers.sp1
+            )
         );
         console2.log("MainnetVerifier deployed:", proofVerifier);
 
