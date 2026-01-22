@@ -48,14 +48,14 @@ export PROVING_WINDOW=${PROVING_WINDOW:-7200}
 # Maximum delay allowed between consecutive proofs to still be on time (default: 4 hours)
 export MAX_PROOF_SUBMISSION_DELAY=${MAX_PROOF_SUBMISSION_DELAY:-14400}
 
+# Delay after which proving becomes permissionless when the whitelist is enabled (default: 5 days)
+export PERMISSIONLESS_PROVING_DELAY=${PERMISSIONLESS_PROVING_DELAY:-432000}
+
 # Ring buffer size for storing proposal hashes
 export RING_BUFFER_SIZE=${RING_BUFFER_SIZE:-16000}
 
 # Percentage of basefee paid to coinbase (0-100, default: 75 for devnet)
 export BASEFEE_SHARING_PCTG=${BASEFEE_SHARING_PCTG:-75}
-
-# Minimum number of forced inclusions to process if due
-export MIN_FORCED_INCLUSION_COUNT=${MIN_FORCED_INCLUSION_COUNT:-1}
 
 # Delay for forced inclusions in seconds (default: 0 for devnet)
 export FORCED_INCLUSION_DELAY=${FORCED_INCLUSION_DELAY:-0}
@@ -65,9 +65,6 @@ export FORCED_INCLUSION_FEE_IN_GWEI=${FORCED_INCLUSION_FEE_IN_GWEI:-10000000}
 
 # Queue size at which the fee doubles
 export FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD=${FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD:-50}
-
-# Minimum delay between checkpoints in seconds (default: 384 seconds = 1 epoch)
-export MIN_CHECKPOINT_DELAY=${MIN_CHECKPOINT_DELAY:-384}
 
 # Multiplier for permissionless inclusion window
 export PERMISSIONLESS_INCLUSION_MULTIPLIER=${PERMISSIONLESS_INCLUSION_MULTIPLIER:-5}

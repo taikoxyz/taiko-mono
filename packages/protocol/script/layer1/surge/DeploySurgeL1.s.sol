@@ -70,17 +70,17 @@ contract DeploySurgeL1 is DeployCapability {
     // Inbox configuration
     // ---------------------------------------------------------------
     uint48 internal immutable provingWindow = uint48(vm.envUint("PROVING_WINDOW"));
+    uint48 internal immutable permissionlessProvingDelay =
+        uint48(vm.envUint("PERMISSIONLESS_PROVING_DELAY"));
     uint48 internal immutable maxProofSubmissionDelay =
         uint48(vm.envUint("MAX_PROOF_SUBMISSION_DELAY"));
-    uint256 internal immutable ringBufferSize = vm.envUint("RING_BUFFER_SIZE");
+    uint48 internal immutable ringBufferSize = uint48(vm.envUint("RING_BUFFER_SIZE"));
     uint8 internal immutable basefeeSharingPctg = uint8(vm.envUint("BASEFEE_SHARING_PCTG"));
-    uint256 internal immutable minForcedInclusionCount = vm.envUint("MIN_FORCED_INCLUSION_COUNT");
     uint16 internal immutable forcedInclusionDelay = uint16(vm.envUint("FORCED_INCLUSION_DELAY"));
     uint64 internal immutable forcedInclusionFeeInGwei =
         uint64(vm.envUint("FORCED_INCLUSION_FEE_IN_GWEI"));
     uint64 internal immutable forcedInclusionFeeDoubleThreshold =
         uint64(vm.envUint("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD"));
-    uint16 internal immutable minCheckpointDelay = uint16(vm.envUint("MIN_CHECKPOINT_DELAY"));
     uint8 internal immutable permissionlessInclusionMultiplier =
         uint8(vm.envUint("PERMISSIONLESS_INCLUSION_MULTIPLIER"));
 
@@ -450,14 +450,13 @@ contract DeploySurgeL1 is DeployCapability {
             livenessBond: livenessBond,
             withdrawalDelay: withdrawalDelay,
             provingWindow: provingWindow,
+            permissionlessProvingDelay: permissionlessProvingDelay,
             maxProofSubmissionDelay: maxProofSubmissionDelay,
             ringBufferSize: ringBufferSize,
             basefeeSharingPctg: basefeeSharingPctg,
-            minForcedInclusionCount: minForcedInclusionCount,
             forcedInclusionDelay: forcedInclusionDelay,
             forcedInclusionFeeInGwei: forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: forcedInclusionFeeDoubleThreshold,
-            minCheckpointDelay: minCheckpointDelay,
             permissionlessInclusionMultiplier: permissionlessInclusionMultiplier
         });
 

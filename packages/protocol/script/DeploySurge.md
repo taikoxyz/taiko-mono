@@ -107,14 +107,13 @@ WITHDRAWAL_DELAY=3600              # Withdrawal delay in seconds (1 hour)
 
 # Inbox Configuration
 PROVING_WINDOW=7200                # Proving window in seconds (2 hours)
+PERMISSIONLESS_PROVING_DELAY=432000 # Delay after which proving becomes permissionless when the whitelist is enabled (5 days)
 MAX_PROOF_SUBMISSION_DELAY=14400   # Max delay between consecutive proofs (4 hours)
 RING_BUFFER_SIZE=16000             # Proposal hash ring buffer size
 BASEFEE_SHARING_PCTG=75            # Basefee sharing percentage
-MIN_FORCED_INCLUSION_COUNT=1       # Min forced inclusions to process
 FORCED_INCLUSION_DELAY=0           # Forced inclusion delay (seconds)
 FORCED_INCLUSION_FEE_IN_GWEI=10000000  # Base fee (0.01 ETH)
 FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD=50  # Queue size for fee doubling
-MIN_CHECKPOINT_DELAY=384           # Min checkpoint delay (1 epoch)
 PERMISSIONLESS_INCLUSION_MULTIPLIER=5
 
 # Finalization Streak Configuration

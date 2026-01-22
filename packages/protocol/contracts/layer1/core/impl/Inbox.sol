@@ -228,13 +228,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _coreState.lastFinalizedProposalId = uint48(_coreState.nextProposalId - 1);
         _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
         _coreState.lastFinalizedBlockHash = checkpoint.blockHash;
+        _coreState.lastCheckpointTimestamp = uint48(block.timestamp);
 
         emit Proved(
             uint48(_coreState.nextProposalId - 1),
             uint48(_coreState.nextProposalId - 1),
             uint48(_coreState.nextProposalId - 1),
-            SIGNER,
-            true
+            SIGNER
         );
     }
 
@@ -495,8 +495,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _proof Validity proof for the batch of proposals
     function _prove(bytes calldata _data, bytes calldata _proof) internal {
         unchecked {
-
-            bool isWhitelistEnabled = _checkProver(msg.sender);
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
@@ -509,8 +507,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
+            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
+            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
+
             // ---------------------------------------------------------
-            // 2. Verify checkpoint hash continuity and last proposal hash
+            // 2. Verify parent block-hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
             bytes32 expectedParentHash = offset == 0
@@ -534,32 +535,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            bool checkpointSynced = input.forceCheckpointSync
-                || block.timestamp >= state.lastCheckpointTimestamp + _minCheckpointDelay;
-
-            if (checkpointSynced) {
-                _signalService.saveCheckpoint(
-                    ICheckpointStore.Checkpoint({
-                        blockNumber: commitment.endBlockNumber,
-                        stateRoot: commitment.endStateRoot,
-                        blockHash: commitment.transitions[numProposals - 1].blockHash
-                    })
-                );
-                state.lastCheckpointTimestamp = uint48(block.timestamp);
-            }
+            _signalService.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: commitment.endBlockNumber,
+                    stateRoot: commitment.endStateRoot,
+                    blockHash: commitment.transitions[numProposals - 1].blockHash
+                })
+            );
+            state.lastCheckpointTimestamp = uint48(block.timestamp);
 
             // ---------------------------------------------------------
-            // 5. Compute proposalAge (for single-proposal proofs only)
-            // ---------------------------------------------------------
-            uint256 proposalAge;
-            if (numProposals == 1) {
-                // We count proposalAge as the time since it became available for proving.
-                proposalAge = block.timestamp
-                    - commitment.transitions[offset].timestamp.max(state.lastFinalizedTimestamp);
-            }
-
-            // ---------------------------------------------------------
-            // 6. Update core state and emit event
+            // 5. Update core state and emit event
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
@@ -571,12 +557,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 commitment.firstProposalId,
                 commitment.firstProposalId + offset,
                 uint48(lastProposalId),
-                commitment.actualProver,
-                checkpointSynced
+                commitment.actualProver
             );
 
             // ---------------------------------------------------------
-            // 7. Verify the proof
+            // 6. Verify the proof
             // ---------------------------------------------------------
             // Surge: Extract logic to a virtual handler
             _handleProofVerification(proposalAge, commitment, _proof);
