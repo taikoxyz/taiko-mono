@@ -2,6 +2,9 @@
 
 source scripts/common.sh
 
+# Default to l2_geth if L2_NODE is not set (preserves backward compatibility with dev_net)
+L2_NODE="${L2_NODE:-l2_geth}"
+
 # Support multiple L2 node types
 case "$L2_NODE" in
   l2_geth)
