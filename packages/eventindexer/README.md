@@ -2,7 +2,7 @@
 
 # Indexer
 
-Catches events, stores them in the database to be queried via API.
+Catches events, stores them in the database to be queried via API .
 
 ## Running the app
 
