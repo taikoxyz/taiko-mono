@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix-migration-mismatch]
     tags:
       - "eventindexer-v*"
     paths:
