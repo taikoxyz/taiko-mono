@@ -145,6 +145,10 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             // Cross-epoch or fallback proposers must provide correct nextLookahead
             _validateLookahead(_nextEpochTimestamp, _data.nextLookahead, nextLookaheadHash);
         } else {
+            if (!isLookaheadRequired()) {
+                // Skip posting on slot 0 when the lookahead is not required yet.
+                return;
+            }
             // Lookahead not posted yet - must post it now
             _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
         }
@@ -394,6 +398,11 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp(0);
+        if (block.timestamp == epochTimestamp) {
+            // Do not require posting the next-epoch lookahead in the first slot of the current
+            // epoch, as the off-chain builder may not have sufficient time to construct it.
+            return false;
+        }
         uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }

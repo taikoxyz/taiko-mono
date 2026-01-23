@@ -74,8 +74,8 @@ contract TestLookaheadStore is CommonTest {
         vm.warp(EPOCH_START);
     }
 
-    function test_isLookaheadRequired_trueAtEpochStart_whenMissing() external view {
-        assertTrue(lookaheadStore.isLookaheadRequired());
+    function test_isLookaheadRequired_falseAtEpochStart_whenMissing() external view {
+        assertFalse(lookaheadStore.isLookaheadRequired());
     }
 
     function test_isLookaheadRequired_falseWhenNextEpochLookaheadStored() external {
@@ -89,6 +89,7 @@ contract TestLookaheadStore is CommonTest {
     }
 
     function test_updateLookahead_acceptsValidSlots() external {
+        _warpAfterEpochStart();
         bytes32 registrationRoot = keccak256("operator");
         address committer = makeAddr("committer");
         _setupOperator(registrationRoot, committer, 1);
@@ -105,6 +106,7 @@ contract TestLookaheadStore is CommonTest {
     }
 
     function test_updateLookahead_RevertWhen_InvalidSlotTimestamp() external {
+        _warpAfterEpochStart();
         bytes32 registrationRoot = keccak256("operator");
         address committer = makeAddr("committer");
         _setupOperator(registrationRoot, committer, 1);
@@ -118,6 +120,7 @@ contract TestLookaheadStore is CommonTest {
     }
 
     function test_updateLookahead_RevertWhen_InvalidValidatorLeafIndex() external {
+        _warpAfterEpochStart();
         bytes32 registrationRoot = keccak256("operator");
         address committer = makeAddr("committer");
         _setupOperator(registrationRoot, committer, 1);
@@ -131,6 +134,7 @@ contract TestLookaheadStore is CommonTest {
     }
 
     function test_updateLookahead_RevertWhen_CommitterMismatch() external {
+        _warpAfterEpochStart();
         bytes32 registrationRoot = keccak256("operator");
         address committer = makeAddr("committer");
         _setupOperator(registrationRoot, committer, 1);
@@ -144,6 +148,7 @@ contract TestLookaheadStore is CommonTest {
     }
 
     function test_updateLookahead_RevertWhen_OperatorBlacklistedAtReference() external {
+        _warpAfterEpochStart();
         bytes32 registrationRoot = keccak256("operator");
         address committer = makeAddr("committer");
         _setupOperator(registrationRoot, committer, 1);
@@ -165,7 +170,7 @@ contract TestLookaheadStore is CommonTest {
         vm.prank(overseer);
         lookaheadStore.blacklistOperator(registrationRoot);
 
-        vm.warp(EPOCH_START);
+        _warpAfterEpochStart();
 
         uint256 nextEpochTimestamp = _nextEpochTimestamp();
         ILookaheadStore.LookaheadSlot[] memory slots = new ILookaheadStore.LookaheadSlot[](1);
@@ -206,6 +211,38 @@ contract TestLookaheadStore is CommonTest {
         uint48 end = lookaheadStore.checkProposer(committer, abi.encode(data));
 
         assertEq(uint256(end), currLookahead[0].timestamp);
+    }
+
+    function test_checkProposer_succeedsAtEpochStart_withoutNextLookahead() external {
+        bytes32 registrationRoot = keccak256("operator");
+        address committer = makeAddr("committer");
+
+        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
+
+        ILookaheadStore.LookaheadSlot[] memory currLookahead =
+            new ILookaheadStore.LookaheadSlot[](1);
+        currLookahead[0] = _buildSlot(epochTimestamp, registrationRoot, committer, 0);
+
+        bytes26 currHash = lookaheadStore.calculateLookaheadHash(epochTimestamp, currLookahead);
+        lookaheadStore.setLookaheadHash(epochTimestamp, currHash);
+
+        // Next epoch lookahead is intentionally missing. Slot 0 exemption should allow proposing.
+        assertEq(lookaheadStore.getLookaheadHash(nextEpochTimestamp), bytes26(0));
+
+        ILookaheadStore.LookaheadData memory data = ILookaheadStore.LookaheadData({
+            slotIndex: 0,
+            registrationRoot: bytes32(0),
+            currLookahead: currLookahead,
+            nextLookahead: new ILookaheadStore.LookaheadSlot[](0),
+            commitmentSignature: ""
+        });
+
+        vm.prank(inbox);
+        uint48 end = lookaheadStore.checkProposer(committer, abi.encode(data));
+
+        assertEq(uint256(end), currLookahead[0].timestamp);
+        assertEq(lookaheadStore.getLookaheadHash(nextEpochTimestamp), bytes26(0));
     }
 
     function _setupOperator(
@@ -264,5 +301,9 @@ contract TestLookaheadStore is CommonTest {
 
     function _referenceTimestamp() internal pure returns (uint256) {
         return EPOCH_START - LibPreconfConstants.SECONDS_IN_EPOCH;
+    }
+
+    function _warpAfterEpochStart() internal {
+        vm.warp(EPOCH_START + 1);
     }
 }
