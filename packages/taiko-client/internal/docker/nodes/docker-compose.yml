@@ -70,3 +70,23 @@ services:
       - --taiko
       - --taiko.internal-shasta-time
       - "${TAIKO_INTERNAL_SHASTA_TIME}"
+
+  l2_nmc:
+    container_name: l2_nmc
+    image: nethermindeth/nethermind:master-b247009
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - .:/host
+      - ./nmc:/nethermind/configs
+    ports:
+      - "8545"
+      - "8546"
+      - "8551"
+    command:
+      - --config
+      - /nethermind/configs/taiko-devnet.cfg
+      - --datadir
+      - /nethermind/data
+      - --log
+      - DEBUG
