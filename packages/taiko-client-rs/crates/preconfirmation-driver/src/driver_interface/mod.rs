@@ -10,5 +10,5 @@ pub mod payload;
 /// Driver-facing traits and input structures.
 pub mod traits;
 
-pub use embedded::EmbeddedDriverClient;
+pub use embedded::{ContractInboxReader, EmbeddedDriverClient, InboxReader};
 pub use traits::{DriverClient, PreconfirmationInput};

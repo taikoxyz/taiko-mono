@@ -12,7 +12,7 @@ use tracing::{info, warn};
 
 use crate::{
     EmbeddedDriverClient, PreconfirmationClient, PreconfirmationClientConfig, Result,
-    driver_interface::PreconfirmationInput,
+    driver_interface::{InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
     rpc::{
         LookaheadInfo, NodeStatus, PreconfHead, PreconfRpcApi, PreconfRpcServer,
@@ -68,11 +68,14 @@ pub struct DriverChannels {
 /// - P2P networking for gossip and peer discovery
 /// - Embedded driver client for payload submission
 /// - Optional user-facing RPC server for external clients
-pub struct PreconfirmationDriverNode {
+///
+/// The `I` type parameter represents the inbox reader implementation used by the embedded
+/// driver client for L1 sync state verification.
+pub struct PreconfirmationDriverNode<I: InboxReader + 'static> {
     /// Embedded driver client for submitting preconfirmation inputs.
-    driver_client: EmbeddedDriverClient,
+    driver_client: EmbeddedDriverClient<I>,
     /// P2P client handling gossip, validation, and tip catch-up.
-    p2p_client: PreconfirmationClient<EmbeddedDriverClient>,
+    p2p_client: PreconfirmationClient<EmbeddedDriverClient<I>>,
     /// Configuration for the optional user-facing RPC server.
     rpc_config: Option<PreconfRpcServerConfig>,
     /// Watch receiver for the canonical proposal ID from the driver.
@@ -81,18 +84,30 @@ pub struct PreconfirmationDriverNode {
     preconf_tip_rx: watch::Receiver<U256>,
 }
 
-impl PreconfirmationDriverNode {
+impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
     /// Create a new preconfirmation driver node.
     ///
     /// Returns a tuple of (node, driver_channels) where the channels should be
     /// wired to the driver for communication.
-    pub fn new(config: PreconfirmationDriverNodeConfig) -> Result<(Self, DriverChannels)> {
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The node configuration including P2P and RPC settings
+    /// * `inbox_reader` - The inbox reader implementation for L1 sync state verification
+    pub fn new(
+        config: PreconfirmationDriverNodeConfig,
+        inbox_reader: I,
+    ) -> Result<(Self, DriverChannels)> {
         let (input_tx, input_rx) = mpsc::channel(config.driver_channel_capacity);
         let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
-        let driver_client =
-            EmbeddedDriverClient::new(input_tx, canonical_id_rx.clone(), preconf_tip_rx.clone());
+        let driver_client = EmbeddedDriverClient::new(
+            input_tx,
+            canonical_id_rx.clone(),
+            preconf_tip_rx.clone(),
+            inbox_reader,
+        );
         let p2p_client = PreconfirmationClient::new(config.p2p_config, driver_client.clone())?;
 
         Ok((
@@ -142,7 +157,7 @@ impl PreconfirmationDriverNode {
     }
 
     /// Get a reference to the embedded driver client.
-    pub fn driver_client(&self) -> &EmbeddedDriverClient {
+    pub fn driver_client(&self) -> &EmbeddedDriverClient<I> {
         &self.driver_client
     }
 

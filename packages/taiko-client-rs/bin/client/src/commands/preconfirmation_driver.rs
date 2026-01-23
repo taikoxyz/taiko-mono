@@ -10,7 +10,7 @@ use driver::{
     DriverConfig, PreconfPayload, SyncStage, metrics::DriverMetrics, sync::event::EventSyncer,
 };
 use preconfirmation_driver::{
-    DriverChannels, PreconfirmationClientConfig, PreconfirmationClientMetrics,
+    ContractInboxReader, DriverChannels, PreconfirmationClientConfig, PreconfirmationClientMetrics,
     PreconfirmationDriverNode, PreconfirmationDriverNodeConfig,
     driver_interface::payload::build_taiko_payload_attributes, rpc::PreconfRpcServerConfig,
 };
@@ -118,12 +118,18 @@ impl PreconfirmationDriverSubCommand {
         P: Provider + Clone + Send + Sync + 'static,
     {
         tokio::spawn(async move {
-            let event_syncer_state = event_syncer.clone();
+            // Subscribe to proposal ID changes (event-driven, not polling)
+            let mut proposal_id_rx = event_syncer.subscribe_proposal_id();
+
+            // Spawn event-driven state update task
             let state_update_handle = tokio::spawn(async move {
-                let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
                 loop {
-                    interval.tick().await;
-                    let id = event_syncer_state.last_canonical_proposal_id();
+                    // Wait for actual changes instead of polling
+                    if proposal_id_rx.changed().await.is_err() {
+                        // Sender dropped, exit gracefully
+                        break;
+                    }
+                    let id = *proposal_id_rx.borrow();
                     let _ = channels.canonical_proposal_id_sender.send(id);
                     let _ = channels.preconf_tip_sender.send(U256::from(id));
                 }
@@ -236,7 +242,9 @@ impl Subcommand for PreconfirmationDriverSubCommand {
             node_config = node_config.with_rpc(PreconfRpcServerConfig { listen_addr: rpc_addr });
         }
 
-        let (node, channels) = PreconfirmationDriverNode::new(node_config)?;
+        let inbox_reader = ContractInboxReader::new(driver_client.shasta.inbox.clone());
+
+        let (node, channels) = PreconfirmationDriverNode::new(node_config, inbox_reader)?;
         let forward_handle =
             Self::spawn_input_forwarder(event_syncer.clone(), channels, driver_client.clone());
 

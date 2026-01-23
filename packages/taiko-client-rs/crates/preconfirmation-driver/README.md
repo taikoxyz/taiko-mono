@@ -51,7 +51,7 @@ User-facing JSON-RPC methods:
 
 ```rust
 use preconfirmation_driver::{
-    PreconfirmationDriverNode, PreconfirmationDriverNodeConfig,
+    ContractInboxReader, PreconfirmationDriverNode, PreconfirmationDriverNodeConfig,
     PreconfirmationClientConfig, PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
@@ -65,7 +65,7 @@ let provider = /* your alloy Provider */;
 let client_config = PreconfirmationClientConfig::new(
     p2p_config,
     inbox_address,
-    provider,
+    provider.clone(),
 )
 .await?;
 
@@ -74,8 +74,12 @@ let config = PreconfirmationDriverNodeConfig::new(client_config)
     .with_rpc(PreconfRpcServerConfig::default())
     .with_driver_channel_capacity(256);
 
+// Create the inbox reader for L1 sync state verification
+let inbox_instance = /* your Inbox contract instance */;
+let inbox_reader = ContractInboxReader::new(inbox_instance);
+
 // Create the node and get driver channels
-let (node, channels) = PreconfirmationDriverNode::new(config)?;
+let (node, channels) = PreconfirmationDriverNode::new(config, inbox_reader)?;
 
 // Wire channels to your driver
 // driver.set_input_receiver(channels.input_receiver);
@@ -103,7 +107,7 @@ let client_config = PreconfirmationClientConfig::new_with_resolver(p2p_config, r
 ### Using EmbeddedDriverClient Directly
 
 ```rust
-use preconfirmation_driver::EmbeddedDriverClient;
+use preconfirmation_driver::{ContractInboxReader, EmbeddedDriverClient};
 use alloy_primitives::U256;
 use tokio::sync::{mpsc, watch};
 
@@ -111,7 +115,11 @@ let (input_tx, input_rx) = mpsc::channel(256);
 let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
 let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
-let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx);
+// Create the inbox reader for L1 sync state verification
+let inbox_instance = /* your Inbox contract instance */;
+let inbox_reader = ContractInboxReader::new(inbox_instance);
+
+let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
 
 // Submit preconfirmation input
 // let input = PreconfirmationInput::new(...);
@@ -119,6 +127,9 @@ client.submit_preconfirmation(input).await?;
 
 // Query state
 let tip = client.preconf_tip().await?;
+
+// Wait for L1 sync (checks Inbox.getCoreState().nextProposalId)
+client.wait_event_sync().await?;
 ```
 
 ## Module Structure

@@ -1,34 +1,83 @@
 //! Embedded driver client for direct in-process communication via channels.
 
 use alloy_primitives::U256;
+use alloy_provider::Provider;
 use async_trait::async_trait;
+use bindings::inbox::Inbox::InboxInstance;
 use tokio::sync::{mpsc, watch};
+use tracing::{debug, info};
 
 use super::traits::{DriverClient, PreconfirmationInput};
 use crate::error::{DriverApiError, Result};
+
+/// Trait for reading L1 Inbox contract state.
+///
+/// This abstraction allows the embedded driver client to check L1 sync status
+/// without requiring a concrete provider type, enabling easier testing.
+#[async_trait]
+pub trait InboxReader: Clone + Send + Sync {
+    /// Returns the next proposal ID from the L1 Inbox contract.
+    async fn get_next_proposal_id(&self) -> Result<u64>;
+}
+
+/// Real implementation of InboxReader using the Inbox contract bindings.
+#[derive(Clone)]
+pub struct ContractInboxReader<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    inbox: InboxInstance<P>,
+}
+
+impl<P> ContractInboxReader<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Creates a new ContractInboxReader with the given Inbox contract instance.
+    pub fn new(inbox: InboxInstance<P>) -> Self {
+        Self { inbox }
+    }
+}
+
+#[async_trait]
+impl<P> InboxReader for ContractInboxReader<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    async fn get_next_proposal_id(&self) -> Result<u64> {
+        let core_state = self.inbox.getCoreState().call().await.map_err(DriverApiError::from)?;
+        Ok(core_state.nextProposalId.to::<u64>())
+    }
+}
 
 /// A driver client that communicates directly with an embedded driver via channels.
 ///
 /// This client bypasses JSON-RPC serialization overhead by using Tokio channels
 /// for direct in-process communication with the driver.
+///
+/// The `I` type parameter represents the inbox reader implementation, which allows
+/// the client to check L1 Inbox state for sync alignment.
 #[derive(Clone)]
-pub struct EmbeddedDriverClient {
+pub struct EmbeddedDriverClient<I: InboxReader> {
     /// Channel for sending preconfirmation inputs to the driver.
     input_sender: mpsc::Sender<PreconfirmationInput>,
     /// Watch channel for receiving the latest canonical proposal ID from the driver.
     canonical_proposal_id: watch::Receiver<u64>,
     /// Watch channel for receiving the latest preconfirmation tip from the driver.
     preconf_tip: watch::Receiver<U256>,
+    /// Inbox reader for checking L1 sync state.
+    inbox_reader: I,
 }
 
-impl EmbeddedDriverClient {
-    /// Creates a new embedded driver client with the given channels.
+impl<I: InboxReader> EmbeddedDriverClient<I> {
+    /// Creates a new embedded driver client with the given channels and inbox reader.
     pub fn new(
         input_sender: mpsc::Sender<PreconfirmationInput>,
         canonical_proposal_id: watch::Receiver<u64>,
         preconf_tip: watch::Receiver<U256>,
+        inbox_reader: I,
     ) -> Self {
-        Self { input_sender, canonical_proposal_id, preconf_tip }
+        Self { input_sender, canonical_proposal_id, preconf_tip, inbox_reader }
     }
 
     /// Returns the capacity of the input sender channel (for testing purposes).
@@ -39,7 +88,7 @@ impl EmbeddedDriverClient {
 }
 
 #[async_trait]
-impl DriverClient for EmbeddedDriverClient {
+impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// Sends a preconfirmation input to the driver via the channel.
     ///
     /// Returns an error if the receiver has been dropped.
@@ -51,25 +100,43 @@ impl DriverClient for EmbeddedDriverClient {
         Ok(())
     }
 
-    /// Waits until the driver has processed at least one L1 event.
+    /// Waits until the driver has synced with L1 Inbox events.
     ///
-    /// Returns immediately if the canonical proposal ID is already greater than zero.
-    /// Otherwise, blocks until the watch channel receives an update.
+    /// This method checks the L1 Inbox contract to determine the target sync state:
+    /// - If `nextProposalId == 0`, returns Ok immediately (no proposals to sync)
+    /// - Otherwise, waits until `canonical_proposal_id >= nextProposalId - 1`
+    /// - If the watch channel is closed, returns a channel closed error
     async fn wait_event_sync(&self) -> Result<()> {
-        let mut rx = self.canonical_proposal_id.clone();
-        let initial = *rx.borrow();
+        info!("starting wait for driver to sync with L1 inbox events");
 
-        if initial > 0 {
-            return Ok(());
-        }
+        let mut rx = self.canonical_proposal_id.clone();
 
         loop {
-            if rx.changed().await.is_err() {
-                // Sender dropped - allow graceful shutdown
+            let canonical_id = *rx.borrow();
+            let next_proposal_id = self.inbox_reader.get_next_proposal_id().await?;
+
+            debug!(
+                canonical_proposal_id = canonical_id,
+                next_proposal_id = next_proposal_id,
+                "checking sync state"
+            );
+
+            if next_proposal_id == 0 {
+                info!("sync complete (no proposals)");
                 return Ok(());
             }
-            if *rx.borrow() > initial {
+
+            let target = next_proposal_id.saturating_sub(1);
+            if canonical_id >= target {
+                info!("driver event sync complete");
                 return Ok(());
+            }
+
+            if rx.changed().await.is_err() {
+                return Err(DriverApiError::ChannelClosed(
+                    "canonical proposal id watch channel closed".to_string(),
+                )
+                .into());
             }
         }
     }
@@ -88,10 +155,34 @@ impl DriverClient for EmbeddedDriverClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::PreconfirmationClientError;
     use preconfirmation_types::{Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    };
+
+    /// Mock inbox reader for testing.
+    #[derive(Clone)]
+    struct MockInboxReader {
+        next_proposal_id: Arc<AtomicU64>,
+    }
+
+    impl MockInboxReader {
+        fn new(next_proposal_id: u64) -> Self {
+            Self { next_proposal_id: Arc::new(AtomicU64::new(next_proposal_id)) }
+        }
+    }
+
+    #[async_trait]
+    impl InboxReader for MockInboxReader {
+        async fn get_next_proposal_id(&self) -> Result<u64> {
+            Ok(self.next_proposal_id.load(Ordering::SeqCst))
+        }
+    }
 
     fn make_client() -> (
-        EmbeddedDriverClient,
+        EmbeddedDriverClient<MockInboxReader>,
         mpsc::Receiver<PreconfirmationInput>,
         watch::Sender<u64>,
         watch::Sender<U256>,
@@ -99,8 +190,32 @@ mod tests {
         let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
         let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx);
+        let inbox_reader = MockInboxReader::new(0);
+        let client =
+            EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
         (client, input_rx, canonical_id_tx, preconf_tip_tx)
+    }
+
+    fn make_client_with_inbox(
+        next_proposal_id: u64,
+    ) -> (
+        EmbeddedDriverClient<MockInboxReader>,
+        mpsc::Receiver<PreconfirmationInput>,
+        watch::Sender<u64>,
+        watch::Sender<U256>,
+        MockInboxReader,
+    ) {
+        let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
+        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+        let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let inbox_reader = MockInboxReader::new(next_proposal_id);
+        let client = EmbeddedDriverClient::new(
+            input_tx,
+            canonical_id_rx.clone(),
+            preconf_tip_rx.clone(),
+            inbox_reader.clone(),
+        );
+        (client, input_rx, canonical_id_tx, preconf_tip_tx, inbox_reader)
     }
 
     fn make_test_input(block_number: u64) -> PreconfirmationInput {
@@ -139,7 +254,9 @@ mod tests {
         let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
         let (_, canonical_id_rx) = watch::channel(10u64);
         let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx);
+        let inbox_reader = MockInboxReader::new(0);
+        let client =
+            EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
 
         client.wait_event_sync().await.unwrap();
     }
@@ -174,5 +291,66 @@ mod tests {
 
         let result = client.submit_preconfirmation(make_test_input(1)).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_wait_event_sync_returns_ok_when_no_proposals() {
+        let (client, _, _, _, _) = make_client_with_inbox(0);
+        client.wait_event_sync().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_wait_event_sync_waits_until_synced_with_l1() {
+        let (client, _, canonical_id_tx, _, _) = make_client_with_inbox(5);
+
+        let client_clone = client.clone();
+        let wait_handle = tokio::spawn(async move { client_clone.wait_event_sync().await });
+
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        canonical_id_tx.send(4).unwrap();
+
+        tokio::time::timeout(std::time::Duration::from_millis(100), wait_handle)
+            .await
+            .expect("wait_event_sync should complete")
+            .expect("join should succeed")
+            .expect("wait_event_sync should return Ok");
+    }
+
+    #[tokio::test]
+    async fn test_wait_event_sync_errors_when_channel_closed() {
+        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
+        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let inbox_reader = MockInboxReader::new(10);
+        let client =
+            EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
+
+        let client_clone = client.clone();
+        let wait_handle = tokio::spawn(async move { client_clone.wait_event_sync().await });
+
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        drop(canonical_id_tx);
+
+        let err = tokio::time::timeout(std::time::Duration::from_millis(100), wait_handle)
+            .await
+            .expect("wait_event_sync should complete")
+            .expect("join should succeed")
+            .expect_err("wait_event_sync should return error when channel closed");
+
+        assert!(matches!(err, PreconfirmationClientError::DriverInterface(_)));
+    }
+
+    #[tokio::test]
+    async fn test_wait_event_sync_already_synced_with_l1() {
+        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
+        let (_, canonical_id_rx) = watch::channel(5u64);
+        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let inbox_reader = MockInboxReader::new(5);
+        let client =
+            EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
+
+        client.wait_event_sync().await.unwrap();
     }
 }
