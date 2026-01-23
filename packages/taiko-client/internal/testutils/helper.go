@@ -155,8 +155,13 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		// If the transaction is underpriced, we just ignore it.
-		s.Equal("replacement transaction underpriced", err.Error())
+		// If the transaction is underpriced or a replacement is not allowed, we just ignore it.
+		// Geth returns "replacement transaction underpriced", Nethermind returns "ReplacementNotAllowed"
+		if os.Getenv("L2_NODE") == "l2_nmc" {
+			s.Equal("ReplacementNotAllowed", err.Error())
+		} else {
+			s.Equal("replacement transaction underpriced", err.Error())
+		}
 	}
 
 	s.InitShastaGenesisProposal()
