@@ -26,8 +26,6 @@
 
 /// Main client orchestrator.
 pub mod client;
-/// Txlist codec utilities.
-pub mod codec;
 /// Client configuration types.
 pub mod config;
 /// Driver integration traits and clients.
@@ -54,5 +52,5 @@ pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{DriverClient, EmbeddedDriverClient, PreconfirmationInput};
 pub use error::{DriverApiError, PreconfirmationClientError, Result};
 pub use metrics::PreconfirmationClientMetrics;
-pub use node::{DriverChannels, PreconfirmationNode, PreconfirmationNodeConfig};
+pub use node::{DriverChannels, PreconfirmationDriverNode, PreconfirmationDriverNodeConfig};
 pub use rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig};

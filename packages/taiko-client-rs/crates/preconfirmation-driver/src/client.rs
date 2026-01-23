@@ -22,9 +22,9 @@ use preconfirmation_net::{
     LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
 };
 use preconfirmation_types::MAX_TXLIST_BYTES;
+use protocol::codec::ZlibTxListCodec;
 
 use crate::{
-    codec::ZlibTxListCodec,
     config::PreconfirmationClientConfig,
     driver_interface::DriverClient,
     error::{PreconfirmationClientError, Result},
@@ -49,14 +49,18 @@ pub struct EventLoop<D>
 where
     D: DriverClient + 'static,
 {
+    /// Client configuration snapshot used for rebuilds.
     config: PreconfirmationClientConfig,
+    /// Storage shared with the P2P node for catch-up and gossip state.
     p2p_storage: Arc<dyn PreconfStorage>,
     /// Handle to the P2P node task.
     ///
     /// The task returns a [`Result<()>`] using the crate's error type
     /// rather than `anyhow::Result` for consistent error handling.
     node_handle: tokio::task::JoinHandle<Result<()>>,
+    /// P2P handle for driving the event stream and issuing commands.
     handle: P2pHandle,
+    /// Event handler that processes inbound gossip and sync events.
     handler: EventHandler<D>,
 }
 
@@ -336,7 +340,9 @@ where
 
 /// Simple exponential backoff helper for P2P restarts.
 struct RetryBackoff {
+    /// Current backoff duration.
     current: Duration,
+    /// Maximum backoff duration.
     max: Duration,
 }
 

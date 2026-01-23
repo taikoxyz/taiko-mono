@@ -15,16 +15,26 @@ use super::{
 };
 use crate::{Result, error::PreconfirmationClientError};
 
+/// JSON-RPC method name for publishing commitments.
 const METHOD_PUBLISH_COMMITMENT: &str = "preconf_publishCommitment";
+/// JSON-RPC method name for publishing txlists.
 const METHOD_PUBLISH_TX_LIST: &str = "preconf_publishTxList";
+/// JSON-RPC method name for querying node status.
 const METHOD_GET_STATUS: &str = "preconf_getStatus";
+/// JSON-RPC method name for querying the current head.
 const METHOD_GET_HEAD: &str = "preconf_getHead";
+/// JSON-RPC method name for querying lookahead info.
 const METHOD_GET_LOOKAHEAD: &str = "preconf_getLookahead";
+/// JSON-RPC method name for querying the preconfirmation tip.
 const METHOD_PRECONF_TIP: &str = "preconf_tip";
+/// JSON-RPC method name for querying the canonical proposal ID.
 const METHOD_CANONICAL_PROPOSAL_ID: &str = "preconf_canonicalProposalId";
 
+/// Metric name for total RPC requests.
 const METRIC_REQUESTS_TOTAL: &str = "preconf_rpc_requests_total";
+/// Metric name for total RPC errors.
 const METRIC_ERRORS_TOTAL: &str = "preconf_rpc_errors_total";
+/// Metric name for RPC duration histogram.
 const METRIC_DURATION_SECONDS: &str = "preconf_rpc_duration_seconds";
 
 /// Configuration for the preconfirmation RPC server.
@@ -35,6 +45,7 @@ pub struct PreconfRpcServerConfig {
 }
 
 impl Default for PreconfRpcServerConfig {
+    /// Build the default RPC server configuration.
     fn default() -> Self {
         Self { listen_addr: "127.0.0.1:8550".parse().expect("valid default address") }
     }
@@ -43,7 +54,9 @@ impl Default for PreconfRpcServerConfig {
 /// Running HTTP JSON-RPC server for preconfirmation operations.
 #[derive(Debug)]
 pub struct PreconfRpcServer {
+    /// Socket address bound by the server.
     addr: SocketAddr,
+    /// Handle used to control server lifecycle.
     handle: ServerHandle,
 }
 
@@ -129,6 +142,7 @@ struct RpcContext {
 }
 
 /// Builds the JSON-RPC module with all preconfirmation methods registered.
+/// Build the JSON-RPC module with all preconfirmation methods.
 fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     let mut module = RpcModule::new(RpcContext { api });
 
@@ -155,6 +169,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
 }
 
 /// Records Prometheus metrics for an RPC request (duration, request count, error count).
+/// Record request metrics for a single RPC call.
 fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
     histogram!(METRIC_DURATION_SECONDS, "method" => method.to_string()).record(duration_secs);
     counter!(METRIC_REQUESTS_TOTAL, "method" => method.to_string()).increment(1);
@@ -166,6 +181,7 @@ fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
 }
 
 /// Converts a preconfirmation client error to a JSON-RPC error object.
+/// Map a domain error into a JSON-RPC error object.
 fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     use PreconfRpcErrorCode::*;
     use PreconfirmationClientError::*;
@@ -206,7 +222,7 @@ mod tests {
             &self,
             _request: PublishTxListRequest,
         ) -> Result<PublishTxListResponse> {
-            Ok(PublishTxListResponse { tx_list_hash: B256::ZERO, transaction_count: 0 })
+            Ok(PublishTxListResponse { tx_list_hash: B256::ZERO })
         }
 
         async fn get_status(&self) -> Result<NodeStatus> {

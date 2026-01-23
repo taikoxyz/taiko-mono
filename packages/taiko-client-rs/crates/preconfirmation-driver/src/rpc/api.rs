@@ -61,7 +61,7 @@ mod tests {
             &self,
             _request: PublishTxListRequest,
         ) -> Result<PublishTxListResponse> {
-            Ok(PublishTxListResponse { tx_list_hash: B256::ZERO, transaction_count: 0 })
+            Ok(PublishTxListResponse { tx_list_hash: B256::ZERO })
         }
 
         async fn get_status(&self) -> Result<NodeStatus> {

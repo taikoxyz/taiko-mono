@@ -16,14 +16,14 @@ pub struct PublishCommitmentRequest {
     pub transactions: Option<Vec<Bytes>>,
 }
 
-/// Request to publish a raw transaction list separately from the commitment.
+/// Request to publish an encoded transaction list separately from the commitment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishTxListRequest {
     /// The keccak256 hash of the compressed transaction list.
     pub tx_list_hash: B256,
-    /// The list of raw transaction bytes to publish.
-    pub transactions: Vec<Bytes>,
+    /// The compressed transaction list bytes (RLP list + zlib).
+    pub tx_list: Bytes,
 }
 
 /// Response for a successful commitment publication.
@@ -42,8 +42,6 @@ pub struct PublishCommitmentResponse {
 pub struct PublishTxListResponse {
     /// The keccak256 hash of the published transaction list.
     pub tx_list_hash: B256,
-    /// The number of transactions in the published list.
-    pub transaction_count: u64,
 }
 
 /// Current status of the preconfirmation driver node.

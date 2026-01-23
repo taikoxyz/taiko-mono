@@ -31,7 +31,9 @@ const DEFAULT_TXLIST_FETCH_CONCURRENCY: usize = 4;
 
 /// Tip catch-up handler.
 pub struct TipCatchup {
+    /// Configuration snapshot used for catch-up parameters.
     config: PreconfirmationClientConfig,
+    /// Commitment store used to persist fetched data.
     store: Arc<dyn CommitmentStore>,
 }
 
@@ -183,6 +185,7 @@ impl TipCatchup {
     }
 }
 
+/// Validate a commitment using the lookahead resolver.
 async fn validate_commitment(
     commitment: &SignedCommitment,
     expected_slasher: Option<&preconfirmation_types::Bytes20>,
@@ -213,6 +216,8 @@ async fn validate_commitment(
     Some(commitment.clone())
 }
 
+/// Map commitments by their preconfirmation hash.
+/// Index commitments by their commitment hash.
 fn map_commitments(commitments: Vec<SignedCommitment>) -> HashMap<B256, SignedCommitment> {
     commitments
         .into_iter()
@@ -225,6 +230,7 @@ fn map_commitments(commitments: Vec<SignedCommitment>) -> HashMap<B256, SignedCo
         .collect()
 }
 
+/// Build a contiguous commitment chain by walking backwards from the tip.
 async fn chain_from_tip(
     tip: SignedCommitment,
     commitments_by_hash: &HashMap<B256, SignedCommitment>,
@@ -276,6 +282,7 @@ async fn chain_from_tip(
     chain
 }
 
+/// Ensure the catch-up chain starts at the expected stop block.
 fn ensure_catchup_boundary(stop_block: U256, boundary_block: Option<U256>) -> Result<()> {
     if boundary_block == Some(stop_block) {
         Ok(())
@@ -286,6 +293,7 @@ fn ensure_catchup_boundary(stop_block: U256, boundary_block: Option<U256>) -> Re
     }
 }
 
+/// Require the tip commitment to be present for catch-up.
 fn require_tip_commitment(
     peer_tip: U256,
     tip: Option<SignedCommitment>,
@@ -297,6 +305,7 @@ fn require_tip_commitment(
     })
 }
 
+/// Request a raw txlist from the network using a command sender.
 async fn request_raw_txlist_with_sender(
     commands: Sender<NetworkCommand>,
     hash: Bytes32,
@@ -321,6 +330,7 @@ async fn request_raw_txlist_with_sender(
         .map_err(|err| PreconfirmationClientError::Catchup(err.to_string()))
 }
 
+/// Fetch and validate a txlist for a commitment hash.
 async fn fetch_txlist(
     commands: Sender<NetworkCommand>,
     hash: Bytes32,

@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use alloy::primitives::{B256, U256};
-use alloy_provider::Provider;
 use proposer::{config::ProposerConfigs, proposer::Proposer};
 use serial_test::serial;
 use test_context::test_context;

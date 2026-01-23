@@ -1,4 +1,4 @@
-//! Integration tests for the preconfirmation driver node (`PreconfirmationNode`).
+//! Integration tests for the preconfirmation driver node (`PreconfirmationDriverNode`).
 
 use alloy_primitives::U256;
 use preconfirmation_driver::{

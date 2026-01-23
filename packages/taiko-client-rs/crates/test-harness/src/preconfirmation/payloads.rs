@@ -12,12 +12,12 @@ use alloy_primitives::{Address, Bytes, U256};
 use alloy_rlp::encode as rlp_encode;
 use anyhow::{Context, Result, anyhow, ensure};
 use flate2::{Compression, write::ZlibEncoder};
-use preconfirmation_driver::codec::ZlibTxListCodec;
 use preconfirmation_types::{
     Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
     SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
     u256_to_uint256,
 };
+use protocol::codec::ZlibTxListCodec;
 use secp256k1::SecretKey;
 
 // ============================================================================

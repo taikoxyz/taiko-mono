@@ -13,12 +13,11 @@ use preconfirmation_net::{NetworkCommand, NetworkEvent};
 use preconfirmation_types::{
     Bytes20, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
 };
-use protocol::preconfirmation::PreconfSignerResolver;
+use protocol::{codec::ZlibTxListCodec, preconfirmation::PreconfSignerResolver};
 use tokio::sync::{broadcast, mpsc::Sender};
 use tracing::{debug, warn};
 
 use crate::{
-    codec::ZlibTxListCodec,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{PreconfirmationClientError, Result},
     metrics::PreconfirmationClientMetrics,
@@ -48,12 +47,19 @@ pub struct EventHandler<D>
 where
     D: DriverClient,
 {
+    /// Commitment store used for persistence and pending buffers.
     store: Arc<dyn CommitmentStore>,
+    /// Codec used to decode compressed txlists.
     codec: Arc<ZlibTxListCodec>,
+    /// Driver client used to submit preconfirmation inputs.
     driver: Arc<D>,
+    /// Optional expected slasher for commitment validation.
     expected_slasher: Option<Bytes20>,
+    /// Broadcast channel for emitting client events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
+    /// Command sender for issuing network requests.
     command_sender: Sender<NetworkCommand>,
+    /// Lookahead resolver for signer and window validation.
     lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
 
@@ -126,12 +132,14 @@ where
         Ok(())
     }
 
+    /// Emit a peer-connected event to subscribers.
     fn handle_peer_connected(&self, peer_id: String) {
         if let Err(err) = self.event_tx.send(PreconfirmationEvent::PeerConnected(peer_id)) {
             warn!(error = %err, "failed to emit peer connected event");
         }
     }
 
+    /// Emit a peer-disconnected event to subscribers.
     fn handle_peer_disconnected(&self, peer_id: String) {
         if let Err(err) = self.event_tx.send(PreconfirmationEvent::PeerDisconnected(peer_id)) {
             warn!(error = %err, "failed to emit peer disconnected event");
@@ -206,6 +214,7 @@ where
         self.handle_commitment(commitment).await
     }
 
+    /// Handle an inbound txlist gossip payload.
     async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
         metrics::counter!(PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL).increment(1);
 
@@ -230,6 +239,7 @@ where
         Ok(())
     }
 
+    /// Attempt to submit contiguous commitments starting at the provided block.
     async fn try_submit_contiguous_from(&self, start: U256) -> Result<()> {
         let mut next = start;
         loop {
@@ -248,6 +258,7 @@ where
         Ok(())
     }
 
+    /// Submit a commitment if its txlist is available and validation passes.
     async fn submit_if_ready(&self, commitment: SignedCommitment) -> Result<bool> {
         if is_eop_only(&commitment) {
             let input = PreconfirmationInput::new(commitment, None, None);
@@ -272,7 +283,10 @@ where
             return Ok(false);
         };
 
-        let transactions = self.codec.decode(txlist.txlist.as_ref())?;
+        let transactions = self
+            .codec
+            .decode(txlist.txlist.as_ref())
+            .map_err(|err| PreconfirmationClientError::Codec(err.to_string()))?;
         let input =
             PreconfirmationInput::new(commitment, Some(transactions), Some(txlist.txlist.to_vec()));
         match self.driver.submit_preconfirmation(input).await {
@@ -289,6 +303,7 @@ where
         Ok(true)
     }
 
+    /// Update the local head snapshot based on a new commitment.
     async fn update_head(&self, commitment: &SignedCommitment) {
         let head = PreconfHead {
             block_number: commitment.commitment.preconf.block_number.clone(),
@@ -310,6 +325,7 @@ where
         }
     }
 
+    /// Notify the P2P layer about a new head update.
     async fn notify_head_update(&self, head: PreconfHead) -> Result<()> {
         self.command_sender
             .send(NetworkCommand::UpdateHead { head })
@@ -328,13 +344,15 @@ mod tests {
     use alloy_primitives::{Address, B256, U256};
     use async_trait::async_trait;
     use preconfirmation_net::PreconfStorage;
-    use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
+    use protocol::{
+        codec::ZlibTxListCodec,
+        preconfirmation::{PreconfSignerResolver, PreconfSlotInfo},
+    };
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tokio::sync::{broadcast, mpsc};
 
     use super::EventHandler;
     use crate::{
-        codec::ZlibTxListCodec,
         driver_interface::{DriverClient, PreconfirmationInput},
         error::{DriverApiError, PreconfirmationClientError, Result},
         storage::{CommitmentStore, InMemoryCommitmentStore},

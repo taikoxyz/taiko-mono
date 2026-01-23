@@ -10,9 +10,9 @@ use driver::{
     DriverConfig, PreconfPayload, SyncStage, metrics::DriverMetrics, sync::event::EventSyncer,
 };
 use preconfirmation_driver::{
-    DriverChannels, PreconfirmationClientConfig, PreconfirmationClientMetrics, PreconfirmationNode,
-    PreconfirmationNodeConfig, driver_interface::payload::build_taiko_payload_attributes,
-    rpc::PreconfRpcServerConfig,
+    DriverChannels, PreconfirmationClientConfig, PreconfirmationClientMetrics,
+    PreconfirmationDriverNode, PreconfirmationDriverNodeConfig,
+    driver_interface::payload::build_taiko_payload_attributes, rpc::PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
 use rpc::{
@@ -224,20 +224,19 @@ impl Subcommand for PreconfirmationDriverSubCommand {
 
         info!("driver ready, starting preconfirmation P2P client");
 
-        let l1_provider = driver_client.l1_provider.clone();
-        let preconf_client_config = PreconfirmationClientConfig::new(
-            p2p_config,
-            self.common_flags.shasta_inbox_address,
-            l1_provider,
-        )
-        .await?;
-
-        let mut node_config = PreconfirmationNodeConfig::new(preconf_client_config);
+        let mut node_config = PreconfirmationDriverNodeConfig::new(
+            PreconfirmationClientConfig::new(
+                p2p_config,
+                self.common_flags.shasta_inbox_address,
+                driver_client.l1_provider.clone(),
+            )
+            .await?,
+        );
         if let Some(rpc_addr) = self.preconf_flags.preconf_rpc_addr {
             node_config = node_config.with_rpc(PreconfRpcServerConfig { listen_addr: rpc_addr });
         }
 
-        let (node, channels) = PreconfirmationNode::new(node_config)?;
+        let (node, channels) = PreconfirmationDriverNode::new(node_config)?;
         let forward_handle =
             Self::spawn_input_forwarder(event_syncer.clone(), channels, driver_client.clone());
 

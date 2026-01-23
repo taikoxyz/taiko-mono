@@ -23,7 +23,7 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 
 ## Components
 
-### Preconfirmation driver node (`PreconfirmationNode`)
+### Preconfirmation driver node (`PreconfirmationDriverNode`)
 
 The main orchestrator that combines:
 
@@ -35,15 +35,15 @@ The main orchestrator that combines:
 
 User-facing JSON-RPC methods:
 
-| Method                        | Description                                 |
-| ----------------------------- | ------------------------------------------- |
-| `preconf_publishCommitment`   | Publish a signed preconfirmation commitment |
-| `preconf_publishTxList`       | Publish a raw transaction list              |
-| `preconf_getStatus`           | Get current node status                     |
-| `preconf_getHead`             | Get current preconfirmation head            |
-| `preconf_getLookahead`        | Get current lookahead information           |
-| `preconf_tip`                 | Get preconfirmation tip block number        |
-| `preconf_canonicalProposalId` | Get last canonical proposal ID              |
+| Method                        | Description                                      |
+| ----------------------------- | ------------------------------------------------ |
+| `preconf_publishCommitment`   | Publish a signed preconfirmation commitment      |
+| `preconf_publishTxList`       | Publish an encoded transaction list (RLP + zlib) |
+| `preconf_getStatus`           | Get current node status                          |
+| `preconf_getHead`             | Get current preconfirmation head                 |
+| `preconf_getLookahead`        | Get current lookahead information                |
+| `preconf_tip`                 | Get preconfirmation tip block number             |
+| `preconf_canonicalProposalId` | Get last canonical proposal ID                   |
 
 ## Usage
 
@@ -51,7 +51,7 @@ User-facing JSON-RPC methods:
 
 ```rust
 use preconfirmation_driver::{
-    PreconfirmationNode, PreconfirmationNodeConfig,
+    PreconfirmationDriverNode, PreconfirmationDriverNodeConfig,
     PreconfirmationClientConfig, PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
@@ -70,12 +70,12 @@ let client_config = PreconfirmationClientConfig::new(
 .await?;
 
 // Create node configuration
-let config = PreconfirmationNodeConfig::new(client_config)
+let config = PreconfirmationDriverNodeConfig::new(client_config)
     .with_rpc(PreconfRpcServerConfig::default())
     .with_driver_channel_capacity(256);
 
 // Create the node and get driver channels
-let (node, channels) = PreconfirmationNode::new(config)?;
+let (node, channels) = PreconfirmationDriverNode::new(config)?;
 
 // Wire channels to your driver
 // driver.set_input_receiver(channels.input_receiver);
@@ -126,7 +126,6 @@ let tip = client.preconf_tip().await?;
 ```
 src/
 ├── client.rs           # PreconfirmationClient and EventLoop
-├── codec/              # Txlist compression utilities
 │   └── mod.rs
 ├── config.rs           # Configuration types
 ├── driver_interface/   # Driver communication

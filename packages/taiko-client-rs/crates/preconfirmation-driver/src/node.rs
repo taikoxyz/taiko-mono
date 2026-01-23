@@ -23,7 +23,7 @@ use crate::{
 
 /// Configuration for the preconfirmation driver node.
 #[derive(Debug, Clone)]
-pub struct PreconfirmationNodeConfig {
+pub struct PreconfirmationDriverNodeConfig {
     /// Configuration for the P2P client.
     pub p2p_config: PreconfirmationClientConfig,
     /// Configuration for the user-facing RPC server (None to disable).
@@ -32,7 +32,7 @@ pub struct PreconfirmationNodeConfig {
     pub driver_channel_capacity: usize,
 }
 
-impl PreconfirmationNodeConfig {
+impl PreconfirmationDriverNodeConfig {
     /// Create a new configuration with the specified P2P settings.
     pub fn new(p2p_config: PreconfirmationClientConfig) -> Self {
         Self { p2p_config, rpc_config: None, driver_channel_capacity: 256 }
@@ -68,7 +68,7 @@ pub struct DriverChannels {
 /// - P2P networking for gossip and peer discovery
 /// - Embedded driver client for payload submission
 /// - Optional user-facing RPC server for external clients
-pub struct PreconfirmationNode {
+pub struct PreconfirmationDriverNode {
     /// Embedded driver client for submitting preconfirmation inputs.
     driver_client: EmbeddedDriverClient,
     /// P2P client handling gossip, validation, and tip catch-up.
@@ -81,12 +81,12 @@ pub struct PreconfirmationNode {
     preconf_tip_rx: watch::Receiver<U256>,
 }
 
-impl PreconfirmationNode {
+impl PreconfirmationDriverNode {
     /// Create a new preconfirmation driver node.
     ///
     /// Returns a tuple of (node, driver_channels) where the channels should be
     /// wired to the driver for communication.
-    pub fn new(config: PreconfirmationNodeConfig) -> Result<(Self, DriverChannels)> {
+    pub fn new(config: PreconfirmationDriverNodeConfig) -> Result<(Self, DriverChannels)> {
         let (input_tx, input_rx) = mpsc::channel(config.driver_channel_capacity);
         let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
@@ -95,21 +95,20 @@ impl PreconfirmationNode {
             EmbeddedDriverClient::new(input_tx, canonical_id_rx.clone(), preconf_tip_rx.clone());
         let p2p_client = PreconfirmationClient::new(config.p2p_config, driver_client.clone())?;
 
-        let channels = DriverChannels {
-            input_receiver: input_rx,
-            canonical_proposal_id_sender: canonical_id_tx,
-            preconf_tip_sender: preconf_tip_tx,
-        };
-
-        let node = Self {
-            driver_client,
-            p2p_client,
-            rpc_config: config.rpc_config,
-            canonical_proposal_id_rx: canonical_id_rx,
-            preconf_tip_rx,
-        };
-
-        Ok((node, channels))
+        Ok((
+            Self {
+                driver_client,
+                p2p_client,
+                rpc_config: config.rpc_config,
+                canonical_proposal_id_rx: canonical_id_rx,
+                preconf_tip_rx,
+            },
+            DriverChannels {
+                input_receiver: input_rx,
+                canonical_proposal_id_sender: canonical_id_tx,
+                preconf_tip_sender: preconf_tip_tx,
+            },
+        ))
     }
 
     /// Run the preconfirmation driver node until an error occurs or shutdown.
@@ -204,25 +203,14 @@ impl PreconfRpcApi for NodeRpcApiImpl {
 
     /// Publishes a transaction list to the P2P network.
     ///
-    /// Compresses the transactions using RLP + zlib, verifies the hash matches,
-    /// and broadcasts via the P2P gossip network.
+    /// Verifies the hash matches the provided encoded tx list and broadcasts via P2P gossip.
     async fn publish_tx_list(
         &self,
         request: PublishTxListRequest,
     ) -> Result<PublishTxListResponse> {
-        // Convert transactions to Vec<Vec<u8>>
-        let transactions: Vec<Vec<u8>> =
-            request.transactions.iter().map(|tx| tx.to_vec()).collect();
-
-        // Compress the transaction list (RLP encode + zlib)
-        let compressed =
-            crate::codec::ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES)
-                .encode(&transactions)?;
-
-        let raw_tx_list = TxListBytes::try_from(compressed)
+        let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec())
             .map_err(|_| PreconfirmationClientError::Validation("txlist too large".into()))?;
 
-        // Calculate hash and verify it matches
         let calculated_hash = preconfirmation_types::keccak256_bytes(&raw_tx_list);
         if calculated_hash.0 != request.tx_list_hash.0 {
             return Err(PreconfirmationClientError::Validation(format!(
@@ -235,16 +223,12 @@ impl PreconfRpcApi for NodeRpcApiImpl {
             .expect("keccak256 always produces 32 bytes");
         let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
 
-        // Publish via P2P network
         self.command_sender
             .send(NetworkCommand::PublishRawTxList(gossip))
             .await
             .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
 
-        Ok(PublishTxListResponse {
-            tx_list_hash: request.tx_list_hash,
-            transaction_count: request.transactions.len() as u64,
-        })
+        Ok(PublishTxListResponse { tx_list_hash: request.tx_list_hash })
     }
 
     /// Returns the current status of the preconfirmation driver node.
@@ -436,5 +420,67 @@ mod tests {
         let lookahead = api.get_lookahead().await.unwrap();
         assert_eq!(lookahead.current_preconfirmer, Address::repeat_byte(0x42));
         assert_eq!(lookahead.submission_window_end, U256::from(12345));
+    }
+
+    /// Test that publish_tx_list accepts pre-encoded tx list bytes.
+    #[tokio::test]
+    async fn test_publish_tx_list_accepts_encoded_bytes() {
+        struct MockResolver;
+
+        #[async_trait::async_trait]
+        impl PreconfSignerResolver for MockResolver {
+            async fn signer_for_timestamp(
+                &self,
+                _: U256,
+            ) -> protocol::preconfirmation::Result<Address> {
+                Ok(Address::ZERO)
+            }
+            async fn slot_info_for_timestamp(
+                &self,
+                _: U256,
+            ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo>
+            {
+                Ok(protocol::preconfirmation::PreconfSlotInfo {
+                    signer: Address::ZERO,
+                    submission_window_end: U256::from(1000),
+                })
+            }
+        }
+
+        let (_canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
+
+        let api = NodeRpcApiImpl {
+            command_sender: command_tx,
+            canonical_proposal_id_rx: canonical_id_rx,
+            preconf_tip_rx,
+            local_peer_id: "test".to_string(),
+            lookahead_resolver: Arc::new(MockResolver),
+        };
+
+        let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8, 4u8]);
+        let calculated_hash = preconfirmation_types::keccak256_bytes(tx_list.as_ref());
+        let tx_list_hash = B256::from(calculated_hash.0);
+        let expected_raw_hash =
+            Bytes32::try_from(calculated_hash.0.to_vec()).expect("keccak256 always 32 bytes");
+        let expected_txlist =
+            TxListBytes::try_from(tx_list.to_vec()).expect("tx list within size limit");
+
+        let receiver = tokio::spawn(async move {
+            match command_rx.recv().await {
+                Some(NetworkCommand::PublishRawTxList(gossip)) => {
+                    assert_eq!(gossip.raw_tx_list_hash, expected_raw_hash);
+                    assert_eq!(gossip.txlist, expected_txlist);
+                }
+                other => panic!("unexpected network command: {other:?}"),
+            }
+        });
+
+        let response =
+            api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await.unwrap();
+
+        assert_eq!(response.tx_list_hash, tx_list_hash);
+        receiver.await.unwrap();
     }
 }

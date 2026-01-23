@@ -9,21 +9,18 @@
 //! The lookahead resolver is mandatory and used to validate that commitment signers
 //! match the expected slot signer and that submission_window_end values are correct.
 
-use std::io::Write;
-
 use alloy_primitives::{Address, U256};
 use async_trait::async_trait;
-use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_driver::{
     DriverClient, PreconfirmationClient, PreconfirmationClientConfig, PreconfirmationClientError,
     PreconfirmationInput, Result,
 };
 use preconfirmation_net::{NetworkCommand, P2pConfig};
 use preconfirmation_types::{
-    Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
-    TxListBytes, keccak256_bytes, sign_commitment,
+    Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
+    SignedCommitment, TxListBytes, keccak256_bytes, sign_commitment,
 };
-use protocol::subscription_source::SubscriptionSource;
+use protocol::{codec::ZlibTxListCodec, subscription_source::SubscriptionSource};
 use secp256k1::SecretKey;
 
 /// Driver adapter used to forward inputs into the driver queue.
@@ -58,10 +55,8 @@ impl DriverClient for DriverAdapter {
 /// Build example publish payloads: a compressed raw txlist gossip and a signed commitment.
 fn build_publish_payloads() -> (RawTxListGossip, SignedCommitment) {
     // Build a minimal txlist payload (RLP empty list) and compress it.
-    let rlp_payload = vec![0xC0];
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&rlp_payload).expect("zlib encode failed");
-    let compressed = encoder.finish().expect("zlib encode failed");
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
+    let compressed = codec.encode(&[]).expect("zlib encode failed");
     let txlist_bytes = TxListBytes::try_from(compressed).expect("txlist bytes error");
     let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
     let raw_tx_list_hash =

@@ -203,12 +203,14 @@ impl InMemoryCommitmentStore {
 }
 
 impl Default for InMemoryCommitmentStore {
+    /// Build an in-memory store with the default retention limit.
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl CommitmentStore for InMemoryCommitmentStore {
+    /// See [`CommitmentStore::insert_commitment`].
     fn insert_commitment(&self, commitment: SignedCommitment) {
         let block_number = Self::block_number(&commitment);
         if let Ok(mut guard) = self.commitments.write() {
@@ -223,11 +225,13 @@ impl CommitmentStore for InMemoryCommitmentStore {
         self.prune_txlists();
     }
 
+    /// See [`CommitmentStore::get_commitment`].
     fn get_commitment(&self, block_number: &U256) -> Option<SignedCommitment> {
         let guard = self.commitments.read().ok()?;
         guard.get(block_number).cloned()
     }
 
+    /// See [`CommitmentStore::remove_commitment`].
     fn remove_commitment(&self, block_number: &U256) {
         if let Ok(mut guard) = self.commitments.write() {
             guard.remove(block_number);
@@ -239,6 +243,7 @@ impl CommitmentStore for InMemoryCommitmentStore {
             .set(self.pending_commitments.len() as f64);
     }
 
+    /// See [`CommitmentStore::insert_txlist`].
     fn insert_txlist(&self, hash: B256, txlist: RawTxListGossip) {
         self.txlists.insert(hash, txlist);
         self.pending_txlists.remove(&hash);
@@ -247,10 +252,12 @@ impl CommitmentStore for InMemoryCommitmentStore {
             .set(self.txlists.len() as f64);
     }
 
+    /// See [`CommitmentStore::get_txlist`].
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
         self.txlists.get(hash).map(|entry| entry.value().clone())
     }
 
+    /// See [`CommitmentStore::remove_txlist`].
     fn remove_txlist(&self, hash: &B256) {
         self.txlists.remove(hash);
         metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
@@ -258,22 +265,26 @@ impl CommitmentStore for InMemoryCommitmentStore {
         self.pending_txlists.remove(hash);
     }
 
+    /// See [`CommitmentStore::drop_pending_commitment`].
     fn drop_pending_commitment(&self, block_number: &U256) {
         self.pending_commitments.remove(block_number);
         metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
             .set(self.pending_commitments.len() as f64);
     }
 
+    /// See [`CommitmentStore::drop_pending_txlist`].
     fn drop_pending_txlist(&self, hash: &B256) {
         self.pending_txlists.remove(hash);
     }
 
+    /// See [`CommitmentStore::add_awaiting_txlist`].
     fn add_awaiting_txlist(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
         self.awaiting_txlist.add(txlist_hash, commitment);
         metrics::gauge!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH)
             .set(self.awaiting_txlist.len() as f64);
     }
 
+    /// See [`CommitmentStore::take_awaiting_txlist`].
     fn take_awaiting_txlist(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
         let result = self.awaiting_txlist.take_waiting(txlist_hash);
         metrics::gauge!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH)
@@ -281,12 +292,14 @@ impl CommitmentStore for InMemoryCommitmentStore {
         result
     }
 
+    /// See [`CommitmentStore::set_head`].
     fn set_head(&self, head: PreconfHead) {
         if let Ok(mut guard) = self.head.write() {
             *guard = Some(head);
         }
     }
 
+    /// See [`CommitmentStore::head`].
     fn head(&self) -> Option<PreconfHead> {
         let guard = self.head.read().ok()?;
         guard.clone()
@@ -294,6 +307,7 @@ impl CommitmentStore for InMemoryCommitmentStore {
 }
 
 impl PreconfStorage for InMemoryCommitmentStore {
+    /// Store a commitment in the pending buffer for later validation.
     fn insert_commitment(&self, block: U256, commitment: SignedCommitment) {
         match self.commitments.read() {
             Ok(guard) if guard.contains_key(&block) => return,
@@ -308,6 +322,7 @@ impl PreconfStorage for InMemoryCommitmentStore {
             .set(self.pending_commitments.len() as f64);
     }
 
+    /// Store a txlist in the pending buffer for later validation.
     fn insert_txlist(&self, hash: B256, tx: RawTxListGossip) {
         if self.txlists.contains_key(&hash) {
             return;
@@ -316,10 +331,12 @@ impl PreconfStorage for InMemoryCommitmentStore {
         self.prune_pending_txlists();
     }
 
+    /// Fetch a batch of commitments starting from the given block number.
     fn commitments_from(&self, start: U256, max: usize) -> Vec<SignedCommitment> {
         InMemoryCommitmentStore::commitments_from(self, start, max)
     }
 
+    /// Fetch a txlist by hash if it has been validated.
     fn get_txlist(&self, hash: &B256) -> Option<RawTxListGossip> {
         CommitmentStore::get_txlist(self, hash)
     }
@@ -327,24 +344,31 @@ impl PreconfStorage for InMemoryCommitmentStore {
 
 /// Buffer for commitments awaiting their txlist payload.
 pub(crate) struct CommitmentsAwaitingTxList {
+    /// Pending commitments grouped by their txlist hash.
     by_txlist_hash: DashMap<B256, Vec<SignedCommitment>>,
+    /// Total number of pending commitments.
     count: AtomicUsize,
+    /// Maximum number of pending commitments to retain.
     retention_limit: usize,
 }
 
 impl CommitmentsAwaitingTxList {
+    /// Create a buffer with the default retention limit.
     pub fn new() -> Self {
         Self::with_retention_limit(DEFAULT_RETENTION_LIMIT)
     }
 
+    /// Create a buffer with a custom retention limit.
     pub fn with_retention_limit(retention_limit: usize) -> Self {
         Self { by_txlist_hash: DashMap::new(), count: AtomicUsize::new(0), retention_limit }
     }
 
+    /// Return the number of buffered commitments.
     pub fn len(&self) -> usize {
         self.count.load(Ordering::SeqCst)
     }
 
+    /// Add a commitment keyed by its txlist hash.
     pub fn add(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
         self.evict_if_needed();
         let key = B256::from_slice(txlist_hash.as_ref());
@@ -352,6 +376,7 @@ impl CommitmentsAwaitingTxList {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
 
+    /// Take and remove all commitments waiting for the given txlist hash.
     pub fn take_waiting(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
         let key = B256::from_slice(txlist_hash.as_ref());
         if let Some((_, value)) = self.by_txlist_hash.remove(&key) {
@@ -361,6 +386,7 @@ impl CommitmentsAwaitingTxList {
         Vec::new()
     }
 
+    /// Evict the oldest commitment when the retention limit is exceeded.
     fn evict_if_needed(&self) {
         let count = self.count.load(Ordering::SeqCst);
         if count < self.retention_limit {
@@ -397,6 +423,7 @@ impl CommitmentsAwaitingTxList {
 }
 
 impl Default for CommitmentsAwaitingTxList {
+    /// Build a buffer with the default retention limit.
     fn default() -> Self {
         Self::new()
     }
