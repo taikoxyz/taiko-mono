@@ -510,7 +510,6 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             _validateOperator(prevEpochTimestamp, _registrationRoot, _minCollateral, _slasher);
 
         // Apply lookahead-specific blacklist validation
-
         BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
 
         uint48 blacklistedAt = blacklistTimestamps.blacklistedAt;
