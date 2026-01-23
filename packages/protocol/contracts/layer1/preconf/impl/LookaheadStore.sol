@@ -394,12 +394,6 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     /// @inheritdoc ILookaheadStore
     function isLookaheadRequired() public view returns (bool) {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp(0);
-        if (block.timestamp == epochTimestamp) {
-            // Lookahead for the next epoch is not required to be posted in the first slot
-            // of the current epoch because the offchain node may not have sufficient time
-            // to build the lookahead.
-            return false;
-        }
         uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
         return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
     }
@@ -519,16 +513,18 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
         BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
 
-        // To make it into the lookahead, either the operator is not blacklisted, or blacklisted
-        // in the previous or the current epoch.
-        bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
-            || blacklistTimestamps.blacklistedAt > prevEpochTimestamp;
-        // If unblacklisted, the operator must have been unblacklisted before the start of the
-        // previous epoch
-        // in order to make it into the lookahead.
-        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
-            && blacklistTimestamps.unBlacklistedAt < prevEpochTimestamp;
-        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
+        uint48 blacklistedAt = blacklistTimestamps.blacklistedAt;
+        uint48 unblacklistedAt = blacklistTimestamps.unBlacklistedAt;
+
+        // Eligible if not blacklisted as of the reference timestamp.
+        bool eligible = blacklistedAt == 0 || blacklistedAt > prevEpochTimestamp;
+        if (!eligible) {
+            // If unblacklisted, the unblacklist must be after the latest blacklist and before the
+            // reference timestamp.
+            eligible = unblacklistedAt != 0 && unblacklistedAt > blacklistedAt
+                && unblacklistedAt < prevEpochTimestamp;
+        }
+        require(eligible, OperatorHasBeenBlacklisted());
     }
 
     function _validateLookaheadPoster(
