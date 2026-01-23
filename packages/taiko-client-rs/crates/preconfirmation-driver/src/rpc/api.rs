@@ -9,7 +9,7 @@ use super::types::{
 };
 use crate::Result;
 
-/// Trait defining the preconfirmation node's user-facing RPC API.
+/// Trait defining the preconfirmation driver node's user-facing RPC API.
 ///
 /// Implementations must be `Send + Sync` as they will be shared across
 /// multiple async tasks handling concurrent RPC requests.
@@ -25,7 +25,7 @@ pub trait PreconfRpcApi: Send + Sync {
     async fn publish_tx_list(&self, request: PublishTxListRequest)
     -> Result<PublishTxListResponse>;
 
-    /// Get the current status of the preconfirmation node.
+    /// Get the current status of the preconfirmation driver node.
     async fn get_status(&self) -> Result<NodeStatus>;
 
     /// Get the current preconfirmation head.

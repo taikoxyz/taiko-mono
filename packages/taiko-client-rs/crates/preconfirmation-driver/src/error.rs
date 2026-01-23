@@ -1,4 +1,4 @@
-//! Error types for the preconfirmation node.
+//! Error types for the preconfirmation driver node.
 
 use alloy_contract::Error as ContractError;
 use alloy_transport::TransportError;
@@ -7,7 +7,7 @@ use thiserror::Error;
 /// Result alias for preconfirmation client operations.
 pub type Result<T> = std::result::Result<T, PreconfirmationClientError>;
 
-/// Errors from the preconfirmation node.
+/// Errors from the preconfirmation driver node.
 #[derive(Debug, Error)]
 pub enum PreconfirmationClientError {
     /// Network error emitted by the P2P stack.

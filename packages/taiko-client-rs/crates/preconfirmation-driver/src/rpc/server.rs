@@ -1,4 +1,4 @@
-//! HTTP JSON-RPC server for the preconfirmation node.
+//! HTTP JSON-RPC server for the preconfirmation driver node.
 
 use std::{net::SocketAddr, sync::Arc, time::Instant};
 

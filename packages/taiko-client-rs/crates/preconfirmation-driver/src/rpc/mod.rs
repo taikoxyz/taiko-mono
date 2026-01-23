@@ -1,7 +1,7 @@
-//! User-facing JSON-RPC API for the preconfirmation node.
+//! User-facing JSON-RPC API for the preconfirmation driver node.
 //!
 //! This module provides a user-friendly RPC interface for interacting with
-//! the preconfirmation node. Unlike the internal driver RPC which accepts
+//! the preconfirmation driver node. Unlike the internal driver RPC which accepts
 //! raw `TaikoPayloadAttributes`, this API accepts higher-level requests
 //! that are easier for external clients to construct.
 //!

@@ -1,4 +1,4 @@
-//! User-facing RPC API types for the preconfirmation node.
+//! User-facing RPC API types for the preconfirmation driver node.
 
 use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ pub struct PublishTxListResponse {
     pub transaction_count: u64,
 }
 
-/// Current status of the preconfirmation node.
+/// Current status of the preconfirmation driver node.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeStatus {

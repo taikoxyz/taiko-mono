@@ -22,7 +22,7 @@ use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::spawn;
-use tracing::{info, warn};
+use tracing::warn;
 
 fn client_config(env: &ShastaEnv) -> ClientConfig {
     ClientConfig {
@@ -145,7 +145,6 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
     let (proposal_id, _log) = submit_proposal(&proposer, request, env.inbox_address).await?;
-    info!(proposal_id, "proposal submitted");
 
     let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
@@ -221,7 +220,6 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_secs(30),
     )
     .await?;
-
     // Capture the canonical block hash produced by the first processing.
     let canonical_block = driver_client
         .l2_provider
@@ -241,7 +239,6 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         .process_proposal(&proposal_log, applier)
         .await
         .context("re-processing proposal for known-canonical path")?;
-
     let canonical_block_after = driver_client
         .l2_provider
         .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)

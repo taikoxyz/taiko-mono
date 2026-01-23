@@ -34,9 +34,9 @@ pub mod config;
 pub mod driver_interface;
 /// Error types.
 pub mod error;
-/// Metrics exposed by the preconfirmation node.
+/// Metrics exposed by the preconfirmation driver node.
 pub mod metrics;
-/// Preconfirmation node combining all components.
+/// Preconfirmation driver node combining all components.
 pub mod node;
 /// User-facing JSON-RPC API.
 pub mod rpc;

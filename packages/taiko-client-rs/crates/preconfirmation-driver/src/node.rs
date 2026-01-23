@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-/// Configuration for the preconfirmation node.
+/// Configuration for the preconfirmation driver node.
 #[derive(Debug, Clone)]
 pub struct PreconfirmationNodeConfig {
     /// Configuration for the P2P client.
@@ -62,7 +62,7 @@ pub struct DriverChannels {
     pub preconf_tip_sender: watch::Sender<U256>,
 }
 
-/// A complete preconfirmation node combining P2P client, driver client, and RPC server.
+/// A complete preconfirmation driver node combining P2P client, driver client, and RPC server.
 ///
 /// This struct orchestrates all components of the preconfirmation system:
 /// - P2P networking for gossip and peer discovery
@@ -82,7 +82,7 @@ pub struct PreconfirmationNode {
 }
 
 impl PreconfirmationNode {
-    /// Create a new preconfirmation node.
+    /// Create a new preconfirmation driver node.
     ///
     /// Returns a tuple of (node, driver_channels) where the channels should be
     /// wired to the driver for communication.
@@ -112,7 +112,7 @@ impl PreconfirmationNode {
         Ok((node, channels))
     }
 
-    /// Run the preconfirmation node until an error occurs or shutdown.
+    /// Run the preconfirmation driver node until an error occurs or shutdown.
     pub async fn run(self) -> Result<()> {
         info!("starting preconfirmation node");
 
@@ -155,7 +155,7 @@ impl PreconfirmationNode {
     }
 }
 
-/// Internal RPC API implementation backed by the preconfirmation node state.
+/// Internal RPC API implementation backed by the preconfirmation driver node state.
 struct NodeRpcApiImpl {
     /// Sender for issuing commands to the P2P network layer.
     command_sender: mpsc::Sender<NetworkCommand>,
@@ -247,7 +247,7 @@ impl PreconfRpcApi for NodeRpcApiImpl {
         })
     }
 
-    /// Returns the current status of the preconfirmation node.
+    /// Returns the current status of the preconfirmation driver node.
     ///
     /// Queries the P2P layer for peer count and returns sync state information.
     async fn get_status(&self) -> Result<NodeStatus> {

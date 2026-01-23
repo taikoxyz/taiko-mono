@@ -50,14 +50,6 @@ tokio = { workspace = true, features = ["full"] }
 tracing-subscriber = { workspace = true }
 
 [[test]]
-name = "p2p_integration"
-path = "tests/p2p_integration.rs"
-
-[[test]]
-name = "contiguous_multi_block"
-path = "tests/contiguous_multi_block.rs"
-
-[[test]]
 name = "out_of_order_arrival"
 path = "tests/out_of_order_arrival.rs"
 

@@ -6,7 +6,7 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PreconfirmationNode                          │
+│                 Preconfirmation driver node                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐  │
@@ -23,7 +23,7 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 
 ## Components
 
-### PreconfirmationNode
+### Preconfirmation driver node (`PreconfirmationNode`)
 
 The main orchestrator that combines:
 
@@ -54,9 +54,23 @@ use preconfirmation_driver::{
     PreconfirmationNode, PreconfirmationNodeConfig,
     PreconfirmationClientConfig, PreconfRpcServerConfig,
 };
+use preconfirmation_net::P2pConfig;
+use alloy_primitives::Address;
+
+// Build the P2P config and lookahead resolver (async).
+let p2p_config = P2pConfig::default();
+let inbox_address = Address::ZERO;
+let provider = /* your alloy Provider */;
+
+let client_config = PreconfirmationClientConfig::new(
+    p2p_config,
+    inbox_address,
+    provider,
+)
+.await?;
 
 // Create node configuration
-let config = PreconfirmationNodeConfig::new(p2p_config)
+let config = PreconfirmationNodeConfig::new(client_config)
     .with_rpc(PreconfRpcServerConfig::default())
     .with_driver_channel_capacity(256);
 
@@ -72,10 +86,25 @@ let (node, channels) = PreconfirmationNode::new(config)?;
 node.run().await?;
 ```
 
+If you already have a lookahead resolver, build the client config directly:
+
+```rust
+use std::sync::Arc;
+use preconfirmation_driver::PreconfirmationClientConfig;
+use preconfirmation_net::P2pConfig;
+use protocol::preconfirmation::PreconfSignerResolver;
+
+let p2p_config = P2pConfig::default();
+let resolver: Arc<dyn PreconfSignerResolver + Send + Sync> = /* ... */;
+
+let client_config = PreconfirmationClientConfig::new_with_resolver(p2p_config, resolver);
+```
+
 ### Using EmbeddedDriverClient Directly
 
 ```rust
 use preconfirmation_driver::EmbeddedDriverClient;
+use alloy_primitives::U256;
 use tokio::sync::{mpsc, watch};
 
 let (input_tx, input_rx) = mpsc::channel(256);
@@ -85,6 +114,7 @@ let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx);
 
 // Submit preconfirmation input
+// let input = PreconfirmationInput::new(...);
 client.submit_preconfirmation(input).await?;
 
 // Query state
@@ -96,7 +126,8 @@ let tip = client.preconf_tip().await?;
 ```
 src/
 ├── client.rs           # PreconfirmationClient and EventLoop
-├── codec.rs            # Txlist compression utilities
+├── codec/              # Txlist compression utilities
+│   └── mod.rs
 ├── config.rs           # Configuration types
 ├── driver_interface/   # Driver communication
 │   ├── embedded.rs     # EmbeddedDriverClient
@@ -104,15 +135,19 @@ src/
 │   └── traits.rs       # DriverClient trait
 ├── error.rs            # Error types
 ├── metrics.rs          # Prometheus metrics
-├── node.rs             # PreconfirmationNode orchestrator
+├── node.rs             # Preconfirmation driver node orchestrator
 ├── rpc/                # User-facing RPC
 │   ├── api.rs          # PreconfRpcApi trait
 │   ├── server.rs       # HTTP JSON-RPC server
 │   └── types.rs        # Request/response types
 ├── storage/            # Commitment storage
-├── subscription.rs     # P2P event handling
-├── sync.rs             # Tip catch-up logic
-└── validation.rs       # Commitment validation
+│   └── mod.rs
+├── subscription/       # P2P event handling
+│   └── mod.rs
+├── sync/               # Tip catch-up logic
+│   └── mod.rs
+└── validation/         # Commitment validation
+    └── mod.rs
 ```
 
 ## Testing
