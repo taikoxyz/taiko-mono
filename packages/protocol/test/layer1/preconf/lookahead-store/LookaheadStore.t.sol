@@ -18,12 +18,7 @@ contract LookaheadStoreHarness is LookaheadStore {
         address[] memory _overseers
     )
         LookaheadStore(
-            _urc,
-            _lookaheadSlasher,
-            _preconfSlasher,
-            _inbox,
-            _preconfWhitelist,
-            _overseers
+            _urc, _lookaheadSlasher, _preconfSlasher, _inbox, _preconfWhitelist, _overseers
         )
     { }
 
@@ -52,7 +47,7 @@ contract TestLookaheadStore is CommonTest {
     address internal inbox;
     address internal preconfWhitelist;
 
-    uint256 internal constant EPOCH_OFFSET = 10000;
+    uint256 internal constant EPOCH_OFFSET = 10_000;
     uint256 internal constant EPOCH_START = EPOCH_OFFSET * LibPreconfConstants.SECONDS_IN_EPOCH;
 
     function setUpOnEthereum() internal override {
@@ -80,8 +75,7 @@ contract TestLookaheadStore is CommonTest {
 
     function test_isLookaheadRequired_falseWhenNextEpochLookaheadStored() external {
         uint256 nextEpochTimestamp = _nextEpochTimestamp();
-        ILookaheadStore.LookaheadSlot[] memory empty =
-            new ILookaheadStore.LookaheadSlot[](0);
+        ILookaheadStore.LookaheadSlot[] memory empty = new ILookaheadStore.LookaheadSlot[](0);
         bytes26 lookaheadHash = lookaheadStore.calculateLookaheadHash(nextEpochTimestamp, empty);
         lookaheadStore.setLookaheadHash(nextEpochTimestamp, lookaheadHash);
 
@@ -268,13 +262,9 @@ contract TestLookaheadStore is CommonTest {
             0
         );
 
-        urc.setSlasherCommitment(
-            _registrationRoot, preconfSlasher, optedInAt, 0, _committer
-        );
+        urc.setSlasherCommitment(_registrationRoot, preconfSlasher, optedInAt, 0, _committer);
 
-        urc.setHistoricalCollateral(
-            _registrationRoot, 0, minCollateral
-        );
+        urc.setHistoricalCollateral(_registrationRoot, 0, minCollateral);
     }
 
     function _buildSlot(
