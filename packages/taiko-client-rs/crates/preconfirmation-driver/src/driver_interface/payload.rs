@@ -8,7 +8,7 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, B256, Bytes, U256};
+use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use alloy_provider::Provider;
 use alloy_rpc_types::Header as RpcHeader;
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
@@ -21,9 +21,6 @@ use protocol::shasta::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_tx_list,
     payload_id_to_bytes,
 };
-
-/// Maximum value for a `uint48`.
-const MAX_U48: u64 = (1u64 << 48) - 1;
 
 /// Resolve a block header for a block number.
 #[async_trait]
@@ -63,7 +60,7 @@ pub async fn build_taiko_payload_attributes(
     let timestamp = uint256_to_u256(&preconf.timestamp).to::<u64>();
     let gas_limit = uint256_to_u256(&preconf.gas_limit).to::<u64>();
     let proposal_id = uint256_to_u256(&preconf.proposal_id).to::<u64>();
-    if proposal_id > MAX_U48 {
+    if proposal_id > U48::MAX.to::<u64>() {
         return Err(DriverApiError::ProposalIdOverflow.into());
     }
 
@@ -280,7 +277,7 @@ mod tests {
             gas_limit: 30_000_000u64.into(),
             coinbase: Bytes20::try_from(vec![1u8; 20]).expect("coinbase"),
             parent_preconfirmation_hash: Bytes32::try_from(vec![2u8; 32]).expect("parent"),
-            proposal_id: (MAX_U48 + 1).into(),
+            proposal_id: (U48::MAX.to::<u64>() + 1).into(),
             ..Default::default()
         };
 

@@ -48,8 +48,8 @@ pub struct PublishTxListResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeStatus {
-    /// Whether the node has completed initial sync with L1 events.
-    pub is_synced: bool,
+    /// Whether the node has completed sync with L1 inbox events.
+    pub is_synced_with_inbox: bool,
     /// The highest preconfirmed block number known to this node.
     pub preconf_tip: U256,
     /// The last canonical proposal ID from L1 inbox events.
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn test_node_status_camel_case() {
         let status = NodeStatus {
-            is_synced: true,
+            is_synced_with_inbox: true,
             preconf_tip: U256::from(100),
             canonical_proposal_id: 42,
             peer_count: 5,
@@ -151,7 +151,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&status).unwrap();
-        assert!(json.contains("isSynced"));
+        assert!(json.contains("isSyncedWithInbox"));
         assert!(json.contains("preconfTip"));
         assert!(json.contains("canonicalProposalId"));
     }

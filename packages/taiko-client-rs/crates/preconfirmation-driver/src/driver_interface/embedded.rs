@@ -80,6 +80,11 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
         Self { input_sender, canonical_proposal_id, preconf_tip, inbox_reader }
     }
 
+    /// Returns a reference to the inbox reader.
+    pub fn inbox_reader(&self) -> &I {
+        &self.inbox_reader
+    }
+
     /// Returns the capacity of the input sender channel (for testing purposes).
     #[cfg(test)]
     pub fn input_sender_capacity(&self) -> usize {

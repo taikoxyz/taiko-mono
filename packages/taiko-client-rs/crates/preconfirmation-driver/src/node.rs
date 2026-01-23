@@ -138,6 +138,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
                     preconf_tip_rx: self.preconf_tip_rx.clone(),
                     local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
                     lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
+                    inbox_reader: self.driver_client.inbox_reader().clone(),
                 });
                 let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
                 info!(url = %server.http_url(), "preconfirmation RPC server started");
@@ -170,7 +171,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
 }
 
 /// Internal RPC API implementation backed by the preconfirmation driver node state.
-struct NodeRpcApiImpl {
+struct NodeRpcApiImpl<I: InboxReader> {
     /// Sender for issuing commands to the P2P network layer.
     command_sender: mpsc::Sender<NetworkCommand>,
     /// Watch receiver for the canonical proposal ID.
@@ -181,10 +182,12 @@ struct NodeRpcApiImpl {
     local_peer_id: String,
     /// Lookahead resolver for slot info queries.
     lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
+    /// Inbox reader for checking L1 sync state.
+    inbox_reader: I,
 }
 
 #[async_trait::async_trait]
-impl PreconfRpcApi for NodeRpcApiImpl {
+impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     /// Publishes a signed commitment to the P2P network.
     ///
     /// Decodes the SSZ-encoded commitment, extracts the tx_list_hash, and broadcasts
@@ -260,8 +263,21 @@ impl PreconfRpcApi for NodeRpcApiImpl {
                 Err(_) => 0,
             };
 
+        // Compute sync status using same logic as wait_event_sync
+        let is_synced_with_inbox = match self.inbox_reader.get_next_proposal_id().await {
+            Ok(next_proposal_id) => {
+                if next_proposal_id == 0 {
+                    true // No proposals on L1, we're synced
+                } else {
+                    let target = next_proposal_id.saturating_sub(1);
+                    canonical_proposal_id >= target
+                }
+            }
+            Err(_) => false, // Can't determine sync state, assume not synced
+        };
+
         Ok(NodeStatus {
-            is_synced: canonical_proposal_id > 0,
+            is_synced_with_inbox,
             preconf_tip: *self.preconf_tip_rx.borrow(),
             canonical_proposal_id,
             peer_count,
@@ -324,6 +340,26 @@ impl PreconfRpcApi for NodeRpcApiImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    /// Mock inbox reader for testing.
+    #[derive(Clone)]
+    struct MockInboxReader {
+        next_proposal_id: Arc<AtomicU64>,
+    }
+
+    impl MockInboxReader {
+        fn new(next_proposal_id: u64) -> Self {
+            Self { next_proposal_id: Arc::new(AtomicU64::new(next_proposal_id)) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl InboxReader for MockInboxReader {
+        async fn get_next_proposal_id(&self) -> Result<u64> {
+            Ok(self.next_proposal_id.load(Ordering::SeqCst))
+        }
+    }
 
     /// Verify DriverChannels can be created.
     #[test]
@@ -374,12 +410,14 @@ mod tests {
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
 
+        // MockInboxReader returns 43, so with canonical_id=42, target=42, we should be synced
         let api = NodeRpcApiImpl {
             command_sender: command_tx,
             canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "12D3KooWTest".to_string(),
             lookahead_resolver: Arc::new(MockResolver),
+            inbox_reader: MockInboxReader::new(43),
         };
 
         // Spawn a handler to respond to GetPeerCount command
@@ -393,6 +431,7 @@ mod tests {
         assert_eq!(status.peer_id, "12D3KooWTest");
         assert_eq!(status.canonical_proposal_id, 42);
         assert_eq!(status.peer_count, 5);
+        assert!(status.is_synced_with_inbox); // canonical_id (42) >= target (43-1=42)
     }
 
     /// Test that get_lookahead returns data from the resolver.
@@ -430,6 +469,7 @@ mod tests {
             preconf_tip_rx,
             local_peer_id: "test".to_string(),
             lookahead_resolver: Arc::new(MockResolver),
+            inbox_reader: MockInboxReader::new(0),
         };
 
         let lookahead = api.get_lookahead().await.unwrap();
@@ -472,6 +512,7 @@ mod tests {
             preconf_tip_rx,
             local_peer_id: "test".to_string(),
             lookahead_resolver: Arc::new(MockResolver),
+            inbox_reader: MockInboxReader::new(0),
         };
 
         let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8, 4u8]);

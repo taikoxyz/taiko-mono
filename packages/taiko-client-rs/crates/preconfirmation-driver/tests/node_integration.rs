@@ -146,22 +146,3 @@ async fn test_canonical_id_updates_immediately_on_change() {
     // Latest value should be immediately available
     assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(45));
 }
-
-// Placeholder tests for future E2E scenarios
-#[tokio::test]
-#[ignore = "requires full driver setup"]
-async fn test_node_startup_with_embedded_driver() {
-    todo!("implement when driver embedding is complete");
-}
-
-#[tokio::test]
-#[ignore = "requires full driver setup"]
-async fn test_rpc_api_through_node() {
-    todo!("implement when RPC API is fully connected");
-}
-
-#[tokio::test]
-#[ignore = "requires full driver setup"]
-async fn test_node_graceful_shutdown() {
-    todo!("implement shutdown test");
-}

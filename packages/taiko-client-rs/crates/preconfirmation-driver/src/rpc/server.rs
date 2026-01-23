@@ -227,7 +227,7 @@ mod tests {
 
         async fn get_status(&self) -> Result<NodeStatus> {
             Ok(NodeStatus {
-                is_synced: true,
+                is_synced_with_inbox: true,
                 preconf_tip: U256::from(100),
                 canonical_proposal_id: 42,
                 peer_count: 5,
