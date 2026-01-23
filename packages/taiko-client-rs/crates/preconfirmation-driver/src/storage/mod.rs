@@ -400,7 +400,7 @@ impl CommitmentsAwaitingTxList {
         for entry in self.by_txlist_hash.iter() {
             for (idx, commitment) in entry.value().iter().enumerate() {
                 let block = uint256_to_u256(&commitment.commitment.preconf.block_number);
-                if min_block.is_none() || block < min_block.unwrap() {
+                if min_block.is_none_or(|min| block < min) {
                     min_block = Some(block);
                     min_key = Some(*entry.key());
                     min_idx = Some(idx);

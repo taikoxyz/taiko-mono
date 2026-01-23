@@ -260,46 +260,35 @@ where
 
     /// Submit a commitment if its txlist is available and validation passes.
     async fn submit_if_ready(&self, commitment: SignedCommitment) -> Result<bool> {
-        if is_eop_only(&commitment) {
-            let input = PreconfirmationInput::new(commitment, None, None);
-            match self.driver.submit_preconfirmation(input).await {
-                Ok(()) => {
-                    metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL)
-                        .increment(1);
-                }
-                Err(err) => {
-                    metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
-                        .increment(1);
-                    return Err(err);
-                }
-            }
-            return Ok(true);
-        }
+        let input = if is_eop_only(&commitment) {
+            PreconfirmationInput::new(commitment, None, None)
+        } else {
+            let raw_tx_list_hash = commitment.commitment.preconf.raw_tx_list_hash.clone();
+            let Some(txlist) = self.store.get_txlist(&B256::from_slice(raw_tx_list_hash.as_ref()))
+            else {
+                self.store.add_awaiting_txlist(&raw_tx_list_hash, commitment);
+                return Ok(false);
+            };
 
-        let raw_tx_list_hash = commitment.commitment.preconf.raw_tx_list_hash.clone();
-        let txlist = self.store.get_txlist(&B256::from_slice(raw_tx_list_hash.as_ref()));
-        let Some(txlist) = txlist else {
-            self.store.add_awaiting_txlist(&raw_tx_list_hash, commitment);
-            return Ok(false);
+            let transactions = self
+                .codec
+                .decode(txlist.txlist.as_ref())
+                .map_err(|err| PreconfirmationClientError::Codec(err.to_string()))?;
+            PreconfirmationInput::new(commitment, Some(transactions), Some(txlist.txlist.to_vec()))
         };
 
-        let transactions = self
-            .codec
-            .decode(txlist.txlist.as_ref())
-            .map_err(|err| PreconfirmationClientError::Codec(err.to_string()))?;
-        let input =
-            PreconfirmationInput::new(commitment, Some(transactions), Some(txlist.txlist.to_vec()));
-        match self.driver.submit_preconfirmation(input).await {
-            Ok(()) => {
+        self.driver
+            .submit_preconfirmation(input)
+            .await
+            .inspect(|()| {
                 metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL)
                     .increment(1);
-            }
-            Err(err) => {
+            })
+            .inspect_err(|_| {
                 metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
                     .increment(1);
-                return Err(err);
-            }
-        }
+            })?;
+
         Ok(true)
     }
 

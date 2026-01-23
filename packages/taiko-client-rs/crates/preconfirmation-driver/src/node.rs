@@ -130,21 +130,20 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
     pub async fn run(self) -> Result<()> {
         info!("starting preconfirmation node");
 
-        let rpc_server = match &self.rpc_config {
-            Some(rpc_config) => {
-                let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
-                    command_sender: self.p2p_client.command_sender(),
-                    canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
-                    preconf_tip_rx: self.preconf_tip_rx.clone(),
-                    local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
-                    lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
-                    inbox_reader: self.driver_client.inbox_reader().clone(),
-                });
-                let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
-                info!(url = %server.http_url(), "preconfirmation RPC server started");
-                Some(server)
-            }
-            None => None,
+        let rpc_server = if let Some(rpc_config) = &self.rpc_config {
+            let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
+                command_sender: self.p2p_client.command_sender(),
+                canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
+                preconf_tip_rx: self.preconf_tip_rx.clone(),
+                local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
+                lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
+                inbox_reader: self.driver_client.inbox_reader().clone(),
+            });
+            let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
+            info!(url = %server.http_url(), "preconfirmation RPC server started");
+            Some(server)
+        } else {
+            None
         };
 
         let mut event_loop = self.p2p_client.sync_and_catchup().await?;
@@ -264,17 +263,14 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             };
 
         // Compute sync status using same logic as wait_event_sync
-        let is_synced_with_inbox = match self.inbox_reader.get_next_proposal_id().await {
-            Ok(next_proposal_id) => {
-                if next_proposal_id == 0 {
-                    true // No proposals on L1, we're synced
-                } else {
-                    let target = next_proposal_id.saturating_sub(1);
-                    canonical_proposal_id >= target
-                }
-            }
-            Err(_) => false, // Can't determine sync state, assume not synced
-        };
+        let is_synced_with_inbox = self
+            .inbox_reader
+            .get_next_proposal_id()
+            .await
+            .map(|next_proposal_id| {
+                next_proposal_id == 0 || canonical_proposal_id >= next_proposal_id.saturating_sub(1)
+            })
+            .unwrap_or(false);
 
         Ok(NodeStatus {
             is_synced_with_inbox,
