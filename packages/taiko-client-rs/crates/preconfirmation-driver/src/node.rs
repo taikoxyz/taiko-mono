@@ -263,14 +263,9 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             };
 
         // Compute sync status using same logic as wait_event_sync
-        let is_synced_with_inbox = self
-            .inbox_reader
-            .get_next_proposal_id()
-            .await
-            .map(|next_proposal_id| {
-                next_proposal_id == 0 || canonical_proposal_id >= next_proposal_id.saturating_sub(1)
-            })
-            .unwrap_or(false);
+        let next_proposal_id = self.inbox_reader.get_next_proposal_id().await?;
+        let is_synced_with_inbox =
+            next_proposal_id == 0 || canonical_proposal_id >= next_proposal_id.saturating_sub(1);
 
         Ok(NodeStatus {
             is_synced_with_inbox,

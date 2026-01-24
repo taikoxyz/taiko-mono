@@ -84,6 +84,14 @@ pub enum CliError {
     /// indicates a configuration mismatch.
     #[error("preconfirmation ingress not enabled on driver")]
     PreconfIngressNotEnabled,
+
+    /// Event syncer task exited before preconfirmation ingress was ready.
+    #[error("event syncer exited before preconfirmation ingress was ready")]
+    EventSyncerExited,
+
+    /// Event syncer task failed before preconfirmation ingress was ready.
+    #[error("event syncer failed before preconfirmation ingress was ready: {0}")]
+    EventSyncerFailed(String),
 }
 
 /// Result alias for CLI operations.

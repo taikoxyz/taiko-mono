@@ -12391,7 +12391,9 @@ name = "taiko-client"
 version = "2.0.0"
 dependencies = [
  "alloy",
+ "alloy-consensus",
  "alloy-primitives",
+ "alloy-rpc-types-eth",
  "async-trait",
  "clap",
  "driver",

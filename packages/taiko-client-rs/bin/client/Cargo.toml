@@ -37,3 +37,7 @@ rpc = { path = "../../crates/rpc" }
 # types
 thiserror = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+alloy-consensus = { workspace = true }
+alloy-rpc-types-eth = { workspace = true }

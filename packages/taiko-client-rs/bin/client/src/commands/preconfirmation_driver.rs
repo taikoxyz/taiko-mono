@@ -1,8 +1,10 @@
 //! Preconfirmation driver subcommand.
 
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
-use alloy::{providers::Provider, transports::http::reqwest::Url as RpcUrl};
+use alloy::{
+    eips::BlockNumberOrTag, providers::Provider, transports::http::reqwest::Url as RpcUrl,
+};
 use alloy_primitives::U256;
 use async_trait::async_trait;
 use clap::Parser;
@@ -108,6 +110,43 @@ impl PreconfirmationDriverSubCommand {
         }
     }
 
+    /// Resolve the preconfirmation tip from the L2 latest head.
+    async fn resolve_preconf_tip_from_l2<P>(_proposal_id: u64, l2_provider: &P) -> Option<U256>
+    where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        match l2_provider.get_block_by_number(BlockNumberOrTag::Latest).await {
+            Ok(Some(block)) => Some(U256::from(block.number())),
+            Ok(None) => {
+                warn!("failed to resolve L2 latest head for preconfirmation tip");
+                None
+            }
+            Err(err) => {
+                warn!(?err, "failed to query L2 latest head for preconfirmation tip");
+                None
+            }
+        }
+    }
+
+    /// Wait for the preconfirmation ingress loop to be ready or fail if the event syncer exits.
+    async fn wait_for_preconf_ingress_ready<F>(
+        ready: F,
+        event_syncer_handle: &mut tokio::task::JoinHandle<()>,
+    ) -> Result<()>
+    where
+        F: Future<Output = Option<()>> + Send,
+    {
+        tokio::select! {
+            ready = ready => ready.ok_or(CliError::PreconfIngressNotEnabled),
+            result = event_syncer_handle => {
+                match result {
+                    Ok(()) => Err(CliError::EventSyncerExited),
+                    Err(err) => Err(CliError::EventSyncerFailed(err.to_string())),
+                }
+            }
+        }
+    }
+
     /// Spawn task to forward preconfirmation inputs from node channels to EventSyncer.
     fn spawn_input_forwarder<P>(
         event_syncer: Arc<EventSyncer<P>>,
@@ -120,6 +159,9 @@ impl PreconfirmationDriverSubCommand {
         tokio::spawn(async move {
             // Subscribe to proposal ID changes (event-driven, not polling)
             let mut proposal_id_rx = event_syncer.subscribe_proposal_id();
+            let canonical_sender = channels.canonical_proposal_id_sender.clone();
+            let preconf_tip_sender = channels.preconf_tip_sender.clone();
+            let l2_provider = driver_client.l2_provider.clone();
 
             // Spawn event-driven state update task
             let state_update_handle = tokio::spawn(async move {
@@ -130,8 +172,23 @@ impl PreconfirmationDriverSubCommand {
                         break;
                     }
                     let id = *proposal_id_rx.borrow();
-                    let _ = channels.canonical_proposal_id_sender.send(id);
-                    let _ = channels.preconf_tip_sender.send(U256::from(id));
+                    if canonical_sender.send(id).is_err() {
+                        error!(proposal_id = id, "failed to publish canonical proposal id");
+                    }
+                    if let Some(tip) = Self::resolve_preconf_tip_from_l2(id, &l2_provider).await {
+                        if preconf_tip_sender.send(tip).is_err() {
+                            error!(
+                                proposal_id = id,
+                                preconf_tip = %tip,
+                                "failed to publish preconfirmation tip"
+                            );
+                        }
+                    } else {
+                        error!(
+                            proposal_id = id,
+                            "failed to resolve preconfirmation tip from L2 latest head"
+                        );
+                    }
                 }
             });
 
@@ -185,6 +242,87 @@ impl PreconfirmationDriverSubCommand {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::PreconfirmationDriverSubCommand;
+    use crate::error::CliError;
+    use alloy::{providers::ProviderBuilder, transports::mock::Asserter};
+    use alloy_consensus::Header as ConsensusHeader;
+    use alloy_primitives::U256;
+    use alloy_rpc_types_eth::{Block, Header as RpcHeader};
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn preconf_tip_from_l2_uses_latest_head() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter.clone());
+        let mut header = ConsensusHeader::default();
+        header.number = 42;
+        let block: Block = Block::empty(RpcHeader::new(header));
+        asserter.push_success(&Some(block));
+
+        let tip =
+            PreconfirmationDriverSubCommand::resolve_preconf_tip_from_l2(100, &provider).await;
+        assert_eq!(tip, Some(U256::from(42u64)));
+        assert!(
+            asserter.read_q().is_empty(),
+            "expected unsafe head query to consume mock response"
+        );
+    }
+
+    #[tokio::test]
+    async fn preconf_tip_from_l2_handles_rpc_error() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter.clone());
+        asserter.push_failure_msg("boom");
+
+        let tip =
+            PreconfirmationDriverSubCommand::resolve_preconf_tip_from_l2(100, &provider).await;
+        assert_eq!(tip, None);
+    }
+
+    #[tokio::test]
+    async fn preconf_tip_from_l2_handles_missing_latest_block() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter.clone());
+        let block: Option<Block> = None;
+        asserter.push_success(&block);
+
+        let tip =
+            PreconfirmationDriverSubCommand::resolve_preconf_tip_from_l2(100, &provider).await;
+        assert_eq!(tip, None);
+    }
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_returns_error_on_syncer_exit() {
+        let ready = std::future::pending::<Option<()>>();
+        let mut handle = tokio::spawn(async {});
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(50),
+            PreconfirmationDriverSubCommand::wait_for_preconf_ingress_ready(ready, &mut handle),
+        )
+        .await;
+
+        assert!(matches!(result, Ok(Err(CliError::EventSyncerExited))));
+    }
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_returns_ok_when_ready() {
+        let ready = async { Some(()) };
+        let mut handle = tokio::spawn(async { std::future::pending::<()>().await });
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(50),
+            PreconfirmationDriverSubCommand::wait_for_preconf_ingress_ready(ready, &mut handle),
+        )
+        .await;
+
+        assert!(matches!(result, Ok(Ok(()))));
+        handle.abort();
+    }
+}
+
 #[async_trait]
 impl Subcommand for PreconfirmationDriverSubCommand {
     /// Returns a reference to the common CLI arguments.
@@ -223,10 +361,13 @@ impl Subcommand for PreconfirmationDriverSubCommand {
             }
         });
 
-        event_syncer
-            .wait_preconf_ingress_ready()
-            .await
-            .ok_or(CliError::PreconfIngressNotEnabled)?;
+        let mut event_syncer_handle = event_syncer_handle;
+        // Wait for the ingress loop or fail fast if the syncer exits before readiness.
+        Self::wait_for_preconf_ingress_ready(
+            event_syncer.wait_preconf_ingress_ready(),
+            &mut event_syncer_handle,
+        )
+        .await?;
 
         info!("driver ready, starting preconfirmation P2P client");
 
