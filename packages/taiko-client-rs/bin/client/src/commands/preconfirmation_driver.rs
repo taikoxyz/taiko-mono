@@ -9,7 +9,9 @@ use alloy_primitives::U256;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{
-    DriverConfig, PreconfPayload, SyncStage, metrics::DriverMetrics, sync::event::EventSyncer,
+    DriverConfig, PreconfPayload, SyncStage,
+    metrics::DriverMetrics,
+    sync::{SyncError, event::EventSyncer},
 };
 use preconfirmation_driver::{
     ContractInboxReader, DriverChannels, PreconfirmationClientConfig, PreconfirmationClientMetrics,
@@ -21,6 +23,7 @@ use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig},
 };
+use tokio::sync::watch;
 use tracing::{error, info, warn};
 
 use crate::{
@@ -131,7 +134,7 @@ impl PreconfirmationDriverSubCommand {
     /// Wait for the preconfirmation ingress loop to be ready or fail if the event syncer exits.
     async fn wait_for_preconf_ingress_ready<F>(
         ready: F,
-        event_syncer_handle: &mut tokio::task::JoinHandle<()>,
+        event_syncer_handle: &mut tokio::task::JoinHandle<std::result::Result<(), SyncError>>,
     ) -> Result<()>
     where
         F: Future<Output = Option<()>> + Send,
@@ -140,10 +143,124 @@ impl PreconfirmationDriverSubCommand {
             ready = ready => ready.ok_or(CliError::PreconfIngressNotEnabled),
             result = event_syncer_handle => {
                 match result {
-                    Ok(()) => Err(CliError::EventSyncerExited),
+                    Ok(Ok(())) => Err(CliError::EventSyncerExited),
+                    Ok(Err(err)) => Err(CliError::Sync(err)),
                     Err(err) => Err(CliError::EventSyncerFailed(err.to_string())),
                 }
             }
+        }
+    }
+
+    /// Seed the proposal state to the event syncer.
+    async fn seed_proposal_state<P>(
+        proposal_id_rx: &mut watch::Receiver<u64>,
+        canonical_sender: &watch::Sender<u64>,
+        preconf_tip_sender: &watch::Sender<U256>,
+        l2_provider: &P,
+    ) where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        let proposal_id = *proposal_id_rx.borrow_and_update();
+        Self::publish_proposal_state(
+            proposal_id,
+            canonical_sender,
+            preconf_tip_sender,
+            l2_provider,
+        )
+        .await;
+    }
+
+    /// Wait for the preconfirmation driver or event syncer to exit.
+    async fn wait_for_driver_exit<N>(
+        node_run: N,
+        event_syncer_handle: &mut tokio::task::JoinHandle<std::result::Result<(), SyncError>>,
+    ) -> Result<()>
+    where
+        N: Future<
+                Output = std::result::Result<
+                    (),
+                    preconfirmation_driver::PreconfirmationClientError,
+                >,
+            > + Send,
+    {
+        tokio::select! {
+            result = node_run => {
+                match result {
+                    Ok(()) => Ok(()),
+                    Err(err) => {
+                        error!(?err, "preconfirmation node exited with error");
+                        Err(CliError::from(err))
+                    }
+                }
+            }
+            result = event_syncer_handle => {
+                match result {
+                    Ok(Ok(())) => {
+                        error!("event syncer task exited unexpectedly");
+                        Err(CliError::EventSyncerExited)
+                    }
+                    Ok(Err(err)) => {
+                        error!(?err, "event syncer exited with error");
+                        Err(CliError::Sync(err))
+                    }
+                    Err(err) => {
+                        error!(?err, "event syncer task failed");
+                        Err(CliError::EventSyncerFailed(err.to_string()))
+                    }
+                }
+            }
+        }
+    }
+
+    /// Publish the current proposal state to the event syncer.
+    async fn publish_proposal_state<P>(
+        proposal_id: u64,
+        canonical_sender: &watch::Sender<u64>,
+        preconf_tip_sender: &watch::Sender<U256>,
+        l2_provider: &P,
+    ) where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        if canonical_sender.send(proposal_id).is_err() {
+            error!(proposal_id, "failed to publish canonical proposal id");
+        }
+        if let Some(tip) = Self::resolve_preconf_tip_from_l2(proposal_id, l2_provider).await {
+            if preconf_tip_sender.send(tip).is_err() {
+                error!(
+                    proposal_id,
+                    preconf_tip = %tip,
+                    "failed to publish preconfirmation tip"
+                );
+            }
+        } else {
+            error!(proposal_id, "failed to resolve preconfirmation tip from L2 latest head");
+        }
+    }
+
+    /// Spawn task to forward proposal state updates to EventSyncer.
+    async fn forward_state_updates<P>(
+        mut proposal_id_rx: watch::Receiver<u64>,
+        canonical_sender: watch::Sender<u64>,
+        preconf_tip_sender: watch::Sender<U256>,
+        l2_provider: P,
+    ) where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        Self::seed_proposal_state(
+            &mut proposal_id_rx,
+            &canonical_sender,
+            &preconf_tip_sender,
+            &l2_provider,
+        )
+        .await;
+
+        loop {
+            if proposal_id_rx.changed().await.is_err() {
+                break;
+            }
+            let id = *proposal_id_rx.borrow();
+            Self::publish_proposal_state(id, &canonical_sender, &preconf_tip_sender, &l2_provider)
+                .await;
         }
     }
 
@@ -158,39 +275,18 @@ impl PreconfirmationDriverSubCommand {
     {
         tokio::spawn(async move {
             // Subscribe to proposal ID changes (event-driven, not polling)
-            let mut proposal_id_rx = event_syncer.subscribe_proposal_id();
+            let proposal_id_rx = event_syncer.subscribe_proposal_id();
             let canonical_sender = channels.canonical_proposal_id_sender.clone();
             let preconf_tip_sender = channels.preconf_tip_sender.clone();
             let l2_provider = driver_client.l2_provider.clone();
 
             // Spawn event-driven state update task
-            let state_update_handle = tokio::spawn(async move {
-                loop {
-                    // Wait for actual changes instead of polling
-                    if proposal_id_rx.changed().await.is_err() {
-                        // Sender dropped, exit gracefully
-                        break;
-                    }
-                    let id = *proposal_id_rx.borrow();
-                    if canonical_sender.send(id).is_err() {
-                        error!(proposal_id = id, "failed to publish canonical proposal id");
-                    }
-                    if let Some(tip) = Self::resolve_preconf_tip_from_l2(id, &l2_provider).await {
-                        if preconf_tip_sender.send(tip).is_err() {
-                            error!(
-                                proposal_id = id,
-                                preconf_tip = %tip,
-                                "failed to publish preconfirmation tip"
-                            );
-                        }
-                    } else {
-                        error!(
-                            proposal_id = id,
-                            "failed to resolve preconfirmation tip from L2 latest head"
-                        );
-                    }
-                }
-            });
+            let state_update_handle = tokio::spawn(Self::forward_state_updates(
+                proposal_id_rx,
+                canonical_sender,
+                preconf_tip_sender,
+                l2_provider,
+            ));
 
             while let Some(input) = channels.input_receiver.recv().await {
                 if input.should_skip_driver_submission() {
@@ -250,7 +346,10 @@ mod tests {
     use alloy_consensus::Header as ConsensusHeader;
     use alloy_primitives::U256;
     use alloy_rpc_types_eth::{Block, Header as RpcHeader};
+    use driver::sync::SyncError;
+    use preconfirmation_driver::PreconfirmationClientError;
     use std::time::Duration;
+    use tokio::sync::watch;
 
     #[tokio::test]
     async fn preconf_tip_from_l2_uses_latest_head() {
@@ -296,7 +395,7 @@ mod tests {
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_returns_error_on_syncer_exit() {
         let ready = std::future::pending::<Option<()>>();
-        let mut handle = tokio::spawn(async {});
+        let mut handle = tokio::spawn(async { Ok(()) });
 
         let result = tokio::time::timeout(
             Duration::from_millis(50),
@@ -310,7 +409,9 @@ mod tests {
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_returns_ok_when_ready() {
         let ready = async { Some(()) };
-        let mut handle = tokio::spawn(async { std::future::pending::<()>().await });
+        let mut handle = tokio::spawn(async {
+            std::future::pending::<std::result::Result<(), SyncError>>().await
+        });
 
         let result = tokio::time::timeout(
             Duration::from_millis(50),
@@ -320,6 +421,63 @@ mod tests {
 
         assert!(matches!(result, Ok(Ok(()))));
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn seed_proposal_state_publishes_current_values() {
+        let (proposal_tx, mut proposal_rx) = watch::channel(0u64);
+        let (canonical_tx, canonical_rx) = watch::channel(0u64);
+        let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
+
+        proposal_tx.send(7).expect("proposal id update should succeed");
+
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter.clone());
+        let mut header = ConsensusHeader::default();
+        header.number = 42;
+        let block: Block = Block::empty(RpcHeader::new(header));
+        asserter.push_success(&Some(block));
+
+        PreconfirmationDriverSubCommand::seed_proposal_state(
+            &mut proposal_rx,
+            &canonical_tx,
+            &preconf_tip_tx,
+            &provider,
+        )
+        .await;
+
+        assert_eq!(*canonical_rx.borrow(), 7);
+        assert_eq!(*preconf_tip_rx.borrow(), U256::from(42u64));
+    }
+
+    #[tokio::test]
+    async fn wait_for_driver_exit_propagates_node_error() {
+        let mut event_syncer_handle = tokio::spawn(async {
+            std::future::pending::<std::result::Result<(), SyncError>>().await
+        });
+
+        let result = PreconfirmationDriverSubCommand::wait_for_driver_exit(
+            async { Err(PreconfirmationClientError::Network("boom".into())) },
+            &mut event_syncer_handle,
+        )
+        .await;
+
+        assert!(matches!(result, Err(CliError::Preconfirmation(_))));
+        event_syncer_handle.abort();
+    }
+
+    #[tokio::test]
+    async fn wait_for_driver_exit_propagates_syncer_error() {
+        let mut event_syncer_handle =
+            tokio::spawn(async { Err(SyncError::MissingLatestExecutionBlock) });
+
+        let result = PreconfirmationDriverSubCommand::wait_for_driver_exit(
+            std::future::pending::<Result<(), PreconfirmationClientError>>(),
+            &mut event_syncer_handle,
+        )
+        .await;
+
+        assert!(matches!(result, Err(CliError::Sync(SyncError::MissingLatestExecutionBlock))));
     }
 }
 
@@ -355,11 +513,7 @@ impl Subcommand for PreconfirmationDriverSubCommand {
 
         info!("waiting for driver event sync to initialize");
         let event_syncer_run = event_syncer.clone();
-        let event_syncer_handle = tokio::spawn(async move {
-            if let Err(err) = event_syncer_run.run().await {
-                error!(?err, "event syncer exited with error");
-            }
-        });
+        let event_syncer_handle = tokio::spawn(async move { event_syncer_run.run().await });
 
         let mut event_syncer_handle = event_syncer_handle;
         // Wait for the ingress loop or fail fast if the syncer exits before readiness.
@@ -391,19 +545,11 @@ impl Subcommand for PreconfirmationDriverSubCommand {
 
         info!("starting preconfirmation P2P event loop");
 
-        tokio::select! {
-            result = node.run() => {
-                if let Err(err) = result {
-                    error!(?err, "preconfirmation node exited with error");
-                }
-            }
-            _ = event_syncer_handle => {
-                error!("event syncer task exited unexpectedly");
-            }
-        }
+        let run_result = Self::wait_for_driver_exit(node.run(), &mut event_syncer_handle).await;
 
         forward_handle.abort();
+        event_syncer_handle.abort();
         info!("preconfirmation driver stopped");
-        Ok(())
+        run_result
     }
 }
