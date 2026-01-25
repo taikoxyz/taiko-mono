@@ -31,13 +31,17 @@ tokio-stream = { workspace = true }
 tracing = { workspace = true }
 
 bindings = { path = "../bindings" }
+driver = { path = "../driver" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
-driver = { path = "../driver" }
+alloy = { workspace = true }
+alloy-rlp = { workspace = true }
+alloy-rpc-types-eth = { workspace = true }
+flate2 = { workspace = true }
 rand = { workspace = true }
 secp256k1 = { workspace = true }
 serial_test = { workspace = true }
@@ -46,6 +50,7 @@ test-harness = { path = "../test-harness", features = ["preconfirmation"] }
 test-log = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber = { workspace = true }
+url = { workspace = true }
 
 [[test]]
 name = "out_of_order_arrival"

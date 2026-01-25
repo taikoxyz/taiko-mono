@@ -50,6 +50,13 @@ pub enum CliError {
     #[error(transparent)]
     Preconfirmation(#[from] preconfirmation_driver::PreconfirmationClientError),
 
+    /// Error from the preconfirmation driver runner.
+    ///
+    /// Wraps [`preconfirmation_driver::RunnerError`] for errors occurring during
+    /// preconfirmation driver orchestration.
+    #[error(transparent)]
+    PreconfirmationRunner(#[from] preconfirmation_driver::RunnerError),
+
     /// Failed to parse a URL.
     ///
     /// Occurs when parsing endpoint URLs from command-line arguments fails.
@@ -84,14 +91,6 @@ pub enum CliError {
     /// indicates a configuration mismatch.
     #[error("preconfirmation ingress not enabled on driver")]
     PreconfIngressNotEnabled,
-
-    /// Event syncer task exited before preconfirmation ingress was ready.
-    #[error("event syncer exited before preconfirmation ingress was ready")]
-    EventSyncerExited,
-
-    /// Event syncer task failed before preconfirmation ingress was ready.
-    #[error("event syncer failed before preconfirmation ingress was ready: {0}")]
-    EventSyncerFailed(String),
 }
 
 /// Result alias for CLI operations.

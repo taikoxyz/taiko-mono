@@ -43,7 +43,6 @@ alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
-preconfirmation-driver = { path = "../preconfirmation-driver" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }

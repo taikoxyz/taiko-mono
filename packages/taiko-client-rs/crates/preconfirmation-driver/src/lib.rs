@@ -38,6 +38,8 @@ pub mod metrics;
 pub mod node;
 /// User-facing JSON-RPC API.
 pub mod rpc;
+/// Preconfirmation driver runner orchestration.
+pub mod runner;
 /// Storage helpers for commitments and txlists.
 pub mod storage;
 /// Subscription/event handling for inbound gossip.
@@ -56,3 +58,4 @@ pub use error::{DriverApiError, PreconfirmationClientError, Result};
 pub use metrics::PreconfirmationClientMetrics;
 pub use node::{DriverChannels, PreconfirmationDriverNode, PreconfirmationDriverNodeConfig};
 pub use rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig};
+pub use runner::{PreconfirmationDriverRunner, RunnerConfig, RunnerError};
