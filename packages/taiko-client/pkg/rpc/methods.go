@@ -40,6 +40,13 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
+const (
+	// batchIDTooLargeError is returned when the requested batch ID is greater than the head proposal ID.
+	batchIDTooLargeError = "greater than head proposalID"
+	// endOfProposalNotSetError is returned when the end-of-proposal flag is not set for a batch tail block.
+	endOfProposalNotSetError = "endOfProposal flag not set"
+)
+
 // GetProtocolConfigs gets the protocol configs from Pacaya TaikoInbox contract.
 func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
 	var cancel context.CancelFunc
@@ -655,8 +662,8 @@ func isShastaBatchLookupSyncingError(err error) bool {
 		return true
 	}
 	message := err.Error()
-	return strings.Contains(message, "greater than head proposalID") ||
-		strings.Contains(message, "endOfProposal flag not set")
+	return strings.Contains(message, batchIDTooLargeError) ||
+		strings.Contains(message, endOfProposalNotSetError)
 }
 
 // GetProtocolStateVariablesPacaya gets the protocol states from Pacaya TaikoInbox contract.
