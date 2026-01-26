@@ -301,6 +301,7 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 | `gasLimit`           | uint256 | `gasLimit`                |
 | `basefeeSharingPctg` | uint8   | First byte in `extraData` |
 | `proposalId`         | uint48  | Bytes 1..6 in `extraData` |
+| `endOfProposalFlag`  | bool    | Byte 7 in `extraData`     |
 
 #### Additional Pre-Execution Block Header Fields
 
