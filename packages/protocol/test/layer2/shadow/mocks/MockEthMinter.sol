@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IEthMinter} from "src/shared/bridge/IEthMinter.sol";
+import { IEthMinter } from "src/shared/bridge/IEthMinter.sol";
 
 contract MockEthMinter is IEthMinter {
     address public lastRecipient;

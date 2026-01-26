@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IShadow} from "./IShadow.sol";
+import { IShadow } from "./IShadow.sol";
 
 /// @custom:security-contact security@taiko.xyz
 interface IShadowVerifier {
@@ -11,7 +11,10 @@ interface IShadowVerifier {
     error ZeroAddress();
 
     /// @notice Verifies a proof and its public inputs.
-    function verifyProof(bytes calldata _proof, IShadow.PublicInput calldata _input)
+    function verifyProof(
+        bytes calldata _proof,
+        IShadow.PublicInput calldata _input
+    )
         external
         view
         returns (bool _isValid_);

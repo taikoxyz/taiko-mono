@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
-import {ICircuitVerifier} from "../iface/ICircuitVerifier.sol";
-import {IShadow} from "../iface/IShadow.sol";
-import {IShadowVerifier} from "../iface/IShadowVerifier.sol";
-import {ShadowPublicInputs} from "../lib/ShadowPublicInputs.sol";
+import { ICircuitVerifier } from "../iface/ICircuitVerifier.sol";
+import { IShadow } from "../iface/IShadow.sol";
+import { IShadowVerifier } from "../iface/IShadowVerifier.sol";
+import { ShadowPublicInputs } from "../lib/ShadowPublicInputs.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @custom:security-contact security@taiko.xyz
 contract ShadowVerifier is IShadowVerifier {
@@ -20,14 +20,20 @@ contract ShadowVerifier is IShadowVerifier {
     }
 
     /// @notice Verifies a proof and its public inputs.
-    function verifyProof(bytes calldata _proof, IShadow.PublicInput calldata _input)
+    function verifyProof(
+        bytes calldata _proof,
+        IShadow.PublicInput calldata _input
+    )
         external
         view
         returns (bool _isValid_)
     {
         bytes32 expectedStateRoot = checkpointStore.getCheckpoint(_input.blockNumber).stateRoot;
         require(expectedStateRoot != bytes32(0), CheckpointNotFound(_input.blockNumber));
-        require(expectedStateRoot == _input.stateRoot, StateRootMismatch(expectedStateRoot, _input.stateRoot));
+        require(
+            expectedStateRoot == _input.stateRoot,
+            StateRootMismatch(expectedStateRoot, _input.stateRoot)
+        );
 
         uint256[] memory publicInputs = ShadowPublicInputs.toArray(_input);
         bool ok = circuitVerifier.verifyProof(_proof, publicInputs);

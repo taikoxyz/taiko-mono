@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "forge-std/src/Test.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "src/shared/common/EssentialContract.sol";
-import "src/layer2/shadow/impl/Shadow.sol";
+import "forge-std/src/Test.sol";
 import "src/layer2/shadow/iface/IShadow.sol";
+import "src/layer2/shadow/impl/Shadow.sol";
 import "src/layer2/shadow/impl/ShadowVerifier.sol";
+import "src/shared/common/EssentialContract.sol";
+import "test/layer2/shadow/mocks/MockCheckpointStore.sol";
 import "test/layer2/shadow/mocks/MockCircuitVerifier.sol";
 import "test/layer2/shadow/mocks/MockEthMinter.sol";
-import "test/layer2/shadow/mocks/MockCheckpointStore.sol";
 
 contract ShadowTest is Test {
     MockCheckpointStore internal checkpointStore;
@@ -26,8 +26,7 @@ contract ShadowTest is Test {
 
         Shadow shadowImpl = new Shadow(address(shadowVerifier), address(ethMinter));
         ERC1967Proxy shadowProxy = new ERC1967Proxy(
-            address(shadowImpl),
-            abi.encodeCall(Shadow.initialize, (address(this)))
+            address(shadowImpl), abi.encodeCall(Shadow.initialize, (address(this)))
         );
         shadow = Shadow(address(shadowProxy));
     }
@@ -85,7 +84,11 @@ contract ShadowTest is Test {
             powDigest: bytes32(uint256(1) << 24)
         });
 
-        vm.expectRevert(abi.encodeWithSelector(IShadow.ChainIdMismatch.selector, block.chainid + 1, block.chainid));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IShadow.ChainIdMismatch.selector, block.chainid + 1, block.chainid
+            )
+        );
         shadow.claim("", input);
     }
 
@@ -105,7 +108,9 @@ contract ShadowTest is Test {
             powDigest: bytes32(uint256(1))
         });
 
-        vm.expectRevert(abi.encodeWithSelector(IShadow.InvalidPowDigest.selector, bytes32(uint256(1))));
+        vm.expectRevert(
+            abi.encodeWithSelector(IShadow.InvalidPowDigest.selector, bytes32(uint256(1)))
+        );
         shadow.claim("", input);
     }
 
@@ -148,7 +153,9 @@ contract ShadowTest is Test {
         });
 
         shadow.claim("", input);
-        vm.expectRevert(abi.encodeWithSelector(IShadow.NullifierAlreadyConsumed.selector, nullifierValue));
+        vm.expectRevert(
+            abi.encodeWithSelector(IShadow.NullifierAlreadyConsumed.selector, nullifierValue)
+        );
         shadow.claim("", input);
     }
 

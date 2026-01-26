@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IShadow} from "../iface/IShadow.sol";
+import { IShadow } from "../iface/IShadow.sol";
 
 /// @custom:security-contact security@taiko.xyz
 
@@ -19,7 +19,11 @@ library ShadowPublicInputs {
     uint256 private constant _POW_MASK = (1 << _POW_ZERO_BITS) - 1;
 
     /// @notice Converts a PublicInput struct to a uint256 array for circuit verification.
-    function toArray(IShadow.PublicInput calldata _input) internal pure returns (uint256[] memory inputs_) {
+    function toArray(IShadow.PublicInput calldata _input)
+        internal
+        pure
+        returns (uint256[] memory inputs_)
+    {
         inputs_ = new uint256[](_PUBLIC_INPUTS_LEN);
 
         inputs_[_IDX_BLOCK_NUMBER] = _input.blockNumber;
@@ -40,7 +44,14 @@ library ShadowPublicInputs {
         return (uint256(_powDigest) & _POW_MASK) == 0;
     }
 
-    function _writeBytes32(uint256[] memory _inputs, uint256 _offset, bytes32 _value) private pure {
+    function _writeBytes32(
+        uint256[] memory _inputs,
+        uint256 _offset,
+        bytes32 _value
+    )
+        private
+        pure
+    {
         for (uint256 i = 0; i < 32;) {
             _inputs[_offset + i] = uint256(uint8(_value[i]));
             unchecked {
@@ -49,7 +60,14 @@ library ShadowPublicInputs {
         }
     }
 
-    function _writeAddress(uint256[] memory _inputs, uint256 _offset, address _value) private pure {
+    function _writeAddress(
+        uint256[] memory _inputs,
+        uint256 _offset,
+        address _value
+    )
+        private
+        pure
+    {
         for (uint256 i = 0; i < 20;) {
             _inputs[_offset + i] = uint256(uint8(bytes20(_value)[i]));
             unchecked {

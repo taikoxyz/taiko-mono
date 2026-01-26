@@ -2,11 +2,11 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/src/Test.sol";
-import "src/layer2/shadow/impl/ShadowVerifier.sol";
 import "src/layer2/shadow/iface/IShadow.sol";
 import "src/layer2/shadow/iface/IShadowVerifier.sol";
-import "test/layer2/shadow/mocks/MockCircuitVerifier.sol";
+import "src/layer2/shadow/impl/ShadowVerifier.sol";
 import "test/layer2/shadow/mocks/MockCheckpointStore.sol";
+import "test/layer2/shadow/mocks/MockCircuitVerifier.sol";
 
 contract ShadowVerifierTest is Test {
     MockCheckpointStore internal checkpointStore;
@@ -56,7 +56,11 @@ contract ShadowVerifierTest is Test {
             powDigest: bytes32(uint256(1) << 24)
         });
 
-        vm.expectRevert(abi.encodeWithSelector(IShadowVerifier.StateRootMismatch.selector, expectedRoot, actualRoot));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IShadowVerifier.StateRootMismatch.selector, expectedRoot, actualRoot
+            )
+        );
         verifier.verifyProof("", input);
     }
 
