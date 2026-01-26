@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title IEthMinter
+/// @notice Interface for trusted protocols to mint ETH.
 /// @custom:security-contact security@taiko.xyz
 interface IEthMinter {
     /// @notice Emitted when ETH is minted.
