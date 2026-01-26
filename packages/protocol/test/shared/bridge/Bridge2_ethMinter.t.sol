@@ -12,6 +12,7 @@ contract TestBridge2_ethMinter is TestBridge2Base {
     }
 
     function test_bridge2_setEthMinter_reverts_on_zero_address() public {
+        vm.prank(deployer);
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         eBridge.setEthMinter(address(0), true);
     }
@@ -21,24 +22,29 @@ contract TestBridge2_ethMinter is TestBridge2Base {
 
         vm.expectEmit(address(eBridge));
         emit Bridge.EthMinterSet(Alice, true);
+        vm.prank(deployer);
         eBridge.setEthMinter(Alice, true);
 
         assertEq(eBridge.isEthMinter(Alice), true);
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        vm.prank(deployer);
         eBridge.setEthMinter(Alice, true);
 
         vm.expectEmit(address(eBridge));
         emit Bridge.EthMinterSet(Alice, false);
+        vm.prank(deployer);
         eBridge.setEthMinter(Alice, false);
 
         assertEq(eBridge.isEthMinter(Alice), false);
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        vm.prank(deployer);
         eBridge.setEthMinter(Alice, false);
     }
 
     function test_bridge2_mintEth_reverts_for_invalid_recipient() public {
+        vm.prank(deployer);
         eBridge.setEthMinter(Alice, true);
 
         vm.startPrank(Alice);
@@ -60,7 +66,7 @@ contract TestBridge2_ethMinter is TestBridge2Base {
 
     function test_bridge2_mintEth_transfers_and_emits() public assertSameTotalBalance {
         uint256 amount = 2 ether;
-
+        vm.prank(deployer);
         eBridge.setEthMinter(Alice, true);
 
         uint256 bridgeBalance = address(eBridge).balance;
