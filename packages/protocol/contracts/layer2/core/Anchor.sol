@@ -6,6 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
@@ -159,6 +160,33 @@ contract Anchor is EssentialContract {
         _processAncestorsHash();
         _saveCheckpointBlock(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
         _recordParentBlockHash();
+
+        emit Anchored(
+            prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash
+        );
+    }
+
+    /// @notice POC: Processes a block and anchors L1 data with signal slots
+    /// @param _checkpoint Checkpoint data for the L1 block being anchored.
+    /// @param _signalSlots Array of signal slots to set
+    function anchorV4WithSignalSlots(
+        ICheckpointStore.Checkpoint calldata _checkpoint,
+        bytes32[] calldata _signalSlots
+    )
+        external
+        onlyValidSender
+        nonReentrant
+    {
+        uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
+
+        _processAncestorsHash();
+        _saveCheckpointBlock(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
+        _recordParentBlockHash();
+
+        // Set signal slots if provided (anchor is authorized syncer, no proof needed)
+        if (_signalSlots.length > 0) {
+            ISignalService(address(checkpointStore)).setSignalSlots(_signalSlots);
+        }
 
         emit Anchored(
             prevAnchorBlockNumber, _blockState.anchorBlockNumber, _blockState.ancestorsHash

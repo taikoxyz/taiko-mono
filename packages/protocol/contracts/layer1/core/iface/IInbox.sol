@@ -76,6 +76,8 @@ interface IInbox {
         uint8 basefeeSharingPctg;
         /// @notice Array of derivation sources, where each can be regular or forced inclusion.
         DerivationSource[] sources;
+        /// @notice Hash of signal slots to be set on L2 (POC feature)
+        bytes32 signalSlotsHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -166,13 +168,15 @@ interface IInbox {
     /// @param endOfSubmissionWindowTimestamp Last slot timestamp where the preconfer can propose.
     /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
     /// @param sources Array of derivation sources for this proposal.
+    /// @param signalSlotsHash Hash of signal slots to be set on L2 (POC feature)
     event Proposed(
         uint48 indexed id,
         address indexed proposer,
         bytes32 parentProposalHash,
         uint48 endOfSubmissionWindowTimestamp,
         uint8 basefeeSharingPctg,
-        DerivationSource[] sources
+        DerivationSource[] sources,
+        bytes32 signalSlotsHash
     );
 
     /// @notice Emitted when a proof is submitted

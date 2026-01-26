@@ -5,6 +5,7 @@ import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
 import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -27,6 +28,13 @@ contract SignalService is EssentialContract, ISignalService {
         /// @notice The state root for the end (last) block in this proposal.
         bytes32 stateRoot;
     }
+
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice POC: Signer that can set signal slots with proof
+    address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -162,6 +170,20 @@ contract SignalService is EssentialContract, ISignalService {
         emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
 
+    /// @notice POC: Sets signal slots directly (only authorized syncer can call)
+    /// @param _signalSlots Array of signal slot identifiers to set
+    function setSignalSlots(bytes32[] calldata _signalSlots) external {
+        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+
+        // Set all signal slots
+        for (uint256 i = 0; i < _signalSlots.length; i++) {
+            bytes32 slot = _signalSlots[i];
+            assembly {
+                sstore(slot, slot)
+            }
+        }
+    }
+
     /// @inheritdoc ICheckpointStore
     function getCheckpoint(uint48 _blockNumber)
         external
@@ -244,6 +266,13 @@ contract SignalService is EssentialContract, ISignalService {
             return;
         }
 
+        // POC: Check if this is a signature-based proof (65 bytes = signature length)
+        if (_proof.length == 65) {
+            require(ECDSA.recover(slot, _proof) == SIGNER, "Invalid signature proof");
+            return;
+        }
+
+        // Otherwise, use merkle proof verification
         HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
         if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
 

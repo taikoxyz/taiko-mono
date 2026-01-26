@@ -379,7 +379,8 @@ abstract contract InboxTestBase is CommonTest {
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,
             basefeeSharingPctg: _payload.basefeeSharingPctg,
-            sources: _payload.sources
+            sources: _payload.sources,
+            signalSlotsHash: bytes32(0)
         });
     }
 

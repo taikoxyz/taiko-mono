@@ -106,4 +106,8 @@ interface ISignalService is ICheckpointStore {
     /// @notice Verifies if a particular signal has already been sent.
     /// @param _signalSlot The location in storage where this signal is stored.
     function isSignalSent(bytes32 _signalSlot) external view returns (bool);
+
+    /// @notice POC: Sets signal slots directly (only authorized syncer can call)
+    /// @param _signalSlots Array of signal slot identifiers to set
+    function setSignalSlots(bytes32[] calldata _signalSlots) external;
 }

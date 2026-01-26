@@ -100,4 +100,10 @@ contract MockSignalService is ISignalService {
     function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory) {
         return checkpoints[_blockNumber];
     }
+
+    function setSignalSlots(bytes32[] calldata _signalSlots) external {
+        for (uint256 i = 0; i < _signalSlots.length; i++) {
+            sentSignals[_signalSlots[i]] = true;
+        }
+    }
 }

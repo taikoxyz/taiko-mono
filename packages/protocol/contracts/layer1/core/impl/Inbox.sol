@@ -205,12 +205,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function proposeWithProof(
         bytes calldata _lookahead,
         bytes calldata _data,
-        bytes calldata _proof
+        bytes calldata _proof,
+        bytes32[] calldata _signalSlots
     )
         external
         nonReentrant
     {
-        _propose(_lookahead, _data);
+        // Verify signal slots exist
+        bytes32 signalSlotsHash = bytes32(0);
+        if (_signalSlots.length > 0) {
+            for (uint256 i = 0; i < _signalSlots.length; i++) {
+                require(_signalService.isSignalSent(_signalSlots[i]), "Signal slot does not exist");
+            }
+            signalSlotsHash = keccak256(abi.encode(_signalSlots));
+        }
+
+        _proposeWithSignalSlots(_lookahead, _data, signalSlotsHash);
 
         // Hackish real time proving
         // --------------------------
@@ -469,6 +479,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _lookahead Additional data used for lookahead operations.
     /// @param _data The encoded proposal input data.
     function _propose(bytes calldata _lookahead, bytes calldata _data) internal {
+        _proposeWithSignalSlots(_lookahead, _data, bytes32(0));
+    }
+
+    /// @dev Internal implementation of propose logic with signal slots
+    /// @param _lookahead Additional data used for lookahead operations.
+    /// @param _data The encoded proposal input data.
+    /// @param _signalSlotsHash Hash of signal slots to include in proposal
+    function _proposeWithSignalSlots(
+        bytes calldata _lookahead,
+        bytes calldata _data,
+        bytes32 _signalSlotsHash
+    )
+        internal
+    {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -481,6 +505,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
+
+            // Set signal slots hash
+            proposal.signalSlotsHash = _signalSlotsHash;
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
@@ -629,7 +656,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
+                sources: result.sources,
+                signalSlotsHash: bytes32(0)
             });
         }
     }
@@ -761,7 +789,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _proposal.parentProposalHash,
             _proposal.endOfSubmissionWindowTimestamp,
             _proposal.basefeeSharingPctg,
-            _proposal.sources
+            _proposal.sources,
+            _proposal.signalSlotsHash
         );
     }
 
