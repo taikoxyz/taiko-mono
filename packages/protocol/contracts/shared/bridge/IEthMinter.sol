@@ -12,6 +12,6 @@ interface IEthMinter {
 
     /// @notice Mints ETH to the recipient.
     /// @param _recipient The address of the recipient.
-    /// @param _amount The amount of ETH to mint.   
+    /// @param _amount The amount of ETH to mint.
     function mintEth(address _recipient, uint256 _amount) external;
 }
