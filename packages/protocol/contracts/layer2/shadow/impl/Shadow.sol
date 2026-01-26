@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import { IShadow } from "../iface/IShadow.sol";
+import { IShadowVerifier } from "../iface/IShadowVerifier.sol";
+import { ShadowPublicInputs } from "../lib/ShadowPublicInputs.sol";
+import { IEthMinter } from "src/shared/bridge/IEthMinter.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+
+import "./Shadow_Layout.sol"; // DO NOT DELETE
+
+/// @title Shadow
+/// @notice Enables private ETH claims on L2 using zero-knowledge proofs.
+/// @custom:security-contact security@taiko.xyz
+contract Shadow is IShadow, EssentialContract {
+    /// @notice The proof verifier contract.
+    IShadowVerifier public immutable verifier;
+
+    /// @notice The ETH minter contract.
+    IEthMinter public immutable ethMinter;
+
+    /// @dev Tracks consumed nullifiers to prevent double-spending.
+    mapping(bytes32 _nullifier => bool _consumed) private _consumed;
+
+    /// @param _verifier The ShadowVerifier address.
+    /// @param _ethMinter The ETH minter address.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor(address _verifier, address _ethMinter) {
+        require(_verifier != address(0), ZERO_ADDRESS());
+        require(_ethMinter != address(0), ZERO_ADDRESS());
+        verifier = IShadowVerifier(_verifier);
+        ethMinter = IEthMinter(_ethMinter);
+    }
+
+    /// @notice Initializes the contract.
+    /// @param _owner The contract owner.
+    function initialize(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
+    /// @inheritdoc IShadow
+    function isConsumed(bytes32 _nullifier) external view returns (bool _isConsumed_) {
+        _isConsumed_ = _consumed[_nullifier];
+    }
+
+    /// @inheritdoc IShadow
+    function claim(bytes calldata _proof, PublicInput calldata _input) external {
+        require(_input.chainId == block.chainid, ChainIdMismatch(_input.chainId, block.chainid));
+        require(_input.amount > 0, InvalidAmount(_input.amount));
+        require(_input.recipient != address(0), InvalidRecipient(_input.recipient));
+        require(
+            ShadowPublicInputs.powDigestIsValid(_input.powDigest),
+            InvalidPowDigest(_input.powDigest)
+        );
+
+        require(verifier.verifyProof(_proof, _input), ProofVerificationFailed());
+
+        require(!_consumed[_input.nullifier], NullifierAlreadyConsumed(_input.nullifier));
+        _consumed[_input.nullifier] = true;
+
+        ethMinter.mintEth(_input.recipient, _input.amount);
+
+        emit Claimed(_input.nullifier, _input.recipient, _input.amount);
+    }
+}
