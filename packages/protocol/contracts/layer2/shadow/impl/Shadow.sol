@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IEthMinter } from "src/shared/bridge/IEthMinter.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IShadow } from "../iface/IShadow.sol";
 import { IShadowVerifier } from "../iface/IShadowVerifier.sol";
 import { ShadowPublicInputs } from "../lib/ShadowPublicInputs.sol";
+import { IEthMinter } from "src/shared/bridge/IEthMinter.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 import "./Shadow_Layout.sol"; // DO NOT DELETE
 
@@ -49,7 +49,8 @@ contract Shadow is IShadow, EssentialContract {
         require(_input.amount > 0, InvalidAmount(_input.amount));
         require(_input.recipient != address(0), InvalidRecipient(_input.recipient));
         require(
-            ShadowPublicInputs.powDigestIsValid(_input.powDigest), InvalidPowDigest(_input.powDigest)
+            ShadowPublicInputs.powDigestIsValid(_input.powDigest),
+            InvalidPowDigest(_input.powDigest)
         );
 
         require(verifier.verifyProof(_proof, _input), ProofVerificationFailed());

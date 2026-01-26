@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ICircuitVerifier } from "../iface/ICircuitVerifier.sol";
 import { IShadow } from "../iface/IShadow.sol";
 import { IShadowVerifier } from "../iface/IShadowVerifier.sol";
 import { ShadowPublicInputs } from "../lib/ShadowPublicInputs.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title ShadowVerifier
 /// @notice Verifies Shadow ZK proofs against checkpointed L1 state roots.
