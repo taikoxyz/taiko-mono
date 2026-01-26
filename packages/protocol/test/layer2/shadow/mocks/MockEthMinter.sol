@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IEtherMinter} from "../../src/iface/IEtherMinter.sol";
+import {IEthMinter} from "src/shared/bridge/IEthMinter.sol";
 
-contract MockEtherMinter is IEtherMinter {
+contract MockEthMinter is IEthMinter {
     address public lastRecipient;
     uint256 public lastAmount;
     uint256 public mintCount;
 
-    function mintEther(address _recipient, uint256 _amount) external {
+    function mintEth(address _recipient, uint256 _amount) external {
         lastRecipient = _recipient;
         lastAmount = _amount;
         mintCount++;

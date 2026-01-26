@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICircuitVerifier} from "../../src/iface/ICircuitVerifier.sol";
+import "src/layer2/shadow/iface/ICircuitVerifier.sol";
 
 contract MockCircuitVerifier is ICircuitVerifier {
     bool public shouldVerify = true;

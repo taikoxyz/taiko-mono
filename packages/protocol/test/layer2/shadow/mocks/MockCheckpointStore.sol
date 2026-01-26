@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICheckpointStore} from "../../src/iface/ICheckpointStore.sol";
+import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
 
 contract MockCheckpointStore is ICheckpointStore {
     mapping(uint48 _blockNumber => Checkpoint _checkpoint) private _checkpoints;
@@ -12,6 +12,10 @@ contract MockCheckpointStore is ICheckpointStore {
             blockHash: _blockHash,
             stateRoot: _stateRoot
         });
+    }
+
+    function saveCheckpoint(Checkpoint calldata _checkpoint) external {
+        _checkpoints[_checkpoint.blockNumber] = _checkpoint;
     }
 
     function getCheckpoint(uint48 _blockNumber) external view returns (Checkpoint memory) {

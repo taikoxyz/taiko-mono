@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {ShadowVerifier} from "../src/impl/ShadowVerifier.sol";
-import {IShadow} from "../src/iface/IShadow.sol";
-import {IShadowVerifier} from "../src/iface/IShadowVerifier.sol";
-import {MockCircuitVerifier} from "./mocks/MockCircuitVerifier.sol";
-import {MockCheckpointStore} from "./mocks/MockCheckpointStore.sol";
+import "forge-std/src/Test.sol";
+import "src/layer2/shadow/impl/ShadowVerifier.sol";
+import "src/layer2/shadow/iface/IShadow.sol";
+import "src/layer2/shadow/iface/IShadowVerifier.sol";
+import "test/layer2/shadow/mocks/MockCircuitVerifier.sol";
+import "test/layer2/shadow/mocks/MockCheckpointStore.sol";
 
 contract ShadowVerifierTest is Test {
     MockCheckpointStore internal checkpointStore;

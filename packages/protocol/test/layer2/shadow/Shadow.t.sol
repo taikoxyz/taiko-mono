@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {OwnableUpgradeable} from "../src/lib/OwnableUpgradeable.sol";
-import {Shadow} from "../src/impl/Shadow.sol";
-import {IShadow} from "../src/iface/IShadow.sol";
-import {ShadowVerifier} from "../src/impl/ShadowVerifier.sol";
-import {MockCircuitVerifier} from "./mocks/MockCircuitVerifier.sol";
-import {MockEtherMinter} from "./mocks/MockEtherMinter.sol";
-import {MockCheckpointStore} from "./mocks/MockCheckpointStore.sol";
+import "forge-std/src/Test.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/layer2/shadow/impl/Shadow.sol";
+import "src/layer2/shadow/iface/IShadow.sol";
+import "src/layer2/shadow/impl/ShadowVerifier.sol";
+import "test/layer2/shadow/mocks/MockCircuitVerifier.sol";
+import "test/layer2/shadow/mocks/MockEthMinter.sol";
+import "test/layer2/shadow/mocks/MockCheckpointStore.sol";
 
 contract ShadowTest is Test {
     MockCheckpointStore internal checkpointStore;
     MockCircuitVerifier internal circuitVerifier;
     ShadowVerifier internal shadowVerifier;
-    MockEtherMinter internal etherMinter;
+    MockEthMinter internal ethMinter;
     Shadow internal shadow;
 
     function setUp() public {
         checkpointStore = new MockCheckpointStore();
         circuitVerifier = new MockCircuitVerifier();
         shadowVerifier = new ShadowVerifier(address(checkpointStore), address(circuitVerifier));
-        etherMinter = new MockEtherMinter();
+        ethMinter = new MockEthMinter();
 
-        Shadow shadowImpl = new Shadow(address(shadowVerifier), address(etherMinter));
+        Shadow shadowImpl = new Shadow(address(shadowVerifier), address(ethMinter));
         ERC1967Proxy shadowProxy = new ERC1967Proxy(
             address(shadowImpl),
             abi.encodeCall(Shadow.initialize, (address(this)))
@@ -33,12 +33,12 @@ contract ShadowTest is Test {
     }
 
     function test_constructor_RevertWhen_VerifierIsZeroAddress() external {
-        vm.expectRevert(OwnableUpgradeable.ZeroAddress.selector);
-        new Shadow(address(0), address(etherMinter));
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
+        new Shadow(address(0), address(ethMinter));
     }
 
     function test_constructor_RevertWhen_EtherMinterIsZeroAddress() external {
-        vm.expectRevert(OwnableUpgradeable.ZeroAddress.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         new Shadow(address(shadowVerifier), address(0));
     }
 
@@ -64,8 +64,8 @@ contract ShadowTest is Test {
         });
 
         shadow.claim("", input);
-        assertEq(etherMinter.lastRecipient(), recipient);
-        assertEq(etherMinter.lastAmount(), amount);
+        assertEq(ethMinter.lastRecipient(), recipient);
+        assertEq(ethMinter.lastAmount(), amount);
         assertTrue(shadow.isConsumed(nullifierValue));
     }
 

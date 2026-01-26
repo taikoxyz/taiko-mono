@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
-import {IShadow} from "../src/iface/IShadow.sol";
-import {ShadowPublicInputs} from "../src/lib/ShadowPublicInputs.sol";
+import "forge-std/src/Test.sol";
+import "src/layer2/shadow/iface/IShadow.sol";
+import "src/layer2/shadow/lib/ShadowPublicInputs.sol";
 
 /// @dev Test harness to expose library functions with calldata parameters.
 contract ShadowPublicInputsHarness {
