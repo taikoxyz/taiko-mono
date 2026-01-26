@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.33;
+pragma solidity ^0.8.26;
 
 import {IEtherMinter} from "../../src/iface/IEtherMinter.sol";
 
