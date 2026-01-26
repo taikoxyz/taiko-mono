@@ -247,6 +247,11 @@ export class RelayerAPIService {
 
       bridgeTx.receipt = receipt as TransactionReceipt;
 
+      // Populate blockNumber from receipt if not provided by the relayer API
+      if (!bridgeTx.blockNumber && receipt) {
+        bridgeTx.blockNumber = `0x${receipt.blockNumber.toString(16)}` as Hex;
+      }
+
       if (!msgHash) return; //todo: handle this case
 
       const msgStatus = await RelayerAPIService._getBridgeMessageStatus({
