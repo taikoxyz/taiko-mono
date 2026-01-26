@@ -1,33 +1,34 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.33;
+pragma solidity ^0.8.26;
 
-import {IEtherMinter} from "../iface/IEtherMinter.sol";
+import {IEthMinter} from "src/shared/bridge/IEthMinter.sol";
+import {EssentialContract } from "src/shared/common/EssentialContract.sol";
 import {IShadow} from "../iface/IShadow.sol";
 import {IShadowVerifier} from "../iface/IShadowVerifier.sol";
-import {OwnableUpgradeable} from "../lib/OwnableUpgradeable.sol";
 import {ShadowPublicInputs} from "../lib/ShadowPublicInputs.sol";
 
-/// @custom:security-contact security@taiko.xyz
 
-contract Shadow is IShadow, OwnableUpgradeable {
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
+import "./Shadow_Layout.sol"; // DO NOT DELETE
+
+
+/// @custom:security-contact security@taiko.xyz
+contract Shadow is IShadow, EssentialContract {
     IShadowVerifier public immutable verifier;
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    IEtherMinter public immutable etherMinter;
+    IEthMinter public immutable ethMinter;
 
     mapping(bytes32 _nullifier => bool _consumed) private _consumed;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(address _verifier, address _etherMinter) {
-        require(_verifier != address(0), ZeroAddress());
-        require(_etherMinter != address(0), ZeroAddress());
+    constructor(address _verifier, address _ethMinter) {
+        require(_verifier != address(0), ZERO_ADDRESS());
+        require(_ethMinter != address(0), ZERO_ADDRESS());
         verifier = IShadowVerifier(_verifier);
-        etherMinter = IEtherMinter(_etherMinter);
+        ethMinter = IEthMinter(_ethMinter);
     }
 
     /// @notice Initializes the contract.
     function initialize(address _owner) external initializer {
-        __OwnableUpgradeable_init(_owner);
+        __Essential_init(_owner);
     }
 
     /// @notice Returns whether the nullifier has been consumed.
@@ -47,7 +48,7 @@ contract Shadow is IShadow, OwnableUpgradeable {
         require(!_consumed[_input.nullifier], NullifierAlreadyConsumed(_input.nullifier));
         _consumed[_input.nullifier] = true;
 
-        etherMinter.mintEther(_input.recipient, _input.amount);
+        ethMinter.mintEth(_input.recipient, _input.amount);
 
         emit Claimed(_input.nullifier, _input.recipient, _input.amount);
     }

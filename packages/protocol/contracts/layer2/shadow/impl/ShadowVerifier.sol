@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.33;
+pragma solidity ^0.8.26;
 
-import {ICheckpointStore} from "../iface/ICheckpointStore.sol";
+import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
 import {ICircuitVerifier} from "../iface/ICircuitVerifier.sol";
 import {IShadow} from "../iface/IShadow.sol";
 import {IShadowVerifier} from "../iface/IShadowVerifier.sol";
 import {ShadowPublicInputs} from "../lib/ShadowPublicInputs.sol";
 
 /// @custom:security-contact security@taiko.xyz
-
 contract ShadowVerifier is IShadowVerifier {
     ICircuitVerifier public immutable circuitVerifier;
     ICheckpointStore public immutable checkpointStore;

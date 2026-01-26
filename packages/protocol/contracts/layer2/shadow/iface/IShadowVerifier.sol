@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.33;
+pragma solidity ^0.8.26;
 
 import {IShadow} from "./IShadow.sol";
 
 /// @custom:security-contact security@taiko.xyz
-
 interface IShadowVerifier {
     error CheckpointNotFound(uint48 blockNumber);
     error ProofVerificationFailed();
