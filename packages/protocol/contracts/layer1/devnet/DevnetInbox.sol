@@ -51,7 +51,6 @@ contract DevnetInbox is Inbox {
                 provingWindow: 2 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the proposal cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
-                basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 0,
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee
