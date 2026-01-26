@@ -130,7 +130,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		// If this is the first block in the batch, we check if the whole batch has been inserted by
 		// trying to fetch the last block header from L2 EE. If it is known in canonical,
 		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
-		if j == 0 {
+		if j == 0 && !sourcePayload.Default {
 			log.Debug(
 				"Checking if batch is in canonical chain",
 				"batchID", meta.GetEventData().Id,
