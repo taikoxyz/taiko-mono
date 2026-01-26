@@ -99,7 +99,12 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         _;
     }
 
-    constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
+    constructor(
+        address _resolver,
+        address _signalService
+    )
+        EssentialResolverContract(_resolver)
+    {
         signalService = ISignalService(_signalService);
     }
 
@@ -192,9 +197,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
-                _message, msgHash
-            );
+            IRecallableSender(_message.from)
+            .onMessageRecalled{ value: _message.value }(_message, msgHash);
 
             // Must reset the context after the message call
             _storeContext(
@@ -419,7 +423,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         return _isSignalReceived(signalService, hashMessage(_message), _message.srcChainId, _proof);
     }
 
-   /// @inheritdoc IBridge
+    /// @inheritdoc IBridge
     function isMessageSent(Message calldata _message) external view returns (bool) {
         if (_message.srcChainId != block.chainid) return false;
         return signalService.isSignalSent({ _app: address(this), _signal: hashMessage(_message) });
@@ -544,7 +548,9 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
+        ) returns (
+            uint256 numCacheOps
+        ) {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
