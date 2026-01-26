@@ -10,7 +10,14 @@ contract MockCircuitVerifier is ICircuitVerifier {
         shouldVerify = _shouldVerify;
     }
 
-    function verifyProof(bytes calldata, uint256[] calldata) external view returns (bool _isValid_) {
+    function verifyProof(
+        bytes calldata,
+        uint256[] calldata
+    )
+        external
+        view
+        returns (bool _isValid_)
+    {
         _isValid_ = shouldVerify;
     }
 }

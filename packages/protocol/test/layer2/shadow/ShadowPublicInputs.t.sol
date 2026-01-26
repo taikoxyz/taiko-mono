@@ -22,11 +22,12 @@ contract ShadowPublicInputsTest is Test {
     function setUp() public {
         harness = new ShadowPublicInputsHarness();
     }
+
     /// @notice Test serialization against known vector to ensure circuit compatibility.
     /// @dev This test verifies the exact byte layout documented in docs/CIRCUIT_PUBLIC_INPUTS.md
     function test_toArray_serializationVector() external view {
         // Known test vector
-        uint48 blockNumber = 12345;
+        uint48 blockNumber = 12_345;
         bytes32 stateRoot = hex"0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20";
         uint256 chainId = 1;
         uint256 noteIndex = 7;
@@ -53,7 +54,7 @@ contract ShadowPublicInputsTest is Test {
         assertEq(result.length, 120, "Public inputs length should be 120");
 
         // Index 0: blockNumber as field element
-        assertEq(result[0], 12345, "blockNumber mismatch");
+        assertEq(result[0], 12_345, "blockNumber mismatch");
 
         // Index 1-32: stateRoot bytes (big-endian)
         assertEq(result[1], 0x01, "stateRoot[0] mismatch");
