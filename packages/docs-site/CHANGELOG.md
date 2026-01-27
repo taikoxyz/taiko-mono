@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.33.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.0...docs-site-v1.33.1) (2026-01-27)
+
+
+### Chores
+
+* **docs-site:** add ERC6538 and ERC5564 addresses ([#21209](https://github.com/taikoxyz/taiko-mono/issues/21209)) ([b4a854e](https://github.com/taikoxyz/taiko-mono/commit/b4a854eaf602a77f11c9be78483ecbdff2873a02))
+
+## [1.33.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.6...docs-site-v1.33.0) (2026-01-23)
+
+
+### Features
+
+* **repo, docs-site:** add auto-lint pre-commit step ([#20844](https://github.com/taikoxyz/taiko-mono/issues/20844)) ([3b21918](https://github.com/taikoxyz/taiko-mono/commit/3b219185fb6f55d3dd60bf5bb3bac63d7a7e52d0))
+
+
+### Documentation
+
+* **docs-site:** add openfort wallet infrastructure to developer tools ([#21208](https://github.com/taikoxyz/taiko-mono/issues/21208)) ([86cdfdc](https://github.com/taikoxyz/taiko-mono/commit/86cdfdc624aeff2485032dd14ca64cba94dcfbf1))
+
 ## [1.32.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.5...docs-site-v1.32.6) (2025-11-24)
 
 

@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
@@ -455,11 +456,18 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 
 		l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
 		if err != nil {
-			log.Debug(
-				"Fetch Shasta block header from L2 execution engine not found, keep retrying",
-				"batchID", batchID,
-				"error", err,
-			)
+			if err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
+				log.Warn(
+					"Proposal last block uncertain, keep retrying",
+					"batchID", batchID,
+				)
+			} else {
+				log.Debug(
+					"Fetch Shasta block header from L2 execution engine not found, keep retrying",
+					"batchID", batchID,
+					"error", err,
+				)
+			}
 			continue
 		}
 
@@ -593,7 +601,9 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 				ctx,
 				new(big.Int).Sub(coreState.NextProposalId, common.Big1),
 			)
-			if err != nil && err.Error() != ethereum.NotFound.Error() {
+			if err != nil &&
+				err.Error() != ethereum.NotFound.Error() &&
+				err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
 				return err
 			}
 			// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
@@ -778,7 +788,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 			if l1Origin, err = c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID); err != nil {
 				// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 				// its local database, we skip this check.
-				if err.Error() == ethereum.NotFound.Error() {
+				if err.Error() == ethereum.NotFound.Error() || err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
 					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
 					return result, nil
 				}
