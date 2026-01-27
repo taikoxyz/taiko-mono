@@ -669,20 +669,15 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.anchorV4 transaction: %w", err)
 	}
 
-	// Encode extraData with basefeeSharingPctg, proposal ID, and end-of-proposal flag.
-	isEndOfProposal := len(sourcePayload.BlockPayloads)-1 == blockIndex
-	extraData, err := encodeShastaExtraData(
-		meta.GetEventData().BasefeeSharingPctg,
-		meta.GetEventData().Id,
-		isEndOfProposal,
-	)
+	// Encode extraData with basefeeSharingPctg and proposal ID.
+	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
 	// Set batchID only for the last block in the proposal
 	var batchID *big.Int
-	if isEndOfProposal {
+	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
 		batchID = meta.GetEventData().Id
 	}
 
@@ -789,6 +784,9 @@ func updateL1OriginForBlocks(
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getBatchID(), blockID); err != nil {
+					return fmt.Errorf("failed to write batch to block mapping: %w", err)
+				}
 			}
 
 			return nil
@@ -825,15 +823,13 @@ func updateL1OriginForBatchShasta(
 	)
 }
 
-// encodeShastaExtraData encodes basefeeSharingPctg, end-of-proposal flag, and proposal ID into extraData.
-// Format (8 bytes):
+// encodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
+// Format (7 bytes):
 //   - Byte 0: basefeeSharingPctg (uint8)
 //   - Bytes 1-6: proposalID (uint48, big-endian)
-//   - Byte 7: end-of-proposal flag (0x01 true, 0x00 false)
 func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
 	proposalID *big.Int,
-	endOfProposal bool,
 ) ([]byte, error) {
 	if proposalID == nil {
 		return nil, errors.New("proposal ID is nil")
@@ -849,11 +845,6 @@ func encodeShastaExtraData(
 
 	// First byte: basefeeSharingPctg.
 	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
-
-	// End-of-proposal flag.
-	if endOfProposal {
-		extraData[params.ShastaExtraDataEndOfProposalIndex] = 0x01
-	}
 
 	// Bytes 1..6: proposal ID (uint48, big-endian).
 	proposalBytes := proposalID.Bytes()
