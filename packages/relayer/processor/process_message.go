@@ -245,8 +245,17 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
+	// internal will only be set if it's an actual queue message, not a targeted
+	// transaction hash set via config flag.
+	if msg.Internal != nil {
+		// update message status
+		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+	}
+
 	slog.Info(
-		"updating message status",
+		"message status updated",
 		"status", relayer.EventStatus(messageStatus).String(),
 		"occurredTxHash", msgBody.Event.Raw.TxHash.Hex(),
 	)
@@ -255,15 +264,6 @@ func (p *Processor) processMessage(
 		relayer.RetriableEvents.Inc()
 	} else if messageStatus == uint8(relayer.EventStatusDone) {
 		relayer.DoneEvents.Inc()
-	}
-
-	// internal will only be set if it's an actual queue message, not a targeted
-	// transaction hash set via config flag.
-	if msg.Internal != nil {
-		// update message status
-		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-			return false, msgBody.TimesRetried, err
-		}
 	}
 
 	return false, msgBody.TimesRetried, nil
