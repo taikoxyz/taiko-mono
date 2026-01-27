@@ -32,7 +32,23 @@
                 "type": "string"
               },
               "anchorForkRouter": {
-                "type": "string"
+                "type": "string",
+                "description": "Protocol v3: Anchor fork router address for checkpoint sync"
+              },
+              "crossChainSyncAddress": {
+                "type": "string",
+                "description": "Deprecated: Protocol v2 cross-chain sync address"
+              },
+              "hops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chainId": { "type": "number" },
+                    "crossChainSyncAddress": { "type": "string" }
+                  }
+                },
+                "description": "Deprecated: Protocol v2 hop configuration"
               }
             },
             "required": [
