@@ -44,7 +44,7 @@ impl<P: Provider + Clone> Client<P> {
         self.l2_provider
             .raw_request(Cow::Borrowed(TaikoOriginMethod::L1OriginById.as_str()), (block_id,))
             .await
-            .or_else(handle_not_found)
+            .or_else(handle_ignorable_origin_error)
     }
 
     /// Fetch the latest head L1 origin pointer from the public engine API.
@@ -52,7 +52,7 @@ impl<P: Provider + Clone> Client<P> {
         self.l2_provider
             .raw_request(Cow::Borrowed(TaikoOriginMethod::HeadL1Origin.as_str()), ())
             .await
-            .or_else(handle_not_found)
+            .or_else(handle_ignorable_origin_error)
     }
 
     /// Fetch the last L1 origin associated with the given batch id via the public engine API.
@@ -63,7 +63,7 @@ impl<P: Provider + Clone> Client<P> {
                 (proposal_id,),
             )
             .await
-            .or_else(handle_not_found)
+            .or_else(handle_ignorable_origin_error)
     }
 
     /// Fetch the last block id that corresponds to the provided batch id.
@@ -74,20 +74,20 @@ impl<P: Provider + Clone> Client<P> {
                 (proposal_id,),
             )
             .await
-            .or_else(handle_not_found)
+            .or_else(handle_ignorable_origin_error)
     }
 }
 
-/// Checks whether the underlying RPC error message represents a "not found" response.
-fn is_not_found_message(message: &str) -> bool {
-    message.contains("not found")
+/// Checks whether the underlying RPC error message represents a "not found" or ignorable response.
+fn is_ignorable_origin_error(message: &str) -> bool {
+    message.contains("not found") || message.contains("proposal last block uncertain")
 }
 
-/// Converts an RPC error into an optional L1 origin, mapping "not found" to `Ok(None)`.
-fn handle_not_found<T, E>(err: E) -> Result<Option<T>>
+/// Converts an RPC error into an optional origin, mapping ignorable errors to `Ok(None)`.
+fn handle_ignorable_origin_error<T, E>(err: E) -> Result<Option<T>>
 where
     E: Into<RpcClientError> + std::fmt::Display,
 {
     let message = err.to_string();
-    if is_not_found_message(&message) { Ok(None) } else { Err(err.into()) }
+    if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
 }
