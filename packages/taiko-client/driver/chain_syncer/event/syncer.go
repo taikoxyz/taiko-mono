@@ -274,6 +274,7 @@ func (s *Syncer) processShastaProposal(
 		// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
 		// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
 		// P2P sync, then we just use the latest block as parent block in this case.
+		// If the error is taiko.ErrProposalLastBlockUncertain, return the error as well and rely on a retry.
 		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)

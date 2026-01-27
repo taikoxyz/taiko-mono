@@ -797,7 +797,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
 					return result, nil
 				}
-
+				// If the error is taiko.ErrProposalLastBlockUncertain, return the error as well and rely on a retry.
 				return nil, err
 			}
 		} else {
