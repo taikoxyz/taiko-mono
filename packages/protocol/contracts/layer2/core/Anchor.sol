@@ -185,7 +185,7 @@ contract Anchor is EssentialContract {
 
         // Set signal slots if provided (anchor is authorized syncer, no proof needed)
         if (_signalSlots.length > 0) {
-            ISignalService(address(checkpointStore)).setSignalSlots(_signalSlots);
+            ISignalService(address(checkpointStore)).setSignalsReceived(_signalSlots);
         }
 
         emit Anchored(

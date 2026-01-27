@@ -172,15 +172,11 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice POC: Sets signal slots directly (only authorized syncer can call)
     /// @param _signalSlots Array of signal slot identifiers to set
-    function setSignalSlots(bytes32[] calldata _signalSlots) external {
+    function setSignalsReceived(bytes32[] calldata _signalSlots) external {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
 
-        // Set all signal slots
         for (uint256 i = 0; i < _signalSlots.length; i++) {
-            bytes32 slot = _signalSlots[i];
-            assembly {
-                sstore(slot, slot)
-            }
+            _receivedSignals[_signalSlots[i]] = true;
         }
     }
 

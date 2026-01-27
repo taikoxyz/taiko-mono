@@ -101,7 +101,7 @@ contract MockSignalService is ISignalService {
         return checkpoints[_blockNumber];
     }
 
-    function setSignalSlots(bytes32[] calldata _signalSlots) external {
+    function setSignalsReceived(bytes32[] calldata _signalSlots) external {
         for (uint256 i = 0; i < _signalSlots.length; i++) {
             sentSignals[_signalSlots[i]] = true;
         }

@@ -109,5 +109,5 @@ interface ISignalService is ICheckpointStore {
 
     /// @notice POC: Sets signal slots directly (only authorized syncer can call)
     /// @param _signalSlots Array of signal slot identifiers to set
-    function setSignalSlots(bytes32[] calldata _signalSlots) external;
+    function setSignalsReceived(bytes32[] calldata _signalSlots) external;
 }
