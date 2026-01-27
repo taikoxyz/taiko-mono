@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -594,7 +593,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 				ctx,
 				new(big.Int).Sub(coreState.NextProposalId, common.Big1),
 			)
-			if err != nil && !isShastaBatchLookupSyncingError(err) {
+			if err != nil && err.Error() != ethereum.NotFound.Error() {
 				return err
 			}
 			// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
@@ -643,20 +642,6 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	}
 
 	return progress, nil
-}
-
-// isShastaBatchLookupSyncingError checks whether the error is caused by L2 execution engine
-// is still syncing Shasta batches.
-func isShastaBatchLookupSyncingError(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err.Error() == ethereum.NotFound.Error() {
-		return true
-	}
-	message := err.Error()
-	return strings.Contains(message, "greater than head proposalID") ||
-		strings.Contains(message, "endOfProposal flag not set")
 }
 
 // GetProtocolStateVariablesPacaya gets the protocol states from Pacaya TaikoInbox contract.
