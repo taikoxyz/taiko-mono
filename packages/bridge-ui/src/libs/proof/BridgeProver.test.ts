@@ -420,4 +420,187 @@ describe('BridgeProver', () => {
       expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: L1_CHAIN_ID });
     });
   });
+
+  describe('getLatestSyncedBlockNumber() - additional error scenarios', () => {
+    it('should throw ClientError when public client is null for L1 destination', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const chainA = BigInt(L2_CHAIN_ID);
+      const chainB = BigInt(L1_CHAIN_ID);
+
+      vi.mocked(getPublicClient).mockReturnValue(null as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then
+      await expect(bridgeProver.getLatestSyncedBlockNumber(chainA, chainB)).rejects.toThrow(ClientError);
+    });
+  });
+
+  describe('getEncodedSignalProof() - checkpoint verification failures', () => {
+    const validBlockNo = '0x9b7';
+    const validSignalSlot = '0x1eb55981d51be65667e21e49934d6cb2f5fcc239607297a8280d18c3f64a978b';
+
+    const realBridgeTransaction: BridgeTransaction = {
+      amount: 5000000000000000000n,
+      blockNumber: '0x9b0',
+      decimals: 0,
+      destChainId: BigInt(167001),
+      from: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+      srcTxHash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      destTxHash: '' as Hash,
+      msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
+      srcChainId: 32382n,
+      processingFee: 0n,
+      message: {
+        data: '0x',
+        destChainId: 167001n,
+        destOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        fee: 0n,
+        from: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        gasLimit: 0,
+        id: 4829n,
+        srcChainId: 32382n,
+        srcOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        to: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        value: 5000000000000000000n,
+      },
+      status: 0,
+      symbol: 'ETH',
+      tokenType: TokenType.ETH,
+    };
+
+    it('should throw ProofGenerationError when checkpoint is not found on destination', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(
+        BigInt(realBridgeTransaction.blockNumber!),
+      );
+
+      // Mock checkpoint NOT found (readContract throws)
+      vi.mocked(readContract).mockRejectedValueOnce(new Error('Checkpoint not found'));
+
+      const mockClient = {
+        getBlock: vi.fn().mockResolvedValue({ number: BigInt(validBlockNo), stateRoot: zeroHash, hash: '0x1' }),
+      } as unknown as ClientWithEthGetProofRequest;
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction })).rejects.toThrow(
+        ProofGenerationError,
+      );
+    });
+
+    it('should throw ProofGenerationError when state root mismatches between RPC and checkpoint', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(
+        BigInt(realBridgeTransaction.blockNumber!),
+      );
+
+      // Mock checkpoint with different state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: BigInt(realBridgeTransaction.blockNumber!),
+        blockHash: zeroHash,
+        stateRoot: '0x1111111111111111111111111111111111111111111111111111111111111111',
+      });
+
+      const mockClient = {
+        getBlock: vi.fn().mockResolvedValue({
+          number: BigInt(validBlockNo),
+          stateRoot: '0x2222222222222222222222222222222222222222222222222222222222222222',
+          hash: '0x1',
+        }),
+      } as unknown as ClientWithEthGetProofRequest;
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction })).rejects.toThrow(
+        ProofGenerationError,
+      );
+    });
+  });
+
+  describe('verifyProofPreFlight()', () => {
+    const testParams = {
+      srcChainId: L1_CHAIN_ID,
+      destChainId: L2_CHAIN_ID,
+      bridgeAddress: zeroAddress,
+      msgHash: zeroHash as Hash,
+      encodedProof: '0x1234' as Hex,
+      blockId: 100n,
+      rootHash: '0xabcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234' as Hex,
+    };
+
+    it('should succeed when checkpoint exists and state roots match', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint found with matching state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: testParams.blockId,
+        blockHash: zeroHash,
+        stateRoot: testParams.rootHash,
+      });
+
+      const mockClient = {
+        call: vi.fn().mockResolvedValue({}),
+      };
+      vi.mocked(getPublicClient).mockReturnValue(mockClient as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then - should not throw
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).resolves.toBeUndefined();
+    });
+
+    it('should throw ProofGenerationError when checkpoint is not found', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint NOT found
+      vi.mocked(readContract).mockRejectedValueOnce(new Error('Checkpoint not found'));
+
+      // When / Then
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).rejects.toThrow(ProofGenerationError);
+    });
+
+    it('should throw ProofGenerationError when state root mismatches', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint with different state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: testParams.blockId,
+        blockHash: zeroHash,
+        stateRoot: '0xdifferentrootdifferentrootdifferentrootdifferentrootdifferentroot',
+      });
+
+      // When / Then
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).rejects.toThrow(ProofGenerationError);
+    });
+
+    it('should not throw when verifySignalReceived fails (non-blocking)', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint found with matching state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: testParams.blockId,
+        blockHash: zeroHash,
+        stateRoot: testParams.rootHash,
+      });
+
+      // Mock verifySignalReceived call to fail
+      const mockClient = {
+        call: vi.fn().mockRejectedValue(new Error('Signal not received')),
+      };
+      vi.mocked(getPublicClient).mockReturnValue(mockClient as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then - should not throw despite verifySignalReceived failure
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).resolves.toBeUndefined();
+    });
+  });
 });
