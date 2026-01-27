@@ -380,7 +380,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 
 	// Ignore the message if it has been inserted already.
 	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 	if head != nil {
@@ -775,7 +775,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		// Check if the found parent payload is in the canonical chain,
 		// if it is not, continue to find the parent payload.
 		parentHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(parentPayload.Payload.BlockNumber)))
-		if err != nil && !errors.Is(err, ethereum.NotFound) {
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
 
@@ -1262,7 +1262,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		ctx,
 		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
 	)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return false, fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
 	cachedParent := s.envelopesCache.get(
@@ -1375,7 +1375,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
 	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return false, fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 
