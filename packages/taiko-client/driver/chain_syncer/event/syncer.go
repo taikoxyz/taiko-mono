@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -275,7 +276,9 @@ func (s *Syncer) processShastaProposal(
 		// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
 		// P2P sync, then we just use the latest block as parent block in this case.
 		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
-		if err != nil && err.Error() != ethereum.NotFound.Error() {
+		if err != nil &&
+			err.Error() != ethereum.NotFound.Error() &&
+			err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
 			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
 		}
 		if l1Origin != nil {
@@ -609,7 +612,9 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 	}
 
 	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
+	if err != nil &&
+		err.Error() != ethereum.NotFound.Error() &&
+		err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
