@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	taiko "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
@@ -781,6 +782,12 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 				if err.Error() == ethereum.NotFound.Error() {
 					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
 					return result, nil
+				}
+				if errors.Is(err, taiko.ErrProposalLastBlockUncertain) {
+					log.Warn(
+						"Got ErrProposalLastBlockUncertain when fetch last L1 origin by batch ID, keep retrying",
+						"proposalID", batchID,
+					)
 				}
 				// If the error is taiko.ErrProposalLastBlockUncertain, return the error as well and rely on a retry.
 				return nil, err

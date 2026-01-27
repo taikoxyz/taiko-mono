@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	taiko "github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -277,6 +279,12 @@ func (s *Syncer) processShastaProposal(
 		// If the error is taiko.ErrProposalLastBlockUncertain, return the error as well and rely on a retry.
 		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			if errors.Is(err, taiko.ErrProposalLastBlockUncertain) {
+				log.Warn(
+					"Got ErrProposalLastBlockUncertain when fetch last L1 origin by batch ID, keep retrying",
+					"proposalID", meta.GetEventData().Id,
+				)
+			}
 			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
 		}
 		if l1Origin != nil {
