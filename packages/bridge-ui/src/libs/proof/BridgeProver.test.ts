@@ -1,5 +1,14 @@
 import { getPublicClient, readContract } from '@wagmi/core';
-import { BlockNotFoundError, type Hash, keccak256, numberToHex, stringToHex, zeroAddress, zeroHash } from 'viem';
+import {
+  BlockNotFoundError,
+  type Hash,
+  type Hex,
+  keccak256,
+  numberToHex,
+  stringToHex,
+  zeroAddress,
+  zeroHash,
+} from 'viem';
 
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
