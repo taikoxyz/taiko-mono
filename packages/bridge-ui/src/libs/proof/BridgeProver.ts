@@ -25,6 +25,9 @@ import { CacheOption, type ClientWithEthGetProofRequest, type GetProofArgs, type
 
 const log = getLogger('proof:Prover');
 
+// ~33 hours on L1 with 12s blocks
+const MAX_CHECKPOINT_SEARCH_BLOCKS = 10000n;
+
 const anchorGetBlockStateAbi = [
   {
     type: 'function',
@@ -94,7 +97,7 @@ export class BridgeProver {
       if (!client) throw new ClientError('Could not get public client');
 
       const currentBlock = await client.getBlockNumber();
-      const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+      const fromBlock = currentBlock > MAX_CHECKPOINT_SEARCH_BLOCKS ? currentBlock - MAX_CHECKPOINT_SEARCH_BLOCKS : 0n;
       const logs = await client.getContractEvents({
         address: signalServiceAddress,
         abi: signalServiceAbi,

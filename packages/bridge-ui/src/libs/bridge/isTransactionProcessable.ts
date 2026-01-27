@@ -10,6 +10,9 @@ import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('libs:bridge:isTransactionProcessable');
 
+// ~33 hours on L1 with 12s blocks
+const MAX_CHECKPOINT_SEARCH_BLOCKS = 10000n;
+
 const anchorGetBlockStateAbi = [
   {
     type: 'function',
@@ -62,7 +65,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
       if (!destClient) return false;
 
       const currentBlock = await destClient.getBlockNumber();
-      const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n;
+      const fromBlock = currentBlock > MAX_CHECKPOINT_SEARCH_BLOCKS ? currentBlock - MAX_CHECKPOINT_SEARCH_BLOCKS : 0n;
       const logs = await destClient.getContractEvents({
         address: destSignalServiceAddress,
         abi: signalServiceAbi,
@@ -76,6 +79,8 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
       latestSyncedBlock = BigInt(logs[logs.length - 1].args.blockNumber!);
     }
 
+    if (!receipt.blockNumber) return false;
+
     const synced = latestSyncedBlock >= receipt.blockNumber;
 
     log('isTransactionProcessable', {
@@ -88,7 +93,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction) {
 
     return synced;
   } catch (error) {
-    console.error('Error checking if transaction is processable', error);
+    log('Error checking if transaction is processable', error);
     return false;
   }
 }

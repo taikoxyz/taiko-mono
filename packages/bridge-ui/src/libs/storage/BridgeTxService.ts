@@ -1,5 +1,5 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
-import type { Address, Hash, Hex, TransactionReceipt } from 'viem';
+import { type Address, type Hash, numberToHex, type TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -126,7 +126,7 @@ export class BridgeTxService {
 
     // Populate blockNumber from receipt if not already set
     if (!bridgeTx.blockNumber) {
-      bridgeTx.blockNumber = `0x${receipt.blockNumber.toString(16)}` as Hex;
+      bridgeTx.blockNumber = numberToHex(receipt.blockNumber);
     }
 
     let messageSentEvent;
