@@ -82,6 +82,9 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 			if err != nil {
 				return fmt.Errorf("failed to get last block ID by batch ID (%d): %w", proposalID, err)
 			}
+			if blockIDFromLastProposal == nil {
+				return fmt.Errorf("no last block ID found for batch ID %d", new(big.Int).Sub(proposalID, common.Big1))
+			}
 
 			blockFromLastProposal, err := s.rpc.L2.BlockByNumber(ctx, blockIDFromLastProposal.ToInt())
 			if err != nil {
