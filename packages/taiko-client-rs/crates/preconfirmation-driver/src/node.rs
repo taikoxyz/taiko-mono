@@ -5,17 +5,16 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
-use protocol::preconfirmation::PreconfSignerResolver;
 use ssz_rs::Deserialize;
 use tokio::sync::{mpsc, watch};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::{
     EmbeddedDriverClient, PreconfirmationClient, PreconfirmationClientConfig, Result,
     driver_interface::{InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
     rpc::{
-        NodeStatus, PreconfHead, PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig,
+        NodeStatus, PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig,
         PublishCommitmentRequest, PublishCommitmentResponse, PublishTxListRequest,
         PublishTxListResponse,
     },
@@ -132,7 +131,6 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
                 canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
                 preconf_tip_rx: self.preconf_tip_rx.clone(),
                 local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
-                lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
                 inbox_reader: self.driver_client.inbox_reader().clone(),
             });
             let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
@@ -175,8 +173,6 @@ struct NodeRpcApiImpl<I: InboxReader> {
     preconf_tip_rx: watch::Receiver<U256>,
     /// Local peer ID string for status responses.
     local_peer_id: String,
-    /// Lookahead resolver for slot info queries.
-    lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
     /// Inbox reader for checking L1 sync state.
     inbox_reader: I,
 }
@@ -272,28 +268,6 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
         })
     }
 
-    /// Returns the current preconfirmation head information.
-    ///
-    /// Includes the latest preconfirmed block number and submission window end time.
-    async fn get_head(&self) -> Result<PreconfHead> {
-        let block_number = *self.preconf_tip_rx.borrow();
-
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| PreconfirmationClientError::Config(format!("system time error: {e}")))?;
-        let timestamp = U256::from(now.as_secs());
-        let submission_window_end =
-            match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
-                Ok(slot_info) => slot_info.submission_window_end,
-                Err(e) => {
-                    warn!(error = %e, "failed to resolve lookahead for head");
-                    U256::ZERO
-                }
-            };
-
-        Ok(PreconfHead { block_number, submission_window_end })
-    }
-
     /// Returns the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256> {
         Ok(*self.preconf_tip_rx.borrow())
@@ -308,7 +282,6 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::Address;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     /// Mock inbox reader for testing.
@@ -349,29 +322,6 @@ mod tests {
     /// Test that NodeRpcApiImpl returns correct status with peer_id.
     #[tokio::test]
     async fn test_node_status_includes_peer_id() {
-        // Create a mock resolver
-        struct MockResolver;
-
-        #[async_trait::async_trait]
-        impl PreconfSignerResolver for MockResolver {
-            async fn signer_for_timestamp(
-                &self,
-                _: U256,
-            ) -> protocol::preconfirmation::Result<Address> {
-                Ok(Address::ZERO)
-            }
-            async fn slot_info_for_timestamp(
-                &self,
-                _: U256,
-            ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo>
-            {
-                Ok(protocol::preconfirmation::PreconfSlotInfo {
-                    signer: Address::ZERO,
-                    submission_window_end: U256::from(1000),
-                })
-            }
-        }
-
         let (_canonical_id_tx, canonical_id_rx) = watch::channel(42u64);
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
@@ -382,7 +332,6 @@ mod tests {
             canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "12D3KooWTest".to_string(),
-            lookahead_resolver: Arc::new(MockResolver),
             inbox_reader: MockInboxReader::new(43),
         };
 
@@ -403,28 +352,6 @@ mod tests {
     /// Test that publish_tx_list accepts pre-encoded tx list bytes.
     #[tokio::test]
     async fn test_publish_tx_list_accepts_encoded_bytes() {
-        struct MockResolver;
-
-        #[async_trait::async_trait]
-        impl PreconfSignerResolver for MockResolver {
-            async fn signer_for_timestamp(
-                &self,
-                _: U256,
-            ) -> protocol::preconfirmation::Result<Address> {
-                Ok(Address::ZERO)
-            }
-            async fn slot_info_for_timestamp(
-                &self,
-                _: U256,
-            ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo>
-            {
-                Ok(protocol::preconfirmation::PreconfSlotInfo {
-                    signer: Address::ZERO,
-                    submission_window_end: U256::from(1000),
-                })
-            }
-        }
-
         let (_canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
@@ -434,7 +361,6 @@ mod tests {
             canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "test".to_string(),
-            lookahead_resolver: Arc::new(MockResolver),
             inbox_reader: MockInboxReader::new(0),
         };
 

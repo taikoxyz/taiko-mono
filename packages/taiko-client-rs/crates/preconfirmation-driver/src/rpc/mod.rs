@@ -10,7 +10,6 @@
 //! - `preconf_publishCommitment`: Publish a signed preconfirmation commitment
 //! - `preconf_publishTxList`: Publish an encoded transaction list (RLP + zlib)
 //! - `preconf_getStatus`: Get current node status
-//! - `preconf_getHead`: Get the current preconfirmation head
 //!
 //! # Example
 //!
@@ -33,6 +32,6 @@ pub mod types;
 pub use api::PreconfRpcApi;
 pub use server::{PreconfRpcServer, PreconfRpcServerConfig};
 pub use types::{
-    NodeStatus, PreconfHead, PreconfRpcErrorCode, PublishCommitmentRequest,
-    PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
+    NodeStatus, PreconfRpcErrorCode, PublishCommitmentRequest, PublishCommitmentResponse,
+    PublishTxListRequest, PublishTxListResponse,
 };

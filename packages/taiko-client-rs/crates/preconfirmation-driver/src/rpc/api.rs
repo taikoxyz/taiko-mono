@@ -4,8 +4,8 @@ use alloy_primitives::U256;
 use async_trait::async_trait;
 
 use super::types::{
-    NodeStatus, PreconfHead, PublishCommitmentRequest, PublishCommitmentResponse,
-    PublishTxListRequest, PublishTxListResponse,
+    NodeStatus, PublishCommitmentRequest, PublishCommitmentResponse, PublishTxListRequest,
+    PublishTxListResponse,
 };
 use crate::Result;
 
@@ -27,9 +27,6 @@ pub trait PreconfRpcApi: Send + Sync {
 
     /// Get the current status of the preconfirmation driver node.
     async fn get_status(&self) -> Result<NodeStatus>;
-
-    /// Get the current preconfirmation head.
-    async fn get_head(&self) -> Result<PreconfHead>;
 
     /// Get the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256>;
@@ -68,13 +65,6 @@ mod tests {
                 canonical_proposal_id: 42,
                 peer_count: 5,
                 peer_id: "test-peer".to_string(),
-            })
-        }
-
-        async fn get_head(&self) -> Result<PreconfHead> {
-            Ok(PreconfHead {
-                block_number: U256::from(100),
-                submission_window_end: U256::from(1000),
             })
         }
 

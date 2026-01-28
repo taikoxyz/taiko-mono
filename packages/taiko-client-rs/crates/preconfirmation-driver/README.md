@@ -40,7 +40,6 @@ Preconfirmation sidecar JSON-RPC methods:
 | `preconf_publishCommitment`   | Publish a signed preconfirmation commitment      |
 | `preconf_publishTxList`       | Publish an encoded transaction list (RLP + zlib) |
 | `preconf_getStatus`           | Get current node status                          |
-| `preconf_getHead`             | Get current preconfirmation head                 |
 | `preconf_tip`                 | Get preconfirmation tip block number             |
 | `preconf_canonicalProposalId` | Get last canonical proposal ID                   |
 

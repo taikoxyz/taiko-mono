@@ -60,16 +60,6 @@ pub struct NodeStatus {
     pub peer_id: String,
 }
 
-/// Current preconfirmation head information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PreconfHead {
-    /// The latest preconfirmed block number.
-    pub block_number: U256,
-    /// Unix timestamp when the current submission window ends.
-    pub submission_window_end: U256,
-}
-
 /// RPC error codes for preconfirmation operations (JSON-RPC -32000 to -32099 range).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]

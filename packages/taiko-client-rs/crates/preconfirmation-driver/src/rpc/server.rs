@@ -21,8 +21,6 @@ const METHOD_PUBLISH_COMMITMENT: &str = "preconf_publishCommitment";
 const METHOD_PUBLISH_TX_LIST: &str = "preconf_publishTxList";
 /// JSON-RPC method name for querying node status.
 const METHOD_GET_STATUS: &str = "preconf_getStatus";
-/// JSON-RPC method name for querying the current head.
-const METHOD_GET_HEAD: &str = "preconf_getHead";
 /// JSON-RPC method name for querying the preconfirmation tip.
 const METHOD_PRECONF_TIP: &str = "preconf_tip";
 /// JSON-RPC method name for querying the canonical proposal ID.
@@ -154,7 +152,6 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     });
 
     register_method!(module, METHOD_GET_STATUS, |ctx| ctx.api.get_status().await);
-    register_method!(module, METHOD_GET_HEAD, |ctx| ctx.api.get_head().await);
     register_method!(module, METHOD_PRECONF_TIP, |ctx| ctx.api.preconf_tip().await);
     register_method!(module, METHOD_CANONICAL_PROPOSAL_ID, |ctx| ctx
         .api
@@ -196,9 +193,7 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::types::{
-        NodeStatus, PreconfHead, PublishCommitmentResponse, PublishTxListResponse,
-    };
+    use crate::rpc::types::{NodeStatus, PublishCommitmentResponse, PublishTxListResponse};
     use alloy_primitives::{B256, U256};
     use async_trait::async_trait;
 
@@ -228,13 +223,6 @@ mod tests {
                 canonical_proposal_id: 42,
                 peer_count: 5,
                 peer_id: "test-peer".to_string(),
-            })
-        }
-
-        async fn get_head(&self) -> Result<PreconfHead> {
-            Ok(PreconfHead {
-                block_number: U256::from(100),
-                submission_window_end: U256::from(1000),
             })
         }
 
