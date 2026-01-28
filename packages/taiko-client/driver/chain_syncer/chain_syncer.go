@@ -81,6 +81,11 @@ func (s *L2ChainSyncer) Sync() error {
 	// `P2PSync` flag is set, try triggering a beacon sync in L2 execution engine to catch up the
 	// head.
 	if needNewBeaconSyncTriggered {
+		// Mark the preconfirmation block server as not ready to insert blocks.
+		if s.preconfBlockServer != nil {
+			log.Info("Mark preconfirmation block server as not ready to insert blocks")
+			s.preconfBlockServer.SetSyncReady(false)
+		}
 		if err := s.beaconSyncer.TriggerBeaconSync(blockIDToSync); err != nil {
 			return fmt.Errorf("trigger beacon sync error: %w", err)
 		}
@@ -105,6 +110,13 @@ func (s *L2ChainSyncer) Sync() error {
 		if err := s.SetUpEventSync(blockIDToSync); err != nil {
 			return fmt.Errorf("failed to set up event synchronization: %w", err)
 		}
+	}
+
+	// Mark the preconfirmation block server as ready to insert blocks, no matter
+	// whether we have triggered a beacon sync in L2 execution engine.
+	if s.preconfBlockServer != nil {
+		log.Info("Mark preconfirmation block server as ready to insert blocks")
+		s.preconfBlockServer.SetSyncReady(true)
 	}
 
 	// Insert the proposed batches one by one.
@@ -149,6 +161,8 @@ func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	// If the preconfirmation block server is enabled, we should try to insert the pending
 	// preconfirmation blocks from the cache.
 	if s.preconfBlockServer != nil {
+		log.Info("Mark preconfirmation block server as ready to insert blocks")
+		s.preconfBlockServer.SetSyncReady(true)
 		log.Info(
 			"Try importing pending preconfirmation blocks",
 			"currentL2HeadNumber", l2Head.Number,
