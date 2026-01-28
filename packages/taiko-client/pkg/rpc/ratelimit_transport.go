@@ -16,6 +16,8 @@ const (
 	DefaultRateLimitBackoff = 1 * time.Second
 	MaxRateLimitBackoff     = 30 * time.Second
 	RateLimitMaxRetries     = 5
+
+	unixTimestampThreshold int64 = 1_000_000_000
 )
 
 // RateLimitedTransport wraps an http.RoundTripper to handle HTTP 429 responses
@@ -78,6 +80,7 @@ func (t *RateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, err
 
 		// Can't retry without GetBody
 		if !canRetry {
+			log.Warn("Rate limited (HTTP 429) but can't retry", "url", req.URL)
 			return resp, nil
 		}
 
@@ -118,12 +121,17 @@ func parseRateLimitReset(resp *http.Response) time.Duration {
 
 	val, err := strconv.ParseInt(header, 10, 64)
 	if err != nil {
+		log.Debug("Failed to parse rate limit header", "value", header, "err", err)
 		return 0
 	}
 
 	// Two possible response values: seconds-until-reset or unix timestamp (> year 2001)
-	if val > 1_000_000_000 {
-		return time.Until(time.Unix(val, 0))
+	if val > unixTimestampThreshold {
+		wait := time.Until(time.Unix(val, 0))
+		if wait > 0 {
+			return wait
+		}
+		return 0
 	}
 	return time.Duration(val) * time.Second
 }

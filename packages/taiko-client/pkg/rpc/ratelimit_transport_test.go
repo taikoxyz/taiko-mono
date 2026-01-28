@@ -3,6 +3,7 @@ package rpc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -114,6 +116,31 @@ func TestRateLimitedTransport_NonRetryableBody(t *testing.T) {
 	require.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
 
+func TestRateLimitedTransport_GetBodyError(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set(RateLimitResetHeader, "1")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	transport := &RateLimitedTransport{MaxRetries: 3}
+	req, _ := http.NewRequest(http.MethodPost, server.URL, bytes.NewReader([]byte("data")))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return nil, fmt.Errorf("simulated GetBody error")
+	}
+
+	resp, err := transport.RoundTrip(req)
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "simulated GetBody error")
+	require.Equal(t, int32(1), attempts.Load()) // First attempt succeeds, retry fails at GetBody before HTTP request
+}
+
 func TestRateLimitedTransport_ParseRateLimitReset(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		resp := &http.Response{Header: make(http.Header)}
@@ -141,6 +168,30 @@ func TestRateLimitedTransport_ParseRateLimitReset(t *testing.T) {
 		require.Greater(t, wait, 8*time.Second)
 		require.LessOrEqual(t, wait, 11*time.Second)
 	})
+
+	t.Run("past_timestamp", func(t *testing.T) {
+		pastTime := time.Now().Add(-10 * time.Second).Unix()
+		resp := &http.Response{Header: make(http.Header)}
+		resp.Header.Set(RateLimitResetHeader, strconv.FormatInt(pastTime, 10))
+
+		wait := parseRateLimitReset(resp)
+		require.LessOrEqual(t, wait, time.Duration(0)) // Negative or zero
+	})
+}
+
+func TestRateLimitedTransport_MaxBackoffCap(t *testing.T) {
+	transport := &RateLimitedTransport{}
+
+	// Server says wait 120 seconds, but we cap at MaxRateLimitBackoff
+	resp := &http.Response{Header: make(http.Header)}
+	resp.Header.Set(RateLimitResetHeader, "120")
+
+	bo := backoff.NewExponentialBackOff()
+	bo.InitialInterval = DefaultRateLimitBackoff
+	bo.MaxInterval = MaxRateLimitBackoff
+
+	wait := transport.getWaitDuration(resp, bo)
+	require.Equal(t, MaxRateLimitBackoff, wait)
 }
 
 func TestRateLimitedTransport_Defaults(t *testing.T) {
