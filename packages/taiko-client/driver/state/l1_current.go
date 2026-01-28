@@ -78,14 +78,14 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 				return fmt.Errorf("failed to get Shasta activation block number: %w", err)
 			}
 		} else {
-			blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
+			blockIDFromLastProposal, err := s.rpc.L2.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
 			if err != nil {
 				return fmt.Errorf("failed to get last block ID by batch ID (%d): %w", proposalID, err)
 			}
 
-			blockFromLastProposal, err := s.rpc.L2.BlockByNumber(ctx, blockID.ToInt())
+			blockFromLastProposal, err := s.rpc.L2.BlockByNumber(ctx, blockIDFromLastProposal.ToInt())
 			if err != nil {
-				return fmt.Errorf("failed to get L2 block by number (%d): %w", blockID.ToInt(), err)
+				return fmt.Errorf("failed to get L2 block by number (%d): %w", blockIDFromLastProposal.ToInt(), err)
 			}
 
 			// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
