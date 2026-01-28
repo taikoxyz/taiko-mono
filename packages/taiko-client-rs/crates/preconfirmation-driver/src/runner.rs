@@ -83,6 +83,7 @@ impl RunnerConfig {
 }
 
 /// Orchestrates the preconfirmation driver with embedded P2P client.
+#[derive(Clone, Debug)]
 pub struct PreconfirmationDriverRunner {
     config: RunnerConfig,
 }
