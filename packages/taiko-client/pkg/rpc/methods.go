@@ -1121,14 +1121,14 @@ func (c *Client) CalculateBaseFeePacaya(
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return c.getShastaActivationBlockNumber(ctx)
+		return c.GetShastaActivationBlockNumber(ctx)
 	}
 
 	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
 }
 
-// getShastaActivationBlockNumber resolves the L1 block number when the Shasta inbox was activated.
-func (c *Client) getShastaActivationBlockNumber(ctx context.Context) (*big.Int, error) {
+// GetShastaActivationBlockNumber resolves the L1 block number when the Shasta inbox was activated.
+func (c *Client) GetShastaActivationBlockNumber(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 

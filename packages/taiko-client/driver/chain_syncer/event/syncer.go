@@ -272,29 +272,20 @@ func (s *Syncer) processShastaProposal(
 			return fmt.Errorf("failed to fetch the last Pacaya block: %w", err)
 		}
 	} else {
-		// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
-		// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
-		// P2P sync, then we just use the latest block as parent block in this case.
-		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
-		if err != nil &&
-			err.Error() != ethereum.NotFound.Error() &&
-			err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
+		// For other proposals, fetch the parent block by getting the last block in the previous proposal.
+		blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
+		if err != nil {
 			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
 		}
-		if l1Origin != nil {
-			if parent, err = s.rpc.L2.BlockByNumber(ctx, l1Origin.BlockID); err != nil {
-				return err
-			}
-		} else {
-			if parent, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
-				return err
-			}
-			log.Info(
-				"No L1 origin found for the previous proposal, using the latest block as parent",
-				"proposalID", meta.GetEventData().Id,
-				"proposer", meta.GetEventData().Proposer,
-				"parentBlockID", parent.Number(),
+		if blockID == nil {
+			return fmt.Errorf(
+				"no last L1 origin found for batch ID %s",
+				new(big.Int).Sub(meta.GetEventData().Id, common.Big1),
 			)
+		}
+
+		if parent, err = s.rpc.L2.BlockByNumber(ctx, blockID.ToInt()); err != nil {
+			return err
 		}
 	}
 
