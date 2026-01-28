@@ -3,6 +3,7 @@ package chainsyncer
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/url"
 	"time"
 
@@ -101,7 +102,7 @@ func (s *L2ChainSyncer) Sync() error {
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
 
-		if err := s.SetUpEventSync(); err != nil {
+		if err := s.SetUpEventSync(blockIDToSync); err != nil {
 			return fmt.Errorf("failed to set up event synchronization: %w", err)
 		}
 	}
@@ -113,9 +114,18 @@ func (s *L2ChainSyncer) Sync() error {
 // SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head,
 // and tries to import the pending preconfirmation blocks from the cache, this method should only be
 // called after the L2 execution engine's chain has just finished a beacon sync.
-func (s *L2ChainSyncer) SetUpEventSync() error {
-	// Get the execution engine's chain head.
-	l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
+func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
+	var headNumber = new(big.Int).SetUint64(blockIDToSync)
+	if s.progressTracker.OutOfSync() {
+		headNumber = nil
+	}
+	log.Info(
+		"Setting up event synchronization",
+		"blockIDToSync", blockIDToSync,
+		"outOfSync", s.progressTracker.OutOfSync(),
+		"headNumber", headNumber,
+	)
+	l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, headNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get L2 chain head: %w", err)
 	}
