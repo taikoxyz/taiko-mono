@@ -5,8 +5,8 @@ use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
 
 /// The maximum number of blocks allowed in a proposal. If we assume block time is as
-/// small as one second, 384 blocks will cover an Ethereum epoch.
-pub const PROPOSAL_MAX_BLOCKS: usize = 384;
+/// small as one second, 192 blocks will cover an Ethereum epoch.
+pub const PROPOSAL_MAX_BLOCKS: usize = 192;
 
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;

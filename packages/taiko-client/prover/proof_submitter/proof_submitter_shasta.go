@@ -15,6 +15,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -126,10 +127,20 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 	// Request proof.
-	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
-		BlockHash: lastOriginInLastProposal.L2BlockHash,
-		Context:   ctx,
-	})
+	var (
+		lastBlockState shasta.AnchorBlockState
+	)
+	if lastOriginInLastProposal.BlockID.Cmp(common.Big0) == 0 {
+		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+			BlockNumber: common.Big0,
+			Context:     ctx,
+		})
+	} else {
+		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+			BlockHash: lastOriginInLastProposal.L2BlockHash,
+			Context:   ctx,
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -185,21 +196,22 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				meta,
 				startAt,
 			); err != nil {
-				if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
-					if time.Since(startAt) > maxProofRequestTimeout {
-						log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
-						useZK = false
-						startAt = time.Now()
-					} else {
-						return fmt.Errorf("zk proof is WIP, status: %w", err)
-					}
-				} else {
-					log.Debug(
-						"ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
-						"proposalID", opts.ProposalID,
-					)
+				if time.Since(startAt) > maxProofRequestTimeout {
+					log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
 					useZK = false
 					startAt = time.Now()
+				} else {
+					if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
+						log.Debug(
+							"ZK proof was not chosen, attempting to request SGX proof",
+							"proposalID", opts.ProposalID,
+							"err", err,
+						)
+						useZK = false
+						startAt = time.Now()
+					}
+					log.Debug("Got error, retrying", "err", err)
+					return err
 				}
 			}
 		}

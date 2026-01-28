@@ -9,6 +9,10 @@ source scripts/common.sh
 check_command "cast"
 check_command "forge"
 check_command "docker"
+# jq is required for NMC to dynamically inject shastaTimestamp into chainspec
+if [ "${L2_NODE:-}" == "l2_nmc" ]; then
+  check_command "jq"
+fi
 
 # Ensure Shasta fork activation times are set for taiko-geth (L2) and Anvil (L1).
 if [ -z "${TAIKO_INTERNAL_SHASTA_TIME:-}" ] || [ -z "${ANVIL_INTERNAL_SHASTA_TIME:-}" ]; then

@@ -160,7 +160,6 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -208,7 +207,6 @@ func (s *ChainSyncerTestSuite) TestShastaDerivationFetchDoesNotBlockPreconf() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		ctx,
 		[]types.Transactions{{}},
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -292,7 +290,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -349,7 +346,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{testTx1}, {testTx2}},
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -399,7 +395,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -449,7 +444,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -538,7 +532,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)
@@ -619,7 +612,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Big1,
 		common.Address{},
 	)
 	s.Nil(err)

@@ -30,4 +30,7 @@ pub struct ProposerConfigs {
     pub l1_proposer_private_key: B256,
     /// Optional gas limit for proposal transactions. If not set, uses provider's estimation.
     pub gas_limit: Option<u64>,
+    /// Whether to use Engine API mode for payload building.
+    /// When true, uses FCU + get_payload instead of tx_pool_content_with_min_tip.
+    pub use_engine_mode: bool,
 }

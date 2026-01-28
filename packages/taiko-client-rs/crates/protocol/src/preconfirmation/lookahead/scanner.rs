@@ -5,7 +5,7 @@ use event_scanner::{Notification, ScannerMessage};
 use tokio::{sync::oneshot, time::Duration};
 use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use super::{
     LookaheadError, LookaheadResolverWithDefaultProvider, Result,
@@ -103,7 +103,7 @@ impl LookaheadResolver {
             .await
             .map_err(|err| LookaheadError::EventScanner(err.to_string()))?;
 
-        let mut stream = scanner.subscribe(self.lookahead_filter());
+        let subscription = scanner.subscribe(self.lookahead_filter());
         let resolver = self.clone();
 
         // Signal when the scanner reports it has switched to live mode.
@@ -111,12 +111,17 @@ impl LookaheadResolver {
 
         let handle = tokio::spawn(async move {
             let mut live_tx = Some(live_tx);
-            // Start the scanner driver in the background to keep fetching logs from the provider.
-            let runner = tokio::spawn(async move {
-                if let Err(err) = scanner.start().await {
-                    error!(?err, "lookahead event scanner terminated");
+            // Start the scanner driver and obtain the StartProof required to access the stream.
+            let proof = match scanner.start().await {
+                Ok(proof) => proof,
+                Err(err) => {
+                    error!(?err, "lookahead event scanner failed to start");
+                    return;
                 }
-            });
+            };
+
+            // Convert the subscription into a stream using the start proof.
+            let mut stream = subscription.stream(&proof);
 
             // Consume scanner output and push lookahead logs into the resolver as they arrive.
             while let Some(message) = stream.next().await {
@@ -157,10 +162,6 @@ impl LookaheadResolver {
                     }
                     Err(err) => error!(?err, "error from lookahead event stream"),
                 }
-            }
-
-            if let Err(err) = runner.await {
-                warn!(?err, "lookahead scanner runner join error");
             }
         });
 

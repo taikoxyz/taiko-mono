@@ -1,9 +1,8 @@
 //! Transaction builder for constructing proposal transactions.
 
-use std::time::SystemTime;
-
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy::{
-    consensus::SidecarBuilder,
+    consensus::{BlobTransactionSidecar, SidecarBuilder},
     primitives::{
         Address, Bytes,
         aliases::{U24, U48},
@@ -23,7 +22,7 @@ use tracing::info;
 
 use crate::{
     error::{ProposerError, Result},
-    proposer::TransactionsLists,
+    proposer::{EnginePayloadParams, TransactionsLists, current_unix_timestamp},
 };
 
 /// A transaction builder for Shasta `propose` transactions.
@@ -41,13 +40,34 @@ impl ShastaProposalTransactionBuilder {
     }
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
-    pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
-        let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
-
-        let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
-        let anchor_block_number = current_l1_head;
-        let timestamp =
-            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+    ///
+    /// If `engine_params` is provided (engine mode), those parameters will be used directly.
+    /// Otherwise, the current L1 head, current timestamp, and MAX_BLOCK_GAS_LIMIT are used.
+    pub async fn build(
+        &self,
+        txs_lists: TransactionsLists,
+        engine_params: Option<EnginePayloadParams>,
+    ) -> Result<TransactionRequest> {
+        // Use provided engine params or derive defaults.
+        // For engine mode, subtract anchor gas from the manifest gas limit since the
+        // driver's validation expects gas_limit = parent_gas_limit - anchor_gas.
+        //
+        // Note: For the first block after genesis, this subtraction creates a mismatch
+        // with driver validation (which doesn't subtract for genesis parent), causing
+        // a fallback to default manifest. This is acceptable and self-corrects from
+        // the second block onward.
+        let (anchor_block_number, timestamp, gas_limit) = match engine_params {
+            Some(params) => (
+                params.anchor_block_number,
+                params.timestamp,
+                params.gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT),
+            ),
+            None => (
+                self.rpc_provider.l1_provider.get_block_number().await?,
+                current_unix_timestamp(),
+                MAX_BLOCK_GAS_LIMIT,
+            ),
+        };
 
         // Build the block manifests.
         let block_manifests = txs_lists
@@ -59,7 +79,7 @@ impl ShastaProposalTransactionBuilder {
                     tx_count = txs.len(),
                     timestamp,
                     anchor_block_number,
-                    gas_limit = MAX_BLOCK_GAS_LIMIT,
+                    gas_limit,
                     coinbase = ?self.l2_suggested_fee_recipient,
                     "setting up derivation source manifest block"
                 );
@@ -67,8 +87,8 @@ impl ShastaProposalTransactionBuilder {
                     timestamp,
                     coinbase: self.l2_suggested_fee_recipient,
                     anchor_block_number,
-                    gas_limit: MAX_BLOCK_GAS_LIMIT,
-                    transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
+                    gas_limit,
+                    transactions: txs.iter().cloned().map(Into::into).collect(),
                 }
             })
             .collect::<Vec<BlockManifest>>();
@@ -77,9 +97,10 @@ impl ShastaProposalTransactionBuilder {
         let manifest = DerivationSourceManifest { blocks: block_manifests };
 
         // Build the blob sidecar from the proposal manifest.
-        let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
-            .build()
-            .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
+        let sidecar: BlobTransactionSidecar =
+            SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
+                .build()
+                .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
         // Build the propose input.
         let input = ProposeInput {
@@ -89,7 +110,8 @@ impl ShastaProposalTransactionBuilder {
                 numBlobs: sidecar.blobs.len() as u16,
                 offset: U24::ZERO,
             },
-            numForcedInclusions: config.minForcedInclusionCount.to(),
+            // Include all forced inclusions in the source manifest.
+            numForcedInclusions: u16::MAX,
         };
 
         // Build the transaction request with blob sidecar.

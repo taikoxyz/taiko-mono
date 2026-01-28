@@ -30,6 +30,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
 	}
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInboxAddress",
+		Usage:    "Address of the Inbox contract for Shasta",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"SHASTA_INBOX_ADDRESS"},
+	}
 	BridgeAddress = &cli.StringFlag{
 		Name:     "bridgeAddress",
 		Usage:    "Address of the Bridge contract",
@@ -95,6 +102,7 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	// optional
 	ETHClientTimeout,
 	L1TaikoAddress,
+	ShastaInboxAddress,
 	BridgeAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,

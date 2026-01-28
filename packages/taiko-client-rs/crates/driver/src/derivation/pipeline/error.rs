@@ -9,12 +9,10 @@ use rpc::RpcClientError;
 use thiserror::Error;
 
 use crate::{
-    derivation::{
-        manifest::ManifestFetcherError,
-        pipeline::shasta::{anchor::AnchorTxConstructorError, validation::ValidationError},
-    },
+    derivation::{manifest::ManifestFetcherError, pipeline::shasta::validation::ValidationError},
     sync::error::EngineSubmissionError,
 };
+use protocol::shasta::AnchorTxConstructorError;
 
 /// Errors emitted by derivation stages.
 #[derive(Debug, Error)]

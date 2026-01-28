@@ -13,7 +13,6 @@ preconfirmation = [
     "dep:preconfirmation-net",
     "dep:preconfirmation-types",
     "dep:async-trait",
-    "dep:protocol",
     "dep:secp256k1",
 ]
 
@@ -43,7 +42,7 @@ once_cell = { workspace = true }
 preconfirmation-client = { path = "../preconfirmation-client", optional = true }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net", optional = true }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types", optional = true }
-protocol = { path = "../protocol", optional = true }
+protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 secp256k1 = { workspace = true, optional = true }
 serde = { workspace = true }

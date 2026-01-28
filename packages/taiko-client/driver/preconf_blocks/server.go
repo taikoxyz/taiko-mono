@@ -92,6 +92,9 @@ type PreconfBlockAPIServer struct {
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	latestSeenProposal   *encoding.LastSeenProposal
 
+	// Sync readiness gate for preconfirmation inserts.
+	syncReady bool
+
 	// Mutex for P2P message handlers
 	mutex sync.Mutex
 }
@@ -151,6 +154,7 @@ func New(
 		latestSeenProposalCh:          latestSeenProposalCh,
 		responseSeenCache:             responseSeenCache,
 		highestUnsafeL2PayloadBlockID: head.NumberU64(),
+		syncReady:                     false,
 	}
 
 	server.echo.HideBanner = true
@@ -171,6 +175,20 @@ func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 // SetP2PSigner sets the P2P signer for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
+}
+
+// SetSyncReady toggles readiness for preconfirmation inserts.
+func (s *PreconfBlockAPIServer) SetSyncReady(ready bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.syncReady == ready {
+		log.Debug("Preconfirmation insert readiness unchanged", "ready", ready)
+		return
+	}
+
+	s.syncReady = ready
+	log.Info("Preconfirmation insert readiness updated", "ready", ready)
 }
 
 // LogSkipper implements the `middleware.Skipper` interface,
@@ -287,6 +305,19 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
+	// Check if we are ready to insert preconfirmation blocks.
+	if !s.syncReady {
+		log.Info(
+			"Preconfirmation block server not ready to insert blocks, caching the payload",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+		)
+		s.tryPutEnvelopeIntoCache(msg, from)
+		return nil
+	}
+
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
@@ -378,9 +409,22 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
+	// Check if we are ready to insert preconfirmation blocks.
+	if !s.syncReady {
+		log.Info(
+			"Preconfirmation block server not ready to insert blocks, caching the payload",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+		)
+		s.tryPutEnvelopeIntoCache(msg, from)
+		return nil
+	}
+
 	// Ignore the message if it has been inserted already.
 	head, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.BlockHash)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 	if head != nil {
@@ -775,7 +819,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		// Check if the found parent payload is in the canonical chain,
 		// if it is not, continue to find the parent payload.
 		parentHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(parentPayload.Payload.BlockNumber)))
-		if err != nil && !errors.Is(err, ethereum.NotFound) {
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
 
@@ -1262,7 +1306,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		ctx,
 		new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber-1)),
 	)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return false, fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
 	cachedParent := s.envelopesCache.get(
@@ -1306,6 +1350,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				Withdrawals:  make([]*types.Withdrawal, 0),
 				Version:      engine.PayloadV2,
 				TxListHash:   &txListHash,
+				Extra:        cachedParent.Payload.ExtraData,
 			}
 			payloadID = args.Id()
 			parentID = new(big.Int).SetUint64(uint64(cachedParent.Payload.BlockNumber))
@@ -1374,7 +1419,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 
 	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
 	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(msg.ExecutionPayload.BlockNumber)))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return false, fmt.Errorf("failed to fetch header by hash: %w", err)
 	}
 

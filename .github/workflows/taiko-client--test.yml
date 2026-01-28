@@ -49,8 +49,12 @@ jobs:
       SHASTA_FORK_TAIKO_MONO_DIR: shasta-fork-taiko-mono
 
     strategy:
+      fail-fast: false
       matrix:
-        execution_node: [l2_geth]
+        execution_node: [l2_geth, l2_nmc]
+
+    # Allow l2_nmc tests to fail without blocking PR merges
+    continue-on-error: ${{ matrix.execution_node == 'l2_nmc' }}
 
     steps:
       - name: Cancel Previous Runs

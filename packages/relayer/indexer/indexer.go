@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
 	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
+	v4Inbox "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/inbox"
 	v4 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -102,6 +103,7 @@ type Indexer struct {
 	taikol1      *taikol1.TaikoL1
 	taikoL1V2    *v2.TaikoL1
 	taikoInboxV3 *v3.TaikoInbox
+	shastaInbox  *v4Inbox.ShastaInboxClient
 
 	queue queue.Queue
 
@@ -185,6 +187,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var taikoInboxV3 *v3.TaikoInbox
 
+	var shastaInbox *v4Inbox.ShastaInboxClient
+
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
 
@@ -201,6 +205,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		taikoInboxV3, err = v3.NewTaikoInbox(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "v3.NewTaikoInbox")
+		}
+
+		shastaInbox, err = v4Inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v4Inbox.NewShastaInboxClient")
 		}
 	}
 
@@ -257,6 +266,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.taikol1 = taikoL1
 	i.taikoL1V2 = taikoL1V2
 	i.taikoInboxV3 = taikoInboxV3
+	i.shastaInbox = shastaInbox
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)

@@ -82,6 +82,9 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
+	if s.d.preconfBlockServer != nil {
+		s.d.preconfBlockServer.SetSyncReady(true)
+	}
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -1194,7 +1197,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
 
-	s.Nil(s.d.ChainSyncer().SetUpEventSync())
+	s.Nil(s.d.ChainSyncer().SetUpEventSync(headL1Origin.BlockID.Uint64()))
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)

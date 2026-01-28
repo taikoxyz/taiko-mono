@@ -142,26 +142,48 @@ pub struct Monitor {
     reorg_ejection_enabled: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SyncStatusClass {
+    NotSyncing,
+    Syncing,
+    Unknown,
+}
+
+fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
+    match value {
+        serde_json::Value::Bool(false) | serde_json::Value::Null => SyncStatusClass::NotSyncing,
+        serde_json::Value::Object(_) => SyncStatusClass::Syncing,
+        _ => SyncStatusClass::Unknown,
+    }
+}
+
+fn should_skip_for_sync_class(class: SyncStatusClass) -> bool {
+    matches!(class, SyncStatusClass::Syncing | SyncStatusClass::Unknown)
+}
+
 impl Monitor {
-    // Returns true if the node appears to be syncing or if the sync status cannot be parsed.
-    // The caller can use this to skip eject decisions when RPC health is uncertain.
+    // Returns true if the node appears to be syncing or if the sync status cannot be determined.
     async fn should_skip_due_to_sync_status<P>(provider: &P, node_label: &str) -> bool
     where
         P: Provider + Clone + Send + Sync + 'static,
     {
         match provider.syncing().await {
             Ok(syncing) => match serde_json::to_value(&syncing) {
-                Ok(serde_json::Value::Bool(false)) | Ok(serde_json::Value::Null) => false,
-                Ok(serde_json::Value::Object(_)) => {
-                    warn!(node = node_label, "Node is syncing; skipping eject this tick");
-                    true
-                }
-                Ok(unexpected) => {
-                    warn!(
-                        node = node_label,
-                        "Unexpected sync status format: {unexpected:?}; skipping eject this tick"
-                    );
-                    true
+                Ok(value) => {
+                    let class = classify_sync_status(&value);
+                    match class {
+                        SyncStatusClass::NotSyncing => {}
+                        SyncStatusClass::Syncing => {
+                            warn!(node = node_label, "Node is syncing; skipping eject this tick");
+                        }
+                        SyncStatusClass::Unknown => {
+                            warn!(
+                                node = node_label,
+                                "Unexpected sync status format: {value:?}; skipping eject this tick"
+                            );
+                        }
+                    }
+                    should_skip_for_sync_class(class)
                 }
                 Err(e) => {
                     warn!(
@@ -276,6 +298,30 @@ impl Monitor {
             }
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
+                let retry_cache = operator_cache.clone();
+                let retry_whitelist = preconf_whitelist.clone();
+                let _retry_handle = tokio::spawn(async move {
+                    let mut backoff = Duration::from_secs(5);
+                    let max_backoff = Duration::from_secs(60);
+                    loop {
+                        sleep(backoff).await;
+                        match initialize_eject_metrics(&retry_whitelist).await {
+                            Ok(initialized) => {
+                                let mut cache = retry_cache.write().await;
+                                cache.clear();
+                                for (proposer, sequencer) in initialized {
+                                    cache.upsert(proposer, sequencer);
+                                }
+                                info!("Initialized eject metrics after retry");
+                                break;
+                            }
+                            Err(err) => {
+                                warn!("Failed to initialize eject metrics (retry): {err:?}");
+                                backoff = std::cmp::min(max_backoff, backoff * 2);
+                            }
+                        }
+                    }
+                });
             }
         }
         let preconf_router =
@@ -292,6 +338,7 @@ impl Monitor {
         let mut shared_l2_http_provider = l2_http_provider;
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
+            let mut l2_block_query_failures: u32 = 0;
             loop {
                 ticker.tick().await;
 
@@ -375,30 +422,20 @@ impl Monitor {
                     if !skip_due_to_l2 {
                         match shared_l2_http_provider.get_block_number().await {
                             Ok(l2_head) => {
+                                l2_block_query_failures = 0;
                                 let mut guard = last_l2_head_for_watch.lock().await;
                                 match *guard {
                                     Some(prev) if l2_head > prev => {
                                         let ws_staleness =
                                             last_block_for_watch.lock().await.elapsed();
-                                        let ws_fresh_enough = ws_staleness <= tick * 4;
-                                        if ws_fresh_enough {
-                                            warn!(
-                                                prev_l2_head = prev,
-                                                current_l2_head = l2_head,
-                                                ws_staleness_secs = ws_staleness.as_secs(),
-                                                "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
-                                            );
-                                            *guard = Some(l2_head);
-                                            skip_due_to_l2 = true;
-                                        } else {
-                                            warn!(
-                                                prev_l2_head = prev,
-                                                current_l2_head = l2_head,
-                                                ws_staleness_secs = ws_staleness.as_secs(),
-                                                "L2 head advanced but WS stream stale; reconnecting without skipping eject"
-                                            );
-                                            *guard = Some(l2_head);
-                                        }
+                                        warn!(
+                                            prev_l2_head = prev,
+                                            current_l2_head = l2_head,
+                                            ws_staleness_secs = ws_staleness.as_secs(),
+                                            "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
+                                        );
+                                        *guard = Some(l2_head);
+                                        skip_due_to_l2 = true;
                                     }
                                     Some(prev) if l2_head < prev => {
                                         warn!(
@@ -419,9 +456,16 @@ impl Monitor {
                                 // Recreate the provider on failure to avoid sticking with a bad client.
                                 shared_l2_http_provider =
                                     ProviderBuilder::new().connect_http(l2_http_url.clone());
+                                l2_block_query_failures = l2_block_query_failures.saturating_add(1);
                                 warn!(
                                     "Failed to query L2 block number: {e:?}; skipping eject this tick"
                                 );
+                                if l2_block_query_failures == 5 {
+                                    error!(
+                                        failures = l2_block_query_failures,
+                                        "Repeated L2 block number failures; check L2 HTTP configuration"
+                                    );
+                                }
                                 skip_due_to_l2 = true;
                             }
                         }
@@ -795,4 +839,87 @@ pub async fn are_preconfs_enabled(
     let preconf_router = taiko_wrapper.preconfRouter().call().await?;
 
     Ok(!preconf_router.is_zero())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Monitor;
+    use super::{SyncStatusClass, classify_sync_status, should_skip_for_sync_class};
+    use alloy::providers::ProviderBuilder;
+    use serde_json::json;
+    use wiremock::matchers::{body_partial_json, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    async fn run_sync_status_check_with_response(response: ResponseTemplate) -> bool {
+        let server = MockServer::start().await;
+        let expected_body = json!({ "method": "eth_syncing" });
+
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .and(body_partial_json(&expected_body))
+            .respond_with(response)
+            .mount(&server)
+            .await;
+
+        let url = alloy::transports::http::reqwest::Url::parse(&server.uri())
+            .expect("mock server url should parse");
+        let provider = ProviderBuilder::new().connect_http(url);
+
+        Monitor::should_skip_due_to_sync_status(&provider, "L2").await
+    }
+
+    #[test]
+    fn classify_sync_status_cases() {
+        assert_eq!(classify_sync_status(&json!(false)), SyncStatusClass::NotSyncing);
+        assert_eq!(classify_sync_status(&serde_json::Value::Null), SyncStatusClass::NotSyncing);
+        assert_eq!(
+            classify_sync_status(&json!({"startingBlock": "0x1"})),
+            SyncStatusClass::Syncing
+        );
+        assert_eq!(classify_sync_status(&json!("weird")), SyncStatusClass::Unknown);
+        assert_eq!(classify_sync_status(&json!(123)), SyncStatusClass::Unknown);
+    }
+
+    #[test]
+    fn should_skip_for_sync_class_returns_expected() {
+        assert!(!should_skip_for_sync_class(SyncStatusClass::NotSyncing));
+        assert!(should_skip_for_sync_class(SyncStatusClass::Syncing));
+        assert!(should_skip_for_sync_class(SyncStatusClass::Unknown));
+    }
+
+    #[tokio::test]
+    async fn should_skip_when_syncing_response_is_object() {
+        let response = ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+                "startingBlock": "0x1",
+                "currentBlock": "0x2",
+                "highestBlock": "0x3"
+            }
+        }));
+        let skip = run_sync_status_check_with_response(response).await;
+        assert!(skip);
+    }
+
+    #[tokio::test]
+    async fn should_skip_on_rpc_error() {
+        let response = ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+                "code": -32000,
+                "message": "boom"
+            }
+        }));
+        let skip = run_sync_status_check_with_response(response).await;
+        assert!(skip);
+    }
+
+    #[tokio::test]
+    async fn should_skip_on_malformed_json() {
+        let response = ResponseTemplate::new(200).set_body_raw("not-json", "application/json");
+        let skip = run_sync_status_check_with_response(response).await;
+        assert!(skip);
+    }
 }

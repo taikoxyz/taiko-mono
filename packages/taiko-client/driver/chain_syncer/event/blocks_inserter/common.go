@@ -71,6 +71,7 @@ func createPayloadAndSetHead(
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
+			Extra:        meta.ExtraData,
 		}
 	)
 	meta.L1Origin.BuildPayloadArgsID = args.Id()
@@ -231,7 +232,7 @@ func isKnownCanonicalBatchPacaya(
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
-				if errors.Is(err, ethereum.NotFound) {
+				if err.Error() == ethereum.NotFound.Error() {
 					return errBatchNotKnown
 				}
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
@@ -309,7 +310,7 @@ func isKnownCanonicalBatchShasta(
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
-				if errors.Is(err, ethereum.NotFound) {
+				if err.Error() == ethereum.NotFound.Error() {
 					return errBatchNotKnown
 				}
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
@@ -374,7 +375,7 @@ func isKnownCanonicalBlock(
 ) (*types.Header, bool, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
 	block, err := rpc.L2.BlockByNumber(ctx, blockID)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, false, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 	}
 
@@ -402,6 +403,7 @@ func isKnownCanonicalBlock(
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
+			Extra:        meta.ExtraData,
 		}
 		id = args.Id()
 	)
@@ -414,7 +416,7 @@ func isKnownCanonicalBlock(
 	)
 
 	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, false, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 	}
 	// If L1Origin is not found, it means this block is synced from beacon sync.
@@ -754,7 +756,7 @@ func updateL1OriginForBlocks(
 
 			// Fetch the original L1Origin to get the BuildPayloadArgsID.
 			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
-			if err != nil && !errors.Is(err, ethereum.NotFound) {
+			if err != nil && err.Error() != ethereum.NotFound.Error() {
 				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 			}
 			// If L1Origin is not found, it means this block is synced from beacon sync,
@@ -930,6 +932,7 @@ func InsertPreconfBlockFromEnvelope(
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
+			Extra:        envelope.Payload.ExtraData,
 		}
 	)
 
@@ -992,7 +995,7 @@ func IsBasedOnCanonicalChain(
 	headL1Origin *rawdb.L1Origin,
 ) (bool, error) {
 	canonicalParent, err := cli.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(envelope.Payload.BlockNumber-1)))
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return false, fmt.Errorf("failed to fetch canonical parent block: %w", err)
 	}
 	// If the parent hash of the executable data matches the canonical parent block hash, it is in the canonical chain.

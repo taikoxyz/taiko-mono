@@ -32,4 +32,11 @@ pub struct ProposerArgs {
         help = "Optional gas limit for proposal transactions. If not set, uses provider's estimation"
     )]
     pub gas_limit: Option<u64>,
+    #[clap(
+        long = "propose.useEngineMode",
+        env = "PROPOSE_USE_ENGINE_MODE",
+        default_value = "false",
+        help = "Use Engine API mode for payload building (FCU + get_payload)"
+    )]
+    pub use_engine_mode: bool,
 }
