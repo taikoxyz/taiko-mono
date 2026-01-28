@@ -82,6 +82,9 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
+	if s.d.preconfBlockServer != nil {
+		s.d.preconfBlockServer.SetSyncReady(true)
+	}
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
