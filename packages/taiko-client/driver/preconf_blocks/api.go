@@ -113,7 +113,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 	if !s.syncReady {
-		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
+		return s.returnError(
+			c,
+			http.StatusBadRequest,
+			errors.New("preconfirmation block server is not ready to insert blocks"),
+		)
 	}
 
 	// Parse the request body.

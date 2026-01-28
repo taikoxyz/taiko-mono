@@ -183,6 +183,7 @@ func (s *PreconfBlockAPIServer) SetSyncReady(ready bool) {
 	defer s.mutex.Unlock()
 
 	if s.syncReady == ready {
+		log.Debug("Preconfirmation insert readiness unchanged", "ready", ready)
 		return
 	}
 

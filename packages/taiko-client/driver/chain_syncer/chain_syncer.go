@@ -112,7 +112,8 @@ func (s *L2ChainSyncer) Sync() error {
 		}
 	}
 
-	// Mark the preconfirmation block server as ready to insert blocks.
+	// Mark the preconfirmation block server as ready to insert blocks, no matter
+	// whether we have triggered a beacon sync in L2 execution engine.
 	if s.preconfBlockServer != nil {
 		log.Info("Mark preconfirmation block server as ready to insert blocks")
 		s.preconfBlockServer.SetSyncReady(true)
@@ -126,6 +127,12 @@ func (s *L2ChainSyncer) Sync() error {
 // and tries to import the pending preconfirmation blocks from the cache, this method should only be
 // called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
+	// Mark the preconfirmation block server as ready to insert blocks.
+	if s.preconfBlockServer != nil {
+		log.Info("Mark preconfirmation block server as ready to insert blocks")
+		s.preconfBlockServer.SetSyncReady(true)
+	}
+
 	var headNumber = new(big.Int).SetUint64(blockIDToSync)
 	if s.progressTracker.OutOfSync() {
 		headNumber = nil
