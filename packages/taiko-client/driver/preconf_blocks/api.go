@@ -112,6 +112,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	if progress.IsSyncing() {
 		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
+	if !s.syncReady {
+		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
+	}
 
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
