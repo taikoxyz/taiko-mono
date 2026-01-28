@@ -84,7 +84,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		} else {
 			blockFromLastProposal, err := s.rpc.L2.BlockByNumber(ctx, blockID.ToInt())
 			if err != nil {
-				return fmt.Errorf("failed to get L2 block by number (%d): %w", blockID, err)
+				return fmt.Errorf("failed to get L2 block by number (%d): %w", blockID.ToInt(), err)
 			}
 
 			// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
