@@ -82,17 +82,14 @@ async fn test_driver_channels_round_trip() {
     let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
     let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
-    let channels = DriverChannels {
-        input_receiver: input_rx,
-        canonical_proposal_id_sender: canonical_id_tx,
-        preconf_tip_sender: preconf_tip_tx,
-    };
+    let channels =
+        DriverChannels { input_rx, canonical_proposal_id_tx: canonical_id_tx, preconf_tip_tx };
 
     let inbox_reader = MockInboxReader::new(0);
     let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
 
-    channels.canonical_proposal_id_sender.send(100).unwrap();
-    channels.preconf_tip_sender.send(U256::from(200)).unwrap();
+    channels.canonical_proposal_id_tx.send(100).unwrap();
+    channels.preconf_tip_tx.send(U256::from(200)).unwrap();
 
     assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(100));
     assert_eq!(client.preconf_tip().await.unwrap(), U256::from(200));

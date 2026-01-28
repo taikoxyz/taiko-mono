@@ -1,6 +1,6 @@
-//! User-facing RPC API types for the preconfirmation driver node.
+//! Preconfirmation sidecar JSON-RPC API types for the preconfirmation driver node.
 
-use alloy_primitives::{Address, B256, Bytes, U256};
+use alloy_primitives::{B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
 /// Request to publish a signed preconfirmation commitment.
@@ -58,19 +58,6 @@ pub struct NodeStatus {
     pub peer_count: u64,
     /// This node's libp2p peer ID.
     pub peer_id: String,
-}
-
-/// Information about the current lookahead.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LookaheadInfo {
-    /// The Ethereum address of the current preconfirmer for this slot.
-    pub current_preconfirmer: Address,
-    /// Unix timestamp when the current submission window ends.
-    pub submission_window_end: U256,
-    /// The current beacon chain slot number, if available.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current_slot: Option<u64>,
 }
 
 /// Current preconfirmation head information.

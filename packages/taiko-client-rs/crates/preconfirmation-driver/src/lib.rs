@@ -13,8 +13,8 @@
 //! - **EmbeddedDriverClient**: Communicates directly with the driver via channels, bypassing
 //!   JSON-RPC serialization.
 //!
-//! - **PreconfRpcServer**: Exposes a user-friendly JSON-RPC API for external clients to submit
-//!   preconfirmations.
+//! - **PreconfRpcServer**: Exposes a preconfirmation sidecar JSON-RPC API for external clients to
+//!   submit preconfirmations.
 //!
 //! # Features
 //!
@@ -22,7 +22,7 @@
 //! - Subscribing to and publishing preconfirmation messages
 //! - Validating commitments and transaction lists
 //! - Passing validated preconfirmation inputs to the driver for ordered processing
-//! - User-facing RPC API for commitment publication
+//! - Preconfirmation sidecar JSON-RPC API for commitment publication
 
 /// Main client orchestrator.
 pub mod client;
@@ -36,7 +36,7 @@ pub mod error;
 pub mod metrics;
 /// Preconfirmation driver node combining all components.
 pub mod node;
-/// User-facing JSON-RPC API.
+/// Preconfirmation sidecar JSON-RPC API.
 pub mod rpc;
 /// Preconfirmation driver runner orchestration.
 pub mod runner;

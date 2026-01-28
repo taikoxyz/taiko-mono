@@ -6,18 +6,18 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                 Preconfirmation driver node                       │
+│                   Preconfirmation driver node                   │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
+│                                                                 │
 │  ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐  │
-│  │  User RPC    │───>│  P2P Client      │───>│  Embedded     │  │
-│  │  Server      │    │  (gossip, sync)  │    │  Driver       │  │
+│  │  Sidecar     │───>│  P2P Client      │───>│  Embedded     │  │
+│  │  JSON-RPC    │    │  (gossip, sync)  │    │  Driver       │  │
 │  └──────────────┘    └──────────────────┘    └───────────────┘  │
 │        ▲                     │                      │           │
 │        │                     ▼                      ▼           │
 │  External          Commitment/TxList        Execution Engine    │
 │  Clients           Validation              (block production)   │
-│                                                                   │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -29,11 +29,11 @@ The main orchestrator that combines:
 
 - **EmbeddedDriverClient**: Channel-based communication with the driver (no serialization overhead)
 - **PreconfirmationClient**: P2P network operations (gossip, commitment validation, tip catch-up)
-- **PreconfRpcServer**: User-friendly JSON-RPC API for external clients
+- **PreconfRpcServer**: Preconfirmation sidecar JSON-RPC API for external clients
 
 ### RPC API
 
-User-facing JSON-RPC methods:
+Preconfirmation sidecar JSON-RPC methods:
 
 | Method                        | Description                                      |
 | ----------------------------- | ------------------------------------------------ |
@@ -41,7 +41,6 @@ User-facing JSON-RPC methods:
 | `preconf_publishTxList`       | Publish an encoded transaction list (RLP + zlib) |
 | `preconf_getStatus`           | Get current node status                          |
 | `preconf_getHead`             | Get current preconfirmation head                 |
-| `preconf_getLookahead`        | Get current lookahead information                |
 | `preconf_tip`                 | Get preconfirmation tip block number             |
 | `preconf_canonicalProposalId` | Get last canonical proposal ID                   |
 
@@ -82,9 +81,9 @@ let inbox_reader = ContractInboxReader::new(inbox_instance);
 let (node, channels) = PreconfirmationDriverNode::new(config, inbox_reader)?;
 
 // Wire channels to your driver
-// driver.set_input_receiver(channels.input_receiver);
-// driver.set_canonical_id_sender(channels.canonical_proposal_id_sender);
-// driver.set_preconf_tip_sender(channels.preconf_tip_sender);
+// driver.set_input_rx(channels.input_rx);
+// driver.set_canonical_id_tx(channels.canonical_proposal_id_tx);
+// driver.set_preconf_tip_tx(channels.preconf_tip_tx);
 
 // Start the node
 node.run().await?;
@@ -146,7 +145,7 @@ src/
 ├── error.rs            # Error types
 ├── metrics.rs          # Prometheus metrics
 ├── node.rs             # Preconfirmation driver node orchestrator
-├── rpc/                # User-facing RPC
+├── rpc/                # Preconfirmation sidecar JSON-RPC
 │   ├── api.rs          # PreconfRpcApi trait
 │   ├── server.rs       # HTTP JSON-RPC server
 │   └── types.rs        # Request/response types

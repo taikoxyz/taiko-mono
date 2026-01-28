@@ -51,30 +51,38 @@ impl TipCatchup {
     ) -> Result<Vec<SignedCommitment>> {
         info!(event_sync_tip = %event_sync_tip, "starting tip catch-up");
 
+        // 1) Fetch the peer head so we know the upper bound for backfill.
         let peer_head = handle.request_head(None).await.map_err(|err| {
             PreconfirmationClientError::Catchup(format!("failed to get peer head: {err}"))
         })?;
         let peer_tip = uint256_to_u256(&peer_head.block_number);
 
-        let stop_block = event_sync_tip.saturating_add(U256::ONE);
-        if stop_block > peer_tip {
+        // 2) Compute the first block after event sync; stop if we're already caught up.
+        let catchup_start_block = event_sync_tip.saturating_add(U256::ONE);
+        if catchup_start_block > peer_tip {
             info!(
-                stop_block = %stop_block,
+                catchup_start_block = %catchup_start_block,
                 peer_tip = %peer_tip,
-                "already caught up; stop block ahead of peer tip"
+                "already caught up; start block ahead of peer tip"
             );
             return Ok(Vec::new());
         }
 
+        // 3) Fetch the tip commitment to anchor the backward chain.
         let tip_response =
             handle.request_commitments(u256_to_uint256(peer_tip), 1, None).await.map_err(
                 |err| PreconfirmationClientError::Catchup(format!("failed to fetch tip: {err}")),
             )?;
 
-        let tip = require_tip_commitment(peer_tip, tip_response.commitments.first().cloned())?;
+        let tip = tip_response.commitments.first().cloned().ok_or_else(|| {
+            PreconfirmationClientError::Catchup(format!(
+                "peer returned no commitment for tip at {peer_tip}"
+            ))
+        })?;
 
+        // 4) Page through commitments between stop_block and the tip.
         let mut fetched = Vec::new();
-        let mut current = stop_block;
+        let mut current = catchup_start_block;
         let end = peer_tip.saturating_sub(U256::ONE);
 
         while current <= end {
@@ -110,10 +118,11 @@ impl TipCatchup {
             current += U256::from(fetched_count as u64);
         }
 
+        // 5) Build a contiguous, validated chain from the tip back to catchup_start_block.
         let mut chain = chain_from_tip(
             tip,
             &map_commitments(fetched),
-            stop_block,
+            catchup_start_block,
             self.config.expected_slasher.as_ref(),
             self.config.lookahead_resolver.as_ref(),
         )
@@ -128,16 +137,19 @@ impl TipCatchup {
 
         chain.reverse();
 
+        // 6) Ensure the chain starts at the expected boundary before accepting it.
         let boundary_block = chain
             .first()
             .map(|commitment| uint256_to_u256(&commitment.commitment.preconf.block_number));
 
-        ensure_catchup_boundary(stop_block, boundary_block)?;
+        ensure_catchup_boundary(catchup_start_block, boundary_block)?;
 
+        // 7) Persist fetched commitments before attempting txlist fetches.
         for commitment in &chain {
             self.store.insert_commitment(commitment.clone());
         }
 
+        // 8) Fetch and persist txlists for non-EOP commitments.
         let txlist_hashes: Vec<Bytes32> = chain
             .iter()
             .filter(|commitment| !is_eop_only(commitment))
@@ -148,14 +160,14 @@ impl TipCatchup {
             self.config.txlist_fetch_concurrency.unwrap_or(DEFAULT_TXLIST_FETCH_CONCURRENCY).max(1);
 
         if !txlist_hashes.is_empty() {
-            let commands = handle.command_sender();
+            let command_tx = handle.command_sender();
             let mut join_set: JoinSet<Result<Option<RawTxListGossip>>> = JoinSet::new();
             let mut pending = txlist_hashes.into_iter();
 
             for _ in 0..concurrency {
                 if let Some(hash) = pending.next() {
-                    let commands = commands.clone();
-                    join_set.spawn(async move { fetch_txlist(commands, hash).await });
+                    let command_tx = command_tx.clone();
+                    join_set.spawn(async move { fetch_txlist(command_tx, hash).await });
                 }
             }
 
@@ -175,8 +187,8 @@ impl TipCatchup {
                 }
 
                 if let Some(hash) = pending.next() {
-                    let commands = commands.clone();
-                    join_set.spawn(async move { fetch_txlist(commands, hash).await });
+                    let command_tx = command_tx.clone();
+                    join_set.spawn(async move { fetch_txlist(command_tx, hash).await });
                 }
             }
         }
@@ -293,25 +305,13 @@ fn ensure_catchup_boundary(stop_block: U256, boundary_block: Option<U256>) -> Re
     }
 }
 
-/// Require the tip commitment to be present for catch-up.
-fn require_tip_commitment(
-    peer_tip: U256,
-    tip: Option<SignedCommitment>,
-) -> Result<SignedCommitment> {
-    tip.ok_or_else(|| {
-        PreconfirmationClientError::Catchup(format!(
-            "peer returned no commitment for tip at {peer_tip}"
-        ))
-    })
-}
-
-/// Request a raw txlist from the network using a command sender.
-async fn request_raw_txlist_with_sender(
-    commands: Sender<NetworkCommand>,
+/// Request a raw txlist from the network using a command tx.
+async fn request_raw_txlist_with_tx(
+    command_tx: Sender<NetworkCommand>,
     hash: Bytes32,
 ) -> Result<preconfirmation_types::GetRawTxListResponse> {
     let (tx, rx) = oneshot::channel();
-    commands
+    command_tx
         .send(NetworkCommand::RequestRawTxList {
             respond_to: Some(tx),
             raw_tx_list_hash: hash,
@@ -332,11 +332,11 @@ async fn request_raw_txlist_with_sender(
 
 /// Fetch and validate a txlist for a commitment hash.
 async fn fetch_txlist(
-    commands: Sender<NetworkCommand>,
+    command_tx: Sender<NetworkCommand>,
     hash: Bytes32,
 ) -> Result<Option<RawTxListGossip>> {
     let hash_hex = B256::from_slice(hash.as_ref());
-    let response = request_raw_txlist_with_sender(commands, hash.clone()).await.map_err(|err| {
+    let response = request_raw_txlist_with_tx(command_tx, hash.clone()).await.map_err(|err| {
         warn!(hash = %hash_hex, error = %err, "failed to fetch txlist during catch-up");
         err
     })?;
@@ -367,10 +367,7 @@ mod tests {
     use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
 
-    use super::{
-        chain_from_tip, ensure_catchup_boundary, map_commitments, require_tip_commitment,
-        validate_commitment,
-    };
+    use super::{chain_from_tip, ensure_catchup_boundary, map_commitments, validate_commitment};
     use crate::error::PreconfirmationClientError;
 
     struct MockResolver {
@@ -472,12 +469,6 @@ mod tests {
 
         let err = ensure_catchup_boundary(stop_block, boundary_block).expect_err("must error");
         assert!(err.to_string().contains("catch-up chain did not reach"));
-    }
-
-    #[test]
-    fn require_tip_commitment_errors_on_missing() {
-        let err = require_tip_commitment(U256::from(7u64), None).expect_err("must error");
-        assert!(err.to_string().contains("peer returned no commitment for tip"));
     }
 
     #[test]

@@ -1,8 +1,8 @@
-//! Preconfirmation node combining driver, P2P client, and user-facing RPC.
+//! Preconfirmation node combining driver, P2P client, and preconfirmation sidecar JSON-RPC.
 
 use std::sync::Arc;
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
 use protocol::preconfirmation::PreconfSignerResolver;
@@ -15,9 +15,9 @@ use crate::{
     driver_interface::{InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
     rpc::{
-        LookaheadInfo, NodeStatus, PreconfHead, PreconfRpcApi, PreconfRpcServer,
-        PreconfRpcServerConfig, PublishCommitmentRequest, PublishCommitmentResponse,
-        PublishTxListRequest, PublishTxListResponse,
+        NodeStatus, PreconfHead, PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig,
+        PublishCommitmentRequest, PublishCommitmentResponse, PublishTxListRequest,
+        PublishTxListResponse,
     },
 };
 
@@ -26,7 +26,7 @@ use crate::{
 pub struct PreconfirmationDriverNodeConfig {
     /// Configuration for the P2P client.
     pub p2p_config: PreconfirmationClientConfig,
-    /// Configuration for the user-facing RPC server (None to disable).
+    /// Configuration for the preconfirmation sidecar JSON-RPC server (None to disable).
     pub rpc_config: Option<PreconfRpcServerConfig>,
     /// Channel capacity for preconfirmation inputs to the driver.
     pub driver_channel_capacity: usize,
@@ -54,12 +54,12 @@ impl PreconfirmationDriverNodeConfig {
 /// Channels for communicating with an embedded driver.
 #[derive(Debug)]
 pub struct DriverChannels {
-    /// Receiver for preconfirmation inputs from the node.
-    pub input_receiver: mpsc::Receiver<PreconfirmationInput>,
-    /// Sender for updating the canonical proposal ID.
-    pub canonical_proposal_id_sender: watch::Sender<u64>,
-    /// Sender for updating the preconfirmation tip.
-    pub preconf_tip_sender: watch::Sender<U256>,
+    /// Input rx for preconfirmation inputs from the node.
+    pub input_rx: mpsc::Receiver<PreconfirmationInput>,
+    /// Tx for updating the canonical proposal ID.
+    pub canonical_proposal_id_tx: watch::Sender<u64>,
+    /// Tx for updating the preconfirmation tip.
+    pub preconf_tip_tx: watch::Sender<U256>,
 }
 
 /// A complete preconfirmation driver node combining P2P client, driver client, and RPC server.
@@ -67,7 +67,7 @@ pub struct DriverChannels {
 /// This struct orchestrates all components of the preconfirmation system:
 /// - P2P networking for gossip and peer discovery
 /// - Embedded driver client for payload submission
-/// - Optional user-facing RPC server for external clients
+/// - Optional preconfirmation sidecar JSON-RPC server for external clients
 ///
 /// The `I` type parameter represents the inbox reader implementation used by the embedded
 /// driver client for L1 sync state verification.
@@ -76,7 +76,7 @@ pub struct PreconfirmationDriverNode<I: InboxReader + 'static> {
     driver_client: EmbeddedDriverClient<I>,
     /// P2P client handling gossip, validation, and tip catch-up.
     p2p_client: PreconfirmationClient<EmbeddedDriverClient<I>>,
-    /// Configuration for the optional user-facing RPC server.
+    /// Configuration for the optional preconfirmation sidecar JSON-RPC server.
     rpc_config: Option<PreconfRpcServerConfig>,
     /// Watch receiver for the canonical proposal ID from the driver.
     canonical_proposal_id_rx: watch::Receiver<u64>,
@@ -118,11 +118,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
                 canonical_proposal_id_rx: canonical_id_rx,
                 preconf_tip_rx,
             },
-            DriverChannels {
-                input_receiver: input_rx,
-                canonical_proposal_id_sender: canonical_id_tx,
-                preconf_tip_sender: preconf_tip_tx,
-            },
+            DriverChannels { input_rx, canonical_proposal_id_tx: canonical_id_tx, preconf_tip_tx },
         ))
     }
 
@@ -132,7 +128,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
 
         let rpc_server = if let Some(rpc_config) = &self.rpc_config {
             let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
-                command_sender: self.p2p_client.command_sender(),
+                command_tx: self.p2p_client.command_tx(),
                 canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
                 preconf_tip_rx: self.preconf_tip_rx.clone(),
                 local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
@@ -171,8 +167,8 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
 
 /// Internal RPC API implementation backed by the preconfirmation driver node state.
 struct NodeRpcApiImpl<I: InboxReader> {
-    /// Sender for issuing commands to the P2P network layer.
-    command_sender: mpsc::Sender<NetworkCommand>,
+    /// Command tx for issuing commands to the P2P network layer.
+    command_tx: mpsc::Sender<NetworkCommand>,
     /// Watch receiver for the canonical proposal ID.
     canonical_proposal_id_rx: watch::Receiver<u64>,
     /// Watch receiver for the preconfirmation tip.
@@ -207,7 +203,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
 
         // Publish via P2P network
-        self.command_sender
+        self.command_tx
             .send(NetworkCommand::PublishCommitment(signed_commitment))
             .await
             .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
@@ -240,7 +236,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             .expect("keccak256 always produces 32 bytes");
         let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
 
-        self.command_sender
+        self.command_tx
             .send(NetworkCommand::PublishRawTxList(gossip))
             .await
             .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
@@ -257,7 +253,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
         // Query peer count via command channel
         let (tx, rx) = tokio::sync::oneshot::channel();
         let peer_count =
-            match self.command_sender.send(NetworkCommand::GetPeerCount { respond_to: tx }).await {
+            match self.command_tx.send(NetworkCommand::GetPeerCount { respond_to: tx }).await {
                 Ok(()) => rx.await.unwrap_or(0),
                 Err(_) => 0,
             };
@@ -282,39 +278,20 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     async fn get_head(&self) -> Result<PreconfHead> {
         let block_number = *self.preconf_tip_rx.borrow();
 
-        // Try to get submission window from lookahead
-        let submission_window_end =
-            self.get_lookahead().await.map(|info| info.submission_window_end).unwrap_or(U256::ZERO);
-
-        Ok(PreconfHead { block_number, submission_window_end })
-    }
-
-    /// Returns the current lookahead information.
-    ///
-    /// Resolves the current preconfirmer address and submission window from the
-    /// lookahead resolver using the current system time.
-    async fn get_lookahead(&self) -> Result<LookaheadInfo> {
-        // Use current system time as the timestamp
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|e| PreconfirmationClientError::Config(format!("system time error: {e}")))?;
         let timestamp = U256::from(now.as_secs());
+        let submission_window_end =
+            match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
+                Ok(slot_info) => slot_info.submission_window_end,
+                Err(e) => {
+                    warn!(error = %e, "failed to resolve lookahead for head");
+                    U256::ZERO
+                }
+            };
 
-        match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
-            Ok(slot_info) => Ok(LookaheadInfo {
-                current_preconfirmer: slot_info.signer,
-                submission_window_end: slot_info.submission_window_end,
-                current_slot: None, // Slot number not available from resolver
-            }),
-            Err(e) => {
-                warn!(error = %e, "failed to resolve lookahead");
-                Ok(LookaheadInfo {
-                    current_preconfirmer: Address::ZERO,
-                    submission_window_end: U256::ZERO,
-                    current_slot: None,
-                })
-            }
-        }
+        Ok(PreconfHead { block_number, submission_window_end })
     }
 
     /// Returns the current preconfirmation tip block number.
@@ -331,6 +308,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::Address;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     /// Mock inbox reader for testing.
@@ -359,16 +337,13 @@ mod tests {
         let (canonical_id_tx, _canonical_id_rx) = watch::channel(0u64);
         let (preconf_tip_tx, _preconf_tip_rx) = watch::channel(U256::ZERO);
 
-        let channels = DriverChannels {
-            input_receiver: input_rx,
-            canonical_proposal_id_sender: canonical_id_tx,
-            preconf_tip_sender: preconf_tip_tx,
-        };
+        let channels =
+            DriverChannels { input_rx, canonical_proposal_id_tx: canonical_id_tx, preconf_tip_tx };
 
         // Verify we can send through the channels.
         drop(input_tx);
-        assert!(channels.canonical_proposal_id_sender.send(42).is_ok());
-        assert!(channels.preconf_tip_sender.send(U256::from(100)).is_ok());
+        assert!(channels.canonical_proposal_id_tx.send(42).is_ok());
+        assert!(channels.preconf_tip_tx.send(U256::from(100)).is_ok());
     }
 
     /// Test that NodeRpcApiImpl returns correct status with peer_id.
@@ -403,7 +378,7 @@ mod tests {
 
         // MockInboxReader returns 43, so with canonical_id=42, target=42, we should be synced
         let api = NodeRpcApiImpl {
-            command_sender: command_tx,
+            command_tx,
             canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "12D3KooWTest".to_string(),
@@ -423,49 +398,6 @@ mod tests {
         assert_eq!(status.canonical_proposal_id, 42);
         assert_eq!(status.peer_count, 5);
         assert!(status.is_synced_with_inbox); // canonical_id (42) >= target (43-1=42)
-    }
-
-    /// Test that get_lookahead returns data from the resolver.
-    #[tokio::test]
-    async fn test_get_lookahead_uses_resolver() {
-        struct MockResolver;
-
-        #[async_trait::async_trait]
-        impl PreconfSignerResolver for MockResolver {
-            async fn signer_for_timestamp(
-                &self,
-                _: U256,
-            ) -> protocol::preconfirmation::Result<Address> {
-                Ok(Address::repeat_byte(0x42))
-            }
-            async fn slot_info_for_timestamp(
-                &self,
-                _: U256,
-            ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo>
-            {
-                Ok(protocol::preconfirmation::PreconfSlotInfo {
-                    signer: Address::repeat_byte(0x42),
-                    submission_window_end: U256::from(12345),
-                })
-            }
-        }
-
-        let (_canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
-        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
-
-        let api = NodeRpcApiImpl {
-            command_sender: command_tx,
-            canonical_proposal_id_rx: canonical_id_rx,
-            preconf_tip_rx,
-            local_peer_id: "test".to_string(),
-            lookahead_resolver: Arc::new(MockResolver),
-            inbox_reader: MockInboxReader::new(0),
-        };
-
-        let lookahead = api.get_lookahead().await.unwrap();
-        assert_eq!(lookahead.current_preconfirmer, Address::repeat_byte(0x42));
-        assert_eq!(lookahead.submission_window_end, U256::from(12345));
     }
 
     /// Test that publish_tx_list accepts pre-encoded tx list bytes.
@@ -498,7 +430,7 @@ mod tests {
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
 
         let api = NodeRpcApiImpl {
-            command_sender: command_tx,
+            command_tx,
             canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "test".to_string(),

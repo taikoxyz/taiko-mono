@@ -5,20 +5,14 @@ use alloy_provider::Provider;
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
 use tokio::sync::{mpsc, watch};
-use tracing::{debug, info};
+use tracing::info;
 
-use super::traits::{DriverClient, PreconfirmationInput};
 use crate::error::{DriverApiError, Result};
 
-/// Trait for reading L1 Inbox contract state.
-///
-/// This abstraction allows the embedded driver client to check L1 sync status
-/// without requiring a concrete provider type, enabling easier testing.
-#[async_trait]
-pub trait InboxReader: Clone + Send + Sync {
-    /// Returns the next proposal ID from the L1 Inbox contract.
-    async fn get_next_proposal_id(&self) -> Result<u64>;
-}
+use super::{
+    PreconfirmationInput,
+    traits::{DriverClient, InboxReader},
+};
 
 /// Real implementation of InboxReader using the Inbox contract bindings.
 #[derive(Clone)]
@@ -26,6 +20,7 @@ pub struct ContractInboxReader<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// L1 Inbox contract instance.
     inbox: InboxInstance<P>,
 }
 
@@ -44,9 +39,16 @@ impl<P> InboxReader for ContractInboxReader<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Fetches the next proposal ID from the L1 Inbox contract.
     async fn get_next_proposal_id(&self) -> Result<u64> {
-        let core_state = self.inbox.getCoreState().call().await.map_err(DriverApiError::from)?;
-        Ok(core_state.nextProposalId.to::<u64>())
+        Ok(self
+            .inbox
+            .getCoreState()
+            .call()
+            .await
+            .map_err(DriverApiError::from)?
+            .nextProposalId
+            .to::<u64>())
     }
 }
 
@@ -60,11 +62,11 @@ where
 #[derive(Clone)]
 pub struct EmbeddedDriverClient<I: InboxReader> {
     /// Channel for sending preconfirmation inputs to the driver.
-    input_sender: mpsc::Sender<PreconfirmationInput>,
+    input_tx: mpsc::Sender<PreconfirmationInput>,
     /// Watch channel for receiving the latest canonical proposal ID from the driver.
-    canonical_proposal_id: watch::Receiver<u64>,
+    canonical_proposal_id_rx: watch::Receiver<u64>,
     /// Watch channel for receiving the latest preconfirmation tip from the driver.
-    preconf_tip: watch::Receiver<U256>,
+    preconf_tip_rx: watch::Receiver<U256>,
     /// Inbox reader for checking L1 sync state.
     inbox_reader: I,
 }
@@ -72,12 +74,12 @@ pub struct EmbeddedDriverClient<I: InboxReader> {
 impl<I: InboxReader> EmbeddedDriverClient<I> {
     /// Creates a new embedded driver client with the given channels and inbox reader.
     pub fn new(
-        input_sender: mpsc::Sender<PreconfirmationInput>,
-        canonical_proposal_id: watch::Receiver<u64>,
-        preconf_tip: watch::Receiver<U256>,
+        input_tx: mpsc::Sender<PreconfirmationInput>,
+        canonical_proposal_id_rx: watch::Receiver<u64>,
+        preconf_tip_rx: watch::Receiver<U256>,
         inbox_reader: I,
     ) -> Self {
-        Self { input_sender, canonical_proposal_id, preconf_tip, inbox_reader }
+        Self { input_tx, canonical_proposal_id_rx, preconf_tip_rx, inbox_reader }
     }
 
     /// Returns a reference to the inbox reader.
@@ -85,10 +87,10 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
         &self.inbox_reader
     }
 
-    /// Returns the capacity of the input sender channel (for testing purposes).
+    /// Returns the capacity of the input tx channel (for testing purposes).
     #[cfg(test)]
-    pub fn input_sender_capacity(&self) -> usize {
-        self.input_sender.capacity()
+    pub fn input_tx_capacity(&self) -> usize {
+        self.input_tx.capacity()
     }
 }
 
@@ -96,9 +98,9 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
 impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// Sends a preconfirmation input to the driver via the channel.
     ///
-    /// Returns an error if the receiver has been dropped.
+    /// Returns an error if the rx has been dropped.
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
-        self.input_sender
+        self.input_tx
             .send(input)
             .await
             .map_err(|e| DriverApiError::ChannelClosed(e.to_string()))?;
@@ -114,30 +116,32 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     async fn wait_event_sync(&self) -> Result<()> {
         info!("starting wait for driver to sync with L1 inbox events");
 
-        let mut rx = self.canonical_proposal_id.clone();
+        let mut canonical_proposal_id_rx = self.canonical_proposal_id_rx.clone();
 
         loop {
-            let canonical_id = *rx.borrow();
+            let canonical_id = *canonical_proposal_id_rx.borrow();
             let next_proposal_id = self.inbox_reader.get_next_proposal_id().await?;
 
-            debug!(
+            info!(
                 canonical_proposal_id = canonical_id,
                 next_proposal_id = next_proposal_id,
                 "checking sync state"
             );
 
-            if next_proposal_id == 0 {
+            // No proposals to sync - return immediately.
+            if next_proposal_id <= 1 {
                 info!("sync complete (no proposals)");
                 return Ok(());
             }
 
-            let target = next_proposal_id.saturating_sub(1);
-            if canonical_id >= target {
+            // Check if we've caught up.
+            if canonical_id >= next_proposal_id.saturating_sub(1) {
                 info!("driver event sync complete");
                 return Ok(());
             }
 
-            if rx.changed().await.is_err() {
+            // Wait for the canonical proposal ID to change.
+            if canonical_proposal_id_rx.changed().await.is_err() {
                 return Err(DriverApiError::ChannelClosed(
                     "canonical proposal id watch channel closed".to_string(),
                 )
@@ -148,12 +152,12 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
 
     /// Returns the current canonical proposal ID as a U256.
     async fn event_sync_tip(&self) -> Result<U256> {
-        Ok(U256::from(*self.canonical_proposal_id.borrow()))
+        Ok(U256::from(*self.canonical_proposal_id_rx.borrow()))
     }
 
     /// Returns the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256> {
-        Ok(*self.preconf_tip.borrow())
+        Ok(*self.preconf_tip_rx.borrow())
     }
 }
 

@@ -1,7 +1,7 @@
-//! User-facing JSON-RPC API for the preconfirmation driver node.
+//! Preconfirmation sidecar JSON-RPC API for the preconfirmation driver node.
 //!
-//! This module provides a user-friendly RPC interface for interacting with
-//! the preconfirmation driver node. Unlike the internal driver RPC which accepts
+//! This module provides a preconfirmation sidecar JSON-RPC interface for interacting
+//! with the preconfirmation driver node. Unlike the internal driver RPC which accepts
 //! raw `TaikoPayloadAttributes`, this API accepts higher-level requests
 //! that are easier for external clients to construct.
 //!
@@ -11,7 +11,6 @@
 //! - `preconf_publishTxList`: Publish an encoded transaction list (RLP + zlib)
 //! - `preconf_getStatus`: Get current node status
 //! - `preconf_getHead`: Get the current preconfirmation head
-//! - `preconf_getLookahead`: Get current lookahead information
 //!
 //! # Example
 //!
@@ -34,6 +33,6 @@ pub mod types;
 pub use api::PreconfRpcApi;
 pub use server::{PreconfRpcServer, PreconfRpcServerConfig};
 pub use types::{
-    LookaheadInfo, NodeStatus, PreconfHead, PreconfRpcErrorCode, PublishCommitmentRequest,
+    NodeStatus, PreconfHead, PreconfRpcErrorCode, PublishCommitmentRequest,
     PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
 };

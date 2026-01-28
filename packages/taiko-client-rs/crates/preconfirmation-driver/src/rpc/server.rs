@@ -23,8 +23,6 @@ const METHOD_PUBLISH_TX_LIST: &str = "preconf_publishTxList";
 const METHOD_GET_STATUS: &str = "preconf_getStatus";
 /// JSON-RPC method name for querying the current head.
 const METHOD_GET_HEAD: &str = "preconf_getHead";
-/// JSON-RPC method name for querying lookahead info.
-const METHOD_GET_LOOKAHEAD: &str = "preconf_getLookahead";
 /// JSON-RPC method name for querying the preconfirmation tip.
 const METHOD_PRECONF_TIP: &str = "preconf_tip";
 /// JSON-RPC method name for querying the canonical proposal ID.
@@ -93,7 +91,7 @@ impl PreconfRpcServer {
     /// Stop the server gracefully.
     pub async fn stop(self) {
         if let Err(err) = self.handle.stop() {
-            warn!(error = %err, "preconf RPC server already stopped");
+            warn!(error = %err, "preconfirmation RPC server already stopped");
         }
         let _ = self.handle.stopped().await;
         info!("preconfirmation RPC server stopped");
@@ -109,7 +107,7 @@ macro_rules! register_method {
                 $method,
                 |$params: Params<'static>, $ctx: Arc<RpcContext>, _| async move {
                     let start = Instant::now();
-                    debug!(method = $method, "received RPC request");
+                    debug!(method = $method, "received preconfirmation RPC request");
                     let result = $call;
                     record_metrics($method, &result, start.elapsed().as_secs_f64());
                     result.map_err(api_error_to_rpc)
@@ -124,7 +122,7 @@ macro_rules! register_method {
                 $method,
                 |_: Params<'static>, $ctx: Arc<RpcContext>, _| async move {
                     let start = Instant::now();
-                    debug!(method = $method, "received RPC request");
+                    debug!(method = $method, "received preconfirmation RPC request");
                     let result = $call;
                     record_metrics($method, &result, start.elapsed().as_secs_f64());
                     result.map_err(api_error_to_rpc)
@@ -142,7 +140,6 @@ struct RpcContext {
 }
 
 /// Builds the JSON-RPC module with all preconfirmation methods registered.
-/// Build the JSON-RPC module with all preconfirmation methods.
 fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     let mut module = RpcModule::new(RpcContext { api });
 
@@ -158,7 +155,6 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
 
     register_method!(module, METHOD_GET_STATUS, |ctx| ctx.api.get_status().await);
     register_method!(module, METHOD_GET_HEAD, |ctx| ctx.api.get_head().await);
-    register_method!(module, METHOD_GET_LOOKAHEAD, |ctx| ctx.api.get_lookahead().await);
     register_method!(module, METHOD_PRECONF_TIP, |ctx| ctx.api.preconf_tip().await);
     register_method!(module, METHOD_CANONICAL_PROPOSAL_ID, |ctx| ctx
         .api
@@ -201,9 +197,9 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
 mod tests {
     use super::*;
     use crate::rpc::types::{
-        LookaheadInfo, NodeStatus, PreconfHead, PublishCommitmentResponse, PublishTxListResponse,
+        NodeStatus, PreconfHead, PublishCommitmentResponse, PublishTxListResponse,
     };
-    use alloy_primitives::{Address, B256, U256};
+    use alloy_primitives::{B256, U256};
     use async_trait::async_trait;
 
     /// Mock API implementation for testing.
@@ -239,14 +235,6 @@ mod tests {
             Ok(PreconfHead {
                 block_number: U256::from(100),
                 submission_window_end: U256::from(1000),
-            })
-        }
-
-        async fn get_lookahead(&self) -> Result<LookaheadInfo> {
-            Ok(LookaheadInfo {
-                current_preconfirmer: Address::ZERO,
-                submission_window_end: U256::from(1000),
-                current_slot: Some(42),
             })
         }
 

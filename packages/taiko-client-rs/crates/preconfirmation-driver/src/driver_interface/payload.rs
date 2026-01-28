@@ -15,19 +15,12 @@ use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use preconfirmation_types::uint256_to_u256;
 
-use super::traits::PreconfirmationInput;
+use super::{PreconfirmationInput, traits::BlockHeaderProvider};
 use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_tx_list,
     payload_id_to_bytes,
 };
-
-/// Resolve a block header for a block number.
-#[async_trait]
-pub trait BlockHeaderProvider: Send + Sync {
-    /// Fetch the block header for the specified block number.
-    async fn header_by_number(&self, block_number: u64) -> Result<RpcHeader>;
-}
 
 #[async_trait]
 impl<P> BlockHeaderProvider for P

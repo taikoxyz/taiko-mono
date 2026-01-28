@@ -129,7 +129,7 @@ where
         .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
 
         self.handle = handle;
-        self.handler.set_command_sender(self.handle.command_sender());
+        self.handler.set_command_tx(self.handle.command_sender());
         self.node_handle = tokio::spawn(async move {
             node.run().await.map_err(|err| PreconfirmationClientError::Network(err.to_string()))
         });
@@ -211,8 +211,8 @@ where
         self.event_tx.subscribe()
     }
 
-    /// Get the command sender for outbound messages.
-    pub fn command_sender(&self) -> mpsc::Sender<NetworkCommand> {
+    /// Get the command tx for outbound messages.
+    pub fn command_tx(&self) -> mpsc::Sender<NetworkCommand> {
         self.handle.command_sender()
     }
 
@@ -310,7 +310,7 @@ where
             // Process each catch-up commitment through the handler.
             let mut commit_iter = commitments.into_iter();
             if let Some(first) = commit_iter.next() {
-                handler.handle_catchup_commitment(first).await?;
+                handler.handle_commitment(first).await?;
                 for commitment in commit_iter {
                     handler.handle_commitment(commitment).await?;
                 }

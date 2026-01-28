@@ -187,19 +187,19 @@ where
 /// Publish the proposal state to the event syncer.
 async fn publish_proposal_state<P>(
     proposal_id: u64,
-    canonical_sender: &watch::Sender<u64>,
-    preconf_tip_sender: &watch::Sender<U256>,
+    canonical_tx: &watch::Sender<u64>,
+    preconf_tip_tx: &watch::Sender<U256>,
     l2_provider: &P,
 ) -> Result<(), RunnerError>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    if canonical_sender.send(proposal_id).is_err() {
+    if canonical_tx.send(proposal_id).is_err() {
         error!(proposal_id, "failed to publish canonical proposal id");
     }
 
     let tip = resolve_preconf_tip_from_l2(l2_provider).await?;
-    if preconf_tip_sender.send(tip).is_err() {
+    if preconf_tip_tx.send(tip).is_err() {
         error!(proposal_id, preconf_tip = %tip, "failed to publish preconfirmation tip");
     }
 
@@ -209,15 +209,15 @@ where
 /// Seed the initial proposal state to the event syncer.
 async fn seed_proposal_state<P>(
     proposal_id_rx: &mut watch::Receiver<u64>,
-    canonical_sender: &watch::Sender<u64>,
-    preconf_tip_sender: &watch::Sender<U256>,
+    canonical_tx: &watch::Sender<u64>,
+    preconf_tip_tx: &watch::Sender<U256>,
     l2_provider: &P,
 ) -> Result<(), RunnerError>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
     let proposal_id = *proposal_id_rx.borrow_and_update();
-    publish_proposal_state(proposal_id, canonical_sender, preconf_tip_sender, l2_provider).await
+    publish_proposal_state(proposal_id, canonical_tx, preconf_tip_tx, l2_provider).await
 }
 
 /// Forward preconfirmation inputs from the driver to the event syncer.
@@ -230,12 +230,11 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     let mut proposal_id_rx = event_syncer.subscribe_proposal_id();
-    let canonical_sender = channels.canonical_proposal_id_sender.clone();
-    let preconf_tip_sender = channels.preconf_tip_sender.clone();
+    let canonical_tx = channels.canonical_proposal_id_tx.clone();
+    let preconf_tip_tx = channels.preconf_tip_tx.clone();
     let l2_provider = driver_client.l2_provider.clone();
 
-    seed_proposal_state(&mut proposal_id_rx, &canonical_sender, &preconf_tip_sender, &l2_provider)
-        .await?;
+    seed_proposal_state(&mut proposal_id_rx, &canonical_tx, &preconf_tip_tx, &l2_provider).await?;
 
     loop {
         tokio::select! {
@@ -244,9 +243,9 @@ where
                     break;
                 }
                 let id = *proposal_id_rx.borrow();
-                publish_proposal_state(id, &canonical_sender, &preconf_tip_sender, &l2_provider).await?;
+                publish_proposal_state(id, &canonical_tx, &preconf_tip_tx, &l2_provider).await?;
             }
-            input = channels.input_receiver.recv() => {
+            input = channels.input_rx.recv() => {
                 let Some(input) = input else { break; };
                 if input.should_skip_driver_submission() {
                     continue;

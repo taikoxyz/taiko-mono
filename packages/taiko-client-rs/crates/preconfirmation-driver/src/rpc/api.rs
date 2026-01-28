@@ -4,12 +4,12 @@ use alloy_primitives::U256;
 use async_trait::async_trait;
 
 use super::types::{
-    LookaheadInfo, NodeStatus, PreconfHead, PublishCommitmentRequest, PublishCommitmentResponse,
+    NodeStatus, PreconfHead, PublishCommitmentRequest, PublishCommitmentResponse,
     PublishTxListRequest, PublishTxListResponse,
 };
 use crate::Result;
 
-/// Trait defining the preconfirmation driver node's user-facing RPC API.
+/// Trait defining the preconfirmation driver node's preconfirmation sidecar JSON-RPC API.
 ///
 /// Implementations must be `Send + Sync` as they will be shared across
 /// multiple async tasks handling concurrent RPC requests.
@@ -31,9 +31,6 @@ pub trait PreconfRpcApi: Send + Sync {
     /// Get the current preconfirmation head.
     async fn get_head(&self) -> Result<PreconfHead>;
 
-    /// Get current lookahead information.
-    async fn get_lookahead(&self) -> Result<LookaheadInfo>;
-
     /// Get the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256>;
 
@@ -44,7 +41,7 @@ pub trait PreconfRpcApi: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{Address, B256};
+    use alloy_primitives::B256;
 
     struct MockApi;
 
@@ -78,14 +75,6 @@ mod tests {
             Ok(PreconfHead {
                 block_number: U256::from(100),
                 submission_window_end: U256::from(1000),
-            })
-        }
-
-        async fn get_lookahead(&self) -> Result<LookaheadInfo> {
-            Ok(LookaheadInfo {
-                current_preconfirmer: Address::ZERO,
-                submission_window_end: U256::from(1000),
-                current_slot: Some(42),
             })
         }
 

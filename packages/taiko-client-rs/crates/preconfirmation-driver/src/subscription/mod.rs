@@ -12,10 +12,11 @@ use alloy_primitives::{B256, U256};
 use preconfirmation_net::{NetworkCommand, NetworkEvent};
 use preconfirmation_types::{
     Bytes20, PreconfHead, RawTxListGossip, SignedCommitment, uint256_to_u256,
+    validate_raw_txlist_gossip,
 };
 use protocol::{codec::ZlibTxListCodec, preconfirmation::PreconfSignerResolver};
 use tokio::sync::{broadcast, mpsc::Sender};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     driver_interface::{DriverClient, PreconfirmationInput},
@@ -57,8 +58,8 @@ where
     expected_slasher: Option<Bytes20>,
     /// Broadcast channel for emitting client events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
-    /// Command sender for issuing network requests.
-    command_sender: Sender<NetworkCommand>,
+    /// Command tx for issuing network requests.
+    command_tx: Sender<NetworkCommand>,
     /// Lookahead resolver for signer and window validation.
     lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
@@ -75,23 +76,15 @@ where
         driver: Arc<D>,
         expected_slasher: Option<Bytes20>,
         event_tx: broadcast::Sender<PreconfirmationEvent>,
-        command_sender: Sender<NetworkCommand>,
+        command_tx: Sender<NetworkCommand>,
         lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
     ) -> Self {
-        Self {
-            store,
-            codec,
-            driver,
-            expected_slasher,
-            event_tx,
-            command_sender,
-            lookahead_resolver,
-        }
+        Self { store, codec, driver, expected_slasher, event_tx, command_tx, lookahead_resolver }
     }
 
-    /// Update the command sender used to notify the P2P node.
-    pub(crate) fn set_command_sender(&mut self, command_sender: Sender<NetworkCommand>) {
-        self.command_sender = command_sender;
+    /// Update the command tx used to notify the P2P node.
+    pub(crate) fn set_command_tx(&mut self, command_tx: Sender<NetworkCommand>) {
+        self.command_tx = command_tx;
     }
 
     /// Handle a network event.
@@ -152,6 +145,7 @@ where
 
         let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
 
+        // If we're behind the event sync tip, drop the commitment.
         if current_block <= self.driver.event_sync_tip().await? {
             self.store.remove_commitment(&current_block);
             let txlist_hash =
@@ -160,6 +154,7 @@ where
             return Ok(());
         }
 
+        // Validate the commitment signer.
         let recovered_signer =
             match validate_commitment_with_signer(&commitment, self.expected_slasher.as_ref()) {
                 Ok(signer) => signer,
@@ -186,6 +181,7 @@ where
                 }
             };
 
+        // Validate the lookahead (signer and submission window).
         if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info) {
             warn!(error = %err, "dropping commitment with invalid lookahead");
             metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
@@ -202,6 +198,7 @@ where
 
         self.update_head(&commitment).await;
 
+        // If the txlist is available, try to submit contiguous commitments.
         let next_block = self.driver.preconf_tip().await? + U256::ONE;
         if current_block == next_block {
             self.try_submit_contiguous_from(next_block).await?;
@@ -209,17 +206,12 @@ where
         Ok(())
     }
 
-    /// Handle a catch-up commitment using the standard validation path.
-    pub async fn handle_catchup_commitment(&self, commitment: SignedCommitment) -> Result<()> {
-        self.handle_commitment(commitment).await
-    }
-
     /// Handle an inbound txlist gossip payload.
     async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
         metrics::counter!(PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL).increment(1);
 
         let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
-        if let Err(err) = preconfirmation_types::validate_raw_txlist_gossip(&txlist)
+        if let Err(err) = validate_raw_txlist_gossip(&txlist)
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
         {
             warn!(error = %err, "dropping invalid txlist gossip");
@@ -241,39 +233,70 @@ where
 
     /// Attempt to submit contiguous commitments starting at the provided block.
     async fn try_submit_contiguous_from(&self, start: U256) -> Result<()> {
+        info!(start = %start, "attempting contiguous preconfirmation submit");
         let mut next = start;
+        let mut submitted_count = 0usize;
         loop {
             let Some(commitment) = self.store.get_commitment(&next) else {
+                debug!(
+                    next = %next,
+                    submitted_count,
+                    "missing commitment; stopping contiguous submit"
+                );
                 break;
             };
 
             let submitted = self.submit_if_ready(commitment).await?;
             if !submitted {
+                debug!(
+                    next = %next,
+                    submitted_count,
+                    "commitment not ready; stopping contiguous submit"
+                );
                 break;
             }
 
+            submitted_count += 1;
             next += U256::ONE;
         }
 
+        info!(
+            start = %start,
+            next = %next,
+            submitted_count,
+            "contiguous submit finished"
+        );
         Ok(())
     }
 
     /// Submit a commitment if its txlist is available and validation passes.
     async fn submit_if_ready(&self, commitment: SignedCommitment) -> Result<bool> {
+        let block_number = uint256_to_u256(&commitment.commitment.preconf.block_number);
         let input = if is_eop_only(&commitment) {
+            info!(block_number = %block_number, "submitting eop-only commitment");
             PreconfirmationInput::new(commitment, None, None)
         } else {
             let raw_tx_list_hash = commitment.commitment.preconf.raw_tx_list_hash.clone();
-            let Some(txlist) = self.store.get_txlist(&B256::from_slice(raw_tx_list_hash.as_ref()))
-            else {
+            let txlist_hash = B256::from_slice(raw_tx_list_hash.as_ref());
+            let Some(txlist) = self.store.get_txlist(&txlist_hash) else {
+                debug!(
+                    block_number = %block_number,
+                    txlist_hash = %txlist_hash,
+                    "txlist missing; queuing commitment"
+                );
                 self.store.add_awaiting_txlist(&raw_tx_list_hash, commitment);
                 return Ok(false);
             };
 
-            let transactions = self
-                .codec
-                .decode(txlist.txlist.as_ref())
-                .map_err(|err| PreconfirmationClientError::Codec(err.to_string()))?;
+            info!(
+                block_number = %block_number,
+                txlist_hash = %txlist_hash,
+                "txlist available; submitting commitment"
+            );
+            let transactions = self.codec.decode(txlist.txlist.as_ref()).map_err(|err| {
+                warn!(block_number = %block_number, error = %err, "failed to decode txlist");
+                PreconfirmationClientError::Codec(err.to_string())
+            })?;
             PreconfirmationInput::new(commitment, Some(transactions), Some(txlist.txlist.to_vec()))
         };
 
@@ -284,11 +307,13 @@ where
                 metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL)
                     .increment(1);
             })
-            .inspect_err(|_| {
+            .inspect_err(|err| {
+                warn!(block_number = %block_number, error = %err, "driver submit failed");
                 metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
                     .increment(1);
             })?;
 
+        info!(block_number = %block_number, "driver submit succeeded");
         Ok(true)
     }
 
@@ -316,7 +341,7 @@ where
 
     /// Notify the P2P layer about a new head update.
     async fn notify_head_update(&self, head: PreconfHead) -> Result<()> {
-        self.command_sender
+        self.command_tx
             .send(NetworkCommand::UpdateHead { head })
             .await
             .map_err(|err| PreconfirmationClientError::Network(err.to_string()))
@@ -433,17 +458,10 @@ mod tests {
         let driver = Arc::new(ErrorDriver);
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
-        let handler = EventHandler::new(
-            store,
-            codec,
-            driver,
-            None,
-            event_tx,
-            command_sender,
-            lookahead_resolver,
-        );
+        let handler =
+            EventHandler::new(store, codec, driver, None, event_tx, command_tx, lookahead_resolver);
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
@@ -527,7 +545,7 @@ mod tests {
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
@@ -540,7 +558,7 @@ mod tests {
             driver.clone(),
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -559,7 +577,7 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let handler = EventHandler::new(
             store.clone(),
@@ -567,7 +585,7 @@ mod tests {
             driver,
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -586,7 +604,7 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let handler = EventHandler::new(
             store.clone(),
@@ -594,7 +612,7 @@ mod tests {
             driver,
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -617,7 +635,7 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let handler = EventHandler::new(
             store.clone(),
@@ -625,7 +643,7 @@ mod tests {
             driver,
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -647,7 +665,7 @@ mod tests {
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
@@ -660,7 +678,7 @@ mod tests {
             driver.clone(),
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -679,7 +697,7 @@ mod tests {
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
@@ -692,7 +710,7 @@ mod tests {
             driver.clone(),
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -712,7 +730,7 @@ mod tests {
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::with_event_sync_tip(U256::from(5u64)));
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
@@ -725,7 +743,7 @@ mod tests {
             driver.clone(),
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -764,7 +782,7 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, _command_rx) = mpsc::channel(8);
+        let (command_tx, _command_rx) = mpsc::channel(8);
 
         let handler = EventHandler::new(
             store.clone(),
@@ -772,7 +790,7 @@ mod tests {
             driver,
             None,
             event_tx,
-            command_sender,
+            command_tx,
             lookahead_resolver,
         );
 
@@ -795,19 +813,12 @@ mod tests {
         let driver = Arc::new(TestDriver::new());
         let lookahead_resolver = Arc::new(MockResolver);
         let (event_tx, _event_rx) = broadcast::channel(16);
-        let (command_sender, command_rx) = mpsc::channel(1);
+        let (command_tx, command_rx) = mpsc::channel(1);
 
         drop(command_rx);
 
-        let handler = EventHandler::new(
-            store,
-            codec,
-            driver,
-            None,
-            event_tx,
-            command_sender,
-            lookahead_resolver,
-        );
+        let handler =
+            EventHandler::new(store, codec, driver, None, event_tx, command_tx, lookahead_resolver);
 
         let head = PreconfHead {
             block_number: Uint256::from(1u64),
