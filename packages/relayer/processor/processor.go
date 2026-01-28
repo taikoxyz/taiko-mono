@@ -415,7 +415,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
-		p.srcSignalServiceAddress = p.shastaOldForkAddress
+		p.srcSignalServiceAddress = cfg.SrcSignalServiceForkRouterAddress
 	}
 
 	p.msgCh = make(chan queue.Message)

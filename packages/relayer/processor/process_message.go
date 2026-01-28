@@ -443,10 +443,13 @@ func (p *Processor) signalServiceForBlock(
 	ctx context.Context,
 	blockNumber uint64,
 ) (relayer.SignalService, common.Address, error) {
-	if p.shastaForkTimestamp == 0 ||
-		p.shastaOldForkSignalService == nil ||
+	if p.shastaOldForkSignalService == nil ||
 		p.shastaNewForkSignalService == nil {
 		return p.srcSignalService, p.srcSignalServiceAddress, nil
+	}
+
+	if p.shastaForkTimestamp == 0 {
+		return p.shastaNewForkSignalService, p.srcSignalServiceAddress, nil
 	}
 
 	callCtx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
@@ -459,10 +462,10 @@ func (p *Processor) signalServiceForBlock(
 	}
 
 	if header.Time < p.shastaForkTimestamp {
-		return p.shastaOldForkSignalService, p.shastaOldForkAddress, nil
+		return p.shastaOldForkSignalService, p.srcSignalServiceAddress, nil
 	}
 
-	return p.shastaNewForkSignalService, p.shastaNewForkAddress, nil
+	return p.shastaNewForkSignalService, p.srcSignalServiceAddress, nil
 }
 
 // sendProcessMessageCall calls `bridge.processMessage` with latest nonce
