@@ -231,7 +231,9 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 		return 0, err
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
 
 	return id, nil
 }
