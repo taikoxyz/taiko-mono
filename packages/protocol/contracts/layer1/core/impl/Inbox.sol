@@ -635,8 +635,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+                // Surge: Disable proposer checks for the POC to allow multicall sender
+                // without EIP 7702.
+                //
+                // endOfSubmissionWindowTimestamp =
+                //     _proposerChecker.checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
                     // Only if thre is a minimum bond set, execute this check
                     require(
