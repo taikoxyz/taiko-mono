@@ -28,30 +28,27 @@
               "erc1155VaultAddress": {
                 "type": "string"
               },
-              "crossChainSyncAddress": {
-                "type": "string"
-              },
               "signalServiceAddress": {
                 "type": "string"
               },
+              "anchorForkRouter": {
+                "type": "string",
+                "description": "Protocol v3: Anchor fork router address for checkpoint sync"
+              },
+              "crossChainSyncAddress": {
+                "type": "string",
+                "description": "Deprecated: Protocol v2 cross-chain sync address"
+              },
               "hops": {
                 "type": "array",
-                "default": [],
                 "items": {
                   "type": "object",
                   "properties": {
-                    "chainId": {
-                      "type": "number"
-                    },
-                    "crossChainSyncAddress": {
-                      "type": "string"
-                    },
-                    "signalServiceAddress": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["chainId", "crossChainSyncAddress", "signalServiceAddress"]
-                }
+                    "chainId": { "type": "number" },
+                    "crossChainSyncAddress": { "type": "string" }
+                  }
+                },
+                "description": "Deprecated: Protocol v2 hop configuration"
               }
             },
             "required": [
@@ -59,7 +56,6 @@
               "erc20VaultAddress",
               "erc721VaultAddress",
               "erc1155VaultAddress",
-              "crossChainSyncAddress",
               "signalServiceAddress"
             ],
             "additionalProperties": false

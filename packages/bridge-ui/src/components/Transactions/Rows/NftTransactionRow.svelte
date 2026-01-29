@@ -36,6 +36,7 @@
 
   let timestamp: string;
   const getDate = async () => {
+    if (!bridgeTx.blockNumber) return;
     const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
     timestamp = formatTimestamp(Number(blockTimestamp));
   };
