@@ -1195,7 +1195,7 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 		return
 	}
 
-	blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, recordedProposal.Id)
+	blockID, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, recordedProposal.Id)
 	if err != nil {
 		log.Error(
 			"Failed to get last block in batch for shasta proposal",

@@ -167,7 +167,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
@@ -227,7 +227,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
@@ -291,7 +291,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(err)
 	s.Greater(l2Head3.Time, s.RPCClient.ShastaClients.ForkTime)
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head3.Hash(), headL1Origin.L2BlockHash)
 
@@ -360,7 +360,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 

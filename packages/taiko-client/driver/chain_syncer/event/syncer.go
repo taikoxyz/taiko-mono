@@ -273,7 +273,7 @@ func (s *Syncer) processShastaProposal(
 		}
 	} else {
 		// For other proposals, fetch the parent block by getting the last block in the previous proposal.
-		blockID, err := s.rpc.L2.LastBlockIDByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
+		blockID, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
 		if err != nil {
 			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
 		}
@@ -602,7 +602,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 		return reorgCheckResult, nil
 	}
 
-	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
+	lastBlockInBatch, err := s.rpc.L2Engine.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
 	if err != nil &&
 		err.Error() != ethereum.NotFound.Error() &&
 		err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
