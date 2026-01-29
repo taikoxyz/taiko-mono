@@ -7,6 +7,8 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
+import "./IL2FeeVault.sol";
+
 import "./Anchor_Layout.sol"; // DO NOT DELETE
 
 /// @title Anchor
@@ -26,7 +28,9 @@ contract Anchor is EssentialContract {
     /// @dev For whitelist preconfirmations, `submissionWindowEnd` will not be used
     /// and can be set to 0.
     struct ProposalParams {
+        uint48 proposalId; // The L1 proposal id for this block
         uint48 submissionWindowEnd; // The end of the preconfirmation submission window
+        IL2FeeVault.ProposalFeeData feeData; // Fee data for new proposals (imported once per proposal)
     }
 
     /// @notice Block-level data specific to a single block within a proposal.
@@ -75,6 +79,9 @@ contract Anchor is EssentialContract {
     /// @notice The L1's chain ID.
     uint64 public immutable l1ChainId;
 
+    /// @notice Fee vault contract address on L2.
+    IL2FeeVault public immutable feeVault;
+
     // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
@@ -88,7 +95,7 @@ contract Anchor is EssentialContract {
     /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
-    /// @dev Deprecated. Retained for storage layout compatibility.
+    /// @dev Tracks the last imported proposal id to ensure one import per proposal.
     uint48 private _lastProposalId;
 
     /// @notice Latest block-level state, updated on every processed block.
@@ -98,7 +105,7 @@ contract Anchor is EssentialContract {
     mapping(uint256 blockNumber => PreconfMetadata metadata) internal _preconfMetadata;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[40] private __gap;
+    uint256[41] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -124,9 +131,11 @@ contract Anchor is EssentialContract {
     /// @notice Initializes the Anchor contract.
     /// @param _checkpointStore The address of the checkpoint store.
     /// @param _l1ChainId The L1 chain ID.
-    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId) {
+    /// @param _feeVault The L2 fee vault address.
+    constructor(ICheckpointStore _checkpointStore, uint64 _l1ChainId, IL2FeeVault _feeVault) {
         // Validate addresses
         require(address(_checkpointStore) != address(0), InvalidAddress());
+        require(address(_feeVault) != address(0), InvalidAddress());
 
         // Validate chain IDs
         require(_l1ChainId != 0 && _l1ChainId != block.chainid, InvalidL1ChainId());
@@ -135,6 +144,7 @@ contract Anchor is EssentialContract {
         // Assign immutables
         checkpointStore = _checkpointStore;
         l1ChainId = _l1ChainId;
+        feeVault = _feeVault;
     }
 
     /// @notice Initializes the owner of the Anchor.
@@ -164,6 +174,8 @@ contract Anchor is EssentialContract {
 
         _storePreconfMetadata(_proposalParams, _blockParams);
 
+        _importFeeData(_proposalParams.proposalId, _proposalParams.feeData);
+
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
 
@@ -173,8 +185,8 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Withdraw token or Ether from this address.
-    /// Note: This contract receives a portion of L2 base fees, while the remainder is directed to
-    /// L2 block's coinbase address.
+    /// Note: Base fee flows are handled by the L2 fee vault; this contract may still hold Ether
+    /// from other protocol operations.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
     function withdraw(address _token, address _to) external onlyOwner nonReentrant {
@@ -256,6 +268,27 @@ contract Anchor is EssentialContract {
         });
     }
 
+    /// @dev Imports fee data into the L2 fee vault for new proposals.
+    /// @dev The correctness of `_feeData` is enforced by the validity proof, which must
+    ///      verify that it matches the canonical L1 proposal hash (including cost fields).
+    /// @param _proposalId The proposal id for the current block.
+    /// @param _feeData The fee data to import for new proposals.
+    function _importFeeData(uint48 _proposalId, IL2FeeVault.ProposalFeeData calldata _feeData)
+        private
+    {
+        require(_proposalId != 0, InvalidProposalId());
+
+        uint48 lastProposalId = _lastProposalId;
+
+        // Same proposal - fee data already imported, skip
+        if (_proposalId == lastProposalId) return;
+
+        // New proposal - import fee data
+        require(_proposalId == lastProposalId + 1, InvalidProposalId());
+        feeVault.importProposalFee(_feeData);
+        _lastProposalId = _proposalId;
+    }
+
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
     /// @dev This function computes two public input hashes: one for the previous state and one for
     /// the new state.
@@ -308,5 +341,6 @@ contract Anchor is EssentialContract {
     error InvalidBlockNumber();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
+    error InvalidProposalId();
     error InvalidSender();
 }
