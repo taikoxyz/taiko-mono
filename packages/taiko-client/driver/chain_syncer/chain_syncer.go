@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -38,6 +39,9 @@ type L2ChainSyncer struct {
 	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
 	// the latest verified block head
 	p2pSync bool
+
+	// True after a beacon sync trigger until the first event sync writes head L1 origin.
+	postBeaconSyncPending bool
 }
 
 // New creates a new chain syncer instance.
@@ -86,6 +90,7 @@ func (s *L2ChainSyncer) Sync() error {
 			log.Info("Mark preconfirmation block server as not ready to insert blocks")
 			s.preconfBlockServer.SetSyncReady(false)
 		}
+		s.postBeaconSyncPending = true
 		if err := s.beaconSyncer.TriggerBeaconSync(blockIDToSync); err != nil {
 			return fmt.Errorf("trigger beacon sync error: %w", err)
 		}
@@ -98,8 +103,7 @@ func (s *L2ChainSyncer) Sync() error {
 	s.progressTracker.MarkFinished()
 
 	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
-	// cursor at first, then try to import the pending preconfirmation blocks from the cache, before
-	// start inserting pending L2 batches one by one.
+	// cursor before we start inserting pending L2 batches one by one.
 	if s.progressTracker.Triggered() {
 		log.Info(
 			"Switch to insert pending batches one by one",
@@ -112,20 +116,42 @@ func (s *L2ChainSyncer) Sync() error {
 		}
 	}
 
-	// Mark the preconfirmation block server as ready to insert blocks, no matter
-	// whether we have triggered a beacon sync in L2 execution engine.
-	if s.preconfBlockServer != nil {
+	// Mark the preconfirmation block server as ready to insert blocks unless we are
+	// waiting for the first event sync to establish head L1 origin after beacon sync.
+	if s.preconfBlockServer != nil && !s.postBeaconSyncPending {
 		log.Info("Mark preconfirmation block server as ready to insert blocks")
 		s.preconfBlockServer.SetSyncReady(true)
 	}
 
 	// Insert the proposed batches one by one.
-	return s.eventSyncer.ProcessL1Blocks(s.ctx)
+	if err := s.eventSyncer.ProcessL1Blocks(s.ctx); err != nil {
+		return err
+	}
+
+	// After beacon sync, only enable preconf imports once head L1 origin has been written by the first
+	// successful event sync. This avoids importing cached forks before the L1 origin base exists.
+	if s.preconfBlockServer != nil && s.postBeaconSyncPending {
+		headL1Origin, err := s.rpc.L2.HeadL1Origin(s.ctx)
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			return fmt.Errorf("failed to fetch head L1 origin after event sync: %w", err)
+		}
+		if headL1Origin != nil {
+			log.Info("Head L1 origin written after event sync, enable preconf imports")
+			s.preconfBlockServer.SetSyncReady(true)
+			if err := s.preconfBlockServer.ImportPendingBlocksFromCache(s.ctx); err != nil {
+				log.Warn("Failed to import pending preconfirmation blocks from cache, skip the import", "error", err)
+			}
+			s.postBeaconSyncPending = false
+		} else {
+			log.Info("Head L1 origin not set after event sync, keep preconf imports disabled")
+		}
+	}
+
+	return nil
 }
 
-// SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head,
-// and tries to import the pending preconfirmation blocks from the cache, this method should only be
-// called after the L2 execution engine's chain has just finished a beacon sync.
+// SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head.
+// This method should only be called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	var headNumber = new(big.Int).SetUint64(blockIDToSync)
 	if s.progressTracker.OutOfSync() {
@@ -158,25 +184,6 @@ func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	// Reset to the latest L2 execution engine's chain status.
 	s.progressTracker.UpdateMeta(l2Head.Number, l2Head.Hash())
 
-	// If the preconfirmation block server is enabled, we should try to insert the pending
-	// preconfirmation blocks from the cache.
-	if s.preconfBlockServer != nil {
-		log.Info("Mark preconfirmation block server as ready to insert blocks")
-		s.preconfBlockServer.SetSyncReady(true)
-		log.Info(
-			"Try importing pending preconfirmation blocks",
-			"currentL2HeadNumber", l2Head.Number,
-			"currentL2HeadHash", l2Head.Hash(),
-		)
-		if err := s.preconfBlockServer.ImportPendingBlocksFromCache(s.ctx); err != nil {
-			log.Warn(
-				"Failed to import the pending preconfirmation blocks from cache, skip the import",
-				"currentL2HeadNumber", l2Head.Number,
-				"currentL2HeadHash", l2Head.Hash(),
-				"error", err,
-			)
-		}
-	}
 	return nil
 }
 
