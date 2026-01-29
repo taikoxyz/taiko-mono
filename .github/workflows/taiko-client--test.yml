@@ -2,7 +2,7 @@ name: "CI"
 
 on:
   push:
-    branches: [main]
+    branches: [main, sync-geth]
     paths:
       - "packages/taiko-client/**"
   pull_request:
