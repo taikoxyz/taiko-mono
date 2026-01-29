@@ -1201,8 +1201,18 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), l2Head3.Number.Uint64())
-	s.Equal(l2Head2.Hash(), l2Head3.Hash())
+	// SetUpEventSync no longer imports cached preconf blocks; ensure head stays at the reverted point.
+	s.Equal(l2Head1.Number().Uint64(), l2Head3.Number.Uint64())
+	s.Equal(l2Head1.Hash(), l2Head3.Hash())
+
+	// Simulate the first post-beacon event sync enabling preconf imports.
+	s.d.preconfBlockServer.SetSyncReady(true)
+	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
+
+	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64(), l2Head4.Number.Uint64())
+	s.Equal(l2Head2.Hash(), l2Head4.Hash())
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
