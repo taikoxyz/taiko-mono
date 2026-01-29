@@ -24,7 +24,14 @@ type EngineClient struct {
 }
 
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
+// If the context does not have a deadline, a default timeout is applied.
 func (c *EngineClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultRpcTimeout)
+		defer cancel()
+	}
+
 	start := time.Now()
 	err := c.Client.CallContext(ctx, result, method, args...)
 	recordRPCMetrics(method, c.rpcURL, start, err)
@@ -54,11 +61,8 @@ func (c *EngineClient) ForkchoiceUpdate(
 	fc *engine.ForkchoiceStateV1,
 	attributes *engine.PayloadAttributes,
 ) (*engine.ForkChoiceResponse, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-
 	var result *engine.ForkChoiceResponse
-	if err := c.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
+	if err := c.CallContext(ctx, &result, "engine_forkchoiceUpdatedV2", fc, attributes); err != nil {
 		return nil, err
 	}
 
@@ -70,11 +74,8 @@ func (c *EngineClient) NewPayload(
 	ctx context.Context,
 	payload *engine.ExecutableData,
 ) (*engine.PayloadStatusV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-
 	var result *engine.PayloadStatusV1
-	if err := c.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload); err != nil {
+	if err := c.CallContext(ctx, &result, "engine_newPayloadV2", payload); err != nil {
 		return nil, err
 	}
 
@@ -86,11 +87,8 @@ func (c *EngineClient) GetPayload(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
 ) (*engine.ExecutableData, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-
 	var result *engine.ExecutionPayloadEnvelope
-	if err := c.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID); err != nil {
+	if err := c.CallContext(ctx, &result, "engine_getPayloadV2", payloadID); err != nil {
 		return nil, err
 	}
 
@@ -102,11 +100,8 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	ctx context.Context,
 	cfg *engine.TransitionConfigurationV1,
 ) (*engine.TransitionConfigurationV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-
 	var result *engine.TransitionConfigurationV1
-	if err := c.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
+	if err := c.CallContext(ctx, &result, "engine_exchangeTransitionConfigurationV1", cfg); err != nil {
 		return nil, err
 	}
 
@@ -124,12 +119,9 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	maxTransactionsLists uint64,
 	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
 	var result []*miner.PreBuiltTxList
-
 	if err := c.CallContext(
-		timeoutCtx,
+		ctx,
 		&result,
 		"taikoAuth_txPoolContentWithMinTip",
 		beneficiary,
@@ -191,4 +183,24 @@ func (c *EngineClient) SetBatchToLastBlock(ctx context.Context, batchID *big.Int
 	}
 
 	return (*big.Int)(&res), nil
+}
+
+// LastL1OriginByBatchID returns the L1 origin of the last block for the given batch.
+func (c *EngineClient) LastL1OriginByBatchID(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
+	var res *rawdb.L1Origin
+	if err := c.CallContext(ctx, &res, "taikoAuth_lastL1OriginByBatchID", hexutil.EncodeBig(batchID)); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// LastBlockIDByBatchID returns the ID of the last block for the given batch.
+func (c *EngineClient) LastBlockIDByBatchID(ctx context.Context, batchID *big.Int) (*hexutil.Big, error) {
+	var res *hexutil.Big
+	if err := c.CallContext(ctx, &res, "taikoAuth_lastBlockIDByBatchID", hexutil.EncodeBig(batchID)); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

@@ -454,7 +454,7 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 			return nil, ctxWithTimeout.Err()
 		}
 
-		l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
 		if err != nil {
 			if err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
 				log.Warn(
@@ -597,7 +597,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 		// If the next proposal ID is 1, it means there is no Shasta proposal has been made on L2 yet.
 		if coreState.NextProposalId.Cmp(common.Big1) > 0 {
-			l1Origin, err := c.L2.LastL1OriginByBatchID(
+			l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
 				ctx,
 				new(big.Int).Sub(coreState.NextProposalId, common.Big1),
 			)
@@ -785,7 +785,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
 		var l1Origin *rawdb.L1Origin
 		if isShastaBatch {
-			if l1Origin, err = c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID); err != nil {
+			if l1Origin, err = c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID); err != nil {
 				// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 				// its local database, we skip this check.
 				if err.Error() == ethereum.NotFound.Error() || err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
@@ -943,7 +943,7 @@ func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int
 		return l1Origin, nil
 	}
 
-	l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+	l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
 	if err != nil {
 		return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
 	}
@@ -1525,7 +1525,7 @@ func (c *Client) GetProposalByIDShasta(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	blockID, err := c.L2.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
+	blockID, err := c.L2Engine.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get last block ID by batch ID %d: %w", proposalID, err)
 	}

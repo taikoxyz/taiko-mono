@@ -78,7 +78,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 				return fmt.Errorf("failed to get Shasta activation block number: %w", err)
 			}
 		} else {
-			blockIDFromLastProposal, err := s.rpc.L2.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
+			blockIDFromLastProposal, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
 			if err != nil {
 				return fmt.Errorf("failed to get last block ID by batch ID (%d): %w", proposalID, err)
 			}

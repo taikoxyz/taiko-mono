@@ -177,7 +177,6 @@ func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 			)
 		}
 	}
-
 	return nil
 }
 
