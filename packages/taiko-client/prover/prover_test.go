@@ -368,11 +368,16 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+		JwtSecret:             string(jwtSecret),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -426,11 +431,16 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+		JwtSecret:             string(jwtSecret),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -659,11 +669,16 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 	s.NotZero(decimal)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+		JwtSecret:             string(jwtSecret),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
