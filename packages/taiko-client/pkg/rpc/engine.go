@@ -192,3 +192,25 @@ func (c *EngineClient) SetBatchToLastBlock(ctx context.Context, batchID *big.Int
 
 	return (*big.Int)(&res), nil
 }
+
+// LastL1OriginByBatchID returns the L1 origin of the last block for the given batch.
+func (c *EngineClient) LastL1OriginByBatchID(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
+	var res *rawdb.L1Origin
+
+	if err := c.CallContext(ctx, &res, "taikoAuth_lastL1OriginByBatchID", hexutil.EncodeBig(batchID)); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// LastBlockIDByBatchID returns the ID of the last block for the given batch.
+func (c *EngineClient) LastBlockIDByBatchID(ctx context.Context, batchID *big.Int) (*hexutil.Big, error) {
+	var res *hexutil.Big
+
+	if err := c.CallContext(ctx, &res, "taikoAuth_lastBlockIDByBatchID", hexutil.EncodeBig(batchID)); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
