@@ -137,6 +137,7 @@ func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 		"outOfSync", s.progressTracker.OutOfSync(),
 		"headNumber", headNumber,
 	)
+
 	l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, headNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get L2 chain head: %w", err)
