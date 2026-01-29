@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -67,12 +68,38 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		if block.Transactions().Len() == 0 {
 			return fmt.Errorf("no transactions found in block %d", blockID)
 		}
-		// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
-		_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
+		// For Shasta blocks, we need to get the last block ID from the last seen proposal ID - 1.
+		proposalID, err := core.DecodeShastaProposalID(block.Extra())
 		if err != nil {
-			return fmt.Errorf("failed to decode anchorV4 block params: %w", err)
+			return fmt.Errorf("failed to decode Shasta proposal ID from block %d: %w", blockID, err)
 		}
-		proposedIn = new(big.Int).SetUint64(anchorBlockNumber)
+		if proposalID.Cmp(common.Big1) <= 0 {
+			if proposedIn, err = s.rpc.GetShastaActivationBlockNumber(ctx); err != nil {
+				return fmt.Errorf("failed to get Shasta activation block number: %w", err)
+			}
+		} else {
+			blockIDFromLastProposal, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
+			if err != nil {
+				return fmt.Errorf("failed to get last block ID by batch ID (%d): %w", proposalID, err)
+			}
+			if blockIDFromLastProposal == nil {
+				return fmt.Errorf("no last block ID found for batch ID %d", new(big.Int).Sub(proposalID, common.Big1))
+			}
+
+			blockFromLastProposal, err := s.rpc.L2.BlockByNumber(ctx, blockIDFromLastProposal.ToInt())
+			if err != nil {
+				return fmt.Errorf("failed to get L2 block by number (%d): %w", blockIDFromLastProposal.ToInt(), err)
+			}
+			if blockFromLastProposal.Transactions().Len() == 0 {
+				return fmt.Errorf("no transactions found in block %d", blockIDFromLastProposal.ToInt())
+			}
+			// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
+			_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(blockFromLastProposal.Transactions()[0])
+			if err != nil {
+				return fmt.Errorf("failed to decode anchorV4 block params: %w", err)
+			}
+			proposedIn = new(big.Int).SetUint64(anchorBlockNumber)
+		}
 	}
 
 	l1Current, err := s.rpc.L1.HeaderByNumber(ctx, proposedIn)
