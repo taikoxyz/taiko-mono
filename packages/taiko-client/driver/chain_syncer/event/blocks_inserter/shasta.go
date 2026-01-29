@@ -92,7 +92,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		return nil, fmt.Errorf("failed to fetch Shasta core state: %w", err)
 	}
 	if coreState.LastFinalizedProposalId.Cmp(meta.GetEventData().Id) >= 0 {
-		blockID, err := i.rpc.L2.LastBlockIDByBatchID(ctx, coreState.LastFinalizedProposalId)
+		blockID, err := i.rpc.L2Engine.LastBlockIDByBatchID(ctx, coreState.LastFinalizedProposalId)
 		if err == nil {
 			if lastFinalizedHeader, err = i.rpc.L2.HeaderByNumber(ctx, blockID.ToInt()); err != nil {
 				return nil, fmt.Errorf("failed to fetch last finalized block header (%d): %w", blockID.ToInt(), err)

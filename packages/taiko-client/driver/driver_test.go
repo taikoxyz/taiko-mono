@@ -82,6 +82,9 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
+	if s.d.preconfBlockServer != nil {
+		s.d.preconfBlockServer.SetSyncReady(true)
+	}
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -164,7 +167,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
@@ -224,7 +227,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
@@ -288,7 +291,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgShastaToPacaya() {
 	s.Nil(err)
 	s.Greater(l2Head3.Time, s.RPCClient.ShastaClients.ForkTime)
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head3.Hash(), headL1Origin.L2BlockHash)
 
@@ -357,7 +360,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
+	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
 
@@ -1198,8 +1201,18 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), l2Head3.Number.Uint64())
-	s.Equal(l2Head2.Hash(), l2Head3.Hash())
+	// SetUpEventSync no longer imports cached preconf blocks; ensure head stays at the reverted point.
+	s.Equal(l2Head1.Number().Uint64(), l2Head3.Number.Uint64())
+	s.Equal(l2Head1.Hash(), l2Head3.Hash())
+
+	// Simulate the first post-beacon event sync enabling preconf imports.
+	s.d.preconfBlockServer.SetSyncReady(true)
+	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
+
+	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64(), l2Head4.Number.Uint64())
+	s.Equal(l2Head2.Hash(), l2Head4.Hash())
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)

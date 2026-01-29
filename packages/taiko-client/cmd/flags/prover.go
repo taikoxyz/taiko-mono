@@ -127,6 +127,8 @@ var (
 var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2WSEndpoint,
 	L2HTTPEndpoint,
+	L2AuthEndpoint,
+	JWTSecret,
 	RaikoHostEndpoint,
 	RaikoApiKeyPath,
 	L1ProverPrivKey,
