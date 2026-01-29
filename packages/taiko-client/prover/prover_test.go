@@ -723,11 +723,17 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 	s.Nil(err)
 	s.NotNil(proposerKey)
 
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
+
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:           os.Getenv("L1_WS"),
 		L2WsEndpoint:           os.Getenv("L2_WS"),
 		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:       os.Getenv("L2_AUTH"),
+		JwtSecret:              string(jwtSecret),
 		PacayaInboxAddress:     common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:     common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:     common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
