@@ -8,7 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
     primitives::{Address, U256},
@@ -19,13 +18,12 @@ use alloy_provider::Provider;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
-use async_trait::async_trait;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot, watch},
     time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -37,7 +35,6 @@ use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
     error::DriverError,
-    jsonrpc::DriverRpcApi,
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
@@ -74,6 +71,8 @@ where
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
     /// Tracks the highest canonical proposal id processed from L1 events.
     last_canonical_proposal_id: Arc<AtomicU64>,
+    /// Sender for notifying watchers when the canonical proposal ID changes.
+    proposal_id_tx: watch::Sender<u64>,
     /// Indicates whether the preconfirmation ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
     /// Notifier signaled when the preconfirmation ingress loop becomes ready.
@@ -255,6 +254,7 @@ where
             );
 
             self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
+            let _ = self.proposal_id_tx.send(proposal_id);
             gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
@@ -279,6 +279,7 @@ where
         } else {
             (None, None)
         };
+        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -286,6 +287,7 @@ where
             preconf_tx,
             preconf_rx,
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+            proposal_id_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
@@ -294,6 +296,14 @@ where
     /// Return the latest canonical proposal id processed from L1 events.
     pub fn last_canonical_proposal_id(&self) -> u64 {
         self.last_canonical_proposal_id.load(Ordering::Relaxed)
+    }
+
+    /// Subscribe to proposal ID changes.
+    ///
+    /// Returns a watch::Receiver that receives the latest canonical proposal ID
+    /// whenever it changes. Useful for event-driven test waits.
+    pub fn subscribe_proposal_id(&self) -> watch::Receiver<u64> {
+        self.proposal_id_tx.subscribe()
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
@@ -471,25 +481,6 @@ where
     }
 }
 
-#[async_trait]
-impl<P> DriverRpcApi for EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Submit a preconfirmation payload built by the client for injection.
-    async fn submit_execution_payload_v2(
-        &self,
-        payload: TaikoPayloadAttributes,
-    ) -> Result<(), DriverError> {
-        self.submit_preconfirmation_payload(PreconfPayload::new(payload)).await
-    }
-
-    /// Return the last canonical proposal id processed by the event syncer.
-    fn last_canonical_proposal_id(&self) -> u64 {
-        self.last_canonical_proposal_id()
-    }
-}
-
 impl<P> EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -662,7 +653,9 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use alethia_reth_primitives::payload::attributes::{RpcL1Origin, TaikoBlockMetadata};
+    use alethia_reth_primitives::payload::attributes::{
+        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+    };
     use alloy::{
         primitives::{Address, B256, Bytes, U256},
         transports::http::reqwest::Url,
@@ -751,6 +744,7 @@ mod tests {
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
+        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
 
         EventSyncer {
             rpc: mock_client(),
@@ -759,6 +753,7 @@ mod tests {
             preconf_tx: Some(preconf_tx),
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
+            proposal_id_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }

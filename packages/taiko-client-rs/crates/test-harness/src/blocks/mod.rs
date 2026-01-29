@@ -56,7 +56,7 @@ where
         .ok_or_else(|| anyhow!("missing block {block_number}"))
 }
 
-/// Polls for a block until it appears or timeout expires.
+/// Polls for a block until it appears or timeout expires (50ms interval).
 ///
 /// This is useful in E2E tests where you need to wait for a block
 /// to be produced after sending a preconfirmation.
@@ -98,7 +98,7 @@ where
             return Ok(block.map_transactions(TxEnvelope::from));
         }
 
-        sleep(Duration::from_millis(200)).await;
+        sleep(Duration::from_millis(50)).await;
     }
 }
 

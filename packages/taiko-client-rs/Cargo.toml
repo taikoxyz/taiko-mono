@@ -3,7 +3,7 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
-    "crates/preconfirmation-client",
+    "crates/preconfirmation-driver",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
@@ -97,6 +97,7 @@ url = "2.5.4"
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde_json = "1"
 sha2 = "0.10"
+ssz_rs = "0.9.0"
 
 # testing
 serial_test = { version = "3", features = ["async"] }

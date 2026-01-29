@@ -9,6 +9,7 @@ use url::Url;
 
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct CommonArgs {
+    /// Websocket RPC endpoint of a L1 ethereum node.
     #[clap(
         long = "l1.ws",
         env = "L1_WS",
@@ -16,6 +17,7 @@ pub struct CommonArgs {
         help = "Websocket RPC endpoint of a L1 ethereum node"
     )]
     pub l1_ws_endpoint: Url,
+    /// HTTP RPC endpoint of a L2 taiko execution engine.
     #[clap(
         long = "l2.http",
         env = "L2_HTTP",
@@ -23,6 +25,7 @@ pub struct CommonArgs {
         help = "HTTP RPC endpoint of a L2 taiko execution engine"
     )]
     pub l2_http_endpoint: Url,
+    /// Authenticated HTTP RPC endpoint of a L2 taiko execution engine.
     #[clap(
         long = "l2.auth",
         env = "L2_AUTH",
@@ -30,6 +33,7 @@ pub struct CommonArgs {
         help = "Authenticated HTTP RPC endpoint of a L2 taiko-geth execution engine"
     )]
     pub l2_auth_endpoint: Url,
+    /// Path to a JWT secret to use for authenticated RPC endpoints.
     #[clap(
         long = "jwt.secret",
         env = "JWT_SECRET",
@@ -37,6 +41,7 @@ pub struct CommonArgs {
         help = "Path to a JWT secret to use for authenticated RPC endpoints"
     )]
     pub l2_auth_jwt_secret: PathBuf,
+    /// Taiko Shasta protocol Inbox contract address.
     #[clap(
         long = "shasta.inbox",
         env = "SHASTA_INBOX",
@@ -44,6 +49,7 @@ pub struct CommonArgs {
         help = "Taiko Shasta protocol Inbox contract address"
     )]
     pub shasta_inbox_address: Address,
+    /// Verbosity level for logging.
     #[clap(
         short = 'v',
         long = "verbosity",
@@ -52,6 +58,7 @@ pub struct CommonArgs {
         help = "Set the minimum log level. 0 = error, 1 = warn, 2 = info, 3 = debug, 4 = trace"
     )]
     pub verbosity: u8,
+    /// Enable Prometheus metrics server.
     #[clap(
         long = "metrics.enabled",
         env = "METRICS_ENABLED",
@@ -59,6 +66,7 @@ pub struct CommonArgs {
         help = "Enable Prometheus metrics server"
     )]
     pub metrics_enabled: bool,
+    /// Port for Prometheus metrics server.
     #[clap(
         long = "metrics.port",
         env = "METRICS_PORT",
@@ -66,6 +74,7 @@ pub struct CommonArgs {
         help = "Port for Prometheus metrics server"
     )]
     pub metrics_port: u16,
+    /// Address to bind Prometheus metrics server.
     #[clap(
         long = "metrics.addr",
         env = "METRICS_ADDR",

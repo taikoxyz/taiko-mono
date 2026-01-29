@@ -38,7 +38,10 @@ mod p2p;
 mod payloads;
 
 pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
-pub use driver::{MockDriverClient, RealDriverSetup, SafeTipDriverClient, StartingBlockInfo};
+pub use driver::{
+    EventSyncerDriverClient, MockDriverClient, RealDriverSetup, SafeTipDriverClient,
+    StartingBlockInfo,
+};
 pub use events::{
     wait_for_commitment_and_txlist, wait_for_commitments_and_txlists, wait_for_peer_connected,
     wait_for_synced,

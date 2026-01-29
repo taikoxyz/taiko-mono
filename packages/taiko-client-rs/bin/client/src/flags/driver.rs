@@ -1,7 +1,7 @@
 //! Driver-specific CLI flags.
 
 use clap::Parser;
-use std::{net::SocketAddr, path::PathBuf, time::Duration};
+use std::time::Duration;
 use url::Url;
 
 /// Driver-specific CLI arguments.
@@ -37,27 +37,6 @@ pub struct DriverArgs {
         help = "Optional HTTP endpoint of a blob server to fallback when beacon sidecars are unavailable"
     )]
     pub blob_server_endpoint: Option<Url>,
-    /// Optional socket address for the driver JSON-RPC server.
-    #[clap(
-        long = "driver.rpc.addr",
-        env = "DRIVER_RPC_ADDR",
-        help = "Optional address to bind the driver JSON-RPC server (JWT-protected)"
-    )]
-    pub rpc_listen_addr: Option<SocketAddr>,
-    /// Path to the JWT secret used by the driver JSON-RPC server.
-    #[clap(
-        long = "driver.rpc.jwt.secret",
-        env = "DRIVER_RPC_JWT_SECRET",
-        help = "Path to the JWT secret used by the driver JSON-RPC server (HTTP only)"
-    )]
-    pub rpc_jwt_secret: Option<PathBuf>,
-    /// Path for the IPC socket used by the driver JSON-RPC server.
-    #[clap(
-        long = "driver.rpc.ipc.path",
-        env = "DRIVER_RPC_IPC_PATH",
-        help = "Path for the IPC socket used by the driver JSON-RPC server (no JWT required)"
-    )]
-    pub rpc_ipc_path: Option<PathBuf>,
 }
 
 impl DriverArgs {
