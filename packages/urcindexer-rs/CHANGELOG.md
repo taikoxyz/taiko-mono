@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/urcindexer-rs-v0.1.0...urcindexer-rs-v0.1.1) (2026-01-29)
+
+
+### Chores
+
+* **deps:** bump the cargo group across 5 directories with 2 updates ([#21116](https://github.com/taikoxyz/taiko-mono/issues/21116)) ([c76e37a](https://github.com/taikoxyz/taiko-mono/commit/c76e37a28d153f5b6407538f70ca28f0a93c82db))
+
 ## 0.1.0 (2025-11-04)
 
 
