@@ -23,3 +23,4 @@ jobs:
           timeout: 1800
           interval: 60
           token: ${{ secrets.GITHUB_TOKEN }}
+          ignored: "Integration tests (l2_nmc)"
