@@ -35,6 +35,10 @@ pub enum TaikoAuthMethod {
     SetHeadL1Origin,
     /// Set batch to last block mapping.
     SetBatchToLastBlock,
+    /// Fetch the last L1 origin for a batch id.
+    LastL1OriginByBatchId,
+    /// Fetch the last block id for a batch id.
+    LastBlockIdByBatchId,
 }
 
 impl TaikoAuthMethod {
@@ -46,6 +50,8 @@ impl TaikoAuthMethod {
             Self::SetL1OriginSignature => "taikoAuth_setL1OriginSignature",
             Self::SetHeadL1Origin => "taikoAuth_setHeadL1Origin",
             Self::SetBatchToLastBlock => "taikoAuth_setBatchToLastBlock",
+            Self::LastL1OriginByBatchId => "taikoAuth_lastL1OriginByBatchID",
+            Self::LastBlockIdByBatchId => "taikoAuth_lastBlockIDByBatchID",
         }
     }
 }
@@ -152,6 +158,33 @@ impl<P: Provider + Clone> Client<P> {
             .map_err(Into::into)
     }
 
+    /// Fetch the last L1 origin associated with the given batch id via the authenticated engine
+    /// API.
+    pub async fn last_l1_origin_by_batch_id(
+        &self,
+        proposal_id: U256,
+    ) -> Result<Option<RpcL1Origin>> {
+        self.l2_auth_provider
+            .raw_request(
+                Cow::Borrowed(TaikoAuthMethod::LastL1OriginByBatchId.as_str()),
+                (proposal_id,),
+            )
+            .await
+            .or_else(handle_ignorable_origin_error)
+    }
+
+    /// Fetch the last block id that corresponds to the provided batch id via the authenticated
+    /// engine API.
+    pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(
+                Cow::Borrowed(TaikoAuthMethod::LastBlockIdByBatchId.as_str()),
+                (proposal_id,),
+            )
+            .await
+            .or_else(handle_ignorable_origin_error)
+    }
+
     /// Submit a new payload via the execution engine API.
     pub async fn engine_new_payload_v2(
         &self,
@@ -203,4 +236,18 @@ impl<P: Provider + Clone> Client<P> {
             .await
             .map_err(Into::into)
     }
+}
+
+/// Checks whether the underlying RPC error message represents a "not found" or ignorable response.
+fn is_ignorable_origin_error(message: &str) -> bool {
+    message.contains("not found") || message.contains("proposal last block uncertain")
+}
+
+/// Converts an RPC error into an optional origin, mapping ignorable errors to `Ok(None)`.
+pub(crate) fn handle_ignorable_origin_error<T, E>(err: E) -> Result<Option<T>>
+where
+    E: Into<RpcClientError> + std::fmt::Display,
+{
+    let message = err.to_string();
+    if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
 }
