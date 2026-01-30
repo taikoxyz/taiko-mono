@@ -135,7 +135,6 @@ client.wait_event_sync().await?;
 ```
 src/
 ├── client.rs           # PreconfirmationClient and EventLoop
-│   └── mod.rs
 ├── config.rs           # Configuration types
 ├── driver_interface/   # Driver communication
 │   ├── embedded.rs     # EmbeddedDriverClient
@@ -146,14 +145,24 @@ src/
 ├── node.rs             # Preconfirmation driver node orchestrator
 ├── rpc/                # Preconfirmation sidecar JSON-RPC
 │   ├── api.rs          # PreconfRpcApi trait
+│   ├── node_api.rs     # Node RPC implementation
 │   ├── server.rs       # HTTP JSON-RPC server
 │   └── types.rs        # Request/response types
+├── runner/             # Runner orchestration
+│   ├── driver_sync.rs  # Driver sync helper
+│   └── mod.rs
 ├── storage/            # Commitment storage
-│   └── mod.rs
+│   ├── awaiting.rs     # Commitments awaiting txlist
+│   ├── mod.rs
+│   └── store.rs        # In-memory store
 ├── subscription/       # P2P event handling
-│   └── mod.rs
+│   ├── event_handler.rs
+│   ├── mod.rs
+│   └── submission.rs
 ├── sync/               # Tip catch-up logic
-│   └── mod.rs
+│   ├── catchup.rs
+│   ├── mod.rs
+│   └── txlist_fetch.rs
 └── validation/         # Commitment validation
     └── mod.rs
 ```
