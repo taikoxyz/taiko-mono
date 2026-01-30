@@ -86,9 +86,6 @@ where
 }
 
 #[cfg(test)]
-pub(crate) const DRIVER_SYNC_MODULE_MARKER: () = ();
-
-#[cfg(test)]
 mod tests {
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_errors_when_ready_none() {

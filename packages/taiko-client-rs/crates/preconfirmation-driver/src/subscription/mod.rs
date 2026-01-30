@@ -12,17 +12,6 @@ mod submission;
 pub use event_handler::{EventHandler, PreconfirmationEvent};
 
 #[cfg(test)]
-mod module_tests {
-    use super::{event_handler::EVENT_HANDLER_MODULE_MARKER, submission::SUBMISSION_MODULE_MARKER};
-
-    #[test]
-    fn subscription_submodules_exist() {
-        let _ = EVENT_HANDLER_MODULE_MARKER;
-        let _ = SUBMISSION_MODULE_MARKER;
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use std::sync::{
         Arc,

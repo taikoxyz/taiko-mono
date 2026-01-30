@@ -316,6 +316,3 @@ pub(crate) fn ensure_catchup_boundary(
         )))
     }
 }
-
-#[cfg(test)]
-pub(crate) const CATCHUP_MODULE_MARKER: () = ();

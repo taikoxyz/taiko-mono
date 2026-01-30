@@ -11,16 +11,6 @@ mod store;
 pub use store::{CommitmentStore, InMemoryCommitmentStore};
 
 #[cfg(test)]
-mod module_tests {
-    use super::awaiting::AWAITING_MODULE_MARKER;
-
-    #[test]
-    fn awaiting_buffer_module_exists() {
-        let _ = AWAITING_MODULE_MARKER;
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::{CommitmentStore, InMemoryCommitmentStore};
     use alloy_primitives::{B256, U256};

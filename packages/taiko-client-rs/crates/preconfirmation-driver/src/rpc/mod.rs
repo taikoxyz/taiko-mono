@@ -36,14 +36,3 @@ pub use types::{
     NodeStatus, PreconfRpcErrorCode, PublishCommitmentRequest, PublishCommitmentResponse,
     PublishTxListRequest, PublishTxListResponse,
 };
-
-#[cfg(test)]
-mod tests {
-    use super::node_api;
-
-    #[test]
-    fn node_api_module_exists() {
-        let _ = core::mem::size_of::<Option<fn()>>();
-        let _ = &node_api::NODE_RPC_API_MARKER;
-    }
-}

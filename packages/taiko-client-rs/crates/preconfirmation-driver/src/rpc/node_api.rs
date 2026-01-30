@@ -133,9 +133,6 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
 }
 
 #[cfg(test)]
-pub(crate) const NODE_RPC_API_MARKER: () = ();
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};

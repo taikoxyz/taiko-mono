@@ -58,6 +58,3 @@ pub(super) async fn fetch_txlist(
     }
     Ok(Some(RawTxListGossip { raw_tx_list_hash: hash, txlist: response.txlist }))
 }
-
-#[cfg(test)]
-pub(crate) const TXLIST_FETCH_MODULE_MARKER: () = ();

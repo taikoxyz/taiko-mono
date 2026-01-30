@@ -7,16 +7,6 @@ mod catchup;
 mod txlist_fetch;
 
 pub use catchup::TipCatchup;
-#[cfg(test)]
-mod module_tests {
-    use super::{catchup::CATCHUP_MODULE_MARKER, txlist_fetch::TXLIST_FETCH_MODULE_MARKER};
-
-    #[test]
-    fn sync_submodules_exist() {
-        let _ = CATCHUP_MODULE_MARKER;
-        let _ = TXLIST_FETCH_MODULE_MARKER;
-    }
-}
 
 #[cfg(test)]
 mod tests {

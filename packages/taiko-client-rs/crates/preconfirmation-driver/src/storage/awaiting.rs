@@ -95,6 +95,3 @@ impl Default for CommitmentsAwaitingTxList {
         Self::new()
     }
 }
-
-#[cfg(test)]
-pub(crate) const AWAITING_MODULE_MARKER: () = ();

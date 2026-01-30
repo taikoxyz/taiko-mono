@@ -134,6 +134,3 @@ where
             .map_err(|err| PreconfirmationClientError::Network(err.to_string()))
     }
 }
-
-#[cfg(test)]
-pub(crate) const SUBMISSION_MODULE_MARKER: () = ();

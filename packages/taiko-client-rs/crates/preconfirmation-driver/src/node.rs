@@ -179,36 +179,16 @@ where
         provider: P,
         rpc_config: Option<PreconfRpcServerConfig>,
     ) -> Result<(Self, DriverChannels)> {
-        let (input_tx, input_rx) = mpsc::channel(DEFAULT_DRIVER_CHANNEL_CAPACITY);
-        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
-        let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let client_config =
+            PreconfirmationClientConfig::new(p2p_config, inbox_address, provider.clone()).await?;
+        let mut config = PreconfirmationDriverNodeConfig::new(client_config);
+        if let Some(rpc_config) = rpc_config {
+            config = config.with_rpc(rpc_config);
+        }
 
-        let inbox = bindings::inbox::Inbox::InboxInstance::new(inbox_address, provider.clone());
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(inbox_address, provider);
         let inbox_reader = ContractInboxReader::new(inbox);
-        let driver_client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx.clone(),
-            preconf_tip_rx.clone(),
-            inbox_reader,
-        );
 
-        let p2p_client = PreconfirmationClient::start_with_provider(
-            p2p_config,
-            inbox_address,
-            provider,
-            driver_client.clone(),
-        )
-        .await?;
-
-        Ok((
-            Self {
-                driver_client,
-                p2p_client,
-                rpc_config,
-                canonical_proposal_id_rx: canonical_id_rx,
-                preconf_tip_rx,
-            },
-            DriverChannels { input_rx, canonical_proposal_id_tx: canonical_id_tx, preconf_tip_tx },
-        ))
+        Self::new(config, inbox_reader)
     }
 }

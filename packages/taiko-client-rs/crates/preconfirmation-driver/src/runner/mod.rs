@@ -128,13 +128,3 @@ impl PreconfirmationDriverRunner {
         run_result
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::driver_sync::DRIVER_SYNC_MODULE_MARKER;
-
-    #[test]
-    fn driver_sync_module_exists() {
-        let _ = DRIVER_SYNC_MODULE_MARKER;
-    }
-}

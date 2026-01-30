@@ -224,6 +224,3 @@ where
         Ok(())
     }
 }
-
-#[cfg(test)]
-pub(crate) const EVENT_HANDLER_MODULE_MARKER: () = ();
