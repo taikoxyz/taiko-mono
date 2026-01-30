@@ -1,6 +1,6 @@
 //! Preconfirmation driver runner orchestration.
 
-mod driver_sync;
+mod preconf_ingress_sync;
 
 use driver::{DriverConfig, sync::SyncError};
 use preconfirmation_net::P2pConfig;
@@ -8,7 +8,7 @@ use tracing::info;
 
 use crate::{PreconfirmationClientError, PreconfirmationDriverNode, rpc::PreconfRpcServerConfig};
 
-use driver_sync::DriverSync;
+use preconf_ingress_sync::PreconfIngressSync;
 
 /// Errors emitted by the preconfirmation driver runner.
 #[derive(Debug, thiserror::Error)]
@@ -84,7 +84,7 @@ impl PreconfirmationDriverRunner {
     pub async fn run(self) -> Result<(), RunnerError> {
         info!("starting preconfirmation driver");
 
-        let mut driver_sync = DriverSync::start(&self.config.driver_config).await?;
+        let mut driver_sync = PreconfIngressSync::start(&self.config.driver_config).await?;
 
         info!("waiting for driver event sync to initialize");
         driver_sync.wait_preconf_ingress_ready().await?;

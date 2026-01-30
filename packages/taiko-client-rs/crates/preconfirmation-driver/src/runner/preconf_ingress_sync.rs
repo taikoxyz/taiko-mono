@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 use super::RunnerError;
 
 /// Runs the driver event syncer and exposes handles to its resources.
-pub(crate) struct DriverSync<P>
+pub(crate) struct PreconfIngressSync<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -24,7 +24,7 @@ where
     handle: JoinHandle<std::result::Result<(), SyncError>>,
 }
 
-impl DriverSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
+impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     /// Start the driver syncer and its background task.
     pub(crate) async fn start(config: &DriverConfig) -> Result<Self, RunnerError> {
         let client = Client::new(config.client.clone()).await?;
@@ -36,7 +36,7 @@ impl DriverSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     }
 }
 
-impl<P> DriverSync<P>
+impl<P> PreconfIngressSync<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
