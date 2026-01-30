@@ -9295,26 +9295,6 @@ dependencies = [
 
 [[package]]
 name = "reth-ipc"
-version = "1.10.0"
-source = "git+https://github.com/paradigmxyz/reth?tag=v1.10.0#b25f32a977b489f9b84254c7811a2a5a25a81369"
-dependencies = [
- "bytes",
- "futures",
- "futures-util",
- "interprocess",
- "jsonrpsee",
- "pin-project",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tower",
- "tracing",
-]
-
-[[package]]
-name = "reth-ipc"
 version = "1.10.2"
 source = "git+https://github.com/paradigmxyz/reth?tag=v1.10.2#8e3b5e6a99439561b73c5dd31bd3eced2e994d60"
 dependencies = [
@@ -10256,7 +10236,7 @@ dependencies = [
  "reth-consensus",
  "reth-engine-primitives",
  "reth-evm",
- "reth-ipc 1.10.2",
+ "reth-ipc",
  "reth-metrics 1.10.2",
  "reth-network-api",
  "reth-node-core",
