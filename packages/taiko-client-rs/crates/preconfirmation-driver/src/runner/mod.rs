@@ -84,24 +84,25 @@ impl PreconfirmationDriverRunner {
     pub async fn run(self) -> Result<(), RunnerError> {
         info!("starting preconfirmation driver");
 
-        let mut driver_sync = PreconfIngressSync::start(&self.config.driver_config).await?;
+        let mut preconf_ingress_sync =
+            PreconfIngressSync::start(&self.config.driver_config).await?;
 
-        info!("waiting for driver event sync to initialize");
-        driver_sync.wait_preconf_ingress_ready().await?;
+        info!("waiting for preconfirmation ingress sync to initialize");
+        preconf_ingress_sync.wait_preconf_ingress_ready().await?;
 
         info!("driver ready, starting preconfirmation P2P client");
 
-        let _event_syncer = driver_sync.event_syncer().clone();
+        let _event_syncer = preconf_ingress_sync.event_syncer().clone();
         let (node, _channels) = PreconfirmationDriverNode::start_with_provider(
             self.config.p2p_config,
             self.config.driver_config.client.inbox_address,
-            driver_sync.client().l1_provider.clone(),
+            preconf_ingress_sync.client().l1_provider.clone(),
             self.config.rpc_config,
         )
         .await?;
 
         let mut node_handle = tokio::spawn(node.run());
-        let event_syncer_handle = driver_sync.handle_mut();
+        let event_syncer_handle = preconf_ingress_sync.handle_mut();
 
         info!("starting preconfirmation P2P event loop");
 

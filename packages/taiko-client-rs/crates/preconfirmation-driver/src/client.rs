@@ -339,6 +339,7 @@ where
 }
 
 /// Simple exponential backoff helper for P2P restarts.
+#[derive(Debug)]
 struct RetryBackoff {
     /// Current backoff duration.
     current: Duration,

@@ -14,7 +14,7 @@ use tokio::task::JoinHandle;
 
 use super::RunnerError;
 
-/// Runs the driver event syncer and exposes handles to its resources.
+/// Runs the preconfirmation ingress event syncer and exposes handles to its resources.
 pub(crate) struct PreconfIngressSync<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -25,7 +25,7 @@ where
 }
 
 impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
-    /// Start the driver syncer and its background task.
+    /// Start the preconfirmation ingress syncer and its background task.
     pub(crate) async fn start(config: &DriverConfig) -> Result<Self, RunnerError> {
         let client = Client::new(config.client.clone()).await?;
         let event_syncer = Arc::new(EventSyncer::new(config, client.clone()).await?);
@@ -40,7 +40,7 @@ impl<P> PreconfIngressSync<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Access the driver RPC client.
+    /// Access the preconfirmation ingress RPC client.
     pub(crate) fn client(&self) -> &Client<P> {
         &self.client
     }
@@ -50,12 +50,12 @@ where
         &self.event_syncer
     }
 
-    /// Get a mutable handle to the syncer task.
+    /// Get a mutable handle to the ingress syncer task.
     pub(crate) fn handle_mut(&mut self) -> &mut JoinHandle<std::result::Result<(), SyncError>> {
         &mut self.handle
     }
 
-    /// Wait for preconfirmation ingress to be ready or the syncer to fail.
+    /// Wait for preconfirmation ingress to be ready or the ingress syncer to fail.
     pub(crate) async fn wait_preconf_ingress_ready(&mut self) -> Result<(), RunnerError> {
         wait_for_preconf_ingress_ready(
             self.event_syncer.wait_preconf_ingress_ready(),
@@ -65,7 +65,7 @@ where
     }
 }
 
-/// Wait for preconfirmation ingress to be ready or the event syncer to exit.
+/// Wait for preconfirmation ingress to be ready or the ingress syncer to exit.
 pub(crate) async fn wait_for_preconf_ingress_ready<F>(
     ready: F,
     event_syncer_handle: &mut JoinHandle<std::result::Result<(), SyncError>>,
