@@ -92,7 +92,6 @@ impl PreconfirmationDriverRunner {
 
         info!("driver ready, starting preconfirmation P2P client");
 
-        let _event_syncer = preconf_ingress_sync.event_syncer().clone();
         let (node, _channels) = PreconfirmationDriverNode::start_with_provider(
             self.config.p2p_config,
             self.config.driver_config.client.inbox_address,
