@@ -45,11 +45,6 @@ where
         &self.client
     }
 
-    /// Access the event syncer.
-    pub(crate) fn event_syncer(&self) -> &Arc<EventSyncer<P>> {
-        &self.event_syncer
-    }
-
     /// Get a mutable handle to the ingress syncer task.
     pub(crate) fn handle_mut(&mut self) -> &mut JoinHandle<std::result::Result<(), SyncError>> {
         &mut self.handle

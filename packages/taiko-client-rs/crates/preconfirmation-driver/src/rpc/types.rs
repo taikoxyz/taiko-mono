@@ -9,9 +9,6 @@ use serde::{Deserialize, Serialize};
 pub struct PublishCommitmentRequest {
     /// The SSZ-encoded SignedCommitment bytes.
     pub commitment: Bytes,
-    /// Optional list of raw transaction bytes to include in this block.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transactions: Option<Vec<Bytes>>,
 }
 
 /// Request to publish an encoded transaction list separately from the commitment.
@@ -101,16 +98,12 @@ mod tests {
 
     #[test]
     fn test_publish_commitment_request_serde() {
-        let request = PublishCommitmentRequest {
-            commitment: Bytes::from(vec![1, 2, 3]),
-            transactions: Some(vec![Bytes::from(vec![7, 8, 9])]),
-        };
+        let request = PublishCommitmentRequest { commitment: Bytes::from(vec![1, 2, 3]) };
 
         let json = serde_json::to_string(&request).unwrap();
         let parsed: PublishCommitmentRequest = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.commitment, request.commitment);
-        assert_eq!(parsed.transactions, request.transactions);
     }
 
     #[test]
