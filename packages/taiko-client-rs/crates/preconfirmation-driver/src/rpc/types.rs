@@ -7,10 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishCommitmentRequest {
-    /// The RLP-encoded preconfirmation commitment.
+    /// The SSZ-encoded SignedCommitment bytes.
     pub commitment: Bytes,
-    /// The 65-byte ECDSA signature over the commitment hash.
-    pub signature: Bytes,
     /// Optional list of raw transaction bytes to include in this block.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transactions: Option<Vec<Bytes>>,
@@ -105,7 +103,6 @@ mod tests {
     fn test_publish_commitment_request_serde() {
         let request = PublishCommitmentRequest {
             commitment: Bytes::from(vec![1, 2, 3]),
-            signature: Bytes::from(vec![4, 5, 6]),
             transactions: Some(vec![Bytes::from(vec![7, 8, 9])]),
         };
 
@@ -113,7 +110,6 @@ mod tests {
         let parsed: PublishCommitmentRequest = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.commitment, request.commitment);
-        assert_eq!(parsed.signature, request.signature);
         assert_eq!(parsed.transactions, request.transactions);
     }
 

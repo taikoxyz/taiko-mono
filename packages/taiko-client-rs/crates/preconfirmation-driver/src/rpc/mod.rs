@@ -7,7 +7,7 @@
 //!
 //! # API Methods
 //!
-//! - `preconf_publishCommitment`: Publish a signed preconfirmation commitment
+//! - `preconf_publishCommitment`: Publish a signed preconfirmation commitment (SSZ bytes)
 //! - `preconf_publishTxList`: Publish an encoded transaction list (RLP + zlib)
 //! - `preconf_getStatus`: Get current node status
 //!
