@@ -238,7 +238,7 @@ abstract contract InboxTestBase is CommonTest {
         );
     }
 
-    function _seedBondBalances() internal {
+    function _seedBondBalances() internal virtual {
         uint64 initialBond = MIN_BOND_GWEI + LIVENESS_BOND_GWEI;
 
         bondToken.mint(proposer, _toTokenAmount(initialBond));
