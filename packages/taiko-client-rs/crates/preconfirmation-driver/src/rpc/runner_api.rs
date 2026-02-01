@@ -2,20 +2,18 @@
 
 use std::sync::Arc;
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::U256;
 use async_trait::async_trait;
 use preconfirmation_net::NetworkCommand;
-use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
-use ssz_rs::Deserialize;
 use tokio::sync::mpsc;
 
 use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader},
-    error::PreconfirmationClientError,
     rpc::{
         NodeStatus, PreconfRpcApi, PublishCommitmentRequest, PublishCommitmentResponse,
         PublishTxListRequest, PublishTxListResponse,
+        node_api::{build_node_status, publish_commitment_impl, publish_tx_list_impl},
     },
 };
 
@@ -59,24 +57,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
         &self,
         request: PublishCommitmentRequest,
     ) -> Result<PublishCommitmentResponse> {
-        let commitment_bytes = request.commitment.as_ref();
-        let signed_commitment = SignedCommitment::deserialize(commitment_bytes).map_err(|e| {
-            PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}"))
-        })?;
-
-        let commitment_hash = preconfirmation_types::keccak256_bytes(commitment_bytes);
-        let tx_list_hash =
-            B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
-
-        self.command_tx
-            .send(NetworkCommand::PublishCommitment(signed_commitment))
-            .await
-            .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
-
-        Ok(PublishCommitmentResponse {
-            commitment_hash: B256::from(commitment_hash.0),
-            tx_list_hash,
-        })
+        publish_commitment_impl(&self.command_tx, request).await
     }
 
     /// Publish a raw tx list to the P2P network after hash validation.
@@ -84,51 +65,22 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
         &self,
         request: PublishTxListRequest,
     ) -> Result<PublishTxListResponse> {
-        let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec())
-            .map_err(|_| PreconfirmationClientError::Validation("txlist too large".into()))?;
-
-        let calculated_hash = preconfirmation_types::keccak256_bytes(&raw_tx_list);
-        if calculated_hash.0 != request.tx_list_hash.0 {
-            return Err(PreconfirmationClientError::Validation(format!(
-                "tx_list_hash mismatch: expected {}, got {}",
-                request.tx_list_hash, calculated_hash
-            )));
-        }
-
-        let raw_tx_list_hash = Bytes32::try_from(calculated_hash.0.to_vec())
-            .expect("keccak256 always produces 32 bytes");
-        let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
-
-        self.command_tx
-            .send(NetworkCommand::PublishRawTxList(gossip))
-            .await
-            .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
-
-        Ok(PublishTxListResponse { tx_list_hash: request.tx_list_hash })
+        publish_tx_list_impl(&self.command_tx, request).await
     }
 
     /// Return node status including sync state, tips, and peer identity.
     async fn get_status(&self) -> Result<NodeStatus> {
         let canonical_proposal_id = self.canonical_id.canonical_proposal_id();
+        let preconf_tip = self.driver.preconf_tip().await?;
 
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        let peer_count =
-            match self.command_tx.send(NetworkCommand::GetPeerCount { respond_to: tx }).await {
-                Ok(()) => rx.await.unwrap_or(0),
-                Err(_) => 0,
-            };
-
-        let next_proposal_id = self.inbox_reader.get_next_proposal_id().await?;
-        let is_synced_with_inbox =
-            next_proposal_id == 0 || canonical_proposal_id >= next_proposal_id.saturating_sub(1);
-
-        Ok(NodeStatus {
-            is_synced_with_inbox,
-            preconf_tip: self.driver.preconf_tip().await?,
+        build_node_status(
+            &self.command_tx,
+            &self.inbox_reader,
             canonical_proposal_id,
-            peer_count,
-            peer_id: self.local_peer_id.clone(),
-        })
+            preconf_tip,
+            &self.local_peer_id,
+        )
+        .await
     }
 
     /// Return the latest preconfirmation tip height.

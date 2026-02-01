@@ -130,20 +130,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
     pub async fn run(self) -> Result<()> {
         info!("starting preconfirmation node");
 
-        let rpc_server = if let Some(rpc_config) = &self.rpc_config {
-            let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
-                command_tx: self.p2p_client.command_tx(),
-                canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
-                preconf_tip_rx: self.preconf_tip_rx.clone(),
-                local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
-                inbox_reader: self.driver_client.inbox_reader().clone(),
-            });
-            let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
-            info!(url = %server.http_url(), "preconfirmation RPC server started");
-            Some(server)
-        } else {
-            None
-        };
+        let rpc_server = self.start_rpc_server_if_configured().await?;
 
         let mut event_loop = self.p2p_client.sync_and_catchup().await?;
         let result = event_loop.run().await;
@@ -153,6 +140,25 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         }
 
         result.map_err(|e| PreconfirmationClientError::Network(e.to_string()))
+    }
+
+    /// Start the RPC server if configured.
+    async fn start_rpc_server_if_configured(&self) -> Result<Option<PreconfRpcServer>> {
+        let Some(rpc_config) = &self.rpc_config else {
+            return Ok(None);
+        };
+
+        let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
+            command_tx: self.p2p_client.command_tx(),
+            canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
+            preconf_tip_rx: self.preconf_tip_rx.clone(),
+            local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
+            inbox_reader: self.driver_client.inbox_reader().clone(),
+        });
+
+        let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
+        info!(url = %server.http_url(), "preconfirmation RPC server started");
+        Ok(Some(server))
     }
 
     /// Get a reference to the embedded driver client.

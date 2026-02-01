@@ -147,38 +147,14 @@ where
             return Ok(());
         }
 
-        // Validate the commitment signer.
-        let recovered_signer =
-            match validate_commitment_with_signer(&commitment, self.expected_slasher.as_ref()) {
-                Ok(signer) => signer,
-                Err(err) => {
-                    warn!(error = %err, "dropping invalid commitment");
-                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                        .increment(1);
-                    self.store.drop_pending_commitment(&current_block);
-                    return Ok(());
-                }
-            };
-
-        let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
-
-        let expected_slot_info =
-            match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
-                Ok(info) => info,
-                Err(err) => {
-                    warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
-                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                        .increment(1);
-                    self.store.drop_pending_commitment(&current_block);
-                    return Ok(());
-                }
-            };
+        // Validate the commitment and get the recovered signer.
+        let recovered_signer = match self.validate_commitment_signer(&commitment, current_block) {
+            Some(signer) => signer,
+            None => return Ok(()),
+        };
 
         // Validate the lookahead (signer and submission window).
-        if let Err(err) = validate_lookahead(&commitment, recovered_signer, &expected_slot_info) {
-            warn!(error = %err, "dropping commitment with invalid lookahead");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
-            self.store.drop_pending_commitment(&current_block);
+        if !self.validate_commitment_lookahead(&commitment, recovered_signer, current_block).await {
             return Ok(());
         }
 
@@ -197,6 +173,55 @@ where
             self.try_submit_contiguous_from(next_block).await?;
         }
         Ok(())
+    }
+
+    /// Validate commitment signature and return the recovered signer, or None if invalid.
+    fn validate_commitment_signer(
+        &self,
+        commitment: &SignedCommitment,
+        current_block: U256,
+    ) -> Option<alloy_primitives::Address> {
+        match validate_commitment_with_signer(commitment, self.expected_slasher.as_ref()) {
+            Ok(signer) => Some(signer),
+            Err(err) => {
+                warn!(error = %err, "dropping invalid commitment");
+                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                    .increment(1);
+                self.store.drop_pending_commitment(&current_block);
+                None
+            }
+        }
+    }
+
+    /// Validate lookahead info for a commitment. Returns true if valid.
+    async fn validate_commitment_lookahead(
+        &self,
+        commitment: &SignedCommitment,
+        recovered_signer: alloy_primitives::Address,
+        current_block: U256,
+    ) -> bool {
+        let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
+
+        let expected_slot_info =
+            match self.lookahead_resolver.slot_info_for_timestamp(timestamp).await {
+                Ok(info) => info,
+                Err(err) => {
+                    warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
+                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                        .increment(1);
+                    self.store.drop_pending_commitment(&current_block);
+                    return false;
+                }
+            };
+
+        if let Err(err) = validate_lookahead(commitment, recovered_signer, &expected_slot_info) {
+            warn!(error = %err, "dropping commitment with invalid lookahead");
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            self.store.drop_pending_commitment(&current_block);
+            return false;
+        }
+
+        true
     }
 
     /// Handle an inbound txlist gossip payload.

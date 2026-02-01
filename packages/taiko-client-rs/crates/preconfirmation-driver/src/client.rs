@@ -277,52 +277,17 @@ where
 
         // If pre-dial peers are configured, dial them and wait for a connection
         // before attempting catch-up. Use the pre_dial_timeout if configured.
-        let pre_dial_result: Result<()> = async {
-            if !config.p2p.pre_dial_peers.is_empty() {
-                for addr in config.p2p.pre_dial_peers.iter().cloned() {
-                    handle.dial(addr).await?;
-                }
-                let peer_id = handle
-                    .wait_for_peer_connected_with_timeout(config.p2p.pre_dial_timeout)
-                    .await?;
-                info!(peer_id = %peer_id, "peer connected before catch-up");
-                if let Err(err) =
-                    event_tx.send(PreconfirmationEvent::PeerConnected(peer_id.to_string()))
-                {
-                    warn!(error = %err, "failed to emit peer connected event");
-                }
+        if !config.p2p.pre_dial_peers.is_empty() {
+            let pre_dial_result = dial_and_wait_for_peer(&mut handle, &config, &event_tx).await;
+            if let Err(err) = pre_dial_result {
+                node_handle.abort();
+                return Err(err);
             }
-            Ok(())
-        }
-        .await;
-
-        if let Err(err) = pre_dial_result {
-            node_handle.abort();
-            return Err(err);
         }
 
         // Run the catch-up flow.
-        let catchup_result = async {
-            let catchup_start = Instant::now();
-            let catchup = TipCatchup::new(config.clone(), store.clone());
-            let commitments = catchup.backfill_from_peer_head(&mut handle, event_sync_tip).await?;
-
-            // Process each catch-up commitment through the handler.
-            let mut commit_iter = commitments.into_iter();
-            if let Some(first) = commit_iter.next() {
-                handler.handle_commitment(first).await?;
-                for commitment in commit_iter {
-                    handler.handle_commitment(commitment).await?;
-                }
-            }
-
-            metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
-                .record(catchup_start.elapsed().as_secs_f64());
-
-            Ok(())
-        }
-        .await;
-
+        let catchup_result =
+            run_catchup(&config, &store, &mut handle, event_sync_tip, &handler).await;
         if let Err(err) = catchup_result {
             node_handle.abort();
             return Err(err);
@@ -336,6 +301,49 @@ where
 
         Ok(EventLoop { config, p2p_storage, node_handle, handle, handler })
     }
+}
+
+/// Dial pre-configured peers and wait for at least one connection.
+async fn dial_and_wait_for_peer(
+    handle: &mut P2pHandle,
+    config: &PreconfirmationClientConfig,
+    event_tx: &broadcast::Sender<PreconfirmationEvent>,
+) -> Result<()> {
+    for addr in config.p2p.pre_dial_peers.iter().cloned() {
+        handle.dial(addr).await?;
+    }
+    let peer_id = handle.wait_for_peer_connected_with_timeout(config.p2p.pre_dial_timeout).await?;
+    info!(peer_id = %peer_id, "peer connected before catch-up");
+    if let Err(err) = event_tx.send(PreconfirmationEvent::PeerConnected(peer_id.to_string())) {
+        warn!(error = %err, "failed to emit peer connected event");
+    }
+    Ok(())
+}
+
+/// Run the catch-up flow: backfill commitments from peers and process them.
+async fn run_catchup<D>(
+    config: &PreconfirmationClientConfig,
+    store: &Arc<dyn CommitmentStore>,
+    handle: &mut P2pHandle,
+    event_sync_tip: alloy_primitives::U256,
+    handler: &EventHandler<D>,
+) -> Result<()>
+where
+    D: DriverClient + 'static,
+{
+    let catchup_start = Instant::now();
+    let catchup = TipCatchup::new(config.clone(), store.clone());
+    let commitments = catchup.backfill_from_peer_head(handle, event_sync_tip).await?;
+
+    // Process each catch-up commitment through the handler.
+    for commitment in commitments {
+        handler.handle_commitment(commitment).await?;
+    }
+
+    metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
+        .record(catchup_start.elapsed().as_secs_f64());
+
+    Ok(())
 }
 
 /// Simple exponential backoff helper for P2P restarts.

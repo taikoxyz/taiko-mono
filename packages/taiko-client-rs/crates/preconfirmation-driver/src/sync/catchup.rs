@@ -149,50 +149,64 @@ impl TipCatchup {
         }
 
         // 8) Fetch and persist txlists for non-EOP commitments.
+        self.fetch_and_store_txlists(&chain, handle).await?;
+
+        Ok(chain)
+    }
+
+    /// Fetch txlists for non-EOP commitments and store them.
+    async fn fetch_and_store_txlists(
+        &self,
+        chain: &[SignedCommitment],
+        handle: &mut P2pHandle,
+    ) -> Result<()> {
         let txlist_hashes: Vec<Bytes32> = chain
             .iter()
             .filter(|commitment| !is_eop_only(commitment))
             .map(|commitment| commitment.commitment.preconf.raw_tx_list_hash.clone())
             .collect();
 
+        if txlist_hashes.is_empty() {
+            return Ok(());
+        }
+
         let concurrency =
             self.config.txlist_fetch_concurrency.unwrap_or(DEFAULT_TXLIST_FETCH_CONCURRENCY).max(1);
+        let command_tx = handle.command_sender();
+        let mut join_set: JoinSet<Result<Option<RawTxListGossip>>> = JoinSet::new();
+        let mut pending = txlist_hashes.into_iter();
 
-        if !txlist_hashes.is_empty() {
-            let command_tx = handle.command_sender();
-            let mut join_set: JoinSet<Result<Option<RawTxListGossip>>> = JoinSet::new();
-            let mut pending = txlist_hashes.into_iter();
-
-            for _ in 0..concurrency {
-                if let Some(hash) = pending.next() {
-                    let command_tx = command_tx.clone();
-                    join_set.spawn(async move { fetch_txlist(command_tx, hash).await });
-                }
-            }
-
-            while let Some(result) = join_set.join_next().await {
-                match result {
-                    Ok(Ok(Some(gossip))) => {
-                        let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
-                        self.store.insert_txlist(hash, gossip);
-                    }
-                    Ok(Ok(None)) => {}
-                    Ok(Err(err)) => return Err(err),
-                    Err(err) => {
-                        return Err(PreconfirmationClientError::Catchup(format!(
-                            "txlist task failed: {err}"
-                        )));
-                    }
-                }
-
-                if let Some(hash) = pending.next() {
-                    let command_tx = command_tx.clone();
-                    join_set.spawn(async move { fetch_txlist(command_tx, hash).await });
-                }
+        // Seed the join set with initial concurrent fetches.
+        for _ in 0..concurrency {
+            if let Some(hash) = pending.next() {
+                let tx = command_tx.clone();
+                join_set.spawn(async move { fetch_txlist(tx, hash).await });
             }
         }
 
-        Ok(chain)
+        // Process results and spawn new fetches as slots become available.
+        while let Some(result) = join_set.join_next().await {
+            match result {
+                Ok(Ok(Some(gossip))) => {
+                    let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
+                    self.store.insert_txlist(hash, gossip);
+                }
+                Ok(Ok(None)) => {}
+                Ok(Err(err)) => return Err(err),
+                Err(err) => {
+                    return Err(PreconfirmationClientError::Catchup(format!(
+                        "txlist task failed: {err}"
+                    )));
+                }
+            }
+
+            if let Some(hash) = pending.next() {
+                let tx = command_tx.clone();
+                join_set.spawn(async move { fetch_txlist(tx, hash).await });
+            }
+        }
+
+        Ok(())
     }
 }
 
