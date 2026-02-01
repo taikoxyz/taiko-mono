@@ -1,19 +1,18 @@
 import { defineConfig } from '@wagmi/cli';
 import type { Abi } from 'abitype';
 
-import Bridge from '../protocol/out/Bridge.sol/Bridge.json';
 // CI will fail if we import from the protocol package
 // We'll ignore this file on svelte-check: `svelte-check --ignore ./wagmi.config.ts`
-import ERC20 from '../protocol/out/BridgedERC20.sol/BridgedERC20.json';
-import ERC721 from '../protocol/out/BridgedERC721.sol/BridgedERC721.json';
-import ERC1155 from '../protocol/out/BridgedERC1155.sol/BridgedERC1155.json';
-import ERC20Vault from '../protocol/out/ERC20Vault.sol/ERC20Vault.json';
-import ERC721Vault from '../protocol/out/ERC721Vault.sol/ERC721Vault.json';
-import ERC1155Vault from '../protocol/out/ERC1155Vault.sol/ERC1155Vault.json';
-import FreeMintERC20 from '../protocol/out/FreeMintERC20.sol/FreeMintERC20.json';
-import ICrossChainSync from '../protocol/out/ICrossChainSync.sol/ICrossChainSync.json';
-import ISignalService from '../protocol/out/ISignalService.sol/ISignalService.json';
-import QuotaManager from '../protocol/out/QuotaManager.sol/QuotaManager.json';
+import AnchroForkRouter from '../protocol/out/layer2/AnchorForkRouter.sol/AnchorForkRouter.json';
+import Bridge from '../protocol/out/shared/Bridge.sol/Bridge.json';
+import ERC20 from '../protocol/out/shared/BridgedERC20.sol/BridgedERC20.json';
+import ERC721 from '../protocol/out/shared/BridgedERC721.sol/BridgedERC721.json';
+import ERC1155 from '../protocol/out/shared/BridgedERC1155.sol/BridgedERC1155.json';
+import ERC20Vault from '../protocol/out/shared/ERC20Vault.sol/ERC20Vault.json';
+import ERC721Vault from '../protocol/out/shared/ERC721Vault.sol/ERC721Vault.json';
+import ERC1155Vault from '../protocol/out/shared/ERC1155Vault.sol/ERC1155Vault.json';
+import FreeMintERC20 from '../protocol/out/shared/FreeMintERC20Token.sol/FreeMintERC20Token.json';
+import ISignalService from '../protocol/out/shared/ISignalService.sol/ISignalService.json';
 
 export default defineConfig({
   out: 'src/abi/index.ts',
@@ -33,10 +32,6 @@ export default defineConfig({
     {
       name: 'ERC1155Vault',
       abi: ERC1155Vault.abi as Abi,
-    },
-    {
-      name: 'CrossChainSync',
-      abi: ICrossChainSync.abi as Abi,
     },
     {
       name: 'SignalService',
@@ -59,8 +54,8 @@ export default defineConfig({
       abi: ERC1155.abi as Abi,
     },
     {
-      name: 'QuotaManager',
-      abi: QuotaManager.abi as Abi,
+      name: 'AnchorForkRouter',
+      abi: AnchroForkRouter.abi as Abi,
     },
   ],
 });
