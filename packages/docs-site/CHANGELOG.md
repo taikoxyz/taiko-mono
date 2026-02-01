@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.33.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.1...docs-site-v1.33.2) (2026-02-01)
+
+
+### Chores
+
+* **docs-site:** add erc8004 v1.0 addresses ([#21234](https://github.com/taikoxyz/taiko-mono/issues/21234)) ([2ff43d5](https://github.com/taikoxyz/taiko-mono/commit/2ff43d5cb328c0ed9827ccba764387146b817833))
+
 ## [1.33.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.0...docs-site-v1.33.1) (2026-01-27)
 
 
