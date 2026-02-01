@@ -729,12 +729,7 @@ func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
 	var baseFee *big.Int
 
 	if p.taikoL2 != nil {
-		latestL2Block, err := p.destEthClient.BlockByNumber(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
+		bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(blk.GasUsed()))
 		if err != nil {
 			return nil, err
 		}
