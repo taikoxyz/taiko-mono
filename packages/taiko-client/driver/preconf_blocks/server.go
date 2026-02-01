@@ -43,7 +43,7 @@ import (
 var (
 	errInvalidCurrOperator = errors.New("invalid operator: expected current operator in handover window")
 	errInvalidNextOperator = errors.New("invalid operator: expected next operator in handover window")
-	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	wsUpgrader             = websocket.Upgrader{}
 )
 
 const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
