@@ -9,6 +9,8 @@ use crate::validation::is_eop_only;
 
 /// Embedded driver client for direct in-process communication.
 pub mod embedded;
+/// Event syncer-backed driver client for runner integration.
+pub mod event_syncer_client;
 /// Execution payload builder.
 pub mod payload;
 /// Driver-facing traits and input structures.
@@ -43,6 +45,7 @@ impl PreconfirmationInput {
 }
 
 pub use embedded::{ContractInboxReader, EmbeddedDriverClient};
+pub use event_syncer_client::EventSyncerDriverClient;
 pub use traits::{BlockHeaderProvider, DriverClient, InboxReader};
 
 #[cfg(test)]

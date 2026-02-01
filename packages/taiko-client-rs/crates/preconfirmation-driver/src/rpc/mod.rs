@@ -25,6 +25,7 @@
 /// API trait and implementation.
 pub mod api;
 pub(crate) mod node_api;
+pub(crate) mod runner_api;
 /// RPC server implementation.
 pub mod server;
 /// Request and response types.

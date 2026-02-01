@@ -29,8 +29,8 @@ impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     pub(crate) async fn start(config: &DriverConfig) -> Result<Self, RunnerError> {
         let client = Client::new(config.client.clone()).await?;
         let event_syncer = Arc::new(EventSyncer::new(config, client.clone()).await?);
-        let event_syncer_run = event_syncer.clone();
-        let handle = tokio::spawn(async move { event_syncer_run.run().await });
+        let event_syncer_task = event_syncer.clone();
+        let handle = tokio::spawn(async move { event_syncer_task.run().await });
 
         Ok(Self { client, event_syncer, handle })
     }
@@ -43,6 +43,11 @@ where
     /// Access the preconfirmation ingress RPC client.
     pub(crate) fn client(&self) -> &Client<P> {
         &self.client
+    }
+
+    /// Access the event syncer handle.
+    pub(crate) fn event_syncer(&self) -> Arc<EventSyncer<P>> {
+        self.event_syncer.clone()
     }
 
     /// Get a mutable handle to the ingress syncer task.

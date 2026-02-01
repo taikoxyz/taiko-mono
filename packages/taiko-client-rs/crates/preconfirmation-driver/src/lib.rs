@@ -52,7 +52,8 @@ pub mod validation;
 pub use client::{EventLoop, PreconfirmationClient};
 pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{
-    ContractInboxReader, DriverClient, EmbeddedDriverClient, InboxReader, PreconfirmationInput,
+    ContractInboxReader, DriverClient, EmbeddedDriverClient, EventSyncerDriverClient, InboxReader,
+    PreconfirmationInput,
 };
 pub use error::{DriverApiError, PreconfirmationClientError, Result};
 pub use metrics::PreconfirmationClientMetrics;
