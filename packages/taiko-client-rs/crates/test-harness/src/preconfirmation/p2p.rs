@@ -13,7 +13,7 @@ use std::{
 
 use alloy_primitives::{Address, U256};
 use anyhow::Result;
-use preconfirmation_client::DriverClient;
+use preconfirmation_driver::DriverClient;
 use preconfirmation_net::{
     InMemoryStorage, LocalValidationAdapter, P2pConfig, P2pHandle, P2pNode, PreconfStorage,
     ValidationAdapter,

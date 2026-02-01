@@ -1,9 +1,8 @@
 //! Driver specific error types.
 
-use std::{io, path::PathBuf, result::Result as StdResult, time::Duration};
+use std::{io, result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
-use reth_ipc::server::IpcServerStartError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
@@ -27,29 +26,6 @@ pub enum DriverError {
     /// I/O error emitted by the runtime.
     #[error("io error: {0}")]
     Io(#[from] io::Error),
-
-    /// Driver RPC server requires a JWT secret path when enabled.
-    #[error("driver RPC JWT secret path is required")]
-    DriverRpcJwtSecretMissing,
-
-    /// Failed to read the JWT secret configured for the driver RPC server.
-    #[error("failed to read jwt secret for driver RPC server")]
-    DriverRpcJwtSecretReadFailed,
-
-    /// IPC server failed to start.
-    #[error("failed to start IPC server: {0}")]
-    IpcServerStart(#[from] IpcServerStartError),
-
-    /// A non-socket file exists at the IPC socket path.
-    #[error("non-socket file exists at IPC path: {0}")]
-    IpcPathNotSocket(PathBuf),
-
-    /// IPC socket is already in use by another running server.
-    #[error("IPC socket already in use: {path}")]
-    IpcSocketInUse {
-        /// Path to the socket that is already in use.
-        path: PathBuf,
-    },
 
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]

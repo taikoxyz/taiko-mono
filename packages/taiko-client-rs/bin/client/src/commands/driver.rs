@@ -1,7 +1,6 @@
 //! Driver subcommand.
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
-use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
@@ -9,6 +8,7 @@ use rpc::{SubscriptionSource, client::ClientConfig};
 
 use crate::{
     commands::Subcommand,
+    error::Result,
     flags::{common::CommonArgs, driver::DriverArgs},
 };
 
@@ -51,20 +51,13 @@ impl DriverSubCommand {
             inbox_address: self.common_flags.shasta_inbox_address,
         };
 
-        let mut cfg = DriverConfig::new(
+        Ok(DriverConfig::new(
             client_cfg,
             self.driver_flags.retry_interval(),
             l1_beacon,
             l2_checkpoint,
             blob_server,
-        );
-
-        cfg.rpc_listen_addr = self.driver_flags.rpc_listen_addr;
-        cfg.rpc_jwt_secret = self.driver_flags.rpc_jwt_secret.clone();
-        cfg.rpc_ipc_path = self.driver_flags.rpc_ipc_path.clone();
-        cfg.preconfirmation_enabled = cfg.has_rpc_endpoint();
-
-        Ok(cfg)
+        ))
     }
 
     /// Run the driver.
