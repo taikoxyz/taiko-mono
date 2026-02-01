@@ -49,6 +49,7 @@ contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
+"contracts/layer2/core/L2FeeVault.sol:L2FeeVault"
 "contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
 "contracts/layer2/preconf/PreconfSlasherL2.sol:PreconfSlasherL2"
 )

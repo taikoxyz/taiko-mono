@@ -29,7 +29,6 @@ library LibInboxSetup {
         require(_config.bondToken != address(0), BondTokenZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
         require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
-        require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
         require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
         require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeInGweiZero());
         require(
@@ -90,7 +89,6 @@ library LibInboxSetup {
     // ---------------------------------------------------------------
 
     error ActivationPeriodExpired();
-    error BasefeeSharingPctgTooLarge();
     error BondTokenZero();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();

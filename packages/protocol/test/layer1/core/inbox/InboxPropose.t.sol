@@ -20,6 +20,11 @@ contract InboxProposeTest is InboxTestBase {
         uint48 originBlockNumber = uint48(block.number - 1);
         bytes32 originBlockHash = blockhash(block.number - 1);
 
+        assertGt(payload.cost.gasUsed, 0, "gas used");
+        assertEq(payload.cost.numBlobs, uint32(input.blobReference.numBlobs), "num blobs");
+        assertEq(payload.cost.basefee, uint128(block.basefee), "basefee");
+        assertEq(payload.cost.blobBasefee, uint128(block.blobbasefee), "blob basefee");
+
         IInbox.Proposal memory expectedProposal =
             _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
         _assertPayloadEqual(payload, expectedProposal);
@@ -226,7 +231,10 @@ contract InboxProposeTest is InboxTestBase {
             _expected.endOfSubmissionWindowTimestamp,
             "submission window"
         );
-        assertEq(_actual.basefeeSharingPctg, _expected.basefeeSharingPctg, "basefee sharing");
+        assertEq(_actual.cost.gasUsed, _expected.cost.gasUsed, "gas used");
+        assertEq(_actual.cost.numBlobs, _expected.cost.numBlobs, "num blobs");
+        assertEq(_actual.cost.basefee, _expected.cost.basefee, "basefee");
+        assertEq(_actual.cost.blobBasefee, _expected.cost.blobBasefee, "blob basefee");
         assertEq(_actual.sources.length, _expected.sources.length, "sources length");
         if (_actual.sources.length != 0) {
             assertEq(

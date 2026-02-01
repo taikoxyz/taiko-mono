@@ -102,7 +102,6 @@ contract InboxActivationTest is InboxTestBase {
         // Verify key config values match what was set during construction
         assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
-        assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
         assertEq(
             cfg.minForcedInclusionCount,
             config.minForcedInclusionCount,
@@ -170,14 +169,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.ringBufferSize = 1; // Must be > 1
 
         vm.expectRevert(LibInboxSetup.RingBufferSizeTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_BasefeeSharingPctgTooLarge() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.basefeeSharingPctg = 101; // Must be <= 100
-
-        vm.expectRevert(LibInboxSetup.BasefeeSharingPctgTooLarge.selector);
         new Inbox(cfg);
     }
 

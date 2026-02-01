@@ -28,7 +28,18 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **timestamp**          | The timestamp when the proposal was accepted on L1                      |
 | **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
 | **originBlockHash**    | The hash of `originBlockNumber` block                                   |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                             |
+| **gasUsed**            | L1 gas used by the proposal transaction                                 |
+| **numBlobs**           | Number of blobs attached to the proposal transaction                    |
+| **basefee**            | L1 basefee (EIP-1559) at proposal inclusion                             |
+| **blobBasefee**        | L1 blob basefee (EIP-4844) at proposal inclusion                        |
+
+The `gasUsed`, `numBlobs`, `basefee`, and `blobBasefee` fields are used by the L2 fee vault for
+proposal cost accounting; they do not affect block derivation.
+
+`gasUsed` is computed in-contract as intrinsic gas plus calldata cost and execution up to the
+recording point, plus fixed estimates for storing the proposal hash in the ring buffer and
+emitting the `Proposed` event log; it excludes any L1 priority fee and later bookkeeping costs.
+These values are grouped in the `ProposalCost` sub-struct of the proposal.
 
 ### Derivation Source-level Metadata
 
@@ -55,7 +66,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 ## Metadata Preparation
 
 The metadata preparation process initiates with a subscription to the inbox's `Proposed` event (see
-[`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L174-L188)).
+[`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L193-L207)).
 
 The other fields can be derived by querying the L1 and the inbox contract:
 
@@ -66,11 +77,14 @@ The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                | Value Assignment             |
-| ----------------------------- | ---------------------------- |
-| `metadata.id`                 | `payload.id`                 |
-| `metadata.proposer`           | `payload.proposer`           |
-| `metadata.basefeeSharingPctg` | `payload.basefeeSharingPctg` |
+| Metadata Field         | Value Assignment           |
+| ---------------------- | -------------------------- |
+| `metadata.id`          | `payload.id`               |
+| `metadata.proposer`    | `payload.proposer`         |
+| `metadata.gasUsed`     | `payload.cost.gasUsed`     |
+| `metadata.numBlobs`    | `payload.cost.numBlobs`    |
+| `metadata.basefee`     | `payload.cost.basefee`     |
+| `metadata.blobBasefee` | `payload.cost.blobBasefee` |
 
 **Derivation source-level assignments (for source `i`):**
 
@@ -248,6 +262,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 **Validation process**:
 
 1. **Define bounds**:
+
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
    - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
@@ -293,14 +308,14 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field              |
-| -------------------- | ------- | ------------------------- |
-| `number`             | uint256 | `number`                  |
-| `timestamp`          | uint256 | `timestamp`               |
-| `difficulty`         | uint256 | `difficulty`              |
-| `gasLimit`           | uint256 | `gasLimit`                |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData` |
-| `proposalId`         | uint48  | Bytes 1..6 in `extraData` |
+| Metadata Component | Type    | Header Field                          |
+| ------------------ | ------- | ------------------------------------- |
+| `number`           | uint256 | `number`                              |
+| `timestamp`        | uint256 | `timestamp`                           |
+| `difficulty`       | uint256 | `difficulty`                          |
+| `gasLimit`         | uint256 | `gasLimit`                            |
+| `reserved`         | uint8   | First byte in `extraData` (must be 0) |
+| `proposalId`       | uint48  | Bytes 1..6 in `extraData`             |
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -316,7 +331,41 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with the L1 checkpoint fields:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization
+and fee-vault imports. It invokes the `anchorV4` function on the ShastaAnchor contract with proposal-level
+and block-level parameters.
+
+**ProposalParams:**
+
+| Parameter           | Type            | Description                                                                |
+| ------------------- | --------------- | -------------------------------------------------------------------------- |
+| proposalId          | uint48          | L1 proposal id for the current L2 block                                    |
+| submissionWindowEnd | uint48          | End of the preconfirmation submission window                               |
+| feeData             | ProposalFeeData | Canonical fee data to import into the L2 fee vault (proposalId == 0 skips) |
+
+`ProposalFeeData` fields:
+
+| Field            | Type    | Description                                              |
+| ---------------- | ------- | -------------------------------------------------------- |
+| proposalId       | uint48  | Proposal id (must be strictly sequential across imports) |
+| proposer         | address | L1 proposer address                                      |
+| l1GasUsed        | uint64  | Gas used by the L1 proposal transaction                  |
+| numBlobs         | uint32  | Number of blobs attached to the proposal transaction     |
+| l1Basefee        | uint128 | L1 basefee at proposal inclusion                         |
+| l1BlobBasefee    | uint128 | L1 blob basefee at proposal inclusion                    |
+| l2BasefeeRevenue | uint256 | Sum of L2 basefee revenue for blocks in this proposal    |
+
+The validity proof must verify that `feeData` corresponds to canonical L1 Inbox state and L2 execution.
+In particular, it should recompute `hashProposal(proposal)` from the full proposal data (including
+cost fields) and verify it matches the proposal hash stored in the ring buffer for that `proposalId`,
+using the appropriate L1 state root. It must also verify that `l2BasefeeRevenue` is correctly computed
+from the L2 blocks in that proposal (excluding system transactions as specified by the protocol).
+
+Fee data is provided once per proposal (typically on the first L2 block of that proposal). The
+anchor tracks the last imported proposal id and only imports when `proposalId` increments; for other
+blocks in the same proposal, `feeData.proposalId` is set to 0.
+
+**BlockParams:**
 
 | Parameter         | Type    | Description                                     |
 | ----------------- | ------- | ----------------------------------------------- |
@@ -329,6 +378,7 @@ The anchor transaction serves as a privileged system transaction responsible for
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
+
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
