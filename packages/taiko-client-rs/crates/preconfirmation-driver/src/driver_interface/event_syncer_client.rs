@@ -200,7 +200,10 @@ where
             }
 
             if rx.changed().await.is_err() {
-                return Ok(());
+                return Err(DriverApiError::ChannelClosed(
+                    "proposal id watch channel closed".to_string(),
+                )
+                .into());
             }
         }
     }
