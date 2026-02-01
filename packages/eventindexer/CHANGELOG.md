@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.14.0...eventindexer-v0.15.0) (2026-02-01)
+
+
+### Features
+
+* **eventindexer:** introduce Shasta inbox for starting block search without beacon RPC dependency ([#21201](https://github.com/taikoxyz/taiko-mono/issues/21201)) ([6aedd4e](https://github.com/taikoxyz/taiko-mono/commit/6aedd4e79026b34f887361cbdde758916ecc7236))
+
+
+### Bug Fixes
+
+* **eventindexer:** check tx.Commit error in CreateMetadata ([#21235](https://github.com/taikoxyz/taiko-mono/issues/21235)) ([592b5b6](https://github.com/taikoxyz/taiko-mono/commit/592b5b6648d1c0d6a5e2e765868a654c8162144f))
+* **eventindexer:** fix migration mismatch ([#21211](https://github.com/taikoxyz/taiko-mono/issues/21211)) ([017e4c6](https://github.com/taikoxyz/taiko-mono/commit/017e4c63bfd5d65743dbf7e95d6be53c6c1dce1c))
+
 ## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2026-01-20)
 
 
