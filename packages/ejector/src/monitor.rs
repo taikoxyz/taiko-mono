@@ -137,6 +137,7 @@ pub struct Monitor {
     whitelist_address: Address,
     handover_slots: u64,
     preconf_router_address: Address,
+    anchor_address: Option<Address>,
     min_operators: u64,
     min_reorg_depth_for_eject: usize,
     reorg_ejection_enabled: bool,
@@ -159,6 +160,28 @@ fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
 
 fn should_skip_for_sync_class(class: SyncStatusClass) -> bool {
     matches!(class, SyncStatusClass::Syncing | SyncStatusClass::Unknown)
+}
+
+/// Result of checking if a reorg is due to re-anchoring.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReanchoringCheck {
+    /// Anchor block changed - this is a re-anchoring event, skip ejection
+    ReanchoringDetected { prev_anchor: u64, current_anchor: u64 },
+    /// Anchor block unchanged - proceed with ejection check
+    NoReanchoring,
+    /// First time seeing anchor block - no previous to compare
+    FirstAnchor,
+}
+
+/// Check if a reorg is due to re-anchoring by comparing anchor block numbers.
+fn check_reanchoring(prev_anchor: Option<u64>, current_anchor: u64) -> ReanchoringCheck {
+    match prev_anchor {
+        Some(prev) if prev != current_anchor => {
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: prev, current_anchor }
+        }
+        Some(_) => ReanchoringCheck::NoReanchoring,
+        None => ReanchoringCheck::FirstAnchor,
+    }
 }
 
 impl Monitor {
@@ -216,6 +239,7 @@ impl Monitor {
         whitelist_address: Address,
         handover_slots: u64,
         preconf_router_address: Address,
+        anchor_address: Option<Address>,
         min_operators: u64,
         min_reorg_depth_for_eject: usize,
         reorg_ejection_enabled: bool,
@@ -234,6 +258,7 @@ impl Monitor {
             whitelist_address,
             handover_slots,
             preconf_router_address,
+            anchor_address,
             min_operators,
             min_reorg_depth_for_eject,
             reorg_ejection_enabled,
@@ -285,6 +310,17 @@ impl Monitor {
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
+        // Clone for use in main loop (reorg sync status checks and anchor queries)
+        let l2_http_provider_for_reorg = l2_http_provider.clone();
+        // Anchor contract for detecting re-anchoring (only if reorg ejection is enabled and address is configured)
+        let anchor_contract = if self.reorg_ejection_enabled {
+            self.anchor_address
+                .map(|addr| crate::bindings::Anchor::new(addr, l2_http_provider_for_reorg.clone()))
+        } else {
+            None
+        };
+        // Track last known anchor block number to detect re-anchoring
+        let last_anchor_block = Arc::new(Mutex::new(None::<u64>));
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
@@ -300,7 +336,7 @@ impl Monitor {
                 warn!("Failed to initialize eject metrics: {e:?}");
                 let retry_cache = operator_cache.clone();
                 let retry_whitelist = preconf_whitelist.clone();
-                let _retry_handle = tokio::spawn(async move {
+                tokio::spawn(async move {
                     let mut backoff = Duration::from_secs(5);
                     let max_backoff = Duration::from_secs(60);
                     loop {
@@ -632,6 +668,74 @@ impl Monitor {
                                                 continue;
                                             }
 
+                                            // Check if this reorg is due to re-anchoring by comparing anchor block numbers.
+                                            // If anchor block changed, it's a legitimate re-anchoring, not a malicious reorg.
+                                            if let Some(ref anchor) = anchor_contract {
+                                                match anchor.getBlockState().call().await {
+                                                    Ok(block_state) => {
+                                                        let current_anchor: u64 =
+                                                            block_state.anchorBlockNumber.try_into().unwrap_or(0);
+                                                        let mut guard = last_anchor_block.lock().await;
+                                                        let prev_anchor = *guard;
+                                                        match check_reanchoring(prev_anchor, current_anchor) {
+                                                            ReanchoringCheck::ReanchoringDetected {
+                                                                prev_anchor,
+                                                                current_anchor,
+                                                            } => {
+                                                                info!(
+                                                                    block_number,
+                                                                    depth = reorg_depth,
+                                                                    prev_anchor,
+                                                                    current_anchor,
+                                                                    "Anchor block changed (re-anchoring detected); skipping reorg-based eject"
+                                                                );
+                                                                *guard = Some(current_anchor);
+                                                                metrics::inc_reorg_skipped();
+                                                                continue;
+                                                            }
+                                                            ReanchoringCheck::FirstAnchor => {
+                                                                // First reorg before we've established anchor baseline.
+                                                                // Skip ejection to avoid false positives on startup.
+                                                                info!(
+                                                                    block_number,
+                                                                    depth = reorg_depth,
+                                                                    current_anchor,
+                                                                    "First anchor observation during reorg; skipping eject to establish baseline"
+                                                                );
+                                                                *guard = Some(current_anchor);
+                                                                metrics::inc_reorg_skipped();
+                                                                continue;
+                                                            }
+                                                            ReanchoringCheck::NoReanchoring => {
+                                                                *guard = Some(current_anchor);
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(e) => {
+                                                        // If we can't query anchor, fall back to sync status check
+                                                        warn!(
+                                                            block_number,
+                                                            depth = reorg_depth,
+                                                            "Failed to query anchor block state: {e:?}; falling back to sync status check"
+                                                        );
+                                                        if Self::should_skip_due_to_sync_status(
+                                                            &l2_http_provider_for_reorg,
+                                                            "L2 (reorg)",
+                                                        )
+                                                        .await
+                                                        {
+                                                            info!(
+                                                                block_number,
+                                                                depth = reorg_depth,
+                                                                "L2 is syncing (likely re-anchoring); skipping reorg-based eject"
+                                                            );
+                                                            metrics::inc_reorg_skipped();
+                                                            continue;
+                                                        }
+                                                    }
+                                                }
+                                            }
+
                                             for removed in removed_blocks.iter() {
                                                 debug!(
                                                     block_number = removed.number,
@@ -711,6 +815,23 @@ impl Monitor {
                                                             block_hash = ?culprit.hash,
                                                             coinbase = ?coinbase,
                                                         "Failed to resolve operator for reorged block: {err:?}"
+                                                    );
+                                                }
+                                            }
+                                        } else if let Some(ref anchor) = anchor_contract {
+                                            // No reorg: update anchor baseline for future reorg detection.
+                                            // Only log on failure to avoid spamming logs on every block.
+                                            match anchor.getBlockState().call().await {
+                                                Ok(block_state) => {
+                                                    let current_anchor: u64 =
+                                                        block_state.anchorBlockNumber.try_into().unwrap_or(0);
+                                                    let mut guard = last_anchor_block.lock().await;
+                                                    *guard = Some(current_anchor);
+                                                }
+                                                Err(e) => {
+                                                    debug!(
+                                                        block_number,
+                                                        "Failed to query anchor block state: {e:?}"
                                                     );
                                                 }
                                             }
@@ -844,7 +965,10 @@ pub async fn are_preconfs_enabled(
 #[cfg(test)]
 mod tests {
     use super::Monitor;
-    use super::{SyncStatusClass, classify_sync_status, should_skip_for_sync_class};
+    use super::{
+        ReanchoringCheck, SyncStatusClass, check_reanchoring, classify_sync_status,
+        should_skip_for_sync_class,
+    };
     use alloy::providers::ProviderBuilder;
     use serde_json::json;
     use wiremock::matchers::{body_partial_json, method, path};
@@ -921,5 +1045,66 @@ mod tests {
         let response = ResponseTemplate::new(200).set_body_raw("not-json", "application/json");
         let skip = run_sync_status_check_with_response(response).await;
         assert!(skip);
+    }
+
+    #[test]
+    fn check_reanchoring_detects_anchor_change() {
+        // When anchor changes from 100 to 200, it's a re-anchoring event
+        let result = check_reanchoring(Some(100), 200);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 100, current_anchor: 200 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_no_change() {
+        // When anchor stays the same, no re-anchoring
+        let result = check_reanchoring(Some(100), 100);
+        assert_eq!(result, ReanchoringCheck::NoReanchoring);
+    }
+
+    #[test]
+    fn check_reanchoring_first_anchor() {
+        // When there's no previous anchor, it's the first time we're seeing it
+        let result = check_reanchoring(None, 100);
+        assert_eq!(result, ReanchoringCheck::FirstAnchor);
+    }
+
+    #[test]
+    fn check_reanchoring_detects_backward_anchor_change() {
+        // Re-anchoring can also go backwards (e.g., reorg to earlier L1 block)
+        let result = check_reanchoring(Some(200), 100);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 200, current_anchor: 100 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_zero_anchor() {
+        // Zero anchor should still work
+        let result = check_reanchoring(Some(100), 0);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 100, current_anchor: 0 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_from_zero() {
+        // Going from zero to non-zero
+        let result = check_reanchoring(Some(0), 100);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 0, current_anchor: 100 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_zero_unchanged() {
+        // Zero anchor staying at zero
+        let result = check_reanchoring(Some(0), 0);
+        assert_eq!(result, ReanchoringCheck::NoReanchoring);
     }
 }

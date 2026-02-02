@@ -27,3 +27,14 @@ sol! {
         function getConfig() pure returns (uint256 handOverSlots);
     }
 }
+
+sol! {
+    #[sol(rpc)]
+    interface Anchor {
+        struct BlockState {
+            uint48 anchorBlockNumber;
+            bytes32 ancestorsHash;
+        }
+        function getBlockState() external view returns (BlockState memory);
+    }
+}
