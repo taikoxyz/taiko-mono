@@ -25,10 +25,11 @@
 ### signal_service
 
 - proxy: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
-- impl: `0x5776315840041c2bc2C9D16a33E52AD0DD359600`
+- impl: `0x9403EdED7bF886F49025Eb65AAba56E04aFF5243`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
 
 ### bridge
 
@@ -98,6 +99,13 @@
   - updated on Oct 20, 2025 at commit `520ed22`
   - updated on Dec 3, 2025 at commit ``
 
+### ShastaInbox
+- proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
+- impl: `0x2f3090807e76D613f8F2b92d4793e678Dd19Ae23`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Feb 2, 2026 at commit `392bfa0`
+
 ### forced_inclusion_store
 
 - proxy : `0xA7F175Aff7C62854d0A0498a0da17b66A9D452D0`
@@ -109,7 +117,7 @@
 ### preconf_whitelist
 
 - proxy : `0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba`
-- impl : `0x760195F08A1FABd5fCB7E733878b93bCA13eF5aB`
+- impl : `0xF7DC03615231C4219F6AE4B78884a63fB37Df9Fc`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - ejectors:
 - operators:
@@ -118,6 +126,17 @@
   - taiko gattaca proposer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`(sequencer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`)
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
+
+### prover_whitelist
+
+- proxy : `0xa9a84b6667A2c60BFdE8c239918d0d9a11c77E89`
+- impl : `0x8bc913253BbB2EcCAf1F74C35cdeb4F5Eebe3785`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- provers:
+  - taiko prover `0x7B399987D24FC5951f3E94A4cb16E87414bF2229`
+- logs:
+  - deployed on Feb 2, 2026 at commit `392bfa0`
 
 ### preconf_router
 
@@ -136,7 +155,7 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
-### proof_verifier
+### proof_verifier(Pacaya)
 
 - proxy : `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59`
 - impl : `0xbE3CA2aF1bc74b22E96799e998E0a19f8A40bcbC`
@@ -145,7 +164,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
 
-### sgx_reth_verifier
+### sgx_reth_verifier(Pacaya)
 
 - proxy : `0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11`
 - impl : `0xD35d8408A50b5F9002f53BFeEFcA053d333d35BA`
@@ -154,7 +173,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
 
-### risc0_reth_verifier
+### risc0_reth_verifier(Pacaya)
 
 - proxy : `0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd`
 - impl : `0xF0BabD64159D3A711bC0A412B9DfCd7d08d8FF75`
@@ -163,7 +182,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
 
-### sp1_reth_verifier
+### sp1_reth_verifier(Pacaya)
 
 - proxy : `0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3`
 - impl : `0x801dcb74ed6c45764c91b9e818ec204b41eada9b`
@@ -172,7 +191,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
 
-### sgx_geth_verifier
+### sgx_geth_verifier(Pacaya)
 
 - proxy : `0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e`
 - impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
