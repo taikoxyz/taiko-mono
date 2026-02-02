@@ -218,6 +218,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// smaller than:
     /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
     /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
+    // Surge: In production, the reentrancy mechanism needs to be more robust
+    // and CEI should be checked on a per message hash being executed basis to
+    // prvent double execution
     function processMessage(
         Message calldata _message,
         bytes calldata _proof
