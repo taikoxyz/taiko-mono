@@ -246,10 +246,11 @@
 ### signal_service
 
 - proxy: `0x1670130000000000000000000000000000000005`
-- impl: `0x0167013000000000000000000000000000000005`
+- impl: `0xAc9547e2c7855976df06a41de993F6288B76F570`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
+  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
 
 ### shared_resolver
 
@@ -262,11 +263,12 @@
 ### taiko_anchor
 
 - proxy: `0x1670130000000000000000000000000000010001`
-- impl: `0x5E652dC4033C6860b27d6860164369D15b421A42`
+- impl: `0xdaf8A01b5030e967E20B4e7d1Ab976DA1a6e4cc6`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - updated on Dec 19, 2025 at commit `7492388`
+  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
 
 ### rollup_resolver
 
