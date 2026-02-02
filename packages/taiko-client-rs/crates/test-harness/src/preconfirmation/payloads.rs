@@ -12,12 +12,12 @@ use alloy_primitives::{Address, Bytes, U256};
 use alloy_rlp::encode as rlp_encode;
 use anyhow::{Context, Result, anyhow, ensure};
 use flate2::{Compression, write::ZlibEncoder};
-use preconfirmation_client::codec::ZlibTxListCodec;
 use preconfirmation_types::{
     Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
     SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
     u256_to_uint256,
 };
+use protocol::codec::ZlibTxListCodec;
 use secp256k1::SecretKey;
 
 // ============================================================================
@@ -331,7 +331,7 @@ pub fn derive_signer(seed: u8) -> (SecretKey, Address) {
 ///
 /// Returns the maximum of event_sync_tip and preconf_tip plus one,
 /// which is the next block that should be preconfirmed.
-pub async fn compute_starting_block<D: preconfirmation_client::DriverClient>(
+pub async fn compute_starting_block<D: preconfirmation_driver::DriverClient>(
     driver: &D,
 ) -> Result<u64> {
     let event_sync_tip = driver.event_sync_tip().await?;

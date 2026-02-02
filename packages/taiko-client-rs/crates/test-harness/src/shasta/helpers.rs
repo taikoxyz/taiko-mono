@@ -23,7 +23,7 @@ use rpc::{
 };
 use tracing::{info, warn};
 
-use crate::helper::{increase_l1_time, mine_l1_block};
+use crate::helper::{increase_l1_time, mine_l1_blocks};
 
 /// The RPC client type used in Shasta tests.
 pub type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
@@ -34,11 +34,13 @@ const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
 const L1_BLOCK_TIME_SECONDS: u64 = 12;
 
 /// Advances L1 time and mines blocks to ensure the preconfigured operator whitelist is active.
+///
+/// Uses batch operations (single `evm_increaseTime` + single `anvil_mine`) instead of
+/// looping 64 times, reducing RPC calls from 128 to 2.
 pub async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
-    for _ in 0..PRECONF_OPERATOR_ACTIVATION_BLOCKS {
-        increase_l1_time(client, L1_BLOCK_TIME_SECONDS).await?;
-        mine_l1_block(client).await?;
-    }
+    let total_seconds = PRECONF_OPERATOR_ACTIVATION_BLOCKS as u64 * L1_BLOCK_TIME_SECONDS;
+    increase_l1_time(client, total_seconds).await?;
+    mine_l1_blocks(client, PRECONF_OPERATOR_ACTIVATION_BLOCKS).await?;
     Ok(())
 }
 

@@ -77,6 +77,18 @@ impl P2pHandle {
         self.commands.clone()
     }
 
+    /// Get the current connected peer count.
+    ///
+    /// Sends a command to the network driver and awaits the response.
+    pub async fn peer_count(&self) -> Result<u64, NetworkError> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.commands
+            .send(NetworkCommand::GetPeerCount { respond_to: tx })
+            .await
+            .map_err(|_| NetworkError::new(NetworkErrorKind::Other, "command channel closed"))?;
+        rx.await.map_err(|_| NetworkError::new(NetworkErrorKind::Other, "response channel closed"))
+    }
+
     /// Returns a stream of network events.
     ///
     /// This stream yields events such as peer connections/disconnections,
@@ -101,7 +113,7 @@ impl P2pHandle {
                 Some(NetworkEvent::Error(err)) => return Err(err),
                 Some(_) => continue,
                 None => {
-                    return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"))
+                    return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"));
                 }
             }
         }
@@ -148,7 +160,7 @@ impl P2pHandle {
                 Some(NetworkEvent::Error(err)) => return Err(err),
                 Some(_) => continue,
                 None => {
-                    return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"))
+                    return Err(NetworkError::new(NetworkErrorKind::Other, "event stream closed"));
                 }
             }
         }

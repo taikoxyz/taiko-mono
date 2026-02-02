@@ -21,10 +21,8 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
 flate2 = { workspace = true }
-jsonrpsee = { workspace = true }
 k256 = { workspace = true }
 metrics = { workspace = true }
-reth-ipc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -32,7 +30,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 tokio-stream = { workspace = true }
-tower = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 
@@ -46,10 +43,6 @@ alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
-preconfirmation-client = { path = "../preconfirmation-client" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }
