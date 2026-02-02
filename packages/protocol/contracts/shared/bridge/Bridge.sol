@@ -131,6 +131,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
+    // Surge: It is ok to reenter this
     function sendMessage(Message calldata _message)
         external
         payable
@@ -140,7 +141,6 @@ contract Bridge is EssentialResolverContract, IBridge {
         nonZeroAddr(_message.to)
         diffChain(_message.destChainId)
         whenNotPaused
-        nonReentrant
         returns (bytes32 msgHash_, Message memory message_)
     {
         if (_message.gasLimit == 0) {

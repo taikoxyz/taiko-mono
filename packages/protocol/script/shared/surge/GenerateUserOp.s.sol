@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { UserOpsSubmitter } from "../../../contracts/shared/userops/UserOpsSubmitter.sol";
+import { L1Sender } from "../../layer1/surge/examples/L1Sender.sol";
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import { UserOpsSubmitter } from "../../../contracts/shared/userops/UserOpsSubmitter.sol";
-import { IBridge } from "../../../contracts/shared/bridge/IBridge.sol";
 
 /// @title GenerateUserOp
-/// @notice Script to generate a signed user operation for sending ETH via Bridge.sendMessage.
-/// @dev This script generates a UserOp that calls Bridge.sendMessage to send ETH to a target
-/// address.
-///      The output includes the submitter address, target (Bridge), value, data, and signature.
+/// @notice Script to generate a signed user operation for calling L1Sender.calculate.
+/// @dev This script generates a UserOp that calls L1Sender.calculate to perform a calculation
+///      operation (ADD, SUB, MUL, DIV) with two operands.
+///      The output includes the submitter address, target (L1Sender), value, data, and signature.
 ///      Data and signature are output as JSON arrays for compatibility with Rust's Vec<u8>.
 contract GenerateUserOp is Script {
     uint256 internal immutable privateKey = vm.envUint("PRIVATE_KEY");
     address internal submitter = vm.envAddress("SUBMITTER_ADDRESS");
-    address internal bridge = vm.envAddress("BRIDGE_ADDRESS");
-    address internal ethRecipient = vm.envAddress("ETH_RECIPIENT");
-    uint256 internal ethAmount = vm.envUint("ETH_AMOUNT");
-    uint64 internal destChainId = uint64(vm.envUint("DEST_CHAIN_ID"));
+    address internal l1Sender = vm.envAddress("L1_SENDER_ADDRESS");
+    uint256 internal a = vm.envUint("A");
+    uint256 internal b = vm.envUint("B");
+    uint8 internal op = uint8(vm.envUint("OP"));
 
     function run()
         external
@@ -32,42 +32,28 @@ contract GenerateUserOp is Script {
         )
     {
         require(submitter != address(0), "SUBMITTER_ADDRESS not set");
-        require(bridge != address(0), "BRIDGE_ADDRESS not set");
-        require(ethRecipient != address(0), "ETH_RECIPIENT not set");
-        require(ethAmount > 0, "ETH_AMOUNT must be greater than 0");
-        require(destChainId > 0, "DEST_CHAIN_ID must be greater than 0");
+        require(l1Sender != address(0), "L1_SENDER_ADDRESS not set");
+        require(op <= 3, "OP_INVALID");
 
         console2.log("=====================================");
         console2.log("Generating User Operation");
         console2.log("=====================================");
         console2.log("Submitter:", submitter);
-        console2.log("Bridge:", bridge);
-        console2.log("ETH Recipient:", ethRecipient);
-        console2.log("ETH Amount (wei):", ethAmount);
-        console2.log("Destination Chain ID:", destChainId);
+        console2.log("L1Sender:", l1Sender);
+        console2.log("A:", a);
+        console2.log("B:", b);
+        console2.log("OP:", op);
         console2.log("");
 
-        // Create Bridge.Message struct
-        IBridge.Message memory message = IBridge.Message({
-            id: 0,
-            from: address(0),
-            srcChainId: 0,
-            destChainId: destChainId,
-            srcOwner: submitter,
-            destOwner: ethRecipient,
-            to: ethRecipient,
-            value: ethAmount,
-            fee: 0,
-            gasLimit: 0,
-            data: ""
-        });
+        // Convert op to L1Sender.OP enum
+        L1Sender.OP opEnum = L1Sender.OP(op);
 
-        // Encode the sendMessage call
-        bytes memory bridgeCallData = abi.encodeCall(IBridge.sendMessage, (message));
+        // Encode the calculate call
+        bytes memory callData = abi.encodeCall(L1Sender.calculate, (a, b, opEnum));
 
-        // Create UserOp
+        // Create UserOp (value is 0 since calculate doesn't accept ETH)
         UserOpsSubmitter.UserOp[] memory ops = new UserOpsSubmitter.UserOp[](1);
-        ops[0] = UserOpsSubmitter.UserOp({ target: bridge, value: ethAmount, data: bridgeCallData });
+        ops[0] = UserOpsSubmitter.UserOp({ target: l1Sender, value: 0, data: callData });
 
         // Generate digest
         bytes32 digest = keccak256(abi.encode(ops));
@@ -78,9 +64,9 @@ contract GenerateUserOp is Script {
 
         // Set return values
         submitter_ = submitter;
-        target_ = bridge;
-        value_ = ethAmount;
-        data_ = bridgeCallData;
+        target_ = l1Sender;
+        value_ = 0;
+        data_ = callData;
         signature_ = signature;
 
         console2.log("Generated User Operation:");

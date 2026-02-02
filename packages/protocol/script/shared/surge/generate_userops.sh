@@ -1,35 +1,33 @@
 #!/bin/bash
 
-# This script generates a signed user operation for sending ETH via Bridge.sendMessage
+# This script generates a signed user operation for calling L1Sender.calculate
 # and optionally sends it to an RPC endpoint via surge_sendUserOp.
 set -e
 
 # Private key of the owner (must match the UserOpsSubmitter owner)
-export PRIVATE_KEY=${PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}
+export PRIVATE_KEY=${PRIVATE_KEY:-"0xeaba42282ad33c8ef2524f07277c03a776d98ae19f581990ce75becb7cfa1c23"}
 
 # Network configuration
-export FORK_URL=${FORK_URL:-"http://localhost:8545"}
+export FORK_URL=${FORK_URL:-"ws://45.33.84.128:32004"}
 
 # RPC endpoint for surge_sendUserOp (optional)
-export RPC_ENDPOINT=${RPC_ENDPOINT:-"http://localhost:8545"}
+export RPC_ENDPOINT=${RPC_ENDPOINT:-"http://localhost:4545"}
 
 # UserOpsSubmitter contract address
-export SUBMITTER_ADDRESS=${SUBMITTER_ADDRESS:-""}
+export SUBMITTER_ADDRESS=${SUBMITTER_ADDRESS:-"0x2ef05DcA0cc8BBcbE7102EEf7A457e9a7DAe8d11"}
 
-# Bridge contract address
-export BRIDGE_ADDRESS=${BRIDGE_ADDRESS:-""}
+# L1Sender contract address
+export L1_SENDER_ADDRESS=${L1_SENDER_ADDRESS:-"0xf41De16B7DE764A21dE234818C100D7deeEd7Ae5"}
 
-# ETH recipient address (will receive the ETH on destination chain)
-export ETH_RECIPIENT=${ETH_RECIPIENT:-""}
+# Calculation operands
+export A=${A:-"10"}
+export B=${B:-"5"}
 
-# Amount of ETH to send (in wei)
-export ETH_AMOUNT=${ETH_AMOUNT:-"1000000000000000"}
-
-# Destination chain ID
-export DEST_CHAIN_ID=${DEST_CHAIN_ID:-"1"}
+# Operation: 0=ADD, 1=SUB, 2=MUL, 3=DIV
+export OP=${OP:-"0"}
 
 # Whether to send the user op to RPC
-export SEND_TO_RPC=${SEND_TO_RPC:-false}
+export SEND_TO_RPC=${SEND_TO_RPC:-true}
 
 # Parameterize log level
 export LOG_LEVEL=${LOG_LEVEL:-"-vvvv"}
@@ -38,10 +36,10 @@ echo "=====================================";
 echo "Generating User Operation";
 echo "=====================================";
 echo "Submitter: $SUBMITTER_ADDRESS"
-echo "Bridge: $BRIDGE_ADDRESS"
-echo "ETH Recipient: $ETH_RECIPIENT"
-echo "ETH Amount (wei): $ETH_AMOUNT"
-echo "Destination Chain ID: $DEST_CHAIN_ID"
+echo "L1Sender: $L1_SENDER_ADDRESS"
+echo "A: $A"
+echo "B: $B"
+echo "OP: $OP (0=ADD, 1=SUB, 2=MUL, 3=DIV)"
 echo ""
 
 # Run the forge script and capture output
@@ -121,21 +119,22 @@ if [ "$SEND_TO_RPC" = "true" ] && [ -n "$SIGNATURE_HEX" ] && [ -n "$DATA_HEX" ];
     # Prepare JSON payload for surge_sendUserOp
     # Format matches Rust struct SignedUserOp:
     # - submitter: String (address)
-    # - target: String (address)  
+    # - target: String (address)
     # - value: u64
     # - data: Vec<u8> (JSON array of bytes)
     # - signature: Vec<u8> (JSON array of bytes)
+    # Note: jsonrpsee params.parse() expects the struct directly, not wrapped in an array
     JSON_PAYLOAD=$(cat <<EOF
 {
     "jsonrpc": "2.0",
     "method": "surge_sendUserOp",
-    "params": [{
+    "params": {
         "submitter": "$SUBMITTER_ADDRESS",
-        "target": "$BRIDGE_ADDRESS",
-        "value": $ETH_AMOUNT,
+        "target": "$L1_SENDER_ADDRESS",
+        "value": 0,
         "data": $DATA_ARRAY,
         "signature": $SIGNATURE_ARRAY
-    }],
+    },
     "id": 1
 }
 EOF
@@ -173,13 +172,13 @@ curl -X POST -H "Content-Type: application/json" \\
   --data '{
     "jsonrpc": "2.0",
     "method": "surge_sendUserOp",
-    "params": [{
+    "params": {
         "submitter": "$SUBMITTER_ADDRESS",
-        "target": "$BRIDGE_ADDRESS",
-        "value": $ETH_AMOUNT,
+        "target": "$L1_SENDER_ADDRESS",
+        "value": 0,
         "data": $DATA_ARRAY,
         "signature": $SIGNATURE_ARRAY
-    }],
+    },
     "id": 1
   }' \\
   $RPC_ENDPOINT
