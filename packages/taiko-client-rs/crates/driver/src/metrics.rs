@@ -49,25 +49,6 @@ impl DriverMetrics {
     /// Histogram tracking retry attempts per preconfirmation payload.
     pub const PRECONF_RETRY_ATTEMPTS: &'static str = "driver_preconf_retry_attempts";
 
-    // RPC method-specific metrics
-    /// Counter for submit_preconfirmation_payload requests.
-    pub const RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_REQUESTS_TOTAL: &'static str =
-        "driver_rpc_submit_preconfirmation_payload_requests_total";
-    /// Counter for submit_preconfirmation_payload errors.
-    pub const RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_ERRORS_TOTAL: &'static str =
-        "driver_rpc_submit_preconfirmation_payload_errors_total";
-    /// Histogram for submit_preconfirmation_payload duration.
-    pub const RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_DURATION_SECONDS: &'static str =
-        "driver_rpc_submit_preconfirmation_payload_duration_seconds";
-    /// Counter for last_canonical_proposal_id requests.
-    pub const RPC_LAST_CANONICAL_PROPOSAL_ID_REQUESTS_TOTAL: &'static str =
-        "driver_rpc_last_canonical_proposal_id_requests_total";
-    /// Histogram for last_canonical_proposal_id duration.
-    pub const RPC_LAST_CANONICAL_PROPOSAL_ID_DURATION_SECONDS: &'static str =
-        "driver_rpc_last_canonical_proposal_id_duration_seconds";
-    /// Counter for unauthorized RPC requests.
-    pub const RPC_UNAUTHORIZED_TOTAL: &'static str = "driver_rpc_unauthorized_total";
-
     // Event syncer metrics
     /// Gauge tracking the last canonical proposal id from L1 events.
     pub const EVENT_LAST_CANONICAL_PROPOSAL_ID: &'static str =
@@ -183,38 +164,6 @@ impl DriverMetrics {
             "Retry attempts per preconfirmation payload"
         );
 
-        // RPC method-specific metrics
-        metrics::describe_counter!(
-            Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_REQUESTS_TOTAL,
-            Unit::Count,
-            "Total submit_preconfirmation_payload requests"
-        );
-        metrics::describe_counter!(
-            Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_ERRORS_TOTAL,
-            Unit::Count,
-            "Failed submit_preconfirmation_payload requests"
-        );
-        metrics::describe_histogram!(
-            Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_DURATION_SECONDS,
-            Unit::Seconds,
-            "Duration of submit_preconfirmation_payload requests"
-        );
-        metrics::describe_counter!(
-            Self::RPC_LAST_CANONICAL_PROPOSAL_ID_REQUESTS_TOTAL,
-            Unit::Count,
-            "Total last_canonical_proposal_id requests"
-        );
-        metrics::describe_histogram!(
-            Self::RPC_LAST_CANONICAL_PROPOSAL_ID_DURATION_SECONDS,
-            Unit::Seconds,
-            "Duration of last_canonical_proposal_id requests"
-        );
-        metrics::describe_counter!(
-            Self::RPC_UNAUTHORIZED_TOTAL,
-            Unit::Count,
-            "Unauthorized RPC requests rejected by JWT validation"
-        );
-
         // Event syncer metrics
         metrics::describe_gauge!(
             Self::EVENT_LAST_CANONICAL_PROPOSAL_ID,
@@ -268,12 +217,6 @@ impl DriverMetrics {
         metrics::counter!(Self::PRECONF_INJECTION_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::PRECONF_INJECTION_SUCCESS_TOTAL).absolute(0);
         metrics::gauge!(Self::PRECONF_QUEUE_DEPTH).set(0.0);
-
-        // Reset new RPC counters
-        metrics::counter!(Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_REQUESTS_TOTAL).absolute(0);
-        metrics::counter!(Self::RPC_SUBMIT_PRECONFIRMATION_PAYLOAD_ERRORS_TOTAL).absolute(0);
-        metrics::counter!(Self::RPC_LAST_CANONICAL_PROPOSAL_ID_REQUESTS_TOTAL).absolute(0);
-        metrics::counter!(Self::RPC_UNAUTHORIZED_TOTAL).absolute(0);
 
         // Reset new preconf queue counters
         metrics::counter!(Self::PRECONF_ENQUEUE_TIMEOUTS_TOTAL).absolute(0);

@@ -207,6 +207,9 @@ impl NetworkDriver {
                 let addrs: Vec<_> = self.swarm.listeners().cloned().collect();
                 let _ = respond_to.send(addrs);
             }
+            NetworkCommand::GetPeerCount { respond_to } => {
+                let _ = respond_to.send(self.connected_peers.max(0) as u64);
+            }
         }
     }
 }
