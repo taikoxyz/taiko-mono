@@ -1,7 +1,7 @@
 package version
 
 // Version info.
-const Version = "1.11.0" // x-release-please-version
+const Version = "2.1.0" // x-release-please-version
 
 var meta = "dev"
 
