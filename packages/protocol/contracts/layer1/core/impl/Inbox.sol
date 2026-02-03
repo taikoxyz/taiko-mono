@@ -605,16 +605,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             for (uint256 i; i < maxToInspect; ++i) {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
                 uint256 timestamp = inclusion.blobSlice.timestamp;
-                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay)) {
+                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay))
+                {
                     break;
                 }
                 ++dueToProcess;
             }
-            require(_numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue());
-
-            uint256 toProcess = _numForcedInclusionsRequested.min(available).min(
-                MAX_FORCED_INCLUSIONS_PER_PROPOSAL
+            require(
+                _numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue()
             );
+
+            uint256 toProcess = _numForcedInclusionsRequested.min(available)
+                .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
