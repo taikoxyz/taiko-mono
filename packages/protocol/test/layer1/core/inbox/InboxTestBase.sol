@@ -338,7 +338,6 @@ abstract contract InboxTestBase is CommonTest {
     function _defaultProposeInput() internal pure returns (IInbox.ProposeInput memory input_) {
         input_.deadline = 0;
         input_.blobReference = LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
-        input_.numForcedInclusions = 0;
     }
 
     function _proposalFromPayload(
