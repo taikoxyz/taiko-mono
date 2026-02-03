@@ -206,8 +206,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
     ///      2. Processes up to `min(input.numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)`
-    ///         forced inclusions. If the oldest forced inclusion is due, the proposer must request
-    ///         at least 1 forced inclusion.
+    ///         forced inclusions. If forced inclusions are due, the proposer must request at least
+    ///         `min(numDue, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions.
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
@@ -600,13 +600,21 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            if (_numForcedInclusionsRequested == 0) {
-                bool isOldestInclusionDue =
-                    $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
-                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            uint256 dueToProcess;
+            uint256 maxToInspect = available.min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
+            for (uint256 i; i < maxToInspect; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                uint256 timestamp = inclusion.blobSlice.timestamp;
+                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay)) {
+                    break;
+                }
+                ++dueToProcess;
             }
-            uint256 toProcess = _numForcedInclusionsRequested.min(available)
-                .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
+            require(_numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue());
+
+            uint256 toProcess = _numForcedInclusionsRequested.min(available).min(
+                MAX_FORCED_INCLUSIONS_PER_PROPOSAL
+            );
 
             result_.sources = new DerivationSource[](toProcess + 1);
 

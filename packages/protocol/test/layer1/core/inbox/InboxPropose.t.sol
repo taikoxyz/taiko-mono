@@ -128,6 +128,30 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    function test_propose_RevertWhen_DueForcedInclusionsNotFullyProcessed() public {
+        _setBlobHashes(5);
+        _proposeAndDecode(_defaultProposeInput());
+
+        _advanceBlock();
+
+        for (uint16 i = 1; i <= 3; ++i) {
+            LibBlobs.BlobReference memory forcedRef =
+                LibBlobs.BlobReference({ blobStartIndex: i, numBlobs: 1, offset: 0 });
+            _saveForcedInclusion(forcedRef);
+        }
+
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 2;
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
     function test_propose_processesForcedInclusionBeforeDue() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
