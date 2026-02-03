@@ -747,7 +747,7 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
 ```solidity
 library IInbox {
     struct Commitment { uint48 firstProposalId; bytes32 firstProposalParentBlockHash; bytes32 lastProposalHash; address actualProver; uint48 endBlockNumber; bytes32 endStateRoot; Transition[] transitions; }
-    struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 permissionlessProvingDelay; uint48 maxProofSubmissionDelay; uint48 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint8 permissionlessInclusionMultiplier; }
+    struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 permissionlessProvingDelay; uint48 maxProofSubmissionDelay; uint48 ringBufferSize; uint8 basefeeSharingPctg; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint8 permissionlessInclusionMultiplier; }
     struct CoreState { uint48 nextProposalId; uint48 lastProposalBlockId; uint48 lastFinalizedProposalId; uint48 lastFinalizedTimestamp; uint48 lastCheckpointTimestamp; bytes32 lastFinalizedBlockHash; }
     struct DerivationSource { bool isForcedInclusion; LibBlobs.BlobSlice blobSlice; }
     struct Proposal { uint48 id; uint48 timestamp; uint48 endOfSubmissionWindowTimestamp; address proposer; bytes32 parentProposalHash; uint48 originBlockNumber; bytes32 originBlockHash; uint8 basefeeSharingPctg; DerivationSource[] sources; }
@@ -1135,7 +1135,7 @@ struct Commitment { uint48 firstProposalId; bytes32 firstProposalParentBlockHash
     #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Default, Debug, PartialEq, Eq, Hash)]
     /**```solidity
-struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 permissionlessProvingDelay; uint48 maxProofSubmissionDelay; uint48 ringBufferSize; uint8 basefeeSharingPctg; uint256 minForcedInclusionCount; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint8 permissionlessInclusionMultiplier; }
+struct Config { address proofVerifier; address proposerChecker; address proverWhitelist; address signalService; address bondToken; uint64 minBond; uint64 livenessBond; uint48 withdrawalDelay; uint48 provingWindow; uint48 permissionlessProvingDelay; uint48 maxProofSubmissionDelay; uint48 ringBufferSize; uint8 basefeeSharingPctg; uint16 forcedInclusionDelay; uint64 forcedInclusionFeeInGwei; uint64 forcedInclusionFeeDoubleThreshold; uint8 permissionlessInclusionMultiplier; }
 ```*/
     #[allow(non_camel_case_types, non_snake_case, clippy::pub_underscore_fields)]
     #[derive(Clone)]
@@ -1166,8 +1166,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
         pub ringBufferSize: alloy::sol_types::private::primitives::aliases::U48,
         #[allow(missing_docs)]
         pub basefeeSharingPctg: u8,
-        #[allow(missing_docs)]
-        pub minForcedInclusionCount: alloy::sol_types::private::primitives::aliases::U256,
         #[allow(missing_docs)]
         pub forcedInclusionDelay: u16,
         #[allow(missing_docs)]
@@ -1200,7 +1198,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<48>,
             alloy::sol_types::sol_data::Uint<8>,
-            alloy::sol_types::sol_data::Uint<256>,
             alloy::sol_types::sol_data::Uint<16>,
             alloy::sol_types::sol_data::Uint<64>,
             alloy::sol_types::sol_data::Uint<64>,
@@ -1221,7 +1218,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
             alloy::sol_types::private::primitives::aliases::U48,
             alloy::sol_types::private::primitives::aliases::U48,
             u8,
-            alloy::sol_types::private::primitives::aliases::U256,
             u16,
             u64,
             u64,
@@ -1256,7 +1252,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     value.maxProofSubmissionDelay,
                     value.ringBufferSize,
                     value.basefeeSharingPctg,
-                    value.minForcedInclusionCount,
                     value.forcedInclusionDelay,
                     value.forcedInclusionFeeInGwei,
                     value.forcedInclusionFeeDoubleThreshold,
@@ -1282,11 +1277,10 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     maxProofSubmissionDelay: tuple.10,
                     ringBufferSize: tuple.11,
                     basefeeSharingPctg: tuple.12,
-                    minForcedInclusionCount: tuple.13,
-                    forcedInclusionDelay: tuple.14,
-                    forcedInclusionFeeInGwei: tuple.15,
-                    forcedInclusionFeeDoubleThreshold: tuple.16,
-                    permissionlessInclusionMultiplier: tuple.17,
+                    forcedInclusionDelay: tuple.13,
+                    forcedInclusionFeeInGwei: tuple.14,
+                    forcedInclusionFeeDoubleThreshold: tuple.15,
+                    permissionlessInclusionMultiplier: tuple.16,
                 }
             }
         }
@@ -1342,11 +1336,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     <alloy::sol_types::sol_data::Uint<
                         8,
                     > as alloy_sol_types::SolType>::tokenize(&self.basefeeSharingPctg),
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::tokenize(
-                        &self.minForcedInclusionCount,
-                    ),
                     <alloy::sol_types::sol_data::Uint<
                         16,
                     > as alloy_sol_types::SolType>::tokenize(&self.forcedInclusionDelay),
@@ -1439,7 +1428,7 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
             #[inline]
             fn eip712_root_type() -> alloy_sol_types::private::Cow<'static, str> {
                 alloy_sol_types::private::Cow::Borrowed(
-                    "Config(address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,address bondToken,uint64 minBond,uint64 livenessBond,uint48 withdrawalDelay,uint48 provingWindow,uint48 permissionlessProvingDelay,uint48 maxProofSubmissionDelay,uint48 ringBufferSize,uint8 basefeeSharingPctg,uint256 minForcedInclusionCount,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint8 permissionlessInclusionMultiplier)",
+                    "Config(address proofVerifier,address proposerChecker,address proverWhitelist,address signalService,address bondToken,uint64 minBond,uint64 livenessBond,uint48 withdrawalDelay,uint48 provingWindow,uint48 permissionlessProvingDelay,uint48 maxProofSubmissionDelay,uint48 ringBufferSize,uint8 basefeeSharingPctg,uint16 forcedInclusionDelay,uint64 forcedInclusionFeeInGwei,uint64 forcedInclusionFeeDoubleThreshold,uint8 permissionlessInclusionMultiplier)",
                 )
             }
             #[inline]
@@ -1515,12 +1504,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                         8,
                     > as alloy_sol_types::SolType>::eip712_data_word(
                             &self.basefeeSharingPctg,
-                        )
-                        .0,
-                    <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::SolType>::eip712_data_word(
-                            &self.minForcedInclusionCount,
                         )
                         .0,
                     <alloy::sol_types::sol_data::Uint<
@@ -1610,11 +1593,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                         8,
                     > as alloy_sol_types::EventTopic>::topic_preimage_length(
                         &rust.basefeeSharingPctg,
-                    )
-                    + <alloy::sol_types::sol_data::Uint<
-                        256,
-                    > as alloy_sol_types::EventTopic>::topic_preimage_length(
-                        &rust.minForcedInclusionCount,
                     )
                     + <alloy::sol_types::sol_data::Uint<
                         16,
@@ -1711,12 +1689,6 @@ struct Config { address proofVerifier; address proposerChecker; address proverWh
                     8,
                 > as alloy_sol_types::EventTopic>::encode_topic_preimage(
                     &rust.basefeeSharingPctg,
-                    out,
-                );
-                <alloy::sol_types::sol_data::Uint<
-                    256,
-                > as alloy_sol_types::EventTopic>::encode_topic_preimage(
-                    &rust.minForcedInclusionCount,
                     out,
                 );
                 <alloy::sol_types::sol_data::Uint<
@@ -4253,7 +4225,6 @@ library IInbox {
         uint48 maxProofSubmissionDelay;
         uint48 ringBufferSize;
         uint8 basefeeSharingPctg;
-        uint256 minForcedInclusionCount;
         uint16 forcedInclusionDelay;
         uint64 forcedInclusionFeeInGwei;
         uint64 forcedInclusionFeeDoubleThreshold;
@@ -4477,11 +4448,6 @@ interface Inbox {
             "name": "basefeeSharingPctg",
             "type": "uint8",
             "internalType": "uint8"
-          },
-          {
-            "name": "minForcedInclusionCount",
-            "type": "uint256",
-            "internalType": "uint256"
           },
           {
             "name": "forcedInclusionDelay",
@@ -4950,11 +4916,6 @@ interface Inbox {
             "name": "basefeeSharingPctg",
             "type": "uint8",
             "internalType": "uint8"
-          },
-          {
-            "name": "minForcedInclusionCount",
-            "type": "uint256",
-            "internalType": "uint256"
           },
           {
             "name": "forcedInclusionDelay",
