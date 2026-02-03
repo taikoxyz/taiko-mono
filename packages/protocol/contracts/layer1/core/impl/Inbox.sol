@@ -57,6 +57,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     event InboxActivated(bytes32 lastPacayaBlockHash);
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Maximum number of due forced inclusions processed per proposal.
+    uint256 internal constant MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10;
+
+    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
@@ -196,7 +203,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Process `input.numForcedInclusions` forced inclusions.
+    ///      2. Processes up to `MAX_FORCED_INCLUSIONS_PER_PROPOSAL` due forced inclusions.
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
@@ -526,8 +533,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
             );
 
-            ConsumptionResult memory result =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            ConsumptionResult memory result = _consumeForcedInclusions(msg.sender);
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
@@ -569,16 +575,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Consumes forced inclusions from the queue and returns result with extra slot for normal
-    /// source
+    /// @dev Consumes due forced inclusions from the queue (up to the per-proposal cap) and returns
+    /// result with extra slot for normal source.
     /// @param _feeRecipient Address to receive accumulated fees
-    /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
     /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
     /// and whether permissionless proposals are allowed
-    function _consumeForcedInclusions(
-        address _feeRecipient,
-        uint256 _numForcedInclusionsRequested
-    )
+    function _consumeForcedInclusions(address _feeRecipient)
         private
         returns (ConsumptionResult memory result_)
     {
@@ -589,15 +591,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
-                ? available
-                : _numForcedInclusionsRequested;
-
-            uint48 headAfter = head + uint48(toProcess);
-            if (available > toProcess) {
-                bool isOldestInclusionDue =
-                    $.isOldestForcedInclusionDue(headAfter, tail, _forcedInclusionDelay);
-                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            uint256 toProcess;
+            if (available > 0) {
+                uint256 limit = available.min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
+                for (uint256 i; i < limit; ++i) {
+                    IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                    uint256 timestamp = inclusion.blobSlice.timestamp;
+                    if (timestamp == 0 || block.timestamp < timestamp + _forcedInclusionDelay) {
+                        break;
+                    }
+                    ++toProcess;
+                }
             }
 
             result_.sources = new DerivationSource[](toProcess + 1);
@@ -777,5 +781,4 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
     error ProverNotWhitelisted();
-    error UnprocessedForcedInclusionIsDue();
 }
