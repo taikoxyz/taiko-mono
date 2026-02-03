@@ -181,8 +181,7 @@ contract InboxProposeTest is InboxTestBase {
         vm.warp(block.timestamp + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.blobReference =
-            LibBlobs.BlobReference({ blobStartIndex: 13, numBlobs: 1, offset: 0 });
+        input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 13, numBlobs: 1, offset: 0 });
         input.numForcedInclusions = type(uint16).max;
 
         ProposedEvent memory payload = _proposeAndDecode(input);
