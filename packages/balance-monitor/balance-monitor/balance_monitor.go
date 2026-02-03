@@ -121,13 +121,15 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client *ethclien
 		b.erc20DecimalsCache[tokenAddress] = tokenDecimals
 	}
 
+	decimalsDivisor := big.NewFloat(math.Pow(10, float64(tokenDecimals)))
+
 	var tokenBalanceFloat float64 = 0
 	tokenBalance, err := b.getErc20Balance(ctx, client, tokenAddress, holderAddress)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 balance for address", clientLabel), "address", holderAddress.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
 		tokenBalanceFloat = 0
 	} else {
-		tokenBalanceFloat, _ = new(big.Float).Quo(new(big.Float).SetInt(tokenBalance), big.NewFloat(math.Pow(10, float64(tokenDecimals)))).Float64()
+		tokenBalanceFloat, _ = new(big.Float).Quo(new(big.Float).SetInt(tokenBalance), decimalsDivisor).Float64()
 	}
 
 	var tokenBondBalanceFloat float64 = 0
@@ -136,7 +138,7 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client *ethclien
 		slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 bond balance for address", clientLabel), "address", holderAddress.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
 		tokenBondBalanceFloat = 0
 	} else {
-		tokenBondBalanceFloat, _ = new(big.Float).Quo(new(big.Float).SetInt(tokenBondBalance), big.NewFloat(math.Pow(10, float64(tokenDecimals)))).Float64()
+		tokenBondBalanceFloat, _ = new(big.Float).Quo(new(big.Float).SetInt(tokenBondBalance), decimalsDivisor).Float64()
 	}
 
 	balance := tokenBalanceFloat + tokenBondBalanceFloat
