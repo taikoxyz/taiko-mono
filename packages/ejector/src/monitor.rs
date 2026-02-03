@@ -184,6 +184,21 @@ fn check_reanchoring(prev_anchor: Option<u64>, current_anchor: u64) -> Reanchori
     }
 }
 
+/// Check if ejection should be skipped due to a recent chain reset.
+/// Returns true if a chain reset was detected within the grace period (3x eject_after).
+fn should_skip_due_to_chain_reset(chain_reset_at: Option<Instant>, eject_after: Duration) -> bool {
+    chain_reset_at
+        .map(|reset_time| is_within_chain_reset_grace_period(reset_time.elapsed(), eject_after))
+        .unwrap_or(false)
+}
+
+/// Check if elapsed time since chain reset is within the grace period.
+/// Grace period is 3x the eject_after duration.
+fn is_within_chain_reset_grace_period(elapsed: Duration, eject_after: Duration) -> bool {
+    let grace_period = eject_after * 3;
+    elapsed < grace_period
+}
+
 impl Monitor {
     // Returns true if the node appears to be syncing or if the sync status cannot be determined.
     async fn should_skip_due_to_sync_status<P>(provider: &P, node_label: &str) -> bool
@@ -274,6 +289,7 @@ impl Monitor {
         let last_seen = Arc::new(Mutex::new(Instant::now()));
         let last_block_seen = Arc::new(Mutex::new(Instant::now()));
         let last_l2_head_number = Arc::new(Mutex::new(None::<u64>));
+        let chain_reset_at = Arc::new(Mutex::new(None::<Instant>));
         let reconnect_notify = Arc::new(Notify::new());
         metrics::set_last_seen_drift_seconds(0);
         metrics::set_last_block_age_seconds(0);
@@ -283,6 +299,7 @@ impl Monitor {
         let last_seen_for_watch = last_seen.clone();
         let last_block_for_watch = last_block_seen.clone();
         let last_l2_head_for_watch = last_l2_head_number.clone();
+        let chain_reset_for_watch = chain_reset_at.clone();
         let reconnect_notify_for_watch = reconnect_notify.clone();
 
         let l1_http_url = self.l1_http_url.clone();
@@ -526,6 +543,26 @@ impl Monitor {
                         continue;
                     }
 
+                    // Skip ejection if a chain reset was detected recently (within 3x timeout).
+                    // Chain resets indicate abnormal network state where ejection is inappropriate.
+                    {
+                        let mut guard = chain_reset_for_watch.lock().await;
+                        if should_skip_due_to_chain_reset(*guard, max) {
+                            info!(
+                                "Skipping ejection due to recent chain reset ({:?} ago, grace period {:?})",
+                                guard.map(|t| t.elapsed()),
+                                max * 3
+                            );
+                            // Reset timer to avoid noisy "Max time reached" logs every tick
+                            *last_seen_for_watch.lock().await = Instant::now();
+                            metrics::set_last_seen_drift_seconds(0);
+                            continue;
+                        } else if guard.is_some() {
+                            // Grace period expired, clear the flag
+                            *guard = None;
+                        }
+                    }
+
                     if let Err(e) = eject_operator(
                         watchdog_l1_http_url.clone(),
                         watchdog_signer.clone(),
@@ -610,6 +647,16 @@ impl Monitor {
                                             *guard = now;
                                         }
                                         metrics::set_last_block_age_seconds(0);
+
+                                        // Check if block number went backwards (chain rollback)
+                                        let prev_block_number = {
+                                            let guard = last_l2_head_number.lock().await;
+                                            *guard
+                                        };
+                                        let block_went_backwards = prev_block_number
+                                            .map(|prev| tracked_block.number < prev)
+                                            .unwrap_or(false);
+
                                         {
                                             let mut guard = last_l2_head_number.lock().await;
                                             *guard = Some(tracked_block.number);
@@ -617,11 +664,23 @@ impl Monitor {
                                         backoff = Duration::from_secs(1);
 
                                         if outcome.parent_not_found {
-                                            warn!(
-                                                block_number,
-                                                parent_hash = ?tracked_block.parent_hash,
-                                                "Parent not found in local history; tracker was reset"
-                                            );
+                                            // Only mark chain reset if block number actually went backwards.
+                                            // This avoids suppressing ejection for transient WS gaps or reconnects.
+                                            if block_went_backwards {
+                                                warn!(
+                                                    block_number,
+                                                    prev_block = ?prev_block_number,
+                                                    parent_hash = ?tracked_block.parent_hash,
+                                                    "Chain reset detected (block number decreased); delaying ejection."
+                                                );
+                                                *chain_reset_at.lock().await = Some(Instant::now());
+                                            } else {
+                                                warn!(
+                                                    block_number,
+                                                    parent_hash = ?tracked_block.parent_hash,
+                                                    "Parent not found in local history; tracker was reset (not a rollback)."
+                                                );
+                                            }
                                             continue;
                                         }
 
@@ -967,10 +1026,12 @@ mod tests {
     use super::Monitor;
     use super::{
         ReanchoringCheck, SyncStatusClass, check_reanchoring, classify_sync_status,
+        is_within_chain_reset_grace_period, should_skip_due_to_chain_reset,
         should_skip_for_sync_class,
     };
     use alloy::providers::ProviderBuilder;
     use serde_json::json;
+    use std::time::{Duration, Instant};
     use wiremock::matchers::{body_partial_json, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -1106,5 +1167,71 @@ mod tests {
         // Zero anchor staying at zero
         let result = check_reanchoring(Some(0), 0);
         assert_eq!(result, ReanchoringCheck::NoReanchoring);
+    }
+
+    #[test]
+    fn chain_reset_no_reset_should_not_skip() {
+        // When there's no chain reset, should not skip ejection
+        let result = should_skip_due_to_chain_reset(None, Duration::from_secs(48));
+        assert!(!result);
+    }
+
+    #[test]
+    fn chain_reset_recent_should_skip() {
+        // When chain reset happened recently (within 3x timeout), should skip ejection
+        let reset_time = Instant::now();
+        let eject_after = Duration::from_secs(48);
+        let result = should_skip_due_to_chain_reset(Some(reset_time), eject_after);
+        assert!(result);
+    }
+
+    #[test]
+    fn chain_reset_grace_period_boundary_within() {
+        // Test that elapsed time just under grace period still skips
+        let eject_after = Duration::from_secs(48);
+        let grace_period = eject_after * 3; // 144 seconds
+
+        // 1ms before grace period expires - should still skip
+        let elapsed = grace_period - Duration::from_millis(1);
+        assert!(is_within_chain_reset_grace_period(elapsed, eject_after));
+    }
+
+    #[test]
+    fn chain_reset_grace_period_boundary_expired() {
+        // Test that elapsed time at or beyond grace period does not skip
+        let eject_after = Duration::from_secs(48);
+        let grace_period = eject_after * 3; // 144 seconds
+
+        // Exactly at grace period - should NOT skip (elapsed >= grace_period)
+        assert!(!is_within_chain_reset_grace_period(grace_period, eject_after));
+
+        // 1ms after grace period - should NOT skip
+        let elapsed = grace_period + Duration::from_millis(1);
+        assert!(!is_within_chain_reset_grace_period(elapsed, eject_after));
+    }
+
+    #[test]
+    fn chain_reset_grace_period_is_3x_timeout() {
+        // Verify the grace period calculation: should be 3x the eject_after duration
+        let eject_after = Duration::from_secs(96);
+
+        // Just under 3x should skip
+        let just_under_3x = Duration::from_secs(287);
+        assert!(is_within_chain_reset_grace_period(just_under_3x, eject_after));
+
+        // Exactly 3x should NOT skip
+        let exactly_3x = Duration::from_secs(288);
+        assert!(!is_within_chain_reset_grace_period(exactly_3x, eject_after));
+
+        // Over 3x should NOT skip
+        let over_3x = Duration::from_secs(289);
+        assert!(!is_within_chain_reset_grace_period(over_3x, eject_after));
+    }
+
+    #[test]
+    fn chain_reset_zero_elapsed_should_skip() {
+        // Immediately after chain reset (0 elapsed) should skip
+        let eject_after = Duration::from_secs(48);
+        assert!(is_within_chain_reset_grace_period(Duration::ZERO, eject_after));
     }
 }
