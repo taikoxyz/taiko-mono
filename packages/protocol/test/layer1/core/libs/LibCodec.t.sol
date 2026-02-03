@@ -10,11 +10,12 @@ contract LibCodecTest is Test {
     function test_encode_decode_proposeInput_roundtrip() public pure {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: 1_234_567,
-            blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 })
+            blobReference: LibBlobs.BlobReference({ blobStartIndex: 5, numBlobs: 2, offset: 99 }),
+            numForcedInclusions: 3
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 13, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -25,6 +26,7 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
     }
 
     function test_encode_decode_proposeInput_boundaryValues() public pure {
@@ -34,7 +36,8 @@ contract LibCodecTest is Test {
                 blobStartIndex: type(uint16).max,
                 numBlobs: type(uint16).max,
                 offset: type(uint24).max
-            })
+            }),
+            numForcedInclusions: type(uint16).max
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
@@ -46,13 +49,15 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "max numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "max offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "max forced");
     }
 
     function testFuzz_encodeDecodeProposeInput_PreservesFields(
         uint48 deadline,
         uint16 blobStartIndex,
         uint16 numBlobs,
-        uint24 offset
+        uint24 offset,
+        uint16 numForcedInclusions
     )
         public
         pure
@@ -61,11 +66,12 @@ contract LibCodecTest is Test {
             deadline: deadline,
             blobReference: LibBlobs.BlobReference({
                 blobStartIndex: blobStartIndex, numBlobs: numBlobs, offset: offset
-            })
+            }),
+            numForcedInclusions: numForcedInclusions
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 13, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -76,6 +82,7 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.blobReference.numBlobs, input.blobReference.numBlobs, "numBlobs");
         assertEq(decoded.blobReference.offset, input.blobReference.offset, "offset");
+        assertEq(decoded.numForcedInclusions, input.numForcedInclusions, "forced inclusions");
     }
 
     function test_encode_decode_proveInput_roundtrip() public pure {

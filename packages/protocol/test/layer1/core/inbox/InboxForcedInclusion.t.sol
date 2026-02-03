@@ -98,6 +98,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         _setBlobHashes(1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
         _proposeAndDecode(input);
 
         // Now head = 1, tail = 1, so start = 0 is below head
@@ -288,20 +289,16 @@ contract InboxForcedInclusionTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = type(uint16).max;
         _setBlobHashes(1);
         _proposeAndDecode(input);
 
         (uint48 headAfter, uint48 tailAfter) = inbox.getForcedInclusionState();
-        assertEq(headAfter, 1, "head after consuming one");
+        assertEq(headAfter, 2, "head after consuming all");
         assertEq(tailAfter, 2, "tail unchanged after consume");
 
-        IForcedInclusionStore.ForcedInclusion[] memory remaining = inbox.getForcedInclusions(1, 1);
-        assertEq(remaining.length, 1, "one inclusion remains");
-        assertEq(
-            remaining[0].blobSlice.blobHashes[0],
-            keccak256(abi.encode("blob", 2)),
-            "second inclusion preserved"
-        );
+        IForcedInclusionStore.ForcedInclusion[] memory remaining = inbox.getForcedInclusions(2, 1);
+        assertEq(remaining.length, 0, "no inclusion remains");
     }
 }
 

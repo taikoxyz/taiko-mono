@@ -102,6 +102,10 @@ interface IInbox {
         uint48 deadline;
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
+        /// @notice The number of forced inclusions that the proposer wants to process.
+        /// @dev This can be set to 0 if no forced inclusions are due and the proposer does not
+        ///      wish to include any queued inclusions.
+        uint16 numForcedInclusions;
     }
 
     /// @notice Transition data for a proposal used in prove
