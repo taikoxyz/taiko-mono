@@ -99,6 +99,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The percentage of basefee paid to coinbase.
     uint8 internal immutable _basefeeSharingPctg;
 
+    /// @notice The minimum number of forced inclusions that the proposer is forced to process if
+    /// they are due.
+    /// @dev Also acts as a per-proposal cap for forced inclusion processing to bound gas usage.
+    uint256 internal immutable _minForcedInclusionCount;
+
     /// @notice The delay for forced inclusions measured in seconds.
     uint16 internal immutable _forcedInclusionDelay;
 
@@ -158,6 +163,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
+        _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
@@ -196,7 +202,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Process `input.numForcedInclusions` forced inclusions.
+    ///      2. Processes up to `min(input.numForcedInclusions, minForcedInclusionCount)` forced
+    ///         inclusions. If the oldest forced inclusion is due, the proposer must process at
+    ///         least `minForcedInclusionCount` (or all pending).
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
@@ -474,6 +482,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
+            minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
@@ -589,14 +598,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
-                ? available
-                : _numForcedInclusionsRequested;
+            uint256 toProcess =
+                _numForcedInclusionsRequested.min(available).min(_minForcedInclusionCount);
 
-            uint48 headAfter = head + uint48(toProcess);
-            if (available > toProcess) {
+            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
                 bool isOldestInclusionDue =
-                    $.isOldestForcedInclusionDue(headAfter, tail, _forcedInclusionDelay);
+                    $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
 

@@ -128,6 +128,71 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    function test_propose_processesForcedInclusionBeforeDue() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        uint48 inclusionTimestamp = uint48(block.timestamp);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        input.numForcedInclusions = 1;
+
+        ProposedEvent memory payload = _proposeAndDecode(input);
+
+        assertEq(payload.sources.length, 2, "sources length");
+        assertTrue(payload.sources[0].isForcedInclusion, "forced inclusion");
+        assertEq(payload.sources[0].blobSlice.timestamp, inclusionTimestamp, "timestamp");
+        assertLt(
+            block.timestamp,
+            uint256(inclusionTimestamp) + config.forcedInclusionDelay,
+            "processed before due"
+        );
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 1, "head");
+        assertEq(tail, 1, "tail");
+    }
+
+    function test_propose_capsForcedInclusionProcessingToMinForcedInclusionCount() public {
+        _setBlobHashes(20);
+        _proposeAndDecode(_defaultProposeInput());
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        for (uint16 i = 1; i <= 12; ++i) {
+            LibBlobs.BlobReference memory forcedRef =
+                LibBlobs.BlobReference({ blobStartIndex: i, numBlobs: 1, offset: 0 });
+            _saveForcedInclusion(forcedRef);
+        }
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.blobReference =
+            LibBlobs.BlobReference({ blobStartIndex: 13, numBlobs: 1, offset: 0 });
+        input.numForcedInclusions = type(uint16).max;
+
+        ProposedEvent memory payload = _proposeAndDecode(input);
+        assertEq(payload.sources.length, uint256(config.minForcedInclusionCount) + 1, "sources");
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, uint48(config.minForcedInclusionCount), "head");
+        assertEq(tail, 12, "tail");
+    }
+
     function test_propose_allowsPermissionlessWhen_ForcedInclusionTooOld() public {
         _setBlobHashes(3);
         ProposedEvent memory first = _proposeAndDecode(_defaultProposeInput());

@@ -90,6 +90,7 @@ abstract contract InboxTestBase is CommonTest {
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
+            minForcedInclusionCount: 10,
             forcedInclusionDelay: 384 seconds,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
