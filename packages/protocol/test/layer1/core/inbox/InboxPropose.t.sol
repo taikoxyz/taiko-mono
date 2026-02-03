@@ -152,6 +152,83 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
+    function test_propose_RevertWhen_DueForcedInclusionsExceedMaxAndRequestedBelowMax() public {
+        _setBlobHashes(13);
+        _proposeAndDecode(_defaultProposeInput());
+
+        _advanceBlock();
+
+        for (uint16 i = 1; i <= 12; ++i) {
+            LibBlobs.BlobReference memory forcedRef =
+                LibBlobs.BlobReference({ blobStartIndex: i, numBlobs: 1, offset: 0 });
+            _saveForcedInclusion(forcedRef);
+        }
+
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        _setBlobHashes(1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 9;
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
+    function test_propose_processesDueForcedInclusionsUpToMaxWhen_MoreAreDue() public {
+        _setBlobHashes(13);
+        _proposeAndDecode(_defaultProposeInput());
+
+        _advanceBlock();
+
+        for (uint16 i = 1; i <= 12; ++i) {
+            LibBlobs.BlobReference memory forcedRef =
+                LibBlobs.BlobReference({ blobStartIndex: i, numBlobs: 1, offset: 0 });
+            _saveForcedInclusion(forcedRef);
+        }
+
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+
+        _setBlobHashes(1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = type(uint16).max;
+
+        ProposedEvent memory payload = _proposeAndDecode(input);
+        assertEq(payload.sources.length, 11, "sources");
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 10, "head");
+        assertEq(tail, 12, "tail");
+    }
+
+    function test_propose_RevertWhen_ForcedInclusionDueAtExactDelayBoundary() public {
+        _setBlobHashes(2);
+        _proposeAndDecode(_defaultProposeInput());
+
+        _advanceBlock();
+
+        uint48 inclusionTimestamp = uint48(block.timestamp);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        vm.warp(uint256(inclusionTimestamp) + config.forcedInclusionDelay);
+        vm.roll(block.number + 1);
+
+        _setBlobHashes(1);
+
+        bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
+        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
     function test_propose_processesForcedInclusionBeforeDue() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
