@@ -605,9 +605,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
-            uint256 toProcess = _numForcedInclusionsRequested.min(available).min(
-                MAX_FORCED_INCLUSIONS_PER_PROPOSAL
-            );
+            uint256 toProcess = _numForcedInclusionsRequested.min(available)
+                .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
