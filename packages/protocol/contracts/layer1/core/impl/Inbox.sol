@@ -61,6 +61,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     /// @notice Maximum number of due forced inclusions processed per proposal.
+    /// @dev This value needs to be lower than 12 to ensure the proposer can include
+    /// all due forced inclusions, while still following Derivation rules(1s block times).
     uint256 internal constant MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10;
 
     // ---------------------------------------------------------------
