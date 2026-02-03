@@ -289,7 +289,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.numForcedInclusions = uint16(config.minForcedInclusionCount);
+        input.numForcedInclusions = type(uint16).max;
         _setBlobHashes(1);
         _proposeAndDecode(input);
 

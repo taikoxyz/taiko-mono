@@ -57,6 +57,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     event InboxActivated(bytes32 lastPacayaBlockHash);
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Maximum number of forced inclusions processed per proposal.
+    /// @dev Must be < 12 to avoid derived block timestamps drifting into the future when proposals
+    /// happen every L1 slot (Derivation enforces 1s block times).
+    uint256 internal constant MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10;
+
+    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
@@ -98,11 +107,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice The percentage of basefee paid to coinbase.
     uint8 internal immutable _basefeeSharingPctg;
-
-    /// @notice The minimum number of forced inclusions that the proposer is forced to process if
-    /// they are due.
-    /// @dev Also acts as a per-proposal cap for forced inclusion processing to bound gas usage.
-    uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
     uint16 internal immutable _forcedInclusionDelay;
@@ -163,7 +167,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
-        _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         _forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
@@ -202,9 +205,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Processes up to `min(input.numForcedInclusions, minForcedInclusionCount)` forced
-    ///         inclusions. If the oldest forced inclusion is due, the proposer must process at
-    ///         least `minForcedInclusionCount` (or all pending).
+    ///      2. Processes up to `min(input.numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)`
+    ///         forced inclusions. If the oldest forced inclusion is due, the proposer must request
+    ///         at least 1 forced inclusion.
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
@@ -482,7 +485,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
-            minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
             forcedInclusionFeeDoubleThreshold: _forcedInclusionFeeDoubleThreshold,
@@ -598,14 +600,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            uint256 toProcess =
-                _numForcedInclusionsRequested.min(available).min(_minForcedInclusionCount);
-
-            if (_numForcedInclusionsRequested < _minForcedInclusionCount && available > toProcess) {
+            if (_numForcedInclusionsRequested == 0) {
                 bool isOldestInclusionDue =
                     $.isOldestForcedInclusionDue(head, tail, _forcedInclusionDelay);
                 require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
             }
+            uint256 toProcess = _numForcedInclusionsRequested.min(available).min(
+                MAX_FORCED_INCLUSIONS_PER_PROPOSAL
+            );
 
             result_.sources = new DerivationSource[](toProcess + 1);
 

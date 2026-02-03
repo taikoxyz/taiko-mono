@@ -164,7 +164,7 @@ contract InboxProposeTest is InboxTestBase {
         assertEq(tail, 1, "tail");
     }
 
-    function test_propose_capsForcedInclusionProcessingToMinForcedInclusionCount() public {
+    function test_propose_capsForcedInclusionProcessingToMaxForcedInclusionsPerProposal() public {
         _setBlobHashes(20);
         _proposeAndDecode(_defaultProposeInput());
 
@@ -185,10 +185,10 @@ contract InboxProposeTest is InboxTestBase {
         input.numForcedInclusions = type(uint16).max;
 
         ProposedEvent memory payload = _proposeAndDecode(input);
-        assertEq(payload.sources.length, uint256(config.minForcedInclusionCount) + 1, "sources");
+        assertEq(payload.sources.length, 11, "sources");
 
         (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
-        assertEq(head, uint48(config.minForcedInclusionCount), "head");
+        assertEq(head, 10, "head");
         assertEq(tail, 12, "tail");
     }
 

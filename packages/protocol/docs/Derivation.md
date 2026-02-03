@@ -85,7 +85,7 @@ The `sources` array in the `Proposed` event (`payload.sources`) contains `Deriva
 [`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L47-L53)). Each source includes a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
 - **Forced inclusion submitters** publish blob data for a `DerivationSourceManifest` and call `Inbox.saveForcedInclusion(blobReference)`; the inbox stores the resulting `blobSlice` in a queue.
-- **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues up to `min(numForcedInclusions, minForcedInclusionCount)` forced inclusions (FIFO) and appends the proposer's source **last**. If the oldest forced inclusion is due, the proposer must request at least `minForcedInclusionCount` (or include all pending).
+- **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues up to `min(numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions (FIFO, currently 10) and appends the proposer's source **last**. If the oldest forced inclusion is due, the proposer must request at least 1 forced inclusion.
 
 The manifest data structures are defined as follows:
 
@@ -251,6 +251,7 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
 **Validation process**:
 
 1. **Define bounds**:
+
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
    - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
@@ -328,6 +329,7 @@ The anchor transaction serves as a privileged system transaction responsible for
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
+
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 

@@ -37,9 +37,6 @@ interface IInbox {
         uint48 ringBufferSize;
         /// @notice The percentage of basefee paid to coinbase
         uint8 basefeeSharingPctg;
-        /// @notice The minimum number of forced inclusions that the proposer is forced to process
-        /// if they are due.
-        uint256 minForcedInclusionCount;
         /// @notice The delay for forced inclusions measured in seconds
         uint16 forcedInclusionDelay;
         /// @notice The base fee for forced inclusions in Gwei used in dynamic fee calculation
