@@ -108,7 +108,7 @@ contract InboxProposeTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(forcedRef);
     }
 
-    function test_propose_processesForcedInclusionWhenDue() public {
+    function test_propose_RevertWhen_ForcedInclusionDueNotProcessed() public {
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -122,9 +122,10 @@ contract InboxProposeTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        ProposedEvent memory payload = _proposeAndDecode(input);
-        assertEq(payload.sources.length, 2, "sources length");
-        assertTrue(payload.sources[0].isForcedInclusion, "forced inclusion");
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
     }
 
     function test_propose_allowsPermissionlessWhen_ForcedInclusionTooOld() public {
@@ -143,6 +144,7 @@ contract InboxProposeTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
 
         ProposedEvent memory payload = _proposeWithCaller(David, input);
 
@@ -181,6 +183,7 @@ contract InboxProposeTest is InboxTestBase {
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.blobReference = LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        input.numForcedInclusions = 1;
 
         ProposedEvent memory payload = _proposeAndDecodeWithGas(input, "propose_forced_inclusion");
         uint48 proposalTimestamp = uint48(block.timestamp);
@@ -203,33 +206,6 @@ contract InboxProposeTest is InboxTestBase {
         (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
         assertEq(head, 1, "queue head");
         assertEq(tail, 1, "queue tail");
-    }
-
-    function test_propose_capsForcedInclusionProcessing() public {
-        uint256 maxToProcess = 10;
-        uint256 totalForced = maxToProcess + 2;
-
-        _setBlobHashes(totalForced + 1);
-        _proposeAndDecode(_defaultProposeInput());
-        _advanceBlock();
-
-        for (uint256 i = 1; i <= totalForced; ++i) {
-            LibBlobs.BlobReference memory forcedRef =
-                LibBlobs.BlobReference({ blobStartIndex: uint16(i), numBlobs: 1, offset: 0 });
-            uint256 feeInGwei = inbox.getCurrentForcedInclusionFee();
-            vm.prank(proposer);
-            inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(forcedRef);
-        }
-
-        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
-        vm.roll(block.number + 1);
-
-        ProposedEvent memory payload = _proposeAndDecode(_defaultProposeInput());
-        assertEq(payload.sources.length, maxToProcess + 1, "sources length capped");
-
-        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
-        assertEq(head, uint48(maxToProcess), "queue head capped");
-        assertEq(tail, uint48(totalForced), "queue tail");
     }
 
     // ---------------------------------------------------------------------
@@ -375,6 +351,7 @@ contract InboxProposeTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
 
         assertEq(inbox.getBond(Emma).balance, 0, "emma has no bond");
 
@@ -407,6 +384,7 @@ contract InboxProposeTest is InboxTestBase {
         // At exact boundary (timestamp == permissionlessTimestamp), NOT permissionless
         // because condition is block.timestamp > permissionlessTimestamp (strict >)
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
 
         // Should NOT be permissionless at exact boundary, so unauthorized user fails
         bytes memory encodedInput = codec.encodeProposeInput(input);

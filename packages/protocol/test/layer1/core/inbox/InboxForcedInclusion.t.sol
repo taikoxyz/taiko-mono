@@ -98,6 +98,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         _setBlobHashes(1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
         _proposeAndDecode(input);
 
         // Now head = 1, tail = 1, so start = 0 is below head
@@ -288,6 +289,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
         _setBlobHashes(1);
         _proposeAndDecode(input);
 
