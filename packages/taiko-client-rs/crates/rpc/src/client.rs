@@ -7,7 +7,7 @@ use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::re
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    IpcConnect, Provider, ProviderBuilder, RootProvider, fillers::FillProvider,
+    IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
     utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
@@ -99,7 +99,7 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
 impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
-        let l2_provider = connect_http_with_timeout(config.l2_provider_url);
+        let l2_provider = connect_provider_with_timeout(config.l2_provider_url).await?;
         let jwt_secret = read_jwt_secret(config.jwt_secret.clone()).ok_or_else(|| {
             RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
         })?;
@@ -150,6 +150,18 @@ fn reqwest_client_with_timeout() -> ReqwestClient {
 /// Build a [`RootProvider`] backed by a reqwest client with a bounded timeout.
 pub fn connect_http_with_timeout(url: Url) -> RootProvider {
     ProviderBuilder::default().connect_reqwest(reqwest_client_with_timeout(), url)
+}
+
+/// Build a [`RootProvider`] backed by either HTTP or WebSocket transport based on URL scheme.
+pub async fn connect_provider_with_timeout(url: Url) -> Result<RootProvider> {
+    match url.scheme() {
+        "http" | "https" => Ok(connect_http_with_timeout(url)),
+        "ws" | "wss" => ProviderBuilder::default()
+            .connect_ws(WsConnect::new(url.to_string()))
+            .await
+            .map_err(|e| RpcClientError::Connection(e.to_string())),
+        scheme => Err(RpcClientError::Connection(format!("unsupported RPC scheme: {scheme}"))),
+    }
 }
 
 /// Builds a [`RootProvider`] backed by an HTTP transport that authenticates each request
@@ -225,5 +237,12 @@ mod tests {
             Duration::from_secs(12),
             "DEFAULT_HTTP_TIMEOUT should default to 12 seconds"
         );
+    }
+
+    #[tokio::test]
+    async fn connect_provider_rejects_unknown_scheme() {
+        let url = Url::parse("ftp://localhost:1234").expect("invalid test URL");
+        let err = connect_provider_with_timeout(url).await.unwrap_err();
+        assert!(err.to_string().contains("unsupported RPC scheme"));
     }
 }
