@@ -107,6 +107,11 @@ contract InboxActivationTest is InboxTestBase {
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
         assertEq(
+            cfg.minForcedInclusionCount,
+            config.minForcedInclusionCount,
+            "minForcedInclusionCount mismatch"
+        );
+        assertEq(
             cfg.forcedInclusionFeeInGwei,
             config.forcedInclusionFeeInGwei,
             "forcedInclusionFeeInGwei mismatch"
@@ -184,6 +189,22 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.basefeeSharingPctg = 101; // Must be <= 100
 
         vm.expectRevert(LibInboxSetup.BasefeeSharingPctgTooLarge.selector);
+        new Inbox(cfg);
+    }
+
+    function test_validateConfig_RevertWhen_MinForcedInclusionCountZero() public {
+        IInbox.Config memory cfg = _buildConfig();
+        cfg.minForcedInclusionCount = 0;
+
+        vm.expectRevert(LibInboxSetup.MinForcedInclusionCountZero.selector);
+        new Inbox(cfg);
+    }
+
+    function test_validateConfig_RevertWhen_MinForcedInclusionCountTooLarge() public {
+        IInbox.Config memory cfg = _buildConfig();
+        cfg.minForcedInclusionCount = uint256(type(uint16).max) + 1;
+
+        vm.expectRevert(LibInboxSetup.MinForcedInclusionCountTooLarge.selector);
         new Inbox(cfg);
     }
 
