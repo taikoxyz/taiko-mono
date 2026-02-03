@@ -59,7 +59,10 @@ pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
 }
 
 /// Revert the L1 snapshot.
-pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
+pub async fn revert_snapshot<P>(provider: &P, snapshot_id: &str) -> Result<()>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
     let reverted = provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
         .await
@@ -69,7 +72,10 @@ pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Resu
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
-pub async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Result<String> {
+pub async fn create_snapshot<P>(phase: &'static str, provider: &P) -> Result<String>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
     provider
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await

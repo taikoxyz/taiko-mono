@@ -3,11 +3,10 @@ use std::{env, fmt, path::PathBuf, str::FromStr, time::Instant};
 use crate::init_tracing;
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use alloy_primitives::{Address, B256};
-use alloy_provider::RootProvider;
 use anyhow::{Context, Result};
 use rpc::{
     SubscriptionSource,
-    client::{Client, ClientConfig, connect_provider_with_timeout},
+    client::{Client, ClientConfig},
 };
 use test_context::AsyncTestContext;
 use tracing::info;
@@ -33,7 +32,6 @@ pub struct ShastaEnv {
     pub taiko_anchor_address: Address,
     pub client_config: ClientConfig,
     pub client: RpcClient,
-    cleanup_provider: RootProvider,
     snapshot_id: String,
     /// Secondary L2 WebSocket endpoint for dual-driver E2E tests.
     pub l2_ws_1: RpcUrl,
@@ -134,8 +132,8 @@ impl ShastaEnv {
         reset_head_l1_origin(&secondary_client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let cleanup_provider = connect_provider_with_timeout(l1_ws_url.clone()).await?;
-        let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
+        let snapshot_provider = l1_source.to_provider().await?;
+        let snapshot_id = create_snapshot("setup", &snapshot_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
@@ -150,7 +148,6 @@ impl ShastaEnv {
             taiko_anchor_address,
             client_config,
             client,
-            cleanup_provider,
             snapshot_id,
             l2_ws_1,
             l2_auth_1,
@@ -159,7 +156,8 @@ impl ShastaEnv {
 
     /// Explicit async teardown to revert the L1 snapshot.
     pub async fn shutdown(self) -> Result<()> {
-        revert_snapshot(&self.cleanup_provider, &self.snapshot_id).await
+        let provider = self.l1_source.to_provider().await?;
+        revert_snapshot(&provider, &self.snapshot_id).await
     }
 }
 
