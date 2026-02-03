@@ -132,8 +132,7 @@ impl ShastaEnv {
         reset_head_l1_origin(&secondary_client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let snapshot_provider = l1_source.to_provider().await?;
-        let snapshot_id = create_snapshot("setup", &snapshot_provider).await?;
+        let snapshot_id = create_snapshot("setup", &l1_source.to_provider().await?).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
@@ -156,8 +155,7 @@ impl ShastaEnv {
 
     /// Explicit async teardown to revert the L1 snapshot.
     pub async fn shutdown(self) -> Result<()> {
-        let provider = self.l1_source.to_provider().await?;
-        revert_snapshot(&provider, &self.snapshot_id).await
+        revert_snapshot(&self.l1_source.to_provider().await?, &self.snapshot_id).await
     }
 }
 
