@@ -45,8 +45,8 @@ contract MainnetInbox is Inbox {
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
-                // This value should be set to < 12 for safety. This ensures that even if proposals happen every L1 slot,
-                // the timestamp can advance according to the Derivation rules (1s block times).
+                // This value should be set to < 12 for safety. This ensures that even if proposals happen every L1
+                // slot, the timestamp can advance according to the Derivation rules (1s block times).
                 minForcedInclusionCount: 10,
                 // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their window.
                 forcedInclusionDelay: 576 seconds,
