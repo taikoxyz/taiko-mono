@@ -19,13 +19,12 @@ library LibCodec {
         pure
         returns (bytes memory encoded_)
     {
-        encoded_ = new bytes(15);
+        encoded_ = new bytes(13);
         uint256 ptr = P.dataPtr(encoded_);
         ptr = P.packUint48(ptr, _input.deadline);
         ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
         ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
         ptr = P.packUint24(ptr, _input.blobReference.offset);
-        ptr = P.packUint16(ptr, _input.numForcedInclusions);
     }
 
     /// @dev Decodes propose input data using compact packing.
@@ -39,7 +38,6 @@ library LibCodec {
         (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
-        (input_.numForcedInclusions,) = P.unpackUint16(ptr);
     }
 
     // ---------------------------------------------------------------
