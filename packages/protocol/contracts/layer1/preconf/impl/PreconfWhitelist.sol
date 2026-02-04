@@ -185,7 +185,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         OperatorInfo storage info = operators[_proposer];
 
         // if they're already active, just revert
-        if (info.activeSince != 0) {
+        if (info.sequencerAddress != address(0)) {
             revert OperatorAlreadyExists();
         }
 
