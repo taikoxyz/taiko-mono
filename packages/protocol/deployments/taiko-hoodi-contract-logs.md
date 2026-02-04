@@ -25,11 +25,11 @@
 ### signal_service
 
 - proxy: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
-- impl: `0x9403EdED7bF886F49025Eb65AAba56E04aFF5243`
+- impl: `0xF3012Be33Cf09eFFD0fB976f79eE11048b11bbD1`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
 
 ### bridge
 
@@ -101,10 +101,11 @@
 
 ### ShastaInbox
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
-- impl: `0x2f3090807e76D613f8F2b92d4793e678Dd19Ae23`
+- impl: `0xaDeb8cF142991D2AE46e5Ab6BE3172979fE6D10F`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Feb 2, 2026 at commit `392bfa0`
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
 
 ### forced_inclusion_store
 
@@ -126,7 +127,7 @@
   - taiko gattaca proposer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`(sequencer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`)
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
 
 ### prover_whitelist
 
@@ -246,11 +247,11 @@
 ### signal_service
 
 - proxy: `0x1670130000000000000000000000000000000005`
-- impl: `0xAc9547e2c7855976df06a41de993F6288B76F570`
+- impl: `0x771DBE57fED491dFF7b350dAe56025eD2271AFbf`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
-  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
 
 ### shared_resolver
 
@@ -268,7 +269,7 @@
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - updated on Dec 19, 2025 at commit `7492388`
-  - upgraded on Feb 3, 2026 at commit `392bfa0` (will do)
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
 
 ### rollup_resolver
 
