@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use alloy_primitives::{Address, U256};
 use anyhow::Result;
-use preconfirmation_client::{
+use preconfirmation_driver::{
     DriverClient, PreconfirmationClient, PreconfirmationClientConfig,
     subscription::PreconfirmationEvent,
 };

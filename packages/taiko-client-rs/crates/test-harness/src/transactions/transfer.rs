@@ -72,7 +72,8 @@ where
 
     let nonce = provider
         .get_transaction_count(from)
-        .block_id(BlockId::Number(BlockNumberOrTag::Pending))
+        // Use on-chain nonce to avoid stale pending txs after L2 resets in tests.
+        .block_id(BlockId::Number(BlockNumberOrTag::Latest))
         .await?;
     let chain_id = provider.get_chain_id().await?;
     let base_fee = compute_next_block_base_fee(provider, block_number.saturating_sub(1)).await?;

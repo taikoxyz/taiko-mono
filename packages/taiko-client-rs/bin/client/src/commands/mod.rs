@@ -2,7 +2,7 @@
 
 use std::{io::IsTerminal, net::SocketAddr};
 
-use anyhow::Result;
+use crate::error::Result;
 use async_trait::async_trait;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use tracing::info;
@@ -11,6 +11,7 @@ use tracing_subscriber::EnvFilter;
 use crate::flags::common::CommonArgs;
 
 pub mod driver;
+pub mod preconfirmation_driver;
 pub mod proposer;
 
 /// Shared behaviour for CLI subcommands.
