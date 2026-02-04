@@ -14,17 +14,17 @@ export FORK_URL=${FORK_URL:-"ws://45.33.84.128:32004"}
 export RPC_ENDPOINT=${RPC_ENDPOINT:-"http://localhost:4545"}
 
 # UserOpsSubmitter contract address
-export SUBMITTER_ADDRESS=${SUBMITTER_ADDRESS:-"0x2ef05DcA0cc8BBcbE7102EEf7A457e9a7DAe8d11"}
+export SUBMITTER_ADDRESS=${SUBMITTER_ADDRESS:-"0x6ee52bbf0e3c09f55fc92bf22304e8148734a484"}
 
 # L1Sender contract address
-export L1_SENDER_ADDRESS=${L1_SENDER_ADDRESS:-"0xf41De16B7DE764A21dE234818C100D7deeEd7Ae5"}
+export L1_SENDER_ADDRESS=${L1_SENDER_ADDRESS:-"0x58bE7939DB4e55bDe7aFE457EcF2F61Fb3ede864"}
 
 # Calculation operands
-export A=${A:-"10"}
+export A=${A:-"20"}
 export B=${B:-"5"}
 
 # Operation: 0=ADD, 1=SUB, 2=MUL, 3=DIV
-export OP=${OP:-"0"}
+export OP=${OP:-"2"}
 
 # Whether to send the user op to RPC
 export SEND_TO_RPC=${SEND_TO_RPC:-true}
