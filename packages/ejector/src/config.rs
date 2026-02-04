@@ -55,6 +55,11 @@ pub struct Config {
     #[arg(long, env = "PRECONF_ROUTER_ADDRESS")]
     pub preconf_router_address: String,
 
+    // Address of L2 Anchor contract (for detecting re-anchoring).
+    // Required when enable_reorg_ejection is true.
+    #[arg(long, env = "ANCHOR_ADDRESS")]
+    pub anchor_address: Option<String>,
+
     // minimum reorg depth (number of blocks replaced) required before we eject operators
     #[arg(long, env = "MIN_REORG_DEPTH_FOR_EJECT", default_value_t = 4usize)]
     pub min_reorg_depth_for_eject: usize,
@@ -76,6 +81,8 @@ mod tests {
             "0x1123",
             "--preconf-router-address",
             "0x789",
+            "--anchor-address",
+            "0xABC",
             "--l1-http-url",
             "http://test-l1-rpc.com",
             "--l1-ws-url",
@@ -106,6 +113,7 @@ mod tests {
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
         assert_eq!(config.preconf_router_address, "0x789");
+        assert_eq!(config.anchor_address, Some("0xABC".to_string()));
         assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
         assert_eq!(config.l1_ws_url, "ws://test-l1-rpc.com");
         assert_eq!(config.l2_ws_url, "ws://test-l2.com");
@@ -118,6 +126,37 @@ mod tests {
         assert_eq!(config.server_port, 8081);
         assert_eq!(config.min_operators, 1);
         assert_eq!(config.min_reorg_depth_for_eject, 5);
+        assert!(!config.enable_reorg_ejection);
+    }
+
+    #[test]
+    fn test_config_parsing_without_anchor_address() {
+        // anchor_address is optional (only required when reorg ejection is enabled)
+        let config = Config::parse_from([
+            "ejector",
+            "--preconf-whitelist-address",
+            "0x1123",
+            "--preconf-router-address",
+            "0x789",
+            "--l1-http-url",
+            "http://test-l1-rpc.com",
+            "--l1-ws-url",
+            "ws://test-l1-rpc.com",
+            "--l2-ws-url",
+            "ws://test-l2.com",
+            "--l2-http-url",
+            "http://test-l2.com",
+            "--private-key",
+            "0x1234",
+            "--taiko-wrapper-address",
+            "0x456",
+            "--beacon-url",
+            "http://test-beacon.com",
+            "--enable-reorg-ejection",
+            "false",
+        ]);
+
+        assert!(config.anchor_address.is_none());
         assert!(!config.enable_reorg_ejection);
     }
 }

@@ -2265,9 +2265,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
+checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 dependencies = [
  "serde",
 ]
@@ -3062,7 +3062,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab67060fc6b8ef687992d439ca0fa36e7ed17e9a0b16b25b601e8757df720de"
 dependencies = [
  "data-encoding",
- "syn 2.0.114",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3378,19 +3378,13 @@ dependencies = [
  "bindings",
  "event-scanner",
  "flate2",
- "http-body-util",
- "hyper",
- "hyper-util",
- "jsonrpsee",
  "k256",
  "metrics 0.24.3",
- "preconfirmation-client",
  "preconfirmation-net",
  "preconfirmation-types",
  "proposer",
  "protocol",
  "rand 0.8.5",
- "reth-ipc 1.10.0",
  "rpc",
  "secp256k1 0.30.0",
  "serde",
@@ -3404,7 +3398,6 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-stream",
- "tower",
  "tracing",
  "tracing-subscriber 0.3.22",
  "url",
@@ -7321,11 +7314,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "preconfirmation-client"
+name = "preconfirmation-driver"
 version = "2.0.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
+ "alloy",
  "alloy-consensus",
  "alloy-contract",
  "alloy-eips",
@@ -7334,6 +7328,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
+ "alloy-rpc-types-eth",
  "alloy-transport",
  "anyhow",
  "async-trait",
@@ -7341,6 +7336,7 @@ dependencies = [
  "dashmap 6.1.0",
  "driver",
  "flate2",
+ "jsonrpsee",
  "metrics 0.24.3",
  "preconfirmation-net",
  "preconfirmation-types",
@@ -7348,8 +7344,11 @@ dependencies = [
  "rand 0.8.5",
  "rpc",
  "secp256k1 0.30.0",
+ "serde",
+ "serde_json",
  "serial_test",
  "sha2 0.10.9",
+ "ssz_rs",
  "test-context",
  "test-harness",
  "test-log",
@@ -9296,26 +9295,6 @@ dependencies = [
 
 [[package]]
 name = "reth-ipc"
-version = "1.10.0"
-source = "git+https://github.com/paradigmxyz/reth?tag=v1.10.0#b25f32a977b489f9b84254c7811a2a5a25a81369"
-dependencies = [
- "bytes",
- "futures",
- "futures-util",
- "interprocess",
- "jsonrpsee",
- "pin-project",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tower",
- "tracing",
-]
-
-[[package]]
-name = "reth-ipc"
 version = "1.10.2"
 source = "git+https://github.com/paradigmxyz/reth?tag=v1.10.2#8e3b5e6a99439561b73c5dd31bd3eced2e994d60"
 dependencies = [
@@ -10257,7 +10236,7 @@ dependencies = [
  "reth-consensus",
  "reth-engine-primitives",
  "reth-evm",
- "reth-ipc 1.10.2",
+ "reth-ipc",
  "reth-metrics 1.10.2",
  "reth-network-api",
  "reth-node-core",
@@ -12610,15 +12589,19 @@ name = "taiko-client"
 version = "2.0.0"
 dependencies = [
  "alloy",
+ "alloy-consensus",
  "alloy-primitives",
- "anyhow",
+ "alloy-rpc-types-eth",
  "async-trait",
  "clap",
  "driver",
  "metrics 0.24.3",
  "metrics-exporter-prometheus 0.15.3",
+ "preconfirmation-driver",
+ "preconfirmation-net",
  "proposer",
  "rpc",
+ "thiserror 2.0.17",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.22",
@@ -12702,7 +12685,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "once_cell",
- "preconfirmation-client",
+ "preconfirmation-driver",
  "preconfirmation-net",
  "preconfirmation-types",
  "protocol",
