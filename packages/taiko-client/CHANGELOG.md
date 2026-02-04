@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.0...taiko-alethia-client-v2.1.1) (2026-02-03)
+
+
+### Chores
+
+* **taiko-client,taiko-client-rs:** update Go / Rust contract bindings ([#21256](https://github.com/taikoxyz/taiko-mono/issues/21256)) ([ce8c3e9](https://github.com/taikoxyz/taiko-mono/commit/ce8c3e96c6374564ed338e494bd0ad8a6da5a54b))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.0.0...taiko-alethia-client-v2.1.0) (2026-02-02)
 
 
