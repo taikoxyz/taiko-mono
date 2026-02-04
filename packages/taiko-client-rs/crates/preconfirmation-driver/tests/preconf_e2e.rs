@@ -201,7 +201,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     let mut driver_config = DriverConfig::new(
         ClientConfig {
             l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_http_0.clone(),
+            l2_provider_url: env.l2_ws_0.clone(),
             l2_auth_provider_url: env.l2_auth_0.clone(),
             jwt_secret: env.jwt_secret.clone(),
             inbox_address: env.inbox_address,

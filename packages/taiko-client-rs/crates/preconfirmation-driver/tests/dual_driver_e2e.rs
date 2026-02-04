@@ -24,7 +24,7 @@ use preconfirmation_types::{
 };
 use rpc::{
     SubscriptionSource,
-    client::{Client, ClientConfig, connect_http_with_timeout},
+    client::{Client, ClientConfig, connect_provider_with_timeout},
 };
 use serial_test::serial;
 use test_context::test_context;
@@ -59,7 +59,7 @@ type DriverRpcClient = Client<DriverRpcProvider>;
 impl DriverInstance {
     /// Starts a new driver instance connected to the specified L2 node.
     async fn start(
-        l2_http: &Url,
+        l2_ws: &Url,
         l2_auth: &Url,
         l1_source: &SubscriptionSource,
         jwt_secret_path: &std::path::Path,
@@ -68,7 +68,7 @@ impl DriverInstance {
     ) -> Result<Self> {
         let client_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
-            l2_provider_url: l2_http.clone(),
+            l2_provider_url: l2_ws.clone(),
             l2_auth_provider_url: l2_auth.clone(),
             jwt_secret: jwt_secret_path.to_path_buf(),
             inbox_address,
@@ -125,14 +125,14 @@ fn build_txlist_bytes(raw_tx_bytes: &[Vec<u8>]) -> Result<TxListBytes> {
 #[serial]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<()> {
-    let l2_http_1: Url = env.l2_http_1.clone();
+    let l2_ws_1: Url = env.l2_ws_1.clone();
     let l2_auth_1: Url = env.l2_auth_1.clone();
 
     let beacon_server = BeaconStubServer::start().await?;
 
     info!("starting driver 1 (L2 node 0)");
     let driver1 = DriverInstance::start(
-        &env.l2_http_0.clone(),
+        &env.l2_ws_0.clone(),
         &env.l2_auth_0.clone(),
         &env.l1_source,
         &env.jwt_secret,
@@ -144,7 +144,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
 
     info!("starting driver 2 (L2 node 1)");
     let driver2 = DriverInstance::start(
-        &l2_http_1,
+        &l2_ws_1,
         &l2_auth_1,
         &env.l1_source,
         &env.jwt_secret,
@@ -154,7 +154,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     .await
     .context("starting driver 2")?;
 
-    let l2_provider_1 = connect_http_with_timeout(l2_http_1.clone());
+    let l2_provider_1 = connect_provider_with_timeout(l2_ws_1.clone()).await?;
 
     let driver1_embedded =
         EventSyncerDriverClient::new(driver1.event_syncer.clone(), driver1.rpc_client.clone());
