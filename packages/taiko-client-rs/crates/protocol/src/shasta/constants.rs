@@ -6,7 +6,7 @@ use alloy_hardforks::ForkCondition;
 
 /// The maximum number of blocks allowed in a proposal. If we assume block time is as
 /// small as one second, 192 blocks will cover an Ethereum epoch.
-pub const PROPOSAL_MAX_BLOCKS: usize = 192;
+pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = 192;
 
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;
@@ -35,11 +35,14 @@ pub const SHASTA_PAYLOAD_VERSION: u8 = 0x1;
 /// The maximum size of a blob data, in bytes.
 pub const PROPOSAL_MAX_BLOB_BYTES: usize = BYTES_PER_BLOB;
 
+/// Maximum number of forced inclusions processed per proposal.
+pub const MAX_FORCED_INCLUSIONS_PER_PROPOSAL: u16 = 10;
+
 /// Shasta fork activation on Taiko Devnet.
 pub const SHASTA_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 
-/// Shasta fork activation on Taiko Hoodi. This fork has not been scheduled yet.
-pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Never;
+/// Shasta fork activation on Taiko Hoodi.
+pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_770_296_400);
 
 /// Shasta fork activation on Taiko Mainnet. This fork has not been scheduled yet.
 pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Never;

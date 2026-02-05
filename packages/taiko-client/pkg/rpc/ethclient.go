@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"time"
 
@@ -77,7 +78,12 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		timeoutVal = timeout
 	}
 
-	client, err := rpc.DialContext(ctx, url)
+	// Create HTTP client with rate-limited transport to handle 429 responses
+	httpClient := &http.Client{
+		Transport: NewRateLimitedTransport(http.DefaultTransport, RateLimitMaxRetries),
+	}
+
+	client, err := rpc.DialOptions(ctx, url, rpc.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, err
 	}
