@@ -300,7 +300,6 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 
 	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
 	allowEmptyPoolContent := time.Now().After(p.lastProposedAt.Add(p.MinProposingInternal))
-
 	log.Info(
 		"Start fetching L2 execution engine's transaction pool content",
 		"proposer", p.proposerAddress.Hex(),
