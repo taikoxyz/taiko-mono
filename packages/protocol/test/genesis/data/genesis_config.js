@@ -6,12 +6,30 @@ const CONTRACT_OWNER =
   process.env.CONTRACT_OWNER || "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39";
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || "167", 10);
 const L1_CHAIN_ID = parseInt(process.env.L1_CHAIN_ID || "31337", 10);
-const SEED_ADDRESS =
-  process.env.SEED_ADDRESS || "0x0000000000000000000000000000000000000000";
-const SEED_AMOUNT = parseInt(process.env.SEED_AMOUNT || "0", 10);
+// Comma-separated list of addresses to prefund
+const SEED_ADDRESSES = process.env.SEED_ADDRESSES || process.env.SEED_ADDRESS || "";
+// Comma-separated list of amounts (must match number of addresses, or single value applied to all)
+const SEED_AMOUNTS = process.env.SEED_AMOUNTS || process.env.SEED_AMOUNT || "1000";
 const REMOTE_SIGNAL_SERVICE =
   process.env.REMOTE_SIGNAL_SERVICE ||
   "0x0000000000000000000000000000000000000000";
+
+// Parse seed accounts from comma-separated environment variables
+function parseSeedAccounts(addresses, amounts) {
+  if (!addresses || addresses.trim() === "") {
+    return [];
+  }
+
+  const addressList = addresses.split(",").map((addr) => addr.trim()).filter(Boolean);
+  const amountList = amounts.split(",").map((amt) => parseInt(amt.trim(), 10));
+
+  // If single amount provided, apply to all addresses
+  const useUniformAmount = amountList.length === 1 && addressList.length > 1;
+
+  return addressList.map((address, index) => ({
+    [address]: useUniformAmount ? amountList[0] : (amountList[index] || 0),
+  }));
+}
 
 module.exports = {
   // Owner address of the pre-deployed L2 contracts.
@@ -19,7 +37,7 @@ module.exports = {
   // Chain ID of the Taiko L2 network.
   chainId: CHAIN_ID,
   // Account address and pre-mint ETH amount as key-value pairs.
-  seedAccounts: [{ [SEED_ADDRESS]: SEED_AMOUNT }],
+  seedAccounts: parseSeedAccounts(SEED_ADDRESSES, SEED_AMOUNTS),
   // Owner Chain ID, Security Council, and Timelock Controller
   l1ChainId: L1_CHAIN_ID,
   get contractAddresses() {

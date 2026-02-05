@@ -26,7 +26,7 @@ contract DeployMulticall is Script {
         multicall_ = address(multicall);
 
         console2.log("Multicall deployed at:", multicall_);
-        writeJson("Multicall", multicall_);
+        writeJson("multicall", multicall_);
 
         console2.log("=====================================");
         console2.log("Deployment Complete");
