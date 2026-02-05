@@ -33,11 +33,11 @@
               },
               "anchorForkRouter": {
                 "type": "string",
-                "description": "Protocol v3: Anchor fork router address for checkpoint sync"
+                "description": "Shasta protocol: Anchor fork router address for checkpoint sync (L2 only)"
               },
               "crossChainSyncAddress": {
                 "type": "string",
-                "description": "Deprecated: Protocol v2 cross-chain sync address"
+                "description": "Pacaya protocol: Cross-chain sync address (deprecated, for backward compatibility)"
               },
               "hops": {
                 "type": "array",
@@ -45,10 +45,11 @@
                   "type": "object",
                   "properties": {
                     "chainId": { "type": "number" },
-                    "crossChainSyncAddress": { "type": "string" }
-                  }
+                    "signalServiceAddress": { "type": "string" }
+                  },
+                  "required": ["chainId", "signalServiceAddress"]
                 },
-                "description": "Deprecated: Protocol v2 hop configuration"
+                "description": "Pacaya protocol: Multi-hop configuration for bridge proofs"
               }
             },
             "required": [

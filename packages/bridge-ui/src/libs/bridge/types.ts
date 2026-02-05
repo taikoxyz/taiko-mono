@@ -240,6 +240,12 @@ export type BridgeConfig = {
 
 export type RoutingMap = Record<string, Record<string, AddressConfig>>;
 
+// Pacaya multi-hop configuration
+export type HopAddressConfig = {
+  chainId: number;
+  signalServiceAddress: Address;
+};
+
 export type AddressConfig = {
   bridgeAddress: Address;
   erc20VaultAddress: Address;
@@ -247,7 +253,11 @@ export type AddressConfig = {
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
   signalServiceAddress: Address;
+  // Shasta protocol
   anchorForkRouter?: Address;
+  // Pacaya protocol (deprecated, for backward compatibility)
+  crossChainSyncAddress?: Address;
+  hops?: HopAddressConfig[];
 };
 
 export enum ContractType {
