@@ -118,7 +118,7 @@
 ### preconf_whitelist
 
 - proxy : `0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba`
-- impl : `0xF7DC03615231C4219F6AE4B78884a63fB37Df9Fc`
+- impl : `0xeB614BE0Fe964A26B71D8CC02F9D7876352d7d15`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - ejectors:
 - operators:
