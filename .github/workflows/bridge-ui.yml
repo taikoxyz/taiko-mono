@@ -8,7 +8,8 @@ on:
       - dependabot/**
       - release-please--branches--**
     tags:
-      - "bridge-ui-v*"
+      - "bridge-ui-hoodi-v*"
+      - "bridge-ui-mainnet-v*"
 
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -53,7 +54,7 @@ jobs:
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_bridge-ui_hoodi_production:
-    if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-hoodi-v') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
@@ -78,7 +79,7 @@ jobs:
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_bridge-ui_mainnet_production:
-    if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-mainnet-v') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
