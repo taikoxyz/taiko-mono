@@ -290,13 +290,13 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
-	ok, err := p.shouldPropose(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check if proposer should propose: %w", err)
-	} else if !ok {
-		log.Info("Proposer is not allowed to propose at this time, skipping")
-		return nil
-	}
+	//ok, err := p.shouldPropose(ctx)
+	//if err != nil {
+	//	return fmt.Errorf("failed to check if proposer should propose: %w", err)
+	//} else if !ok {
+	//	log.Info("Proposer is not allowed to propose at this time, skipping")
+	//	return nil
+	//}
 
 	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
 	allowEmptyPoolContent := time.Now().After(p.lastProposedAt.Add(p.MinProposingInternal))
