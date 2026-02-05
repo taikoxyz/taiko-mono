@@ -3,21 +3,22 @@ import {
   type Address,
   BlockNotFoundError,
   encodeAbiParameters,
-  encodeFunctionData,
   encodePacked,
   type Hash,
   type Hex,
   hexToBigInt,
   keccak256,
   numberToHex,
+  toBytes,
   toHex,
 } from 'viem';
 
-import { signalServiceAbi } from '$abi';
+import { pacayaSignalServiceAbi, signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isL2Chain } from '$libs/chain';
 import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
+import { getProtocolVersion, ProtocolVersion } from '$libs/protocol/protocolVersion';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -25,7 +26,6 @@ import { CacheOption, type ClientWithEthGetProofRequest, type GetProofArgs, type
 
 const log = getLogger('proof:Prover');
 
-// ~33 hours on L1 with 12s blocks
 const MAX_CHECKPOINT_SEARCH_BLOCKS = 10000n;
 
 const anchorGetBlockStateAbi = [
@@ -61,298 +61,310 @@ export class BridgeProver {
   }
 
   async getSignalForFailedMessage(msgHash: Hash): Promise<Hash> {
-    const msgHashBigInt = BigInt(msgHash);
-    const failedStatusBigInt = BigInt(MessageStatus.FAILED);
-    const resultBigInt = msgHashBigInt ^ failedStatusBigInt;
-    let resultHex = resultBigInt.toString(16).padStart(64, '0');
-    resultHex = '0x' + resultHex;
-
-    return resultHex as Hash;
+    const resultBigInt = BigInt(msgHash) ^ BigInt(MessageStatus.FAILED);
+    return ('0x' + resultBigInt.toString(16).padStart(64, '0')) as Hash;
   }
 
   /**
-   * Gets the latest block number from chainA that has been synced to chainB.
-   * - If chainB is L2 and chainA is L1: uses Anchor.getBlockState() on L2
-   * - If chainB is L1 and chainA is L2: uses CheckpointSaved events on L1
+   * Gets the latest block number from srcChain that has been synced to destChain.
    */
-  async getLatestSyncedBlockNumber(chainA: bigint, chainB: bigint): Promise<bigint> {
-    if (isL2Chain(Number(chainB))) {
-      // chainB is L2, chainA is L1: query Anchor on L2
-      const anchorAddress = routingContractsMap[Number(chainB)][Number(chainA)].anchorForkRouter;
-      if (!anchorAddress) throw new BlockNotSyncedError('No anchor address configured');
+  async getLatestSyncedBlockNumber(srcChainId: bigint, destChainId: bigint): Promise<bigint> {
+    const protocol = await getProtocolVersion(Number(srcChainId), Number(destChainId));
+
+    if (protocol === ProtocolVersion.PACAYA) {
+      return this.getLatestSyncedBlockPacaya(srcChainId, destChainId);
+    }
+    return this.getLatestSyncedBlockShasta(srcChainId, destChainId);
+  }
+
+  private async getLatestSyncedBlockPacaya(srcChainId: bigint, destChainId: bigint): Promise<bigint> {
+    const destSignalService = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
+    const result = await readContract(config, {
+      address: destSignalService,
+      abi: pacayaSignalServiceAbi,
+      functionName: 'getSyncedChainData',
+      args: [srcChainId, keccak256(toBytes('STATE_ROOT')), 0n],
+      chainId: Number(destChainId),
+    });
+    return result[0];
+  }
+
+  private async getLatestSyncedBlockShasta(srcChainId: bigint, destChainId: bigint): Promise<bigint> {
+    if (isL2Chain(Number(destChainId))) {
+      // L1→L2: query Anchor on L2
+      const anchorAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].anchorForkRouter;
+      if (!anchorAddress) throw new ClientError('No anchor address configured for this route');
 
       const blockState = await readContract(config, {
         address: anchorAddress,
         abi: anchorGetBlockStateAbi,
         functionName: 'getBlockState',
-        chainId: Number(chainB),
+        chainId: Number(destChainId),
       });
-
       return BigInt(blockState.anchorBlockNumber);
-    } else {
-      // chainB is L1, chainA is L2: query CheckpointSaved events on L1
-      const signalServiceAddress = routingContractsMap[Number(chainB)][Number(chainA)].signalServiceAddress;
-
-      const client = getPublicClient(config, { chainId: Number(chainB) });
-      if (!client) throw new ClientError('Could not get public client');
-
-      const currentBlock = await client.getBlockNumber();
-      const fromBlock = currentBlock > MAX_CHECKPOINT_SEARCH_BLOCKS ? currentBlock - MAX_CHECKPOINT_SEARCH_BLOCKS : 0n;
-      const logs = await client.getContractEvents({
-        address: signalServiceAddress,
-        abi: signalServiceAbi,
-        eventName: 'CheckpointSaved',
-        fromBlock,
-        toBlock: currentBlock,
-      });
-
-      if (logs.length === 0) throw new BlockNotSyncedError('No checkpoints found');
-
-      return BigInt(logs[logs.length - 1].args.blockNumber!);
     }
+
+    // L2→L1: query CheckpointSaved events on L1
+    const signalService = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
+    const client = getPublicClient(config, { chainId: Number(destChainId) });
+    if (!client) throw new ClientError('Could not get public client');
+
+    const currentBlock = await client.getBlockNumber();
+    const fromBlock = currentBlock > MAX_CHECKPOINT_SEARCH_BLOCKS ? currentBlock - MAX_CHECKPOINT_SEARCH_BLOCKS : 0n;
+    const logs = await client.getContractEvents({
+      address: signalService,
+      abi: signalServiceAbi,
+      eventName: 'CheckpointSaved',
+      fromBlock,
+      toBlock: currentBlock,
+    });
+
+    if (logs.length === 0) throw new BlockNotSyncedError('No checkpoints found');
+    return BigInt(logs[logs.length - 1].args.blockNumber!);
   }
 
   async getEncodedSignalProof({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
     const { blockNumber, message, msgHash } = bridgeTx;
-
-    log('msgHash', msgHash);
     if (!message) throw new ProofGenerationError('Message is not defined');
     if (!blockNumber) throw new ProofGenerationError('Block number is not defined');
+
     const { srcChainId, destChainId } = message;
+    const protocol = await getProtocolVersion(Number(srcChainId), Number(destChainId));
+    const configuredHops = routingContractsMap[Number(srcChainId)][Number(destChainId)].hops;
 
-    const srcChainClient = getPublicClient(config, { chainId: Number(srcChainId) });
-    if (!srcChainClient) throw new ClientError('Could not get public client');
+    // Multi-hop is only supported in Pacaya
+    if (configuredHops?.length) {
+      if (protocol !== ProtocolVersion.PACAYA) {
+        throw new ProofGenerationError('Multi-hop routing is only supported on Pacaya protocol');
+      }
+      return this.generateMultiHopProof(bridgeTx, configuredHops);
+    }
 
-    const srcSignalServiceAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].signalServiceAddress;
-
-    // Get latest src block synced on dest
+    // Single-hop proof (both protocols)
     const latestSyncedBlock = await this.getLatestSyncedBlockNumber(srcChainId, destChainId);
-
     log('latestSyncedBlock', latestSyncedBlock);
 
-    const synced = latestSyncedBlock >= hexToBigInt(blockNumber);
-    log('synced', synced, latestSyncedBlock, hexToBigInt(blockNumber));
-    if (!synced) {
+    if (latestSyncedBlock < hexToBigInt(blockNumber)) {
       throw new BlockNotSyncedError('block is not synced yet');
     }
 
-    // Verify the checkpoint exists on the destination chain BEFORE generating proof
-    const destSignalServiceAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
-    let checkpointStateRoot: Hex;
-    try {
-      const checkpoint = await readContract(config, {
-        address: destSignalServiceAddress,
-        abi: signalServiceAbi,
-        functionName: 'getCheckpoint',
-        args: [Number(latestSyncedBlock)],
-        chainId: Number(destChainId),
-      });
-      checkpointStateRoot = checkpoint.stateRoot as Hex;
-      log('Checkpoint verified on dest chain', { blockId: latestSyncedBlock, stateRoot: checkpointStateRoot });
-    } catch (error) {
-      log('Checkpoint NOT found on dest chain', { blockId: latestSyncedBlock, error });
-
-      // Diagnostic: check if Anchor's checkpointStore matches our expected SignalService
-      const anchorAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].anchorForkRouter;
-      if (anchorAddress) {
-        try {
-          const actualCheckpointStore = await readContract(config, {
-            address: anchorAddress,
-            abi: anchorGetBlockStateAbi,
-            functionName: 'checkpointStore',
-            chainId: Number(destChainId),
-          });
-          log('Diagnostic: Anchor checkpointStore address', actualCheckpointStore);
-          log('Diagnostic: Expected SignalService address', destSignalServiceAddress);
-          if (actualCheckpointStore.toLowerCase() !== destSignalServiceAddress.toLowerCase()) {
-            throw new ProofGenerationError(
-              `Anchor's checkpointStore (${actualCheckpointStore}) does NOT match the configured SignalService ` +
-                `(${destSignalServiceAddress}). Checkpoints are being saved to a different contract. ` +
-                `Update signalServiceAddress in bridge config or fix the Anchor deployment.`,
-            );
-          }
-        } catch (diagError) {
-          if (diagError instanceof ProofGenerationError) throw diagError;
-          log('Diagnostic: could not read checkpointStore from Anchor', diagError);
-        }
-      }
-
-      throw new ProofGenerationError(
-        `No checkpoint found on destination SignalService (${destSignalServiceAddress}) for block ${latestSyncedBlock}. ` +
-          `The anchor may not have synced this block yet, or the SignalService fork may not be active.`,
-      );
+    // Shasta: verify checkpoint exists before generating proof
+    if (protocol === ProtocolVersion.SHASTA) {
+      await this.verifyCheckpoint(Number(srcChainId), Number(destChainId), latestSyncedBlock);
     }
 
-    // Get the block from the source chain
-    let block;
-    try {
-      block = await srcChainClient.getBlock({ blockNumber: latestSyncedBlock });
-      if (!block || block.hash === null || block.number === null) {
-        throw new BlockNotFoundError({ blockNumber: latestSyncedBlock });
-      }
-    } catch {
-      throw new BlockNotFoundError({ blockNumber: latestSyncedBlock });
-    }
+    return this.generateSingleHopProof({
+      srcChainId: Number(srcChainId),
+      destChainId: Number(destChainId),
+      latestSyncedBlock,
+      msgHash,
+      verifyPreFlight: protocol === ProtocolVersion.SHASTA,
+    });
+  }
 
-    // Verify state root from L1 RPC matches checkpoint on L2
-    if ((block.stateRoot as Hex) !== checkpointStateRoot) {
-      log('STATE ROOT MISMATCH between L1 RPC and L2 checkpoint', {
-        rpcStateRoot: block.stateRoot,
-        checkpointStateRoot,
-        blockNumber: latestSyncedBlock,
-      });
-      throw new ProofGenerationError(
-        `State root mismatch: L1 RPC reports ${block.stateRoot} but L2 checkpoint has ${checkpointStateRoot} ` +
-          `for block ${latestSyncedBlock}. This may indicate a chain reorg.`,
-      );
-    }
+  private async generateMultiHopProof(
+    bridgeTx: BridgeTransaction,
+    hops: { chainId: number; signalServiceAddress: Address }[],
+  ): Promise<Hex> {
+    const { message, msgHash } = bridgeTx;
+    if (!message) throw new ProofGenerationError('Message is not defined');
 
-    // Build the signalSlot
+    const { srcChainId, destChainId } = message;
+    const destSignalService = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
     const key = await this.getSignalSlot(
       Number(srcChainId),
       routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress,
       msgHash,
     );
 
-    log('Storage key', key);
+    const hopProofs: HopProof[] = [];
+    let previousChainId = srcChainId;
 
-    // Call eth_getProof
+    for (let i = 0; i < hops.length; i++) {
+      const hop = hops[i];
+      const signalServiceAddress = i + 1 < hops.length ? hops[i + 1].signalServiceAddress : destSignalService;
+
+      const blockNumber = await this.getLatestSyncedBlockPacaya(previousChainId, BigInt(hop.chainId));
+      const client = getPublicClient(config, { chainId: hop.chainId });
+      if (!client) throw new ClientError('Could not get public client for hop');
+
+      const block = await client.getBlock({ blockNumber });
+      if (!block?.hash || block.number === null) {
+        throw new BlockNotFoundError({ blockNumber });
+      }
+
+      const proof = await (client as ClientWithEthGetProofRequest).request({
+        method: 'eth_getProof',
+        params: [signalServiceAddress, [key], numberToHex(blockNumber)],
+      });
+
+      hopProofs.push({
+        chainId: BigInt(hop.chainId),
+        blockId: blockNumber,
+        rootHash: block.stateRoot,
+        cacheOption: CacheOption.CACHE_NOTHING,
+        accountProof: proof.accountProof,
+        storageProof: proof.storageProof[0].proof,
+      });
+
+      previousChainId = BigInt(hop.chainId);
+    }
+
+    return this.encodeHopProofs(hopProofs);
+  }
+
+  private async generateSingleHopProof({
+    srcChainId,
+    destChainId,
+    latestSyncedBlock,
+    msgHash,
+    verifyPreFlight = false,
+  }: {
+    srcChainId: number;
+    destChainId: number;
+    latestSyncedBlock: bigint;
+    msgHash: Hash;
+    verifyPreFlight?: boolean;
+  }): Promise<Hex> {
+    const srcClient = getPublicClient(config, { chainId: srcChainId });
+    if (!srcClient) throw new ClientError('Could not get public client');
+
+    const block = await srcClient.getBlock({ blockNumber: latestSyncedBlock });
+    if (!block?.hash || block.number === null) {
+      throw new BlockNotFoundError({ blockNumber: latestSyncedBlock });
+    }
+
+    const key = await this.getSignalSlot(
+      srcChainId,
+      routingContractsMap[srcChainId][destChainId].bridgeAddress,
+      msgHash,
+    );
+
     const ethProof = await this.getProof({
       chainId: BigInt(srcChainId),
       blockNumber: latestSyncedBlock,
       key,
-      signalServiceAddress: srcSignalServiceAddress,
+      signalServiceAddress: routingContractsMap[srcChainId][destChainId].signalServiceAddress,
     });
 
-    log('ethProof', ethProof);
-
-    // Build single-hop proof
-    // chainId is the hop's destination chain (where this proof will be verified)
     const hopProof: HopProof = {
-      chainId: destChainId,
-      blockId: BigInt(block.number),
+      chainId: BigInt(destChainId),
+      blockId: block.number,
       rootHash: block.stateRoot,
-      cacheOption: CacheOption.CACHE_NOTHING, // Deprecated but required for ABI encoding
+      cacheOption: CacheOption.CACHE_NOTHING,
       accountProof: ethProof.accountProof,
       storageProof: ethProof.storageProof[0].proof,
     };
-    log('hopProof', hopProof);
 
     const encodedProof = this.encodeHopProofs([hopProof]);
-    log('encodedProof', encodedProof);
 
-    // Pre-flight verification: check proof validity before returning (non-blocking)
-    const srcBridgeAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress;
-    await this.verifyProofPreFlight({
-      srcChainId: Number(srcChainId),
-      destChainId: Number(destChainId),
-      bridgeAddress: srcBridgeAddress,
-      msgHash: msgHash as Hash,
-      encodedProof,
-      blockId: BigInt(block.number),
-      rootHash: block.stateRoot as Hex,
-    });
+    if (verifyPreFlight) {
+      await this.verifyProofPreFlight({
+        srcChainId,
+        destChainId,
+        msgHash,
+        encodedProof,
+        blockId: block.number,
+        rootHash: block.stateRoot as Hex,
+      });
+    }
 
     return encodedProof;
   }
 
+  private async verifyCheckpoint(srcChainId: number, destChainId: number, blockNumber: bigint): Promise<void> {
+    const destSignalService = routingContractsMap[destChainId][srcChainId].signalServiceAddress;
+
+    try {
+      await readContract(config, {
+        address: destSignalService,
+        abi: signalServiceAbi,
+        functionName: 'getCheckpoint',
+        args: [Number(blockNumber)],
+        chainId: destChainId,
+      });
+    } catch (error) {
+      log('Checkpoint NOT found', { blockNumber, error });
+
+      // Diagnostic: check if Anchor's checkpointStore matches SignalService
+      const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorForkRouter;
+      if (anchorAddress) {
+        try {
+          const checkpointStore = await readContract(config, {
+            address: anchorAddress,
+            abi: anchorGetBlockStateAbi,
+            functionName: 'checkpointStore',
+            chainId: destChainId,
+          });
+          if (checkpointStore.toLowerCase() !== destSignalService.toLowerCase()) {
+            throw new ProofGenerationError(
+              `Anchor's checkpointStore (${checkpointStore}) does NOT match SignalService (${destSignalService})`,
+            );
+          }
+        } catch (e) {
+          if (e instanceof ProofGenerationError) throw e;
+        }
+      }
+
+      throw new ProofGenerationError(
+        `No checkpoint found on SignalService (${destSignalService}) for block ${blockNumber}`,
+      );
+    }
+  }
+
   async getEncodedSignalProofForRecall({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
     const { blockNumber, message, msgHash } = bridgeTx;
-
-    log('msgHash', msgHash);
     if (!message) throw new ProofGenerationError('Message is not defined');
     if (!blockNumber) throw new ProofGenerationError('Block number is not defined');
+
     const { srcChainId, destChainId } = message;
-
-    const destChainClient = getPublicClient(config, { chainId: Number(destChainId) });
-    if (!destChainClient) throw new ClientError('Could not get public client');
-
-    const destSignalServiceAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
-
-    // Get latest dest block synced on src
+    const protocol = await getProtocolVersion(Number(destChainId), Number(srcChainId));
     const latestSyncedBlock = await this.getLatestSyncedBlockNumber(destChainId, srcChainId);
 
-    log('latestSyncedBlock', latestSyncedBlock);
-
-    const synced = latestSyncedBlock >= hexToBigInt(blockNumber);
-    log('synced', synced, latestSyncedBlock, hexToBigInt(blockNumber));
-    if (!synced) {
+    if (latestSyncedBlock < hexToBigInt(blockNumber)) {
       throw new BlockNotSyncedError('block is not synced yet');
     }
 
-    // Get the block from the destination chain
-    let block;
-    try {
-      block = await destChainClient.getBlock({ blockNumber: latestSyncedBlock });
-      if (!block || block.hash === null || block.number === null) {
-        throw new BlockNotFoundError({ blockNumber: latestSyncedBlock });
-      }
-    } catch {
+    // Shasta: verify checkpoint exists before generating proof
+    if (protocol === ProtocolVersion.SHASTA) {
+      await this.verifyCheckpoint(Number(destChainId), Number(srcChainId), latestSyncedBlock);
+    }
+
+    const destClient = getPublicClient(config, { chainId: Number(destChainId) });
+    if (!destClient) throw new ClientError('Could not get public client');
+
+    const block = await destClient.getBlock({ blockNumber: latestSyncedBlock });
+    if (!block?.hash || block.number === null) {
       throw new BlockNotFoundError({ blockNumber: latestSyncedBlock });
     }
 
     const signal = await this.getSignalForFailedMessage(msgHash);
-
-    // Build the signalSlot
     const key = await this.getSignalSlot(
       Number(destChainId),
       routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress,
       signal,
     );
 
-    log('Storage key', key);
-
-    // Call eth_getProof
     const ethProof = await this.getProof({
-      chainId: BigInt(destChainId),
+      chainId: destChainId,
       blockNumber: latestSyncedBlock,
       key,
-      signalServiceAddress: destSignalServiceAddress,
+      signalServiceAddress: routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress,
     });
 
-    log('ethProof', ethProof, msgHash);
-
-    // Build single-hop proof
-    // For recall: signal is on destChain, verification happens on srcChain
-    // chainId is the hop's destination chain (srcChain in this case)
     const hopProof: HopProof = {
       chainId: srcChainId,
-      blockId: BigInt(block.number),
+      blockId: block.number,
       rootHash: block.stateRoot,
-      cacheOption: CacheOption.CACHE_NOTHING, // Deprecated but required for ABI encoding
+      cacheOption: CacheOption.CACHE_NOTHING,
       accountProof: ethProof.accountProof,
       storageProof: ethProof.storageProof[0].proof,
     };
-    log('hopProof', hopProof);
 
-    const encodedProof = this.encodeHopProofs([hopProof]);
-    log('encodedProof', encodedProof);
-
-    // Pre-flight verification for recall: proof is verified on srcChain
-    const destBridgeAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].bridgeAddress;
-    await this.verifyProofPreFlight({
-      srcChainId: Number(destChainId), // signal is on destChain
-      destChainId: Number(srcChainId), // verification happens on srcChain
-      bridgeAddress: destBridgeAddress,
-      msgHash: signal as Hash,
-      encodedProof,
-      blockId: BigInt(block.number),
-      rootHash: block.stateRoot as Hex,
-    });
-
-    return encodedProof;
+    return this.encodeHopProofs([hopProof]);
   }
 
   encodeHopProofs = (hopProofs: HopProof[]) => {
-    // Must match ISignalService.HopProof struct exactly:
-    // struct HopProof {
-    //   uint64 chainId;
-    //   uint64 blockId;
-    //   bytes32 rootHash;
-    //   CacheOption cacheOption; // enum, encoded as uint8
-    //   bytes[] accountProof;
-    //   bytes[] storageProof;
-    // }
     const params = [
       {
         type: 'tuple[]',
@@ -368,61 +380,39 @@ export class BridgeProver {
       },
     ];
 
-    const values = hopProofs.map((hopProof) => [
-      hopProof.chainId,
-      hopProof.blockId,
-      hopProof.rootHash,
-      hopProof.cacheOption,
-      hopProof.accountProof,
-      hopProof.storageProof,
+    const values = hopProofs.map((hp) => [
+      hp.chainId,
+      hp.blockId,
+      hp.rootHash,
+      hp.cacheOption,
+      hp.accountProof,
+      hp.storageProof,
     ]);
 
     return encodeAbiParameters(params, [values]);
   };
 
   async getProof(args: GetProofArgs) {
-    const { chainId, blockNumber: latestBlockNumber, key, signalServiceAddress } = args;
+    const { chainId, blockNumber, key, signalServiceAddress } = args;
 
-    let client;
-    try {
-      client = getPublicClient(config, { chainId: Number(chainId) });
-    } catch (err) {
-      throw new ClientError('Could not get public client');
-    }
+    const client = getPublicClient(config, { chainId: Number(chainId) });
     if (!client) throw new ClientError('Could not get public client');
 
-    const clientWithEthProofRequest = client as ClientWithEthGetProofRequest;
-
-    log(`calling eth_getProof with ${signalServiceAddress}, ${key}, ${numberToHex(latestBlockNumber as bigint)}`);
-
-    const ethProof = await clientWithEthProofRequest.request({
+    const ethProof = await (client as ClientWithEthGetProofRequest).request({
       method: 'eth_getProof',
-      params: [signalServiceAddress, [key], numberToHex(latestBlockNumber as bigint)],
+      params: [signalServiceAddress, [key], numberToHex(blockNumber)],
     });
 
-    log('Proof from eth_getProof', ethProof);
-
     if (ethProof.storageProof[0].value === toHex(0)) {
-      throw new ProofGenerationError('proof will not be valid, expected storageProof to not be 0 but was not');
+      throw new ProofGenerationError('proof will not be valid, expected storageProof to not be 0');
     }
-
-    // Diagnostic: log actual storage value for debugging proof verification failures
-    log('eth_getProof storage value:', ethProof.storageProof[0].value);
-    log('eth_getProof storage key:', key);
-    log('eth_getProof account address:', signalServiceAddress);
 
     return ethProof;
   }
 
-  /**
-   * Pre-flight verification: checks the proof against the destination chain's SignalService
-   * before submitting the claim transaction. This helps identify the exact failure reason
-   * since Bridge.sol masks all errors as B_SIGNAL_NOT_RECEIVED.
-   */
   async verifyProofPreFlight({
     srcChainId,
     destChainId,
-    bridgeAddress,
     msgHash,
     encodedProof,
     blockId,
@@ -430,80 +420,54 @@ export class BridgeProver {
   }: {
     srcChainId: number;
     destChainId: number;
-    bridgeAddress: Address;
     msgHash: Hash;
     encodedProof: Hex;
     blockId: bigint;
     rootHash: Hex;
   }) {
-    const destSignalServiceAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
+    const destSignalService = routingContractsMap[destChainId][srcChainId].signalServiceAddress;
+    const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
 
-    // Step 1: Verify checkpoint exists on destination SignalService
-    log('Pre-flight: checking checkpoint on dest SignalService', { blockId, destSignalServiceAddress, destChainId });
     try {
       const checkpoint = await readContract(config, {
-        address: destSignalServiceAddress,
+        address: destSignalService,
         abi: signalServiceAbi,
         functionName: 'getCheckpoint',
         args: [Number(blockId)],
         chainId: destChainId,
       });
 
-      log('Pre-flight: checkpoint found', checkpoint);
-
-      // Step 2: Compare state roots
       if (checkpoint.stateRoot !== rootHash) {
-        log('Pre-flight: STATE ROOT MISMATCH!', {
-          checkpointStateRoot: checkpoint.stateRoot,
-          proofRootHash: rootHash,
-          blockId,
-        });
         throw new ProofGenerationError(
-          `State root mismatch: checkpoint has ${checkpoint.stateRoot} but proof uses ${rootHash} for blockId ${blockId}`,
+          `State root mismatch: checkpoint has ${checkpoint.stateRoot} but proof uses ${rootHash}`,
         );
       }
-      log('Pre-flight: state roots match');
     } catch (error) {
       if (error instanceof ProofGenerationError) throw error;
-      log('Pre-flight: CHECKPOINT NOT FOUND', { blockId, error });
-      throw new ProofGenerationError(
-        `Checkpoint not found on dest SignalService for blockId ${blockId}. The L1 block may not have been anchored yet.`,
-      );
+      throw new ProofGenerationError(`Checkpoint not found for blockId ${blockId}`);
     }
 
-    // Step 3: Call verifySignalReceived (view) on destination SignalService
-    // This is NON-BLOCKING: failures are logged as warnings but don't prevent the claim attempt
-    log('Pre-flight: calling verifySignalReceived', {
-      srcChainId,
-      bridgeAddress,
-      msgHash,
-      destSignalServiceAddress,
-    });
+    // Non-blocking verification call
     try {
-      const destClient = getPublicClient(config, { chainId: destChainId });
-      if (!destClient) throw new ClientError('Could not get dest chain public client');
+      const client = getPublicClient(config, { chainId: destChainId });
+      if (!client) return;
 
-      const callData = encodeFunctionData({
-        abi: signalServiceAbi,
-        functionName: 'verifySignalReceived',
-        args: [BigInt(srcChainId), bridgeAddress, msgHash, encodedProof],
+      await client.call({
+        to: destSignalService,
+        data: encodePacked(
+          ['bytes4', 'uint64', 'address', 'bytes32', 'bytes'],
+          [
+            '0x14e72d1d', // verifySignalReceived selector
+            BigInt(srcChainId),
+            bridgeAddress,
+            msgHash,
+            encodedProof,
+          ],
+        ),
       });
-
-      await destClient.call({
-        to: destSignalServiceAddress,
-        data: callData,
-      });
-      log('Pre-flight: verifySignalReceived succeeded - proof is valid');
-    } catch (error: unknown) {
-      // Non-blocking: log warning but don't prevent the claim attempt
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      log('Pre-flight: verifySignalReceived FAILED (non-blocking)', {
-        error: errorMessage,
-        srcChainId,
-        bridgeAddress,
-        msgHash,
-        blockId: blockId.toString(),
-      });
+      log('Pre-flight: verifySignalReceived succeeded');
+    } catch (error) {
+      log('Pre-flight: verifySignalReceived failed (non-blocking)', error);
     }
   }
 }

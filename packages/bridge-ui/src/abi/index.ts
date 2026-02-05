@@ -4301,7 +4301,76 @@ export const freeMintErc20Abi = [
 ] as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// SignalService
+// SignalService (Pacaya - deprecated, for backward compatibility)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const pacayaSignalServiceAbi = [
+  {
+    type: 'function',
+    inputs: [
+      { name: '_chainId', internalType: 'uint64', type: 'uint64' },
+      { name: '_kind', internalType: 'bytes32', type: 'bytes32' },
+      { name: '_blockId', internalType: 'uint64', type: 'uint64' },
+    ],
+    name: 'getSyncedChainData',
+    outputs: [
+      { name: 'blockId_', internalType: 'uint64', type: 'uint64' },
+      { name: 'chainData_', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_app', internalType: 'address', type: 'address' },
+      { name: '_signal', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'isSignalSent',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '_signalSlot', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'isSignalSent',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_chainId', internalType: 'uint64', type: 'uint64' },
+      { name: '_app', internalType: 'address', type: 'address' },
+      { name: '_signal', internalType: 'bytes32', type: 'bytes32' },
+      { name: '_proof', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'proveSignalReceived',
+    outputs: [{ name: 'numCacheOps_', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '_signal', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'sendSignal',
+    outputs: [{ name: 'slot_', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_chainId', internalType: 'uint64', type: 'uint64' },
+      { name: '_app', internalType: 'address', type: 'address' },
+      { name: '_signal', internalType: 'bytes32', type: 'bytes32' },
+      { name: '_proof', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'verifySignalReceived',
+    outputs: [],
+    stateMutability: 'view',
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SignalService (Shasta)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const signalServiceAbi = [
