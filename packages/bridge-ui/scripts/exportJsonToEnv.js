@@ -27,6 +27,7 @@ const isA6 = args.includes('--a6');
 const isA5 = args.includes('--a5');
 const isMainnet = args.includes('--mainnet');
 const isHoodi = args.includes('--hoodi');
+const isShasta = args.includes('--shasta');
 
 // Determine the environment
 let environment = '';
@@ -50,6 +51,8 @@ if (isA6) {
   version = 'mainnet';
 } else if (isHoodi) {
   version = 'hoodi';
+} else if (isShasta) {
+  version = 'shasta';
 }
 
 Logger.info(`Detected ${environment} environment and ${version} version.`);
