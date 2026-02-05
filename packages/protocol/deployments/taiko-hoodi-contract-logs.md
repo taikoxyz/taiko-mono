@@ -127,7 +127,7 @@
   - taiko gattaca proposer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`(sequencer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`)
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Feb 5, 2026 at commit `99429e4`
 
 ### prover_whitelist
 
