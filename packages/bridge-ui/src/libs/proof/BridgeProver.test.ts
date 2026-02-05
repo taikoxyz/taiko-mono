@@ -1,5 +1,6 @@
 import { getPublicClient, readContract } from '@wagmi/core';
 import {
+  type Address,
   BlockNotFoundError,
   type Hash,
   type Hex,
@@ -15,13 +16,13 @@ import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction } from '$libs/bridge';
 import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
 import { BridgeProver } from '$libs/proof/BridgeProver';
-import { getProtocolVersion, ProtocolVersion } from '$libs/protocol/protocolVersion';
 import {
   CacheOption,
   type ClientWithEthGetProofRequest,
   type EthGetProofResponse,
   type HopProof,
 } from '$libs/proof/types';
+import { getProtocolVersion, ProtocolVersion } from '$libs/protocol/protocolVersion';
 import { TokenType } from '$libs/token';
 import { config } from '$libs/wagmi';
 import { BLOCK_NUMBER_1, L1_ADDRESSES, L1_CHAIN_ID, L2_CHAIN_ID, STORAGE_KEY_1 } from '$mocks';
@@ -296,6 +297,164 @@ describe('BridgeProver', () => {
       // Then
       expect(encodedSignalProof).toEqual(validEncodedHopProofs);
     });
+
+    it('should use source-chain blocks for Pacaya multi-hop proofs', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const srcChainId = 10;
+      const destChainId = 40;
+      const hopChainA = 20;
+      const hopChainB = 30;
+      const srcSignalService = '0x00000000000000000000000000000000000000a1' as Address;
+      const hopSignalService = '0x00000000000000000000000000000000000000a2' as Address;
+
+      type MutableAddressConfig = {
+        bridgeAddress: Address;
+        signalServiceAddress: Address;
+        erc20VaultAddress: Address;
+        erc721VaultAddress: Address;
+        erc1155VaultAddress: Address;
+        hops?: { chainId: number; signalServiceAddress: Address }[];
+      };
+      type MutableRoutingMap = Record<number, Record<number, MutableAddressConfig>>;
+
+      const mutableRoutingContractsMap = routingContractsMap as unknown as MutableRoutingMap;
+
+      mutableRoutingContractsMap[srcChainId] = {
+        [hopChainA]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: srcSignalService,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+        [destChainId]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: zeroAddress,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+          hops: [
+            { chainId: hopChainA, signalServiceAddress: '0x00000000000000000000000000000000000000b1' },
+            { chainId: hopChainB, signalServiceAddress: '0x00000000000000000000000000000000000000b2' },
+          ],
+        },
+      };
+      mutableRoutingContractsMap[hopChainA] = {
+        [srcChainId]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: zeroAddress,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+        [hopChainB]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: hopSignalService,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+      };
+      mutableRoutingContractsMap[hopChainB] = {
+        [hopChainA]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: '0x00000000000000000000000000000000000000c1',
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+      };
+      mutableRoutingContractsMap[destChainId] = {
+        [srcChainId]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: zeroAddress,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+      };
+
+      vi.mocked(getProtocolVersion).mockResolvedValueOnce(ProtocolVersion.PACAYA);
+
+      const blockNumber1 = 101n;
+      const blockNumber2 = 202n;
+      vi.mocked(readContract)
+        .mockResolvedValueOnce([blockNumber1, zeroHash])
+        .mockResolvedValueOnce([blockNumber2, zeroHash]);
+
+      const srcClient = {
+        getBlock: vi.fn().mockResolvedValue({ number: blockNumber1, hash: '0x1', stateRoot: zeroHash }),
+        request: vi.fn().mockResolvedValue({
+          accountProof: ['0x1'],
+          storageProof: [{ proof: ['0x2'] }],
+        }),
+      };
+      const hopClient = {
+        getBlock: vi.fn().mockResolvedValue({ number: blockNumber2, hash: '0x2', stateRoot: zeroHash }),
+        request: vi.fn().mockResolvedValue({
+          accountProof: ['0x3'],
+          storageProof: [{ proof: ['0x4'] }],
+        }),
+      };
+
+      vi.mocked(getPublicClient).mockImplementation((_config, params) => {
+        const chainId = params?.chainId;
+        if (chainId === srcChainId) return srcClient as unknown as ReturnType<typeof getPublicClient>;
+        if (chainId === hopChainA) return hopClient as unknown as ReturnType<typeof getPublicClient>;
+        return null as unknown as ReturnType<typeof getPublicClient>;
+      });
+
+      const multiHopBridgeTx: BridgeTransaction = {
+        amount: 1n,
+        blockNumber: '0x1',
+        decimals: 0,
+        destChainId: BigInt(destChainId),
+        from: zeroAddress,
+        srcTxHash: zeroHash as Hash,
+        destTxHash: zeroHash as Hash,
+        msgHash: zeroHash as Hash,
+        srcChainId: BigInt(srcChainId),
+        processingFee: 0n,
+        message: {
+          data: '0x',
+          destChainId: BigInt(destChainId),
+          destOwner: zeroAddress,
+          fee: 0n,
+          from: zeroAddress,
+          gasLimit: 0,
+          id: 1n,
+          srcChainId: BigInt(srcChainId),
+          srcOwner: zeroAddress,
+          to: zeroAddress,
+          value: 1n,
+        },
+        status: 0,
+        symbol: 'ETH',
+        tokenType: TokenType.ETH,
+      };
+
+      vi.spyOn(bridgeProver, 'encodeHopProofs').mockReturnValue('0x1234' as Hex);
+
+      // When
+      const encodedSignalProof = await bridgeProver.getEncodedSignalProof({ bridgeTx: multiHopBridgeTx });
+
+      // Then
+      expect(encodedSignalProof).toEqual('0x1234');
+      expect(srcClient.getBlock).toHaveBeenCalledWith({ blockNumber: blockNumber1 });
+      expect(hopClient.getBlock).toHaveBeenCalledWith({ blockNumber: blockNumber2 });
+      expect(srcClient.request).toHaveBeenCalledWith({
+        method: 'eth_getProof',
+        params: [srcSignalService, [expect.any(String)], numberToHex(blockNumber1)],
+      });
+      expect(hopClient.request).toHaveBeenCalledWith({
+        method: 'eth_getProof',
+        params: [hopSignalService, [expect.any(String)], numberToHex(blockNumber2)],
+      });
+      expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: srcChainId });
+      expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: hopChainA });
+      expect(getPublicClient).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('encodeHopProofs()', () => {
@@ -512,7 +671,6 @@ describe('BridgeProver', () => {
         ProofGenerationError,
       );
     });
-
   });
 
   describe('verifyProofPreFlight()', () => {

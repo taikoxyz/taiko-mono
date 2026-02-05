@@ -3,6 +3,7 @@ import {
   type Address,
   BlockNotFoundError,
   encodeAbiParameters,
+  encodeFunctionData,
   encodePacked,
   type Hash,
   type Hex,
@@ -170,7 +171,6 @@ export class BridgeProver {
     if (!message) throw new ProofGenerationError('Message is not defined');
 
     const { srcChainId, destChainId } = message;
-    const destSignalService = routingContractsMap[Number(destChainId)][Number(srcChainId)].signalServiceAddress;
     const key = await this.getSignalSlot(
       Number(srcChainId),
       routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress,
@@ -182,25 +182,30 @@ export class BridgeProver {
 
     for (let i = 0; i < hops.length; i++) {
       const hop = hops[i];
-      const signalServiceAddress = i + 1 < hops.length ? hops[i + 1].signalServiceAddress : destSignalService;
+      const signalServiceAddress =
+        routingContractsMap[Number(previousChainId)]?.[Number(hop.chainId)]?.signalServiceAddress ??
+        hop.signalServiceAddress;
+      if (!signalServiceAddress) {
+        throw new ClientError('No signal service address configured for hop');
+      }
 
       const blockNumber = await this.getLatestSyncedBlockPacaya(previousChainId, BigInt(hop.chainId));
-      const client = getPublicClient(config, { chainId: hop.chainId });
-      if (!client) throw new ClientError('Could not get public client for hop');
+      const sourceClient = getPublicClient(config, { chainId: Number(previousChainId) });
+      if (!sourceClient) throw new ClientError('Could not get public client for hop source chain');
 
-      const block = await client.getBlock({ blockNumber });
+      const block = await sourceClient.getBlock({ blockNumber });
       if (!block?.hash || block.number === null) {
         throw new BlockNotFoundError({ blockNumber });
       }
 
-      const proof = await (client as ClientWithEthGetProofRequest).request({
+      const proof = await (sourceClient as ClientWithEthGetProofRequest).request({
         method: 'eth_getProof',
         params: [signalServiceAddress, [key], numberToHex(blockNumber)],
       });
 
       hopProofs.push({
         chainId: BigInt(hop.chainId),
-        blockId: blockNumber,
+        blockId: block.number,
         rootHash: block.stateRoot,
         cacheOption: CacheOption.CACHE_NOTHING,
         accountProof: proof.accountProof,
@@ -454,16 +459,11 @@ export class BridgeProver {
 
       await client.call({
         to: destSignalService,
-        data: encodePacked(
-          ['bytes4', 'uint64', 'address', 'bytes32', 'bytes'],
-          [
-            '0x14e72d1d', // verifySignalReceived selector
-            BigInt(srcChainId),
-            bridgeAddress,
-            msgHash,
-            encodedProof,
-          ],
-        ),
+        data: encodeFunctionData({
+          abi: signalServiceAbi,
+          functionName: 'verifySignalReceived',
+          args: [BigInt(srcChainId), bridgeAddress, msgHash, encodedProof],
+        }),
       });
       log('Pre-flight: verifySignalReceived succeeded');
     } catch (error) {

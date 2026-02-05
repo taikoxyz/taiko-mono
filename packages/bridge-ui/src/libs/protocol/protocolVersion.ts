@@ -1,4 +1,4 @@
-import { readContract } from '@wagmi/core';
+import { getPublicClient, readContract } from '@wagmi/core';
 
 import { routingContractsMap } from '$bridgeConfig';
 import { config } from '$libs/wagmi';
@@ -20,14 +20,25 @@ const signalServiceForkRouterAbi = [
 
 const cache = new Map<string, { version: ProtocolVersion; expiry: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MS_PER_SECOND = 1000;
+
+async function getChainTimestamp(chainId: number): Promise<bigint> {
+  const client = getPublicClient(config, { chainId });
+  if (!client) {
+    throw new Error(`Could not get public client for chainId ${chainId}`);
+  }
+
+  const block = await client.getBlock();
+  return block.timestamp;
+}
 
 /**
  * Detects protocol version by querying shastaForkTimestamp from SignalServiceForkRouter.
  * This aligns with how the SignalServiceForkRouter makes routing decisions.
  *
  * - If shastaForkTimestamp() reverts (not upgraded yet) → PACAYA
- * - If currentTime < forkTimestamp → PACAYA
- * - If currentTime >= forkTimestamp → SHASTA
+ * - If chainTime < forkTimestamp → PACAYA
+ * - If chainTime >= forkTimestamp → SHASTA
  */
 export async function getProtocolVersion(srcChainId: number, destChainId: number): Promise<ProtocolVersion> {
   const cacheKey = `${srcChainId}-${destChainId}`;
@@ -40,23 +51,30 @@ export async function getProtocolVersion(srcChainId: number, destChainId: number
   if (!signalService) return ProtocolVersion.PACAYA;
 
   try {
-    // Query fork timestamp from SignalServiceForkRouter
-    const forkTimestamp = await readContract(config, {
-      address: signalService,
-      abi: signalServiceForkRouterAbi,
-      functionName: 'shastaForkTimestamp',
-      chainId: destChainId,
-    });
+    // Query fork timestamp from SignalServiceForkRouter and compare against chain time.
+    const [forkTimestamp, chainTimestamp] = await Promise.all([
+      readContract(config, {
+        address: signalService,
+        abi: signalServiceForkRouterAbi,
+        functionName: 'shastaForkTimestamp',
+        chainId: destChainId,
+      }),
+      getChainTimestamp(destChainId),
+    ]);
 
-    // Compare current time with fork timestamp
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    const version = now < forkTimestamp ? ProtocolVersion.PACAYA : ProtocolVersion.SHASTA;
+    const version = chainTimestamp < forkTimestamp ? ProtocolVersion.PACAYA : ProtocolVersion.SHASTA;
 
-    cache.set(cacheKey, { version, expiry: Date.now() + CACHE_TTL_MS });
+    let expiry = Date.now() + CACHE_TTL_MS;
+    if (chainTimestamp < forkTimestamp) {
+      const msUntilFork = Number((forkTimestamp - chainTimestamp) * BigInt(MS_PER_SECOND));
+      expiry = Date.now() + Math.min(CACHE_TTL_MS, Math.max(msUntilFork, 0));
+    }
+
+    cache.set(cacheKey, { version, expiry });
     return version;
   } catch {
-    // SignalService not upgraded to fork router yet = still Pacaya
-    cache.set(cacheKey, { version: ProtocolVersion.PACAYA, expiry: Date.now() + CACHE_TTL_MS });
+    // SignalService not upgraded to fork router yet or temporary RPC error.
+    // Avoid caching to prevent locking into the wrong fork on transient failures.
     return ProtocolVersion.PACAYA;
   }
 }
