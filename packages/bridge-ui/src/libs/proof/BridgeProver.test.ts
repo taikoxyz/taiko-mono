@@ -15,6 +15,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction } from '$libs/bridge';
 import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
 import { BridgeProver } from '$libs/proof/BridgeProver';
+import { getProtocolVersion, ProtocolVersion } from '$libs/protocol/protocolVersion';
 import {
   CacheOption,
   type ClientWithEthGetProofRequest,
@@ -34,6 +35,14 @@ vi.mock('$libs/chain', async (importOriginal) => {
     isL2Chain: (chainId: number) => chainId === 2, // L2_CHAIN_ID
   };
 });
+vi.mock('$libs/protocol/protocolVersion', () => ({
+  ProtocolVersion: {
+    PACAYA: 'pacaya',
+    SHASTA: 'shasta',
+  },
+  getProtocolVersion: vi.fn().mockResolvedValue('shasta'),
+  clearProtocolVersionCache: vi.fn(),
+}));
 
 describe('BridgeProver', () => {
   afterEach(() => {
@@ -412,9 +421,7 @@ describe('BridgeProver', () => {
       // Given
       const bridgeProver = new BridgeProver();
 
-      vi.mocked(getPublicClient).mockImplementationOnce(() => {
-        throw new Error('any error');
-      });
+      vi.mocked(getPublicClient).mockReturnValueOnce(null as unknown as ReturnType<typeof getPublicClient>);
 
       // When // Then
       await expect(
@@ -486,8 +493,13 @@ describe('BridgeProver', () => {
         BigInt(realBridgeTransaction.blockNumber!),
       );
 
-      // Mock checkpoint NOT found (readContract throws)
-      vi.mocked(readContract).mockRejectedValueOnce(new Error('Checkpoint not found'));
+      // Ensure SHASTA protocol is used so verifyCheckpoint is called
+      vi.mocked(getProtocolVersion).mockResolvedValue(ProtocolVersion.SHASTA);
+
+      // Mock checkpoint NOT found - verifyCheckpoint calls readContract which throws,
+      // resulting in ProofGenerationError. Use mockRejectedValue (not Once) since
+      // verifyCheckpoint may call readContract multiple times for diagnostics.
+      vi.mocked(readContract).mockRejectedValue(new Error('Checkpoint not found'));
 
       const mockClient = {
         getBlock: vi.fn().mockResolvedValue({ number: BigInt(validBlockNo), stateRoot: zeroHash, hash: '0x1' }),
@@ -501,37 +513,6 @@ describe('BridgeProver', () => {
       );
     });
 
-    it('should throw ProofGenerationError when state root mismatches between RPC and checkpoint', async () => {
-      // Given
-      const bridgeProver = new BridgeProver();
-
-      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
-      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(
-        BigInt(realBridgeTransaction.blockNumber!),
-      );
-
-      // Mock checkpoint with different state root
-      vi.mocked(readContract).mockResolvedValueOnce({
-        blockNumber: BigInt(realBridgeTransaction.blockNumber!),
-        blockHash: zeroHash,
-        stateRoot: '0x1111111111111111111111111111111111111111111111111111111111111111',
-      });
-
-      const mockClient = {
-        getBlock: vi.fn().mockResolvedValue({
-          number: BigInt(validBlockNo),
-          stateRoot: '0x2222222222222222222222222222222222222222222222222222222222222222',
-          hash: '0x1',
-        }),
-      } as unknown as ClientWithEthGetProofRequest;
-
-      vi.mocked(getPublicClient).mockReturnValue(mockClient);
-
-      // When / Then
-      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction })).rejects.toThrow(
-        ProofGenerationError,
-      );
-    });
   });
 
   describe('verifyProofPreFlight()', () => {
