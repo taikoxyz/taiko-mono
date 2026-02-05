@@ -103,6 +103,16 @@ load_env() {
             export ATTESTATION_ADDRESS=0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5
             export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
             ;;
+        tolba-shasta | tolba-shasta-sgxreth)
+            export SGX_VERIFIER_ADDRESS=0x40CcAFC1C2D14bdD70984b221F2b49af5e7C6114
+            export ATTESTATION_ADDRESS=0xebA89cA02449070b902A5DDc406eE709940e280E
+            export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
+            ;;
+        tolba-shasta-sgxgeth)
+            export SGX_VERIFIER_ADDRESS=0x8e362ef5140B0b9BE4a1141b6367784b0A7cefB1
+            export ATTESTATION_ADDRESS=0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5
+            export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
+            ;;
         mainnet|mainnet-ontake|mainnet-ontake-sgxreth)
             export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
             export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
