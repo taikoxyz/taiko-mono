@@ -58,13 +58,6 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_CORS_ORIGINS"},
 	}
-	PreconfWhitelistAddress = &cli.StringFlag{
-		Name:     "preconfirmation.whitelist",
-		Usage:    "PreconfWhitelist contract L1 `address`",
-		Required: false,
-		Category: driverCategory,
-		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
-	}
 	DriverTaikoWrapperAddress = &cli.StringFlag{
 		Name:     "taikoWrapper",
 		Usage:    "TaikoWrapper contract `address`",
@@ -87,6 +80,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
-	PreconfWhitelistAddress,
 	DriverTaikoWrapperAddress,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

@@ -162,6 +162,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"PROVER_SET"},
 	}
+	PreconfWhitelistAddress = &cli.StringFlag{
+		Name:     "preconfirmation.whitelist",
+		Usage:    "PreconfWhitelist contract L1 `address`",
+		Required: false,
+		Category: commonCategory,
+		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
+	}
 	ShastaForkTime = &cli.Uint64Flag{
 		Name:     "shasta.time",
 		Usage:    "Shasta hardfork activation timestamp (unix seconds)",
@@ -179,6 +186,7 @@ var CommonFlags = []cli.Flag{
 	TaikoAnchorAddress,
 	// Optional
 	ProverSetAddress,
+	PreconfWhitelistAddress,
 	ShastaForkTime,
 	Verbosity,
 	LogJSON,
