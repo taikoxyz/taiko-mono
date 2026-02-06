@@ -20,9 +20,10 @@ contract ConfigurableInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        uint64 _shastaForkTimestamp
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _shastaForkTimestamp)
     { }
 
     function initWithConfig(
@@ -69,7 +70,15 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new ConfigurableInbox(_wrapper, _verifier, _bondToken, _signalService)),
+                impl: address(
+                    new ConfigurableInbox(
+                        _wrapper,
+                        _verifier,
+                        _bondToken,
+                        _signalService,
+                        type(uint64).max
+                    )
+                ),
                 data: abi.encodeCall(
                     ConfigurableInbox.initWithConfig, (address(0), _genesisBlockHash, _config)
                 )

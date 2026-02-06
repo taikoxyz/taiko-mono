@@ -55,7 +55,15 @@ contract DeployMainnetPreconf is DeployCapability {
         // be the final step after adding the operators and waiting for at least 2 epochs)
         console2.log("taikoWrapper: ", wrapper);
         address newFork =
-            address(new MainnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+            address(
+                new MainnetInbox(
+                    taikoWrapper,
+                    proofVerifier,
+                    taikoToken,
+                    signalService,
+                    uint64(vm.envOr("SHASTA_FORK_TIMESTAMP", uint256(type(uint64).max)))
+                )
+            );
         address newRouter = address(new PacayaForkRouter(oldFork, newFork));
         // Need to call `upgradeTo`, to address: 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a(should
         // be the final step after adding the operators and waiting for at least 2 epochs)

@@ -145,7 +145,15 @@ contract DeployMainnetPacayaL1 is DeployCapability {
 
         // Register taiko
         address newFork =
-            address(new MainnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+            address(
+                new MainnetInbox(
+                    taikoWrapper,
+                    proofVerifier,
+                    taikoToken,
+                    signalService,
+                    uint64(vm.envOr("SHASTA_FORK_TIMESTAMP", uint256(type(uint64).max)))
+                )
+            );
         address forkRouter = address(new PacayaForkRouter(oldFork, newFork));
         console2.log("forkRouter:", forkRouter);
         address newProverSetImpl =

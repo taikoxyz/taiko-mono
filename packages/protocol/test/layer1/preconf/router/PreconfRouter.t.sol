@@ -58,7 +58,15 @@ contract PreconfRouterForkTest is ForkTestBase {
         TaikoWrapper wrapperImpl =
             new TaikoWrapper(MAINNET_INBOX, MAINNET_FORCED_INCLUSION, MAINNET_ROUTER);
         address forkImpl =
-            address(new MainnetInbox(MAINNET_WRAPPER, PROOF_VERIFIER, TAIKO_TOKEN, SIGNAL_SERVICE));
+            address(
+                new MainnetInbox(
+                    MAINNET_WRAPPER,
+                    PROOF_VERIFIER,
+                    TAIKO_TOKEN,
+                    SIGNAL_SERVICE,
+                    type(uint64).max
+                )
+            );
         address pacayaRouter = address(new PacayaForkRouter(OLD_FORK, forkImpl));
 
         // Upgrade contracts to optimized implementations
