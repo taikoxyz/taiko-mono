@@ -49,6 +49,12 @@ pub struct PreconfSlotInfo {
     pub submission_window_end: U256,
 }
 
+impl From<protocol::preconfirmation::PreconfSlotInfo> for PreconfSlotInfo {
+    fn from(info: protocol::preconfirmation::PreconfSlotInfo) -> Self {
+        Self { signer: info.signer, submission_window_end: info.submission_window_end }
+    }
+}
+
 /// Current status of the preconfirmation driver node.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

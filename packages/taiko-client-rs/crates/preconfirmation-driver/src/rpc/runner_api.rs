@@ -99,11 +99,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
     /// Return the preconfirmation slot info (signer and submission window end) for the given L2
     /// block timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
-        let info = self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
-        Ok(PreconfSlotInfo {
-            signer: info.signer,
-            submission_window_end: info.submission_window_end,
-        })
+        Ok(self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?.into())
     }
 }
 
