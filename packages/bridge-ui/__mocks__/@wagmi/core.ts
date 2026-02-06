@@ -14,6 +14,8 @@ export const getToken = vi.fn();
 
 export const readContract = vi.fn();
 
+export const writeContract = vi.fn();
+
 const mockChains = [
   {
     id: 0,

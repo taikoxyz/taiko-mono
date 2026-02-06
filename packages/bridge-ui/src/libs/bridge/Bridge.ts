@@ -1,4 +1,4 @@
-import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, readContract, simulateContract } from '@wagmi/core';
 import { getAddress, getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
@@ -8,6 +8,7 @@ import type { BridgeProver } from '$libs/proof';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
+import { safeWriteContract } from '$libs/util/safeWriteContract';
 import { config } from '$libs/wagmi';
 
 import {
@@ -269,7 +270,7 @@ export abstract class Bridge {
       estimatedGas = (estimatedGas * 105n) / 100n;
     }
     if (force) {
-      return await writeContract(config, {
+      return await safeWriteContract({
         address: bridgeContract.address,
         abi: bridgeContract.abi,
         functionName: 'processMessage',
@@ -286,7 +287,7 @@ export abstract class Bridge {
       });
       log('Simulate contract for processMessage', request);
 
-      return await writeContract(config, request);
+      return await safeWriteContract(request);
     }
   }
 
@@ -317,7 +318,7 @@ export abstract class Bridge {
     });
     log('Simulate contract for retryMessage', request);
 
-    return await writeContract(config, request);
+    return await safeWriteContract(request);
   }
 
   private async release(args: ReleaseArgs) {
@@ -346,6 +347,6 @@ export abstract class Bridge {
     });
     log('Simulate contract for recallMessage', request);
 
-    return await writeContract(config, request);
+    return await safeWriteContract(request);
   }
 }

@@ -1,4 +1,4 @@
-import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, simulateContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
@@ -17,6 +17,7 @@ import type { BridgeProver } from '$libs/proof';
 import { TokenType } from '$libs/token';
 import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
 import { getLogger } from '$libs/util/logger';
+import { safeWriteContract } from '$libs/util/safeWriteContract';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
@@ -110,7 +111,7 @@ export class ERC1155Bridge extends Bridge {
       });
       log('Simulate contract', request);
 
-      const tx = await writeContract(config, request);
+      const tx = await safeWriteContract(request);
 
       log('ERC1155 sent', tx);
 
@@ -157,7 +158,7 @@ export class ERC1155Bridge extends Bridge {
       });
       log('Simulate contract', request);
 
-      const txHash = await writeContract(config, request);
+      const txHash = await safeWriteContract(request);
 
       log('Transaction hash for approve call', txHash);
 

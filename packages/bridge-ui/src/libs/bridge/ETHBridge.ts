@@ -1,4 +1,4 @@
-import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
+import { getWalletClient, simulateContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
@@ -8,6 +8,7 @@ import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
+import { safeWriteContract } from '$libs/util/safeWriteContract';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
@@ -117,7 +118,7 @@ export class ETHBridge extends Bridge {
       });
       log('Simulate contract', request);
 
-      const txHash = await writeContract(config, request);
+      const txHash = await safeWriteContract(request);
       log('Transaction hash for sendMessage call', txHash);
 
       return txHash;

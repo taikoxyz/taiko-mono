@@ -1,4 +1,4 @@
-import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, readContract, simulateContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
@@ -17,6 +17,7 @@ import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
+import { safeWriteContract } from '$libs/util/safeWriteContract';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
@@ -192,7 +193,7 @@ export class ERC20Bridge extends Bridge {
 
       if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
-      const txHash = await writeContract(config, request);
+      const txHash = await safeWriteContract(request);
 
       log('Transaction hash for approve call', txHash);
 
@@ -237,7 +238,7 @@ export class ERC20Bridge extends Bridge {
       });
       log('Simulate contract', request);
 
-      const txHash = await writeContract(config, request);
+      const txHash = await safeWriteContract(request);
 
       log('Transaction hash for sendERC20 call', txHash);
 
