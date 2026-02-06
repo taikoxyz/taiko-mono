@@ -54,7 +54,12 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 		return nil, err
 	}
 
-	return config.NewPacayaProtocolConfigs(&configs), nil
+	var shastaForkTime uint64
+	if c.ShastaClients != nil {
+		shastaForkTime = c.ShastaClients.ForkTime
+	}
+
+	return config.NewPacayaProtocolConfigs(&configs, shastaForkTime), nil
 }
 
 // GetProtocolConfigsShasta gets the protocol configs from Shasta Inbox contract.

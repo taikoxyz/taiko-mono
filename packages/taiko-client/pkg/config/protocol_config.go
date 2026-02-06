@@ -43,12 +43,16 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type PacayaProtocolConfigs struct {
-	configs *pacayaBindings.ITaikoInboxConfig
+	configs        *pacayaBindings.ITaikoInboxConfig
+	shastaForkTime uint64
 }
 
 // NewPacayaProtocolConfigs creates a new PacayaProtocolConfigs instance.
-func NewPacayaProtocolConfigs(configs *pacayaBindings.ITaikoInboxConfig) *PacayaProtocolConfigs {
-	return &PacayaProtocolConfigs{configs: configs}
+func NewPacayaProtocolConfigs(
+	configs *pacayaBindings.ITaikoInboxConfig,
+	shastaForkTime uint64,
+) *PacayaProtocolConfigs {
+	return &PacayaProtocolConfigs{configs: configs, shastaForkTime: shastaForkTime}
 }
 
 // BaseFeeConfig implements the ProtocolConfigs interface.
@@ -73,7 +77,7 @@ func (c *PacayaProtocolConfigs) ForkHeightsPacaya() uint64 {
 
 // ForkTimeShasta implements the ProtocolConfigs interface.
 func (c *PacayaProtocolConfigs) ForkTimeShasta() uint64 {
-	return c.configs.ForkHeights.Shasta
+	return c.shastaForkTime
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
