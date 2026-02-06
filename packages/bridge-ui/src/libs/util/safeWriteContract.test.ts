@@ -1,4 +1,4 @@
-import { writeContract,type WriteContractParameters } from '@wagmi/core';
+import { writeContract, type WriteContractParameters } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
 import { config } from '$libs/wagmi';
