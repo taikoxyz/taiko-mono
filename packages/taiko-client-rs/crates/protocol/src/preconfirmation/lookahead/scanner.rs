@@ -5,7 +5,7 @@ use event_scanner::{Notification, ScannerMessage};
 use tokio::{sync::oneshot, time::Duration};
 use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
-use tracing::{error, info};
+use tracing::{Instrument, error, info, info_span};
 
 use super::{
     LookaheadError, LookaheadResolverWithDefaultProvider, Result,
@@ -109,6 +109,7 @@ impl LookaheadResolver {
         // Signal when the scanner reports it has switched to live mode.
         let (live_tx, live_rx) = oneshot::channel();
 
+        let span = info_span!("lookahead_scanner", start_block);
         let handle = tokio::spawn(async move {
             let mut live_tx = Some(live_tx);
             // Start the scanner driver and obtain the StartProof required to access the stream.
@@ -163,7 +164,7 @@ impl LookaheadResolver {
                     Err(err) => error!(?err, "error from lookahead event stream"),
                 }
             }
-        });
+        }.instrument(span));
 
         // Wait until the scanner reports it is live before returning to callers.
         live_rx
