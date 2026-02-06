@@ -1,5 +1,7 @@
 //! RPC API implementation backed by the preconfirmation driver node state.
 
+use std::sync::Arc;
+
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
@@ -11,8 +13,8 @@ use crate::{
     driver_interface::InboxReader,
     error::PreconfirmationClientError,
     rpc::{
-        NodeStatus, PreconfRpcApi, PublishCommitmentRequest, PublishCommitmentResponse,
-        PublishTxListRequest, PublishTxListResponse,
+        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
+        PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
     },
 };
 
@@ -28,6 +30,8 @@ pub(crate) struct NodeRpcApiImpl<I: InboxReader> {
     pub(crate) local_peer_id: String,
     /// Inbox reader for checking L1 sync state.
     pub(crate) inbox_reader: I,
+    /// Lookahead resolver for slot info by timestamp.
+    pub(crate) lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
 }
 
 #[async_trait::async_trait]
@@ -78,6 +82,15 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     /// Returns the last canonical proposal ID from L1 events.
     async fn canonical_proposal_id(&self) -> Result<u64> {
         Ok(*self.canonical_proposal_id_rx.borrow())
+    }
+
+    /// Returns the preconfirmation slot info (signer and submission window end) for the given L2 block timestamp.
+    async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
+        let info = self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
+        Ok(PreconfSlotInfo {
+            signer: info.signer,
+            submission_window_end: info.submission_window_end,
+        })
     }
 }
 
@@ -168,6 +181,28 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};
 
+    /// Mock lookahead resolver for testing.
+    struct MockLookaheadResolver;
+
+    #[async_trait::async_trait]
+    impl protocol::preconfirmation::PreconfSignerResolver for MockLookaheadResolver {
+        async fn signer_for_timestamp(
+            &self,
+            _: U256,
+        ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
+            Ok(alloy_primitives::Address::ZERO)
+        }
+        async fn slot_info_for_timestamp(
+            &self,
+            _: U256,
+        ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
+            Ok(protocol::preconfirmation::PreconfSlotInfo {
+                signer: alloy_primitives::Address::ZERO,
+                submission_window_end: U256::ZERO,
+            })
+        }
+    }
+
     /// Mock inbox reader for testing.
     #[derive(Clone)]
     struct MockInboxReader {
@@ -201,6 +236,7 @@ mod tests {
             preconf_tip_rx,
             local_peer_id: "12D3KooWTest".to_string(),
             inbox_reader: MockInboxReader::new(43),
+            lookahead_resolver: Arc::new(MockLookaheadResolver),
         };
 
         // Spawn a handler to respond to GetPeerCount command
@@ -230,6 +266,7 @@ mod tests {
             preconf_tip_rx,
             local_peer_id: "test".to_string(),
             inbox_reader: MockInboxReader::new(0),
+            lookahead_resolver: Arc::new(MockLookaheadResolver),
         };
 
         let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8, 4u8]);

@@ -34,6 +34,6 @@ pub mod types;
 pub use api::PreconfRpcApi;
 pub use server::{PreconfRpcServer, PreconfRpcServerConfig};
 pub use types::{
-    NodeStatus, PreconfRpcErrorCode, PublishCommitmentRequest, PublishCommitmentResponse,
-    PublishTxListRequest, PublishTxListResponse,
+    NodeStatus, PreconfRpcErrorCode, PreconfSlotInfo, PublishCommitmentRequest,
+    PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
 };

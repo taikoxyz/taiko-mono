@@ -11,8 +11,8 @@ use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader},
     rpc::{
-        NodeStatus, PreconfRpcApi, PublishCommitmentRequest, PublishCommitmentResponse,
-        PublishTxListRequest, PublishTxListResponse,
+        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
+        PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
         node_api::{build_node_status, publish_commitment_impl, publish_tx_list_impl},
     },
 };
@@ -35,6 +35,8 @@ pub(crate) struct RunnerRpcApiImpl<I: InboxReader> {
     local_peer_id: String,
     /// Inbox reader used to determine sync status.
     inbox_reader: I,
+    /// Lookahead resolver for slot info by timestamp.
+    lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
 }
 
 impl<I: InboxReader> RunnerRpcApiImpl<I> {
@@ -45,8 +47,16 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
         driver: Arc<dyn DriverClient>,
         local_peer_id: String,
         inbox_reader: I,
+        lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
     ) -> Self {
-        Self { command_tx, canonical_id, driver, local_peer_id, inbox_reader }
+        Self {
+            command_tx,
+            canonical_id,
+            driver,
+            local_peer_id,
+            inbox_reader,
+            lookahead_resolver,
+        }
     }
 }
 
@@ -92,6 +102,15 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
     async fn canonical_proposal_id(&self) -> Result<u64> {
         Ok(self.canonical_id.canonical_proposal_id())
     }
+
+    /// Return the preconfirmation slot info (signer and submission window end) for the given L2 block timestamp.
+    async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
+        let info: protocol::preconfirmation::PreconfSlotInfo = self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
+        Ok(PreconfSlotInfo {
+            signer: info.signer,
+            submission_window_end: info.submission_window_end,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -103,6 +122,7 @@ mod tests {
     };
 
     use alloy_primitives::U256;
+    use async_trait::async_trait;
     use tokio::sync::mpsc;
 
     use crate::{
@@ -136,6 +156,28 @@ mod tests {
         /// Return the configured preconfirmation tip.
         async fn preconf_tip(&self) -> crate::Result<U256> {
             Ok(self.tip)
+        }
+    }
+
+    /// Mock lookahead resolver for runner API tests.
+    struct MockLookaheadResolver;
+
+    #[async_trait]
+    impl protocol::preconfirmation::PreconfSignerResolver for MockLookaheadResolver {
+        async fn signer_for_timestamp(
+            &self,
+            _: U256,
+        ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
+            Ok(alloy_primitives::Address::ZERO)
+        }
+        async fn slot_info_for_timestamp(
+            &self,
+            _: U256,
+        ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
+            Ok(protocol::preconfirmation::PreconfSlotInfo {
+                signer: alloy_primitives::Address::ZERO,
+                submission_window_end: U256::ZERO,
+            })
         }
     }
 
@@ -190,6 +232,7 @@ mod tests {
             driver,
             "peer".to_string(),
             inbox_reader,
+            Arc::new(MockLookaheadResolver),
         );
 
         let status = api.get_status().await.unwrap();

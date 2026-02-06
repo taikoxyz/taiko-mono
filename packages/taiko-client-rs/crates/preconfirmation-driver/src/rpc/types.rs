@@ -1,6 +1,6 @@
 //! Preconfirmation sidecar JSON-RPC API types for the preconfirmation driver node.
 
-use alloy_primitives::{B256, Bytes, U256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
 /// Request to publish a signed preconfirmation commitment.
@@ -37,6 +37,16 @@ pub struct PublishCommitmentResponse {
 pub struct PublishTxListResponse {
     /// The keccak256 hash of the published transaction list.
     pub tx_list_hash: B256,
+}
+
+/// Resolved signer and submission window end for a preconfirmation slot (RPC response).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreconfSlotInfo {
+    /// Address allowed to sign the commitment for the slot.
+    pub signer: Address,
+    /// Canonical end of the submission window for the slot.
+    pub submission_window_end: U256,
 }
 
 /// Current status of the preconfirmation driver node.

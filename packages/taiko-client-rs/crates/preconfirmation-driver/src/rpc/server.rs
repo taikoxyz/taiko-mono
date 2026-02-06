@@ -25,6 +25,8 @@ const METHOD_GET_STATUS: &str = "preconf_getStatus";
 const METHOD_PRECONF_TIP: &str = "preconf_tip";
 /// JSON-RPC method name for querying the canonical proposal ID.
 const METHOD_CANONICAL_PROPOSAL_ID: &str = "preconf_canonicalProposalId";
+/// JSON-RPC method name for querying preconfirmation slot info by timestamp.
+const METHOD_GET_PRECONF_SLOT_INFO: &str = "preconf_getPreconfSlotInfo";
 
 /// Metric name for total RPC requests.
 const METRIC_REQUESTS_TOTAL: &str = "preconf_rpc_requests_total";
@@ -157,6 +159,10 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
         .api
         .canonical_proposal_id()
         .await);
+    register_method!(module, METHOD_GET_PRECONF_SLOT_INFO, |params, ctx| {
+        let timestamp: alloy_primitives::U256 = params.one()?;
+        ctx.api.get_preconf_slot_info(timestamp).await
+    });
 
     module
 }
@@ -193,7 +199,9 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::types::{NodeStatus, PublishCommitmentResponse, PublishTxListResponse};
+    use crate::rpc::types::{
+    NodeStatus, PreconfSlotInfo, PublishCommitmentResponse, PublishTxListResponse,
+};
     use alloy_primitives::{B256, U256};
     use async_trait::async_trait;
 
@@ -232,6 +240,13 @@ mod tests {
 
         async fn canonical_proposal_id(&self) -> Result<u64> {
             Ok(42)
+        }
+
+        async fn get_preconf_slot_info(&self, _timestamp: U256) -> Result<PreconfSlotInfo> {
+            Ok(PreconfSlotInfo {
+                signer: alloy_primitives::Address::ZERO,
+                submission_window_end: U256::ZERO,
+            })
         }
     }
 
