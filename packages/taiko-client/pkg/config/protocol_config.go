@@ -16,7 +16,7 @@ type ProtocolConfigs interface {
 	BlockMaxGasLimit() uint32
 	ForkHeightsOntake() uint64
 	ForkHeightsPacaya() uint64
-	ForkHeightsShasta() uint64
+	ForkTimeShasta() uint64
 	LivenessBond() *big.Int
 	LivenessBondPerBlock() *big.Int
 	MaxProposals() uint64
@@ -33,7 +33,7 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 		"BlockMaxGasLimit", configs.BlockMaxGasLimit(),
 		"ForkHeightsOntake", configs.ForkHeightsOntake(),
 		"ForkHeightsPacaya", configs.ForkHeightsPacaya(),
-		"ForkHeightsShasta", configs.ForkHeightsShasta(),
+		"ForkTimeShasta", configs.ForkTimeShasta(),
 		"LivenessBond", utils.WeiToEther(configs.LivenessBond()),
 		"LivenessBondPerBlock", utils.WeiToEther(configs.LivenessBondPerBlock()),
 		"MaxProposals", configs.MaxProposals(),
@@ -43,12 +43,16 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 
 // PacayaProtocolConfigs is the configuration for the Pacaya fork protocol.
 type PacayaProtocolConfigs struct {
-	configs *pacayaBindings.ITaikoInboxConfig
+	configs        *pacayaBindings.ITaikoInboxConfig
+	shastaForkTime uint64
 }
 
 // NewPacayaProtocolConfigs creates a new PacayaProtocolConfigs instance.
-func NewPacayaProtocolConfigs(configs *pacayaBindings.ITaikoInboxConfig) *PacayaProtocolConfigs {
-	return &PacayaProtocolConfigs{configs: configs}
+func NewPacayaProtocolConfigs(
+	configs *pacayaBindings.ITaikoInboxConfig,
+	shastaForkTime uint64,
+) *PacayaProtocolConfigs {
+	return &PacayaProtocolConfigs{configs: configs, shastaForkTime: shastaForkTime}
 }
 
 // BaseFeeConfig implements the ProtocolConfigs interface.
@@ -71,9 +75,9 @@ func (c *PacayaProtocolConfigs) ForkHeightsPacaya() uint64 {
 	return c.configs.ForkHeights.Pacaya
 }
 
-// ForkHeightsShasta implements the ProtocolConfigs interface.
-func (c *PacayaProtocolConfigs) ForkHeightsShasta() uint64 {
-	return c.configs.ForkHeights.Shasta
+// ForkTimeShasta implements the ProtocolConfigs interface.
+func (c *PacayaProtocolConfigs) ForkTimeShasta() uint64 {
+	return c.shastaForkTime
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
