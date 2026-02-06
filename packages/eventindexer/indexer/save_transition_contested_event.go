@@ -29,7 +29,7 @@ func (i *Indexer) saveTransitionContestedEvents(
 		if err := i.saveTransitionContestedEvent(ctx, chainID, event); err != nil {
 			eventindexer.TransitionContestedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveBlockProvenEvent")
+			return errors.Wrap(err, "i.saveTransitionContestedEvent")
 		}
 
 		if !events.Next() {
@@ -98,7 +98,7 @@ func (i *Indexer) saveTransitionContestedEventsV2(
 		if err := i.saveTransitionContestedEventV2(ctx, chainID, event); err != nil {
 			eventindexer.TransitionContestedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveBlockProvenEvent")
+			return errors.Wrap(err, "i.saveTransitionContestedEvent")
 		}
 
 		if !events.Next() {
