@@ -81,8 +81,8 @@ mod tests {
 
         async fn get_preconf_slot_info(&self, _timestamp: U256) -> Result<PreconfSlotInfo> {
             Ok(PreconfSlotInfo {
-                signer: Address::ZERO,
-                submission_window_end: U256::ZERO,
+                signer: Address::repeat_byte(0x11),
+                submission_window_end: U256::from(2000),
             })
         }
     }
@@ -96,5 +96,9 @@ mod tests {
         assert_eq!(status.preconf_tip, U256::from(100));
         assert_eq!(api.preconf_tip().await.unwrap(), U256::from(100));
         assert_eq!(api.canonical_proposal_id().await.unwrap(), 42);
+
+        let slot_info = api.get_preconf_slot_info(U256::from(123)).await.unwrap();
+        assert_eq!(slot_info.signer, Address::repeat_byte(0x11));
+        assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 }

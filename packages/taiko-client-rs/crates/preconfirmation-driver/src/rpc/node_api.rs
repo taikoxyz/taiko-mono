@@ -190,15 +190,15 @@ mod tests {
             &self,
             _: U256,
         ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
-            Ok(alloy_primitives::Address::ZERO)
+            Ok(alloy_primitives::Address::repeat_byte(0x11))
         }
         async fn slot_info_for_timestamp(
             &self,
             _: U256,
         ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
             Ok(protocol::preconfirmation::PreconfSlotInfo {
-                signer: alloy_primitives::Address::ZERO,
-                submission_window_end: U256::ZERO,
+                signer: alloy_primitives::Address::repeat_byte(0x11),
+                submission_window_end: U256::from(2000),
             })
         }
     }
@@ -292,5 +292,32 @@ mod tests {
 
         assert_eq!(response.tx_list_hash, tx_list_hash);
         receiver.await.unwrap();
+    }
+
+    /// Test that get_preconf_slot_info delegates to the lookahead resolver and maps the result.
+    #[tokio::test]
+    async fn test_get_preconf_slot_info_returns_resolver_output() {
+        let (_canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
+
+        let api = NodeRpcApiImpl {
+            command_tx,
+            canonical_proposal_id_rx: canonical_id_rx,
+            preconf_tip_rx,
+            local_peer_id: "test".to_string(),
+            inbox_reader: MockInboxReader::new(0),
+            lookahead_resolver: Arc::new(MockLookaheadResolver),
+        };
+
+        tokio::spawn(async move {
+            while command_rx.recv().await.is_some() {}
+        });
+
+        let timestamp = U256::from(500);
+        let slot_info = api.get_preconf_slot_info(timestamp).await.unwrap();
+
+        assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));
+        assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 }

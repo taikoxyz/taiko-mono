@@ -49,14 +49,7 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
         inbox_reader: I,
         lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
     ) -> Self {
-        Self {
-            command_tx,
-            canonical_id,
-            driver,
-            local_peer_id,
-            inbox_reader,
-            lookahead_resolver,
-        }
+        Self { command_tx, canonical_id, driver, local_peer_id, inbox_reader, lookahead_resolver }
     }
 }
 
@@ -103,9 +96,11 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
         Ok(self.canonical_id.canonical_proposal_id())
     }
 
-    /// Return the preconfirmation slot info (signer and submission window end) for the given L2 block timestamp.
+    /// Return the preconfirmation slot info (signer and submission window end) for the given L2
+    /// block timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
-        let info: protocol::preconfirmation::PreconfSlotInfo = self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
+        let info: protocol::preconfirmation::PreconfSlotInfo =
+            self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
         Ok(PreconfSlotInfo {
             signer: info.signer,
             submission_window_end: info.submission_window_end,
@@ -168,15 +163,15 @@ mod tests {
             &self,
             _: U256,
         ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
-            Ok(alloy_primitives::Address::ZERO)
+            Ok(alloy_primitives::Address::repeat_byte(0x11))
         }
         async fn slot_info_for_timestamp(
             &self,
             _: U256,
         ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
             Ok(protocol::preconfirmation::PreconfSlotInfo {
-                signer: alloy_primitives::Address::ZERO,
-                submission_window_end: U256::ZERO,
+                signer: alloy_primitives::Address::repeat_byte(0x11),
+                submission_window_end: U256::from(2000),
             })
         }
     }

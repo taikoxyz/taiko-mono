@@ -200,8 +200,8 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
 mod tests {
     use super::*;
     use crate::rpc::types::{
-    NodeStatus, PreconfSlotInfo, PublishCommitmentResponse, PublishTxListResponse,
-};
+        NodeStatus, PreconfSlotInfo, PublishCommitmentResponse, PublishTxListResponse,
+    };
     use alloy_primitives::{B256, U256};
     use async_trait::async_trait;
 
@@ -244,8 +244,8 @@ mod tests {
 
         async fn get_preconf_slot_info(&self, _timestamp: U256) -> Result<PreconfSlotInfo> {
             Ok(PreconfSlotInfo {
-                signer: alloy_primitives::Address::ZERO,
-                submission_window_end: U256::ZERO,
+                signer: alloy_primitives::Address::repeat_byte(0x11),
+                submission_window_end: U256::from(2000),
             })
         }
     }

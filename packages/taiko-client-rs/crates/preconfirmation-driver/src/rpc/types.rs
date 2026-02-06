@@ -117,6 +117,18 @@ mod tests {
     }
 
     #[test]
+    fn test_preconf_slot_info_camel_case() {
+        let slot_info = PreconfSlotInfo {
+            signer: Address::repeat_byte(0x22),
+            submission_window_end: U256::from(2000),
+        };
+
+        let json = serde_json::to_string(&slot_info).unwrap();
+        assert!(json.contains("signer"));
+        assert!(json.contains("submissionWindowEnd"));
+    }
+
+    #[test]
     fn test_node_status_camel_case() {
         let status = NodeStatus {
             is_synced_with_inbox: true,
