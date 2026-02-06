@@ -31,7 +31,8 @@ pub(crate) struct NodeRpcApiImpl<I: InboxReader> {
     /// Inbox reader for checking L1 sync state.
     pub(crate) inbox_reader: I,
     /// Lookahead resolver for slot info by timestamp.
-    pub(crate) lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
+    pub(crate) lookahead_resolver:
+        Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
 }
 
 #[async_trait::async_trait]
@@ -84,7 +85,8 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
         Ok(*self.canonical_proposal_id_rx.borrow())
     }
 
-    /// Returns the preconfirmation slot info (signer and submission window end) for the given L2 block timestamp.
+    /// Returns the preconfirmation slot info (signer and submission window end) for the given L2
+    /// block timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
         let info = self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
         Ok(PreconfSlotInfo {
@@ -310,9 +312,7 @@ mod tests {
             lookahead_resolver: Arc::new(MockLookaheadResolver),
         };
 
-        tokio::spawn(async move {
-            while command_rx.recv().await.is_some() {}
-        });
+        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
 
         let timestamp = U256::from(500);
         let slot_info = api.get_preconf_slot_info(timestamp).await.unwrap();

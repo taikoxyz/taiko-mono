@@ -34,7 +34,8 @@ pub trait PreconfRpcApi: Send + Sync {
     /// Get the last canonical proposal ID from L1 events.
     async fn canonical_proposal_id(&self) -> Result<u64>;
 
-    /// Get the preconfirmation slot info (signer and submission window end) for a given L2 block timestamp.
+    /// Get the preconfirmation slot info (signer and submission window end) for a given L2 block
+    /// timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo>;
 }
 
