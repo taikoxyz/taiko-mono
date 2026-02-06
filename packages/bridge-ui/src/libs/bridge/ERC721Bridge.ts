@@ -23,6 +23,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
+import { getShastaFeeOverrides } from './getShastaFeeOverrides';
 import type { ERC721BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC721Bridge');
@@ -111,6 +112,7 @@ export class ERC721Bridge extends Bridge {
     try {
       log('Sending ERC721 with fee', fee);
       log('Sending ERC721 with args', sendERC721Args);
+      const feeOverrides = await getShastaFeeOverrides({ txChainId: wallet.chain.id, srcChainId, destChainId });
 
       const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
@@ -119,6 +121,7 @@ export class ERC721Bridge extends Bridge {
         //@ts-ignore
         args: [sendERC721Args],
         value: fee,
+        ...(feeOverrides ?? {}),
       });
       log('Simulate contract', request);
 
@@ -158,6 +161,7 @@ export class ERC721Bridge extends Bridge {
 
     try {
       log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
+      const feeOverrides = await getShastaFeeOverrides({ txChainId: wallet.chain.id });
 
       const { request } = await simulateContract(config, {
         address: tokenAddress,
@@ -165,6 +169,7 @@ export class ERC721Bridge extends Bridge {
         functionName: 'approve',
         args: [spenderAddress, tokenId],
         chainId: wallet.chain.id,
+        ...(feeOverrides ?? {}),
       });
       log('Simulate contract', request);
 

@@ -10,6 +10,7 @@ import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
+import { getShastaFeeOverrides } from './getShastaFeeOverrides';
 import {
   type BridgeArgs,
   type BridgeTransaction,
@@ -233,8 +234,15 @@ export abstract class Bridge {
     const { message } = bridgeTx;
     if (!message) throw new ProcessMessageError('Message is not defined');
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
+    const srcChainId = Number(message.srcChainId);
+    const destChainId = Number(message.destChainId);
+    const feeOverrides = await getShastaFeeOverrides({
+      txChainId: destChainId,
+      srcChainId,
+      destChainId,
+    });
 
-    const destClient = getPublicClient(config, { chainId: Number(message.destChainId) });
+    const destClient = getPublicClient(config, { chainId: destChainId });
     if (!destClient) throw new Error('Could not get public client');
 
     let estimatedGas;
@@ -275,6 +283,7 @@ export abstract class Bridge {
         functionName: 'processMessage',
         args: [message, proof],
         gas: estimatedGas,
+        ...(feeOverrides ?? {}),
       });
     } else {
       const { request } = await simulateContract(config, {
@@ -283,6 +292,7 @@ export abstract class Bridge {
         functionName: 'processMessage',
         args: [message, proof],
         gas: estimatedGas,
+        ...(feeOverrides ?? {}),
       });
       log('Simulate contract for processMessage', request);
 
@@ -298,6 +308,13 @@ export abstract class Bridge {
     isFinalAttempt ? log('Retrying message for the last time') : log('Retrying message');
 
     if (!message) throw new ProcessMessageError('Message is not defined');
+    const srcChainId = Number(message.srcChainId);
+    const destChainId = Number(message.destChainId);
+    const feeOverrides = await getShastaFeeOverrides({
+      txChainId: destChainId,
+      srcChainId,
+      destChainId,
+    });
 
     let estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
       account: client.account,
@@ -314,6 +331,7 @@ export abstract class Bridge {
       functionName: 'retryMessage',
       args: [message, isFinalAttempt],
       gas: estimatedGas,
+      ...(feeOverrides ?? {}),
     });
     log('Simulate contract for retryMessage', request);
 
@@ -324,6 +342,13 @@ export abstract class Bridge {
     const { bridgeTx, bridgeContract, client } = args;
     const { message } = bridgeTx;
     if (!message) throw new ReleaseError('Message is not defined');
+    const srcChainId = Number(message.srcChainId);
+    const destChainId = Number(message.destChainId);
+    const feeOverrides = await getShastaFeeOverrides({
+      txChainId: srcChainId,
+      srcChainId,
+      destChainId,
+    });
     const proof = await this._prover.getEncodedSignalProofForRecall({ bridgeTx });
 
     log('Estimating gas for recallMessage', bridgeContract.address, [message, proof]);
@@ -343,6 +368,7 @@ export abstract class Bridge {
       functionName: 'recallMessage',
       args: [message, proof],
       gas: estimatedGas,
+      ...(feeOverrides ?? {}),
     });
     log('Simulate contract for recallMessage', request);
 

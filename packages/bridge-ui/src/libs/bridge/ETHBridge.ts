@@ -11,6 +11,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
+import { getShastaFeeOverrides } from './getShastaFeeOverrides';
 import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
@@ -97,6 +98,7 @@ export class ETHBridge extends Bridge {
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
 
+    const { srcChainId, destChainId } = args;
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 
@@ -106,6 +108,7 @@ export class ETHBridge extends Bridge {
       log('Calling sendMessage with value', value);
 
       const chainId = (await getWalletClient(config)).chain.id;
+      const feeOverrides = await getShastaFeeOverrides({ txChainId: chainId, srcChainId, destChainId });
 
       const { request } = await simulateContract(config, {
         address: bridgeContract.address,
@@ -114,6 +117,7 @@ export class ETHBridge extends Bridge {
         args: [message],
         chainId,
         value,
+        ...(feeOverrides ?? {}),
       });
       log('Simulate contract', request);
 

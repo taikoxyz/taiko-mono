@@ -21,6 +21,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
+import { getShastaFeeOverrides } from './getShastaFeeOverrides';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
@@ -143,7 +144,7 @@ export class ERC20Bridge extends Bridge {
 
   async approve(args: ApproveArgs, reset = false) {
     const { amount, tokenAddress, spenderAddress, wallet } = args;
-    if (!wallet || !wallet.account) throw new Error('No wallet found');
+    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
     const requireAllowance = await this.requireAllowance(
       {
         amount,
@@ -182,15 +183,17 @@ export class ERC20Bridge extends Bridge {
         },
       ];
 
+      const feeOverrides = await getShastaFeeOverrides({ txChainId: wallet.chain.id });
+
       const { request } = await simulateContract(config, {
         address: tokenAddress,
         abi: approvalABI,
         functionName: 'approve',
         args: [spenderAddress, amount],
+        chainId: wallet.chain.id,
+        ...(feeOverrides ?? {}),
       });
       log('Simulate contract', request);
-
-      if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
       const txHash = await writeContract(config, request);
 
@@ -209,7 +212,7 @@ export class ERC20Bridge extends Bridge {
   }
 
   async bridge(args: ERC20BridgeArgs) {
-    const { amount, token, wallet, tokenVaultAddress } = args;
+    const { amount, token, wallet, tokenVaultAddress, srcChainId, destChainId } = args;
 
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
@@ -226,6 +229,7 @@ export class ERC20Bridge extends Bridge {
 
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     const { fee } = sendERC20Args;
+    const feeOverrides = await getShastaFeeOverrides({ txChainId: wallet.chain.id, srcChainId, destChainId });
 
     try {
       const { request } = await simulateContract(config, {
@@ -234,6 +238,7 @@ export class ERC20Bridge extends Bridge {
         functionName: 'sendToken',
         args: [sendERC20Args],
         value: fee,
+        ...(feeOverrides ?? {}),
       });
       log('Simulate contract', request);
 
