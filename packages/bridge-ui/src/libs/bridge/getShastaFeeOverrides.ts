@@ -50,6 +50,7 @@ export function calculateExpectedBaseFeePerGas({
   parentGasLimit,
   parentBlockTime,
 }: Eip4396BaseFeeArgs): bigint {
+  // safe since if parentGasLimit = 0n, 0n / 2n = 0n; won't error.
   const parentBaseGasTarget = parentGasLimit / ELASTICITY_MULTIPLIER;
   if (parentBaseGasTarget === 0n) {
     return clampBigInt(parentBaseFeePerGas, MIN_BASE_FEE, MAX_BASE_FEE);
@@ -118,8 +119,13 @@ export async function getShastaFeeOverrides(args: ShastaFeeOverrideArgs): Promis
     const latest = await client.getBlock({ blockTag: 'latest' });
     if (latest.baseFeePerGas == null) return undefined;
 
-    const parent = await client.getBlock({ blockHash: latest.parentHash });
-    const parentBlockTime = latest.timestamp > parent.timestamp ? latest.timestamp - parent.timestamp : 1n;
+    let parentBlockTime = 1n;
+    try {
+      const parent = await client.getBlock({ blockHash: latest.parentHash });
+      parentBlockTime = latest.timestamp > parent.timestamp ? latest.timestamp - parent.timestamp : 1n;
+    } catch (error) {
+      log('Could not fetch parent block, using 1s block-time fallback', error);
+    }
 
     const expectedBaseFee = calculateExpectedBaseFeePerGas({
       parentBaseFeePerGas: latest.baseFeePerGas,
@@ -138,6 +144,8 @@ export async function getShastaFeeOverrides(args: ShastaFeeOverrideArgs): Promis
 
     const gasPrice = await client.getGasPrice();
     const maxFeeFromExpectedBase = expectedBaseFee * MAX_FEE_HEADROOM_MULTIPLIER + maxPriorityFeePerGas;
+    // Keep maxFeePerGas at least as high as the node's immediate gas price signal to avoid underpricing
+    // in short-lived fee spikes while still honoring the EIP-4396-derived baseline.
     const maxFeePerGas = maxBigInt(gasPrice, maxFeeFromExpectedBase);
 
     return { maxFeePerGas, maxPriorityFeePerGas };
