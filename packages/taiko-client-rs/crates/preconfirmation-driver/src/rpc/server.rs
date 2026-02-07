@@ -184,26 +184,37 @@ fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
 fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     use PreconfRpcErrorCode::*;
     use PreconfirmationClientError::*;
+    use protocol::preconfirmation::LookaheadError;
 
     let code = match &err {
-        Validation(_) => InvalidCommitment,
-        Codec(_) => InvalidTxList,
-        Catchup(_) => NotSynced,
-        Lookahead(_) => InvalidSigner,
-        Network(_) | Storage(_) | DriverInterface(_) | Config(_) => InternalError,
+        Validation(_) => InvalidCommitment.code(),
+        Codec(_) => InvalidTxList.code(),
+        Catchup(_) => NotSynced.code(),
+        Lookahead(LookaheadError::BeforeGenesis(_)) |
+        Lookahead(LookaheadError::TooOld(_)) |
+        Lookahead(LookaheadError::TooNew(_)) => {
+            jsonrpsee::types::error::ErrorCode::InvalidParams.code()
+        }
+        Lookahead(_) => InvalidSigner.code(),
+        Network(_) | Storage(_) | DriverInterface(_) | Config(_) => InternalError.code(),
     };
 
-    ErrorObjectOwned::owned(code.code(), err.to_string(), None::<()>)
+    ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rpc::types::{
-        NodeStatus, PreconfSlotInfo, PublishCommitmentResponse, PublishTxListResponse,
+    use crate::{
+        error::PreconfirmationClientError,
+        rpc::types::{
+            NodeStatus, PreconfSlotInfo, PublishCommitmentResponse, PublishTxListResponse,
+        },
     };
     use alloy_primitives::{B256, U256};
     use async_trait::async_trait;
+    use jsonrpsee::types::error::ErrorCode;
+    use protocol::preconfirmation::LookaheadError;
 
     /// Mock API implementation for testing.
     struct MockApi;
@@ -267,5 +278,27 @@ mod tests {
     fn test_default_config() {
         let config = PreconfRpcServerConfig::default();
         assert_eq!(config.listen_addr.port(), 8550);
+    }
+
+    #[test]
+    fn test_lookahead_timestamp_bounds_map_to_invalid_params() {
+        let errors = [
+            LookaheadError::BeforeGenesis(100),
+            LookaheadError::TooOld(100),
+            LookaheadError::TooNew(100),
+        ];
+
+        for err in errors {
+            let rpc_error = api_error_to_rpc(PreconfirmationClientError::from(err));
+            assert_eq!(rpc_error.code(), ErrorCode::InvalidParams.code());
+        }
+    }
+
+    #[test]
+    fn test_non_timestamp_lookahead_errors_still_map_to_invalid_signer() {
+        let rpc_error = api_error_to_rpc(PreconfirmationClientError::from(
+            LookaheadError::MissingLookahead(100),
+        ));
+        assert_eq!(rpc_error.code(), PreconfRpcErrorCode::InvalidSigner.code());
     }
 }
