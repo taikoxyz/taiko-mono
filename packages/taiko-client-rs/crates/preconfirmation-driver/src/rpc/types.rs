@@ -1,6 +1,6 @@
 //! Preconfirmation sidecar JSON-RPC API types for the preconfirmation driver node.
 
-use alloy_primitives::{B256, Bytes, U256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
 /// Request to publish a signed preconfirmation commitment.
@@ -37,6 +37,22 @@ pub struct PublishCommitmentResponse {
 pub struct PublishTxListResponse {
     /// The keccak256 hash of the published transaction list.
     pub tx_list_hash: B256,
+}
+
+/// Resolved signer and submission window end for a preconfirmation slot (RPC response).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreconfSlotInfo {
+    /// Address allowed to sign the commitment for the slot.
+    pub signer: Address,
+    /// Canonical end of the submission window for the slot.
+    pub submission_window_end: U256,
+}
+
+impl From<protocol::preconfirmation::PreconfSlotInfo> for PreconfSlotInfo {
+    fn from(info: protocol::preconfirmation::PreconfSlotInfo) -> Self {
+        Self { signer: info.signer, submission_window_end: info.submission_window_end }
+    }
 }
 
 /// Current status of the preconfirmation driver node.
@@ -104,6 +120,18 @@ mod tests {
         let parsed: PublishCommitmentRequest = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.commitment, request.commitment);
+    }
+
+    #[test]
+    fn test_preconf_slot_info_camel_case() {
+        let slot_info = PreconfSlotInfo {
+            signer: Address::repeat_byte(0x22),
+            submission_window_end: U256::from(2000),
+        };
+
+        let json = serde_json::to_string(&slot_info).unwrap();
+        assert!(json.contains("signer"));
+        assert!(json.contains("submissionWindowEnd"));
     }
 
     #[test]

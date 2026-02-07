@@ -4,8 +4,8 @@ use alloy_primitives::U256;
 use async_trait::async_trait;
 
 use super::types::{
-    NodeStatus, PublishCommitmentRequest, PublishCommitmentResponse, PublishTxListRequest,
-    PublishTxListResponse,
+    NodeStatus, PreconfSlotInfo, PublishCommitmentRequest, PublishCommitmentResponse,
+    PublishTxListRequest, PublishTxListResponse,
 };
 use crate::Result;
 
@@ -33,12 +33,16 @@ pub trait PreconfRpcApi: Send + Sync {
 
     /// Get the last canonical proposal ID from L1 events.
     async fn canonical_proposal_id(&self) -> Result<u64>;
+
+    /// Get the preconfirmation slot info (signer and submission window end) for a given L2 block
+    /// timestamp.
+    async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::B256;
+    use alloy_primitives::{Address, B256};
 
     struct MockApi;
 
@@ -75,6 +79,13 @@ mod tests {
         async fn canonical_proposal_id(&self) -> Result<u64> {
             Ok(42)
         }
+
+        async fn get_preconf_slot_info(&self, _timestamp: U256) -> Result<PreconfSlotInfo> {
+            Ok(PreconfSlotInfo {
+                signer: Address::repeat_byte(0x11),
+                submission_window_end: U256::from(2000),
+            })
+        }
     }
 
     #[tokio::test]
@@ -86,5 +97,9 @@ mod tests {
         assert_eq!(status.preconf_tip, U256::from(100));
         assert_eq!(api.preconf_tip().await.unwrap(), U256::from(100));
         assert_eq!(api.canonical_proposal_id().await.unwrap(), 42);
+
+        let slot_info = api.get_preconf_slot_info(U256::from(123)).await.unwrap();
+        assert_eq!(slot_info.signer, Address::repeat_byte(0x11));
+        assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 }

@@ -150,6 +150,7 @@ impl PreconfirmationDriverRunner {
         let preconf_client = PreconfirmationClient::new(client_config, driver_client)?;
         let command_tx = preconf_client.command_tx();
         let local_peer_id = preconf_client.p2p_handle().local_peer_id().to_string();
+        let lookahead_resolver = preconf_client.lookahead_resolver().clone();
 
         let mut rpc_server = None;
         if let Some(rpc_config) = &self.config.rpc_config {
@@ -165,6 +166,7 @@ impl PreconfirmationDriverRunner {
                 rpc_driver,
                 local_peer_id,
                 inbox_reader,
+                lookahead_resolver,
             ));
             let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
             info!(url = %server.http_url(), "preconfirmation RPC server started");
