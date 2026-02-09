@@ -1,4 +1,7 @@
-use std::{sync::OnceLock, time::Instant};
+use std::{
+    sync::OnceLock,
+    time::{Duration, Instant},
+};
 
 use alloy_primitives::{Address, Bytes, hex};
 use alloy_provider::Provider;
@@ -14,6 +17,11 @@ use tracing::debug;
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
 
 use super::WhitelistPreconfirmationImporter;
+
+/// Maximum age for stale-cache fallback when node timing data lags epoch start.
+const MAX_STALE_FALLBACK_SECS: u64 = 12 * 64;
+/// Retry once when batch pinning detects a transient reorg/load-balancer inconsistency.
+const SNAPSHOT_FETCH_MAX_ATTEMPTS: usize = 2;
 
 /// ABI-encoded call data for `getOperatorForCurrentEpoch()` (selector + empty params).
 fn current_operator_call_data() -> &'static Bytes {
@@ -118,7 +126,7 @@ where
             return Ok(CachedSequencers { current, next, any_from_cache: true });
         }
 
-        let snapshot = self.fetch_whitelist_sequencers_snapshot().await?;
+        let snapshot = self.fetch_whitelist_sequencers_snapshot_with_retry().await?;
 
         // If the node is behind and reports a block before the current epoch start, keep serving
         // stale cache values when available instead of failing open/closed on inconsistent timing.
@@ -126,8 +134,9 @@ where
             snapshot.block_timestamp,
             snapshot.current_epoch_start_timestamp,
         ) {
-            if let (Some(current), Some(next)) =
-                (self.sequencer_cache.get_current_stale(), self.sequencer_cache.get_next_stale())
+            if let Some((current, next)) = self
+                .sequencer_cache
+                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
             {
                 debug!(
                     block_timestamp = snapshot.block_timestamp,
@@ -142,8 +151,9 @@ where
         // If a lagging node answers after we already cached a newer epoch snapshot,
         // keep the previous snapshot instead of regressing.
         if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp) &&
-            let (Some(current), Some(next)) =
-                (self.sequencer_cache.get_current_stale(), self.sequencer_cache.get_next_stale())
+            let Some((current, next)) = self
+                .sequencer_cache
+                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
         {
             debug!(
                 block_timestamp = snapshot.block_timestamp,
@@ -169,9 +179,34 @@ where
     /// Fetch current/next sequencer addresses in two batches pinned to the same block.
     ///
     /// **Batch 1** retrieves the latest block header, both operator proposer addresses,
-    /// and the current epoch start timestamp. **Batch 2** resolves both `operators()`
+    /// and the current epoch start timestamp. **Batch 2** fetches both sequencer addresses via
+    /// `operators()`
     /// lookups at the block number from batch 1, ensuring all six calls share one
     /// consistent view of state.
+    async fn fetch_whitelist_sequencers_snapshot_with_retry(
+        &self,
+    ) -> Result<WhitelistSequencerSnapshot> {
+        for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
+            match self.fetch_whitelist_sequencers_snapshot().await {
+                Ok(snapshot) => return Ok(snapshot),
+                Err(err)
+                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS &&
+                        should_retry_snapshot_fetch(&err) =>
+                {
+                    debug!(
+                        attempt,
+                        max_attempts = SNAPSHOT_FETCH_MAX_ATTEMPTS,
+                        error = %err,
+                        "retrying whitelist snapshot fetch after transient inconsistency"
+                    );
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        unreachable!("snapshot fetch loop must return on success or final error")
+    }
+
     async fn fetch_whitelist_sequencers_snapshot(&self) -> Result<WhitelistSequencerSnapshot> {
         // ── Batch 1: latest block + operator proposers + epoch timing ───────
         let whitelist_addr = self.whitelist.address();
@@ -244,6 +279,7 @@ where
         })?;
 
         let block_number = parse_hex_field_u64(&latest_block, "number")?;
+        let block_hash = parse_hex_field_string(&latest_block, "hash", "latest block result")?;
         let block_timestamp = parse_hex_field_u64(&latest_block, "timestamp")?;
 
         let current_proposer = decode_sol_returns::<getOperatorForCurrentEpochCall>(
@@ -289,6 +325,13 @@ where
                     "failed to add next operators() call to batch: {err}"
                 ))
             })?;
+        let pinned_block_waiter = batch2
+            .add_call::<_, serde_json::Value>("eth_getBlockByNumber", &(block_hex.as_str(), false))
+            .map_err(|err| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    "failed to add pinned-block verification call to batch: {err}"
+                ))
+            })?;
 
         batch2.send().await.map_err(|err| {
             WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
@@ -306,11 +349,35 @@ where
                 "failed to read next sequencer from whitelist batch: {err}"
             ))
         })?;
+        let pinned_block: serde_json::Value = pinned_block_waiter.await.map_err(|err| {
+            WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                "failed to read pinned-block verification result from whitelist batch: {err}"
+            ))
+        })?;
+        if pinned_block.is_null() {
+            return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                "missing pinned block {block_number} while verifying whitelist batches"
+            )));
+        }
+        let pinned_block_hash =
+            parse_hex_field_string(&pinned_block, "hash", "pinned block result")?;
+        if pinned_block_hash != block_hash {
+            return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                "block hash changed between whitelist batches at block {block_number}"
+            )));
+        }
 
         let current_seq: operatorsReturn =
             decode_sol_returns::<operatorsCall>(&current_seq_hex, "current whitelist sequencer")?;
         let next_seq: operatorsReturn =
             decode_sol_returns::<operatorsCall>(&next_seq_hex, "next whitelist sequencer")?;
+        if current_seq.sequencerAddress == Address::ZERO ||
+            next_seq.sequencerAddress == Address::ZERO
+        {
+            return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
+                "received zero address for whitelist sequencer".to_string(),
+            ));
+        }
 
         Ok(WhitelistSequencerSnapshot {
             current: current_seq.sequencerAddress,
@@ -325,7 +392,8 @@ where
 fn decode_sol_returns<C: SolCall>(raw: &str, field_name: &str) -> Result<C::Return> {
     let bytes = hex::decode(raw.strip_prefix("0x").unwrap_or(raw)).map_err(|err| {
         WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
-            "failed to decode `{field_name}` hex response `{raw}`: {err}"
+            "failed to decode `{field_name}` hex response (length {}): {err}",
+            raw.len()
         ))
     })?;
     C::abi_decode_returns(&bytes).map_err(|err| {
@@ -333,6 +401,20 @@ fn decode_sol_returns<C: SolCall>(raw: &str, field_name: &str) -> Result<C::Retu
             "failed to ABI-decode `{field_name}` returns: {err}"
         ))
     })
+}
+
+fn parse_hex_field_string(value: &serde_json::Value, key: &str, context: &str) -> Result<String> {
+    let raw = value.get(key).and_then(|v| v.as_str()).ok_or_else(|| {
+        WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+            "missing hex field `{key}` in {context}"
+        ))
+    })?;
+    if raw.strip_prefix("0x").unwrap_or(raw).is_empty() {
+        return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+            "empty hex field `{key}` in {context}"
+        )));
+    }
+    Ok(raw.to_string())
 }
 
 fn parse_hex_field_u64(value: &serde_json::Value, key: &str) -> Result<u64> {
@@ -347,7 +429,9 @@ fn parse_hex_field_u64(value: &serde_json::Value, key: &str) -> Result<u64> {
 fn parse_hex_u64(raw: &str, field_name: &str) -> Result<u64> {
     let value = raw.strip_prefix("0x").unwrap_or(raw);
     if value.is_empty() {
-        return Ok(0);
+        return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+            "empty `{field_name}` hex value"
+        )));
     }
     u64::from_str_radix(value, 16).map_err(|err| {
         WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
@@ -369,6 +453,16 @@ fn ensure_not_too_early_for_epoch(
     Ok(())
 }
 
+fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> bool {
+    match err {
+        WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
+            message.contains("block hash changed between whitelist batches") ||
+                message.contains("missing pinned block")
+        }
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,6 +479,28 @@ mod tests {
         let value = serde_json::json!({ "number": "0x2a" });
         let err = parse_hex_field_u64(&value, "timestamp").expect_err("missing key should fail");
         assert!(err.to_string().contains("missing hex field `timestamp`"));
+    }
+
+    #[test]
+    fn parse_hex_field_string_reads_hash() {
+        let value = serde_json::json!({ "hash": "0xabc123" });
+        let parsed =
+            parse_hex_field_string(&value, "hash", "latest block result").expect("parse hash");
+        assert_eq!(parsed, "0xabc123");
+    }
+
+    #[test]
+    fn parse_hex_field_string_rejects_empty_hex() {
+        let value = serde_json::json!({ "hash": "0x" });
+        let err = parse_hex_field_string(&value, "hash", "latest block result")
+            .expect_err("empty hash should fail");
+        assert!(err.to_string().contains("empty hex field `hash`"));
+    }
+
+    #[test]
+    fn parse_hex_u64_rejects_empty_hex() {
+        let err = parse_hex_u64("0x", "timestamp").expect_err("empty hex should fail");
+        assert!(err.to_string().contains("empty `timestamp` hex value"));
     }
 
     #[test]
@@ -410,6 +526,15 @@ mod tests {
         let err = decode_sol_returns::<epochStartTimestampCall>("0xZZZZ", "bad field")
             .expect_err("invalid hex should fail");
         assert!(err.to_string().contains("failed to decode"));
+    }
+
+    #[test]
+    fn decode_sol_returns_error_redacts_raw_hex() {
+        let err = decode_sol_returns::<epochStartTimestampCall>("0xZZZZ", "bad field")
+            .expect_err("invalid hex should fail");
+        let message = err.to_string();
+        assert!(message.contains("length"));
+        assert!(!message.contains("0xZZZZ"));
     }
 
     #[test]
@@ -471,5 +596,29 @@ mod tests {
         assert_eq!(&current_operator_call_data()[..4], &getOperatorForCurrentEpochCall::SELECTOR);
         assert_eq!(&next_operator_call_data()[..4], &getOperatorForNextEpochCall::SELECTOR);
         assert_eq!(&epoch_start_timestamp_call_data()[..4], &epochStartTimestampCall::SELECTOR);
+    }
+
+    #[test]
+    fn should_retry_snapshot_fetch_for_reorg_like_hash_change() {
+        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
+            "block hash changed between whitelist batches at block 123".to_string(),
+        );
+        assert!(should_retry_snapshot_fetch(&err));
+    }
+
+    #[test]
+    fn should_retry_snapshot_fetch_for_missing_pinned_block() {
+        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
+            "missing pinned block 123 while verifying whitelist batches".to_string(),
+        );
+        assert!(should_retry_snapshot_fetch(&err));
+    }
+
+    #[test]
+    fn should_retry_snapshot_fetch_ignores_non_retryable_lookup_errors() {
+        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
+            "failed to decode `current whitelist proposer` hex response".to_string(),
+        );
+        assert!(!should_retry_snapshot_fetch(&err));
     }
 }

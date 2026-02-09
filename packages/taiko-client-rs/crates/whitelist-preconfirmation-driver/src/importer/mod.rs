@@ -12,7 +12,10 @@ use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::{
-    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, WhitelistSequencerCache},
+    cache::{
+        EnvelopeCache, L1_EPOCH_DURATION_SECS, RecentEnvelopeCache, RequestThrottle,
+        WhitelistSequencerCache,
+    },
     error::{Result, WhitelistPreconfirmationDriverError},
     network::{NetworkCommand, NetworkEvent},
 };
@@ -33,7 +36,6 @@ pub(super) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 ///
 /// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
 pub(super) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
-
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
@@ -136,12 +138,24 @@ where
 
     /// Event-sync progress signal.
     ///
-    /// Any L1 progress can include an epoch boundary, so drop cached whitelist sequencers here to
-    /// avoid accepting a rotated-out signer until the TTL elapses.
+    /// Drop cached sequencers only after crossing an epoch boundary to avoid unnecessary
+    /// re-fetches while still preventing stale signer acceptance across epochs.
     pub(crate) async fn on_sync_ready_signal(&mut self) -> Result<()> {
-        self.sequencer_cache.invalidate();
+        if !self.refresh_sync_ready().await? {
+            return Ok(());
+        }
 
-        if !self.refresh_sync_ready().await? || self.cache.is_empty() {
+        if self.sequencer_cache.current_epoch_start_timestamp().is_some() {
+            let latest_l1_timestamp = self.latest_l1_block_timestamp().await?;
+            if self
+                .sequencer_cache
+                .should_invalidate_for_l1_timestamp(latest_l1_timestamp, L1_EPOCH_DURATION_SECS)
+            {
+                self.sequencer_cache.invalidate();
+            }
+        }
+
+        if self.cache.is_empty() {
             return Ok(());
         }
 
@@ -164,6 +178,21 @@ where
     /// Get the block ID of the head L1 origin.
     pub(super) async fn head_l1_origin_block_id(&self) -> Result<Option<u64>> {
         Ok(self.rpc.head_l1_origin().await?.map(|head| head.block_id.to::<u64>()))
+    }
+
+    /// Read latest L1 block timestamp.
+    pub(super) async fn latest_l1_block_timestamp(&self) -> Result<u64> {
+        self.rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(provider_err)?
+            .map(|block| block.header.timestamp)
+            .ok_or_else(|| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(
+                    "missing latest L1 block while updating sequencer cache".to_string(),
+                )
+            })
     }
 
     /// Get the block hash by block number.
