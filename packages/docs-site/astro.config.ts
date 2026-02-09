@@ -63,7 +63,7 @@ export default defineConfig({
         {
           icon: "discord",
           label: "Discord",
-          href: "https://discord.gg/taikoxyz",
+          href: "https://discord.com/invite/GqehHsxDgP",
         },
         {
           icon: "youtube",
