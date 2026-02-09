@@ -18,7 +18,7 @@ use rpc::client::Client;
 use tracing::{debug, info, warn};
 
 use crate::{
-    cache::{CachedEnvelope, EnvelopeCache, RecentEnvelopeCache, RequestThrottle},
+    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle},
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash, recover_signer,
     },
@@ -131,7 +131,7 @@ where
 
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
         validate_execution_payload_for_preconf(&envelope.execution_payload)?;
-        self.cache.insert(CachedEnvelope { envelope: envelope.clone() });
+        self.cache.insert(envelope.clone());
         self.recent_cache.insert_recent(envelope);
 
         Ok(())
@@ -154,7 +154,7 @@ where
         self.ensure_signer_allowed(signer).await?;
 
         validate_execution_payload_for_preconf(&envelope.execution_payload)?;
-        self.cache.insert(CachedEnvelope { envelope: envelope.clone() });
+        self.cache.insert(envelope.clone());
         self.recent_cache.insert_recent(envelope);
         Ok(())
     }
@@ -206,8 +206,10 @@ where
     }
 
     /// Try to import one cached envelope.
-    async fn try_import_cached(&mut self, entry: &CachedEnvelope) -> Result<bool> {
-        let envelope = &entry.envelope;
+    async fn try_import_cached(
+        &mut self,
+        envelope: &WhitelistExecutionPayloadEnvelope,
+    ) -> Result<bool> {
         let payload = &envelope.execution_payload;
         let block_number = payload.block_number;
         let block_hash = payload.block_hash;

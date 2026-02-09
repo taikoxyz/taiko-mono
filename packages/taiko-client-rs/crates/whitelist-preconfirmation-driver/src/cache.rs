@@ -17,17 +17,10 @@ const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
 
-/// Cached envelope.
-#[derive(Clone, Debug)]
-pub(crate) struct CachedEnvelope {
-    /// Decoded envelope.
-    pub envelope: WhitelistExecutionPayloadEnvelope,
-}
-
 /// Simple in-memory cache keyed by block hash with bounded capacity.
 pub(crate) struct EnvelopeCache {
     /// Fast lookup table keyed by payload block hash.
-    entries: LinkedHashMap<B256, CachedEnvelope>,
+    entries: LinkedHashMap<B256, WhitelistExecutionPayloadEnvelope>,
     /// Maximum number of envelopes to retain.
     capacity: usize,
 }
@@ -47,10 +40,10 @@ impl EnvelopeCache {
     }
 
     /// Insert or replace a cached envelope.
-    pub fn insert(&mut self, entry: CachedEnvelope) {
-        let hash = entry.envelope.execution_payload.block_hash;
+    pub fn insert(&mut self, envelope: WhitelistExecutionPayloadEnvelope) {
+        let hash = envelope.execution_payload.block_hash;
         self.entries.remove(&hash);
-        self.entries.insert(hash, entry);
+        self.entries.insert(hash, envelope);
         self.evict_oldest();
     }
 
@@ -62,7 +55,7 @@ impl EnvelopeCache {
     }
 
     /// Remove a cached envelope by block hash.
-    pub fn remove(&mut self, hash: &B256) -> Option<CachedEnvelope> {
+    pub fn remove(&mut self, hash: &B256) -> Option<WhitelistExecutionPayloadEnvelope> {
         self.entries.remove(hash)
     }
 
@@ -71,14 +64,14 @@ impl EnvelopeCache {
         let mut hashes = self
             .entries
             .iter()
-            .map(|(hash, entry)| (*hash, entry.envelope.execution_payload.block_number))
+            .map(|(hash, envelope)| (*hash, envelope.execution_payload.block_number))
             .collect::<Vec<_>>();
         hashes.sort_unstable_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
         hashes.into_iter().map(|(hash, _)| hash).collect()
     }
 
     /// Get a cached envelope by block hash.
-    pub fn get(&self, hash: &B256) -> Option<&CachedEnvelope> {
+    pub fn get(&self, hash: &B256) -> Option<&WhitelistExecutionPayloadEnvelope> {
         self.entries.get(hash)
     }
 
@@ -234,9 +227,9 @@ mod tests {
         let h2 = B256::from([0x20u8; 32]);
         let h3 = B256::from([0x30u8; 32]);
 
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h1, 1) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h2, 2) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h3, 3) });
+        cache.insert(sample_envelope(h1, 1));
+        cache.insert(sample_envelope(h2, 2));
+        cache.insert(sample_envelope(h3, 3));
 
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h2, h3]);
@@ -249,13 +242,13 @@ mod tests {
         let h2 = B256::from([0x50u8; 32]);
         let h3 = B256::from([0x60u8; 32]);
 
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h1, 1) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h2, 2) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h3, 3) });
+        cache.insert(sample_envelope(h1, 1));
+        cache.insert(sample_envelope(h2, 2));
+        cache.insert(sample_envelope(h3, 3));
         let removed = cache.remove(&h2);
         assert!(removed.is_some());
 
-        cache.insert(CachedEnvelope { envelope: sample_envelope(B256::from([0x70u8; 32]), 4) });
+        cache.insert(sample_envelope(B256::from([0x70u8; 32]), 4));
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h1, h3, B256::from([0x70u8; 32])]);
     }
@@ -267,9 +260,9 @@ mod tests {
         let h2 = B256::from([0x22u8; 32]);
         let h3 = B256::from([0x33u8; 32]);
 
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h2, 7) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h1, 7) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h3, 8) });
+        cache.insert(sample_envelope(h2, 7));
+        cache.insert(sample_envelope(h1, 7));
+        cache.insert(sample_envelope(h3, 8));
 
         assert_eq!(cache.sorted_hashes_by_block_number(), vec![h1, h2, h3]);
     }
@@ -281,10 +274,10 @@ mod tests {
         let h2 = B256::from([0x55u8; 32]);
         let h3 = B256::from([0x66u8; 32]);
 
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h1, 1) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h2, 2) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h1, 3) });
-        cache.insert(CachedEnvelope { envelope: sample_envelope(h3, 4) });
+        cache.insert(sample_envelope(h1, 1));
+        cache.insert(sample_envelope(h2, 2));
+        cache.insert(sample_envelope(h1, 3));
+        cache.insert(sample_envelope(h3, 4));
 
         assert!(cache.get(&h1).is_some());
         assert!(cache.get(&h2).is_none());
