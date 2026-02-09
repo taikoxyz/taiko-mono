@@ -462,9 +462,6 @@ importers:
       '@types/eslint':
         specifier: ^8.56.0
         version: 8.56.10
-      '@types/jest':
-        specifier: ^29.5.12
-        version: 29.5.12
       '@types/node':
         specifier: ^20.12.7
         version: 20.12.8
@@ -688,9 +685,6 @@ importers:
       '@types/eslint':
         specifier: ^8.56.0
         version: 8.56.10
-      '@types/jest':
-        specifier: ^29.5.12
-        version: 29.5.12
       '@types/node':
         specifier: ^20.12.7
         version: 20.12.8
