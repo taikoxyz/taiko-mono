@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
 use alloy_consensus::{
     EthereumTypedTransaction, TxEip1559, TxEnvelope, transaction::SignableTransaction,
 };
@@ -11,7 +12,7 @@ use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 use crate::{codec::WhitelistExecutionPayloadEnvelope, error::WhitelistPreconfirmationDriverError};
 
 use super::{
-    MAX_COMPRESSED_TX_LIST_BYTES, SHASTA_ANCHOR_V4_SELECTOR,
+    MAX_COMPRESSED_TX_LIST_BYTES,
     cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
     sync_ready_transition,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
@@ -106,7 +107,7 @@ fn signed_anchor_tx_bytes(
 fn valid_anchor_tx_list(anchor_address: Address) -> Bytes {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let tx_bytes =
-        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, SHASTA_ANCHOR_V4_SELECTOR);
+        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, *ANCHOR_V4_SELECTOR);
     encode_compressed_tx_list(vec![tx_bytes])
 }
 
@@ -380,6 +381,26 @@ fn validate_payload_rejects_invalid_rlp_transactions_bytes() {
 }
 
 #[test]
+fn validate_payload_rejects_oversized_decompressed_transactions_bytes() {
+    let anchor_address = sample_anchor_address();
+    let oversized_decompressed = vec![0u8; 8 * 1024 * 1024 + 1];
+    let envelope =
+        sample_execution_payload_with_transactions(vec![compress(&oversized_decompressed)]);
+
+    let err = validate_execution_payload_for_preconf(
+        &envelope.execution_payload,
+        TEST_CHAIN_ID,
+        anchor_address,
+    )
+    .expect_err("oversized decompressed tx list must be rejected");
+    assert!(matches!(
+        err,
+        WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+            if msg.contains("decompressed transactions size exceeds")
+    ));
+}
+
+#[test]
 fn validate_payload_rejects_empty_decoded_transactions_list() {
     let anchor_address = sample_anchor_address();
     let envelope =
@@ -404,7 +425,7 @@ fn validate_payload_rejects_anchor_with_wrong_recipient() {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let wrong_recipient = Address::from([0x99u8; 20]);
     let tx_bytes =
-        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, wrong_recipient, SHASTA_ANCHOR_V4_SELECTOR);
+        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, wrong_recipient, *ANCHOR_V4_SELECTOR);
     let envelope =
         sample_execution_payload_with_transactions(vec![encode_compressed_tx_list(vec![tx_bytes])]);
 
@@ -426,7 +447,7 @@ fn validate_payload_rejects_anchor_with_wrong_sender() {
     let anchor_address = sample_anchor_address();
     let signer = FixedKSigner::new(NON_GOLDEN_SIGNER_PRIVATE_KEY).expect("non-golden signer key");
     let tx_bytes =
-        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, SHASTA_ANCHOR_V4_SELECTOR);
+        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, *ANCHOR_V4_SELECTOR);
     let envelope =
         sample_execution_payload_with_transactions(vec![encode_compressed_tx_list(vec![tx_bytes])]);
 

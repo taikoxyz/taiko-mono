@@ -1,3 +1,4 @@
+use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
 use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy_consensus::{
     TxEnvelope,
@@ -12,7 +13,7 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
 };
 
-use super::{MAX_COMPRESSED_TX_LIST_BYTES, SHASTA_ANCHOR_V4_SELECTOR};
+use super::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES};
 
 /// Validate execution payload shape for preconfirmation import compatibility.
 pub(super) fn validate_execution_payload_for_preconf(
@@ -63,30 +64,36 @@ pub(super) fn validate_execution_payload_for_preconf(
         ));
     }
 
-    let txs = ZlibTxListCodec::new(MAX_COMPRESSED_TX_LIST_BYTES)
-        .decode(compressed_tx_list)
-        .map_err(|err| match err {
-            TxListCodecError::ZlibDecode(reason) => {
-                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                    "invalid zlib bytes for transactions: {reason}"
-                ))
-            }
-            TxListCodecError::RlpDecode(reason) => {
-                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                    "invalid RLP bytes for transactions: {reason}"
-                ))
-            }
-            TxListCodecError::CompressedTooLarge { .. } => {
-                WhitelistPreconfirmationDriverError::InvalidPayload(
-                    "compressed transactions size exceeds max blob data size".to_string(),
-                )
-            }
-            TxListCodecError::ZlibEncode(reason) | TxListCodecError::ZlibFinish(reason) => {
-                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                    "invalid transactions list bytes: {reason}"
-                ))
-            }
-        })?;
+    let txs = ZlibTxListCodec::new_with_limits(
+        MAX_COMPRESSED_TX_LIST_BYTES,
+        MAX_DECOMPRESSED_TX_LIST_BYTES,
+    )
+    .decode(compressed_tx_list)
+    .map_err(|err| match err {
+        TxListCodecError::ZlibDecode(reason) => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "invalid zlib bytes for transactions: {reason}"
+            ))
+        }
+        TxListCodecError::RlpDecode(reason) => WhitelistPreconfirmationDriverError::InvalidPayload(
+            format!("invalid RLP bytes for transactions: {reason}"),
+        ),
+        TxListCodecError::CompressedTooLarge { .. } => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(
+                "compressed transactions size exceeds max blob data size".to_string(),
+            )
+        }
+        TxListCodecError::DecompressedTooLarge { .. } => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(
+                "decompressed transactions size exceeds max tx list size".to_string(),
+            )
+        }
+        TxListCodecError::ZlibEncode(reason) | TxListCodecError::ZlibFinish(reason) => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "invalid transactions list bytes: {reason}"
+            ))
+        }
+    })?;
 
     if txs.is_empty() {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
@@ -145,13 +152,13 @@ fn validate_anchor_transaction_for_preconf(
     }
 
     let calldata = tx.input();
-    if calldata.len() < SHASTA_ANCHOR_V4_SELECTOR.len() {
+    if calldata.len() < ANCHOR_V4_SELECTOR.len() {
         return Err("failed to get anchor transaction method: missing selector".to_string());
     }
 
     let mut selector = [0u8; 4];
     selector.copy_from_slice(&calldata[..4]);
-    if selector != SHASTA_ANCHOR_V4_SELECTOR {
+    if selector != *ANCHOR_V4_SELECTOR {
         return Err(format!(
             "invalid anchor transaction method: 0x{:02x}{:02x}{:02x}{:02x}",
             selector[0], selector[1], selector[2], selector[3]

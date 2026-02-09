@@ -29,8 +29,10 @@ mod tests;
 
 /// Maximum compressed tx-list size accepted from a preconfirmation payload.
 pub(super) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
-/// `anchorV4((uint48,bytes32,bytes32))` selector on Shasta.
-pub(super) const SHASTA_ANCHOR_V4_SELECTOR: [u8; 4] = [82, 62, 104, 84];
+/// Maximum decompressed tx-list size accepted from a preconfirmation payload.
+///
+/// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
+pub(super) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
 
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
 pub(crate) struct WhitelistPreconfirmationImporter<P>

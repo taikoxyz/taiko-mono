@@ -12,7 +12,10 @@ use crate::{
     network::NetworkCommand,
 };
 
-use super::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistPreconfirmationImporter, provider_err};
+use super::{
+    MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, WhitelistPreconfirmationImporter,
+    provider_err,
+};
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -62,13 +65,16 @@ where
             .iter()
             .map(|tx: &TxEnvelope| tx.encoded_2718().to_vec())
             .collect::<Vec<_>>();
-        let compressed_tx_list = ZlibTxListCodec::new(MAX_COMPRESSED_TX_LIST_BYTES)
-            .encode(&raw_transactions)
-            .map_err(|err| {
-                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                    "failed to encode request-response tx list: {err}"
-                ))
-            })?;
+        let compressed_tx_list = ZlibTxListCodec::new_with_limits(
+            MAX_COMPRESSED_TX_LIST_BYTES,
+            MAX_DECOMPRESSED_TX_LIST_BYTES,
+        )
+        .encode(&raw_transactions)
+        .map_err(|err| {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "failed to encode request-response tx list: {err}"
+            ))
+        })?;
 
         let end_of_sequencing = self
             .cache
