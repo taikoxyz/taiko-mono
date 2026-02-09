@@ -3,7 +3,7 @@
 use alloy_primitives::Address;
 use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     Result,
@@ -102,9 +102,13 @@ impl WhitelistPreconfirmationDriverRunner {
                     importer.handle_event(event).await?;
                 }
                 changed = proposal_id_rx.changed() => {
-                    if changed.is_ok() {
-                        importer.on_sync_ready_signal().await?;
-                    }
+                    if changed.is_ok()
+                        && let Err(err) = importer.on_sync_ready_signal().await {
+                            warn!(
+                                error = %err,
+                                "failed to import cached whitelist preconfirmation payloads on sync-ready signal"
+                            );
+                        }
                 }
             }
         }
