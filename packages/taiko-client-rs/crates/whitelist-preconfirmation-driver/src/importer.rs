@@ -6,14 +6,19 @@ use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
 };
-use alloy_eips::BlockNumberOrTag;
+use alloy_consensus::TxEnvelope;
+use alloy_eips::{BlockNumberOrTag, Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::Provider;
+use alloy_rpc_types::eth::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{production::PreconfPayload, sync::event::EventSyncer};
 use flate2::read::ZlibDecoder;
-use protocol::shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes};
+use protocol::{
+    codec::ZlibTxListCodec,
+    shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes},
+};
 use rpc::client::Client;
 use tracing::{debug, info, warn};
 
@@ -95,23 +100,27 @@ where
                 }
             }
             NetworkEvent::UnsafeRequest { from, hash } => {
-                if let Some(envelope) = self.recent_cache.get_recent(&hash) {
-                    debug!(
+                if let Err(err) = self.handle_unsafe_request(from, hash).await {
+                    warn!(
                         peer = %from,
                         hash = %hash,
-                        "serving whitelist preconfirmation response from recent cache"
-                    );
-                    self.publish_unsafe_response(envelope).await;
-                } else {
-                    debug!(
-                        peer = %from,
-                        hash = %hash,
-                        "requested whitelist preconfirmation hash not found in recent cache"
+                        error = %err,
+                        "failed to handle whitelist preconfirmation request"
                     );
                 }
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
-                debug!(peer = %from, epoch, "ignoring end-of-sequencing request topic");
+                if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
+                    debug!(
+                        peer = %from,
+                        epoch,
+                        hash = %envelope.execution_payload.block_hash,
+                        "serving end-of-sequencing whitelist preconfirmation response from recent cache"
+                    );
+                    self.publish_unsafe_response(envelope).await;
+                } else {
+                    debug!(peer = %from, epoch, "no recent end-of-sequencing envelope to serve");
+                }
             }
         }
 
@@ -163,6 +172,126 @@ where
         Ok(())
     }
 
+    /// Handle a block-hash request from the request topic.
+    async fn handle_unsafe_request(&mut self, from: libp2p::PeerId, hash: B256) -> Result<()> {
+        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+            debug!(
+                peer = %from,
+                hash = %hash,
+                "serving whitelist preconfirmation response from recent cache"
+            );
+            self.recent_cache.insert_recent(envelope.clone());
+            self.publish_unsafe_response(envelope).await;
+            return Ok(());
+        }
+
+        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
+            debug!(
+                peer = %from,
+                hash = %hash,
+                "requested whitelist preconfirmation hash not found in recent cache or local l2"
+            );
+            return Ok(());
+        };
+
+        debug!(
+            peer = %from,
+            hash = %hash,
+            "serving whitelist preconfirmation response from local l2 block lookup"
+        );
+        self.recent_cache.insert_recent(envelope.clone());
+        self.publish_unsafe_response(envelope).await;
+        Ok(())
+    }
+
+    /// Build a response envelope from local L2 state for an unsafe request hash.
+    async fn build_response_envelope_from_l2(
+        &self,
+        hash: B256,
+    ) -> Result<Option<WhitelistExecutionPayloadEnvelope>> {
+        let Some(block) = self
+            .rpc
+            .l2_provider
+            .get_block_by_hash(hash)
+            .full()
+            .await
+            .map_err(provider_err)?
+            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        else {
+            return Ok(None);
+        };
+
+        if self
+            .head_l1_origin_block_id()
+            .await?
+            .is_some_and(|head_l1_origin_block_id| block.header.number <= head_l1_origin_block_id)
+        {
+            return Ok(None);
+        }
+
+        let Some(l1_origin) = self.rpc.l1_origin_by_id(U256::from(block.header.number)).await?
+        else {
+            return Ok(None);
+        };
+
+        if l1_origin.signature == [0u8; 65] {
+            return Ok(None);
+        }
+
+        let Some(transactions) = block.transactions.as_transactions() else {
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
+                "request-response block missing full transaction bodies".to_string(),
+            ));
+        };
+
+        let raw_transactions = transactions
+            .iter()
+            .map(|tx: &TxEnvelope| tx.encoded_2718().to_vec())
+            .collect::<Vec<_>>();
+        let compressed_tx_list = ZlibTxListCodec::new(MAX_COMPRESSED_TX_LIST_BYTES)
+            .encode(&raw_transactions)
+            .map_err(|err| {
+                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                    "failed to encode request-response tx list: {err}"
+                ))
+            })?;
+
+        let end_of_sequencing = self
+            .cache
+            .get(&hash)
+            .and_then(|envelope| envelope.end_of_sequencing)
+            .filter(|enabled| *enabled);
+        let base_fee = block.header.base_fee_per_gas.ok_or_else(|| {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "request-response block {} missing base fee",
+                block.header.number
+            ))
+        })?;
+
+        Ok(Some(WhitelistExecutionPayloadEnvelope {
+            end_of_sequencing,
+            is_forced_inclusion: l1_origin.is_forced_inclusion.then_some(true),
+            parent_beacon_block_root: None,
+            execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
+                parent_hash: block.header.parent_hash,
+                fee_recipient: block.header.beneficiary,
+                state_root: block.header.state_root,
+                receipts_root: block.header.receipts_root,
+                logs_bloom: block.header.logs_bloom,
+                prev_randao: block.header.mix_hash,
+                block_number: block.header.number,
+                gas_limit: block.header.gas_limit,
+                gas_used: block.header.gas_used,
+                timestamp: block.header.timestamp,
+                extra_data: block.header.extra_data.clone(),
+                base_fee_per_gas: U256::from(base_fee),
+                block_hash: block.header.hash,
+                transactions: vec![Bytes::from(compressed_tx_list)],
+            },
+            signature: Some(l1_origin.signature),
+        }))
+    }
+
     /// Attempt to import cached envelopes if sync is ready.
     async fn maybe_import_from_cache(&mut self) -> Result<()> {
         let _ = self.refresh_sync_ready().await?;
@@ -190,6 +319,13 @@ where
                         progressed = true;
                     }
                     Ok(false) => {}
+                    Err(err) if should_defer_cached_import_error(&err) => {
+                        debug!(
+                            block_hash = %hash,
+                            error = %err,
+                            "deferring cached whitelist preconfirmation payload import for retry"
+                        );
+                    }
                     Err(err) if should_drop_cached_import_error(&err) => {
                         warn!(
                             block_hash = %hash,
@@ -533,16 +669,34 @@ fn should_drop_cached_import_error(err: &WhitelistPreconfirmationDriverError) ->
     }
 }
 
+/// Returns true when a cached-envelope import error should be retried later.
+fn should_defer_cached_import_error(err: &WhitelistPreconfirmationDriverError) -> bool {
+    match err {
+        WhitelistPreconfirmationDriverError::Driver(driver_err) => {
+            should_defer_cached_driver_error(driver_err)
+        }
+        _ => false,
+    }
+}
+
 /// Returns true when a driver error is envelope-scoped and safe to drop during cached import.
 fn should_drop_cached_driver_error(err: &driver::DriverError) -> bool {
     match err {
-        driver::DriverError::EngineSyncing(_) |
-        driver::DriverError::EngineInvalidPayload(_) |
-        driver::DriverError::BlockNotFound(_) => true,
+        driver::DriverError::EngineInvalidPayload(_) => true,
+        driver::DriverError::PreconfInjectionFailed { source, .. } => {
+            matches!(source, driver::sync::error::EngineSubmissionError::InvalidBlock(_, _))
+        }
+        _ => false,
+    }
+}
+
+/// Returns true when a driver error is expected to recover after sync catches up.
+fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
+    match err {
+        driver::DriverError::EngineSyncing(_) | driver::DriverError::BlockNotFound(_) => true,
         driver::DriverError::PreconfInjectionFailed { source, .. } => matches!(
             source,
             driver::sync::error::EngineSubmissionError::EngineSyncing(_) |
-                driver::sync::error::EngineSubmissionError::InvalidBlock(_, _) |
                 driver::sync::error::EngineSubmissionError::MissingPayloadId |
                 driver::sync::error::EngineSubmissionError::MissingParent |
                 driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
@@ -617,6 +771,7 @@ mod tests {
     fn drops_cached_import_errors_for_invalid_payload() {
         let err = WhitelistPreconfirmationDriverError::InvalidPayload("bad payload".to_string());
         assert!(should_drop_cached_import_error(&err));
+        assert!(!should_defer_cached_import_error(&err));
     }
 
     #[test]
@@ -624,13 +779,15 @@ mod tests {
         let err =
             WhitelistPreconfirmationDriverError::InvalidSignature("bad signature".to_string());
         assert!(should_drop_cached_import_error(&err));
+        assert!(!should_defer_cached_import_error(&err));
     }
 
     #[test]
-    fn drops_cached_import_errors_for_engine_syncing_driver_error() {
+    fn defers_cached_import_errors_for_engine_syncing_driver_error() {
         let err =
             WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(42));
-        assert!(should_drop_cached_import_error(&err));
+        assert!(!should_drop_cached_import_error(&err));
+        assert!(should_defer_cached_import_error(&err));
     }
 
     #[test]
@@ -645,12 +802,26 @@ mod tests {
             },
         );
         assert!(should_drop_cached_import_error(&err));
+        assert!(!should_defer_cached_import_error(&err));
+    }
+
+    #[test]
+    fn defers_cached_import_errors_for_missing_parent_driver_error() {
+        let err = WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfInjectionFailed {
+                block_number: 42,
+                source: driver::sync::error::EngineSubmissionError::MissingParent,
+            },
+        );
+        assert!(!should_drop_cached_import_error(&err));
+        assert!(should_defer_cached_import_error(&err));
     }
 
     #[test]
     fn propagates_cached_import_errors_for_non_payload_failures() {
         let err = WhitelistPreconfirmationDriverError::MissingInsertedBlock(42);
         assert!(!should_drop_cached_import_error(&err));
+        assert!(!should_defer_cached_import_error(&err));
     }
 
     #[test]
@@ -659,6 +830,7 @@ mod tests {
             driver::DriverError::PreconfEnqueueTimeout { waited: Duration::from_secs(1) },
         );
         assert!(!should_drop_cached_import_error(&err));
+        assert!(!should_defer_cached_import_error(&err));
     }
 
     #[test]

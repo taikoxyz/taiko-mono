@@ -123,6 +123,13 @@ impl RecentEnvelopeCache {
     pub fn get_recent(&self, hash: &B256) -> Option<WhitelistExecutionPayloadEnvelope> {
         self.entries.get(hash).cloned()
     }
+
+    /// Get the most recently inserted end-of-sequencing envelope.
+    pub fn latest_end_of_sequencing(&self) -> Option<WhitelistExecutionPayloadEnvelope> {
+        self.entries.iter().rev().find_map(|(_, envelope)| {
+            envelope.end_of_sequencing.unwrap_or(false).then(|| envelope.clone())
+        })
+    }
 }
 
 /// Per-hash request throttle used to avoid repeatedly requesting the same missing parent.
@@ -207,6 +214,26 @@ mod tests {
         assert!(recent.get_recent(&h1).is_none());
         assert!(recent.get_recent(&h2).is_some());
         assert!(recent.get_recent(&h3).is_some());
+    }
+
+    #[test]
+    fn recent_cache_tracks_latest_end_of_sequencing_envelope() {
+        let mut recent = RecentEnvelopeCache::with_capacity(3);
+        let h1 = B256::from([0x11u8; 32]);
+        let h2 = B256::from([0x22u8; 32]);
+        let h3 = B256::from([0x33u8; 32]);
+
+        let mut first = sample_envelope(h1, 1);
+        first.end_of_sequencing = Some(true);
+        recent.insert_recent(first);
+        recent.insert_recent(sample_envelope(h2, 2));
+
+        let mut second = sample_envelope(h3, 3);
+        second.end_of_sequencing = Some(true);
+        recent.insert_recent(second);
+
+        let latest = recent.latest_end_of_sequencing().expect("latest EOS envelope");
+        assert_eq!(latest.execution_payload.block_hash, h3);
     }
 
     #[test]
