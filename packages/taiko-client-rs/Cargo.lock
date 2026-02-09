@@ -13823,6 +13823,7 @@ dependencies = [
  "hashlink 0.10.0",
  "kona-gossip",
  "libp2p",
+ "metrics 0.24.3",
  "preconfirmation-net",
  "protocol",
  "rpc",

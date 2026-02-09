@@ -23,6 +23,7 @@ futures = "0.3"
 hashlink = "0.10"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
 libp2p = { version = "0.56.0", features = ["tcp", "gossipsub", "ping", "identify", "noise", "yamux", "macros", "tokio"] }
+metrics = { workspace = true }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }

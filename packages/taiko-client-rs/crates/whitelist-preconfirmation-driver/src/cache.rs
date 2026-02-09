@@ -80,6 +80,11 @@ impl EnvelopeCache {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// Returns current number of cached envelopes.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 /// Recently seen validated envelopes used for serving request topic responses.
@@ -130,6 +135,11 @@ impl RecentEnvelopeCache {
         self.entries.iter().rev().find_map(|(_, envelope)| {
             envelope.end_of_sequencing.unwrap_or(false).then(|| envelope.clone())
         })
+    }
+
+    /// Returns current number of recent envelopes.
+    pub fn len(&self) -> usize {
+        self.entries.len()
     }
 }
 
@@ -226,6 +236,7 @@ mod tests {
         assert!(recent.get_recent(&h1).is_none());
         assert!(recent.get_recent(&h2).is_some());
         assert!(recent.get_recent(&h3).is_some());
+        assert_eq!(recent.len(), 2);
     }
 
     #[test]
@@ -289,6 +300,7 @@ mod tests {
 
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h2, h3]);
+        assert_eq!(cache.len(), 2);
     }
 
     #[test]

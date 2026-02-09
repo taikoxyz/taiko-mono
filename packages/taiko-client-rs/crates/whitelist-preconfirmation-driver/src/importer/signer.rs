@@ -1,7 +1,10 @@
 use alloy_primitives::Address;
 use alloy_provider::Provider;
 
-use crate::error::{Result, WhitelistPreconfirmationDriverError};
+use crate::{
+    error::{Result, WhitelistPreconfirmationDriverError},
+    metrics::WhitelistPreconfirmationDriverMetrics,
+};
 
 use super::WhitelistPreconfirmationImporter;
 
@@ -26,6 +29,10 @@ where
     /// Get the current whitelist sequencer address.
     async fn current_whitelist_sequencer(&self) -> Result<Address> {
         let proposer = self.whitelist.getOperatorForCurrentEpoch().call().await.map_err(|err| {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
+            )
+            .increment(1);
             WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                 "failed to read current whitelist proposer: {err}"
             ))
@@ -33,6 +40,10 @@ where
 
         self.whitelist.operators(proposer).call().await.map(|info| info.sequencerAddress).map_err(
             |err| {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
+                )
+                .increment(1);
                 WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                     "failed to read current whitelist sequencer: {err}"
                 ))
@@ -43,6 +54,10 @@ where
     /// Get the next whitelist sequencer address.
     async fn next_whitelist_sequencer(&self) -> Result<Address> {
         let proposer = self.whitelist.getOperatorForNextEpoch().call().await.map_err(|err| {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
+            )
+            .increment(1);
             WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                 "failed to read next whitelist proposer: {err}"
             ))
@@ -50,6 +65,10 @@ where
 
         self.whitelist.operators(proposer).call().await.map(|info| info.sequencerAddress).map_err(
             |err| {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
+                )
+                .increment(1);
                 WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                     "failed to read next whitelist sequencer: {err}"
                 ))

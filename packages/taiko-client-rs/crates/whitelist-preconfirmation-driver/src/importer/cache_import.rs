@@ -6,6 +6,7 @@ use tracing::{debug, info, warn};
 use crate::{
     codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
+    metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
 use super::WhitelistPreconfirmationImporter;
@@ -35,13 +36,33 @@ where
                 let Some(entry) = cache.get(&hash) else {
                     continue;
                 };
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_ATTEMPTS_TOTAL
+                )
+                .increment(1);
                 match self.try_import_cached(entry).await {
                     Ok(true) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
+                            "result" => "progressed",
+                        )
+                        .increment(1);
                         cache.remove(&hash);
                         progressed = true;
                     }
-                    Ok(false) => {}
+                    Ok(false) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
+                            "result" => "deferred",
+                        )
+                        .increment(1);
+                    }
                     Err(err) if should_defer_cached_import_error(&err) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
+                            "result" => "deferred_error",
+                        )
+                        .increment(1);
                         debug!(
                             block_hash = %hash,
                             error = %err,
@@ -49,6 +70,11 @@ where
                         );
                     }
                     Err(err) if should_drop_cached_import_error(&err) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
+                            "result" => "dropped_error",
+                        )
+                        .increment(1);
                         warn!(
                             block_hash = %hash,
                             error = %err,
@@ -58,7 +84,13 @@ where
                         progressed = true;
                     }
                     Err(err) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
+                            "result" => "fatal_error",
+                        )
+                        .increment(1);
                         self.cache = cache;
+                        self.update_cache_gauges();
                         return Err(err);
                     }
                 }
@@ -70,6 +102,7 @@ where
         }
 
         self.cache = cache;
+        self.update_cache_gauges();
         Ok(())
     }
 
@@ -114,8 +147,18 @@ where
         let parent_number = block_number.saturating_sub(1);
         if self.block_hash_by_number(parent_number).await? != Some(parent_hash) {
             if self.request_throttle.should_request(parent_hash, Instant::now()) {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
+                    "result" => "issued",
+                )
+                .increment(1);
                 self.publish_unsafe_request(parent_hash).await;
             } else {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
+                    "result" => "throttled",
+                )
+                .increment(1);
                 warn!(
                     block_number,
                     block_hash = %block_hash,
@@ -127,9 +170,27 @@ where
         }
 
         let driver_payload = self.build_driver_payload(envelope)?;
-        self.event_syncer
+        let submit_start = Instant::now();
+        let submit_result = self
+            .event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
-            .await?;
+            .await;
+        metrics::histogram!(WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS)
+            .record(submit_start.elapsed().as_secs_f64());
+
+        if let Err(err) = submit_result {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
+                "result" => "failure",
+            )
+            .increment(1);
+            return Err(err.into());
+        }
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
+            "result" => "success",
+        )
+        .increment(1);
 
         let inserted_hash = self
             .block_hash_by_number(block_number)
