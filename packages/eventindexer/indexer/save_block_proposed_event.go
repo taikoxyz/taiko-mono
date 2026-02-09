@@ -133,7 +133,7 @@ func (i *Indexer) saveBlockProposedEventsV2(
 			if err := i.saveBlockProposedEventV2(ctx, chainID, event, sender); err != nil {
 				eventindexer.BlockProposedEventsProcessedError.Inc()
 
-				return errors.Wrap(err, "i.saveBlockProposedEvent")
+				return errors.Wrap(err, "i.saveBlockProposedEventV2")
 			}
 
 			return nil

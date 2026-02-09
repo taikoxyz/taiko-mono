@@ -98,7 +98,7 @@ func (i *Indexer) saveTransitionContestedEventsV2(
 		if err := i.saveTransitionContestedEventV2(ctx, chainID, event); err != nil {
 			eventindexer.TransitionContestedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveTransitionContestedEvent")
+			return errors.Wrap(err, "i.saveTransitionContestedEventV2")
 		}
 
 		if !events.Next() {

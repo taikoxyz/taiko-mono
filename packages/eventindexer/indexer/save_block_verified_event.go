@@ -108,7 +108,7 @@ func (i *Indexer) saveBlockVerifiedEventsV2(
 			if err := i.saveBlockVerifiedEventV2(ctx, chainID, event); err != nil {
 				eventindexer.BlockVerifiedEventsProcessedError.Inc()
 
-				return errors.Wrap(err, "i.saveBlockVerifiedEvent")
+				return errors.Wrap(err, "i.saveBlockVerifiedEventV2")
 			}
 
 			return nil
