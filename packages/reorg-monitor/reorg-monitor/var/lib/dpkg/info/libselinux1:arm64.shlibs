@@ -1,2 +1,0 @@
-libselinux 1 libselinux1 (>= 3.4)
-udeb: libselinux 1 libselinux1-udeb (>= 3.4)

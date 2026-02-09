@@ -1,5 +1,0 @@
-/etc/alternatives/README
-/etc/cron.daily/dpkg
-/etc/dpkg/dpkg.cfg
-/etc/logrotate.d/alternatives
-/etc/logrotate.d/dpkg

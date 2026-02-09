@@ -1,2 +1,0 @@
-libmount 1 libmount1 (>= 2.33)
-udeb: libmount 1 libmount1-udeb (>= 2.33)

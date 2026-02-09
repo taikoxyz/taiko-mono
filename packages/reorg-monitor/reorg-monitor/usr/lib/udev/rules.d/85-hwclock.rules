@@ -1,4 +1,0 @@
-# Set the System Time from the Hardware Clock and set the kernel's timezone
-# value to the local timezone when the kernel clock module is loaded.
-
-KERNEL=="rtc0", RUN+="/usr/lib/udev/hwclock-set $root/$name"

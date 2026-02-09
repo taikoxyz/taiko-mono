@@ -1,2 +1,0 @@
-?package(bash):needs="text" section="Applications/Shells" title="Bash" command="/bin/bash --login"
-?package(bash):needs="text" section="Applications/Shells" title="Sh" command="/bin/sh --login"

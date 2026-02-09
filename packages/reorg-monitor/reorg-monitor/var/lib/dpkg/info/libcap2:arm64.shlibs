@@ -1,4 +1,0 @@
-libcap 2 libcap2 (>= 1:2.63)
-libpsx 2 libcap2 (>= 1:2.63)
-udeb: libcap 2 libcap2-udeb (>= 1:2.63)
-udeb: libpsx 2 libcap2-udeb (>= 1:2.63)

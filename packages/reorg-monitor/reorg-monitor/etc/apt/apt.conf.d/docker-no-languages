@@ -1,5 +1,0 @@
-# In Docker, we don't often need the "Translations" files, so we're just wasting
-# time and space by downloading them, and this inhibits that.  For users that do
-# need them, it's a simple matter to delete this file and "apt-get update". :)
-
-Acquire::Languages "none";

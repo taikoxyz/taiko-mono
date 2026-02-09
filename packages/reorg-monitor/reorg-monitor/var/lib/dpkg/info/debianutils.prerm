@@ -1,9 +1,0 @@
-#!/bin/sh
-
-set -e
-
-case "$1" in
-    (remove)
-            update-alternatives --remove which /usr/bin/which.debianutils
-    ;;
-esac

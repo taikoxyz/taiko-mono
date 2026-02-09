@@ -1,2 +1,0 @@
-Module: unix
-[success=end default=ignore]	pam_unix.so nullok

@@ -1,5 +1,0 @@
-?package(dash): \
-  title="Dash"\
-  needs="text"\
-  section="Applications/Shells"\
-  command="/bin/dash -i"

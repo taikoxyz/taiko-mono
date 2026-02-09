@@ -1,3 +1,0 @@
-This directory is for system-local terminfo descriptions. By default,
-ncurses will search ${HOME}/.terminfo first, then /etc/terminfo (this
-directory), then /lib/terminfo, and last not least /usr/share/terminfo.

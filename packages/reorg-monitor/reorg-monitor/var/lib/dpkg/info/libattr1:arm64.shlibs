@@ -1,2 +1,0 @@
-libattr 1 libattr1 (>= 1:2.4.48)
-udeb: libattr 1 libattr1-udeb (>= 1:2.4.48)

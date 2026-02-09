@@ -1,7 +1,0 @@
-[Unit]
-Description=Daily dpkg database backup service
-Documentation=man:dpkg(1)
-
-[Service]
-Type=oneshot
-ExecStart=/usr/libexec/dpkg/dpkg-db-backup

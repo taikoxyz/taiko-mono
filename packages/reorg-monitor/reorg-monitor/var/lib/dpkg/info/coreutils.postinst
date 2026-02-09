@@ -1,8 +1,0 @@
-#!/bin/sh
-set -e
-
-if [ "$1" = 'configure' -a ! -e "$DPKG_ROOT/usr/bin/touch" ]; then
-  ln -s /bin/touch "$DPKG_ROOT/usr/bin/touch"
-fi
-
-

@@ -1,4 +1,0 @@
-libe2p 2 libext2fs2 (>= 1.47.0)
-libext2fs 2 libext2fs2 (>= 1.47.0)
-udeb: libe2p 2 e2fsprogs-udeb (>= 1.47.0)
-udeb: libext2fs 2 e2fsprogs-udeb (>= 1.47.0)

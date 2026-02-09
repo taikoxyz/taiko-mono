@@ -1,5 +1,0 @@
-#!/bin/sh
-set -e
-# Automatically added by dh_installdeb/13.11.4
-dpkg-maintscript-helper rm_conffile /etc/securetty 1:4.7-1\~ -- "$@"
-# End automatically added section

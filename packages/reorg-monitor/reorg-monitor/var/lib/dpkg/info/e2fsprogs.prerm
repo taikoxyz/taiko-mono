@@ -1,7 +1,0 @@
-#!/bin/sh
-set -e
-# Automatically added by dh_installsystemd/13.11.4
-if [ -z "${DPKG_ROOT:-}" ] && [ "$1" = remove ] && [ -d /run/systemd/system ] ; then
-	deb-systemd-invoke stop 'e2scrub_all.service' 'e2scrub_all.timer' 'e2scrub_reap.service' >/dev/null || true
-fi
-# End automatically added section

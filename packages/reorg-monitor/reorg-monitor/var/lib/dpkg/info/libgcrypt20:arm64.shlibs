@@ -1,2 +1,0 @@
-libgcrypt 20 libgcrypt20 (>= 1.10.1)
-udeb: libgcrypt 20 libgcrypt20-udeb (>= 1.10.1)

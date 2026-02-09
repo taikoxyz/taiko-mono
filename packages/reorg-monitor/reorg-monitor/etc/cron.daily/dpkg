@@ -1,8 +1,0 @@
-#!/bin/sh
-
-# Skip if systemd is running.
-if [ -d /run/systemd/system ]; then
-  exit 0
-fi
-
-/usr/libexec/dpkg/dpkg-db-backup

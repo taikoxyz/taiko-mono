@@ -1,9 +1,0 @@
-edd06741deb4676c7ead096657b14001  usr/lib/aarch64-linux-gnu/libgcrypt.so.20.4.1
-218dc71f72bcbeacfd431610f317e64d  usr/share/doc/libgcrypt20/AUTHORS.gz
-1f3e4f45e67fa77a8396e57416c3442a  usr/share/doc/libgcrypt20/NEWS.gz
-274e44ee8aab4ca2a2d25779a019f2f3  usr/share/doc/libgcrypt20/README.gz
-5bf617304965b816407c00a3a9d410c2  usr/share/doc/libgcrypt20/THANKS.gz
-8a4e0a14a15845be403ad4abdff7eb65  usr/share/doc/libgcrypt20/changelog.Debian.gz
-ee9904c925cf18f5068037850c7a69c2  usr/share/doc/libgcrypt20/changelog.gz
-fd50a46485f2520930843f57697ea5cb  usr/share/doc/libgcrypt20/copyright
-4de493de6eba715dcddb7559a8e2c1bc  usr/share/libgcrypt20/clean-up-unmanaged-libraries
