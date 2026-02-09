@@ -118,9 +118,13 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Periodic maintenance tick.
-    pub(crate) async fn on_tick(&mut self) -> Result<()> {
-        self.maybe_import_from_cache().await
+    /// Event-sync progress signal; triggers a one-shot import when readiness flips to enabled.
+    pub(crate) async fn on_sync_ready_signal(&mut self) -> Result<()> {
+        if !self.refresh_sync_ready().await? || self.cache.is_empty() {
+            return Ok(());
+        }
+
+        self.import_from_cache().await
     }
 
     /// Handle an incoming unsafe payload.
@@ -161,10 +165,16 @@ where
 
     /// Attempt to import cached envelopes if sync is ready.
     async fn maybe_import_from_cache(&mut self) -> Result<()> {
-        if !self.refresh_sync_ready().await? || self.cache.is_empty() {
+        let _ = self.refresh_sync_ready().await?;
+        if !self.sync_ready || self.cache.is_empty() {
             return Ok(());
         }
 
+        self.import_from_cache().await
+    }
+
+    /// Import as many cached envelopes as possible.
+    async fn import_from_cache(&mut self) -> Result<()> {
         let mut cache = std::mem::take(&mut self.cache);
         loop {
             let mut progressed = false;
@@ -321,13 +331,14 @@ where
     /// Refresh whether sync is ready.
     async fn refresh_sync_ready(&mut self) -> Result<bool> {
         let ready = self.head_l1_origin_block_id().await?.is_some();
-        if ready && !self.sync_ready {
+        let became_ready = sync_ready_transition(self.sync_ready, ready);
+        if became_ready {
             info!(
                 "event sync established head l1 origin; enabling whitelist preconfirmation imports"
             );
         }
         self.sync_ready = ready;
-        Ok(ready)
+        Ok(became_ready)
     }
 
     /// Get the block ID of the head L1 origin.
@@ -503,6 +514,11 @@ fn validate_execution_payload_for_preconf(
 /// Convert a provider error into a driver error.
 fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
     WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
+}
+
+/// Returns true only when sync readiness transitions from disabled to enabled.
+fn sync_ready_transition(was_ready: bool, is_ready: bool) -> bool {
+    !was_ready && is_ready
 }
 
 /// Returns true when a cached-envelope import error should be logged and dropped.
@@ -712,5 +728,13 @@ mod tests {
         let normalized = normalize_unsafe_payload_envelope(envelope, wire_signature);
 
         assert_eq!(normalized.signature, Some(embedded));
+    }
+
+    #[test]
+    fn sync_ready_transition_detects_first_ready_edge() {
+        assert!(!sync_ready_transition(false, false));
+        assert!(sync_ready_transition(false, true));
+        assert!(!sync_ready_transition(true, true));
+        assert!(!sync_ready_transition(true, false));
     }
 }

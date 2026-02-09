@@ -1,7 +1,5 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::time::Duration;
-
 use alloy_primitives::Address;
 use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
@@ -67,9 +65,9 @@ impl WhitelistPreconfirmationDriverRunner {
             self.config.p2p_config.chain_id,
             network.command_tx.clone(),
         );
+        let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
-        let mut heartbeat = tokio::time::interval(Duration::from_secs(1));
         let event_syncer_handle = preconf_ingress_sync.handle_mut();
 
         loop {
@@ -103,8 +101,10 @@ impl WhitelistPreconfirmationDriverRunner {
 
                     importer.handle_event(event).await?;
                 }
-                _ = heartbeat.tick() => {
-                    importer.on_tick().await?;
+                changed = proposal_id_rx.changed() => {
+                    if changed.is_ok() {
+                        importer.on_sync_ready_signal().await?;
+                    }
                 }
             }
         }
