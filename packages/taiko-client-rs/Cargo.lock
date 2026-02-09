@@ -3062,7 +3062,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab67060fc6b8ef687992d439ca0fa36e7ed17e9a0b16b25b601e8757df720de"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -3276,7 +3276,7 @@ dependencies = [
  "enr",
  "fnv",
  "futures",
- "hashlink",
+ "hashlink 0.9.1",
  "hex",
  "hkdf",
  "lazy_static",
@@ -3309,7 +3309,7 @@ dependencies = [
  "enr",
  "fnv",
  "futures",
- "hashlink",
+ "hashlink 0.9.1",
  "hex",
  "hkdf",
  "lazy_static",
@@ -4313,6 +4313,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ba4ff7128dee98c7dc9794b6a411377e1404dba1c97deb8d1a55297bd25d8af"
 dependencies = [
  "hashbrown 0.14.5",
+]
+
+[[package]]
+name = "hashlink"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
+dependencies = [
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -5598,7 +5607,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "getrandom 0.2.17",
- "hashlink",
+ "hashlink 0.9.1",
  "hex_fmt",
  "libp2p-core",
  "libp2p-identity",
@@ -12606,6 +12615,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.22",
  "url",
+ "whitelist-preconfirmation-driver",
 ]
 
 [[package]]
@@ -13789,6 +13799,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12bed680863276c63889429bfd6cab3b99943659923822de1c8a39c49e4d722c"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "whitelist-preconfirmation-driver"
+version = "2.0.0"
+dependencies = [
+ "alethia-reth-primitives",
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-rpc-types-engine",
+ "anyhow",
+ "bindings",
+ "driver",
+ "ethereum_ssz",
+ "flate2",
+ "futures",
+ "hashlink 0.10.0",
+ "kona-gossip",
+ "libp2p",
+ "preconfirmation-net",
+ "protocol",
+ "rpc",
+ "sha2 0.10.9",
+ "snap",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -13,6 +13,7 @@ use crate::flags::common::CommonArgs;
 pub mod driver;
 pub mod preconfirmation_driver;
 pub mod proposer;
+pub mod whitelist_preconfirmation_driver;
 
 /// Shared behaviour for CLI subcommands.
 #[async_trait]
