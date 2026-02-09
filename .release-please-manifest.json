@@ -2,7 +2,7 @@
   "packages/bridge-ui": "2.15.0",
   "packages/docs-site": "1.33.2",
   "packages/eventindexer": "0.14.0",
-  "packages/ejector": "0.4.1",
+  "packages/ejector": "0.5.0",
   "packages/fork-diff": "0.7.0",
   "packages/protocol": "2.3.0",
   "packages/relayer": "0.12.0",

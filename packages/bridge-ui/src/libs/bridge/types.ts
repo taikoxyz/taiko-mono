@@ -91,7 +91,7 @@ export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'>
 
 export type BridgeTransaction = {
   srcTxHash: Hash;
-  destTxHash: Hash;
+  destTxHash?: Hash;
   from: Address;
   amount: bigint;
   symbol: string;
@@ -99,7 +99,7 @@ export type BridgeTransaction = {
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
-  blockNumber: Hex;
+  blockNumber?: Hex;
   msgHash: Hash;
   processingFee: bigint;
   message?: Message;
@@ -240,28 +240,30 @@ export type BridgeConfig = {
 
 export type RoutingMap = Record<string, Record<string, AddressConfig>>;
 
+// Pacaya multi-hop configuration
+export type HopAddressConfig = {
+  chainId: number;
+  signalServiceAddress: Address;
+};
+
 export type AddressConfig = {
   bridgeAddress: Address;
   erc20VaultAddress: Address;
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
-  crossChainSyncAddress: Address;
   signalServiceAddress: Address;
-  hops?: Array<HopAddressConfig>;
-};
-
-export type HopAddressConfig = {
-  chainId: number;
-  crossChainSyncAddress: Address;
-  signalServiceAddress: Address;
+  // Shasta protocol
+  anchorForkRouter?: Address;
+  // Pacaya protocol (deprecated, for backward compatibility)
+  crossChainSyncAddress?: Address;
+  hops?: HopAddressConfig[];
 };
 
 export enum ContractType {
   BRIDGE,
   VAULT,
   SIGNALSERVICE,
-  CROSSCHAINSYNC,
 }
 
 export type GetContractAddressType = {

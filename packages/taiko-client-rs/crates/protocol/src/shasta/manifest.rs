@@ -12,7 +12,7 @@ use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
 use crate::shasta::{
-    constants::{PROPOSAL_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
+    constants::{DERIVATION_SOURCE_MAX_BLOCKS, SHASTA_PAYLOAD_VERSION},
     error::{ProtocolError, Result},
 };
 use tracing::warn;
@@ -76,10 +76,10 @@ impl DerivationSourceManifest {
             }
         };
 
-        if manifest.blocks.len() > PROPOSAL_MAX_BLOCKS {
+        if manifest.blocks.len() > DERIVATION_SOURCE_MAX_BLOCKS {
             warn!(
                 blocks = manifest.blocks.len(),
-                max = PROPOSAL_MAX_BLOCKS,
+                max = DERIVATION_SOURCE_MAX_BLOCKS,
                 "manifest contains too many blocks; returning default manifest"
             );
             return Ok(DerivationSourceManifest::default());
@@ -232,9 +232,9 @@ mod tests {
 
     #[test]
     fn test_derivation_manifest_too_many_blocks() {
-        // Create manifest with PROPOSAL_MAX_BLOCKS + 1 blocks
+        // Create manifest with DERIVATION_SOURCE_MAX_BLOCKS + 1 blocks
         let blocks: Vec<BlockManifest> =
-            (0..=PROPOSAL_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+            (0..=DERIVATION_SOURCE_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
         let manifest = DerivationSourceManifest { blocks };
         let encoded = manifest.encode_and_compress().unwrap();
 

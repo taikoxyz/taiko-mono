@@ -1,7 +1,7 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import { type Address, getAddress, type Hash, type Hex, type TransactionReceipt } from 'viem';
+import { type Address, getAddress, type Hash, type Hex, numberToHex, type TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -246,6 +246,11 @@ export class RelayerAPIService {
       }
 
       bridgeTx.receipt = receipt as TransactionReceipt;
+
+      // Populate blockNumber from receipt if not provided by the relayer API
+      if (!bridgeTx.blockNumber && receipt) {
+        bridgeTx.blockNumber = numberToHex(receipt.blockNumber);
+      }
 
       if (!msgHash) return; //todo: handle this case
 

@@ -28,30 +28,28 @@
               "erc1155VaultAddress": {
                 "type": "string"
               },
-              "crossChainSyncAddress": {
-                "type": "string"
-              },
               "signalServiceAddress": {
                 "type": "string"
               },
+              "anchorForkRouter": {
+                "type": "string",
+                "description": "Shasta protocol: Anchor fork router address for checkpoint sync (L2 only)"
+              },
+              "crossChainSyncAddress": {
+                "type": "string",
+                "description": "Pacaya protocol: Cross-chain sync address (deprecated, for backward compatibility)"
+              },
               "hops": {
                 "type": "array",
-                "default": [],
                 "items": {
                   "type": "object",
                   "properties": {
-                    "chainId": {
-                      "type": "number"
-                    },
-                    "crossChainSyncAddress": {
-                      "type": "string"
-                    },
-                    "signalServiceAddress": {
-                      "type": "string"
-                    }
+                    "chainId": { "type": "number" },
+                    "signalServiceAddress": { "type": "string" }
                   },
-                  "required": ["chainId", "crossChainSyncAddress", "signalServiceAddress"]
-                }
+                  "required": ["chainId", "signalServiceAddress"]
+                },
+                "description": "Pacaya protocol: Multi-hop configuration for bridge proofs"
               }
             },
             "required": [
@@ -59,7 +57,6 @@
               "erc20VaultAddress",
               "erc721VaultAddress",
               "erc1155VaultAddress",
-              "crossChainSyncAddress",
               "signalServiceAddress"
             ],
             "additionalProperties": false
