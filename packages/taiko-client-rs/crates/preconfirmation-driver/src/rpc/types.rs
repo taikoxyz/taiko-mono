@@ -87,6 +87,8 @@ pub enum PreconfRpcErrorCode {
     SubmissionWindowExpired = -32004,
     /// The signer is not the expected preconfirmer for this slot.
     InvalidSigner = -32005,
+    /// Lookahead data/state could not be resolved by the node.
+    LookaheadUnavailable = -32006,
 }
 
 impl PreconfRpcErrorCode {
@@ -104,6 +106,7 @@ impl PreconfRpcErrorCode {
             Self::NotSynced => "Node is not synced",
             Self::SubmissionWindowExpired => "Submission window has expired",
             Self::InvalidSigner => "Signer is not the expected preconfirmer",
+            Self::LookaheadUnavailable => "Lookahead data is unavailable",
         }
     }
 }
@@ -155,5 +158,6 @@ mod tests {
         assert_eq!(PreconfRpcErrorCode::InvalidCommitment.code(), -32001);
         assert_eq!(PreconfRpcErrorCode::NotSynced.code(), -32003);
         assert_eq!(PreconfRpcErrorCode::InternalError.code(), -32000);
+        assert_eq!(PreconfRpcErrorCode::LookaheadUnavailable.code(), -32006);
     }
 }

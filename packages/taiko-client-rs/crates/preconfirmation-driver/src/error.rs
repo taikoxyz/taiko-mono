@@ -28,9 +28,9 @@ pub enum PreconfirmationClientError {
     /// Catch-up error when syncing with peers.
     #[error("catchup error: {0}")]
     Catchup(String),
-    /// Lookahead resolver initialization failed.
+    /// Lookahead resolver error.
     #[error("lookahead error: {0}")]
-    Lookahead(String),
+    Lookahead(#[from] protocol::preconfirmation::LookaheadError),
     /// Invalid configuration parameter.
     #[error("config error: {0}")]
     Config(String),
@@ -81,16 +81,10 @@ impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {
     }
 }
 
-impl From<protocol::preconfirmation::LookaheadError> for PreconfirmationClientError {
-    /// Convert a lookahead resolver error.
-    fn from(err: protocol::preconfirmation::LookaheadError) -> Self {
-        PreconfirmationClientError::Lookahead(err.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{DriverApiError, PreconfirmationClientError};
+    use protocol::preconfirmation::LookaheadError;
 
     #[test]
     fn error_display_works() {
@@ -106,5 +100,16 @@ mod tests {
 
         let wrapped = PreconfirmationClientError::DriverInterface(err);
         assert!(wrapped.to_string().contains("missing block 42"));
+    }
+
+    #[test]
+    fn lookahead_error_preserves_variant() {
+        let err = PreconfirmationClientError::from(LookaheadError::TooNew(123));
+        match err {
+            PreconfirmationClientError::Lookahead(LookaheadError::TooNew(ts)) => {
+                assert_eq!(ts, 123);
+            }
+            other => panic!("unexpected error variant: {other}"),
+        }
     }
 }
