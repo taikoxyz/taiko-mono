@@ -155,10 +155,19 @@ impl RequestThrottle {
         Self { cooldown, requested_at: HashMap::new() }
     }
 
+    /// Remove hashes whose cooldown window has elapsed.
+    fn prune_expired(&mut self, now: Instant) {
+        let cooldown = self.cooldown;
+        self.requested_at
+            .retain(|_, last_request| now.saturating_duration_since(*last_request) < cooldown);
+    }
+
     /// Return `true` if the hash should be requested at `now`, then records the request.
     pub fn should_request(&mut self, hash: B256, now: Instant) -> bool {
+        self.prune_expired(now);
+
         match self.requested_at.get(&hash) {
-            Some(last) if now.duration_since(*last) < self.cooldown => false,
+            Some(last) if now.saturating_duration_since(*last) < self.cooldown => false,
             _ => {
                 self.requested_at.insert(hash, now);
                 true
@@ -248,6 +257,23 @@ mod tests {
         assert!(throttle.should_request(hash, now));
         assert!(!throttle.should_request(hash, now + Duration::from_secs(5)));
         assert!(throttle.should_request(hash, now + Duration::from_secs(11)));
+    }
+
+    #[test]
+    fn request_throttle_prunes_expired_hashes() {
+        let mut throttle = RequestThrottle::new(Duration::from_secs(10));
+        let h1 = B256::from([0x01u8; 32]);
+        let h2 = B256::from([0x02u8; 32]);
+        let h3 = B256::from([0x03u8; 32]);
+        let now = Instant::now();
+
+        assert!(throttle.should_request(h1, now));
+        assert!(throttle.should_request(h2, now + Duration::from_secs(1)));
+        assert_eq!(throttle.requested_at.len(), 2);
+
+        assert!(throttle.should_request(h3, now + Duration::from_secs(25)));
+        assert_eq!(throttle.requested_at.len(), 1);
+        assert!(throttle.requested_at.contains_key(&h3));
     }
 
     #[test]
