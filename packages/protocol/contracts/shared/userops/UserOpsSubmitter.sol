@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { ECDSA } from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {
+    MessageHashUtils
+} from "openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol";
 
+/// Note: No nonce checks. Do not use in production.
 contract UserOpsSubmitter {
     struct UserOp {
         address target;
@@ -26,7 +30,9 @@ contract UserOpsSubmitter {
         if (_ops.length == 0) revert EMPTY_BATCH();
 
         bytes32 digest = keccak256(abi.encode(_ops));
-        address signer = ECDSA.recover(digest, _signature);
+        // Convert to Ethereum signed message hash to support standard personal_sign from wallets
+        bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(digest);
+        address signer = ECDSA.recover(ethSignedHash, _signature);
 
         if (signer != owner) revert INVALID_SIGNATURE();
 
