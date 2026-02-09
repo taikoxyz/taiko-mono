@@ -154,6 +154,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
             preconf_tip_rx: self.preconf_tip_rx.clone(),
             local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
             inbox_reader: self.driver_client.inbox_reader().clone(),
+            lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
         });
 
         let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
