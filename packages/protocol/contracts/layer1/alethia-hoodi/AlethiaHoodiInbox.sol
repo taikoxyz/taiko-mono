@@ -19,7 +19,7 @@ contract AlethiaHoodiInbox is TaikoInbox {
         address _bondToken,
         address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService,1_770_296_400)
     { }
 
     /// @notice Manually write a transition for a batch.
