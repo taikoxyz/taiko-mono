@@ -1,0 +1,34 @@
+[package]
+name = "whitelist-preconfirmation-driver"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+alethia-reth-consensus = { workspace = true }
+alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
+anyhow = { workspace = true }
+bindings = { path = "../bindings" }
+driver = { path = "../driver" }
+flate2 = { workspace = true }
+futures = "0.3"
+hashlink = "0.10"
+kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
+libp2p = { version = "0.56.0", features = ["tcp", "gossipsub", "ping", "identify", "noise", "yamux", "macros", "tokio"] }
+preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+sha2 = { workspace = true }
+snap = "1.1"
+ssz = { package = "ethereum_ssz", version = "0.9.1" }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

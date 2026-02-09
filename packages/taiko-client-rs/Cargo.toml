@@ -8,6 +8,7 @@ members = [
     "crates/protocol",
     "crates/rpc",
     "crates/test-harness",
+    "crates/whitelist-preconfirmation-driver",
 ]
 resolver = "2"
 

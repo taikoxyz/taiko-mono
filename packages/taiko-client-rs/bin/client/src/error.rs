@@ -2,14 +2,16 @@
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
 //! It consolidates errors from downstream crates (driver, proposer, rpc, preconfirmation-driver)
-//! as well as CLI-specific errors like URL parsing, runtime initialization, and metrics setup.
+//! and whitelist-preconfirmation-driver, as well as CLI-specific errors like URL parsing, runtime
+//! initialization, and metrics setup.
 
 use thiserror::Error;
 
 /// Errors that can occur during CLI execution.
 ///
 /// This enum covers all error cases in the CLI binary, including:
-/// - Errors propagated from downstream crates (driver, proposer, rpc, preconfirmation-driver)
+/// - Errors propagated from downstream crates (driver, proposer, rpc, preconfirmation-driver,
+///   whitelist-preconfirmation-driver)
 /// - Configuration errors (URL parsing, socket address parsing)
 /// - Runtime errors (tokio runtime initialization, I/O)
 /// - Metrics initialization errors
@@ -56,6 +58,15 @@ pub enum CliError {
     /// preconfirmation driver orchestration.
     #[error(transparent)]
     PreconfirmationRunner(#[from] preconfirmation_driver::RunnerError),
+
+    /// Error from the whitelist preconfirmation driver.
+    ///
+    /// Wraps [`whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError`] for
+    /// whitelist preconfirmation message validation and insertion failures.
+    #[error(transparent)]
+    WhitelistPreconfirmation(
+        #[from] whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError,
+    ),
 
     /// Failed to parse a URL.
     ///

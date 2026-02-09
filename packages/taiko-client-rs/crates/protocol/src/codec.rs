@@ -17,6 +17,14 @@ pub enum TxListCodecError {
         /// Maximum allowed compressed byte size.
         max: usize,
     },
+    /// The decompressed txlist exceeds the configured size cap.
+    #[error("decompressed txlist exceeds max size: {actual} > {max}")]
+    DecompressedTooLarge {
+        /// Actual decompressed byte size.
+        actual: usize,
+        /// Maximum allowed decompressed byte size.
+        max: usize,
+    },
     /// Failed to write zlib-compressed bytes.
     #[error("zlib encode failed: {0}")]
     ZlibEncode(String),
@@ -37,13 +45,23 @@ pub type Result<T> = std::result::Result<T, TxListCodecError>;
 /// Zlib-based txlist decoder compatible with the P2P specification.
 pub struct ZlibTxListCodec {
     /// Maximum allowed compressed txlist size.
-    max_txlist_bytes: usize,
+    max_compressed_txlist_bytes: usize,
+    /// Maximum allowed decompressed txlist size.
+    max_decompressed_txlist_bytes: usize,
 }
 
 impl ZlibTxListCodec {
-    /// Build a zlib codec with an explicit size cap.
+    /// Build a zlib codec with matching compressed/decompressed size caps.
     pub fn new(max_txlist_bytes: usize) -> Self {
-        Self { max_txlist_bytes }
+        Self::new_with_limits(max_txlist_bytes, max_txlist_bytes)
+    }
+
+    /// Build a zlib codec with explicit compressed/decompressed size caps.
+    pub fn new_with_limits(
+        max_compressed_txlist_bytes: usize,
+        max_decompressed_txlist_bytes: usize,
+    ) -> Self {
+        Self { max_compressed_txlist_bytes, max_decompressed_txlist_bytes }
     }
 
     /// Encode a list of raw transactions into zlib-compressed bytes.
@@ -56,10 +74,10 @@ impl ZlibTxListCodec {
         let compressed =
             encoder.finish().map_err(|e| TxListCodecError::ZlibFinish(e.to_string()))?;
 
-        if compressed.len() > self.max_txlist_bytes {
+        if compressed.len() > self.max_compressed_txlist_bytes {
             return Err(TxListCodecError::CompressedTooLarge {
                 actual: compressed.len(),
-                max: self.max_txlist_bytes,
+                max: self.max_compressed_txlist_bytes,
             });
         }
 
@@ -68,18 +86,27 @@ impl ZlibTxListCodec {
 
     /// Decode compressed zlib bytes into a list of raw transactions.
     pub fn decode(&self, compressed: &[u8]) -> Result<Vec<Vec<u8>>> {
-        if compressed.len() > self.max_txlist_bytes {
+        if compressed.len() > self.max_compressed_txlist_bytes {
             return Err(TxListCodecError::CompressedTooLarge {
                 actual: compressed.len(),
-                max: self.max_txlist_bytes,
+                max: self.max_compressed_txlist_bytes,
             });
         }
 
-        let mut decoder = ZlibDecoder::new(compressed);
+        let decoder = ZlibDecoder::new(compressed);
         let mut decoded = Vec::new();
+        let read_cap = self.max_decompressed_txlist_bytes.saturating_add(1) as u64;
         decoder
+            .take(read_cap)
             .read_to_end(&mut decoded)
             .map_err(|err| TxListCodecError::ZlibDecode(err.to_string()))?;
+
+        if decoded.len() > self.max_decompressed_txlist_bytes {
+            return Err(TxListCodecError::DecompressedTooLarge {
+                actual: decoded.len(),
+                max: self.max_decompressed_txlist_bytes,
+            });
+        }
 
         Vec::<Vec<u8>>::decode(&mut decoded.as_slice())
             .map_err(|err| TxListCodecError::RlpDecode(err.to_string()))
@@ -104,5 +131,19 @@ mod tests {
         let codec = ZlibTxListCodec::new(1024);
         let txs = codec.decode(&compressed).expect("decode txlist");
         assert!(txs.is_empty());
+    }
+
+    #[test]
+    fn txlist_codec_rejects_oversized_decompressed_payload() {
+        let oversized_decoded = vec![0u8; 2 * 1024 * 1024 + 1];
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&oversized_decoded).expect("write oversized payload");
+        let compressed = encoder.finish().expect("finish zlib encoding");
+
+        let codec = ZlibTxListCodec::new(2 * 1024 * 1024);
+        let err = codec
+            .decode(&compressed)
+            .expect_err("oversized decompressed payload must fail before rlp decode");
+        assert!(err.to_string().contains("decompressed txlist exceeds max size"));
     }
 }
