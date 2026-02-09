@@ -127,7 +127,11 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         UUPSUpgradeable(address(inbox)).upgradeTo(
             address(
                 new ConfigurableInbox(
-                    address(taikoWrapper), verifierAddr, address(bondToken), address(signalService)
+                    address(taikoWrapper),
+                    verifierAddr,
+                    address(bondToken),
+                    address(signalService),
+                    type(uint64).max
                 )
             )
         );

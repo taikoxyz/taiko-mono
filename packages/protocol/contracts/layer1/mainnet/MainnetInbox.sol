@@ -15,9 +15,10 @@ contract MainnetInbox is TaikoInbox {
         address _wrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        uint64 _shastaForkTimestamp
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, _shastaForkTimestamp)
     { }
 
     function pacayaConfig() public pure override returns (ITaikoInbox.Config memory) {

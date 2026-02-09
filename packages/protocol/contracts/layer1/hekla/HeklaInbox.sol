@@ -19,7 +19,7 @@ contract HeklaInbox is TaikoInbox {
         address _bondToken,
         address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, type(uint64).max)
     { }
 
     /// @notice Manually write a transition for a batch.

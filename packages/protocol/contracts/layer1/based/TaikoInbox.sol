@@ -34,6 +34,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     address public immutable verifier;
     address public immutable bondToken;
     ISignalService public immutable signalService;
+    uint64 public immutable shastaForkTimestamp;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -44,7 +45,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         address _inboxWrapper,
         address _verifier,
         address _bondToken,
-        address _signalService
+        address _signalService,
+        uint64 _shastaForkTimestamp
     )
         nonZeroAddr(_verifier)
         nonZeroAddr(_signalService)
@@ -54,6 +56,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         verifier = _verifier;
         bondToken = _bondToken;
         signalService = ISignalService(_signalService);
+        shastaForkTimestamp = _shastaForkTimestamp;
     }
 
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
@@ -691,10 +694,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     emit Stats1Updated(stats1);
 
-                    // Ask signal service to write cross chain signal
-                    signalService.syncChainData(
-                        _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
-                    );
+                    // After Shasta fork activation, Pacaya inbox verification must not write
+                    // cross-chain signals anymore.
+                    if (uint64(block.timestamp) < shastaForkTimestamp) {
+                        signalService.syncChainData(
+                            _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
+                        );
+                    }
                 }
             }
         }
