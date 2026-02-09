@@ -17,17 +17,17 @@ use super::{
 use crate::{Result, error::PreconfirmationClientError};
 
 /// JSON-RPC method name for publishing commitments.
-const METHOD_PUBLISH_COMMITMENT: &str = "preconf_publishCommitment";
+pub const METHOD_PUBLISH_COMMITMENT: &str = "preconf_publishCommitment";
 /// JSON-RPC method name for publishing txlists.
-const METHOD_PUBLISH_TX_LIST: &str = "preconf_publishTxList";
+pub const METHOD_PUBLISH_TX_LIST: &str = "preconf_publishTxList";
 /// JSON-RPC method name for querying node status.
-const METHOD_GET_STATUS: &str = "preconf_getStatus";
+pub const METHOD_GET_STATUS: &str = "preconf_getStatus";
 /// JSON-RPC method name for querying the preconfirmation tip.
-const METHOD_PRECONF_TIP: &str = "preconf_tip";
+pub const METHOD_PRECONF_TIP: &str = "preconf_tip";
 /// JSON-RPC method name for querying the canonical proposal ID.
-const METHOD_CANONICAL_PROPOSAL_ID: &str = "preconf_canonicalProposalId";
+pub const METHOD_CANONICAL_PROPOSAL_ID: &str = "preconf_canonicalProposalId";
 /// JSON-RPC method name for querying preconfirmation slot info by timestamp.
-const METHOD_GET_PRECONF_SLOT_INFO: &str = "preconf_getPreconfSlotInfo";
+pub const METHOD_GET_PRECONF_SLOT_INFO: &str = "preconf_getPreconfSlotInfo";
 
 /// Metric name for total RPC requests.
 const METRIC_REQUESTS_TOTAL: &str = "preconf_rpc_requests_total";
