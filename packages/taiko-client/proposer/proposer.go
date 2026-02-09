@@ -599,6 +599,9 @@ func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
 
 // shouldPropose checks whether the proposer should propose at this time.
 func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
+	if p.rpc.PacayaClients.PreconfWhitelist == nil {
+		return true, nil
+	}
 	// check the current epoch operator
 	operator, err := p.rpc.GetPreconfWhiteListOperator(&bind.CallOpts{
 		Context: ctx,
