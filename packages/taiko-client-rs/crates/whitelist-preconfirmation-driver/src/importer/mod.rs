@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::{
-    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle},
+    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, WhitelistSequencerCache},
     error::{Result, WhitelistPreconfirmationDriverError},
     network::{NetworkCommand, NetworkEvent},
 };
@@ -53,6 +53,8 @@ where
     recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
+    /// TTL cache for current/next whitelist sequencer addresses.
+    sequencer_cache: WhitelistSequencerCache,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
@@ -84,6 +86,7 @@ where
             cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
+            sequencer_cache: WhitelistSequencerCache::default(),
             network_command_tx,
             sync_ready: false,
             anchor_address,
@@ -131,8 +134,13 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Event-sync progress signal; triggers a one-shot import when readiness flips to enabled.
+    /// Event-sync progress signal.
+    ///
+    /// Any L1 progress can include an epoch boundary, so drop cached whitelist sequencers here to
+    /// avoid accepting a rotated-out signer until the TTL elapses.
     pub(crate) async fn on_sync_ready_signal(&mut self) -> Result<()> {
+        self.sequencer_cache.invalidate();
+
         if !self.refresh_sync_ready().await? || self.cache.is_empty() {
             return Ok(());
         }
