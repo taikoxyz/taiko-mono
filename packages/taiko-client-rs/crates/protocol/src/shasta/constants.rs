@@ -41,6 +41,9 @@ pub const MAX_FORCED_INCLUSIONS_PER_PROPOSAL: u16 = 10;
 /// Shasta fork activation on Taiko Devnet.
 pub const SHASTA_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 
+/// Shasta fork activation on Taiko Masaya.
+pub const SHASTA_FORK_MASAYA: ForkCondition = ForkCondition::Timestamp(0);
+
 /// Shasta fork activation on Taiko Hoodi.
 pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_770_296_400);
 
@@ -49,6 +52,7 @@ pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Never;
 
 /// Taiko chain IDs where the Shasta fork is configured.
 pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
+pub const TAIKO_MASAYA_CHAIN_ID: u64 = 167_011;
 pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
 
@@ -56,6 +60,7 @@ pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
 pub const fn shasta_fork_condition_for_chain(chain_id: u64) -> Option<ForkCondition> {
     match chain_id {
         TAIKO_DEVNET_CHAIN_ID => Some(SHASTA_FORK_DEVNET),
+        TAIKO_MASAYA_CHAIN_ID => Some(SHASTA_FORK_MASAYA),
         TAIKO_HOODI_CHAIN_ID => Some(SHASTA_FORK_HOODI),
         TAIKO_MAINNET_CHAIN_ID => Some(SHASTA_FORK_MAINNET),
         _ => None,
