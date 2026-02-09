@@ -17,8 +17,8 @@ const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
-/// Default TTL for cached whitelist sequencer addresses (one L1 slot).
-const DEFAULT_SEQUENCER_CACHE_TTL_SECS: u64 = 12;
+/// Default TTL for cached whitelist sequencer addresses (one L1 epoch = 32 slots).
+const DEFAULT_SEQUENCER_CACHE_TTL_SECS: u64 = 12 * 32;
 /// Minimum interval between forced signer-miss refreshes from L1.
 const DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS: u64 = 2;
 
@@ -231,8 +231,8 @@ impl WhitelistSequencerCache {
 
     /// Return true when signer-mismatch handling may force a fresh L1 read.
     pub fn allow_miss_refresh(&mut self, now: Instant) -> bool {
-        if let Some(last) = self.last_miss_refresh_at
-            && now.saturating_duration_since(last) < self.miss_refresh_cooldown
+        if let Some(last) = self.last_miss_refresh_at &&
+            now.saturating_duration_since(last) < self.miss_refresh_cooldown
         {
             return false;
         }
