@@ -5,9 +5,10 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use jsonrpsee::{
     RpcModule,
     server::{ServerBuilder, ServerHandle},
-    types::{ErrorObjectOwned, Params},
+    types::{ErrorCode, ErrorObjectOwned, Params},
 };
 use metrics::{counter, histogram};
+use protocol::preconfirmation::LookaheadError;
 use tracing::{debug, info, warn};
 
 use super::{
@@ -182,21 +183,33 @@ fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
 /// Converts a preconfirmation client error to a JSON-RPC error object.
 /// Map a domain error into a JSON-RPC error object.
 fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
-    use PreconfRpcErrorCode::*;
-    use PreconfirmationClientError::*;
-    use protocol::preconfirmation::LookaheadError;
-
     let code = match &err {
-        Validation(_) => InvalidCommitment.code(),
-        Codec(_) => InvalidTxList.code(),
-        Catchup(_) => NotSynced.code(),
-        Lookahead(LookaheadError::BeforeGenesis(_)) |
-        Lookahead(LookaheadError::TooOld(_)) |
-        Lookahead(LookaheadError::TooNew(_)) => {
-            jsonrpsee::types::error::ErrorCode::InvalidParams.code()
-        }
-        Lookahead(_) => InvalidSigner.code(),
-        Network(_) | Storage(_) | DriverInterface(_) | Config(_) => InternalError.code(),
+        PreconfirmationClientError::Validation(_) => PreconfRpcErrorCode::InvalidCommitment.code(),
+        PreconfirmationClientError::Codec(_) => PreconfRpcErrorCode::InvalidTxList.code(),
+        PreconfirmationClientError::Catchup(_) => PreconfRpcErrorCode::NotSynced.code(),
+        PreconfirmationClientError::Lookahead(lookahead_err) => match lookahead_err {
+            LookaheadError::BeforeGenesis(_) |
+            LookaheadError::TooOld(_) |
+            LookaheadError::TooNew(_) => ErrorCode::InvalidParams.code(),
+            LookaheadError::InboxConfig(_) |
+            LookaheadError::Lookahead(_) |
+            LookaheadError::PreconfWhitelist(_) |
+            LookaheadError::BlockLookup { .. } |
+            LookaheadError::MissingLogField { .. } |
+            LookaheadError::EventDecode(_) |
+            LookaheadError::EventScanner(_) |
+            LookaheadError::ReorgDetected |
+            LookaheadError::SystemTime(_) |
+            LookaheadError::UnknownChain(_) |
+            LookaheadError::MissingLookahead(_) |
+            LookaheadError::CorruptLookaheadCache { .. } => {
+                PreconfRpcErrorCode::LookaheadUnavailable.code()
+            }
+        },
+        PreconfirmationClientError::Network(_) |
+        PreconfirmationClientError::Storage(_) |
+        PreconfirmationClientError::DriverInterface(_) |
+        PreconfirmationClientError::Config(_) => PreconfRpcErrorCode::InternalError.code(),
     };
 
     ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
@@ -295,10 +308,16 @@ mod tests {
     }
 
     #[test]
-    fn test_non_timestamp_lookahead_errors_still_map_to_invalid_signer() {
-        let rpc_error = api_error_to_rpc(PreconfirmationClientError::from(
+    fn test_non_timestamp_lookahead_errors_map_to_lookahead_unavailable() {
+        let errors = [
             LookaheadError::MissingLookahead(100),
-        ));
-        assert_eq!(rpc_error.code(), PreconfRpcErrorCode::InvalidSigner.code());
+            LookaheadError::UnknownChain(167_001),
+            LookaheadError::ReorgDetected,
+        ];
+
+        for err in errors {
+            let rpc_error = api_error_to_rpc(PreconfirmationClientError::from(err));
+            assert_eq!(rpc_error.code(), PreconfRpcErrorCode::LookaheadUnavailable.code());
+        }
     }
 }
