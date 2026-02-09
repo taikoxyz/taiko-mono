@@ -13805,6 +13805,7 @@ dependencies = [
 name = "whitelist-preconfirmation-driver"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-evm",
  "alethia-reth-primitives",
  "alloy-consensus",
  "alloy-eips",

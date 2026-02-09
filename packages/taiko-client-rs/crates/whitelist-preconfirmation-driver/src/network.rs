@@ -332,7 +332,7 @@ pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
         .validation_mode(gossipsub::ValidationMode::Anonymous)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
-        .message_id_fn(go_compatible_message_id)
+        .message_id_fn(message_id)
         .max_transmit_size(MAX_GOSSIP_SIZE_BYTES)
         .build()
         .map_err(to_p2p_err)?;
@@ -371,7 +371,7 @@ fn classify_bootnodes(bootnodes: Vec<String>) -> ClassifiedBootnodes {
 }
 
 /// Compute Go-compatible gossipsub message IDs.
-pub(crate) fn go_compatible_message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
+pub(crate) fn message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
     let (valid_snappy, data) = try_decompress_snappy(&message.data);
 
     let topic = message.topic.as_str().as_bytes();
@@ -572,7 +572,7 @@ mod tests {
     }
 
     #[test]
-    fn go_compatible_message_id_changes_with_snappy_validity() {
+    fn message_id_changes_with_snappy_validity() {
         let topic = "/taiko/167000/0/requestPreconfBlocks";
         let payload = b"hello-whitelist-preconfirmation";
         let compressed =
@@ -591,8 +591,8 @@ mod tests {
             topic: gossipsub::TopicHash::from_raw(topic),
         };
 
-        let valid_id = go_compatible_message_id(&valid);
-        let invalid_id = go_compatible_message_id(&invalid);
+        let valid_id = message_id(&valid);
+        let invalid_id = message_id(&invalid);
 
         assert_eq!(valid_id.0.len(), 20);
         assert_eq!(invalid_id.0.len(), 20);
@@ -604,7 +604,7 @@ mod tests {
             sequence_number: None,
             topic: gossipsub::TopicHash::from_raw("/taiko/1/0/requestPreconfBlocks"),
         };
-        let changed_topic_id = go_compatible_message_id(&changed_topic);
+        let changed_topic_id = message_id(&changed_topic);
         assert_ne!(valid_id, changed_topic_id);
     }
 
