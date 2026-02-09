@@ -40,7 +40,7 @@ func filterFuncShasta(
 
 			err = i.saveProposedEvents(ctx, chainID, proposedEvents)
 			if err != nil {
-				return errors.Wrap(err, "i.saveProposedEvent")
+				return errors.Wrap(err, "i.saveProposedEvents")
 			}
 
 			return nil
