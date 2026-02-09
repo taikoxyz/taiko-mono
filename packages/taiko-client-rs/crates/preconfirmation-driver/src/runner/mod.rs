@@ -20,6 +20,7 @@ use crate::{
         runner_api::{CanonicalProposalIdProvider, RunnerRpcApiImpl},
     },
 };
+use protocol::preconfirmation::LookaheadResolver;
 
 use preconf_ingress_sync::PreconfIngressSync;
 
@@ -134,13 +135,20 @@ impl PreconfirmationDriverRunner {
         // Extract shared driver components needed for the P2P client.
         let event_syncer = preconf_ingress_sync.event_syncer();
         let rpc_client = preconf_ingress_sync.client().clone();
-        let l1_provider = rpc_client.l1_provider.clone();
         let inbox_address = self.config.driver_config.client.inbox_address;
 
+        // Build the lookahead resolver and start its background event scanner
+        let l1_source = self.config.driver_config.client.l1_provider_source.clone();
+        let (lookahead_resolver, _scanner_handle) =
+            LookaheadResolver::new(inbox_address, l1_source)
+                .await
+                .map_err(PreconfirmationClientError::from)?;
+
         // Build the preconfirmation P2P client configuration.
-        let client_config =
-            PreconfirmationClientConfig::new(self.config.p2p_config, inbox_address, l1_provider)
-                .await?;
+        let client_config = PreconfirmationClientConfig::new_with_resolver(
+            self.config.p2p_config,
+            Arc::new(lookahead_resolver),
+        );
 
         // Wrap the driver so P2P submissions go through the event syncer.
         let driver_client =
