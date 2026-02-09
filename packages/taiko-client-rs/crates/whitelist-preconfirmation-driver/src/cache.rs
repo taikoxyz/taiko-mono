@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
 use hashlink::LinkedHashMap;
 
 use crate::codec::WhitelistExecutionPayloadEnvelope;
@@ -17,6 +17,10 @@ const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
+/// Default TTL for cached whitelist sequencer addresses (one L1 epoch = 32 slots).
+const DEFAULT_SEQUENCER_CACHE_TTL_SECS: u64 = 12 * 32;
+/// Minimum interval between forced signer-miss refreshes from L1.
+const DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS: u64 = 2;
 
 /// Simple in-memory cache keyed by block hash with bounded capacity.
 pub(crate) struct EnvelopeCache {
@@ -176,6 +180,83 @@ impl RequestThrottle {
     }
 }
 
+/// Cached pair of current/next whitelist sequencer addresses with a TTL.
+#[derive(Debug)]
+pub(crate) struct WhitelistSequencerCache {
+    /// TTL for cached entries.
+    ttl: Duration,
+    /// Minimum interval between L1 refreshes triggered by signer mismatches.
+    miss_refresh_cooldown: Duration,
+    /// Last time a signer mismatch forced invalidation + refresh.
+    last_miss_refresh_at: Option<Instant>,
+    /// Cached current-epoch sequencer address and fetch time.
+    current: Option<(Address, Instant)>,
+    /// Cached next-epoch sequencer address and fetch time.
+    next: Option<(Address, Instant)>,
+}
+
+impl Default for WhitelistSequencerCache {
+    fn default() -> Self {
+        Self::new(Duration::from_secs(DEFAULT_SEQUENCER_CACHE_TTL_SECS))
+    }
+}
+
+impl WhitelistSequencerCache {
+    /// Create a sequencer cache with a custom TTL.
+    pub fn new(ttl: Duration) -> Self {
+        Self::with_cooldowns(ttl, Duration::from_secs(DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS))
+    }
+
+    /// Create a sequencer cache with custom TTL and signer-miss refresh cooldown.
+    ///
+    /// `miss_refresh_cooldown` only gates forced refreshes triggered by signer mismatches.
+    /// Normal TTL expiry refreshes are still allowed even when `miss_refresh_cooldown > ttl`.
+    pub fn with_cooldowns(ttl: Duration, miss_refresh_cooldown: Duration) -> Self {
+        Self { ttl, miss_refresh_cooldown, last_miss_refresh_at: None, current: None, next: None }
+    }
+
+    /// Return the cached current-epoch sequencer if still fresh.
+    pub fn get_current(&self, now: Instant) -> Option<Address> {
+        self.current
+            .filter(|(_, fetched_at)| now.saturating_duration_since(*fetched_at) < self.ttl)
+            .map(|(addr, _)| addr)
+    }
+
+    /// Return the cached next-epoch sequencer if still fresh.
+    pub fn get_next(&self, now: Instant) -> Option<Address> {
+        self.next
+            .filter(|(_, fetched_at)| now.saturating_duration_since(*fetched_at) < self.ttl)
+            .map(|(addr, _)| addr)
+    }
+
+    /// Return true when signer-mismatch handling may force a fresh L1 read.
+    pub fn allow_miss_refresh(&mut self, now: Instant) -> bool {
+        if let Some(last) = self.last_miss_refresh_at &&
+            now.saturating_duration_since(last) < self.miss_refresh_cooldown
+        {
+            return false;
+        }
+        self.last_miss_refresh_at = Some(now);
+        true
+    }
+
+    /// Clear both cached entries, forcing the next lookup to re-fetch from L1.
+    pub fn invalidate(&mut self) {
+        self.current = None;
+        self.next = None;
+    }
+
+    /// Store the current-epoch sequencer address.
+    pub fn set_current(&mut self, addr: Address, now: Instant) {
+        self.current = Some((addr, now));
+    }
+
+    /// Store the next-epoch sequencer address.
+    pub fn set_next(&mut self, addr: Address, now: Instant) {
+        self.next = Some((addr, now));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -321,6 +402,83 @@ mod tests {
         cache.insert(Arc::new(sample_envelope(h3, 8)));
 
         assert_eq!(cache.sorted_hashes_by_block_number(), vec![h1, h2, h3]);
+    }
+
+    #[test]
+    fn sequencer_cache_returns_none_when_empty() {
+        let cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        assert!(cache.get_current(now).is_none());
+        assert!(cache.get_next(now).is_none());
+    }
+
+    #[test]
+    fn sequencer_cache_returns_cached_value_within_ttl() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let addr = Address::from([0xaau8; 20]);
+
+        cache.set_current(addr, now);
+        cache.set_next(addr, now);
+
+        assert_eq!(cache.get_current(now + Duration::from_secs(5)), Some(addr));
+        assert_eq!(cache.get_next(now + Duration::from_secs(5)), Some(addr));
+    }
+
+    #[test]
+    fn sequencer_cache_expires_after_ttl() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let addr = Address::from([0xbbu8; 20]);
+
+        cache.set_current(addr, now);
+        cache.set_next(addr, now);
+
+        assert!(cache.get_current(now + Duration::from_secs(11)).is_none());
+        assert!(cache.get_next(now + Duration::from_secs(11)).is_none());
+    }
+
+    #[test]
+    fn sequencer_cache_invalidate_clears_both_entries() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let addr = Address::from([0xccu8; 20]);
+
+        cache.set_current(addr, now);
+        cache.set_next(addr, now);
+        assert!(cache.get_current(now).is_some());
+        assert!(cache.get_next(now).is_some());
+
+        cache.invalidate();
+        assert!(cache.get_current(now).is_none());
+        assert!(cache.get_next(now).is_none());
+    }
+
+    #[test]
+    fn sequencer_cache_set_replaces_previous_entry() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let addr1 = Address::from([0x11u8; 20]);
+        let addr2 = Address::from([0x22u8; 20]);
+
+        cache.set_current(addr1, now);
+        assert_eq!(cache.get_current(now), Some(addr1));
+
+        cache.set_current(addr2, now + Duration::from_secs(1));
+        assert_eq!(cache.get_current(now + Duration::from_secs(1)), Some(addr2));
+    }
+
+    #[test]
+    fn sequencer_cache_miss_refresh_is_rate_limited() {
+        let mut cache = WhitelistSequencerCache::with_cooldowns(
+            Duration::from_secs(10),
+            Duration::from_secs(2),
+        );
+        let now = Instant::now();
+
+        assert!(cache.allow_miss_refresh(now));
+        assert!(!cache.allow_miss_refresh(now + Duration::from_secs(1)));
+        assert!(cache.allow_miss_refresh(now + Duration::from_secs(3)));
     }
 
     #[test]
