@@ -1,0 +1,70 @@
+_wdctl_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-f'|'--flags')
+			local FLAGS
+			FLAGS="ALARMONLY
+				CARDRESET
+				EXTERN1
+				EXTERN2
+				FANFAULT
+				KEEPALIVEPING
+				MAGICCLOSE
+				OVERHEAT
+				POWEROVER
+				POWERUNDER
+				PRETIMEOUT
+				SETTIMEOUT"
+			COMPREPLY=( $(compgen -W "$FLAGS" -- $cur) )
+			return 0
+			;;
+		'-o'|'--output')
+			local prefix realcur OUTPUT_ALL OUTPUT
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			OUTPUT_ALL="FLAG DESCRIPTION STATUS BOOT-STATUS DEVICE"
+			for WORD in $OUTPUT_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					OUTPUT="$WORD ${OUTPUT:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$OUTPUT" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-s'|'--settimeout')
+			COMPREPLY=( $(compgen -W "seconds" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--flags
+				--noflags
+				--noident
+				--noheadings
+				--oneline
+				--output
+				--raw
+				--notimeouts
+				--settimeout
+				--flags-only
+				--help
+				--version"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local IFS=$'\n'
+	compopt -o filenames
+	COMPREPLY=( $(compgen -f -- ${cur:-"/dev/"}) )
+	return 0
+}
+complete -F _wdctl_module wdctl

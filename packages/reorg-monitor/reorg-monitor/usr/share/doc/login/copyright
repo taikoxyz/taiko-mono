@@ -1,0 +1,221 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Shadow
+Source: https://github.com/shadow-maint/shadow
+Note: atudel is licensed under BSD-4-Clause which is not DFSG compatible
+Files-Excluded: contrib/atudel
+
+Files: *
+Copyright: 1989-1994, Julianne Frances Haugh
+           2016-2022, Serge Hallyn <serge@hallyn.com>
+License: BSD-3-clause
+
+Files: man/po/da.po
+       man/po/de.po
+       man/tr/man1/su.1
+       po/da.po
+       po/de.po
+       po/es.po
+       po/eu.po
+       po/fi.po
+       po/gl.po
+       po/it.po
+       po/kk.po
+       po/nb.po
+       po/nl.po
+       po/nn.po
+       po/pl.po
+       po/pt_BR.po
+       po/ru.po
+       po/sq.po
+       po/sv.po
+       po/vi.po
+Copyright: 1999-2015, Free Software Foundation, Inc
+License: BSD-3-clause
+
+Files: man/fi/man1/chfn.1
+       man/id/man1/*
+       man/ko/man1/chfn.1
+       man/ko/man1/chsh.1
+       man/tr/man1/chfn.1
+       man/zh_TW/man1/chfn.1
+       man/zh_TW/man1/chsh.1
+Copyright: 1994, salvatore valente <svalente@athena.mit.edu>
+License: GPL-1
+
+Files: man/pt_BR/man8/*
+       man/zh_TW/man8/usermod.8
+Copyright: 1991-1994, Julianne Frances Haugh
+License: BSD-3-clause
+
+Files: man/hu/man1/gpasswd.1
+       man/ja/man1/gpasswd.1
+       man/pt_BR/man1/*
+Copyright: 1996, Rafal Maszkowski <rzm@pdi.net>
+License: BSD-3-clause
+
+Files: man/id/man1/login.1
+       man/ko/man1/login.1
+       man/tr/man1/login.1
+Copyright: 1993, Rickard E. Faith <faith@cs.unc.edu>
+License: BSD-3-clause
+
+Files: man/ja/man1/groups.1
+       man/ja/man5/limits.5
+       man/ja/man8/vipw.8
+Copyright: 2001, Maki KURODA
+License: BSD-3-clause
+
+Files: man/pt_BR/man5/passwd.5
+       man/tr/man5/passwd.5
+Copyright: 1993, Michael Haardt <michael@moria.de>
+License: GPL-2+
+
+Files: man/ja/man1/chage.1
+       man/ja/man5/suauth.5
+Copyright: 1997, Kazuyoshi Furutaka
+License: BSD-3-clause
+
+Files: man/po/fr.po
+       po/fr.po
+Copyright: 2011-2013, Debian French l10n team <debian-l10n-french@lists.debian.org>
+License: BSD-3-clause
+
+Files: man/zh_TW/man5/*
+Copyright: 1993, Michael Haardt <michael@moria.de>
+           1993, Scorpio, www.linuxforum.net
+License: GPL-2+
+
+Files: contrib/udbachk.tgz
+Copyright: 1999, Sami Kerola and Janne Riihijärvi
+License: GPL-2+
+
+Files: man/hu/man5/*
+Copyright: 1993, Michael Haardt <u31b3hs@pool.informatik.rwth-aachen.de>
+License: GPL-2+
+
+Files: contrib/adduser2.sh
+Copyright: 1996, Petri Mattila, Prihateam Networks <petri@prihateam.fi>
+License: GPL-2+
+
+Files: contrib/pwdauth.c
+Copyright: 1996, Marek Michalkiewicz
+License: BSD-3-clause
+
+Files: lib/subordinateio.h
+Copyright: 2012, Eric W. Biederman
+License: BSD-3-clause
+
+Files: libmisc/date_to_str.c
+Copyright: 2021, Alejandro Colomar <alx.manpages@gmail.com>
+License: BSD-3-clause
+
+Files: man/hu/man1/su.1
+Copyright: 1999, Ragnar Hojland Espinosa <ragnar@macula.net>
+License: BSD-3-clause
+
+Files: man/ja/man1/id.1
+Copyright: 2000, ISHIKAWA Keisuke
+License: BSD-3-clause
+
+Files: man/ja/man8/pwconv.8
+Copyright: 2001, Yuichi SATO
+License: BSD-3-clause
+
+Files: src/login_nopam.c
+Copyright: 1995, Wietse Venema
+License: BSD-3-clause
+
+Files: src/su.c
+Copyright: 1989 - 1994, Julianne Frances Haugh
+           1996 - 2000, Marek Michałkiewicz
+           2000 - 2006, Tomasz Kłoczko
+           2007 - 2013, Nicolas François
+License: GPL-2+
+
+Files: src/vipw.c
+Copyright: 1997, Guy Maor <maor@ece.utexas.edu>
+           1999 - 2000, Marek Michałkiewicz
+           2002 - 2006, Tomasz Kłoczko
+           2007 - 2013, Nicolas François
+License: GPL-2+
+
+Files: libmisc/getdate.y
+Copyright: Steven M. Bellovin <smb@research.att.com>
+License: public-domain
+ Originally written by Steven M. Bellovin <smb@research.att.com> while
+ at the University of North Carolina at Chapel Hill.  Later tweaked by
+ a couple of people on Usenet.  Completely overhauled by Rich $alz
+ <rsalz@bbn.com> and Jim Berets <jberets@bbn.com> in August, 1990;
+ .
+ This code is in the public domain and has no copyright.
+
+Files: man/ko/man5/*
+Copyright: 2000, ASPLINUX <man@asp-linux.co.kr>
+License: GPL-2+
+
+Files: debian/*
+Copyright: 1999-2001, Ben Collins <bcollins@debian.org>
+           2001-2004 Karl Ramm <kcr@debian.org>
+           2004-2014 Christian Perrier <bubulle@debian.org>
+           2006-2012 Nicolas Francois (Nekral) <nicolas.francois@centraliens.net>
+           2017-2022 Balint Reczey <balint@balintreczey.hu>
+License: BSD-3-clause
+
+Files: debian/HOME_MODE.xml
+Copyright: 1991-1993, Chip Rosenthal
+           1991-1993, Julianne Frances Haugh
+           2007-2009, Nicolas François
+License: BSD-3-clause
+
+Files: debian/patches/401_cppw_src.dpatch
+Copyright: 1997, Guy Maor <maor@ece.utexas.edu>
+           1999, Stephen Frost <sfrost@snowman.net>
+License: GPL-2+
+
+Files: debian/passwd.expire.cron
+Copyright: 1999, Ben Collins <bcollins@debian.org>
+License: BSD-3-clause
+
+License: BSD-3-clause
+ All rights reserved.
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ 3. Neither the name of the University nor the names of its contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+License: GPL-1
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 1
+ .
+ On Debian systems, the complete text of version 1 of the GNU General
+ Public License can be found in '/usr/share/common-licenses/GPL-1'.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 dated June, 1991, or (at
+ your option) any later version.
+ .
+ On Debian systems, the complete text of version 2 of the GNU General
+ Public License can be found in '/usr/share/common-licenses/GPL-2'.

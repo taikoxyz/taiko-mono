@@ -1,0 +1,11 @@
+/.
+/lib
+/lib/aarch64-linux-gnu
+/lib/aarch64-linux-gnu/libgcc_s.so.1
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/lintian
+/usr/share/lintian/overrides
+/usr/share/lintian/overrides/libgcc-s1
+/usr/share/doc/libgcc-s1

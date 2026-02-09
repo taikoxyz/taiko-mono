@@ -1,0 +1,744 @@
+#!/usr/bin/perl -w
+
+# pam-auth-update: update /etc/pam.d/common-* from /usr/share/pam-configs
+#
+# Update the /etc/pam.d/common-* files based on the per-package profiles
+# provided in /usr/share/pam-configs/ taking into consideration user's
+# preferences (as determined via debconf prompting).
+#
+# Written by Steve Langasek <steve.langasek@canonical.com>
+#
+# Copyright (C) 2008 Canonical Ltd.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 3 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# # This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301,
+# USA.
+
+use strict;
+use Debconf::Client::ConfModule ':all';
+use IPC::Open2 'open2';
+
+version('2.0');
+my $capb=capb('backup escape');
+
+my $inputdir = '/usr/share/pam-configs';
+my $template = 'libpam-runtime/profiles';
+my $errtemplate = 'libpam-runtime/conflicts';
+my $overridetemplate = 'libpam-runtime/override';
+my $blanktemplate = 'libpam-runtime/no_profiles_chosen';
+my $titletemplate = 'libpam-runtime/title';
+my $confdir = '/etc/pam.d';
+my $savedir = '/var/lib/pam';
+my (%profiles, @sorted, @enabled, @conflicts, @new, %removals, %to_disable, %to_enable);
+my $force = 0;
+my $package = 0;
+my $priority = 'high';
+my %md5sums = (
+	'auth' => ['8d4fe17e66ba25de16a117035d1396aa'],
+	'account' => ['3c0c362eaf3421848b679d63fd48c3fa'],
+	'password' => [
+	        '4d5c92d595a46b69cd61f18feb4c0574',
+		'50fce2113dfda83ac8bdd5a6e706caec',
+		'4bd7610f2e85f8ddaef79c7db7cb49eb',
+		'9ba753d0824276b44bcadfee1f87b6bc',
+	],
+	'session' => [
+        	'f297c731a467822cbd86e1283263e8a3',
+		'240fb92986c885b327cdb21dd641da8c',
+		'4a25673e8b36f1805219027d3be02cd2',
+	],
+	'session-noninteractive' => [
+		'ad2b78ce1498dd637ef36469430b6ac6',
+	],
+);
+my @invalid_modules = ('pam_tally');
+
+# use a '--force' arg to specify that /etc/pam.d should be overwritten; 
+# used only on upgrades where the postinst has already determined that the
+# checksums match.  Module packages other than libpam-runtime itself must
+# NEVER use this option!  Document with big skullses and crossboneses!  It
+# needs to be exposed for libpam-runtime because that's the package that
+# decides whether we have a pristine config to be converted, and knows
+# whether the version being upgraded from is one for which the conversion
+# should be done.
+
+while ($#ARGV >= 0) {
+	my $opt = shift;
+	if ($opt eq '--force') {
+		$force = 1;
+	} elsif ($opt eq '--package') {
+		$package = 1;
+        } elsif ($opt eq '--root') {
+                my $rootdir = shift @ARGV;
+                $savedir = "${rootdir}$savedir";
+                $confdir = "${rootdir}$confdir";
+               $inputdir = "${rootdir}$inputdir";
+	} elsif ($opt eq '--remove') {
+		while ($#ARGV >= 0) {
+			last if ($ARGV[0] =~ /^--/);
+			$removals{shift @ARGV} = 1;
+		}
+		# --remove implies --package
+		$package = 1 if (keys(%removals));
+	} elsif ($opt eq '--disable') {
+		while ($#ARGV >= 0) {
+			last if ($ARGV[0] =~ /^--/);
+			$to_disable{shift @ARGV} = 1;
+		}
+		# --disable implies --package
+		$package = 1 if (keys(%to_disable));
+	} elsif ($opt eq '--enable') {
+		while ($#ARGV >= 0) {
+			last if ($ARGV[0] =~ /^--/);
+			$to_enable{shift @ARGV} = 1;
+		}
+		# --enable implies --package
+		$package = 1 if (keys(%to_enable));
+	}
+}
+
+opendir(DIR, $inputdir) || die "could not open config directory: $!";
+while (my $profile = readdir(DIR)) {
+	next if ($profile eq '.' || $profile eq '..' || $profile =~ m/~$/ || $profile =~ m/^#.+#$/);
+	%{$profiles{$profile}} = parse_pam_profile($inputdir . '/' . $profile);
+	if (defined $profiles{$profile}{'disabled'} and $profiles{$profile}{'disabled'}) {
+		delete $profiles{$profile};
+	}
+}
+closedir DIR;
+
+$priority = 'medium' if ($package);
+
+x_loadtemplatefile('/var/lib/dpkg/info/libpam-runtime.templates','libpam-runtime');
+
+# always sort by priority, so we have consistency and don't have to
+# shuffle later
+@sorted = sort { $profiles{$b}->{'Priority'} <=> $profiles{$a}->{'Priority'}
+                 || $b cmp $a }
+               keys(%profiles);
+# If we're being called for package removal, filter out those options here
+@sorted = grep { !$removals{$_} } @sorted;
+
+subst($template, 'profile_names', join(', ',@sorted));
+subst($template, 'profiles',
+	join(', ', map { $profiles{$_}->{'Name'} } @sorted));
+
+my $diff = diff_profiles($confdir,$savedir);
+
+if ($diff) {
+	@enabled = grep { !$removals{$_} } @{$diff->{'mods'}};
+} else {
+	@enabled = split(/, /,get($template));
+}
+
+# find out what we've seen, so we can ignore those defaults
+my %seen;
+if (-e $savedir . '/seen') {
+	open(SEEN,$savedir . '/seen')  or die("open(${savedir}/seen) failed: $!");
+	while (<SEEN>) {
+		chomp;
+		$seen{$_} = 1;
+	}
+	close(SEEN);
+}
+
+# filter out any options that are no longer available for any reason
+@enabled = grep { $profiles{$_} } @enabled;
+
+# add configs to enable
+push(@enabled,
+     grep { $to_enable{$_} } @sorted);
+
+# Disable anything explicitly disabled
+@enabled = grep {!$to_disable{$_} } @enabled;
+# And we've seen anything we disable
+foreach my $i (keys %to_disable) {
+        $seen{$i} = 1;
+}
+
+# an empty module set is an error, so in that case grab all the defaults
+if (!@enabled) {
+	%seen = ();
+	$priority = 'high' unless ($force);
+}
+
+
+# add any previously-unseen configs
+push(@enabled,
+     grep { $profiles{$_}->{'Default'} eq 'yes' && !$seen{$_} } @sorted);
+@enabled = sort { $profiles{$b}->{'Priority'} <=> $profiles{$a}->{'Priority'}
+                  || $b cmp $a }
+                @enabled;
+my $prev = '';
+@enabled = grep { $_ ne $prev && (($prev) = $_) } @enabled;
+
+# Do we have any new options to show?  If not, we shouldn't reprompt the
+# user, at any priority level, unless explicitly called.
+@new = grep { !$seen{$_} } @sorted;
+
+settitle($titletemplate);
+
+# if diff_profiles() fails, and we weren't passed a 'force' argument
+# (because this isn't an upgrade from an old version, or the checksum
+# didn't match, or we're being called by some other module package), prompt
+# the user whether to override.  If the user declines (the default), we
+# never again manage this config unless manually called with '--force'.
+if (!$diff && !$force) {
+	input('high',$overridetemplate);
+	go();
+	$force = 1 if (get($overridetemplate) eq 'true');
+}
+
+if (!$diff && !$force) {
+	print STDERR <<EOF;
+
+pam-auth-update: Local modifications to /etc/pam.d/common-*, not updating.
+pam-auth-update: Run pam-auth-update --force to override.
+
+EOF
+	exit;
+}
+
+umask(0022);
+
+do {
+	@conflicts = ();
+
+	if (@new || !$package) {
+		fset($template,'seen','false');
+	}
+	set($template,join(', ', @enabled));
+
+	input($priority,$template);
+	go();
+
+	@enabled = split(/, /, get($template));
+
+	# in case of conflicts, automatically unset the lower priority
+	# item of each pair
+	foreach my $elem (@enabled)
+	{
+		for (my $i=$#enabled; $i >= 0; $i--)
+		{
+			my $conflict = $enabled[$i];
+			if ($profiles{$elem}->{'Conflicts'}->{$conflict}) {
+				splice(@enabled,$i,1);
+				my $desc = $profiles{$elem}->{'Name'}
+					. ', ' . $profiles{$conflict}->{'Name'};
+				push(@conflicts,$desc);
+			}
+		}
+	}
+	if (@conflicts) {
+		subst($errtemplate, 'conflicts', join("\\n", @conflicts));
+		input('high',$errtemplate);
+	}
+	set($template, join(', ', @enabled));
+	if (!@enabled) {
+		input('high',$blanktemplate);
+		# we can only end up here by user error, but give them another
+		# shot at selecting a correct config anyway.
+		fset($template,'seen','false');
+	}
+} while (@conflicts || !@enabled);
+
+# the decision has been made about what configs to use, so even if
+# something fails after this, we shouldn't go munging the default
+# options again.  Save the list of known configs to /var/lib/pam.
+open(SEEN,"> $savedir/seen") or die("open(${savedir}/seen) failed: $!");
+for my $i (@sorted) {
+	print SEEN "$i\n";
+}
+close(SEEN) or die("close(${savedir}/seen) failed: $!");
+
+# @enabled now contains our list of profiles to use for piecing together
+# a config
+# we have:
+# - templates into which we insert the specialness
+# - magic comments denoting the beginning and end of our managed block;
+#   looking at only the functional config lines would potentially let us
+#   handle more cases, at the expense of much greater complexity, so
+#   pass on this at least for the first round
+# - a representation of the autogenerated config stored in /var/lib/pam,
+#   that we can diff against in order to account for changed options or
+#   manually dropped modules
+# - a hash describing the local modifications the user has made to the
+#   config; these are always preserved unless manually overridden with
+#   the --force option
+
+write_profiles(\%profiles, \@enabled, $confdir, $savedir, $diff, $force);
+
+
+# take a single line from a stock config, and merge it with the
+# information about local admin edits
+sub merge_one_line
+{
+	my ($line,$diff,$count) = @_;
+	my (@opts,$modline);
+
+	my ($adds,$removes);
+
+	$line =~ /^((\[[^]]+\]|\w+)\s+\S+)\s*(.*)/;
+
+	@opts = split(/\s+/,$3);
+	$modline = $1;
+	$modline =~ s/end/$count/g;
+	if ($diff) {
+		my $mod = $modline;
+		$mod =~ s/(\[[^0-9]*)[0-9]+(.*\])/$1$2/g;
+		$adds = \%{$diff->{'add'}{$mod}};
+		$removes = \%{$diff->{'remove'}{$mod}};
+	} else {
+		$adds = $removes = undef;
+	}
+
+	for (my $i = 0; $i <= $#opts; $i++) {
+		if ($adds->{$opts[$i]}) {
+			delete $adds->{$opts[$i]};
+		}
+		if ($removes->{$opts[$i]}) {
+			splice(@opts,$i,1);
+			$i--;
+		}
+	}
+	return $modline . " " . join(' ',@opts,sort keys(%{$adds})) . "\n";
+}
+
+# return the lines for a given config name, type, and position in the stack
+sub lines_for_module_and_type
+{
+	my ($profiles, $mod, $type, $modpos) = @_;
+	if ($modpos == 0 && $profiles->{$mod}{$type . '-Initial'}) {
+		return $profiles->{$mod}{$type . '-Initial'};
+	}
+	return $profiles->{$mod}{$type};
+}
+
+# create a single PAM config from the indicated template and selections,
+# writing to a new file
+sub create_from_template
+{
+	my($template,$dest,$profiles,$enabled,$diff,$type) = @_;
+	my $state = 0;
+	my $uctype = ucfirst($type);
+	$type =~ s/-noninteractive//;
+
+	open(INPUT,$template) || return 0;
+	open(OUTPUT,">$dest") || return 0;
+
+	while (<INPUT>) {
+		if ($state == 1) {
+			if (/^# here's the fallback if no module succeeds/) {
+				print OUTPUT;
+				$state++;
+			}
+			next;
+		}
+		if ($state == 3) {
+			if (/^# end of pam-auth-update config/) {
+				print OUTPUT;
+				$state++;
+			}
+			next;
+		}
+
+		print OUTPUT;
+
+		my ($pattern,$val);
+		if ($state == 0) {
+			$pattern = '^# here are the per-package modules \(the "Primary" block\)';
+			$val = 'Primary';
+		} elsif ($state == 2) {
+			$pattern = '^# and here are more per-package modules \(the "Additional" block\)';
+			$val = 'Additional';
+		} else {
+			next;
+		}
+
+		if (/$pattern/) {
+			my $i = 0;
+			my $count = 0;
+			# first we need to get a count of lines that we're
+			# going to output, so we can fix up the jumps correctly
+			for my $mod (@{$enabled}) {
+				my $output;
+				next if (!$profiles->{$mod}{$uctype . '-Type'});
+				next if $profiles->{$mod}{$uctype . '-Type'} ne $val;
+				$output = lines_for_module_and_type($profiles, $mod, $uctype, $i++);
+				# bypasses a perl warning about @_, sigh
+				my @tmparr = split("\n+",$output);
+				$count += @tmparr;
+			}
+
+			# in case anything tries to jump in the 'additional'
+			# block, let's try not to jump off the stack...
+			$count-- if ($val eq 'Additional');
+
+			# no primary block, so output a stock pam_permit line
+			# to keep the stack intact
+			if ($val eq 'Primary' && $count == 0)
+			{
+				print OUTPUT "$type\t[default=1]\t\t\tpam_permit.so\n";
+			}
+
+			$i = 0;
+			for my $mod (@{$enabled}) {
+				my $output;
+				my @output;
+				next if (!$profiles->{$mod}{$uctype . '-Type'});
+				next if $profiles->{$mod}{$uctype . '-Type'} ne $val;
+				$output = lines_for_module_and_type($profiles, $mod, $uctype, $i++);
+				for my $line (split("\n",$output)) {
+					$line = merge_one_line($line,$diff,
+					                       $count);
+					print OUTPUT "$type\t$line";
+					$count--;
+				}
+			}
+			$state++;
+		}
+	}
+	close(INPUT);
+	close(OUTPUT) or die("close($dest) failed: $!");
+
+	if ($state < 4) {
+		unlink($dest);
+		return 0;
+	}
+	return 1;
+}
+
+# take a template file, strip out everything between the markers, and
+# return the md5sum of the remaining contents.  Used for testing for
+# local modifications of the boilerplate.
+sub get_template_md5sum
+{
+	my($template) = @_;
+	my $state = 0;
+
+	open(INPUT,$template) || return '';
+	my($md5sum_fd,$output_fd);
+	my $pid = open2($md5sum_fd, $output_fd, 'md5sum');
+	return '' if (!$pid);
+
+	while (<INPUT>) {
+		if ($state == 1) {
+			if (/^# here's the fallback if no module succeeds/) {
+				print $output_fd $_;
+				$state++;
+			}
+			next;
+		}
+		if ($state == 3) {
+			if (/^# end of pam-auth-update config/) {
+				print $output_fd $_;
+				$state++;
+			}
+			next;
+		}
+
+		print $output_fd $_;
+
+		my ($pattern,$val);
+		if ($state == 0) {
+			$pattern = '^# here are the per-package modules \(the "Primary" block\)';
+		} elsif ($state == 2) {
+			$pattern = '^# and here are more per-package modules \(the "Additional" block\)';
+		} else {
+			next;
+		}
+
+		if (/$pattern/) {
+			$state++;
+		}
+	}
+	close(INPUT);
+	close($output_fd);
+	my $md5sum = <$md5sum_fd>;
+	close($md5sum_fd);
+	waitpid $pid, 0;
+
+	$md5sum = (split(/\s+/,$md5sum))[0];
+	return $md5sum;
+}
+
+# merge a set of module declarations into a set of new config files,
+# using the information returned from diff_profiles().
+sub write_profiles
+{
+	my($profiles,$enabled,$confdir,$savedir,$diff,$force) = @_;
+
+	if (! -d $savedir) {
+		mkdir($savedir);
+	}
+		
+	# because we can't atomically replace both /var/lib/pam/$foo and
+	# /etc/pam.d/common-$foo at the same time, take steps to make this
+	# somewhat robust
+	for my $type ('auth','account','password','session',
+	              'session-noninteractive')
+	{
+		my $target = $confdir . '/common-' . $type;
+		my $template = $target;
+		my $dest = $template . '.pam-new';
+
+		my $diff = $diff;
+		if ($diff) {
+			$diff = \%{$diff->{$type}};
+		}
+
+		# Detect if the template is unmodified, and if so, use
+		# the version from /usr/share.  Depends on knowing the
+		# md5sums of the originals.
+		my $md5sum = get_template_md5sum($template);
+		for my $i (@{$md5sums{$type}}) {
+			if ($md5sum eq $i) {
+				$template = '/usr/share/pam/common-' . $type;
+				last;
+			}
+		}
+
+		# first, write out the new config
+		if (!create_from_template($template,$dest,$profiles,$enabled,
+		                          $diff,$type))
+		{
+			if (!$force) {
+				return 0;
+			}
+			$template = '/usr/share/pam/common-' . $type;
+			if (!create_from_template($template,$dest,$profiles,
+			                          $enabled,$diff,$type))
+			{
+				return 0;
+			}
+		}
+
+		# then write out the saved config
+		if (!open(OUTPUT, "> $savedir/$type.new")) {
+			unlink($dest);
+			return 0;
+		}
+		my $i = 0;
+		my $uctype = ucfirst($type);
+		for my $mod (@{$enabled}) {
+			my $output;
+			next if (!$profiles->{$mod}{$uctype . '-Type'});
+			next if ($profiles->{$mod}{$uctype . '-Type'} eq 'Additional');
+
+			$output = lines_for_module_and_type($profiles, $mod, $uctype, $i++);
+			if ($output) {
+				print OUTPUT "Module: $mod\n";
+				print OUTPUT $output . "\n";
+			}
+		}
+
+		# no primary block, so output a stock pam_permit line
+		if ($i == 0)
+		{
+			print OUTPUT "Module: null\n";
+			print OUTPUT "[default=1]\t\t\tpam_permit.so\n";
+		}
+
+		$i = 0;
+		for my $mod (@{$enabled}) {
+			my $output;
+			next if (!$profiles->{$mod}{$uctype . '-Type'});
+			next if ($profiles->{$mod}{$uctype . '-Type'} eq 'Primary');
+
+			$output = lines_for_module_and_type($profiles, $mod, $uctype, $i++);
+			if ($output) {
+				print OUTPUT "Module: $mod\n";
+				print OUTPUT $output . "\n";
+			}
+		}
+
+		close(OUTPUT) or die("close($dest) failed: $!");
+
+		# then do the renames, back-to-back
+		# we have to use system because File::Copy is in
+		# perl-modules, not perl-base
+		if (-e $target && $force) {
+			system('cp','-f',$target,$target . '.pam-old') == 0
+                            or die("cp -f ${target} ${target}.pam.old failed");
+		}
+		rename($dest,$target)
+                    or die("rename($dest, $target) failed: $!");
+		rename("$savedir/${type}.new","$savedir/$type")
+                    or die("rename(${savedir}/${type}.new, ${savedir}/${type}) failed: $!");
+	}
+
+	# at the end of a successful write, reset the 'seen' flag and the
+	# value of the debconf override question.
+	fset($overridetemplate,'seen','false');
+	set($overridetemplate,'false');
+}
+
+# reconcile the current config in /etc/pam.d with the saved ones in
+# /var/lib/pam; returns a hash of profile names and the corresponding
+# options that should be added/removed relative to the stock config.
+# returns false if any of the markers are missing that permit a merge,
+# or on any other failure.
+sub diff_profiles
+{
+	my ($sourcedir,$savedir) = @_;
+	my (%diff);
+
+	@{$diff{'mods'}} = ();
+	# Load the saved config from /var/lib/pam, then iterate through all
+	# lines in the current config that are in the managed block.
+	# If anything fails here, just return immediately since we then
+	# have nothing to merge; instead, the caller will decide later
+	# whether to force an overwrite.
+	for my $type ('auth','account','password','session',
+	              'session-noninteractive')
+	{
+		my (@saved,$modname);
+
+		open(SAVED,$savedir . '/' . $type) || return 0;
+		while (<SAVED>) {
+			if (/^Module: (.*)/) {
+				$modname = $1;
+				next;
+			}
+			chomp;
+			# trim out the destination of any jumps; this saves
+			# us from having to re-parse everything just to fix
+			# up the jump lengths, when changes to these will
+			# already show up as inconsistencies elsewhere
+			s/(\[[^0-9]*)[0-9]+(.*\])/$1$2/g;
+			s/(\[.*)end(.*\])/$1$2/g;
+			my (@temp) = ($modname,$_);
+			push(@saved,\@temp);
+		}
+		close(SAVED);
+
+		my $state = 0;
+		my (@prev_opts,$curmod);
+		my $realtype = $type;
+		$realtype =~ s/-noninteractive//;
+
+		open(CURRENT,$sourcedir . '/common-' . $type) || return 0;
+		while (<CURRENT>) {
+			if ($state == 0) {
+				$state = 1
+				   if (/^# here are the per-package modules \(the "Primary" block\)/);
+				next;
+			}
+			if ($state == 1) {
+				s/^$realtype\s+//;
+				if (/^# here's the fallback if no module succeeds/) {
+					$state = 2;
+					next;
+				}
+			}
+			if ($state == 2) {
+				$state = 3
+				   if (/^# and here are more per-package modules \(the "Additional" block\)/);
+				next;
+			}
+			if ($state == 3) {
+				last if (/^# end of pam-auth-update config/);
+				s/^$realtype\s+//;
+			}
+
+			my $found = 0;
+			my $curopts;
+			while (!$found && $#saved >= 0) {
+				my $line;
+				($modname,$line) = @{$saved[0]};
+				shift(@saved);
+				$line =~ /^((\[[^]]+\]|\w+)\s+\S+)\s*(.*)/;
+				@prev_opts = split(/\s+/,$3);
+				$curmod = $1;
+				# FIXME: the key isn't derived from the config
+				# name, so collisions are possible if more
+				# than one config references the same module
+
+				$_ =~ s/(\[[^0-9]*)[0-9]+(.*\])/$1$2/g;
+				# check if this is a match for the current line
+				if ($_ =~ /^\Q$curmod\E\s*(.*)$/) {
+					$found = 1;
+					$curopts = $1;
+					push(@{$diff{'mods'}},$modname);
+				}
+			}
+
+			# there's a line in the live config that doesn't
+			# correspond to anything from the saved config.
+			# treat this as a failure; it's very error-prone
+			# to decide what to do with an added line that
+			# didn't come from a package.
+			return 0 if (!$found);
+
+			for my $opt (split(/\s+/,$curopts)) {
+				my $found = 0;
+				for (my $i = 0; $i <= $#prev_opts; $i++) {
+					if ($prev_opts[$i] eq $opt) {
+						$found = 1;
+						splice(@prev_opts,$i,1);
+					}
+				}
+				$diff{$type}{'add'}{$curmod}{$opt} = 1 if (!$found);
+			}
+			for my $opt (@prev_opts) {
+				$diff{$type}{'remove'}{$curmod}{$opt} = 1;
+			}
+		}
+		close(CURRENT);
+
+		# we couldn't parse the config, so the merge fails
+		return 0 if ($state < 3);
+	}
+	return \%diff;
+}
+
+# simple function to parse a provided config file, in pseudo-RFC822
+# format,
+sub parse_pam_profile
+{
+	my ($profile) = $_[0];
+	my $fieldname;
+	my %profile;
+	open(PROFILE, $profile) || die "could not read profile $profile: $!";
+	while (<PROFILE>) {
+		if (/^(\S+):\s+(.*)\s*$/) {
+			$fieldname = $1;
+			# compatibility with the first implementation round;
+			# "Auth-Final" is now just called "Auth"
+			$fieldname =~ s/-Final$//;
+			if ($fieldname eq 'Conflicts') {
+				foreach my $elem (split(/, /, $2)) {
+					$profile{'Conflicts'}->{$elem} = 1;
+				}
+			} else {
+				$profile{$fieldname} = $2;
+			}
+		} else {
+			chomp;
+			s/^\s+//;
+			s/\s+$//;
+			$profile{$fieldname} .= "\n$_" if ($_);
+                        if (grep { $profile{$fieldname} =~ /$_/} @invalid_modules) {
+                          $profile{'disabled'} = 1;
+                        }
+			$profile{$fieldname} =~ s/^[\n\s]+//;
+		}
+	}
+	close(PROFILE);
+	if (!defined($profile{'Session-Interactive-Only'})) {
+			$profile{'Session-noninteractive-Type'} = $profile{'Session-Type'};
+			$profile{'Session-noninteractive'} = $profile{'Session'};
+			$profile{'Session-noninteractive-Initial'} = $profile{'Session-Initial'};
+	}
+	return %profile;
+}

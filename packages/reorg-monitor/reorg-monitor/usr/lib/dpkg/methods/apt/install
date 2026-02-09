@@ -1,0 +1,111 @@
+#!/bin/bash
+
+# Set the textdomain for the translations using $"..."
+TEXTDOMAIN="apt"
+
+# Get the configuration from /etc/apt/apt.conf
+CLEAN="prompt"
+OPTS=""
+DSELECT_UPGRADE_OPTS="-f"
+APTGET="/usr/bin/apt-get"
+DPKG="/usr/bin/dpkg"
+DPKG_OPTS="--admindir=$1"
+APT_OPT0="-oDir::State::status=$1/status"
+APT_OPT1="-oDPkg::Options::=$DPKG_OPTS"
+set -e
+RES=$(apt-config shell CLEAN DSelect::Clean OPTS DSelect::Options \
+                      DPKG Dir::Bin::dpkg/f APTGET Dir::Bin::apt-get/f \
+		      ARCHIVES Dir::Cache::Archives/d \
+		      WAIT DSelect::WaitAfterDownload/b \
+		      CHECKDIR DSelect::CheckDir/b)
+eval $RES
+set +e
+
+# Yes/No Prompter
+yesno() {
+# $1 = prompt
+# $2 = default(y)
+	local ans def defp
+	if [ "$2" ];then
+		case $2 in
+			Y|y)	defp="[Y/n]" def=y;;
+			N|n)	defp="[y/N]" def=n;;
+			*)	echo $"Bad default setting!" 1>&2; exit 1;;
+		esac
+	else
+		defp="[y/N]" def=n
+	fi
+	while :;do
+		echo -n "$1 $defp " 1>&3
+		read ans
+		case $ans in
+			Y|y|N|n)	break;;
+			"")		ans=$def;break;;
+		esac
+		echo
+	done
+	echo $ans | tr YN yn
+}
+
+if [ "$WAIT" = "true" ]; then
+   $APTGET $DSELECT_UPGRADE_OPTS $OPTS "$APT_OPT0" "$APT_OPT1" -d dselect-upgrade
+   echo $"Press [Enter] to continue." && read RES
+   $APTGET $DSELECT_UPGRADE_OPTS $OPTS "$APT_OPT0" "$APT_OPT1" dselect-upgrade
+   RES=$?
+else
+   $APTGET $DSELECT_UPGRADE_OPTS $OPTS "$APT_OPT0" "$APT_OPT1" dselect-upgrade
+   RES=$?
+fi
+
+# 1 means the user choose no at the prompt
+if [ $RES -eq 1 ]; then
+  exit 0
+fi
+
+# Finished OK
+if [ $RES -eq 0 ]; then
+
+   if [ $(ls $ARCHIVES $ARCHIVES/partial | grep -E -v "^lock$|^partial$" | wc -l) \
+        -eq 0 ]; then
+      exit 0
+   fi
+
+   NEWLS=$(ls -ld $ARCHIVES)
+   if [ "$CHECKDIR" = "true" ]; then
+      if [ "$OLDLS" = "$NEWLS" ]; then
+         exit 0
+      fi
+   fi
+   
+   # Check the cleaning mode
+   case $(echo $CLEAN | tr '[:upper:]' '[:lower:]') in
+     auto)
+       $APTGET "$APT_OPT0" "$APT_OPT1" autoclean &&
+	   echo $"Press [Enter] to continue." && read RES && exit 0;
+       ;;
+     always)
+       $APTGET "$APT_OPT0" "$APT_OPT1" clean &&
+	   echo $"Press [Enter] to continue." && read RES && exit 0;
+       ;;
+     prompt)
+       exec 3>&1
+       echo -n $"Do you want to erase any previously downloaded .deb files?"
+       if [ $(yesno "" y) = y ]; then
+          $APTGET "$APT_OPT0" "$APT_OPT1" clean &&
+	    echo $"Press [Enter] to continue." && read RES && exit 0;
+       fi
+       ;;
+     *) 
+       ;;
+   esac   
+else
+   echo $"Some errors occurred while unpacking. Packages that were installed"
+   echo $"will be configured. This may result in duplicate errors"
+   echo $"or errors caused by missing dependencies. This is OK, only the errors"
+   echo $"above this message are important. Please fix them and run [I]nstall again"
+   echo $"Press [Enter] to continue."
+   read RES && $DPKG "$DPKG_OPTS" --configure -a
+   exit 100
+fi
+
+exit $?

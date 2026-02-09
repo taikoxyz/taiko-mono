@@ -1,0 +1,10 @@
+/.
+/lib
+/lib/aarch64-linux-gnu
+/lib/aarch64-linux-gnu/libsepol.so.2
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/doc/libsepol2
+/usr/share/doc/libsepol2/changelog.Debian.gz
+/usr/share/doc/libsepol2/copyright

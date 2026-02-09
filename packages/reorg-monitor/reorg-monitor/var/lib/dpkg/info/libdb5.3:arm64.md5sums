@@ -1,0 +1,5 @@
+1ceac5759858bd88fe0ddfc899915681  usr/lib/aarch64-linux-gnu/libdb-5.3.so
+ad7dd09cd8c21b60e6f6135db0c09b5f  usr/share/doc/libdb5.3/build_signature_arm64.txt
+49332150504bf1eefebefdbea0cd578f  usr/share/doc/libdb5.3/changelog.Debian.gz
+00aa43d3e94c4b9211e70e6c14b3d078  usr/share/doc/libdb5.3/copyright
+6476eb780800b7b1b04948f3d4427083  usr/share/lintian/overrides/libdb5.3

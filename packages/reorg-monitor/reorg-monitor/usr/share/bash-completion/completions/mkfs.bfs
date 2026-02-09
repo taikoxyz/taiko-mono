@@ -1,0 +1,31 @@
+_mkfs.bfs_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-N'|'--inodes')
+			COMPREPLY=( $(compgen -W "number" -- $cur) )
+			return 0
+			;;
+		'-V'|'--vname'|'-F'|'--fname')
+			COMPREPLY=( $(compgen -W "name" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS='--inodes --vname --fname --verbose --help --version'
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault -o default
+	COMPREPLY=( $(compgen -W "$(lsblk -pnro name)" -- $cur) )
+	return 0
+}
+complete -F _mkfs.bfs_module mkfs.bfs

@@ -1,0 +1,14 @@
+#! /bin/sh
+
+
+set -eu
+
+case $1 in
+  purge)
+    rm -fv /etc/adduser.conf /etc/adduser.conf.dpkg-save /etc/adduser.conf.update-old
+    ;;
+esac
+
+set +eu
+
+

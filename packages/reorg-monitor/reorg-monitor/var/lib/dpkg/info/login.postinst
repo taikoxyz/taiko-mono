@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+
+
+if [ "$1" = "configure" ]; then
+	# Install faillog during initial installs only
+	if [ "$2" = "" ] && [ ! -f "$DPKG_ROOT/var/log/faillog" ] ; then
+		touch "$DPKG_ROOT/var/log/faillog"
+		chown 0:0 "$DPKG_ROOT/var/log/faillog"
+		chmod 644 "$DPKG_ROOT/var/log/faillog"
+	fi
+
+	# Create subuid/subgid if missing
+	if [ ! -e "$DPKG_ROOT/etc/subuid" ]; then
+		touch "$DPKG_ROOT/etc/subuid"
+		chown 0:0 "$DPKG_ROOT/etc/subuid"
+		chmod 644 "$DPKG_ROOT/etc/subuid"
+	fi
+
+	if [ ! -e "$DPKG_ROOT/etc/subgid" ]; then
+		touch "$DPKG_ROOT/etc/subgid"
+		chown 0:0 "$DPKG_ROOT/etc/subgid"
+		chmod 644 "$DPKG_ROOT/etc/subgid"
+	fi
+fi
+
+# Automatically added by dh_installdeb/13.11.4
+dpkg-maintscript-helper rm_conffile /etc/securetty 1:4.7-1\~ -- "$@"
+# End automatically added section
+
+
+exit 0

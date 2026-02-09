@@ -1,0 +1,41 @@
+_fallocate_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-o'|'--offset'|'-l'|'--length')
+			COMPREPLY=( $(compgen -W "bytes" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="
+				--collapse-range
+				--dig-holes
+				--insert-range
+				--length
+				--keep-size
+				--offset
+				--punch-hole
+				--zero-range
+				--posix
+				--verbose
+				--help
+				--version
+			"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local IFS=$'\n'
+	compopt -o filenames
+	COMPREPLY=( $(compgen -f -- $cur) )
+	return 0
+}
+complete -F _fallocate_module fallocate

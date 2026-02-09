@@ -1,0 +1,381 @@
+Template: libpam-runtime/title
+Type: title
+Description: PAM configuration
+Description-bg.UTF-8: Настройване на PAM
+Description-ca.UTF-8: Configuració de PAM
+Description-cs.UTF-8: Nastavení PAM
+Description-da.UTF-8: PAM-konfiguration
+Description-de.UTF-8: PAM-Konfiguration
+Description-es.UTF-8: Configuración de PAM
+Description-fr.UTF-8: Configuration de PAM
+Description-ja.UTF-8: PAM の設定
+Description-nl.UTF-8: PAM-configuratie
+Description-pl.UTF-8: Konfiguracja PAM
+Description-pt.UTF-8: Configuração PAM
+Description-pt_BR.UTF-8: Configuração do PAM
+Description-ro.UTF-8: Configurarea PAM
+Description-ru.UTF-8: Настройка PAM
+Description-sk.UTF-8: Konfigurácia PAM
+Description-sv.UTF-8: PAM-inställningar
+Description-tr.UTF-8: PAM yapılandırması
+Description-zh_CN.UTF-8: PAM 配置
+
+Template: libpam-runtime/profiles
+Type: multiselect
+Choices: ${profiles}
+Choices-C: ${profile_names}
+Description: PAM profiles to enable:
+ Pluggable Authentication Modules (PAM) determine how authentication,
+ authorization, and password changing are handled on the system, as well
+ as allowing configuration of additional actions to take when starting
+ user sessions.
+ .
+ Some PAM module packages provide profiles that can be used to
+ automatically adjust the behavior of all PAM-using applications on the
+ system.  Please indicate which of these behaviors you wish to enable.
+Description-bg.UTF-8: Разрешаване на PAM профили:
+ Модулите за идентификация (PAM, Pluggable Authentication Modules) управляват идентификацията, оторизацията и промяната на паролите. Те дават и възможност за изпълняване на допълнителни действия при стартиране на нови потребителски сесии.
+ .
+ Някои пакети с PAM модули предлагат „профили“, чрез които може да се промени поведението на всички приложения, използващи PAM. Изберете кои от профилите желаете да разрешите.
+Description-ca.UTF-8: Perfils PAM que cal habilitar:
+ Els «Pluggable Authentication Modules» (PAM, o mòduls d'autenticació inseribles) determinen com es gestionen en el sistema l'autenticació, autorització i modificació de contrasenyes. També permet la definició d'accions addicionals a realitzar quan s'inicia la sessió d'un usuari.
+ .
+ Alguns dels paquets de mòduls de PAM ofereixen perfils que poden utilitzar-se per ajustar automàticament el comportament de totes les aplicacions que fan servir PAM en el sistema. Indiqueu quin d'aquests comportaments desitjau activar.
+Description-cs.UTF-8: PAM profily, které se mají povolit:
+ Moduly PAM (Pluggable Authentication Modules) určují, jakým způsobem je na systému řešena autentizace, autorizace, změna hesel a také umožňují nastavit dodatečné akce při spouštění uživatelských sezení.
+ .
+ Některé balíky s PAM moduly poskytují profily, které mohou automaticky upravit chování všech aplikací používajících PAM. Vyberte si, která chování chcete povolit.
+Description-da.UTF-8: PAM-profiler at aktivere:
+ Pluggable Authentication Modules (PAM) afgør hvordan ændring af godkendelse, autorisation og adgangskode håndteres på systemet, samt tillader konfiguration af yderligere handlinger, der skal igangsættes ved opstart af brugersessioner.
+ .
+ Nogle PAM-modulpakker tilbyder profiler som automatisk kan justere opførelsen af alle PAM-brugende programmer på systemet. Indiker venligst hvilke af disse profiler du ønsker at aktivere.
+Description-de.UTF-8: Zu aktivierende PAM-Profile:
+ Pluggable Authentication Modules (PAM) bestimmen, wie Authentifizierung, Berechtigung und Passwort-Änderung auf dem System gehandhabt werden. Ebenso erlauben sie die Konfiguration zusätzlicher Maßnahmen, die beim Start von Benutzersitzungen vorgenommen werden.
+ .
+ Einige Pakete mit PAM-Modulen stellen Profile bereit, die das Verhalten aller Anwendungen, die PAM verwenden, automatisch anpassen können. Bitte geben Sie an, welche dieser Verhaltensweisen Sie aktivieren möchten.
+Description-es.UTF-8: Perfiles PAM a habilitar:
+ Los «Pluggable Authentication Modules» (PAM, o Módulos de autenticación insertables, N. del T.) determinan cómo se gestiona dentro del sistema la autenticación, autorización y modificación de contraseñas. También permiten la definición de acciones adicionales a realizar cuando se inicia la sesión de un usuario.
+ .
+ Algunos de los paquetes de módulos de PAM ofrecen perfiles que pueden utilizarse para ajustar automáticamente el comportamiento de todas las aplicaciones que utilicen PAM en el sistema. Indique qué comportamiento desea activar.
+Description-eu.UTF-8: Gaitu behar diren PAM profilak:
+ Autentifikazio modulu txertagarriak (PAM) ezartzen du zein autentifikazio, autorizazio eta psahitz aldaketa kudeatzen diren sisteman, baita erabiltzaile saioak hastekoan ekintza gehigarrien konfigurazioaren onarpena du.
+ .
+ Zenbait PAM modulu paketek sisteman PAM erbailtzen duten aplikazioak  automatikoki doitzeko erabili daitezkeen profilak ekartzen dituzte. Mesedez profil hauetako zein gaitu nahi duzun.
+Description-fi.UTF-8: Käyttöön otettavat PAM-profiilit:
+ Pluggable Authentication Modules (PAM) määrittää kuinka tunnistautuminen, oikeuksien hallinta ja salasanan vaihto tehdään järjestelmässä. Se mahdollistaa myös käyttäjäistuntojen käynnistyksen yhdessä suoritettavien lisätoimintojen asetusten muokkaamisen.
+ .
+ Eräiden PAMin moduulipakettien tarjoamien profiilien avulla voidaan automaattisesti muokata järjestelmän kaikkien PAMia käyttävien ohjelmien toimintaa. Valitse mitkä näistä toiminnoista otetaan käyttöön.
+Description-fr.UTF-8: Profils PAM à activer :
+ Les modules d'authentification PAM déterminent la façon dont le système gère l'authentification, les autorisations et les changements de mots de passe. PAM permet aussi de configurer des actions supplémentaires à effectuer au démarrage des sessions utilisateur.
+ .
+ Certains paquets de modules PAM fournissent des profils qui peuvent être utilisés pour ajuster automatiquement le comportement de toutes les applications utilisant PAM qui sont présentes sur le système. Veuillez indiquer lequel de ces comportements vous voulez autoriser.
+Description-gl.UTF-8: Perfís de PAM a activar:
+ Os Pluggable Authentication Modules (PAM) determinan como se xestiona a autenticación, autorización e mudanza do contrasinal no sistema, e tamén permiten configurar accións adicionais a realizar cando se inician sesións de usuario.
+ .
+ Algúns paquetes de módulos de PAM fornecen perfís que poden empregarse para axustar automaticamente o comportamento de todos os programas do sistema que empregan PAM. Indique cais destes comportamentos desexa activar.
+Description-it.UTF-8: Profili PAM abilitabili:
+ PAM (Pluggable Authentication Modules) determina come le autenticazioni, le autorizzazioni e i cambiamenti di password siano gestite dal sistema. Allo stesso modo permette la configurazione di azioni addizionali da effettuarsi all'inizio di una sessione utente.
+ .
+ Alcuni pacchetti di moduli PAM forniscono profili che possono essere usati per modificare il comportamento di tutte le applicazioni presenti sul sistema che sfruttano PAM. Indicare quali di questi comportamenti devono essere abilitati.
+Description-ja.UTF-8: 有効化する PAM プロファイル:
+ PAM (Pluggable Authentication Modules) は、ユーザのセッションが開始したときに起こす追加のアクション設定の許可と共に、どのように認証、認可、パスワード変更がシステムで扱われるかを決定します。
+ .
+ いくつかの PAM モジュールパッケージは、システム上のすべての PAM 利用アプリケーションの挙動を自動で調整するのに利用できるプロファイルを提供しています。これらの挙動の中から有効化したいものを指定してください。
+Description-nl.UTF-8: PAM-profielen die ingeschakeld moeten worden:
+ Pluggable Authentication Modules (PAM) bepalen hoe authenticatie, autorisatie en wachtwoordverandering worden behandeld op het systeem. Ook staat het het instellen van overige acties die moeten worden ondernomen bij het starten van gebruikerssessies toe.
+ .
+ Sommige PAM-modulepakketten leveren profielen die kunnen worden gebruikt om automatisch het gedrag van alle programma's die PAM gebruiken aan te passen. Geeft u alstublieft aan welk van deze instellingen u wilt gebruiken.
+Description-pl.UTF-8: Profile PAM do włączenia:
+ Pluggable Authentication Modules (PAM) określa, jak obsługiwane jest przez system uwierzytelnienie, autoryzacja i zmiana hasła, jak również pozwala na konfigurację dodatkowych akcji do podjęcia podczas uruchamiania sesji użytkownika.
+ .
+ Niektóre moduły PAM dostarczają profile, które mogą być użyte do automatycznego dostosowania zachowania wszystkich aplikacji używających PAM w systemie. Proszę określić, które z tych zachowań mają być włączone.
+Description-pt.UTF-8: Perfis PAM para activar:
+ O PAM (Pluggable Authentication Modules) determina como a autenticação, a autorização, e a mudança de palavras-chave são manuseadas no sistema, assim como permitir a configuração de acções adicionais a tomar quando arrancam sessões de utilizador.
+ .
+ Alguns pacotes de módulos do PAM disponibilizam perfis que podem ser usados para ajustar automaticamente o comportamento de todas as aplicações no sistema que usam o PAM. Por favor indique quais destes comportamentos deseja activar.
+Description-pt_BR.UTF-8: Perfis PAM para habilitar:
+ O PAM ("Pluggable Authentication Modules") determina como a autenticação, a autorização e a alteração de senha são tratadas no sistema, assim como permite a configuração de ações adicionais a serem tomadas quando sessões de usuário são iniciadas.
+ .
+ Alguns pacotes de módulos PAM fornecem perfis que podem ser usados para ajustar automaticamente o comportamento de todas as aplicações que usam PAM no sistema. Por favor, indique quais desses comportamentos você deseja habilitar.
+Description-ro.UTF-8: Profile PAM de activat:
+ Modulele de autentificare conectabile (PAM) definesc cum se manevrează în sistem autentificările, autorizațiile și schimbările de parole, dar permite și adăugarea de diverse acțiuni ce se vor efectua la pornirea sesiunilor utilizatorilor.
+ .
+ Unele pachete de module PAM furnizează profile care pot fi folosite pentru ajustarea automată a comportamentului aplicațiilor din sistem care folosesc PAM. Indicați pe care dintre aceste comportamente le doriți activate.
+Description-ru.UTF-8: Активируемые профили PAM:
+ Через подключаемые модули аутентификации (PAM) указывается, как нужно проводить аутентификацию, авторизацию и смену пароля в системе, а также можно назначать запуск дополнительных действий при старте пользовательских сеансов.
+ .
+ Некоторые пакеты модулей PAM предоставляют профили, которые можно использовать для автоматического регулирования поведения всех использующих PAM программ в системе. Выберите профили, которые нужно применить.
+Description-sk.UTF-8: Zapnúť nasledovné profily PAM:
+ Zásuvné autentifikačné moduly (PAM) určujú ako systém pracuje s autentifikáciou, autorizáciou, zmenou hesiel a umožňuje tiež nastavenie ďalších operácií, ktoré sa majú vykonať pri prihlásení používateľa.
+ .
+ Niektoré balíky modulov PAM poskytujú profily, ktorými možno automaticky prisôpsobiť správanie všetkých aplikácií v systéme, ktoré používajú PAM. Prosím označte tie z nich, ktoré chcete zapnúť.
+Description-sv.UTF-8: Aktivera följande PAM-profiler:
+ Pluggable Authentication Modules (PAM) hanterar hur autentisering, identifiering och byte av lösenord ska utföras på systemet. Dessutom hanteras särskilda åtgärder som ska vidtas vid uppstart av användarsessioner.
+ .
+ Vissa paket med PAM-moduler tillhandahåller profiler som kan användas för att automatiskt justera hur applikationer som använder PAM fungerar på systemet. Ange vilka av dessa funktioner du önskar aktivera.
+Description-tr.UTF-8: Etkinleştirilecek PAM profilleri:
+ Pluggable Authentication Modules (PAM), sisteminizdeki kimlik doğrulama, yetki izni verme ve parola değiştirme işlemlerinin ne şekilde yapılacağını belirler ve kullanıcı oturumları başlatılırken atılması gereken adımları yapılandırır.
+ .
+ Bazı PAM modül paketleri sisteminizde bulunan ve PAM kullanan tüm uygulamaların davranışlarını otomatik olarak ayarlamaya yarayan profiller sağlar. Lütfen bu profillerden hangilerini etkinleştirmek istediğinizi belirtin.
+Description-vi.UTF-8: Các hồ sơ PAM cần bật:
+ Mô-đun Xác thực Dễ kết hợp (PAM) quyết định quá trình xác thực, cho phép và thay đổi mật khẩu được quản lý như thế nào trên hệ thống, cũng như cho phép cấu hình các hành vi bổ sung cần làm khi khởi chạy buổi hợp người dùng.
+ .
+ Một số mô-đun PAM nào đó cũng cung cấp các hồ sơ có thể được dùng để tự động điều chỉnh ứng xử của tất cả các ứng dụng dùng PAM trên hệ thống. Hãy ngụ ý những ứng xử nào bạn muốn hiệu lực.
+Description-zh_CN.UTF-8: 要启用的 PAM 配置策略：
+ 可插入身份验证模块（PAM）决定系统上的身份验证、授权和密码更改应当如何进行，同时允许配置启动用户会话时要进行的额外操作。
+ .
+ 某些 PAM 模块软件包提供了配置策略（profile），可用来自动调整系统上所有使用 PAM 的应用程序的行为。请选择您希望启用其中的哪些行为。
+
+Template: libpam-runtime/conflicts
+Type: error
+Description: Incompatible PAM profiles selected.
+ The following PAM profiles cannot be used together:
+ .
+ ${conflicts}
+ .
+ Please select a different set of modules to enable.
+Description-bg.UTF-8: Избрани са несъвместими PAM профили.
+ Следните PAM профили не могат да се използват едновременно:
+ .
+ ${conflicts}
+ .
+ Изберете друга група профили.
+Description-ca.UTF-8: Heu seleccionat perfils PAM incompatibles.
+ No és possible fer servir conjuntament els perfils de PAM indicats a continuació:
+ .
+ ${conflicts}
+ .
+ Seleccioneu un conjunt distint de mòduls a activar.
+Description-cs.UTF-8: Vybrány nekompatibilní PAM profily.
+ Následující PAM profily nelze používat současně:
+ .
+ ${conflicts}
+ .
+ Povolte prosím jinou sadu modulů.
+Description-da.UTF-8: Inkompatible PAM-profiler valgt.
+ De følgende PAM-profiler kan ikke bruges sammen:
+ .
+ ${conflicts}
+ .
+ Vælg venligst et andet sæt af moduler at aktivere.
+Description-de.UTF-8: Inkompatible PAM-Profile ausgewählt.
+ Die folgenden PAM-Profile können nicht gemeinsam verwendet werden:
+ .
+ ${conflicts}
+ .
+ Bitte wählen Sie eine andere Zusammenstellung zu aktivierender Module aus.
+Description-es.UTF-8: Se han seleccionado perfiles PAM incompatibles.
+ No pueden utilizarse conjuntamente los perfiles de PAM indicados a continuación:
+ .
+ ${conflicts}
+ .
+ Seleccione un conjunto distinto de módulos a activar.
+Description-eu.UTF-8: PAM profil bateraezinak hautatuak.
+ Hurrengo PAM profilak ezin dira elkarrekin erabili:
+ .
+ ${conflicts}
+ .
+ Mesedez hautatu gaitzeko beste modulu bilduma bat.
+Description-fi.UTF-8: Epäyhteensopivia PAM-profiileita valittu
+ Seuraavia PAM-profiileita ei voida käyttää yhdessä:
+ .
+ ${conflicts}
+ .
+ Valitse uusi käyttöön otettavien moduulien joukko.
+Description-fr.UTF-8: Profils PAM incompatibles
+ Les profils PAM suivants sont en conflit :
+ .
+ ${conflicts}
+ .
+ Veuillez choisir un autre jeu de modules à activer.
+Description-gl.UTF-8: Escolléronse perfís de PAM incompatíbeis.
+ Non se poden empregar xuntos os seguintes perfís de PAM:
+ .
+ ${conflicts}
+ .
+ Escolla un conxunto diferente de módulos para activalos.
+Description-it.UTF-8: Sono stati scelti dei profili PAM incompatibili.
+ I seguenti profili PAM non possono essere usati contemporaneamente:
+ .
+ ${conflicts}
+ .
+ Selezionare una serie differente di moduli da abilitare.
+Description-ja.UTF-8: 矛盾する PAM プロファイルが選択されました。
+ 次の PAM プロファイルは一緒に利用することはできません:
+ .
+ ${conflicts}
+ .
+ 有効化するために違うモジュールセットを選択してください。
+Description-nl.UTF-8: Strijdige PAM-profielen geselecteerd.
+ De volgende PAM-profielen kunnen niet samen worden gebruikt:
+ .
+ ${conflicts}
+ .
+ Selecteer een andere set modules om in te schakelen.
+Description-pl.UTF-8: Wybrano niezgodne profile PAM.
+ Następujące profile PAM nie mogą być używane razem:
+ .
+ ${conflicts}
+ .
+ Proszę wybrać inny zestaw modułów do włączenia.
+Description-pt.UTF-8: Seleccionados perfis PAM incompatíveis.
+ Os seguintes perfis do PAM não podem ser usados juntamente:
+ .
+ ${conflicts}
+ .
+ Por favor seleccione um conjunto diferente de módulos para activar.
+Description-pt_BR.UTF-8: Perfis PAM incompatíveis foram selecionados.
+ Os seguintes perfis PAM não podem ser usados em conjunto:
+ .
+ ${conflicts}
+ .
+ Por favor, selecione um conjunto diferente de módulos para habilitar.
+Description-ro.UTF-8: Selecție de profile PAM incompatibile.
+ Următoarele profile PAM nu pot fi folosite împreună:
+ .
+ ${conflicts}
+ .
+ Selectați un alt set de module de activat.
+Description-ru.UTF-8: Выбраны несовместимые профили PAM.
+ Следующие профили PAM нельзя использовать одновременно:
+ .
+ ${conflicts}
+ .
+ Выберите другой набор активируемых модулей.
+Description-sk.UTF-8: Boli vybrané nekompatibilné profily PAM.
+ Nasledovné profily PAM nemožno použiť súčasne:
+ .
+ ${conflicts}
+ .
+ Prosím, zmeňte množinu modulov, ktoré sa majú zapnúť.
+Description-sv.UTF-8: Inkompatibla PAM-profiler valdes.
+ Följande PAM-profiler kan inte användas tillsammans:
+ .
+ ${conflicts}
+ .
+ Ange en annan uppsättning med moduler som ska aktiveras.
+Description-tr.UTF-8: Uyumsuz PAM profilleri seçildi
+ Bu PAM profilleri birlikte kullanılamaz:
+ .
+ ${conflicts}
+ .
+ Lütfen farklı bir modül kümesi seçin.
+Description-vi.UTF-8: Bạn đã chọn một số hồ sơ PAM không tương thích với nhau.
+ Không thể sử dụng với nhau những hồ sơ PAM theo đây:
+ .
+ ${conflicts}
+ .
+ Hãy chọn một tập hợp mô-đun khác để hiệu lực.
+Description-zh_CN.UTF-8: 选中了不兼容的 PAM 配置策略。
+ 以下的 PAM 配置策略不能共同使用：
+ .
+ ${conflicts}
+ .
+ 请选择另一组要启用的模块。
+
+Template: libpam-runtime/override
+Type: boolean
+Default: false
+Description: Override local changes to /etc/pam.d/common-*?
+ One or more of the files /etc/pam.d/common-{auth,account,password,session}
+ have been locally modified.  Please indicate whether these local changes
+ should be overridden using the system-provided configuration.  If you
+ decline this option, you will need to manage your system's
+ authentication configuration by hand.
+Description-bg.UTF-8: Отмяна на локалните промени в /etc/pam.d/common-*?
+ Някои от файловете /etc/pam.d/common-{auth,account,password,session} са променени. Укажете дали желаете променените файлове да бъдат презаписани и да се използват настройките доставени със системата. Ако откажете ще трябва ръчно да настроите PAM.
+Description-ca.UTF-8: Desitjau sobreescriure els canvis locals realitzats a «/etc/pam.d/common-*»?
+ S'ha modificat localment algun dels fitxers «/etc/pam.d/common-{auth,account,password,session}». Indicau si desitjau que aquests canvis locals siguin substituïts amb la configuració definida pel sistema. Caldrà gestionar la configuració d'autenticació del sistema manualment si rebutjau aquesta opció.
+Description-cs.UTF-8: Přepsat místní změny v /etc/pam.d/common-*?
+ Některé ze souborů /etc/pam.d/common-{auth,account,password,session} obsahují místní úpravy. Vyberte si, zda se mají tyto změny přepsat verzí z balíku. Zamítnete-li tuto možnost, budete muset spravovat tyto soubory ručně.
+Description-da.UTF-8: Overskriv lokale ændringer til /etc/pam.d/common-*?
+ En eller flere af filerne /etc/pam.d/common-{auth,account,password,session} er blevet overskrevet lokalt. Indiker venligst hvorvidt disse lokale ændringer skal overskrives med den systemtilbudte konfiguration. Hvis du afslår denne indstilling, skal du på egen hånd håndtere systemets godkendelseskonfiguration.
+Description-de.UTF-8: Lokale Änderungen an /etc/pam.d/common-* außer Kraft setzen?
+ Eine oder mehrere der Dateien /etc/pam.d/common-{auth,account,password,session} sind lokal verändert worden. Bitte geben Sie an, ob diese lokalen Änderungen durch die vom System bereitgestellte Konfiguration außer Kraft gesetzt werden sollen. Falls Sie diese Option ablehnen, müssen Sie die Authentifizierungs-Konfiguration Ihres Systems von Hand verwalten.
+Description-es.UTF-8: ¿Desea sobreescribir los cambios locales realizados a «/etc/pam.d/common-*»?
+ Se ha modificado localmente alguno de los ficheros «/etc/pam.d/common-{auth,account,password,session}». Indique si desea que estos cambios locales se sobreescriban con la configuración definida para el sistema. Deberá gestionar la configuración de autenticación de su sistema manualmente si rechaza esta opción.
+Description-eu.UTF-8: Gainidatzi aldaketa lokalak /etc/pam.d/common-* -era?
+ /etc/pam.d/common-{auth,account,password,session} fitxategietako bat edo gehiago lokalki eraldatua izan da. Mesedez zehaztu aldaketa horiek sistemak-hornitutako konfigurazioaz gainidatzi behar diren ala ez. Aukera hau baztertzea hautatzen baduzu sistemaren autentifikazio konfigurazioa eskuz kudeatu behar duzu.
+Description-fi.UTF-8: Kirjoitetaanko paikallisten muutosten päälle tiedostoissa /etc/pam.d/common-*?
+ Joitain tiedostoista /etc/pam.d/common-{auth,account,password,session} on muokattu paikallisesti. Valitse tulisiko paikalliset muutokset korvata järjestelmän tarjoamilla asetuksilla. Jos et valitse tätä vaihtoehtoa, järjestelmän tunnistautumisasetuksia täytyy hallinnoida käsin.
+Description-fr.UTF-8: Faut-il écraser les modifications locales sur /etc/pam.d/common-* ?
+ Au moins un des fichiers /etc/pam.d/common-{auth,account,password,session} a été modifié localement. Veuillez indiquer s'il faut abandonner ces changements locaux et revenir à la configuration standard du système. Dans le cas contraire, vous devrez configurer vous-même l'authentification dans le système.
+Description-gl.UTF-8: Desexa sobrepor as mudanzas locais a /etc/pam.d/common-*?
+ Modificouse localmente un ou varios dos ficheiros /etc/pam.d/common-{auth,account,password,session}. Indique se estas modificacións locais deben sobrescribirse empregando a configuración fornecida polo sistema. Se rexeita esta opción deberá xestionar manualmente a configuración da autenticación do sistema.
+Description-it.UTF-8: Ignorare i cambiamenti in /etc/pam.d/common-*?
+ Uno o più dei file /etc/pam.d/common-{auth,account,password,session} sono stati modificati. Indicare se questi cambiamenti locali debbono essere annullati usando le configurazioni fornite dal sistema. Se questa opzione verrà annullata, sarà necessario gestire manualmente la configurazione di autenticazione del sistema.
+Description-ja.UTF-8: /etc/pam.d/common-* にローカルの変更を上書きしますか?
+ /etc/pam.d/common-{auth,account,password,session} のファイルのうちの 1 つ以上がローカルで変更されています。これらのローカルの変更をシステムで提供される設定を使って上書きすべきかどうかを指示してください。この選択肢で「いいえ」と答える場合、あなたのシステムの認証設定を手動で管理する必要があります。
+Description-nl.UTF-8: Wilt u de lokale veranderingen aan /etc/pam.d/common-* laten overschrijven?
+ Een of meer van de bestanden /etc/pam.d/common-{auth,account,password,session} zijn lokaal aangepast. Geef aan of deze lokale veranderingen moeten worden overschreven, door de door het systeem geleverde configuratie te gebruiken. Als u dit afwijst, zult u de configuratie van de authenticatie op uw systeem met de hand moeten onderhouden.
+Description-pl.UTF-8: Nadpisać lokalne zmiany w /etc/pam.d/common-*?
+ Jeden lub więcej plików /etc/pam.d/common-{auth,account,password,session}, zostało lokalnie zmodyfikowanych. Proszę określić, czy zmiany te powinny zostać nadpisane przez konfigurację dostarczaną z systemem. W przypadku braku zgody użytkownika, konieczne będzie ręczne zarządzanie systemową konfiguracją uwierzytelniania.
+Description-pt.UTF-8: Sobre-escrever as alterações locais em /etc/pam.d/common-*?
+ Um ou mais dos ficheiros /etc/pam.d/common-{auth,account,password,session} foi modificado localmente. Por favor indique se estas alterações locais deverão ser sobre-escritas usando a configuração disponibilizada pelo sistema. Se você recusar esta opção, terá que gerir a configuração de autenticação do sistema manualmente.
+Description-pt_BR.UTF-8: Sobrescrever as modificações locais de /etc/pam.d/common-*?
+ Um ou mais dos arquivos /etc/pam.d/common-{auth,account,password,session} foram modificados localmente. Por favor, indique se essas modificações locais devem ser sobrescritas usando a configuração fornecida pelo sistema. Se você recusar esta opção, você precisará gerenciar a configuração de autenticação do seu sistema manualmente.
+Description-ro.UTF-8: Se ignoră schimbările locale făcute în /etc/pam.d/common-*?
+ Există modificari locale într-unul sau mai multe dintre fișierele /etc/pam.d/common-{auth,account,password,session}. Precizați dacă aceste schimbări locale trebuie suprascrise cu configurația oferită de sistem. Dacă refuzați, va trebui să administrați manual configurația de autentificare a sistemului.
+Description-ru.UTF-8: Переопределить локальные изменения в /etc/pam.d/common-*?
+ Один или более из файлов /etc/pam.d/common-{auth,account,password,session} был изменён вручную. Укажите, следует ли заменить эти локальные правки конфигурацией, предоставленной системой. Если вы ответите отрицательно, то вам придётся управлять настройками аутентификации вашей системы вручную.
+Description-sk.UTF-8: Prepísať lokálne zmeny v /etc/pam.d/common-*?
+ Jeden alebo viacero zo súborov /etc/pam.d/common-{auth,account,password,session} bolo na lokálnom systéme zmenených. Zvoľte prosím, či sa majú tieto lokálne zmeny prepísať štandardnými konfiguračnými voľbami. Ak túto možnosť zamietnete, budete musieť nastaviť autentifikácie tohto systému ručne.
+Description-sv.UTF-8: Skriv över lokala förändringar i /etc/pam.d/common-*?
+ En eller flera av filerna /etc/pam.d/common-{auth,account.password,session} har förändrats. Ange om dessa lokala förändringar ska skrivas över med standardinställningarna. Om du avböjer detta alternativ kommer du behöva hantera inställningarna för systemets autentisering manuellt.
+Description-tr.UTF-8: /etc/pam.d/common-* konumundaki yerel değişikliklerin üzerine yazılsın mı?
+ /etc/pam.d/common-{auth,account,password,session} dosyalarından bir ya da daha fazlası yerel olarak değiştirilmiş. Lütfen bu yerel değişikliklerin yerine sistem tarafından sağlanan yapılandırmanın konulmasına izin verip vermediğinizi belirtin. Bu seçeneği kabul etmezseniz sisteminizin kimlik doğrulama yapılandırmasını elle ayarlamanız gerekecektir.
+Description-vi.UTF-8: Có quyền cao hơn thay đổi cục bộ trong « /etc/pam.d/common-* » không?
+ Một hay nhiều tập tin « /etc/pam.d/common-{auth,account,password,session} » đã bị sửa đổi cục bộ. Hãy ngụ ý có nên ghi đè lên các thay đổi cục bộ này dùng cấu hình được hệ thống cung cấp, hay không. Không bật tuỳ chọn này thì bạn cần phải tự quản lý cấu hình xác thực của hệ thống này.
+Description-zh_CN.UTF-8: 覆盖 /etc/pam.d/common-* 的本地修改吗？
+ 在 /etc/pam.d/common-{auth,account,password,session} 中的一个或多个文件有本地的修改。请选择是否应当使用系统提供的配置覆盖这些本地修改。如果您拒绝本选项，您需要稍后手动管理您系统上的验证配置。
+
+Template: libpam-runtime/no_profiles_chosen
+Type: error
+Description: No PAM profiles have been selected.
+ No PAM profiles have been selected for use on this system.  This would grant
+ all users access without authenticating, and is not allowed.  Please select
+ at least one PAM profile from the available list.
+Description-bg.UTF-8: Не са избрани PAM профили.
+ Няма избрани PAM профили. Това ще разреши достъпа на всички потребители без удостоверяване на самоличността и не е позволено. Изберете поне един профил от списъка.
+Description-ca.UTF-8: No heu seleccionat cap perfil PAM.
+ No heu seleccionat cap perfil de PAM per a aquest sistema. Així és possible que qualsevol usuari accedeixi sense autenticació, la qual cosa no és permesa. Heu de seleccionar almenys un perfil de PAM de la llista.
+Description-cs.UTF-8: Nebyly vybrány žádné PAM profily.
+ Pro tento systém nebyly vybrány žádné PAM profily, což znamená, že všem uživatelům umožňujete přístup bez autentizace. To není dovoleno. Vyberte prosím ze seznamu alespoň jeden PAM profil.
+Description-da.UTF-8: Ingen PAM-profiler er blevet valgt.
+ Ingen PAM-profiler er blevet valgt til brug på dette system. Dette vil tildele alle brugere adgang uden godkendelse, og er ikke tilladt. Vælg venligst mindst en PAM-profil fra den tilgængelige liste.
+Description-de.UTF-8: Es wurden keine PAM-Profile ausgewählt.
+ Es wurden keine PAM-Profile für die Verwendung auf diesem System ausgewählt. Dies würde allen Benutzern Zugang ohne Authentifizierung gestatten und ist nicht erlaubt. Bitte wählen Sie mindestens ein PAM-Profil aus der Liste der verfügbaren aus.
+Description-es.UTF-8: No ha seleccionado ningún perfil PAM.
+ No ha seleccionado ningún perfil de PAM para este sistema. Esto podría permitir que cualquier usuario accediera sin autenticación, lo que no está permitido. Debe seleccionar al menos un perfil de PAM de la lista.
+Description-fi.UTF-8: Yhtään PAM-profiilia ei ole valittu.
+ Yhtään PAM-profiilia ei ole valittu käytettäväksi tässä järjestelmässä. Tämä sallisi kaikille käyttäjille pääsyn ilman tunnistautumista, eikä siksi ole sallittua. Valitse ainakin yksi PAM-profiili annetulta listalta.
+Description-fr.UTF-8: Aucun profil PAM n'a été choisi.
+ Aucun profil PAM n'a été mis en place pour ce système. N'en utiliser aucun donnerait à tous les utilisateurs un accès sans authentification, ce qui n'est pas autorisé. Merci de bien vouloir choisir au moins un profil PAM dans la liste proposée.
+Description-gl.UTF-8: Non se escolleu ningún perfil PAM.
+ Non se escolleu ningún perfil PAM para este sistema. Esto daría acceso a todos os usuarios sen necesidade de autenticarse, e isto non está permitido. Escolla polo menos un perfil PAM desde a lista de perfís dispoñibeis.
+Description-it.UTF-8: Non è stato selezionato alcun profilo PAM.
+ Non è stato selezonato alcun profilo PAM da usare su questo sistema. Questo non è permesso, in quanto si consentirebbe l'acceso a qualunque utente senza effettuare l'autenticazione. Selezionare come minimo un profilo PAM tra quelli disponibili nell'elenco.
+Description-ja.UTF-8: PAM プロファイルが何も選択されていません。
+ このシステムで利用する PAM プロファイルが何も選択されていません。これは、すべてのユーザが認証なしにアクセスできてしまうことになるので、認められません。利用可能な一覧から少なくとも 1 つの PAM プロファイルを選んでください。
+Description-nl.UTF-8: Er zijn geen PAM-profielen geselecteerd.
+ Er zijn geen PAM-profielen geselecteerd om gebruikt te worden op dit systeem. Dit zou alle gebruikers toegang geven zonder authenticatie, hetgeen niet is toegestaan. Selecteer minstens een PAM-profiel van de beschikbare lijst.
+Description-pl.UTF-8: Nie wybrano żadnych profili PAM.
+ Nie wybrano żadnych profili PAM, które mają być używane przez system. Dałoby to dostęp wszystkim użytkownikom bez uwierzytelniania, co nie jest dozwolone. Proszę wybrać przynajmniej jeden profil PAM z dostępnej listy.
+Description-pt.UTF-8: Nenhum perfil do PAM foi seleccionado.
+ Não foram seleccionados perfis do PAM para utilização neste sistema. Isto irá permitir acesso sem autenticação ao todos os utilizadores, e não é permitido. Por favor seleccione pelo menos um perfil PAM a partir da lista disponível.
+Description-pt_BR.UTF-8: Nenhum perfil PAM foi selecionado.
+ Nenhum perfil PAM foi selecionado para uso neste sistema. Isto garantiria a todos os usuários acesso sem autenticação, e isto não é permitido. Por favor, selecione no mínimo um perfil PAM da lista disponível.
+Description-ro.UTF-8: Nu au fost selectate profile PAM.
+ Nu a fost ales nici un profil PAM pentru a fi folosit pe acest sistem. Acest lucru ar permite tuturor utilizatorilor accesul fără autentificare, ceea ce nu este permis. Selectați cel puțin un profil PAM din lista disponibilă.
+Description-ru.UTF-8: Профили PAM не выбраны.
+ Для использования в системе не выбрано ни одного профиля PAM. Это предоставило бы полный доступ всем пользователям без аутентификации, что запрещено. Пожалуйста, выберите по крайней мере один профиль PAM из доступных.
+Description-sk.UTF-8: Neboli vybrané žiadne profily PAM.
+ Pre tento systém neboli vybrané žiadne profily PAM. To by udelilo všetkým používateľom prístup bez overovania a to nie je povolené. Prosím, vyberte aspoň jeden profil PAM zo zoznamu dostupných profilov.
+Description-sv.UTF-8: Inga PAM-profiler valdes.
+ Inga PAM-profiler används på detta system. Detta skulle ge alla användare tillgång till systemet utan att behöva ange lösenord och det kan inte tillåtas. välj åtminstone en PAM-profil från listan med tillgängliga profiler.
+Description-tr.UTF-8: Hiçbir PAM profili seçilmedi
+ Sisteminizde kullanılmak amacıyla hiçbir PAM modülü seçilmedi. Bu durum kullanıcılarınızın sisteminize hiçbir kimlik doğrulama yapmadan erişmesine olanak verecektir ve kabul edilemez. Hazırdaki profiller listesinden en az bir PAM profili seçin.
+Description-vi.UTF-8: Chưa chọn hồ sơ PAM.
+ Chưa chọn hồ sơ PAM nào để sử dụng trên hệ thống này. Trường hợp này cho phép mọi người dùng truy cập đến hệ thống mà không xác thực: không tốt ! Xin hãy chọn ít nhất một hồ sơ PAM trong danh sách sẵn sàng.
+Description-zh_CN.UTF-8: 未选择任何 PAM 配置策略。
+ 未选中任何用于本系统的 PAM 配置策略。如果这样做会允许所有用户不经验证进行访问，而这种行为是不允许出现的。请从可用列表中选择至少一个 PAM 配置策略。

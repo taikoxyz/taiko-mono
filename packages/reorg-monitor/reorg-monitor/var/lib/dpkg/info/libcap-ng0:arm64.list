@@ -1,0 +1,15 @@
+/.
+/lib
+/lib/aarch64-linux-gnu
+/lib/aarch64-linux-gnu/libcap-ng.so.0.0.0
+/lib/aarch64-linux-gnu/libdrop_ambient.so.0.0.0
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/doc/libcap-ng0
+/usr/share/doc/libcap-ng0/changelog.Debian.arm64.gz
+/usr/share/doc/libcap-ng0/changelog.Debian.gz
+/usr/share/doc/libcap-ng0/changelog.gz
+/usr/share/doc/libcap-ng0/copyright
+/lib/aarch64-linux-gnu/libcap-ng.so.0
+/lib/aarch64-linux-gnu/libdrop_ambient.so.0

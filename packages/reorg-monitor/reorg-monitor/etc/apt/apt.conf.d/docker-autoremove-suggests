@@ -1,0 +1,16 @@
+# Since Docker users are looking for the smallest possible final images, the
+# following emerges as a very common pattern:
+
+#   RUN apt-get update \
+#       && apt-get install -y <packages> \
+#       && <do some compilation work> \
+#       && apt-get purge -y --auto-remove <packages>
+
+# By default, APT will actually _keep_ packages installed via Recommends or
+# Depends if another package Suggests them, even and including if the package
+# that originally caused them to be installed is removed.  Setting this to
+# "false" ensures that APT is appropriately aggressive about removing the
+# packages it added.
+
+# https://www.debian.org/doc/manuals/aptitude/ch02s05s05.en.html#configApt-AutoRemove-SuggestsImportant
+Apt::AutoRemove::SuggestsImportant "false";

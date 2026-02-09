@@ -1,0 +1,68 @@
+This is the Debian package for libselinux, and it is built from sources obtained from:
+http://userspace.selinuxproject.org/trac/wiki/Releases
+
+This package was debianized by Colin Walters <walters@debian.org> on
+Thu,  3 Jul 2003 17:10:57 -0400.
+
+This library (libselinux) is public domain software, i.e. not copyrighted.
+
+Warranty Exclusion
+------------------
+You agree that this software is a
+non-commercially developed program that may contain "bugs" (as that
+term is used in the industry) and that it may not function as intended.
+The software is licensed "as is". NSA makes no, and hereby expressly
+disclaims all, warranties, express, implied, statutory, or otherwise
+with respect to the software, including noninfringement and the implied
+warranties of merchantability and fitness for a particular purpose.
+
+Limitation of Liability
+-----------------------
+In no event will NSA be liable for any damages, including loss of data,
+lost profits, cost of cover, or other special, incidental,
+consequential, direct or indirect damages arising from the software or
+the use thereof, however caused and on any theory of liability. This
+limitation will apply even if NSA has been advised of the possibility
+of such damage. You acknowledge that this is a reasonable allocation of
+risk.
+
+----------------------------------------------------------------------------
+ However, one file (utils/avcstat.c) is
+  Copyright: 2004 Red Hat, Inc., James Morris <jmorris@redhat.com>
+ and is distributed underthe terms of the GNU General Public License,
+ version 2.
+
+----------------------------------------------------------------------------
+In addition, The Debian specific package was modified to include an
+excerpt from the GNU libc package in the file
+utils/ia64-inline-syscall.h. The GNU C Library is distributed under
+the terms of the GNU Lesser General Public License as published by the
+Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+You should have received a copy of the GNU Lesser General Public
+License along with the GNU C Library; if not, write to
+        Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+        Boston, MA 02110-1301, USA.
+
+
+On Debian systems, the complete text of the GNU Library
+General Public License can be found in `/usr/share/common-licenses/LGPL-2.1'.
+------------------------------------------------------------------------------
+
+This package is maintained by Manoj Srivastava <srivasta@debian.org>.
+
+The Debian specific changes are © 2005, 2006, Manoj Srivastava
+<srivasta@debian.org>, and distributed under the terms of the GNU
+General Public License, version 2.
+
+On Debian GNU/Linux systems, the complete text of the GNU General
+Public License can be found in `/usr/share/common-licenses/GPL-2'.
+
+    A copy of the GNU General Public License is also available at
+    <URL:http://www.gnu.org/copyleft/gpl.html>.  You may also obtain
+    it by writing to the Free Software Foundation, Inc., 51 Franklin
+    St, Fifth Floor, Boston, MA 02110-1301, USA.
+
+Manoj Srivastava <srivasta@debian.org>
+arch-tag: d4250e44-a0e0-4ee0-adb9-2bd74f6eeb27

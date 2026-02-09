@@ -1,0 +1,32 @@
+APT
+{
+  NeverAutoRemove
+  {
+	"^firmware-linux.*";
+	"^linux-firmware$";
+	"^linux-image-[a-z0-9]*$";
+	"^linux-image-[a-z0-9]*-[a-z0-9]*$";
+  };
+
+  VersionedKernelPackages
+  {
+	# kernels
+	"linux-.*";
+	"kfreebsd-.*";
+	"gnumach-.*";
+	# (out-of-tree) modules
+	".*-modules";
+	".*-kernel";
+  };
+
+  Never-MarkAuto-Sections
+  {
+	"metapackages";
+	"tasks";
+  };
+
+  Move-Autobit-Sections
+  {
+	"oldlibs";
+  };
+};

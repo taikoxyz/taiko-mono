@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = 'remove' -a -L "$DPKG_ROOT/usr/bin/touch" ]; then
+  rm "$DPKG_ROOT/usr/bin/touch"
+fi
+
+

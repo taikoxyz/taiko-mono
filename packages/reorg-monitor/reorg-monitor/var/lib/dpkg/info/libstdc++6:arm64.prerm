@@ -1,0 +1,13 @@
+#! /bin/sh
+
+set -e
+
+case "$1" in
+    remove|upgrade)
+	files=$(dpkg -L libstdc++6:arm64 | awk -F/ 'BEGIN {OFS="/"} /\.py$/ {$NF=sprintf("__pycache__/%s.*.py[co]", substr($NF,1,length($NF)-3)); print}')
+	rm -f $files
+	dirs=$(dpkg -L libstdc++6:arm64 | awk -F/ 'BEGIN {OFS="/"} /\.py$/ {NF--; print}' | sort -u)
+	find $dirs -mindepth 1 -maxdepth 1 -name __pycache__ -type d -empty | xargs -r rmdir
+esac
+
+

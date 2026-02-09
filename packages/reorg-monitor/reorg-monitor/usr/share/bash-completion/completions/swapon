@@ -1,0 +1,84 @@
+_swapon_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-p'|'--priority')
+			# Priority range is -1 to 32767.  Perhaps these
+			# few are enough.
+			COMPREPLY=( $(compgen -W "{-1..9} 32767" -- $cur) )
+			return 0
+			;;
+		'--show')
+			local prefix realcur OUTPUT_ALL OUTPUT
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			OUTPUT_ALL="NAME TYPE SIZE USED PRIO UUID LABEL"
+			for WORD in $OUTPUT_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					OUTPUT="$WORD ${OUTPUT:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$OUTPUT" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-U'|'UUID=')
+			local UUIDS
+			UUIDS="$(lsblk -nrp -o FSTYPE,UUID | awk '$1 ~ /swap/ { print $2 }')"
+			COMPREPLY=( $(compgen -W "$UUIDS" -- $cur) )
+			return 0
+			;;
+		'-L'|'LABEL=')
+			local LABELS
+			LABELS="$(lsblk -nrp -o FSTYPE,LABEL | awk '$1 ~ /swap/ { print $2 }')"
+			COMPREPLY=( $(compgen -W "$LABELS" -- $cur) )
+			return 0
+			;;
+		'PARTUUID=')
+			local PARTUUIDS
+			PARTUUIDS="$(lsblk -nrp -o FSTYPE,PARTUUID | awk '$1 ~ /swap/ { print $2 }')"
+			COMPREPLY=( $(compgen -W "$PARTUUIDS" -- $cur) )
+			return 0
+			;;
+		'PARTLABEL=')
+			local PARTLABELS
+			PARTLABELS="$(lsblk -nrp -o FSTYPE,PARTLABEL | awk '$1 ~ /swap/ { print $2 }')"
+			COMPREPLY=( $(compgen -W "$PARTLABELS" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--all
+				--discard
+				--ifexists
+				--fixpgsz
+				--priority
+				--summary
+				--show
+				--output-all
+				--noheadings
+				--raw
+				--bytes
+				--verbose
+				-L
+				-U
+				--help
+				--version"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local DEVS
+	DEVS="$(lsblk -nrp -o FSTYPE,NAME | awk '$1 ~ /swap/ { print $2 }')"
+	compopt -o nospace
+	COMPREPLY=( $(compgen -fW "$DEVS LABEL= UUID= PARTLABEL= PARTUUID=" -- $cur) )
+	return 0
+}
+complete -F _swapon_module swapon

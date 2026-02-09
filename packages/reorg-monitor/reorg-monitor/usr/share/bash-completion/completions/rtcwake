@@ -1,0 +1,59 @@
+_rtcwake_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-A'|'--adjfile')
+			local IFS=$'\n'
+			compopt -o filenames
+			COMPREPLY=( $(compgen -f -- $cur) )
+			return 0
+			;;
+		'-d'|'--device')
+			local RTC_DEVS
+			RTC_DEVS=$(cd /sys/class/rtc/ && echo *)
+			COMPREPLY=( $(compgen -W "$RTC_DEVS" -- $cur) )
+			return 0
+			;;
+		'-m'|'--mode')
+			COMPREPLY=( $(compgen -W "$(rtcwake --list-modes)" -- $cur) )
+			return 0
+			;;
+		'-s'|'--seconds')
+			COMPREPLY=( $(compgen -W "seconds" -- $cur) )
+			return 0
+			;;
+		'-t'|'--time')
+			COMPREPLY=( $(compgen -W "time_t" -- $cur) )
+			return 0
+			;;
+		'--date')
+			COMPREPLY=( $(compgen -W "YYYYMMDDhhmmss" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	OPTS="
+		--auto
+		--adjfile
+		--date
+		--device
+		--dry-run
+		--local
+		--list-modes
+		--mode
+		--seconds
+		--time
+		--utc
+		--verbose
+		--help
+		--version
+	"
+	COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+	return 0
+}
+complete -F _rtcwake_module rtcwake

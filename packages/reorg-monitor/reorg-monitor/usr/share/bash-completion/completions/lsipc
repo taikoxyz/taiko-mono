@@ -1,0 +1,71 @@
+_lsipc_module()
+{
+	local cur prev OPTS ARG
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-i'|'--id')
+			COMPREPLY=( $(compgen -W "id" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+		'--time-format')
+			COMPREPLY=( $(compgen -W "short full iso" -- $cur) )
+			return 0
+			;;
+		'-o'|'--output')
+			local prefix realcur OUTPUT_ALL OUTPUT
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			OUTPUT_ALL="
+				KEY ID OWNER PERMS CUID CUSER CGID
+				CGROUP UID USER GID GROUP CTIME
+
+				SIZE NATTCH STATUS ATTACH DETACH
+				COMMAND CPID LPID
+
+				USEDBYTES MSGS SEND RECV LSPID LRPID
+
+				NSEMS OTIME
+
+				RESOURCE DESCRIPTION LIMIT USED USE%
+			"
+			for WORD in $OUTPUT_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					OUTPUT="$WORD ${OUTPUT:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$OUTPUT" -S ',' -- $realcur) )
+			return 0
+			;;
+	esac
+	OPTS="
+		--shmems
+		--queues
+		--semaphores
+		--global
+		--id
+		--noheadings
+		--notruncate
+		--time-format
+		--bytes
+		--creator
+		--export
+		--json
+		--newline
+		--list
+		--output
+		--numeric-perms
+		--raw
+		--time
+		--help
+		--version
+	"
+	COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+	return 0
+}
+complete -F _lsipc_module lsipc

@@ -1,0 +1,70 @@
+#!/bin/sh
+# turn shadow passwords on or off on a Debian system
+
+set -e
+
+shadowon () {
+    set -e
+
+    if [ -n "$DPKG_ROOT" ] \
+        && cmp "${DPKG_ROOT}/etc/passwd" "${DPKG_ROOT}/usr/share/base-passwd/passwd.master" 2>/dev/null \
+        && cmp "${DPKG_ROOT}/etc/group" "${DPKG_ROOT}/usr/share/base-passwd/group.master" 2>/dev/null; then
+        # If dpkg is run with --force-script-chrootless and if /etc/passwd
+        # and /etc/group are unchanged, we avoid the chroot() call by manually
+        # processing the files. This produces bit-by-bit identical results
+        # compared to the normal case as shown by the CI setup at
+        # https://salsa.debian.org/helmutg/dpkg-root-demo/-/jobs
+        for f in passwd group; do
+            cp -a "${DPKG_ROOT}/etc/$f" "${DPKG_ROOT}/etc/$f-"
+        done
+        chmod 600 "${DPKG_ROOT}/etc/passwd-"
+        sed -i 's/^\([^:]\+\):\*:/\1:x:/' "${DPKG_ROOT}/etc/group" "${DPKG_ROOT}/etc/passwd"
+        [ -n "$SOURCE_DATE_EPOCH" ] && epoch=$SOURCE_DATE_EPOCH || epoch=$(date +%s)
+        sed "s/^\([^:]\+\):.*/\1:*:$((epoch/60/60/24)):0:99999:7:::/" "${DPKG_ROOT}/etc/passwd" > "${DPKG_ROOT}/etc/shadow"
+        sed "s/^\([^:]\+\):.*/\1:*::/" "${DPKG_ROOT}/etc/group" > "${DPKG_ROOT}/etc/gshadow"
+        touch "${DPKG_ROOT}/etc/.pwd.lock"
+        chmod 600 "${DPKG_ROOT}/etc/.pwd.lock"
+    else
+        pwck -q -r
+        grpck -r
+        pwconv
+        grpconv
+    fi
+    chown root:root "${DPKG_ROOT}/etc/passwd" "${DPKG_ROOT}/etc/group"
+    chmod 644 "${DPKG_ROOT}/etc/passwd" "${DPKG_ROOT}/etc/group"
+    chown root:shadow "${DPKG_ROOT}/etc/shadow" "${DPKG_ROOT}/etc/gshadow"
+    chmod 640 "${DPKG_ROOT}/etc/shadow" "${DPKG_ROOT}/etc/gshadow"
+}
+
+shadowoff () {
+    set -e
+    pwck -q -r
+    grpck -r
+    pwunconv
+    grpunconv
+    # sometimes the passwd perms get munged
+    chown root:root /etc/passwd /etc/group
+    chmod 644 /etc/passwd /etc/group
+}
+
+case "$1" in
+    "on")
+	if shadowon ; then
+	    echo Shadow passwords are now on.
+	else
+	    echo Please correct the error and rerun \`$0 on\'
+	    exit 1
+	fi
+	;;
+    "off")
+	if shadowoff ; then
+	    echo Shadow passwords are now off.
+	else
+	    echo Please correct the error and rerun \`$0 off\'
+	    exit 1
+	fi
+	;;
+     *)
+	echo Usage: $0 on \| off
+	;;
+esac

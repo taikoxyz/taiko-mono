@@ -1,0 +1,9 @@
+auto
+/usr/sbin/rmt
+rmt.8.gz
+/usr/share/man/man8/rmt.8.gz
+
+/usr/sbin/rmt-tar
+50
+/usr/share/man/man8/rmt-tar.8.gz
+

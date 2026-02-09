@@ -1,0 +1,82 @@
+#!/usr/bin/perl -w
+# This file was preprocessed, do not edit!
+
+
+use strict;
+use Getopt::Long;
+use Debconf::Log qw{:all};
+use Debconf::Db;
+use Debconf::DbDriver;
+use Debconf::DbDriver::Backup;
+
+
+sub usage {
+	print STDERR <<EOF;
+Usage: debconf-copydb sourcedb destdb [--pattern=pattern] [--owner-pattern=pattern] [--config=Foo:bar]
+EOF
+	exit(1);
+}
+
+
+my $pattern='.*';
+my $owner_pattern;
+
+my %config;
+sub config {
+	my ($field, $value)=split(/\s*:\s*/, $_[1], 2);
+	$field=~tr/-/_/;
+	$field=lc($field);
+	die "Parse error: \"$_[1]\"" unless defined $field and length $field;
+	
+	if ($field eq 'name') {
+		if ($config{name}) {
+			Debconf::Db->makedriver(%config);
+		}
+		elsif (%config) {
+			warn "ignoring command line config data before $_[1]";
+		}
+		%config=();
+	}
+
+	$config{$field}=$value;
+}
+
+GetOptions(
+	"pattern|p=s"	=> \$pattern,
+	"config|c=s"	=> \&config,
+	"owner-pattern=s" => \$owner_pattern,
+) || usage();
+Debconf::Db->makedriver(%config) if %config;
+
+my $srcname=shift || usage();
+my $destname=shift || usage();
+
+Debconf::Db->load;
+
+my $src=Debconf::DbDriver->driver($srcname);
+die "$0: source database, \"$srcname\" does not exist\n" unless ref $src;
+my $dest=Debconf::DbDriver->driver($destname);
+die "$0: destination database, \"$destname\" does not exist\n" unless ref $dest;
+
+my $copier=Debconf::DbDriver::Backup->new(
+	db => $src, backupdb => $dest, name => 'copier');
+
+my $i=$copier->iterator;
+while (my $item=$i->iterate) {
+	next unless $item =~ /$pattern/;
+
+	if (defined $owner_pattern) {
+		my $fit_owner = 0;
+		my $owner;
+		foreach $owner ($src->owners($item)){
+			$fit_owner = 1 if $owner =~ /$owner_pattern/;
+		}
+		next unless $fit_owner;
+	}
+
+	$copier->copy($item, $src, $dest);
+}
+
+$copier->shutdown;
+
+

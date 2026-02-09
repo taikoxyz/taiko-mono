@@ -1,0 +1,327 @@
+
+Template: ca-certificates/title
+Type: title
+Description: ca-certificates configuration
+Description-ca.UTF-8: Configuració de ca-certificates
+Description-cs.UTF-8: Nastavení ca-certificates
+Description-da.UTF-8: konfiguration af ca-certificates
+Description-de.UTF-8: ca-certificates-Konfiguration
+Description-es.UTF-8: Configuración de ca-certificates
+Description-fr.UTF-8: Configuration de ca-certificates
+Description-gl.UTF-8: Configuración dos certificados das entidades de acreditación (EA)
+Description-id.UTF-8: pengaturan ca-certificates
+Description-it.UTF-8: Configurazione di ca-certificates
+Description-ja.UTF-8: ca-certificates の設定
+Description-nl.UTF-8: ca-certificates configuratie
+Description-pl.UTF-8: Konfiguracja ca-certificates
+Description-pt.UTF-8: configuração de ca-certificates
+Description-pt_BR.UTF-8: Configuração do ca-certificates
+Description-ru.UTF-8: Настройка ca-certificates
+Description-sk.UTF-8: Nastavenie ca-certificates
+Description-sv.UTF-8: Inställningar för ca-certificates
+Description-tr.UTF-8: ca-certificates yapılandırması
+
+Template: ca-certificates/trust_new_crts
+Type: select
+Choices: yes, no, ask
+Choices-ca.UTF-8: sí, no, demana
+Choices-cs.UTF-8: ano, ne, zeptat se
+Choices-da.UTF-8: ja, nej, spørg
+Choices-de.UTF-8: Ja, Nein, Fragen
+Choices-es.UTF-8: sí, no, preguntar
+Choices-eu.UTF-8: bai, ez, galdetu
+Choices-fi.UTF-8: kyllä, ei, kysy
+Choices-fr.UTF-8: Oui, Non, Demander
+Choices-gl.UTF-8: si, non, preguntar
+Choices-id.UTF-8: ya, tidak, tanyakan
+Choices-it.UTF-8: sì, no, chiedi
+Choices-ja.UTF-8: はい, いいえ, 質問する
+Choices-nl.UTF-8: ja, nee, selectie
+Choices-pl.UTF-8: tak, nie, pytaj
+Choices-pt.UTF-8: sim, não, perguntar
+Choices-pt_BR.UTF-8: sim, não, perguntar
+Choices-ru.UTF-8: да, нет, спрашивать
+Choices-sk.UTF-8: áno, nie, pýtať sa
+Choices-sv.UTF-8: ja, nej, fråga
+Choices-tr.UTF-8: evet, hayır, sor
+Choices-vi.UTF-8: có, không, hỏi
+Default: yes
+Description: Trust new certificates from certificate authorities?
+ This package may install new CA (Certificate Authority) certificates when
+ upgrading. You may want to check such new CA certificates and select only
+ certificates that you trust.
+ .
+  - yes: new CA certificates will be trusted and installed;
+  - no : new CA certificates will not be installed by default;
+  - ask: prompt for each new CA certificate.
+Description-ca.UTF-8: Voleu confiar en els nous certificats de les autoritats certificadores?
+ Aquest paquet pot instal·lar nous certificats de les CA (Entitats Certificadores) en el moment d'actualitzar-lo. Podeu escollir comprovar aquests nous certificats de les CA i seleccionar-ne només els certificats en què confieu.
+ .
+ - 'sí', es confiarà i s'instal·laran els nous certificats de les CA.
+ - 'no', no s'instal·laran, per defecte, els nous certificats de les CA.
+ - 'demana', se us demanarà si confieu o no en cada nou certificat de les CA.
+Description-cs.UTF-8: Důvěřovat novým certifikátům certifikačních autorit?
+ Tento balík může při aktualizaci instalovat nové certifikáty certifikačních autorit (CA). Měli byste tyto nové certifikáty zkontrolovat a vybrat jen ty, kterým důvěřujete.
+ .
+  - ano: důvěřujete novým certifikátům a budou nainstalovány.
+  - ne:  nové certifikáty nebudou implicitně instalovány.
+  - zeptat se: zeptá se na každý nový certifikát individuálně.
+Description-da.UTF-8: Stol på nye certifikater fra certifikatautoriteter?
+ Denne pakke kan installere nye CA-certifikater (Certificate Authority), under opgraderinger. Måske vil du gerne tjekke sådanne nye CA-certifikater og kun vælge de certifikater, du stoler på.
+ .
+  - ja: Nye CA-certifikater vil blive installeret og stolet på.
+  - nej: Nye CA-certifikater vil som udgangspunkt ikke blive installeret.
+  - spørg: Spørger om du vil stole på hvert enkelt nyt CA-certifikat eller ej.
+Description-de.UTF-8: Neuen Zertifikaten von Zertifizierungsstellen vertrauen?
+ Dieses Paket kann neue Zertifikate von CAs (Zertifizierungsstellen) installieren, wenn ein Upgrade durchgeführt wird. Sie sollten solche neuen CA-Zertifikate vielleicht prüfen und nur Zertifikate auswählen, denen Sie vertrauen.
+ .
+  - Ja    : neuen CA-Zertifikaten wird vertraut und sie werden installiert;
+  - Nein  : neue CA-Zertifikate werden standardmäßig nicht installiert;
+  - Fragen: fragt bei jedem neuen CA-Zertifikat nach.
+Description-es.UTF-8: ¿Desea confiar en los nuevos certificados de las autoridades de certificación?
+ Este paquete puede que instale nuevos certificados de CA (Autoridad Certificadora) al actualizarse. Quizás quiera comprobar esos nuevos certificados CA y seleccionar sólo los certificados en los que confíe.
+ .
+  - sí: se confiará en los nuevos certificados de CA y se instalarán.
+  - no: los nuevos certificados de CA no se instalarán por omisión.
+  - preguntar: se hará la pregunta para cada nuevo certificado de CA.
+Description-eu.UTF-8: Ziurtagiri autoritateen ziurtagiri berrietaz fidatu?
+ Pakete honek ZA (Ziurtagiri Autoritate) berri ziurtagiriak instala ditzake bertsio berritzean. Agian ZA ziurtagiri hauek arakatu eta fidatzen zarenetaz bakarrik hautatu ditzakezu.
+ .
+  - bai: ZA berrietako ziurtagiriak instalatu eta fidagarriak dira;
+  - ez: lehenespen bezala ZA berrietako ziurtagiriak ez dira instalatuko
+  - galdetu: ZA berrietako ziuratgiri bakoitzean galdetu.
+Description-fi.UTF-8: Luotetaanko varmentajien uusiin varmenteisiin?
+ Tämä paketti saattaa asentaa uusia CA-varmenteita (Certificate Authority, varmentaja) päivitettäessä. Saatat haluta tarkistaa tällaiset uudet CA-varmenteet ja valita vain ne varmenteet, joihin luotat.
+ .
+  - kyllä: uusiin CA-varmenteisiin luotetaan ja ne asennetaan
+  - ei:    uusia CA-varmenteita ei oletuksena asenneta
+  - kysy:  kunkin uuden CA-varmenteen kohdalla kysytään erikseen
+Description-fr.UTF-8: Faut-il accepter les nouveaux certificats de tiers de confiance ?
+ Ce paquet peut installer des certificats de nouveaux tiers de confiance (« Certificate Authority ») lors de ses mises à jour. Vous pouvez souhaiter vérifier ces nouveaux certificats et ne choisir que ceux que vous acceptez.
+ .
+  - Oui      : les nouveaux certificats seront acceptés et installés ;
+  - Non      : les nouveaux certificats ne seront pas installés par défaut ;
+  - Demander : l'agrément de chacun des nouveaux certificats vous sera
+              demandé.
+Description-gl.UTF-8: Confiar nos novos certificados das entidades de acreditación?
+ Este paquete pode instalar novos certificados de entidades de acreditación (EA) ao actualizar. Pode querer comprobar eses novos certificados e escoller só nos que confíe.
+ .
+  - si       : hase confiar e instalar os novos certificados de entidades de acreditación.
+  - non      : non se han instalar por defecto os novos certificados de entidades de acreditación.
+  - preguntar: preguntar por cada novo certificado dunha entidade de acreditación.
+Description-id.UTF-8: Mempercayai sertifikat baru dari otoritas sertifikat?
+ Paket ini dapat memasang sertifikat CA baru (Otoritas Sertifikat) ketika melakukan pembaharuan. Anda mungkin ingin memeriksa sertifikat CA baru tersebut dan memilih hanya sertifikat yang anda percaya.
+ .
+  - ya: setiap sertifikat CA baru selalu dipercaya dan dipasangkan;
+  - tidak : setiap sertifikat CA baru tidak akan dipasang sebagai standar;
+  - tanyakan: konfirmasikan untuk setiap sertifikat CA baru.
+Description-it.UTF-8: Fiducia ai certificati delle nuove autorità di certificazione?
+ L'aggiornamento di questo pacchetto potrebbe installare certificati di nuove CA (Autorità di Certificazione). Si potrebbe voler esaminare i certificati delle nuove CA e scegliere solo quelli fidati.
+ .
+  - sì    : i certificati delle nuove CA sono fidati e installati;
+  - no    : i certificati delle nuove CA non vengono installati;
+  - chiedi: per ogni certificato delle nuove CA viene chiesto cosa fare.
+Description-ja.UTF-8: 証明機関からの新しい証明書を信用しますか?
+ このパッケージは、更新時に新しい CA (証明機関) をインストールできます。そのような新しい CA 証明書を確認して、信用する証明書だけを選択できます。
+ .
+  - `はい: 新しい CA 証明書を信用し、インストールします。
+  - `いいえ': 新しい CA 証明書をデフォルトではインストールしません。
+  - `質問する': 新しい CA 証明書についてそれぞれ尋ねます。
+Description-nl.UTF-8: Nieuwe certificaten van certificaatautoriteiten vertrouwen?
+ Het is mogelijk dat dit pakket nieuwe CA (certificaatautoriteit) certificaten installeert tijdens een opwaardering naar een nieuwe versie. Mogelijk wilt u dergelijke nieuwe certificaten controleren en alleen certificaten selecteren van autoriteiten die u vertrouwt.
+ .
+  - ja: nieuwe CA certificaten vertrouwen en installeren;
+  - nee: nieuwe CA certificaten niet standaard installeren;
+  - selectie: CA certificaten handmatig selecteren.
+Description-pl.UTF-8: Ufać nowym certyfikatom urzędów certyfikacji?
+ Pakiet może instalować nowe certyfikaty urzędów certyfikacji (ang. Certificate Authority - CA) podczas aktualizacji. Można zechcieć sprawdzać nowe certyfikaty i wybierać tylko zaufane.
+ .
+  - tak:   nowe certyfikaty CA będą zaufane i instalowane;
+  - nie:   nowe certyfikaty CA nie będą domyślnie instalowane;
+  - pytaj: pytaj o każdy nowy certyfikat CA.
+Description-pt.UTF-8: Confiar nos novos certificados das autoridades de certificados?
+ Este pacote poderá instalar novos certificados CA (Certificate Authority) quando for actualizado. Poderá querer verificar esses novos certificados e escolher apenas os certificados em que confia.
+ .
+  - sim      : novos certificados CA serão confiados e instalados;
+  - não      : novos certificados CA não serão instalados por omissão;
+  - perguntar: perguntar para cada novo certificado CA.
+Description-pt_BR.UTF-8: Confiar em novos certificados de autoridades certificadoras?
+ Este pacote pode instalar novos certificados de CAs (Autoridades Certificadoras) ao atualizar. Você pode querer checar esses novos certificados de CAs e selecionar somente aqueles certificados nos quais você confia.
+ .
+  - sim: novos certificados de CAs serão confiáveis e serão instalados;
+  - não: novos certificados de CAs não serão instalados por padrão;
+  - perguntar: pergunta a cada novo certificado de CA.
+Description-ru.UTF-8: Доверять новым сертификатам удостоверяющих центров?
+ При обновлении этот пакет может установить новые сертификаты удостоверяющих центров (CA). Вы можете проверить их и выбрать только те, которым доверяете.
+ .
+  - да: доверять новым сертификатам CA и установить их.
+  - нет: по умолчанию не устанавливать новые сертификаты CA.
+  - спрашивать: подтверждать каждый новый сертификат CA.
+Description-sk.UTF-8: Dôverovať novým certifikátom certifikačných autorít?
+ Tento balík môže pri aktualizácii inštalovať nové certifikáty certifikačných autorít (CA). Môžete chcieť  tieto nové certifikáty CA skontrolovať a zvoliť len certifikáty, ktorým dôverujete.
+ .
+  - áno     : nové certifikáty CA budú dôveryhodné a nainštalované;
+  - nie     : nové certifikáty CA nebudú predvolene nainštalované;
+  - pýtať sa: pýtať sa na každý nový certifikát CA.
+Description-sv.UTF-8: Lita på nya certifikat från certifikatutfärdare?
+ Detta paket kan installera nya CA-certifikat (Certificate Authority) vid uppgradering.  Du kanske vill kontrollera de nya CA-certifikaten och endast välja de certifikat som du litar på.
+ .
+  - ja: nya CA-certifikat kommer att litas på och installeras;
+  - nej: nya CA-certifikat kommer inte att installeras som standard;
+  - fråga: fråga för varje nytt CA-certifikat.
+Description-tr.UTF-8: Sertifika yetkililerinin yeni sertifikalarına güvenilsin mi?
+ Bu paket yükseltme sırasında yeni bir Sertifika Yetkilisi (SY) kurabilir. Olası yeni SY sertifikalarını denetlemek ve yalnızca güvendiğiniz sertifikaları kullanmak isteyebilirsiniz.
+ .
+  - evet: yeni SY sertifikalarına güvenilecek ve kurulacak;
+  - hayır: öntanımlı olarak yeni SY sertifikaları kurulmayacak;
+  - sor: her yeni SY sertifikası için görüş istenecek.
+Description-vi.UTF-8: Tin chứng nhận mới của nhà cầm quyền chứng nhận mới không?
+ Gói này có lẽ sẽ cài đặt chứng nhận CA (nhà cầm quyền chứng nhận) mới khi nâng cấp. Đề nghị bạn kiểm tra các chứng nhận CA như vậy, chỉ chọn chứng nhận đã tin cậy.
+ .
+  • có	 		tin và cài đặt chứng nhận CA mới.
+  • không		mặc định là không cài đặt chứng nhận CA mới.
+  • hỏi		nhắc với mỗi chứng nhận CA mới
+
+Template: ca-certificates/new_crts
+Type: multiselect
+Choices: ${new_crts}
+Description: New certificates to activate:
+ During upgrades, new certificates will be added. Please choose
+ those you trust.
+Description-ca.UTF-8: Certificats nous a activar:
+ Durant l'actualització s'afegiran certificats nous. Seleccioneu aquells en què confieu.
+Description-cs.UTF-8: Nové certifikáty, které se mají aktivovat:
+ Během aktualizace budou přidány nové certifikáty. Vyberte prosím ty, kterým důvěřujete.
+Description-da.UTF-8: Nye certifikater at aktivere:
+ Under opgraderinger vil nye certifikater blive tilføjet. Vælg venligt dem du stoler på.
+Description-de.UTF-8: Zu aktivierende neue Zertifikate:
+ Während Upgrades werden neue Zertifikate hinzugefügt. Bitte wählen Sie diejenigen aus, denen Sie vertrauen.
+Description-es.UTF-8: Nuevos certificados a activar:
+ Se añadirán estos certificados durante la actualización. Escoja de la lista aquellos en los que confía.
+Description-eu.UTF-8: Gaitzeko ziurtagiri berriak:
+ Bertsio berritzeetan, ziurtagiri berriak gehituko dira, Mesedez hautatu zeinetaz fidatzen zaren.
+Description-fi.UTF-8: Uudet aktivoitavat varmenteet:
+ Päivitysten yhteydessä lisätään uusia varmenteita. Valitse ne, joihin luotat.
+Description-fr.UTF-8: Nouveaux certificats à accepter :
+ Lors de cette mise à jour, de nouveaux certificats ont été ajoutés. Veuillez choisir si vous les acceptez.
+Description-gl.UTF-8: Novos certificados a activar:
+ Durante as anovacións engadiranse novos certificados. Indique os certificados nos que confía.
+Description-id.UTF-8: Sertifikat baru untuk diaktifkan:
+ Selama pembaharuan, sertifikat baru akan ditambahkan. Silakan memilih yang anda percaya.
+Description-it.UTF-8: Nuovi certificati da attivare:
+ Con l'aggiornamento, vengono aggiunti dei nuovi certificati. Selezionare quelli fidati.
+Description-ja.UTF-8: 活性化する新しい証明書:
+ この更新では、新しい証明書が追加されています。これらの証明書を信用するかどうか選んでください。
+Description-nl.UTF-8: Te activeren nieuwe certificaten:
+ Bij deze opwaardering worden nieuwe certificaten toegevoegd. Selecteer de certificaten die u vertrouwt.
+Description-pl.UTF-8: Nowe certyfikaty do aktywowania:
+ Podczas aktualizacji dodano nowe certyfikaty. Proszę wybrać te, którym się ufa.
+Description-pt.UTF-8: Novos certificados para activar:
+ Durante a actualização, serão adicionados novos certificados. Por favor escolha os que confia.
+Description-pt_BR.UTF-8: Novos certificados a serem ativados:
+ Durante as atualizações, novos certificados serão adicionados. Por favor, selecione aqueles nos quais você confia.
+Description-ru.UTF-8: Новые сертификаты для активации:
+ Во время обновления будут добавлены новые сертификаты. Выберите те, которым вы доверяете.
+Description-sk.UTF-8: Nové certifikáty, ktoré majú byť aktivované:
+ Počas aktualizácie boli pridané nové certifikáty. Prosím, vyberte tie, ktorým dôverujete.
+Description-sv.UTF-8: Nya certfikat att aktivera:
+ Under uppgraderingar kommer nya certifikat att läggas till. Välj de som du litar på.
+Description-tr.UTF-8: Etkinleştirilecek yeni sertifikalar:
+ Yükseltmeler sırasında yeni sertifikalar eklenecektir. Lütfen güvendiklerinizi seçiniz.
+Description-vi.UTF-8: Các chứng nhận mới cần kích hoạt:
+ Trong khi nâng cấp, chứng nhận mới sẽ được thêm. Hãy chọn những chứng nhận bạn tin vậy.
+
+Template: ca-certificates/enable_crts
+Type: multiselect
+Choices: ${enable_crts}
+Description: Certificates to activate:
+ This package installs common CA (Certificate Authority) certificates in
+ /usr/share/ca-certificates.
+ .
+ Please select the certificate authorities you trust so that their
+ certificates are installed into /etc/ssl/certs. They will be compiled
+ into a single /etc/ssl/certs/ca-certificates.crt file.
+Description-ca.UTF-8: Certificats a activar:
+ Aquest paquet instaŀla certificats comuns de les CA (autoritats certificadores) en /usr/share/ca-certificates.
+ .
+ Seleccioneu les autoritats certificadores en què confieu per a que s'instaŀlen els seus certificats a /etc/ssl/certs. Aquests es compilaran en un sol fitxer /etc/ssl/certs/ca-certificates.crt.
+Description-cs.UTF-8: Certifikáty, které se mají aktivovat:
+ Tento balík instaluje běžné certifikáty certifikačních autorit (CA) do /usr/share/ca-certificates.
+ .
+ Vyberte prosím certifikační autority, kterým věříte a jejichž certifikáty se mají nainstalovat do /etc/ssl/certs. Vybrané certifikáty budou sloučeny do jediného souboru /etc/ssl/certs/ca-certificates.crt.
+Description-da.UTF-8: Certifikater at aktivere:
+ Denne pakke installerer udbredte CA-certifikater (Certificate Authority) i /usr/share/ca-certificates.
+ .
+ Vælg venligst de certifikatautoriteter du stoler på, så deres certifikater installeres i /etc/ssl/certs. De vil blive kompileret til en enkelt fil /etc/ssl/certs/ca-certificates.crt.
+Description-de.UTF-8: Zu aktivierende Zertifikate:
+ Dieses Paket installiert gebräuchliche Zertifikate von CAs (Zertifizierungsstellen) unter /usr/share/ca-certificates.
+ .
+ Bitte wählen Sie die Zertifizierungsstellen aus, denen Sie vertrauen, damit deren Zertifikate in /etc/ssl/certs installiert werden. Sie werden in eine einzige Datei /etc/ssl/certs/ca-certificates.crt zusammengestellt.
+Description-es.UTF-8: Certificados a activar:
+ Este paquete instala certificados comunes de CA (Autoridad Certificadora) en /usr/share/ca-certificates.
+ .
+ Escoja las autoridades de certificación en las que confía para instalarlas en «/etc/ssl/certs». Se incluirán todas en un único archivo «/etc/ssl/certs/ca-certificates.crt».
+Description-eu.UTF-8: Gaitzeko Ziurtagiriak:
+ Pakete honek ZA (Ziurtagiri Autoritate) arrunt ziurtagiriak  /usr/share/ca-certificates direktorioan gordeko ditu,
+ .
+ Mesedez hautatu fidagarri zaizkizun ziurtagiri autoritateak /etc/ssl/certs-en instala daitezen. /etc/ssl/certs/ca-certificates fitxategi soilean konpilatuko dira.
+Description-fi.UTF-8: Aktivoitavat varmenteet:
+ Tämä paketti asentaa yleisiä CA-varmenteita (Certificate Authority, varmentaja) hakemistoon /usr/share/ca-certificates.
+ .
+ Valitse varmentajat, joihin luotat. Heidän varmenteensa asennetaan hakemistoon /etc/ssl/certs. Ne kootaan yhteen tiedostoon /etc/ssl/certs/ca-certificates.crt.
+Description-fr.UTF-8: Certificats à accepter :
+ Ce paquet peut installer des certificats de nouveaux tiers de confiance (« Certificate Authority ») dans /usr/share/ca-certificates.
+ .
+ Veuillez choisir les tiers de confiance que vous agréez afin que leurs certificats soient installés dans /etc/ssl/certs. Ils seront rassemblés dans un seul fichier nommé /etc/ssl/certs/ca-certificates.crt.
+Description-gl.UTF-8: Certificados a activar:
+ Este paquete instala certificados de entidades de acreditación comúns en /usr/share/ca-certificates.
+ .
+ Escolla as entidades de acreditación nas que confía para instalar os seus certificados en /etc/ssl/certs. Hanse reunir todos nun só ficheiro /etc/ssl/certs/ca-certificates.crt.
+Description-id.UTF-8: Sertifikat untuk diaktifkan:
+ Paket ini umumnya memasang sertifikat CA (Otoritas Sertifikat) di /usr/share/ca-certificates.
+ .
+ Silahkan pilih otoritas sertifikat yang anda percaya sehingga sertifikat akan dipasang ke dalam /etc/ssl/certs. Mereka akan dikompilasi menjadi satu berkas /etc/ssl/certs/ca-certificates.crt.
+Description-it.UTF-8: Certificati da attivare:
+ Questo pacchetto installa i certificati di note CA (Autorità di Certificazione) in /usr/share/ca-certificates.
+ .
+ Selezionare le autorità di certificazione fidate così da installare i relativi certificati in /etc/ssl/certs. Questi vengono compilati in un unico file /etc/ssl/certs/ca-certificates.crt.
+Description-ja.UTF-8: 活性化する証明書:
+ このパッケージは、共通の CA (証明機関) 証明書を /usr/share/ca-certificates にインストールします。
+ .
+ /etc/ssl/certs にインストールされる、信用する証明機関の証明書を選択してください。これらは、単一のファイル /etc/ssl/certs/ca-certificates.crt にコンパイルされます。
+Description-nl.UTF-8: Te activeren certificaten:
+ Gangbare CA (certificaatautoriteit) certificaten worden door dit pakket geïnstalleerd in '/usr/share/ca-certificates'.
+ .
+ Selecteer de certificaatautoriteiten die u vertrouwt. Hun certificaten zullen worden opgenomen in '/etc/ssl/certs' en worden gebundeld in het bestand '/etc/ssl/certs/ca-certificates.crt'.
+Description-pl.UTF-8: Certyfikaty do aktywowania:
+ Pakiet instaluje wspólne certyfikaty urzędów certyfikacji (ang. Certificate Authority) w /usr/share/ca-certificates.
+ .
+ Proszę wybrać zaufane urzędy certyfikacji, których certyfikaty są instalowane w /etc/ssl/certs. Zostaną one skompilowane do jednego pliku /etc/ssl/certs/ca-certificates.crt.
+Description-pt.UTF-8: Certificados para activar:
+ Este pacote instala certificados CA (Certificate Authority) comuns em /usr/share/ca-certificates.
+ .
+ Por favor escolha as autoridades de certificados em que confia para que os seus certificados sejam instalados em /etc/ssl/certs. Serão compilados num único ficheiro /etc/ssl/cets/ca-certificates.crt.
+Description-pt_BR.UTF-8: Certificados a serem ativados:
+ Este pacote instala certificados de CAs (Autoridades Certificadoras) comuns em /usr/share/ca-certificates.
+ .
+ Por favor, selecione as autoridades certificadoras que você confia, de modo que seus certificados sejam instalados em /etc/ssl/certs. Eles serão compilados em um único arquivo /etc/ssl/certs/ca-certificates.crt.
+Description-ru.UTF-8: Сертификаты для активации:
+ Этот пакет устанавливает сертификаты удостоверяющих центров (CA) в каталог /usr/share/ca-certificates.
+ .
+ Выберите удостоверяющие центры, которым вы доверяете; их сертификаты будут установлены в каталог /etc/ssl/certs (скомпонованы в файл /etc/ssl/certs/ca-certificates.crt).
+Description-sk.UTF-8: Certifikáty, ktoré majú byť aktivované:
+ Tento balík inštaluje bežné certifikáty certifikačných autorít (CA) do /usr/share/ca-certificates.
+ .
+ Prosím, vyberte certifikačné autority, ktorým dôverujete a ktorých certifikáty budú inštalované do /etc/ssl/certs. Tieto budú zlúčené do jedného súboru /etc/ssl/certs/ca-certificates.crt.
+Description-sv.UTF-8: Certfikat att aktivera:
+ Detta paket installerar gemensamma CA-certifikat (Certificate Authority) i /usr/share/ca-certificates.
+ .
+ Välj de certifikatutfärdare som du litar på så att deras certifikat installeras i /etc/ssl/certs. De kommer att kompileras till en enda fil, /etc/ssl/certs/ca-certificates.crt.
+Description-tr.UTF-8: Etkinleştirilecek sertifikalar:
+ Bu paket /usr/share/ca-certificates dizinine yaygın SY (Sertifika Yetkilisi) sertifikalarını kurar.
+ .
+ Lütfen güvendiğiniz sertifika yetkililerini seçiniz. Güvendiğiniz yetkililerin sertifikaları /etc/ssl/certs dizinine kurulacak ve aynı zamanda /etc/ssl/certs/ca-certificates.crt dosyasında toplanacaktır.
+Description-vi.UTF-8: Các chứng nhận cần kích hoạt:
+ Gói này sẽ tạo các chứng nhận CA (nhà cầm quyền chứng nhận) vào «  /usr/share/ca-certificates ».
+ .
+ Hãy chọn những nhà cầm quyền chứng nhận bạn tin cậy để cài đặt các chứng nhận của chúng vào « /etc/ssl/certs ». Chúng sẽ được biên dịch vào một tập tin « /etc/ssl/certs/ca-certificates.crt » riêng lẻ.

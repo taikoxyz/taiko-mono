@@ -1,0 +1,9 @@
+# For standard directories the ldconfig call can be delayed, the dynamic
+# linker will search the standard directories itself, which will incur a
+# small performance penalty.
+#
+# For non-standard directories listed in /etc/ld.so.conf or in a file in
+# /etc/ld.so.conf.d/, the call to ldconfig is essential and can not be
+# skipped, otherwise libraries won't be found. Therefore declare ldconfig
+# as interest-await.
+interest-await ldconfig

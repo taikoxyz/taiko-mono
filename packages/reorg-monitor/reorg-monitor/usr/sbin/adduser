@@ -1,0 +1,1331 @@
+#! /usr/bin/perl
+
+
+# Copyright (C) 1997-1999 Guy Maor <maor@debian.org>
+#
+# Copyright (C) 1995 Ted Hajek <tedhajek@boombox.micro.umn.edu>
+#                    Ian A. Murdock <imurdock@gnu.ai.mit.edu>
+#
+# Thanks to Roland Bauerschmidt <rb@debian.org> for bugfixes and other
+# improvements.
+#
+# The general scheme of this program was adapted from the original
+# Debian "adduser" program by Ian A. Murdock <imurdock@gnu.ai.mit.edu>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to:
+#
+#   Free Software Foundation
+#   51 Franklin Street, Fifth Floor
+#   Boston, MA 02110
+#   USA
+
+
+use strict;
+use warnings;
+
+use Getopt::Long;
+
+use Debian::AdduserCommon;
+
+use constant RET_OK => 0; # OK
+use constant RET_OBJECT_ALREADY_EXISTS => 1; # the user or group does already exist, so the requested action cannot be performed
+use constant RET_INVALID_CHARS_IN_NAME => 1; # the provided name contains invalid characters
+use constant RET_ADDUSER_ABORTED => 1;  # the program was aborted (eg via Ctrl+C)
+use constant RET_INVALID_CALL => 1; # getopt returned with "false"
+
+my $version = "3.134";
+
+BEGIN {
+    local $ENV{PERL_DL_NONLAZY}=1;
+    eval 'use Locale::gettext';
+    if ($@) {
+        *gettext = sub { shift };
+        *textdomain = sub { "" };
+        *LC_MESSAGES = sub { 5 };
+    }
+    eval {
+        require POSIX;
+        import POSIX qw(setlocale);
+    };
+    if ($@) {
+        *setlocale = sub { return 1 };
+    }
+    eval {
+        require I18N::Langinfo;
+        import I18N::Langinfo qw(langinfo YESEXPR NOEXPR);
+    };
+    if ($@) {
+        *langinfo = sub { return shift; };
+        *YESEXPR  = sub { "^[yY]" };
+        *NOEXPR   = sub { "^[nN]" };
+    }
+}
+
+setlocale(LC_MESSAGES, "");
+textdomain("adduser");
+my $yesexpr = langinfo(YESEXPR());
+
+my %config;			# configuration hash
+
+my $nogroup_id = getgrnam("nogroup") || 65534;
+$0 =~ s+.*/++;
+
+our $verbose = 1;		# should we be verbose?
+my $name_check_level = 0;		# should we allow bad names?
+my $ask_passwd = 1;		# ask for a passwd?
+my $disabled_login = 0;		# leave the new account disabled?
+
+our @configfiles;
+our @defaults = undef;
+our $found_group_opt = undef;
+our $found_sys_opt = undef;
+our $ingroup_name = undef;
+our $new_firstgid = undef;
+our $new_firstuid = undef;
+our $new_comment = undef;
+our $gid_option = undef;
+our $primary_gid = undef;
+our $new_lastgid = undef;
+our $new_lastuid = undef;
+our $new_uid = undef;
+our $no_create_home = undef;
+our $special_home = undef;
+our $special_shell = undef;
+our $add_extra_groups;
+our $add_extra_groups_old;
+
+# Global variables we need later
+my $existing_user = undef;
+my $existing_group = undef;
+my $new_name = undef;
+my $make_group_also = 0;
+my $home_dir = undef;
+my $undohome = undef;
+my $undouser = undef;
+my $undogroup = undef;
+my $shell = undef;
+my $first_uid = undef;
+my $last_uid = undef;
+my $first_gid = undef;
+my $last_gid = undef;
+my $dir_mode = undef;
+my $perm = undef;
+my %uid_pool;
+my %gid_pool;
+
+our @names;
+
+GetOptions(
+    'add-extra-groups' => \$add_extra_groups,
+    'add_extra_groups' => \$add_extra_groups_old,
+    'allow-all-names' => sub { $name_check_level = 2 },
+    'allow-badname' => sub { $name_check_level = 1 unless $name_check_level },
+    'allow-bad-names' => sub { $name_check_level = 1 unless $name_check_level },
+    'comment=s' => \$new_comment,
+    'conf|c=s' => \@configfiles,
+    'debug' => sub { $verbose = 2 },
+    'disabled-login' => sub { $disabled_login = 1; $ask_passwd = 0 },
+    'disabled-password' => sub { $ask_passwd = 0 },
+    'firstgid=i' => \$new_firstgid,
+    'firstuid=i' => \$new_firstuid,
+    'force-badname' => sub { $name_check_level = 1 unless $name_check_level },
+    'gecos=s' => \$new_comment,
+    'gid=i' => \$gid_option,
+    'group' => \$found_group_opt,
+    'help|h' => sub { &usage; exit },
+    'home=s' => \$special_home,
+    'ingroup=s' => \$ingroup_name,
+    'lastgid=i' => \$new_lastgid,
+    'lastuid=i' => \$new_lastuid,
+    'no-create-home' => \$no_create_home,
+    'quiet|q' => sub { $verbose = 0 },
+    'shell=s' => \$special_shell,
+    'system' => \$found_sys_opt,
+    'uid=i' => \$new_uid,
+    'verbose' => sub { $verbose = 1 },
+    'version|v' => sub { &version; exit },
+) or &usage_error;
+
+# everyone can issue "--help" and "--version", but only root can go on
+dief (gtx("Only root may add a user or group to the system.\n")) if ($> != 0);
+
+if(!@configfiles) {
+    @defaults = ("/etc/adduser.conf");
+} else {
+    @defaults = (@configfiles);
+}
+
+# detect the right mode
+my $action = $0 eq "addgroup" ? "addgroup" : "adduser";
+if (defined($found_sys_opt)) {
+  $action = "addsysuser" if ($action eq "adduser");
+  $action = "addsysgroup" if ($action eq "addgroup");
+}
+
+# explicitly set PATH, because super (1) cleans up the path and makes adduser unusable;
+# this is also a good idea for sudo (which doesn't clean up)
+$ENV{"PATH"}="/bin:/usr/bin:/sbin:/usr/sbin";
+$ENV{"IFS"}=" \t\n";
+
+############################
+# checks related to @names #
+############################
+
+
+while (defined(my $arg = shift(@ARGV))) {
+  push (@names, $arg);
+}
+
+if ( (! defined $names[0]) || length($names[0]) == 0 || @names > 2) {
+    dief (gtx("Only one or two names allowed.\n"));
+}
+
+
+if (@names == 2) {	# must be addusertogroup
+    if ($action eq "addsysuser" || $found_group_opt) {
+        dief (gtx("Specify only one name in this mode.\n"))
+    }
+    if ($action eq "addgroup" or $action eq "addsysgroup") {
+        dief (gtx("addgroup with two arguments is an unspecified operation.\n"));
+    }
+    $action = "addusertogroup";
+    $existing_user = shift (@names);
+    $existing_group = shift (@names);
+}
+else { # 1 parameter, must be adduser
+    $new_name = shift (@names);
+}
+
+###################################
+# check for consistent parameters #
+###################################
+
+if (!defined $add_extra_groups) {
+    if( defined $add_extra_groups_old ) {
+        $add_extra_groups = $add_extra_groups_old;
+    } else {
+        $add_extra_groups = 0;
+    }
+}
+
+if ($action ne "addgroup" &&
+    defined($found_group_opt) +defined($ingroup_name) +defined($gid_option) > 1 ) {
+    dief (gtx("The --group, --ingroup, and --gid options are mutually exclusive.\n"));
+}
+
+
+if ((defined($special_home)) && ($special_home !~ m+^/+ )) {
+  dief (gtx("The home dir must be an absolute path.\n"));
+}
+
+if (defined($special_home) && $verbose) {
+    warnf gtx("Warning: The home dir %s you specified already exists.\n"),$special_home
+      if (!defined($no_create_home) && -d $special_home);
+    warnf gtx("Warning: The home dir %s you specified can't be accessed: %s\n"), $special_home, $!
+      if (defined($no_create_home) && ! -d $special_home);
+}
+
+
+if ($found_group_opt) {
+    if ($action eq "addsysuser") {
+        $make_group_also = 1;
+    }
+    elsif ($found_sys_opt) {
+        $action = "addsysgroup";
+    }
+    else {
+        $action = "addgroup";
+    }
+}
+
+
+$ENV{"VERBOSE"} = $verbose;
+$ENV{"DEBUG"}   = $verbose;
+
+
+# preseed configuration data and then read the config file
+preseed_config(\@defaults,\%config);
+
+# read the uid and gid pool
+if ($config{"uid_pool"}) {
+    read_pool ($config{"uid_pool"}, "uid", \%uid_pool);
+}
+if ($config{"gid_pool"}) {
+    read_pool ($config{"gid_pool"}, "gid", \%gid_pool);
+}
+
+&checkname($new_name) if defined $new_name;
+$SIG{'INT'} = $SIG{'QUIT'} = $SIG{'HUP'} = 'handler';
+
+#####
+# OK, we've processed the arguments.  $action equals one of the following,
+# and the appropriate variables have been set:
+#
+# $action = "adduser"
+#    $new_name                - the name of the new user.
+#    $ingroup_name | $gid_option - the group to add the user to
+#    $special_home, $new_uid, $new_comment - optional overrides
+# $action = "addgroup"
+#    $new_name                - the name of the new group
+#    $gid_option                 - optional override
+# $action = "addsysgroup"
+#    $new_name                - the name of the new group
+#    $gid_option                 - optional override
+# $action = "addsysuser"
+#    $new_name                - the name of the new user
+#    $make_group_also | $ingroup_name | $gid_option | 0  - which group
+#    $special_home, $new_uid, $new_comment - optional overrides
+# $action = "addusertogroup"
+#    $existing_user           - the user to be added
+#    $existing_group          - the group to add her to
+#####
+
+
+#################
+## addsysgroup ##
+#################
+if ($action eq "addsysgroup") {
+
+    acquire_lock();
+    # Check if requested group already exists and we can exit safely
+    my $ret = existing_group_ok($new_name, $gid_option);
+
+    if ($ret == 3) {
+        warnf (gtx("The group `%s' already exists as a system group. Exiting.\n"), $new_name) if $verbose;
+        exit RET_OK;
+    }
+
+    if ($ret == 1) {
+        warnf (gtx("The group `%s' already exists and is not a system group. Exiting.\n"), $new_name);
+        exit RET_OBJECT_ALREADY_EXISTS;
+    }
+
+    if ($ret == 2) {
+        warnf (gtx("The group `%s' already exists, but has a different GID. Exiting.\n"), $new_name);
+        exit RET_OBJECT_ALREADY_EXISTS;
+    }
+
+    if (defined($gid_option) && defined(getgrgid($gid_option))) {
+        dief (gtx("The GID `%s' is already in use.\n"),$gid_option);
+    }
+
+    if (!defined($gid_option)) {
+        $first_gid = $new_firstgid || $config{"first_system_gid"};
+        $last_gid = $new_lastgid || $config{"last_system_gid"};
+        $gid_option = &first_avail_gid($first_gid,
+                           $last_gid,
+                           $gid_pool{$new_name}{'id'});
+        if ($gid_option == -1) {
+            warnf gtx("No GID is available in the range %d-%d (FIRST_SYS_GID - LAST_SYS_GID).\n"),$first_gid,$last_gid;
+            dief (gtx("The group `%s' was not created.\n"),$new_name);
+        }
+    }
+
+
+    printf (gtx("Adding group `%s' (GID %d) ...\n"),$new_name,$gid_option) if $verbose;
+    my $groupadd = &which('groupadd');
+    &systemcall($groupadd, '-g', $gid_option, $new_name);
+    release_lock(0);
+    print (gtx("Done.\n")) if $verbose;
+    exit RET_OK;
+}
+
+
+##############
+## addgroup ##
+##############
+if ($action eq "addgroup") {
+    acquire_lock();
+    if (defined getgrnam($new_name)) {
+        dief (gtx("The group `%s' already exists.\n"),$new_name);
+    }
+    if (defined($gid_option) && defined(getgrgid($gid_option))) {
+        dief (gtx("The GID `%s' is already in use.\n"),$gid_option)
+    }
+    if (!defined($gid_option)) {
+        $first_gid = $new_firstgid || $config{"first_gid"};
+        $last_gid = $new_lastgid || $config{"last_gid"};
+        debugf( "Searching for gid with first_gid=%s, last_gid=%s, new_name=%s, gid_pool=%s",
+                $first_gid,
+                $last_gid,
+                $new_name,
+                $gid_pool{$new_name}{'id'}
+            );
+        $gid_option = &first_avail_gid($first_gid,
+                           $last_gid,
+                           $gid_pool{$new_name}{'id'});
+
+        if ($gid_option == -1) {
+            print STDERR "$0: ";
+            printf STDERR gtx("No GID is available in the range %d-%d (FIRST_GID - LAST_GID).\n"),$first_gid,$last_gid;
+            dief (gtx("The group `%s' was not created.\n"),$new_name);
+        }
+    }
+
+    printf (gtx("Adding group `%s' (GID %d) ...\n"),$new_name,$gid_option) if $verbose;
+    my $groupadd = &which('groupadd');
+    &systemcall($groupadd, '-g', $gid_option, $new_name);
+    release_lock(0);
+    print (gtx("Done.\n")) if $verbose;
+    exit RET_OK;
+}
+
+
+####################
+## addusertogroup ##
+####################
+if ($action eq 'addusertogroup') {
+
+    dief(gtx("The user `%s' does not exist.\n"), $existing_user) if (!defined getpwnam($existing_user));
+    dief(gtx("The group `%s' does not exist.\n"), $existing_group) if (!defined getgrnam($existing_group));
+
+    if (&user_is_member($existing_user, $existing_group)) {
+        warnf gtx("The user `%s' is already a member of `%s'.\n"), $existing_user, $existing_group if $verbose;
+        exit RET_OK;
+    }
+
+    printf gtx("Adding user `%s' to group `%s' ...\n"), $existing_user, $existing_group if $verbose;
+
+    acquire_lock();
+    &systemcall('/usr/sbin/usermod', '-a', '-G', $existing_group, $existing_user);
+    release_lock();
+
+    print gtx("Done.\n") if $verbose;
+    exit RET_OK;
+}
+
+################
+## addsysuser ##
+################
+if ($action eq "addsysuser") {
+    acquire_lock();
+    if (existing_user_ok($new_name, $new_uid) == 1) {
+
+        # a user with this name already exists; it's a problem when it's not a system user
+        my $tmp_u = getpwnam($new_name);
+        if (($tmp_u >= $config{"first_system_uid"}) and ($tmp_u <= $config{"last_system_uid"})) {
+            printf (gtx("The system user `%s' already exists. Exiting.\n"), $new_name) if $verbose;
+            exit RET_OK
+        }
+        warnf (gtx("The user `%s' already exists, but is not a system user. Exiting.\n"), $new_name);
+        exit RET_OBJECT_ALREADY_EXISTS;
+    }
+    if (existing_user_ok($new_name, $new_uid) == 2) {
+        warnf (gtx("The user `%s' already exists with a different UID. Exiting.\n"), $new_name);
+        exit RET_OBJECT_ALREADY_EXISTS;
+    }
+
+    if (!$ingroup_name && !defined($gid_option) && !$make_group_also) {
+      $gid_option = $nogroup_id;
+    }
+    check_user_group(1);
+
+    if (!defined($new_uid) && $make_group_also) {
+        $new_uid = &first_avail_uid($new_firstuid || $config{"first_system_uid"},
+                                    $new_lastuid || $config{"last_system_uid"},
+                                    $uid_pool{$new_name}{'id'});
+        if ($new_uid == -1) {
+            warnf gtx("No UID/GID pair is available in the range %d-%d (FIRST_SYS_UID - LAST_SYS_UID).\n"),$config{"first_system_uid"},$config{"last_system_uid"};
+            dief (gtx("The user `%s' was not created.\n"),$new_name);
+        }
+        $gid_option = &first_avail_gid($new_firstgid || $config{"first_system_gid"},
+                                       $new_lastgid || $config{"last_system_gid"},
+                                       $gid_pool{$new_name}{'id'});
+        $ingroup_name = $new_name;
+    }
+    elsif (!defined($new_uid) && !$make_group_also) {
+        $new_uid = &first_avail_uid($new_firstuid || $config{"first_system_uid"},
+                                    $new_lastuid || $config{"last_system_uid"},
+                                    $uid_pool{$new_name}{'id'});
+        if ($new_uid == -1) {
+            warnf gtx("No UID is available in the range %d-%d (FIRST_SYS_UID - LAST_SYS_UID).\n"),$config{"first_system_uid"},$config{"last_system_uid"};
+            dief (gtx("The user `%s' was not created.\n"),$new_name);
+        }
+        if (defined($gid_option)) { $ingroup_name = getgrgid($gid_option); }
+        elsif ($ingroup_name) { $gid_option = getgrnam($ingroup_name); }
+        else { dief (gtx("Internal error\n")); }
+    }
+    else {
+        if (defined($gid_option)) { $ingroup_name = getgrgid($gid_option); }
+        elsif ($ingroup_name) { $gid_option = getgrnam($ingroup_name); }
+        elsif ($make_group_also){ $gid_option=$new_uid; $ingroup_name=$new_name; }
+        else { dief (gtx("Internal error\n")); }
+    }
+    printf (gtx("Adding system user `%s' (UID %d) ...\n"),$new_name,$new_uid) if $verbose;
+
+    # if we reach this point, and the group does already exist, we can use it.
+    if ($make_group_also && !getgrnam($new_name)) {
+        printf (gtx("Adding new group `%s' (GID %d) ...\n"),$new_name,$gid_option) if $verbose;
+        $undogroup = $new_name;
+        my $groupadd = &which('groupadd');
+        &systemcall($groupadd, '-g', $gid_option, $new_name);
+    }
+
+    printf gtx("Adding new user `%s' (UID %d) with group `%s' ...\n"),$new_name,$new_uid,$ingroup_name
+        if $verbose;
+    $home_dir = $special_home || $uid_pool{$new_name}{'home'} || '/nonexistent';
+    $no_create_home = $home_dir =~ /^\/+nonexistent(\/|$)/ ? 1 : $no_create_home;
+
+    $shell = $special_shell || $uid_pool{$new_name}{'shell'} || '/usr/sbin/nologin';
+    $undouser = $new_name;
+
+    &systemcall('/usr/sbin/useradd', '-r',
+        '-K', sprintf('SYS_UID_MIN=%d', $new_firstuid || $config{'first_system_uid'}),
+        '-K', sprintf('SYS_UID_MAX=%d', $new_lastuid || $config{'last_system_uid'}),
+        '-d', $home_dir,
+        '-g', $ingroup_name,
+        '-s', $shell,
+        '-u', $new_uid,
+        $new_name);
+
+    release_lock(0);
+
+    if (defined($new_comment)) {
+        &ch_comment($new_comment);
+    } elsif ($uid_pool{$new_name}{'comment'}) {
+        &ch_comment($uid_pool{$new_name}{'comment'});
+    }
+
+    $primary_gid = $gid_option;
+    create_homedir(0);
+
+    exit RET_OK;
+}
+
+
+#############
+## adduser ##
+#############
+if ($action eq "adduser") {
+    acquire_lock();
+
+    $primary_gid=-1;
+    my @supplemental_groups=();
+
+    debugf( "new_uid %s\n", $new_uid );
+    debugf( "ingroup_name %s, gid_option %s\n", $ingroup_name, $gid_option );
+    debugf( "usergroups %s\n", $config{"usergroups"} );
+    debugf( "users_gid %s, users_group %s\n", $config{"users_gid"}, $config{"users_group"} );
+    debugf( "primary_gid %s, supplemental groups %s\n", $primary_gid, join(", ",@supplemental_groups) );
+    if( defined($config{"users_gid"}) && defined($config{"users_group"}) ) {
+        warnf gtx("USERS_GID and USERS_GROUP both given in configuration. This is an error.\n");
+        dief (gtx("The user `%s' was not created.\n"),$new_name);
+    }
+
+    if ($config{"usergroups"} =~  /yes/i) {
+        debugf( "config usergroups == yes code path\n" );
+        $make_group_also = 1;
+        if( $gid_option ) {
+            $make_group_also = 0;
+            $primary_gid = $gid_option;
+            debugf( "gid_option defined %s, make_group_also 0, primary_gid=gid_option\n", $gid_option );
+        }
+        if( $ingroup_name ) {
+            $make_group_also = 0;
+            $primary_gid = getgrnam($ingroup_name);
+            debugf( "ingroup_name defined %s, make_group_also 0, primary_gid %s\n", $gid_option, $primary_gid );
+        }
+        debugf( "make_group_also %s, primary_gid %s\n", $make_group_also, $primary_gid );
+        if( defined( $primary_gid) && $primary_gid == -1 && $make_group_also == 0 ) {
+            if (defined($config{"users_gid"}) && $config{"users_gid"} != -1) {
+                my @grgid=getgrgid($config{"users_gid"});
+                my $grname=$grgid[0];
+                debugf( "set primary_gid to users_gid %s %s\n", $config{"users_gid"}, $grname);
+                $primary_gid = $config{"users_gid"};
+            } elsif (defined($config{"users_gid"}) && $config{"users_gid"} == -1) {
+                # nothing
+            } else {
+                my $primary_group="users";
+                if (defined($config{"users_group"})) {
+                    $primary_group=$config{"users_group"};
+                }
+                $primary_gid=getgrnam($primary_group);
+                debugf( "set primary_gid to users_group %s %s\n", $primary_gid, $primary_group);
+            }
+        } else {
+            if (defined($config{"users_gid"}) && $config{"users_gid"} != -1) {
+                my @grgid=getgrgid($config{"users_gid"});
+                my $grname=$grgid[0];
+                debugf( "push users_gid %s %s to supplemental_groups\n", $config{"users_gid"}, $grname);
+                push(@supplemental_groups, $grname);
+            } elsif (defined($config{"users_gid"}) && $config{"users_gid"} == -1) {
+                # nothing
+            } else {
+                my $supp_group="users";
+                if (defined($config{"users_group"})) {
+                    $supp_group=$config{"users_group"};
+                }
+                debugf( "push %s to supplemental_groups\n", $supp_group );
+                push(@supplemental_groups, $supp_group);
+            }
+        }
+    } else {
+        debugf( "config usergroups != yes code path\n" );
+        if( defined($ingroup_name) ) {
+            $primary_gid=getgrnam($ingroup_name);
+        } elsif (defined($config{"users_gid"})) {
+            debugf( "primary_gid = users_gid = %d\n", $primary_gid );
+            $primary_gid = $config{"users_gid"};
+        } else {
+            if (defined($config{"users_group"})) {
+                my @grgid=getgrnam($config{"users_group"});
+                my $grgid=$grgid[2];
+                debugf( "primary_gid = users_group %s %s\n", $config{"users_group"}, $grgid);
+                $primary_gid = $grgid;
+            } else {
+                debugf( "primary_gid = literal 100\n");
+                $primary_gid = 100;
+            }
+        }
+        if( $primary_gid == -1 ) {
+            dief( "no primary GID for user set. User not created.\n" );
+        }
+    }
+    debugf( "primary_gid %s, supplemental groups %s\n", $primary_gid, join(", ",@supplemental_groups) );
+    if ( defined $ingroup_name || defined $gid_option ) {
+        $make_group_also = 0;
+        debugf( "set make_group_also 0, neither ingroup_name or gid_option defined\n" );
+    }
+    check_user_group(0);
+    $first_uid = $new_firstuid || $config{"first_uid"};
+    $last_uid = $new_lastuid || $config{"last_uid"};
+    if ($config{"usergroups"} =~  /yes/i) {
+        $first_gid = $first_uid;
+        $last_gid = $last_uid;
+    } else {
+        $first_gid = $new_firstgid || $config{"first_gid"};
+        $last_gid = $new_lastgid || $config{"last_gid"};
+    }
+    debugf( "first_uid %s, last_uid %s, first_gid %s, last_gid %s\n", $first_uid, $last_uid, $first_gid, $last_gid );
+    printf (gtx("Adding user `%s' ...\n"),$new_name) if $verbose;
+
+    if (!defined($new_uid)) {
+        if ( defined $ingroup_name ) {
+            $new_uid = &first_avail_uid( $first_uid,
+                                             $last_uid,
+                                             $uid_pool{$new_name}{'id'});
+        } else {
+            my $first_uidgid = ($first_uid, $first_gid)[$first_uid > $first_gid];
+            my $last_uidgid  = ($last_uid, $last_gid)[$last_uid < $last_gid];
+            # TODO: Check what happens when those ranges do not overlap
+            $new_uid = &first_avail_uid_gid( $first_uidgid,
+                                             $last_uidgid,
+                                             $uid_pool{$new_name}{'id'});
+            debugf( "uidgid=%s, from first_uidgid %s, last_uidgid %s\n", $new_uid, $first_uidgid, $last_uidgid);
+        }
+        # TODO: user can specify different UID and GID here.
+        # idea: split handling in uid/gid, which are equally the return value of
+        # first_avail_uid_gid. If either pool_id is defined, set uid and gid from
+        # distinct first_avail_uid and first_avail_gid calls.
+
+        debugf( "new_uid %s selected\n", $new_uid);
+        if ($new_uid == -1) {
+            warnf gtx("No UID/GID pair is available in the range %d-%d (FIRST_UID - LAST_UID).\n"),$first_uid,$last_uid;
+            dief (gtx("The user `%s' was not created.\n"),$new_name);
+        }
+        debugf( "gid_option %s, ingroup_name %s\n", $gid_option, $ingroup_name );
+        if ( defined $gid_option && $gid_option == -1 && defined $ingroup_name && $ingroup_name == "") {
+            warnf gtx("USERGROUPS=no, USER_GID=-1 and USERS_GROUP empty. A user needs a primary group!\n");
+            dief (gtx("The user `%s' was not created.\n"), $new_name);
+        } elsif (defined($gid_option) && $gid_option != -1) {
+            $ingroup_name = getgrgid($gid_option);
+            $primary_gid = $gid_option;
+            debugf( "gid_option defined and not -1, ingroup_name %s, primary_gid %d\n", $ingroup_name, $primary_gid );
+        } elsif ($ingroup_name) {
+            $primary_gid = getgrnam($ingroup_name);
+            debugf( "ingroup_name defined %s, primary_gid %d\n", $ingroup_name, $primary_gid );
+        } elsif ( defined( $primary_gid ) ) {
+            $ingroup_name = getgrgid($primary_gid);
+            debugf( "primary_gid defined %d, ingroup_name %s\n", $primary_gid, $primary_gid  );
+        } else {
+            $ingroup_name = 'users';
+            $primary_gid = 100;
+            debugf( "ingroup_name hard users, primary_gid hard 100\n" );
+        }
+        if ($make_group_also) {
+            $primary_gid = $new_uid;
+            $ingroup_name = $new_name;
+            debugf( "make_group_also %s, primary_gid %s, ingroup_name %s\n", $make_group_also, $primary_gid, $ingroup_name );
+        }
+    } else {
+        debugf( "new_uid %s, primary_gid %s, ingroup_name %s, make_group_also %s\n", $new_uid, $primary_gid, $ingroup_name, $make_group_also );
+        if (defined($gid_option)) {
+            $ingroup_name = getgrgid($gid_option);
+            $primary_gid = $gid_option;
+            debugf( "gid_option defined %s, ingroup_name %s\n", $gid_option, $ingroup_name );
+        } elsif (defined($primary_gid) && $primary_gid != -1) {
+            $ingroup_name = getgrgid($primary_gid);
+            debugf( "primary_gid defined %s, ingroup_name %s\n", $primary_gid, $ingroup_name );
+        } elsif ($ingroup_name) {
+            $primary_gid = getgrnam($ingroup_name);
+            debugf( "ingroup_name defined %s, primary_gid %s\n", $ingroup_name, $primary_gid );
+        } elsif ($make_group_also) {
+            $primary_gid=$new_uid; $ingroup_name=$new_name;
+            debugf( "make_group_also %s, primary_gid defined %s, ingroup_name %s\n", $make_group_also, $primary_gid, $ingroup_name );
+        } else {
+            debugf( "no gid_option, no primary_gid, no ingroup_name, no make_group_also\n" );
+            dief (gtx("Internal error interpreting parameter combination\n"));
+        }
+    }
+
+    debugf ("make_group_also %s\n", $make_group_also );
+    if ($make_group_also) {
+        $undogroup = $new_name;
+        my $groupadd = &which('groupadd');
+        if( defined( $primary_gid ) ) {
+           printf (gtx("Adding new group `%s' (%d) ...\n"),$new_name,$primary_gid) if $verbose;
+           &systemcall($groupadd, '-g', $primary_gid, $new_name);
+        } else {
+           printf (gtx("Adding new group `%s' (new group ID) ...\n"),$new_name) if $verbose;
+           &systemcall($groupadd, $new_name);
+           $primary_gid = getgrnam($new_name);
+           debugf( "new group '%s' created with GID %d", $new_name, $primary_gid );
+        }
+    }
+
+    if ($verbose) {
+        my @grgid=getgrgid($primary_gid);
+        my $grname=$grgid[0];
+        printf gtx("Adding new user `%s' (%d) with group `%s (%d)' ...\n"),$new_name,$new_uid,$grname,$primary_gid;
+    }
+    $home_dir = $special_home || $uid_pool{$new_name}{'home'} || &homedir($new_name, $ingroup_name);
+    if( !$disabled_login ) {
+        $shell = $special_shell || $uid_pool{$new_name}{'shell'} || $config{"dshell"};
+    } else {
+        $shell = $special_shell || $uid_pool{$new_name}{'shell'} || "/usr/sbin/nologin";
+    }
+    $undouser = $new_name;
+    my $useradd = &which('useradd');
+    &systemcall($useradd, '-d', $home_dir, '-g', $primary_gid, '-s',
+                $shell, '-u', $new_uid, $new_name);
+
+    create_homedir (1); # copy skeleton data
+
+    # useradd without -p has left the account disabled (password string is '!')
+    my $yesexpr = langinfo(YESEXPR());
+    my $noexpr = langinfo(NOEXPR());
+    if ($ask_passwd) {
+        PASSWD: for (;;) {
+            my $passwd = &which('passwd');
+            # do _not_ use systemcall() here, since systemcall() dies on
+            # non-zero exit code and we need to do special handling here!
+            system($passwd, $new_name);
+            my $ok = $?>>8;
+            if ($ok != 0) {
+                my $answer;
+                # hm, error, should we break now?
+                warnf (gtx("Permission denied\n")) if ($ok == 1);
+                warnf (gtx("invalid combination of options\n")) if ($ok == 2);
+                warnf (gtx("unexpected failure, nothing done\n")) if ($ok == 3);
+                warnf (gtx("unexpected failure, passwd file missing\n")) if ($ok == 4);
+                warnf (gtx("passwd file busy, try again\n")) if ($ok == 5);
+                warnf (gtx("invalid argument to option\n")) if ($ok == 6);
+
+                # Translators: [y/N] has to be replaced by values defined in your
+                # locale.  You can see by running "locale noexpr" which regular
+                # expression will be checked to find positive answer.
+                PROMPT: for (;;) {
+                    print (gtx("Try again? [y/N] "));
+                    chop ($answer=<STDIN>);
+                    last PROMPT if ($answer =~ m/$yesexpr/o);
+                    last PASSWD if ($answer =~ m/$noexpr/o);
+                    last PASSWD if (!$answer);
+                }
+            } else {
+                last; ## passwd ok
+            }
+        }
+    }
+
+    if (defined($new_comment)) {
+        &ch_comment($new_comment);
+    } elsif ($uid_pool{$new_name}{'comment'}) {
+        &ch_comment($uid_pool{$new_name}{'comment'});
+    } else {
+        my $noexpr = langinfo(NOEXPR());
+        my $yesexpr = langinfo(YESEXPR());
+        CHFN: for (;;) {
+            my $chfn = &which('chfn');
+            &systemcall($chfn, $new_name);
+            # Translators: [y/N] has to be replaced by values defined in your
+            # locale.  You can see by running "locale yesexpr" which regular
+            # expression will be checked to find positive answer.
+            PROMPT: for (;;) {
+                print (gtx("Is the information correct? [Y/n] "));
+                chop (my $answer=<STDIN>);
+                last PROMPT if ($answer =~ m/$noexpr/o);
+                last CHFN if ($answer =~ m/$yesexpr/o);
+                last CHFN if (!$answer);
+            }
+        }
+    }
+
+    if ( ( $add_extra_groups || $config{"add_extra_groups"} ) && defined($config{"extra_groups"}) ) {
+        push (@supplemental_groups, split(/\s+/,$config{"extra_groups"}));
+    }
+    if ( @supplemental_groups ) {
+        if ($verbose) {
+            printf (gtx("Adding new user `%s' to supplemental / extra groups `%s' ...\n"), $new_name, join(", ", @supplemental_groups));
+        }
+        foreach my $newgrp ( @supplemental_groups ) {
+            debugf( "newgrp %s\n", $newgrp);
+            if (!defined getgrnam($newgrp)) {
+                warnf (gtx("The group `%s' does not exist.\n"),$newgrp);
+                next;
+            }
+            if (&user_is_member($new_name, $newgrp)) {
+                warnf gtx("The user `%s' is already a member of `%s'.\n"),
+                        $new_name,$newgrp if $verbose;
+                next;
+
+            }
+
+            printf gtx("Adding user `%s' to group `%s' ...\n"),$new_name,$newgrp
+                if $verbose;
+            my $gpasswd = &which('gpasswd');
+            &systemcall($gpasswd, '-M',
+                        join(',', get_group_members($newgrp), $new_name),
+                        $newgrp);
+        }
+    }
+
+
+    if ($config{"quotauser"}) {
+        printf (gtx("Setting quota for user `%s' to values of user `%s' ...\n"), $new_name, $config{quotauser});
+        my $edquota = &which('edquota');
+        &systemcall($edquota, '-p', $config{quotauser}, $new_name);
+    }
+
+    &systemcall('/usr/local/sbin/adduser.local', $new_name, $new_uid,
+            $primary_gid, $home_dir) if (-x "/usr/local/sbin/adduser.local");
+    release_lock(0);
+
+    exit RET_OK;
+}
+
+#
+# we never go here
+#
+
+
+# calculate home directory
+sub homedir {
+    my $dir = $config{"dhome"};
+    $dir .= '/' . $_[1] if ($config{"grouphomes"} =~ /yes/i);
+    $dir .= '/' . substr($_[0],0,1) if ($config{"letterhomes"} =~ /yes/i);
+    $dir .= '/' . $_[0];
+    return $dir;
+}
+
+
+# create_homedir -- create the homedirectory
+# parameter
+#   1: $copy_skeleton:
+#     if 0  -> don't copy the skeleton data
+#     if 1  -> copy the files in /etc/skel to the newly created home directory
+# return values:
+#   none
+sub create_homedir {
+    my ($copy_skeleton) = @_;
+
+    if ($home_dir =~ /^\/+nonexistent(\/|$)/) {
+        printf gtx("Not creating `%s'.\n"), $home_dir if $verbose;
+    }
+    elsif ($no_create_home) {
+        printf gtx("Not creating home directory `%s'.\n"), $home_dir if $verbose;
+    }
+    elsif (-e $home_dir) {
+        warnf gtx("The home directory `%s' already exists.  Not touching this directory.\n"),
+        $home_dir if $verbose && !$no_create_home;
+        my @homedir_stat = stat($home_dir);
+        my $home_uid = $homedir_stat[4];
+        my $home_gid = $homedir_stat[5];
+        if (($home_uid != $new_uid) || ($home_gid != $primary_gid)) {
+            warnf gtx("Warning: The home directory `%s' does not belong to the user you are currently creating.\n"), $home_dir;
+        }
+        undef @homedir_stat; undef $home_uid; undef $home_gid;
+    } else {
+        printf gtx("Creating home directory `%s' ...\n"),$home_dir if $verbose;
+        $undohome = $home_dir;
+        &mktree($home_dir) || &cleanup(sprintf(gtx("Couldn't create home directory `%s': %s.\n"), $home_dir, $!));
+        chown($new_uid, $primary_gid, $home_dir)
+        || &cleanup("chown $new_uid:$primary_gid $home_dir: $!\n");
+        $dir_mode = get_dir_mode();
+        chmod ($dir_mode, $home_dir) ||
+        &cleanup("chmod $dir_mode $home_dir: $!\n");
+
+        if ($config{"skel"} && $copy_skeleton) {
+            printf gtx("Copying files from `%s' ...\n"),$config{skel} if $verbose;
+            open(my $FIND, "cd $config{skel}; find .  -print |")
+                || &cleanup(sprintf(gtx("fork for `find' failed: %s\n"), $!));
+            while (<$FIND>) {
+                chop;
+                next if ($_ eq ".");
+                next if ($_ =~ qr/$config{skel_ignore_regex}/ );
+                &copy_to_dir($config{"skel"}, $_, $home_dir, $new_uid,
+                    $primary_gid, ($config{"setgid_home"} =~ /yes/i));
+            }
+        }
+    }
+}
+
+# mktree: create a directory and all parent directories, we don't care about the rights and so on
+# parameters:
+#   tree: the path
+# return values:
+#   none
+sub mktree {
+    my($tree) = @_;
+    my($done, @path);
+    my $default_dir_mode = 0755;
+
+    $tree =~ s:^/*(.*)/*$:$1:; # chop off leading & trailing slashes
+    @path = split(/\//, $tree);
+
+    $done = "";
+    while (@path) {
+        $done .= '/' . shift(@path);
+        -d $done || mkdir($done, $default_dir_mode) || return 0;
+    }
+    return 1;
+}
+
+# existing_user_ok: check if there's already a user present on the system which satisfies the requirements
+# parameter:
+#   new_name: the name of the user to check
+#   new_uid : the UID of the user
+# return values:
+#   0 if the the user doesn't exist
+#   1 if the user already exists with the specified uid (or $new_uid wasn't specified)
+#   2 if the user already exists, but $new_uid doesn't matches its uid
+sub existing_user_ok {
+    my($new_name,$new_uid) = @_;
+    my ($dummy1,$dummy2,$uid);
+    if (($dummy1,$dummy2,$uid) = getpwnam($new_name)) {
+        if( defined($new_uid) && $uid == $new_uid ) {
+            return 1;
+        }
+        if (! defined($new_uid)) {
+            return 1;
+        }
+        # TODO: do we really need this code? Range check shouldn't performed here
+        # also, we might be checking a normal user as well here
+        if( $uid >= $config{"first_system_uid"} &&
+            $uid <= $config{"last_system_uid" } ) {
+            return 2;
+        }
+    } else {
+        return 0;
+    }
+}
+
+# existing_group_ok: check if there's already a group which satiesfies the requirements
+# parameter:
+#   new_name: the name of the group
+#   new_gid : the GID of the group
+# return values:
+#   0 if the group doesn't exist
+#   1 if the group already exists with the specified gid (or $gid_option wasn't specified)
+#   2 if the group already exists, but $gid_option doesn't match its gid
+#   3 if the group already exists inside the system range
+sub existing_group_ok {
+    my($new_name,$new_gid) = @_;
+    my ($dummy1,$dummy2,$gid);
+    if (($dummy1,$dummy2,$gid) = getgrnam($new_name)) {
+
+        # TODO: is this check required? There shouldn't be any gid outside of our allowed range anyways ...
+        # also, we might be checking a normal user as well here
+        if( $gid >= $config{"first_system_gid"} &&
+            $gid <= $config{"last_system_gid" } ) {
+            return 3;
+        }
+        if (! defined($new_gid)) {
+            return 1;
+        }
+        if ($gid == $new_gid) {
+            return 1;
+        } else {
+            return 2;
+        }
+    } else {
+        return 0;
+    }
+}
+
+
+
+# check_user_group: ???
+# parameters:
+#   system: 0 if the user isn't a system user, 1 otherwise
+# return values:
+#
+# todo: not sure whether global variables apply fine here.
+sub check_user_group {
+    my ($system) = @_;
+    debugf( "check_user_group %s called, make_group_also %s\n", $system, $make_group_also );
+    if( !$system || !existing_user_ok($new_name, $new_uid) ) {
+        if( defined getpwnam($new_name) ) {
+            if( $system ) {
+                dief (gtx("The user `%s' already exists, and is not a system user.\n"),$new_name);
+            } else {
+                dief (gtx("The user `%s' already exists.\n"),$new_name);
+            }
+        }
+        dief (gtx("The UID %d is already in use.\n"),$new_uid)
+            if (defined($new_uid) && getpwuid($new_uid));
+    }
+    if ($make_group_also) {
+        debugf( "make_group_also 1, new_name %s, new_uid %s\n", $new_name, $new_uid );
+        if( !$system || !existing_group_ok($new_name, $new_uid) ) {
+            dief (gtx("The group `%s' already exists.\n"),$new_name)
+                if (defined getgrnam($new_name));
+            dief (gtx("The GID %d is already in use.\n"),$new_uid)
+                if (defined($new_uid) && defined(getgrgid($new_uid)));
+        }
+    } else {
+        dief (gtx("The group `%s' does not exist.\n"),$ingroup_name)
+            if ($ingroup_name && !defined(getgrnam($ingroup_name)));
+        dief (gtx("The GID %d does not exist.\n"),$gid_option)
+            if (defined($gid_option) && !defined(getgrgid($gid_option)));
+    }
+    debugf( "return from check_user_group\n" );
+}
+
+
+# copy_to_dir :
+# parameters:
+#   fromdir
+#   file
+#   todir
+#   newi
+#   newg
+#   sgiddir
+# return values:
+#   none
+sub copy_to_dir {
+    my($fromdir, $file, $todir, $newu, $newg, $sgiddir) = @_;
+
+    if (-l "$fromdir/$file") {
+        my $target=readlink("$fromdir/$file") or &cleanup("readlink: $!\n");
+        my $curgid="$)";
+        my $curuid="$>";
+        my $error="";
+        $)="$newg";
+        $>="$newu";
+        symlink("$target", "$todir/$file") or $error="$!";
+        $>="$curuid";
+        $)="$curgid";
+        if( "$error" ne "" ) {
+            &cleanup("symlink: $!\n");
+        }
+        return;
+    } elsif (-f "$fromdir/$file") {
+        open (FILE, "$fromdir/$file") || &cleanup("open $fromdir/$file: $!");
+        open (NEWFILE, ">$todir/$file") || &cleanup("open >$todir/$file: $!");
+
+        (print NEWFILE <FILE>) || &cleanup("print $todir/$file: $!");
+        close FILE;
+        close(NEWFILE)  || &cleanup("close $todir/$file ");
+    } elsif (-d "$fromdir/$file") {
+        mkdir("$todir/$file", 700) || &cleanup("mkdir: $!");
+    } else {
+        &cleanup(sprintf((gtx("Cannot deal with %s.\nIt is not a dir, file, or symlink.\n")), "$fromdir/$file"));
+    }
+
+    chown($newu, $newg, "$todir/$file")
+        || &cleanup("chown $newu:$newg $todir/$file: $!\n");
+    $perm = (stat("$fromdir/$file"))[2] & 07777;
+    $perm |= 02000 if (-d "$fromdir/$file" && ($perm & 010) && $sgiddir);
+    chmod($perm, "$todir/$file") || &cleanup("chmod $todir/$file: $!\n");
+}
+
+
+# checkname: perform some sanity checks
+# parameters:
+#   name: the name to check
+# return values:
+#   none (exits on error)
+sub checkname {
+    my ($name) = @_;
+
+    my $ieee_regex = '^[_.A-Za-z0-9][-\@_.A-Za-z0-9]*\$?$';
+    my $min_regex = qr{^[^-+~:,\s/][^:,\s/]*$};
+    my $name_regex_var = $found_sys_opt ? 'SYS_NAME_REGEX' : 'NAME_REGEX';
+    my $name_regex = $config{lc $name_regex_var};
+
+    if ($name =~ /^[\d]+$/) {
+        # this check cannot be turned off
+        warnf gtx("To avoid ambiguity with numerical UIDs, usernames which
+            consist of only digits are not allowed.\n");
+        exit RET_INVALID_CHARS_IN_NAME;
+    }
+
+    if (length $name > 32) {
+        # this check cannot be turned off
+        warnf gtx("Usernames must be no more than 32 bytes in length;
+            note that if you are using Unicode characters, the character
+            limit will be less than 32.\n");
+        exit RET_INVALID_CHARS_IN_NAME;
+    }
+
+    if ($name !~ $min_regex) {
+        # this check cannot be turned off
+        warnf gtx("To avoid problems, the username must not start with a
+            dash, plus sign, or tilde, and it must not contain any of the
+            following: colon, comma, slash, or any whitespace characters
+            including spaces, tabs, and newlines.\n");
+        exit RET_INVALID_CHARS_IN_NAME;
+    }
+
+    return if ($name =~ qr/$name_regex/);
+
+    if ($name !~ $ieee_regex && $name_check_level < 2) {
+        warnf (gtx("To avoid problems, the username should consist only of
+            letters, digits, underscores, periods, at signs and dashes, and
+            not start with a dash (as defined by IEEE Std 1003.1-2001). For
+            compatibility with Samba machine accounts, \$ is also supported
+            at the end of the username.  (Use the `--allow-all-names' option
+            to bypass this restriction.)\n"));
+        exit RET_INVALID_CHARS_IN_NAME;
+    }
+
+    if ($name_check_level) {
+        print (gtx("Allowing use of questionable username.\n")) if ($verbose);
+    } else {
+        warnf (gtx("Please enter a username matching the regular expression
+            configured via the %s configuration variable.  Use the
+            `--allow-bad-names' option to relax this check or reconfigure
+            %s in configuration.\n"), $name_regex_var, $name_regex_var);
+        exit RET_INVALID_CHARS_IN_NAME;
+    }
+}
+
+# first_avail_uid: return the first available uid in given range
+# parameters:
+#   min, max: the range
+#   pool_id: user id suggested from pool
+# return values:
+#   -1 if no free uid is available
+#  otherwise the choosen uid
+sub first_avail_uid {
+    my ($min, $max, $pool_id) = @_;
+    if (defined ($pool_id)) {
+        return $pool_id if (!defined(getpwuid($pool_id)));
+        return -1;
+    }
+    printf (gtx("Selecting UID from range %d to %d ...\n"),$min,$max) if ($verbose > 1);
+
+    my $t = $min;
+    while ($t <= $max) {
+       return $t if (!defined(getpwuid($t)));
+       $t++;
+    }
+    return -1; # nothing available
+}
+
+# first_avail_gid: return the first available gid in given range
+# parameters:
+#   min, max: the range
+#   pool_id: group id suggested from pool
+# return values:
+#   -1 if no free gid is available
+#   otherwise the choosen gid
+sub first_avail_gid {
+    my ($min, $max, $pool_id) = @_;
+    if (defined ($pool_id)) {
+        return $pool_id if (!defined(getgrgid($pool_id)));
+        return -1;
+    }
+    printf (gtx("Selecting GID from range %d to %d ...\n"),$min,$max) if ($verbose > 1);
+
+    my $t = $min;
+    while ($t <= $max) {
+       return $t if (!defined(getgrgid($t)));
+       $t++;
+    }
+    return -1; # nothing available
+}
+
+# first_avail_uid_gid: return the first available id in given range
+#     that is both available as uid and gid
+# parameters:
+#   min, max: the range
+#   pool_id: user id suggested from pool
+# return values:
+#   -1 if no free id is available
+#   otherwise the choosen id
+sub first_avail_uid_gid {
+    my ($min, $max, $pool_id) = @_;
+    if (defined ($pool_id)) {
+        return $pool_id if (!defined(getgrgid($pool_id)));
+        return -1;
+    }
+    printf (gtx("Selecting UID/GID from range %d to %d ...\n"),$min,$max) if ($verbose > 1);
+
+    my $t = $min;
+    while ($t <= $max) {
+       return $t if (!defined(getgrgid($t)) && !defined(getpwuid($t)));
+       $t++;
+    }
+    return -1; # nothing available
+}
+
+sub ch_comment {
+    my $chfn = &which('chfn');
+    my $comment = shift;
+    if($comment =~ /,/) {
+        my($comment_name,$comment_room,$comment_work,$comment_home,$comment_other)
+          = split(/,/,$comment);
+ 
+        &systemcall($chfn, '-f', $comment_name, '-r', $comment_room, $new_name);
+        &systemcall($chfn,'-w',$comment_work,$new_name)
+          if(defined($comment_work));
+        &systemcall($chfn,'-h',$comment_home,$new_name)
+          if(defined($comment_home));
+        &systemcall($chfn,'-o',$comment_other,$new_name)
+          if(defined($comment_other));
+    } else {
+        &systemcall($chfn, '-f', $comment, $new_name);
+    }
+}
+
+# user is member of group?
+sub user_is_member {
+    my($user, $group) = @_;
+    for (split(/ /, (getgrnam($group))[3])) {
+        return 1 if ($user eq $_);
+    }
+    return 0;
+}
+
+
+sub cleanup {
+    my ($msg) = @_;
+    printf (gtx("Stopped: %s\n"),$msg);
+    if ($undohome) {
+        printf (gtx("Removing directory `%s' ...\n"),$undohome);
+        &systemcall('rm', '-rf', $undohome);
+    }
+    if ($undouser) {
+        printf (gtx("Removing user `%s' ...\n"),$undouser);
+        &systemcall('userdel', $undouser);
+    }
+    if ($undogroup) {
+        printf (gtx("Removing group `%s' ...\n"),$undogroup);
+        &systemcall('groupdel', $undogroup);
+    }
+    exit RET_ADDUSER_ABORTED;
+}
+
+sub handler {
+    my($sig) = @_;
+    # Translators: the variable %s is INT, QUIT, or HUP.
+    # Please do not insert a space character between SIG and %s.
+    &cleanup(sprintf(gtx("Caught a SIG%s.\n"), $sig));
+}
+
+
+sub version {
+    printf (gtx("adduser version %s\n\n"), $version);
+    print gtx("Adds a user or group to the system.
+
+For detailed copyright information, please refer to
+/usr/share/doc/adduser/copyright.
+\n");
+    print gtx(
+"This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License, /usr/share/common-licenses/GPL, for more details.
+");
+}
+
+sub usage {
+    printf gtx(
+"adduser [--uid id] [--firstuid id] [--lastuid id]
+        [--gid id] [--firstgid id] [--lastgid id] [--ingroup group]
+        [--add-extra-groups] [--shell shell]
+        [--comment comment] [--home dir] [--no-create-home]
+        [--allow-all-names] [--allow-bad-names]
+        [--disabled-password] [--disabled-login]
+        [--conf file] [--quiet] [--verbose] [--debug]
+        user
+    Add a normal user
+
+adduser --system
+        [--uid id] [--group] [--ingroup group] [--gid id]
+        [--shell shell] [--comment comment] [--home dir] [--no-create-home]
+        [--conf file] [--quiet] [--verbose] [--debug]
+        user
+   Add a system user
+
+adduser --group
+        [--gid ID] [--firstgid id] [--lastgid id]
+        [--conf file] [--quiet] [--verbose] [--debug]
+        group
+addgroup
+        [--gid ID] [--firstgid id] [--lastgid id]
+        [--conf file] [--quiet] [--verbose] [--debug]
+        group
+   Add a user group
+
+addgroup --system
+        [--gid id]
+        [--conf file] [--quiet] [--verbose] [--debug]
+        group
+   Add a system group
+
+adduser USER GROUP
+   Add an existing user to an existing group\n");
+}
+
+sub usage_error {
+    &usage;
+    exit(RET_INVALID_CALL);
+}
+
+# get_dir_mode: return the appropriate permissions mode for a home directory
+# parameters:
+#   none
+# return value:
+#   a valid octal mode
+sub get_dir_mode
+  {
+    my $setgid = $config{"setgid_home"} =~ /yes/i;
+    my $mode = $found_sys_opt
+      ? $config{"sys_dir_mode"}
+      : $config{"dir_mode"};
+
+    if(!defined($mode) || ! ($mode =~ /[0-7]{3}/ || $mode =~ /[0-7]{4}/)) {
+        $mode = ($found_sys_opt) ? "755" : "0700";
+    }
+
+    if($setgid && (length($mode) == 3 || $mode =~ /^[0-1|4-5][0-7]{3}$/)) {
+        $mode += 2000;
+    }
+
+    return oct($mode);
+  }
+
+# Local Variables:
+# mode:cperl
+# cperl-indent-level:4
+# End:
+
+# vim: tabstop=4 shiftwidth=4 expandtab

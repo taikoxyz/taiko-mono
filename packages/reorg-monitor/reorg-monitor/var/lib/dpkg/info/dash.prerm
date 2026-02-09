@@ -1,0 +1,21 @@
+#!/bin/dash
+#
+# pre-removal script for the Debian GNU/Linux ash package
+#
+# $Id: dash.prerm,v 1.2 2003/09/03 10:42:08 herbert Exp $
+
+set -e
+
+remove_divert() {
+	diverter=$(dpkg-divert --listpackage $1)
+	if [ "$diverter" = "dash" ]; then
+		dpkg-divert --package dash --rename --remove $1
+	fi
+}
+
+if [ "$1" = remove ] || [ "$1" = deconfigure ]; then
+	remove_divert /bin/sh
+	remove_divert /usr/share/man/man1/sh.1.gz
+fi
+
+

@@ -1,0 +1,15 @@
+auto
+/usr/bin/awk
+awk.1.gz
+/usr/share/man/man1/awk.1.gz
+nawk
+/usr/bin/nawk
+nawk.1.gz
+/usr/share/man/man1/nawk.1.gz
+
+/usr/bin/mawk
+5
+/usr/share/man/man1/mawk.1.gz
+/usr/bin/mawk
+/usr/share/man/man1/mawk.1.gz
+

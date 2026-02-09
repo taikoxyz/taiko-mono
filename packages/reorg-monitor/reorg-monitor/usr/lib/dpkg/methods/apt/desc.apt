@@ -1,0 +1,9 @@
+The APT installation method encompasses most other installation methods
+under the umbrella of the new Package Acquisition code. This method allows
+installation from locations in the filesystem, ftp and http URLs, supports
+full installation ordering and dependency checking as well as multiple 
+sources. See the man pages apt-get(8) and sources.list(5)
+
+HTTP proxies can be used by setting http_proxy="http://proxy:port/" before
+running DSelect. FTP proxies require special configuration detailed in
+the apt.conf(5) man page (see /usr/share/doc/apt/examples/apt.conf)

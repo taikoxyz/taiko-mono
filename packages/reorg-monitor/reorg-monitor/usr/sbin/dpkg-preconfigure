@@ -1,0 +1,161 @@
+#!/usr/bin/perl -w
+# This file was preprocessed, do not edit!
+
+
+
+BEGIN {
+	eval qq{
+		use strict;
+		use File::Path qw(make_path remove_tree);
+		use FileHandle;
+		use Debconf::Log qw(:all);
+		use Debconf::Db;
+		use Debconf::Template;
+		use Debconf::Config;
+		use Debconf::AutoSelect qw(:all);
+		use Debconf::Gettext;
+		use Debconf::Path;
+	};
+	if ($@) {
+		print STDERR "debconf: Perl may be unconfigured ($@) -- aborting\n";
+		exit 0;
+	}
+}
+
+if (exists $ENV{DEBCONF_USE_CDEBCONF} and $ENV{DEBCONF_USE_CDEBCONF} ne '') {
+    exec "/usr/lib/cdebconf/dpkg-preconfigure", @ARGV;
+}
+
+Debconf::Db->load;
+
+my $apt=0;
+Debconf::Config->getopt(
+qq{Usage: dpkg-preconfigure [options] [debs]
+       --apt			Apt mode.},
+	"apt"			=> \$apt,
+);
+
+$|=1;
+
+my @debs=@ARGV;
+@ARGV=();
+
+my $have_tty=1;
+
+if ($apt) {
+	while (<>) {
+		chomp;
+		push @debs, $_ if length $_;
+	}
+	
+	exit unless @debs;
+	
+	$have_tty=0 unless open (STDIN, "/dev/tty");
+}
+elsif (! @debs) {
+	print STDERR sprintf("dpkg-preconfigure: ".gettext("must specify some debs to preconfigure")), "\n";
+	exit(1);
+}
+
+if (! Debconf::Path::find("apt-extracttemplates")) {
+	warn gettext("delaying package configuration, since apt-utils is not installed");
+	exit;
+}
+
+my $frontend=make_frontend();
+
+if (! $have_tty && $frontend->need_tty) {
+	print STDERR sprintf("dpkg-preconfigure: ".gettext("unable to re-open stdin: %s"), $!)."\n";
+	exit 0;
+}
+
+my $tempdir='/var/cache/debconf/tmp.ci';
+remove_tree($tempdir, { safe => 1, keep_root => 1 });
+make_path($tempdir);
+
+my ($package, $version, $template, $config);
+unless (open(INFO, "-|")) {
+	my $command_max=20000; # LINUX SPECIFIC!!
+	my $static_len=length("apt-extracttemplates");
+	my $len=$static_len;
+	my @collect;
+	my $progress=0;
+	my $show_progress=($apt && @debs > 30 && -t STDERR);
+	if ($show_progress) {
+		STDERR->autoflush(1);
+	}
+	foreach my $deb (@debs) {
+		$len += length($deb) + 1;
+		if ($len < $command_max && @collect < 30) {
+			push @collect, $deb;
+		}
+		else {
+			if (system("apt-extracttemplates", "--tempdir", $tempdir, @collect) != 0) {
+				print STDERR sprintf("debconf: ".gettext("apt-extracttemplates failed: %s")."\n",$!);
+			}
+			if ($show_progress) {
+				$progress += @collect;
+				printf STDERR "\r".gettext("Extracting templates from packages: %d%%"), $progress * 100 / @debs;
+			}
+				
+			@collect=($deb);
+			$len=$static_len + length($deb) + 1;
+		}
+	}
+	if (system("apt-extracttemplates", "--tempdir", $tempdir, @collect) != 0) {
+		print STDERR sprintf("debconf: ".gettext("apt-extracttemplates failed: %s")."\n",$!);
+	}
+	if ($show_progress) {
+		$progress += @collect;
+		printf STDERR "\r".gettext("Extracting templates from packages: %d%%")."\n", $progress * 100 / @debs;
+	}
+	exit;
+}
+my @buffer=<INFO>;
+if ($apt && @buffer) {
+	print gettext("Preconfiguring packages ...\n");
+}
+foreach my $line (@buffer) {
+	($package, $version, $template, $config)=split /\s/, $line;
+	
+	if (defined $template && length $template) {
+		eval q{
+			Debconf::Template->load($template, $package)
+		};
+		unlink $template;
+		if ($@) {
+			print STDERR "$package ".sprintf(gettext("template parse error: %s"), $@)."\n";
+			unlink $config;
+			next;
+		}
+	}
+}
+
+foreach my $line (@buffer) {
+	($package, $version, $template, $config)=split /\s/, $line;
+
+	if (defined $config && length $config && -e $config) {
+		debug user => sprintf("preconfiguring %s (%s)",$package,$version);
+		chmod(0755, $config) or
+			die sprintf(gettext("debconf: can't chmod: %s"), $!);
+		$frontend->default_title($package);
+		$frontend->info(undef);
+		my $confmodule=make_confmodule($config, 'configure', $version);
+		$confmodule->owner($package);
+		1 while ($confmodule->communicate);
+		if ($confmodule->exitcode > 0) {
+			print STDERR sprintf(
+				gettext("%s failed to preconfigure, with exit status %s"),
+				$package, $confmodule->exitcode)."\n";
+		}
+		unlink $config;
+	}
+}
+
+$frontend->shutdown;
+
+Debconf::Db->save;
+
+remove_tree($tempdir, { safe => 1, keep_root => 1 });
+
+

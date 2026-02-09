@@ -1,0 +1,4 @@
+libdebconfclient.so.0 libdebconfclient0 #MINVER#
+ debconfclient_delete@Base 0.145
+ debconfclient_init@Base 0.145
+ debconfclient_new@Base 0.145

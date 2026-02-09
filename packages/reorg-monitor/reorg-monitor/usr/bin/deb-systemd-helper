@@ -1,0 +1,691 @@
+#!/usr/bin/perl
+# vim:ts=4:sw=4:expandtab
+# © 2013-2014 Michael Stapelberg <stapelberg@debian.org>
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+#     * Neither the name of Michael Stapelberg nor the
+#       names of contributors may be used to endorse or promote products
+#       derived from this software without specific prior written permission.
+# .
+# THIS SOFTWARE IS PROVIDED BY Michael Stapelberg ''AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL Michael Stapelberg BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=head1 NAME
+
+deb-systemd-helper - subset of systemctl for machines not running systemd
+
+=head1 SYNOPSIS
+
+B<deb-systemd-helper> enable | disable | purge | mask | unmask | is-enabled | was-enabled | debian-installed | update-state | reenable S<I<unit file> ...>
+
+=head1 DESCRIPTION
+
+B<deb-systemd-helper> is a Debian-specific helper script which re-implements
+the enable, disable, is-enabled and reenable commands from systemctl.
+
+The "enable" action will only be performed once (when first installing the
+package). On the first "enable", a state file is created which will be deleted
+upon "purge".
+
+The "mask" action will keep state on whether the service was enabled/disabled
+before and will properly return to that state on "unmask".
+
+The "was-enabled" action is not present in systemctl, but is required in Debian
+so that we can figure out whether a service was enabled before we installed an
+updated service file. See http://bugs.debian.org/717603 for details.
+
+The "debian-installed" action is also not present in systemctl. It returns 0 if
+the state file of at least one of the given units is present.
+
+The "update-state" action is also not present in systemctl. It updates
+B<deb-systemd-helper>'s state file, removing obsolete entries (e.g. service
+files that are no longer shipped by the package) and adding new entries (e.g.
+new service files shipped by the package) without enabling them.
+
+B<deb-systemd-helper> is intended to be used from maintscripts to enable
+systemd unit files. It is specifically NOT intended to be used interactively by
+users. Instead, users should run systemd and use systemctl, or not bother about
+the systemd enabled state in case they are not running systemd.
+
+=head1 ENVIRONMENT
+
+=over 4
+
+=item B<_DEB_SYSTEMD_HELPER_DEBUG>
+
+If you export _DEB_SYSTEMD_HELPER_DEBUG=1, deb-systemd-helper will print debug
+messages to stderr (thus visible in dpkg runs). Please include these when
+filing a bugreport.
+
+=item B<DPKG_ROOT>
+
+Instead of working on the filesystem root /, perform all operations on a chroot
+system in the directory given by DPKG_ROOT.
+
+=back
+
+=cut
+
+use strict;
+use warnings;
+use File::Path qw(make_path); # in core since Perl 5.001
+use File::Basename; # in core since Perl 5
+use File::Temp qw(tempfile); # in core since Perl 5.6.1
+use Getopt::Long; # in core since Perl 5
+# Make Data::Dumper::Dumper available if present (not present on systems that
+# only have perl-base, not perl).
+eval { require Data::Dumper; } or *Data::Dumper::Dumper = sub { "no Data::Dumper" };
+
+my $dpkg_root = $ENV{DPKG_ROOT} // '';
+
+use constant {
+     SYSTEM_INSTANCE_ENABLED_STATE_DIR => '/var/lib/systemd/deb-systemd-helper-enabled',
+     USER_INSTANCE_ENABLED_STATE_DIR   => '/var/lib/systemd/deb-systemd-user-helper-enabled',
+     SYSTEM_INSTANCE_MASKED_STATE_DIR  => '/var/lib/systemd/deb-systemd-helper-masked',
+     USER_INSTANCE_MASKED_STATE_DIR    => '/var/lib/systemd/deb-systemd-user-helper-masked',
+};
+
+my $quiet = 0;
+my $instance = 'system';
+my $enabled_state_dir = $dpkg_root . SYSTEM_INSTANCE_ENABLED_STATE_DIR;
+my $masked_state_dir = $dpkg_root . SYSTEM_INSTANCE_MASKED_STATE_DIR;
+
+# Globals are bad, but in this specific case, it really makes things much
+# easier to write and understand.
+my $changed_sth;
+my $has_systemctl = -x "$dpkg_root/bin/systemctl" || -x "$dpkg_root/usr/bin/systemctl";
+
+sub assertdpkgroot {
+    my ($path, $msg) = @_;
+    if (length $ENV{DPKG_ROOT}) {
+        if ($path !~ /^\Q$dpkg_root\E/) {
+            error("doesn't start with dpkg_root: $path $msg");
+        }
+        if ($path =~ /^\Q$dpkg_root$dpkg_root\E/) {
+            error("double dpkg_root: $path $msg");
+        }
+    }
+}
+
+sub assertnotdpkgroot {
+    my ($path, $msg) = @_;
+    if (length $ENV{DPKG_ROOT}) {
+        if ($path =~ /^\Q$dpkg_root\E/) {
+            error("starts with dpkg_root: $path $msg");
+        }
+    }
+}
+
+sub error {
+    print STDERR "$0: error: @_\n";
+    exit (1);
+}
+
+sub debug {
+    my ($msg) = @_;
+    return if !defined($ENV{_DEB_SYSTEMD_HELPER_DEBUG}) || $ENV{_DEB_SYSTEMD_HELPER_DEBUG} != 1;
+    print STDERR "(deb-systemd-helper DEBUG) $msg\n";
+}
+
+sub is_purge {
+    return (defined($ENV{_DEB_SYSTEMD_HELPER_PURGE}) && $ENV{_DEB_SYSTEMD_HELPER_PURGE} == 1)
+}
+
+sub find_unit {
+    my ($scriptname) = @_;
+
+    my $service_path = $scriptname;
+
+    if (-f "$dpkg_root/etc/systemd/$instance/$scriptname") {
+        $service_path = "/etc/systemd/$instance/$scriptname";
+    } elsif (-f "$dpkg_root/lib/systemd/$instance/$scriptname") {
+        $service_path = "/lib/systemd/$instance/$scriptname";
+    } elsif (-f "$dpkg_root/usr/lib/systemd/$instance/$scriptname") {
+        $service_path = "/usr/lib/systemd/$instance/$scriptname";
+    }
+
+    return $service_path;
+}
+
+sub dsh_state_path {
+    my ($scriptname) = @_;
+    return $enabled_state_dir . '/' . basename($scriptname) . '.dsh-also';
+}
+
+sub state_file_entries {
+    my ($dsh_state) = @_;
+    debug "Reading state file $dsh_state";
+    my @entries;
+    if (open(my $fh, '<', $dsh_state)) {
+        @entries = map { chomp; "$dpkg_root$_" } <$fh>;
+        close($fh);
+    }
+    return @entries;
+}
+
+# Writes $service_link into $dsh_state unless it’s already in there.
+sub record_in_statefile {
+    my ($dsh_state, $service_link) = @_;
+
+    assertdpkgroot($dsh_state, "record_in_statefile");
+    assertnotdpkgroot($service_link, "record_in_statefile");
+
+    # Appending a newline makes the following code simpler; we can skip
+    # chomp()ing and appending newlines in every print.
+    $service_link .= "\n";
+
+    make_path(dirname($dsh_state));
+    my $line_exists;
+    my ($outfh, $tmpname) = tempfile('.stateXXXXX',
+        DIR => dirname($dsh_state),
+        SUFFIX => '.tmp',
+        UNLINK => 0);
+    chmod(0644, $tmpname);
+    if (-e $dsh_state) {
+        open(my $infh, '<', $dsh_state) or error("unable to read from $dsh_state");
+        while (<$infh>) {
+            $line_exists = 1 if $_ eq $service_link;
+            print $outfh $_;
+        }
+        close($infh);
+    }
+    print $outfh $service_link unless $line_exists;
+    close($outfh) or error("unable to close $tmpname");
+
+    debug "Renaming temp file $tmpname to state file $dsh_state";
+    rename($tmpname, $dsh_state) or
+        error("Unable to move $tmpname to $dsh_state");
+}
+
+# Gets the transitive closure of links, i.e. all links that need to be created
+# when enabling this service file. Not straight-forward because service files
+# can refer to other service files using Also=.
+sub get_link_closure {
+    my ($scriptname, $service_path, @visited) = @_;
+    assertnotdpkgroot($service_path, "get_link_closure");
+
+    my @links;
+    my @wants_dirs;
+
+    my $unit_name = basename($service_path);
+    my $wanted_target = $unit_name;
+
+    # The keys parsed from the unit file below can only have unit names
+    # as values. Since unit names can't have whitespace in systemd,
+    # simply use split and strip any leading/trailing quotes. See
+    # systemd-escape(1) for examples of valid unit names.
+    open my $fh, '<', "$dpkg_root$service_path" or error("unable to read $dpkg_root$service_path");
+    while (my $line = <$fh>) {
+        chomp($line);
+        my $service_link;
+
+        if ($line =~ /^\s*(WantedBy|RequiredBy)=(.+)$/i) {
+            for my $value (split(/\s+/, $2)) {
+                $value =~ s/^(["'])(.*)\g1$/$2/;
+                my $wants_dir = "/etc/systemd/$instance/$value";
+                $wants_dir .= '.wants' if $1 eq 'WantedBy';
+                $wants_dir .= '.requires' if $1 eq 'RequiredBy';
+                push @wants_dirs, "$wants_dir/";
+            }
+        }
+
+        if ($line =~ /^\s*Also=(.+)$/i) {
+            for my $value (split(/\s+/, $1)) {
+                $value =~ s/^(["'])(.*)\g1$/$2/;
+                if ($value ne $unit_name and not grep $_ eq $value, @visited) {
+                    # We can end up in an infinite recursion, so remember what units we
+                    # already processed to break it
+                    push @visited, $value;
+                    push @links, get_link_closure($value, find_unit($value), @visited);
+                }
+            }
+        }
+
+        if ($line =~ /^\s*Alias=(.+)$/i) {
+            for my $value (split(/\s+/, $1)) {
+                $value =~ s/^(["'])(.*)\g1$/$2/;
+                if ($value ne $unit_name) {
+                    push @links, { dest => $service_path, src => "/etc/systemd/$instance/$1" };
+                }
+            }
+        }
+
+        if ($line =~ /^\s*DefaultInstance=\s*(["']?+)(.+)\g1\s*$/i) {
+            $wanted_target = $2;
+            $wanted_target = $unit_name =~ s/^(.*\@)(\.\w+)$/$1$wanted_target$2/r;
+        }
+    }
+    close($fh);
+
+    for my $wants_dir (@wants_dirs) {
+        push @links, { dest => $service_path, src => $wants_dir . $wanted_target };
+    }
+
+    return @links;
+}
+
+sub all_links_installed {
+    my ($scriptname, $service_path) = @_;
+
+    my @links = get_link_closure($scriptname, $service_path);
+    foreach my $link (@links) {
+        assertnotdpkgroot($link->{src}, "all_links_installed");
+    }
+    my @missing_links = grep { ! -l "$dpkg_root$_->{src}" } @links;
+
+    return (@missing_links == 0);
+}
+
+sub no_link_installed {
+    my ($scriptname, $service_path) = @_;
+
+    my @links = get_link_closure($scriptname, $service_path);
+    foreach my $link (@links) {
+        assertnotdpkgroot($link->{src}, "all_links_installed");
+    }
+    my @existing_links = grep { -l "$dpkg_root$_->{src}" } @links;
+
+    return (@existing_links == 0);
+}
+
+sub enable {
+    my ($scriptname, $service_path) = @_;
+    if ($has_systemctl) {
+        # We use 'systemctl preset' on the initial installation only.
+        # On upgrade, we manually add the missing symlinks only if the
+        # service already has some links installed. Using 'systemctl
+        # preset' allows administrators and downstreams to alter the
+        # enable policy using systemd-native tools.
+        my $create_links = 0;
+        if (debian_installed($scriptname)) {
+            $create_links = 1 unless no_link_installed($scriptname, $service_path);
+        } else {
+            debug "Using systemctl preset to enable $scriptname";
+            my $systemd_root = '/';
+            if ($dpkg_root ne '') {
+                $systemd_root = $dpkg_root;
+            }
+            system("systemctl",
+                   "--root=$systemd_root",
+                   $instance eq "user" ? "--global" : "--system",
+                   "--preset-mode=enable-only",
+                   "preset", $scriptname) == 0
+                or error("systemctl preset failed on $scriptname: $!");
+        }
+        make_systemd_links($scriptname, $service_path, create_links => $create_links);
+    } else {
+        # We create all the symlinks ourselves
+        make_systemd_links($scriptname, $service_path);
+    }
+}
+
+sub make_systemd_links {
+    my ($scriptname, $service_path, %opts) = @_;
+    $opts{'create_links'} //= 1;
+
+    my $dsh_state = dsh_state_path($scriptname);
+
+    my @links = get_link_closure($scriptname, $service_path);
+    for my $link (@links) {
+        my $service_path = $link->{dest};
+        my $service_link = $link->{src};
+
+        record_in_statefile($dsh_state, $service_link);
+
+        my $statefile = $service_link;
+        $statefile =~ s,^/etc/systemd/$instance/,$enabled_state_dir/,;
+        $service_link = "$dpkg_root$service_link";
+        assertdpkgroot($statefile, "make_systemd_links");
+        assertdpkgroot($service_link, "make_systemd_links");
+        assertnotdpkgroot($service_path, "make_systemd_links");
+        next if -e $statefile;
+
+        if ($opts{'create_links'} && ! -l $service_link) {
+            make_path(dirname($service_link));
+            symlink($service_path, $service_link) or
+                error("unable to link $service_link to $service_path: $!");
+            $changed_sth = 1;
+        }
+
+        # Store the fact that we ran enable for this service_path,
+        # so that we can skip enable the next time.
+        # This allows us to call deb-systemd-helper unconditionally
+        # and still only enable unit files on the initial installation
+        # of a package.
+        make_path(dirname($statefile));
+        open(my $fh, '>>', $statefile) or error("Failed to create/touch $statefile");
+        close($fh) or error("Failed to create/touch $statefile");
+    }
+
+}
+
+# In contrary to make_systemd_links(), which only modifies the state file in an
+# append-only fashion, update_state() can also remove entries from the state
+# file.
+#
+# The distinction is important because update_state() should only be called
+# when the unit file(s) are guaranteed to be on-disk, e.g. on package updates,
+# but not on package removals.
+sub update_state {
+    my ($scriptname, $service_path) = @_;
+
+    my $dsh_state = dsh_state_path($scriptname);
+    my @links = get_link_closure($scriptname, $service_path);
+    assertdpkgroot($dsh_state, "update_state");
+
+    debug "Old state file contents: " .
+        Data::Dumper::Dumper([ state_file_entries($dsh_state) ]);
+
+    make_path(dirname($dsh_state));
+    my ($outfh, $tmpname) = tempfile('.stateXXXXX',
+        DIR => dirname($dsh_state),
+        SUFFIX => '.tmp',
+        UNLINK => 0);
+    chmod(0644, $tmpname);
+    for my $link (@links) {
+        assertnotdpkgroot($link->{src}, "update_state");
+        print $outfh $link->{src} . "\n";
+    }
+    close($outfh) or error("Failed to close $tmpname");
+
+    debug "Renaming temp file $tmpname to state file $dsh_state";
+    rename($tmpname, $dsh_state) or
+        error("Unable to move $tmpname to $dsh_state");
+
+    debug "New state file contents: " .
+        Data::Dumper::Dumper([ state_file_entries($dsh_state) ]);
+}
+
+sub was_enabled {
+    my ($scriptname) = @_;
+
+    my @entries = state_file_entries(dsh_state_path($scriptname));
+    debug "Contents: " . Data::Dumper::Dumper(\@entries);
+
+    for my $link (@entries) {
+        assertdpkgroot($link, "was_enabled");
+        if (! -l $link) {
+            debug "Link $link is missing, considering $scriptname was-disabled.";
+            return 0;
+        }
+    }
+
+    debug "All links present, considering $scriptname was-enabled.";
+    return 1;
+}
+
+sub debian_installed {
+    my ($scriptname) = @_;
+    return -f dsh_state_path($scriptname);
+}
+
+sub remove_links {
+    my ($service_path) = @_;
+
+    my $dsh_state = dsh_state_path($service_path);
+    my @entries = state_file_entries($dsh_state);
+    debug "Contents: " . Data::Dumper::Dumper(\@entries);
+    assertdpkgroot($dsh_state, "remove_links");
+    assertnotdpkgroot($service_path, "remove_links");
+
+    if (is_purge()) {
+        unlink($dsh_state) if -e $dsh_state;
+    }
+
+    # Also disable all the units which were enabled when this one was enabled.
+    for my $link (@entries) {
+        # Delete the corresponding state file:
+        # • Always when purging
+        # • If the user did not disable (= link still exists) the service.
+        #   If we don’t do this, the link will be deleted a few lines down,
+        #   but not re-created when re-installing the package.
+        assertdpkgroot($link, "remove_links");
+        if (is_purge() || -l $link) {
+            my $link_state = $link;
+            $link_state =~ s,^\Q$dpkg_root\E/etc/systemd/$instance/,$enabled_state_dir/,;
+            unlink($link_state);
+        }
+
+        next unless -l $link;
+        unlink($link) or
+            print STDERR "$0: unable to remove '$link': $!\n";
+
+        $changed_sth = 1;
+    }
+
+    # Read $service_path, recurse for all Also= units.
+    # This might not work when $service_path was already deleted,
+    # i.e. after apt-get remove. In this case we just return
+    # silently in order to not confuse the user about whether
+    # disabling actually worked or not — the case is handled by
+    # dh_installsystemd generating an appropriate disable
+    # command by parsing the service file at debhelper-time.
+    open(my $fh, '<', "$dpkg_root$service_path") or return;
+    while (my $line = <$fh>) {
+        chomp($line);
+        my $service_link;
+
+        if ($line =~ /^\s*Also=(.+)$/i) {
+            remove_links(find_unit($1));
+        }
+    }
+    close($fh);
+}
+
+# Recursively deletes a directory structure, if all (!) components are empty,
+# e.g. to clean up after purging.
+sub rmdir_if_empty {
+    my ($dir) = @_;
+
+    debug "rmdir_if_empty $dir";
+
+    rmdir_if_empty($_) for (grep { -d } <$dir/*>);
+
+    if (!rmdir($dir)) {
+        debug "rmdir($dir) failed ($!)";
+    }
+}
+
+sub mask_service {
+    my ($scriptname, $service_path) = @_;
+
+    my $mask_link = "$dpkg_root/etc/systemd/$instance/" . basename($service_path);
+
+    if (-e $mask_link) {
+        # If the link already exists, don’t do anything.
+        return if -l $mask_link && readlink($mask_link) eq '/dev/null';
+
+        # If the file already exists, the user most likely copied the .service
+        # file to /etc/ to change it in some way. In this case we don’t need to
+        # mask the .service in the first place, since it will not be removed by
+        # dpkg.
+        debug "$mask_link already exists, not masking.";
+        return;
+    }
+
+    make_path(dirname($mask_link));
+    # clean up after possible leftovers from Alias= to self (LP#1439793)
+    unlink($mask_link);
+    symlink('/dev/null', $mask_link) or
+        error("unable to link $mask_link to /dev/null: $!");
+    $changed_sth = 1;
+
+    my $statefile = $mask_link;
+    $statefile =~ s,^\Q$dpkg_root\E/etc/systemd/$instance/,$masked_state_dir/,;
+
+    # Store the fact that we masked this service, so that we can unmask it on
+    # installation time. We cannot unconditionally unmask because that would
+    # interfere with the user’s decision to mask a service.
+    make_path(dirname($statefile));
+    open(my $fh, '>>', $statefile) or error("Failed to create/touch $statefile");
+    close($fh) or error("Failed to create/touch $statefile");
+}
+
+sub unmask_service {
+    my ($scriptname, $service_path) = @_;
+
+    my $mask_link = "$dpkg_root/etc/systemd/$instance/" . basename($service_path);
+
+    # Not masked? Nothing to do.
+    return unless -e $mask_link;
+
+    if (! -l $mask_link || readlink($mask_link) ne '/dev/null') {
+        debug "Not unmasking $mask_link because it is not a link to /dev/null";
+        return;
+    }
+
+    my $statefile = $mask_link;
+    $statefile =~ s,^\Q$dpkg_root\E/etc/systemd/$instance/,$masked_state_dir/,;
+
+    if (! -e $statefile) {
+        debug "Not unmasking $mask_link because the state file $statefile does not exist";
+        return;
+    }
+
+    unlink($mask_link) or
+        error("unable to remove $mask_link: $!");
+    $changed_sth = 1;
+    unlink($statefile);
+}
+
+my $result = GetOptions(
+    "quiet" => \$quiet,
+    "user" => sub { $instance = 'user'; },
+    "system" => sub { $instance = 'system'; }, # default
+);
+
+if ($instance eq 'user') {
+    debug "is user unit = yes";
+    $enabled_state_dir = $dpkg_root . USER_INSTANCE_ENABLED_STATE_DIR;
+    $masked_state_dir = $dpkg_root . USER_INSTANCE_MASKED_STATE_DIR;
+}
+
+my $action = shift;
+if (!defined($action)) {
+    # Called without arguments. Explain that this script should not be run interactively.
+    print "$0 is a program which should be called by dpkg maintscripts only.\n";
+    print "Please do not run it interactively, ever. Also see the manpage deb-systemd-helper(1).\n";
+    exit 0;
+}
+
+if (!$ENV{DPKG_MAINTSCRIPT_PACKAGE}) {
+    print STDERR "$0 was not called from dpkg. Exiting.\n";
+    exit 1;
+}
+
+if ($action eq 'purge') {
+    $ENV{_DEB_SYSTEMD_HELPER_PURGE} = 1;
+    $action = 'disable';
+}
+
+debug "is purge = " . (is_purge() ? "yes" : "no");
+
+my $rc = 0;
+if ($action eq 'is-enabled' ||
+    $action eq 'was-enabled' ||
+    $action eq 'debian-installed') {
+    $rc = 1;
+}
+for my $scriptname (@ARGV) {
+    my $service_path = find_unit($scriptname);
+
+    debug "action = $action, scriptname = $scriptname, service_path = $service_path";
+
+    if ($action eq 'is-enabled') {
+        my $enabled = all_links_installed($scriptname, $service_path);
+        print STDERR ($enabled ? "enabled\n" : "disabled\n") unless $quiet;
+        $rc = 0 if $enabled;
+    }
+
+    # was-enabled is the same as is-enabled, but only considers links recorded
+    # in the state file. This is useful after package upgrades, to determine
+    # whether the unit file was enabled before upgrading, even if the unit file
+    # has changed and is not entirely enabled currently (due to a new Alias=
+    # line for example).
+    #
+    # If all machines were running systemd, this issue would not be present
+    # because is-enabled would query systemd, which would not have picked up
+    # the new unit file yet.
+    if ($action eq 'was-enabled') {
+        my $enabled = was_enabled($scriptname);
+        print STDERR ($enabled ? "enabled\n" : "disabled\n") unless $quiet;
+        $rc = 0 if $enabled;
+    }
+
+    if ($action eq 'update-state') {
+        update_state($scriptname, $service_path);
+    }
+
+    if ($action eq 'debian-installed') {
+        $rc = 0 if debian_installed($scriptname);
+    }
+
+    if ($action eq 'reenable') {
+        remove_links($service_path);
+        make_systemd_links($scriptname, $service_path);
+    }
+
+    if ($action eq 'disable') {
+        remove_links($service_path);
+        # Clean up the state dir if it’s empty, or at least clean up all empty
+        # subdirectories. Necessary to cleanly pass a piuparts run.
+        rmdir_if_empty($dpkg_root . SYSTEM_INSTANCE_ENABLED_STATE_DIR);
+        rmdir_if_empty($dpkg_root . USER_INSTANCE_ENABLED_STATE_DIR);
+
+        # Same with directories below /etc/systemd, where we create symlinks.
+        # If systemd is not installed (and no other package shipping service
+        # files), this would make piuparts fail, too.
+        rmdir_if_empty($_) for (grep { -d } <$dpkg_root/etc/systemd/system/*>);
+        rmdir_if_empty($_) for (grep { -d } <$dpkg_root/etc/systemd/user/*>);
+    }
+
+    if ($action eq 'enable') {
+        enable($scriptname, $service_path);
+    }
+
+    if ($action eq 'mask') {
+        mask_service($scriptname, $service_path);
+    }
+
+    if ($action eq 'unmask') {
+        unmask_service($scriptname, $service_path);
+        # Clean up the state dir if it’s empty, or at least clean up all empty
+        # subdirectories. Necessary to cleanly pass a piuparts run.
+        rmdir_if_empty($dpkg_root . SYSTEM_INSTANCE_MASKED_STATE_DIR);
+        rmdir_if_empty($dpkg_root . USER_INSTANCE_MASKED_STATE_DIR);
+    }
+}
+
+# If we changed anything and this machine is running systemd, tell
+# systemd to reload so that it will immediately pick up our
+# changes.
+if (!length $ENV{DPKG_ROOT} && $changed_sth && $instance eq 'system' && -d "/run/systemd/system") {
+    system("systemctl", "daemon-reload");
+}
+
+exit $rc;
+
+=head1 AUTHOR
+
+Michael Stapelberg <stapelberg@debian.org>
+
+=cut

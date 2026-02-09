@@ -1,0 +1,143 @@
+#!/bin/sh
+# See deb-postinst(5).
+
+set -e
+
+PROGNAME=dpkg
+
+. /usr/share/dpkg/sh/dpkg-error.sh
+
+setup_colors
+
+get_vendor()
+{
+  local origin="$DPKG_ROOT/etc/dpkg/origins/default"
+  local vendor
+
+  if [ -e "$origin" ]; then
+    vendor=$(sed -ne 's/^Vendor: *\([^ ]\+\) */\1/p' "$origin" | tr A-Z a-z)
+  fi
+
+  echo "${vendor:-default}"
+}
+
+check_merged_usr_via_aliased_dirs()
+{
+  local vendor
+
+  vendor=$(get_vendor)
+
+  case "$vendor" in
+  debian)
+    # In Debian some people have gotten so offended by the following _warning_
+    # that they have resorted to bullying and abuse. Life's too short, sorry.
+    return
+    ;;
+  ubuntu)
+    # Ubuntu does not seem interested in it.
+    return
+    ;;
+  esac
+
+  for d in /bin /sbin /lib /lib32 /libo32 /libx32 /lib64; do
+    linkname="$(readlink $DPKG_ROOT$d || true)"
+    if [ "$linkname" = "usr$d" ] || [ "$linkname" = "/usr$d" ]; then
+      warning "This system uses merged-usr-via-aliased-dirs, going behind dpkg's"
+      warning "back, breaking its core assumptions. This can cause silent file"
+      warning "overwrites and disappearances, and its general tools misbehavior."
+      warning "See <https://wiki.debian.org/Teams/Dpkg/FAQ#broken-usrmerge>."
+      break
+    fi
+  done
+}
+
+# Version 1.21.0 had bogus handling of DPKG_ADMINDIR in update-alternatives,
+# and misplaced them, fix them up.
+fixup_misplaced_alternatives()
+(
+  admindir=${DPKG_ADMINDIR:-/var/lib/dpkg}
+
+  cd "$admindir"
+
+  for file in *; do
+    if ! [ -f "$file" ]; then
+      # Ignore anything that is not a file.
+      continue
+    fi
+
+    # Check whether this is a known file we do not want to act on.
+    case "$file" in
+    arch|\
+    available|available-old|\
+    cmethopt|methlock|\
+    diversions|diversions-old|\
+    lock|lock-frontend|\
+    statoverride|statoverride-old|\
+    status|status-old)
+      # Ignore known files just to make sure.
+      continue
+      ;;
+    *)
+    esac
+
+    # Check whether the file looks like an alternative state file.
+    mode="$(head -1 "$file")"
+    case "$mode" in
+    auto|manual)
+      # Looks like a state file, we will handle this one.
+      echo "Moving misplaced alternative state file $admindir/$file..."
+      mv "$file" "alternatives/$file"
+      ;;
+    *)
+      warning "unknown dpkg database file $admindir/$file is not a misplaced alternative state... leaving as is"
+      continue
+      ;;
+    esac
+  done
+)
+
+case "$1" in
+configure)
+  fixup_misplaced_alternatives
+
+  check_merged_usr_via_aliased_dirs
+  ;;
+abort-upgrade|abort-deconfigure|abort-remove)
+  ;;
+*)
+  error "called with unknown argument '$1'"
+  ;;
+esac
+
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	# The following line should be removed in trixie or trixie+1
+	deb-systemd-helper unmask 'dpkg-db-backup.timer' >/dev/null || true
+
+	# was-enabled defaults to true, so new installations run enable.
+	if deb-systemd-helper --quiet was-enabled 'dpkg-db-backup.timer'; then
+		# Enables the unit on first installation, creates new
+		# symlinks on upgrades if the unit file has changed.
+		deb-systemd-helper enable 'dpkg-db-backup.timer' >/dev/null || true
+	else
+		# Update the statefile to add new symlinks (if any), which need to be
+		# cleaned up on purge. Also remove old symlinks.
+		deb-systemd-helper update-state 'dpkg-db-backup.timer' >/dev/null || true
+	fi
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	if [ -d /run/systemd/system ]; then
+		systemctl --system daemon-reload >/dev/null || true
+		if [ -n "$2" ]; then
+			_dh_action=restart
+		else
+			_dh_action=start
+		fi
+		deb-systemd-invoke $_dh_action 'dpkg-db-backup.service' 'dpkg-db-backup.timer' >/dev/null || true
+	fi
+fi
+# End automatically added section
+
+exit 0

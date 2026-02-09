@@ -1,0 +1,48 @@
+_su_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-'|'-u'|'--user')
+			COMPREPLY=( $(compgen -u -- $cur) )
+			return 0
+			;;
+		'-g'|'--group'|'-G'|'--supp-group')
+			COMPREPLY=( $(compgen -g -- $cur) )
+			return 0
+			;;
+		'-s'|'--shell')
+			COMPREPLY=( $(compgen -W "$(chsh -l)" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="	--user
+				--preserve-environment
+				--whitelist-environment
+				--group
+				--supp-group
+				--login
+				--command
+				--session-command
+				--fast
+				--shell
+				--help
+				--version"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local IFS=$'\n'
+	compopt -o filenames
+	COMPREPLY=( $(compgen -u -- $cur) )
+	return 0
+}
+complete -F _su_module su
+complete -F _su_module runuser

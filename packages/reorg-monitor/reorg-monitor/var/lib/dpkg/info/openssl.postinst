@@ -1,0 +1,9 @@
+#!/bin/sh -e
+
+if [ ! -e /usr/lib/ssl ]
+then
+  echo Linking /usr/lib/ssl to /etc/ssl
+  ln -sf /etc/ssl /usr/lib/ssl
+fi
+
+

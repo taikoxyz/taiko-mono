@@ -1,0 +1,13 @@
+/.
+/sbin
+/sbin/logsave
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/doc/logsave
+/usr/share/doc/logsave/changelog.Debian.arm64.gz
+/usr/share/doc/logsave/changelog.Debian.gz
+/usr/share/doc/logsave/copyright
+/usr/share/man
+/usr/share/man/man8
+/usr/share/man/man8/logsave.8.gz

@@ -1,0 +1,89 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: sysvinit
+Upstream-Contact: sysvinit-devel@nongnu.org
+Source: https://download.savannah.gnu.org/releases/sysvinit/
+
+Files: *
+Copyright: 1989, 1991 Free Software Foundation, Inc.
+           1997-2005 Miquel van Smoorenburg <miquels@cistron.nl>
+           1998 Danek Duvall
+           2003 Theodore Ts'o
+           2009, 2011, 2012 the sysvinit's copyright holder
+           2010 Michael Krapp
+           2011 SuSE LINUX Products GmbH
+           2017-2019 Jesse Smith
+License: GPL-2.0+
+
+Files: debian/*
+Copyright: 1996-2004 Miquel van Smoorenburg <miquels@cistron.nl>
+           2005-2010, 2014 Petter Reinholdtsen <pere@debian.org>
+           2006 Henrique de Moraes Holschuh <hmh@debian.org>
+           2006 Thomas Hood <jdthood@yahoo.co.uk>
+           2006-2007 Steinar H. Gunderson <sesse@debian.org>
+           2009 Software in the Public Interest
+           2009 Hideki Yamane <henrich@debian.or.jp>
+           2009 Free Software Foundation, Inc.
+           2009 Clytie Siddall <clytie@riverland.net.au>
+           2009-2020 Adriano Rafael Gomes <adrianorg@debian.org>
+           2010-2012 Christian Perrier <bubulle@debian.org>
+           2010-2019 Joe Hansen <joedalton2@yahoo.dk>
+           2011, 2016 Ben Hutchings <ben@decadent.org.uk>
+           2011-2013 Roger Leigh <rleigh@debian.org>
+           2012 Martin Bagge <brother@bsnet.se>
+           2012 Debian French l10n Team
+           2012-2013 Steve Langasek <vorlon@debian.org>
+           2014 Robert Millan <rmh@debian.org>
+           2014 Thomas Goirand <zigo@debian.org>
+           2014-2018 Michael Biebl <biebl@debian.org>
+           2015 Adam Conrad <adconrad@debian.org>
+           2015-2016 Andreas Henriksson <andreas@fatal.se>
+           2015-2016 Martin Pitt <mpitt@debian.org>
+           2017 Ian Jackson <ijackson@chiark.greenend.org.uk>
+           2018 Dmitry Bogatov <KAction@gnu.org>
+           2018 Vincenzo (KatolaZ) Nicosia <katolaz@freaknet.org>
+           2021 Mark Hindley <leepen@debian.org>
+License: GPL-2.0+
+
+Files: contrib/sysd2v.sh
+Copyright: 2019 Trek http://www.trek.eu.org/devel/sysd2v
+License: GPL-3.0
+
+Files: doc/Install
+       man/fstab-decode.8
+       man/initctl.5
+       src/fstab-decode.c
+       src/runlevellog.h
+       src/runlevellog.c
+Copyright: 2006 Red Hat, Inc.
+           2018 Jesse Smith
+License: GPL-2.0
+
+License: GPL-2.0+
+ This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems you can find a local copy of the GNU General Public License
+ in /usr/share/common-licenses/GPL-2.
+
+License: GPL-3.0
+ This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+ .
+ On Debian systems you can find a local copy of the GNU General Public License
+ in /usr/share/common-licenses/GPL-3.
+
+License: GPL-2.0
+ This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; version 2.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems you can find a local copy of the GNU General Public License
+ in /usr/share/common-licenses/GPL-2.

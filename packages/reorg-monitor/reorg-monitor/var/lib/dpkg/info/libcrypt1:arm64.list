@@ -1,0 +1,12 @@
+/.
+/lib
+/lib/aarch64-linux-gnu
+/lib/aarch64-linux-gnu/libcrypt.so.1.1.0
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/doc/libcrypt1
+/usr/share/doc/libcrypt1/changelog.Debian.gz
+/usr/share/doc/libcrypt1/changelog.gz
+/usr/share/doc/libcrypt1/copyright
+/lib/aarch64-linux-gnu/libcrypt.so.1

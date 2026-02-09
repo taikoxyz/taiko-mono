@@ -1,0 +1,69 @@
+_prlimit_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-p'|'--pid')
+			PIDS=$(cd /proc && echo [0-9]*)
+			COMPREPLY=( $(compgen -W "$PIDS" -- $cur) )
+			return 0
+			;;
+		'-o'|'--output')
+			local prefix realcur OUTPUT_ALL OUTPUT
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			OUTPUT_ALL="DESCRIPTION RESOURCE SOFT HARD UNITS"
+			for WORD in $OUTPUT_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					OUTPUT="$WORD ${OUTPUT:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$OUTPUT" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		'=')
+			cur=${cur#=}
+			# FIXME: is there anything what could be printed
+			# as limit value(s)
+			;;
+		-*)
+			OPTS="--pid
+				--output
+				--noheadings
+				--raw
+				--verbose
+				--help
+				--version
+				--core=
+				--data=
+				--nice=
+				--fsize=
+				--sigpending=
+				--memlock=
+				--rss=
+				--nofile=
+				--msgqueue=
+				--rtprio=
+				--stack=
+				--cpu=
+				--nproc=
+				--as=
+				--locks=
+				--rttime="
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault
+	COMPREPLY=( $(compgen -c -- $cur) )
+	return 0
+}
+complete -F _prlimit_module prlimit

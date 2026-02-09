@@ -1,0 +1,831 @@
+#!/bin/sh
+
+set -e
+unset GREP_OPTIONS GPGHOMEDIR CURRENTTRAP
+export IFS="$(printf "\n\b")"
+
+MASTER_KEYRING=''
+eval "$(apt-config shell MASTER_KEYRING APT::Key::MasterKeyring)"
+ARCHIVE_KEYRING=''
+eval "$(apt-config shell ARCHIVE_KEYRING APT::Key::ArchiveKeyring)"
+REMOVED_KEYS=''
+eval "$(apt-config shell REMOVED_KEYS APT::Key::RemovedKeys)"
+ARCHIVE_KEYRING_URI=''
+eval "$(apt-config shell ARCHIVE_KEYRING_URI APT::Key::ArchiveKeyringURI)"
+
+aptkey_echo() { echo "$@"; }
+
+find_gpgv_status_fd() {
+   while [ -n "$1" ]; do
+	if [ "$1" = '--status-fd' ]; then
+		shift
+		echo "$1"
+		break
+	fi
+	shift
+   done
+}
+GPGSTATUSFD="$(find_gpgv_status_fd "$@")"
+
+apt_warn() {
+    if [ -z "$GPGHOMEDIR" ]; then
+	echo >&2 'W:' "$@"
+    else
+	echo 'W:' "$@" > "${GPGHOMEDIR}/aptwarnings.log"
+    fi
+    if [ -n "$GPGSTATUSFD" ]; then
+	echo >&${GPGSTATUSFD} '[APTKEY:] WARNING' "$@"
+    fi
+}
+apt_error() {
+    if [ -z "$GPGHOMEDIR" ]; then
+	echo >&2 'E:' "$@"
+    else
+	echo 'E:' "$@" > "${GPGHOMEDIR}/aptwarnings.log"
+    fi
+    if [ -n "$GPGSTATUSFD" ]; then
+	echo >&${GPGSTATUSFD} '[APTKEY:] ERROR' "$@"
+    fi
+}
+
+cleanup_gpg_home() {
+    if [ -z "$GPGHOMEDIR" ]; then return; fi
+    if [ -s "$GPGHOMEDIR/aptwarnings.log" ]; then
+	cat >&2 "$GPGHOMEDIR/aptwarnings.log"
+    fi
+    if command_available 'gpgconf'; then
+	GNUPGHOME="${GPGHOMEDIR}" gpgconf --kill all >/dev/null 2>&1 || true
+    fi
+    rm -rf "$GPGHOMEDIR"
+}
+
+# gpg needs (in different versions more or less) files to function correctly,
+# so we give it its own homedir and generate some valid content for it later on
+create_gpg_home() {
+    # for cases in which we want to cache a homedir due to expensive setup
+    if [ -n "$GPGHOMEDIR" ]; then
+	return
+    fi
+    if [ -n "$TMPDIR" ]; then
+	# tmpdir is a directory and current user has rwx access to it
+	# same tests as in apt-pkg/contrib/fileutl.cc GetTempDir()
+	if [ ! -d "$TMPDIR" ] || [ ! -r "$TMPDIR" ] || [ ! -w "$TMPDIR" ] || [ ! -x "$TMPDIR" ]; then
+	    unset TMPDIR
+	fi
+    fi
+    GPGHOMEDIR="$(mktemp --directory --tmpdir 'apt-key-gpghome.XXXXXXXXXX')"
+    CURRENTTRAP="${CURRENTTRAP} cleanup_gpg_home;"
+    trap "${CURRENTTRAP}" 0 HUP INT QUIT ILL ABRT FPE SEGV PIPE TERM
+    if [ -z "$GPGHOMEDIR" ]; then
+	apt_error "Could not create temporary gpg home directory in $TMPDIR (wrong permissions?)"
+	exit 28
+    fi
+    chmod 700 "$GPGHOMEDIR"
+}
+
+requires_root() {
+	if [ "$(id -u)" -ne 0 ]; then
+		apt_error "This command can only be used by root."
+		exit 1
+	fi
+}
+
+command_available() {
+    if [ -x "$1" ]; then return 0; fi
+    command -v "$1" >/dev/null # required by policy, see #747320
+}
+
+escape_shell() {
+    echo "$@" | sed -e "s#'#'\"'\"'#g"
+}
+
+get_fingerprints_of_keyring() {
+    aptkey_execute "$GPG_SH" --keyring "$1" --with-colons --fingerprint | while read publine; do
+	# search for a public key
+	if [ "${publine%%:*}" != 'pub' ]; then continue; fi
+	# search for the associated fingerprint (should be the very next line)
+	while read fprline; do
+	   if [ "${fprline%%:*}" = 'sub' ]; then break; # should never happen
+	   elif [ "${fprline%%:*}" != 'fpr' ]; then continue; fi
+	   echo "$fprline" | cut -d':' -f 10
+	done
+	# order in the keyring shouldn't be important
+    done | sort
+}
+
+add_keys_with_verify_against_master_keyring() {
+    ADD_KEYRING="$1"
+    MASTER="$2"
+
+    if [ ! -f "$ADD_KEYRING" ]; then
+	apt_error "Keyring '$ADD_KEYRING' to be added not found"
+	return
+    fi
+    if [ ! -f "$MASTER" ]; then
+	apt_error "Master-Keyring '$MASTER' not found"
+	return
+    fi
+
+    # when adding new keys, make sure that the archive-master-keyring
+    # is honored. so:
+    #   all keys that are exported must have a valid signature
+    #   from a key in the $distro-master-keyring
+    add_keys="$(get_fingerprints_of_keyring "$ADD_KEYRING")"
+    all_add_keys="$(aptkey_execute "$GPG_SH" --keyring "$ADD_KEYRING" --with-colons --list-keys | grep ^[ps]ub | cut -d: -f5)"
+    master_keys="$(aptkey_execute "$GPG_SH" --keyring "$MASTER" --with-colons --list-keys | grep ^pub | cut -d: -f5)"
+
+    # ensure there are no colisions LP: #857472
+    for all_add_key in $all_add_keys; do
+	for master_key in $master_keys; do
+            if [ "$all_add_key" = "$master_key" ]; then
+                echo >&2 "Keyid collision for '$all_add_key' detected, operation aborted"
+                return 1
+            fi
+        done
+    done
+
+    for add_key in $add_keys; do
+        # export the add keyring one-by-one
+	local TMP_KEYRING="${GPGHOMEDIR}/tmp-keyring.gpg"
+	aptkey_execute "$GPG_SH" --batch --yes --keyring "$ADD_KEYRING" --output "$TMP_KEYRING" --export "$add_key"
+	if ! aptkey_execute "$GPG_SH" --batch --yes --keyring "$TMP_KEYRING" --import "$MASTER" > "${GPGHOMEDIR}/gpgoutput.log" 2>&1; then
+	    cat >&2 "${GPGHOMEDIR}/gpgoutput.log"
+	    false
+	fi
+	# check if signed with the master key and only add in this case
+	ADDED=0
+	for master_key in $master_keys; do
+	    if aptkey_execute "$GPG_SH" --keyring "$TMP_KEYRING" --check-sigs --with-colons "$add_key" \
+	       | grep '^sig:!:' | cut -d: -f5 | grep -q "$master_key"; then
+		aptkey_execute "$GPG_SH" --batch --yes --keyring "$ADD_KEYRING" --export "$add_key" \
+		   | aptkey_execute "$GPG" --batch --yes --import
+		ADDED=1
+	    fi
+	done
+	if [ $ADDED = 0 ]; then
+	    echo >&2 "Key '$add_key' not added. It is not signed with a master key"
+	fi
+	rm -f "${TMP_KEYRING}"
+    done
+}
+
+# update the current archive signing keyring from a network URI
+# the archive-keyring keys needs to be signed with the master key
+# (otherwise it does not make sense from a security POV)
+net_update() {
+    local APT_DIR='/'
+    eval $(apt-config shell APT_DIR Dir)
+
+    # Disabled for now as code is insecure (LP: #1013639 (and 857472, 1013128))
+    APT_KEY_NET_UPDATE_ENABLED=""
+    eval $(apt-config shell APT_KEY_NET_UPDATE_ENABLED APT::Key::Net-Update-Enabled)
+    if [ -z "$APT_KEY_NET_UPDATE_ENABLED" ]; then
+        exit 1
+    fi
+
+    if [ -z "$ARCHIVE_KEYRING_URI" ]; then
+	apt_error 'Your distribution is not supported in net-update as no uri for the archive-keyring is set'
+	exit 1
+    fi
+    # in theory we would need to depend on wget for this, but this feature
+    # isn't usable in debian anyway as we have no keyring uri nor a master key
+    if ! command_available 'wget'; then
+	apt_error 'wget is required for a network-based update, but it is not installed'
+	exit 1
+    fi
+    if [ ! -d "${APT_DIR}/var/lib/apt/keyrings" ]; then
+	mkdir -p "${APT_DIR}/var/lib/apt/keyrings"
+    fi
+    keyring="${APT_DIR}/var/lib/apt/keyrings/$(basename "$ARCHIVE_KEYRING_URI")"
+    old_mtime=0
+    if [ -e $keyring ]; then
+	old_mtime=$(stat -c %Y "$keyring")
+    fi
+    (cd  "${APT_DIR}/var/lib/apt/keyrings"; wget --timeout=90 -q -N "$ARCHIVE_KEYRING_URI")
+    if [ ! -e "$keyring" ]; then
+	return
+    fi
+    new_mtime=$(stat -c %Y "$keyring")
+    if [ $new_mtime -ne $old_mtime ]; then
+	aptkey_echo "Checking for new archive signing keys now"
+	add_keys_with_verify_against_master_keyring "$keyring" "$MASTER_KEYRING"
+    fi
+}
+
+update() {
+    if [ -z "$APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE" ]; then
+	echo >&2 "Warning: 'apt-key update' is deprecated and should not be used anymore!"
+	if [ -z "$ARCHIVE_KEYRING" ]; then
+	    echo >&2 "Note: In your distribution this command is a no-op and can therefore be removed safely."
+	    exit 0
+	fi
+    fi
+    if [ ! -f "$ARCHIVE_KEYRING" ]; then
+	apt_error "Can't find the archive-keyring (Is the debian-archive-keyring package installed?)"
+	exit 1
+    fi
+
+    # add new keys from the package;
+
+    # we do not use add_keys_with_verify_against_master_keyring here,
+    # because "update" is run on regular package updates.  A
+    # attacker might as well replace the master-archive-keyring file
+    # in the package and add his own keys. so this check wouldn't
+    # add any security. we *need* this check on net-update though
+    import_keyring_into_keyring "$ARCHIVE_KEYRING" '' && cat "${GPGHOMEDIR}/gpgoutput.log"
+
+    if [ -r "$REMOVED_KEYS" ]; then
+	# remove no-longer supported/used keys
+	get_fingerprints_of_keyring "$(dearmor_filename "$REMOVED_KEYS")" | while read key; do
+	    foreach_keyring_do 'remove_key_from_keyring' "$key"
+	done
+    else
+	apt_warn "Removed keys keyring '$REMOVED_KEYS' missing or not readable"
+    fi
+}
+
+remove_key_from_keyring() {
+    local KEYRINGFILE="$1"
+    shift
+    # non-existent keyrings have by definition no keys
+    if [ ! -e "$KEYRINGFILE" ]; then
+       return
+    fi
+
+    local FINGERPRINTS="${GPGHOMEDIR}/keyringfile.keylst"
+    local DEARMOR="$(dearmor_filename "$KEYRINGFILE")"
+    get_fingerprints_of_keyring "$DEARMOR" > "$FINGERPRINTS"
+
+    for KEY in "$@"; do
+	# strip leading 0x, if present:
+	KEY="$(echo "${KEY#0x}" | tr -d ' ')"
+
+	# check if the key is in this keyring
+	if ! grep -iq "^[0-9A-F]*${KEY}$" "$FINGERPRINTS"; then
+	    continue
+	fi
+	if [ ! -w "$KEYRINGFILE" ]; then
+	    apt_warn "Key ${KEY} is in keyring ${KEYRINGFILE}, but can't be removed as it is read only."
+	    continue
+	fi
+	# check if it is the only key in the keyring and if so remove the keyring altogether
+	if [ '1' = "$(uniq "$FINGERPRINTS" | wc -l)" ]; then
+	    mv -f "$KEYRINGFILE" "${KEYRINGFILE}~" # behave like gpg
+	    return
+	fi
+	# we can't just modify pointed to files as these might be in /usr or something
+	local REALTARGET
+	if [ -L "$DEARMOR" ]; then
+	    REALTARGET="$(readlink -f "$DEARMOR")"
+	    mv -f "$DEARMOR" "${DEARMOR}.dpkg-tmp"
+	    cp -a "$REALTARGET" "$DEARMOR"
+	fi
+	# delete the key from the keyring
+	aptkey_execute "$GPG_SH" --keyring "$DEARMOR" --batch --delete-keys --yes "$KEY"
+	if [ -n "$REALTARGET" ]; then
+	    # the real backup is the old link, not the copy we made
+	    mv -f "${DEARMOR}.dpkg-tmp" "${DEARMOR}~"
+	fi
+	if [ "$DEARMOR" != "$KEYRINGFILE" ]; then
+	    mv -f "$KEYRINGFILE" "${KEYRINGFILE}~"
+	    create_new_keyring "$KEYRINGFILE"
+	    aptkey_execute "$GPG_SH" --keyring "$DEARMOR" --armor --export > "$KEYRINGFILE"
+	fi
+	get_fingerprints_of_keyring "$DEARMOR" > "$FINGERPRINTS"
+    done
+}
+
+accessible_file_exists() {
+   if ! test -s "$1"; then
+      return 1
+   fi
+   if test -r "$1"; then
+      return 0
+   fi
+   apt_warn "The key(s) in the keyring $1 are ignored as the file is not readable by user '$USER' executing apt-key."
+   return 1
+}
+
+is_supported_keyring() {
+    # empty files are always supported
+    if ! test -s "$1"; then
+	return 0
+    fi
+    local FILEEXT="${1##*.}"
+    if [ "$FILEEXT" = 'gpg' ]; then
+	# 0x98, 0x99 and 0xC6 via octal as hex isn't supported by dashs printf
+	if printf '\231' | cmp -s -n 1 - "$1"; then
+	    true
+	elif printf '\230' | cmp -s -n 1 - "$1"; then
+	    true
+	elif printf '\306' | cmp -s -n 1 - "$1"; then
+	    true
+	else
+	    apt_warn "The key(s) in the keyring $1 are ignored as the file has an unsupported filetype."
+	    return 1
+	fi
+    elif [ "$FILEEXT" = 'asc' ]; then
+	true #dearmor_filename will deal with them
+    else
+	# most callers ignore unsupported extensions silently
+	apt_warn "The key(s) in the keyring $1 are ignored as the file has an unsupported filename extension."
+	return 1
+    fi
+    return 0
+}
+
+foreach_keyring_do() {
+   local ACTION="$1"
+   shift
+   # if a --keyring was given, just work on this one
+   if [ -n "$FORCED_KEYRING" ]; then
+	$ACTION "$FORCED_KEYRING" "$@"
+   else
+	# otherwise all known keyrings are up for inspection
+	if accessible_file_exists "$TRUSTEDFILE" && is_supported_keyring "$TRUSTEDFILE"; then
+	    $ACTION "$TRUSTEDFILE" "$@"
+	fi
+	local TRUSTEDPARTS="/etc/apt/trusted.gpg.d"
+	eval "$(apt-config shell TRUSTEDPARTS Dir::Etc::TrustedParts/d)"
+	if [ -d "$TRUSTEDPARTS" ]; then
+	    TRUSTEDPARTS="$(readlink -f "$TRUSTEDPARTS")"
+	    local TRUSTEDPARTSLIST="$(cd /; find "$TRUSTEDPARTS" -mindepth 1 -maxdepth 1 \( -name '*.gpg' -o -name '*.asc' \))"
+	    for trusted in $(echo "$TRUSTEDPARTSLIST" | sort); do
+		if accessible_file_exists "$trusted" && is_supported_keyring "$trusted"; then
+		    $ACTION "$trusted" "$@"
+		fi
+	    done
+	fi
+   fi
+}
+
+list_keys_in_keyring() {
+    local KEYRINGFILE="$1"
+    shift
+    # fingerprint and co will fail if key isn't in this keyring
+    aptkey_execute "$GPG_SH" --keyring "$(dearmor_filename "$KEYRINGFILE")" "$@" > "${GPGHOMEDIR}/gpgoutput.log" 2> "${GPGHOMEDIR}/gpgoutput.err" || true
+    if [ ! -s "${GPGHOMEDIR}/gpgoutput.log" ]; then
+	return
+    fi
+    # we fake gpg header here to refer to the real asc file rather than a temp file
+    if [ "${KEYRINGFILE##*.}" = 'asc' ]; then
+	if expr match "$(sed -n '2p' "${GPGHOMEDIR}/gpgoutput.log")" '^-\+$' >/dev/null 2>&1; then
+	    echo "$KEYRINGFILE"
+	    echo "$KEYRINGFILE" | sed 's#[^-]#-#g'
+	    sed '1,2d' "${GPGHOMEDIR}/gpgoutput.log" || true
+	else
+	    cat "${GPGHOMEDIR}/gpgoutput.log"
+	fi
+    else
+	cat "${GPGHOMEDIR}/gpgoutput.log"
+    fi
+    if [ -s "${GPGHOMEDIR}/gpgoutput.err" ]; then
+	cat >&2 "${GPGHOMEDIR}/gpgoutput.err"
+    fi
+}
+
+export_key_from_to() {
+    local FROM="$1"
+    local TO="$2"
+    shift 2
+    if ! aptkey_execute "$GPG_SH" --keyring "$(dearmor_filename "$FROM")" --export "$@" > "$TO" 2> "${GPGHOMEDIR}/gpgoutput.log"; then
+	cat >&2 "${GPGHOMEDIR}/gpgoutput.log"
+	false
+    else
+	chmod 0644 -- "$TO"
+    fi
+}
+
+import_keyring_into_keyring() {
+    local FROM="${1:-${GPGHOMEDIR}/pubring.gpg}"
+    local TO="${2:-${GPGHOMEDIR}/pubring.gpg}"
+    shift 2
+    rm -f "${GPGHOMEDIR}/gpgoutput.log"
+    # the idea is simple: We take keys from one keyring and copy it to another
+    # we do this with so many checks in between to ensure that WE control the
+    # creation, so we know that the (potentially) created $TO keyring is a
+    # simple keyring rather than a keybox as gpg2 would create it which in turn
+    # can't be read by gpgv.
+    # BEWARE: This is designed more in the way to work with the current
+    # callers, than to have a well defined it would be easy to add new callers to.
+    if [ ! -s "$TO" ]; then
+	if [ -s "$FROM" ]; then
+	    if [ -z "$2" ]; then
+		local OPTS
+		if [ "${TO##*.}" = 'asc' ]; then
+		    OPTS='--armor'
+		fi
+		export_key_from_to "$(dearmor_filename "$FROM")" "$TO" $OPTS ${1:+"$1"}
+	    else
+		create_new_keyring "$TO"
+	    fi
+	else
+	    create_new_keyring "$TO"
+	fi
+    elif [ -s "$FROM" ]; then
+	local EXPORTLIMIT="$1"
+	if [ -n "$1$2" ]; then shift; fi
+	local DEARMORTO="$(dearmor_filename "$TO")"
+	if ! aptkey_execute "$GPG_SH" --keyring "$(dearmor_filename "$FROM")" --export ${EXPORTLIMIT:+"$EXPORTLIMIT"} \
+	   | aptkey_execute "$GPG_SH" --keyring "$DEARMORTO" --batch --import "$@" > "${GPGHOMEDIR}/gpgoutput.log" 2>&1; then
+	    cat >&2 "${GPGHOMEDIR}/gpgoutput.log"
+	    false
+	fi
+	if [ "$DEARMORTO" != "$TO" ]; then
+	    export_key_from_to "$DEARMORTO" "${DEARMORTO}.asc" --armor
+	    if ! cmp -s "$TO" "${DEARMORTO}.asc" 2>/dev/null; then
+		cp -a "$TO" "${TO}~"
+		mv -f "${DEARMORTO}.asc" "$TO"
+	    fi
+	fi
+    fi
+}
+
+dearmor_keyring() {
+    # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=831409#67
+    # The awk script is more complex through to skip surrounding garbage and
+    # to support multiple keys in one file (old gpgs generate version headers
+    # which get printed with the original and hence result in garbage input for base64
+    awk '/^-----BEGIN/{ x = 1; }
+/^$/{ if (x == 1) { x = 2; }; }
+/^[^=-]/{ if (x == 2) { print $0; }; }
+/^-----END/{ x = 0; }' | base64 -d
+}
+dearmor_filename() {
+    if [ "${1##*.}" = 'asc' ]; then
+	local trusted="${GPGHOMEDIR}/${1##*/}.gpg"
+	if [ -s "$1" ]; then
+	    dearmor_keyring < "$1" > "$trusted"
+	fi
+	echo "$trusted"
+    elif [ "${1##*.}" = 'gpg' ]; then
+	echo "$1"
+    elif [ "$(head -n 1 "$1" 2>/dev/null)" = '-----BEGIN PGP PUBLIC KEY BLOCK-----' ]; then
+	local trusted="${GPGHOMEDIR}/${1##*/}.gpg"
+	dearmor_keyring < "$1" > "$trusted"
+	echo "$trusted"
+    else
+	echo "$1"
+    fi
+}
+catfile() {
+    cat "$(dearmor_filename "$1")" >> "$2"
+}
+
+merge_all_trusted_keyrings_into_pubring() {
+    # does the same as:
+    # foreach_keyring_do 'import_keys_from_keyring' "${GPGHOMEDIR}/pubring.gpg"
+    # but without using gpg, just cat and find
+    local PUBRING="$(readlink -f "${GPGHOMEDIR}")/pubring.gpg"
+    rm -f "$PUBRING"
+    touch "$PUBRING"
+    foreach_keyring_do 'catfile' "$PUBRING"
+}
+
+import_keys_from_keyring() {
+    import_keyring_into_keyring "$1" "$2"
+}
+
+merge_keys_into_keyrings() {
+    import_keyring_into_keyring "$2" "$1" '' --import-options 'merge-only'
+}
+
+merge_back_changes() {
+    if [ -n "$FORCED_KEYRING" ]; then
+	# if the keyring was forced merge is already done
+	if [ "$FORCED_KEYRING" != "$TRUSTEDFILE" ]; then
+	    mv -f "$FORCED_KEYRING" "${FORCED_KEYRING}~"
+	    export_key_from_to "$TRUSTEDFILE" "$FORCED_KEYRING" --armor
+	fi
+	return
+    fi
+    if [ -s "${GPGHOMEDIR}/pubring.gpg" ]; then
+	# merge all updated keys
+	foreach_keyring_do 'merge_keys_into_keyrings' "${GPGHOMEDIR}/pubring.gpg"
+    fi
+    # look for keys which were added or removed
+    get_fingerprints_of_keyring "${GPGHOMEDIR}/pubring.orig.gpg" > "${GPGHOMEDIR}/pubring.orig.keylst"
+    get_fingerprints_of_keyring "${GPGHOMEDIR}/pubring.gpg" > "${GPGHOMEDIR}/pubring.keylst"
+    comm -3 "${GPGHOMEDIR}/pubring.keylst" "${GPGHOMEDIR}/pubring.orig.keylst" > "${GPGHOMEDIR}/pubring.diff"
+    # key isn't part of new keyring, so remove
+    cut -f 2 "${GPGHOMEDIR}/pubring.diff" | while read key; do
+	if [ -z "$key" ]; then continue; fi
+	foreach_keyring_do 'remove_key_from_keyring' "$key"
+    done
+    # key is only part of new keyring, so we need to import it
+    cut -f 1 "${GPGHOMEDIR}/pubring.diff" | while read key; do
+	if [ -z "$key" ]; then continue; fi
+	import_keyring_into_keyring '' "$TRUSTEDFILE" "$key"
+    done
+}
+
+setup_merged_keyring() {
+    if [ -n "$FORCED_KEYID" ]; then
+	merge_all_trusted_keyrings_into_pubring
+	FORCED_KEYRING="${GPGHOMEDIR}/forcedkeyid.gpg"
+	TRUSTEDFILE="${FORCED_KEYRING}"
+	echo "#!/bin/sh
+exec sh '($(escape_shell "${GPG}")' --keyring '$(escape_shell "${TRUSTEDFILE}")' \"\$@\"" > "${GPGHOMEDIR}/gpg.1.sh"
+	GPG="${GPGHOMEDIR}/gpg.1.sh"
+	# ignore error as this "just" means we haven't found the forced keyid and the keyring will be empty
+	import_keyring_into_keyring '' "$TRUSTEDFILE" "$FORCED_KEYID" || true
+    elif [ -z "$FORCED_KEYRING" ]; then
+	merge_all_trusted_keyrings_into_pubring
+	if [ -r "${GPGHOMEDIR}/pubring.gpg" ]; then
+	    cp -a "${GPGHOMEDIR}/pubring.gpg" "${GPGHOMEDIR}/pubring.orig.gpg"
+	else
+	   touch "${GPGHOMEDIR}/pubring.gpg" "${GPGHOMEDIR}/pubring.orig.gpg"
+	fi
+	echo "#!/bin/sh
+exec sh '$(escape_shell "${GPG}")' --keyring '$(escape_shell "${GPGHOMEDIR}/pubring.gpg")' \"\$@\"" > "${GPGHOMEDIR}/gpg.1.sh"
+	GPG="${GPGHOMEDIR}/gpg.1.sh"
+    else
+	TRUSTEDFILE="$(dearmor_filename "$FORCED_KEYRING")"
+	create_new_keyring "$TRUSTEDFILE"
+	echo "#!/bin/sh
+exec sh '$(escape_shell "${GPG}")' --keyring '$(escape_shell "${TRUSTEDFILE}")' \"\$@\"" > "${GPGHOMEDIR}/gpg.1.sh"
+	GPG="${GPGHOMEDIR}/gpg.1.sh"
+    fi
+}
+
+create_new_keyring() {
+    # gpg defaults to mode 0600 for new keyrings. Create one with 0644 instead.
+    if ! [ -e "$1" ]; then
+	if [ -w "$(dirname "$1")" ]; then
+	    touch -- "$1"
+	    chmod 0644 -- "$1"
+	fi
+    fi
+}
+
+aptkey_execute() { sh "$@"; }
+
+usage() {
+    echo "Usage: apt-key [--keyring file] [command] [arguments]"
+    echo
+    echo "Manage apt's list of trusted keys"
+    echo
+    echo "  apt-key add <file>          - add the key contained in <file> ('-' for stdin)"
+    echo "  apt-key del <keyid>         - remove the key <keyid>"
+    echo "  apt-key export <keyid>      - output the key <keyid>"
+    echo "  apt-key exportall           - output all trusted keys"
+    echo "  apt-key update              - update keys using the keyring package"
+    echo "  apt-key net-update          - update keys using the network"
+    echo "  apt-key list                - list keys"
+    echo "  apt-key finger              - list fingerprints"
+    echo "  apt-key adv                 - pass advanced options to gpg (download key)"
+    echo
+    echo "If no specific keyring file is given the command applies to all keyring files."
+}
+
+while [ -n "$1" ]; do
+   case "$1" in
+      --keyring)
+	 shift
+	 if [ -z "$FORCED_KEYRING" -o "$FORCED_KEYRING" = '/dev/null' ]; then
+	     TRUSTEDFILE="$1"
+	     FORCED_KEYRING="$1"
+	 elif [ "$TRUSTEDFILE" = "$FORCED_KEYRING" ]; then
+	     create_gpg_home
+	     FORCED_KEYRING="${GPGHOMEDIR}/mergedkeyrings.gpg"
+	     echo -n '' > "$FORCED_KEYRING"
+	     chmod 0644 -- "$FORCED_KEYRING"
+	     catfile "$TRUSTEDFILE" "$FORCED_KEYRING"
+	     catfile "$1" "$FORCED_KEYRING"
+	 else
+	     catfile "$1" "$FORCED_KEYRING"
+	 fi
+	 ;;
+      --keyid)
+	 shift
+	 if [ -n "$FORCED_KEYID" ]; then
+	     apt_error 'Specifying --keyid multiple times is not supported'
+	     exit 1
+	 fi
+	 FORCED_KEYID="$1"
+	 ;;
+      --secret-keyring)
+	 shift
+	 FORCED_SECRET_KEYRING="$1"
+	 ;;
+      --readonly)
+	 merge_back_changes() { true; }
+	 create_new_keyring() { if [ ! -r "$FORCED_KEYRING" ]; then TRUSTEDFILE='/dev/null'; FORCED_KEYRING="$TRUSTEDFILE"; fi; }
+	 ;;
+      --fakeroot)
+	 requires_root() { true; }
+	 ;;
+      --quiet)
+	 aptkey_echo() { true; }
+	 ;;
+      --debug1)
+	 # some cmds like finger redirect stderr to /dev/null …
+	aptkey_execute() { echo 'EXEC:' "$@"; sh "$@"; }
+	;;
+      --debug2)
+	 # … other more complicated ones pipe gpg into gpg.
+	aptkey_execute() { echo >&2 'EXEC:' "$@"; sh "$@"; }
+	;;
+      --homedir)
+	 # force usage of a specific homedir instead of creating a temporary
+	 shift
+	 GPGHOMEDIR="$1"
+	;;
+      --*)
+	 echo >&2 "Unknown option: $1"
+	 usage
+	 exit 1;;
+      *)
+	 break;;
+   esac
+   shift
+done
+
+if [ -z "$TRUSTEDFILE" ]; then
+   TRUSTEDFILE="/etc/apt/trusted.gpg"
+   eval $(apt-config shell TRUSTEDFILE Apt::GPGV::TrustedKeyring)
+   eval $(apt-config shell TRUSTEDFILE Dir::Etc::Trusted/f)
+   if [ "$APT_KEY_NO_LEGACY_KEYRING" ]; then
+        TRUSTEDFILE="/dev/null"
+   fi
+fi
+
+command="$1"
+if [ -z "$command" ]; then
+    usage
+    exit 1
+fi
+shift
+
+prepare_gpg_home() {
+    # crude detection if we are called from a maintainerscript where the
+    # package depends on gnupg or not. We accept recommends here as
+    # well as the script hopefully uses apt-key optionally then like e.g.
+    # debian-archive-keyring for (upgrade) cleanup did
+    if [ -n "$DPKG_MAINTSCRIPT_PACKAGE" ] && [ -z "$APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE" ]; then
+	if ! dpkg-query --show --showformat '${Pre-Depends}${Depends}${Recommends}\n' "$DPKG_MAINTSCRIPT_PACKAGE" 2>/dev/null | grep -E -q 'gpg|gnupg'; then
+	    cat >&2 <<EOF
+Warning: The $DPKG_MAINTSCRIPT_NAME maintainerscript of the package $DPKG_MAINTSCRIPT_PACKAGE
+Warning: seems to use apt-key (provided by apt) without depending on gpg, gnupg, or gnupg2.
+Warning: This will BREAK in the future and should be fixed by the package maintainer(s).
+Note: Check first if apt-key functionality is needed at all - it probably isn't!
+EOF
+	fi
+    fi
+    eval "$(apt-config shell GPG_EXE Apt::Key::gpgcommand)"
+    if [ -n "$GPG_EXE" ] && command_available "$GPG_EXE"; then
+	true
+    elif command_available 'gpg'; then
+	GPG_EXE="gpg"
+    elif command_available 'gpg2'; then
+	GPG_EXE="gpg2"
+    elif command_available 'gpg1'; then
+	GPG_EXE="gpg1"
+    else
+	apt_error 'gnupg, gnupg2 and gnupg1 do not seem to be installed, but one of them is required for this operation'
+	exit 255
+    fi
+
+    create_gpg_home
+
+    # now tell gpg that it shouldn't try to maintain this trustdb file
+    echo "#!/bin/sh
+exec '$(escape_shell "${GPG_EXE}")' --ignore-time-conflict --no-options --no-default-keyring \\
+--homedir '$(escape_shell "${GPGHOMEDIR}")' --no-auto-check-trustdb --trust-model always \"\$@\"" > "${GPGHOMEDIR}/gpg.0.sh"
+    GPG_SH="${GPGHOMEDIR}/gpg.0.sh"
+    GPG="$GPG_SH"
+
+    # create the trustdb with an (empty) dummy keyring
+    # older gpgs required it, newer gpgs even warn that it isn't needed,
+    # but require it nonetheless for some commands, so we just play safe
+    # here for the foreseeable future and create a dummy one
+    touch "${GPGHOMEDIR}/empty.gpg"
+    if ! "$GPG_EXE" --ignore-time-conflict --no-options --no-default-keyring \
+       --homedir "$GPGHOMEDIR" --quiet --check-trustdb --keyring "${GPGHOMEDIR}/empty.gpg" >"${GPGHOMEDIR}/gpgoutput.log" 2>&1; then
+       cat >&2 "${GPGHOMEDIR}/gpgoutput.log"
+       false
+    fi
+
+    # We don't usually need a secret keyring, of course, but
+    # for advanced operations, we might really need a secret keyring after all
+    if [ -n "$FORCED_SECRET_KEYRING" ] && [ -r "$FORCED_SECRET_KEYRING" ]; then
+	if ! aptkey_execute "$GPG" -v --batch --import "$FORCED_SECRET_KEYRING" >"${GPGHOMEDIR}/gpgoutput.log" 2>&1; then
+	    # already imported keys cause gpg1 to fail for some reason… ignore this error
+	    if ! grep -q 'already in secret keyring' "${GPGHOMEDIR}/gpgoutput.log"; then
+		cat >&2 "${GPGHOMEDIR}/gpgoutput.log"
+		false
+	    fi
+	fi
+    else
+       # and then, there are older versions of gpg which panic and implode
+       # if there isn't one available - and writeable for imports
+       # and even if not output is littered with the creation of a secring,
+       # so lets call import once to have it create what it wants in silence
+       echo -n | aptkey_execute "$GPG" --batch --import >/dev/null 2>&1 || true
+    fi
+}
+
+warn_on_script_usage() {
+    if [ -n "$APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE" ]; then
+	return
+    fi
+    # (Maintainer) scripts should not be using apt-key
+    if [ -n "$DPKG_MAINTSCRIPT_PACKAGE" ]; then
+	echo >&2 "Warning: apt-key should not be used in scripts (called from $DPKG_MAINTSCRIPT_NAME maintainerscript of the package ${DPKG_MAINTSCRIPT_PACKAGE})"
+    fi
+
+    echo >&2 "Warning: apt-key is deprecated. Manage keyring files in trusted.gpg.d instead (see apt-key(8))."
+}
+
+warn_outside_maintscript() {
+    # In del, we want to warn in interactive use, but not inside maintainer
+    # scripts, so as to give people a chance to migrate keyrings.
+    #
+    # FIXME: We should always warn starting in 2022.
+    if [ -z "$DPKG_MAINTSCRIPT_PACKAGE" ]; then
+	echo >&2 "Warning: apt-key is deprecated. Manage keyring files in trusted.gpg.d instead (see apt-key(8))."
+    fi
+}
+
+if [ "$command" != 'help' ] && [ "$command" != 'verify' ]; then
+    prepare_gpg_home
+fi
+
+case "$command" in
+    add)
+	warn_on_script_usage
+	requires_root
+	setup_merged_keyring
+	aptkey_execute "$GPG" --quiet --batch --import "$@"
+	merge_back_changes
+	aptkey_echo "OK"
+        ;;
+    del|rm|remove)
+	# no script warning here as removing 'add' usage needs 'del' for cleanup
+	warn_outside_maintscript
+	requires_root
+	foreach_keyring_do 'remove_key_from_keyring' "$@"
+	aptkey_echo "OK"
+        ;;
+    update)
+	warn_on_script_usage
+	requires_root
+	setup_merged_keyring
+	update
+	merge_back_changes
+	;;
+    net-update)
+	warn_on_script_usage
+	requires_root
+	setup_merged_keyring
+	net_update
+	merge_back_changes
+	;;
+    list|finger*)
+	warn_on_script_usage
+	foreach_keyring_do 'list_keys_in_keyring' --fingerprint "$@"
+	;;
+    export|exportall)
+	warn_on_script_usage
+	merge_all_trusted_keyrings_into_pubring
+	aptkey_execute "$GPG_SH" --keyring "${GPGHOMEDIR}/pubring.gpg" --armor --export "$@"
+	;;
+    adv*)
+	warn_on_script_usage
+	setup_merged_keyring
+	aptkey_echo "Executing: $GPG" "$@"
+	aptkey_execute "$GPG" "$@"
+	merge_back_changes
+	;;
+    verify)
+	GPGV=''
+	eval $(apt-config shell GPGV Apt::Key::gpgvcommand)
+	if [ -n "$GPGV" ] && command_available "$GPGV"; then true;
+	elif command_available 'gpgv'; then GPGV='gpgv';
+	elif command_available 'gpgv2'; then GPGV='gpgv2';
+	elif command_available 'gpgv1'; then GPGV='gpgv1';
+	else
+	   apt_error 'gpgv, gpgv2 or gpgv1 required for verification, but neither seems installed'
+	   exit 29
+	fi
+	# for a forced keyid we need gpg --export, so full wrapping required
+	if [ -n "$FORCED_KEYID" ]; then
+	    prepare_gpg_home
+	else
+	    create_gpg_home
+	fi
+	setup_merged_keyring
+	if [ -n "$FORCED_KEYRING" ]; then
+	    "$GPGV" --homedir "${GPGHOMEDIR}" --keyring "$(dearmor_filename "${FORCED_KEYRING}")" --ignore-time-conflict "$@"
+	else
+	    "$GPGV" --homedir "${GPGHOMEDIR}" --keyring "${GPGHOMEDIR}/pubring.gpg" --ignore-time-conflict "$@"
+	fi
+	;;
+    help)
+        usage
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac

@@ -1,0 +1,39 @@
+_mkswap_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-p'|'--pagesize')
+			COMPREPLY=( $(compgen -W "bytes" -- $cur) )
+			return 0
+			;;
+		'-L'|'--label')
+			COMPREPLY=( $(compgen -W "label" -- $cur) )
+			return 0
+			;;
+		'-v'|'--swapversion')
+			COMPREPLY=( $(compgen -W "1" -- $cur) )
+			return 0
+			;;
+		'-U'|'--uuid')
+			COMPREPLY=( $(compgen -W "$(uuidgen -r)" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--check --force --pagesize --lock --label --swapversion --uuid --verbose --version --help"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault -o default
+	COMPREPLY=( $(compgen -W "$(lsblk -pnro name)" -- $cur) )
+	return 0
+}
+complete -F _mkswap_module mkswap

@@ -1,0 +1,68 @@
+
+_dmesg_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-F'|'--file')
+			local IFS=$'\n'
+			compopt -o filenames
+			COMPREPLY=( $(compgen -f -- $cur) )
+			return 0
+			;;
+		'-f'|'--facility')
+			COMPREPLY=( $(compgen -W "kern user mail daemon auth syslog lpr news" -- $cur) )
+			return 0
+			;;
+		'-l'|'--level'|'-n'|'--console-level')
+			COMPREPLY=( $(compgen -W "emerg alert crit err warn notice info debug" -- $cur) )
+			return 0
+			;;
+		'-s'|'--buffer-size')
+			COMPREPLY=( $(compgen -W "size" -- $cur) )
+			return 0
+			;;
+		'--time-format')
+			COMPREPLY=( $(compgen -W "delta reltime ctime notime iso" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	OPTS="--clear
+		--read-clear
+		--console-off
+		--show-delta
+		--reltime
+		--console-on
+		--file
+		--facility
+		--human
+		--json
+		--kernel
+		--color
+		--level
+		--console-level
+		--noescape
+		--nopager
+		--raw
+		--syslog
+		--buffer-size
+		--ctime
+		--notime
+		--time-format
+		--userspace
+		--follow
+		--follow-new
+		--decode
+		--since
+		--until
+		--help
+		--version"
+	COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+	return 0
+}
+complete -F _dmesg_module dmesg

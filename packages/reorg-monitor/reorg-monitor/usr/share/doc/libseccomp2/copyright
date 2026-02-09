@@ -1,0 +1,39 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: libseccomp
+Source: https://sourceforge.net/projects/libseccomp/
+
+Files: *
+Copyright: 2012 Paul Moore <pmoore@redhat.com>
+ 2012 Ashley Lai <adlai@us.ibm.com>
+ 2012 Corey Bryant <coreyb@linux.vnet.ibm.com>
+ 2012 Eduardo Otubo <otubo@linux.vnet.ibm.com>
+ 2012 Eric Paris <eparis@redhat.com>
+License: LGPL-2.1
+
+Files: tests/22-sim-basic_chains_array.tests
+Copyright: 2013 Vitaly Shukela <vi0oss@gmail.com>
+License: LGPL-2.1
+
+Files: src/hash.*
+Copyright: 2006 Bob Jenkins <bob_jenkins@burtleburtle.net>
+License: LGPL-2.1
+
+Files: debian/*
+Copyright: 2012 Kees Cook <kees@debian.org>
+License: LGPL-2.1
+
+License: LGPL-2.1
+ This library is free software; you can redistribute it and/or modify it
+ under the terms of version 2.1 of the GNU Lesser General Public License as
+ published by the Free Software Foundation.
+ .
+ This library is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public License
+ along with this library; if not, see <http://www.gnu.org/licenses>.
+ .
+ On Debian systems, the complete text of the GNU Lesser General
+ Public License can be found in "/usr/share/common-licenses/LGPL-2.1".

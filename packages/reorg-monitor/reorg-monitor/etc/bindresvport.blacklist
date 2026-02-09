@@ -1,0 +1,15 @@
+#
+# This file contains a list of port numbers between 600 and 1024,
+# which should not be used by bindresvport. bindresvport is mostly
+# called by RPC services. This mostly solves the problem, that a
+# RPC service uses a well known port of another service.
+#
+631	# cups
+636	# ldaps
+655	# tinc
+774	# rpasswd
+783	# spamd
+873	# rsync
+921	# lwresd
+993	# imaps
+995	# pops

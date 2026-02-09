@@ -1,0 +1,19 @@
+# Since for most Docker users, package installs happen in "docker build" steps,
+# they essentially become individual layers due to the way Docker handles
+# layering, especially using CoW filesystems.  What this means for us is that
+# the caches that APT keeps end up just wasting space in those layers, making
+# our layers unnecessarily large (especially since we'll normally never use
+# these caches again and will instead just "docker build" again and make a brand
+# new image).
+
+# Ideally, these would just be invoking "apt-get clean", but in our testing,
+# that ended up being cyclic and we got stuck on APT's lock, so we get this fun
+# creation that's essentially just "apt-get clean".
+DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };
+APT::Update::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };
+
+Dir::Cache::pkgcache "";
+Dir::Cache::srcpkgcache "";
+
+# Note that we do realize this isn't the ideal way to do this, and are always
+# open to better suggestions (https://github.com/debuerreotype/debuerreotype/issues).

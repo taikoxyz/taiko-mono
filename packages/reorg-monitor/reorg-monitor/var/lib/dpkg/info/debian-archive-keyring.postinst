@@ -1,0 +1,43 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = 'configure' -a -n "$2" ]; then
+	# remove keys from the trusted.gpg file as they are now shipped in fragment files in trusted.gpg.d
+	if dpkg --compare-versions "$2" 'lt' "2012.1" && which gpg > /dev/null && which apt-key > /dev/null; then
+		TRUSTEDFILE='/etc/apt/trusted.gpg'
+		eval $(apt-config shell TRUSTEDFILE Apt::GPGV::TrustedKeyring)
+		eval $(apt-config shell TRUSTEDFILE Dir::Etc::Trusted/f)
+		if [ -e "$TRUSTEDFILE" ]; then
+			for KEY in F42584E6 55BE302B 6D849617 B98321F9 473041FA 46925553 65FFB764; do
+				apt-key --keyring "$TRUSTEDFILE" del $KEY > /dev/null 2>&1 || :
+			done
+		fi
+	fi
+fi
+
+# Automatically added by dh_installdeb/13.11.4
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-squeeze-automatic.gpg 2017.5\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-squeeze-stable.gpg 2017.5\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-wheezy-automatic.gpg 2019.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-wheezy-stable.gpg 2019.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-jessie-automatic.gpg 2021.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-jessie-security-automatic.gpg 2021.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-jessie-stable.gpg 2021.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-stretch-automatic.gpg 2022.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-stretch-security-automatic.gpg 2022.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-stretch-stable.gpg 2022.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-buster-automatic.gpg 2023.3\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-buster-security-automatic.gpg 2023.3\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-buster-stable.gpg 2023.3\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-bullseye-automatic.gpg 2022.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-bullseye-security-automatic.gpg 2022.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-bullseye-stable.gpg 2022.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-bookworm-stable.gpg 2023.3\+deb12u1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-bookworm-security-automatic.gpg 2023.3\+deb12u1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-bookworm-automatic.gpg 2023.3\+deb12u1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-buster-stable.asc 2025.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-buster-security-automatic.asc 2025.1\~\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/apt/trusted.gpg.d/debian-archive-buster-automatic.asc 2025.1\~\~ -- "$@"
+# End automatically added section
+

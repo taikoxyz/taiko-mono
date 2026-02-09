@@ -1,0 +1,119 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: libgpg-error
+Upstream-Contact: gnupg-devel@gnupg.org
+Source: https://gnupg.org/ftp/gcrypt/libgpg-error/
+
+Files: *
+Copyright: 2001-2004, 2010, 2012-2018, g10 Code GmbH
+License: LGPL-2.1+
+
+Files: src/b64dec.c
+Copyright: 2008, 2011 Free Software Foundation, Inc.
+ 2008, 2011, 2016 g10 Code GmbH
+License: LGPL-2.1+
+
+Files: src/estream-printf.h src/estream-printf.c src/estream.c
+Copyright: 2004-2012, 2014-2017 g10 Code GmbH
+License: LGPL-2.1+ or BSD-3-clause
+
+Files: src/w32-estream.c
+Copyright: 2000 Werner Koch (dd9jn)
+ 2001, 2002, 2003, 2004, 2007, 2010, 2016 g10 Code GmbH
+License: LGPL-2.1+
+
+Files: src/gettext.h
+Copyright: 1995-1998, 2000-2002 Free Software Foundation, Inc.
+License: LGPL-2.1+
+
+Files: src/gpg-error-config.in
+Copyright: 1999, 2002, 2003 Free Software Foundation, Inc.
+License: g10-permissive
+
+Files: src/mkheader.c
+Copyright: 2010 Free Software Foundation, Inc.
+ 2014 g10 Code GmbH
+License: g10-permissive
+
+Files: src/posix-lock.c
+Copyright: 2005-2009 Free Software Foundation, Inc.
+ 2014 g10 Code GmbH
+License: LGPL-2.1+
+
+Files: src/w32-gettext.c
+Copyright: 1995, 1996, 1997, 1999, 2005, 2007, 2008, 2010 Free Software Foundation, Inc.
+License: LGPL-2.1+
+
+Files: doc/yat2m.c
+Copyright: 2005, 2013, 2015, 2016 g10 Code GmbH
+ 2006, 2008, 2011 Free Software Foundation, Inc.
+License: GPL-3+
+
+License: g10-permissive
+ This file is free software; as a special exception the author gives
+ unlimited permission to copy and/or distribute it, with or without
+ modifications, as long as this notice is preserved.
+ .
+ This file is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
+ implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+License: LGPL-2.1+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as
+ published by the Free Software Foundation; either version 2.1
+ of the License, or (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the complete text of the GNU Lesser General Public License
+ version 2.1 can be found in /usr/share/common-licenses/LGPL-2.1.
+
+License: GPL-3+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, see <https://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in /usr/share/common-licenses/GPL-3.
+
+License: BSD-3-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, and the entire permission notice in its entirety,
+    including the disclaimer of warranties.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ 3. The name of the author may not be used to endorse or promote
+    products derived from this software without specific prior
+    written permission.
+ .
+ THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+ INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ OF THE POSSIBILITY OF SUCH DAMAGE.

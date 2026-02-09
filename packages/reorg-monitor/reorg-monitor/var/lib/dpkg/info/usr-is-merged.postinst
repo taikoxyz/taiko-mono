@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+cleanup_biarch_dirs() {
+  dpkg --compare-versions "$2" lt "36~" || return 0
+
+  # bootstrapping or earlier conversions may have created empty biarch
+  # directories and links. glibc 2.35-4 or later will create them if needed,
+  # so clean up the unused (and unowned) ones
+  local arch_directories="/lib64 /lib32 /libo32 /libx32"
+  for dir in $arch_directories; do
+    [ -e "$DPKG_ROOT$dir" ] || continue
+    if ! dpkg-query -S $dir >/dev/null 2>&1; then
+      rm -v "$DPKG_ROOT$dir"
+      if [ -e "$DPKG_ROOT/usr$dir" ] && ! dpkg-query -S /usr$dir >/dev/null 2>&1 ; then
+        rmdir --ignore-fail-on-non-empty -v "$DPKG_ROOT/usr$dir"
+      fi
+    fi
+  done
+}
+
+case "$1" in
+    configure)
+    cleanup_biarch_dirs
+    ;;
+esac
+
+

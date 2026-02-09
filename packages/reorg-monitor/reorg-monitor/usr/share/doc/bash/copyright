@@ -1,0 +1,236 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Contact: chet@po.cwru.edu
+Comment:
+ This is Debian GNU/Linux's prepackaged version of the FSF's GNU Bash,
+ the Bourne Again SHell.
+ .
+ This package was put together by Matthias Klose <doko@debian.org>.
+Source:
+ ftp.gnu.org:/pub/gnu/bash
+Files-Excluded:
+ doc/FAQ
+ doc/aosa-bash*.pdf
+ doc/article.*
+ doc/rose94.*
+
+Files: *
+Copyright: (C) 1987-2022 Free Software Foundation, Inc.
+License: GPL-3+
+
+Files: examples/shellmath/*
+Copyright: (c) 2020 by Michael Wood. All rights reserved.
+License: GPL-3+
+
+Files: support/bash.xbm
+Copyright: (C) 1992 Simon Marshall
+License: GPL-3+
+
+Files: support/checkbashisms
+Copyright:
+ Copyright (C) 1998 Richard Braakman
+ Copyright (C) 2002 Josip Rodin
+ Copyright (C) 2003 Julian Gilbey
+License: GPL-3+
+
+Files:
+ tests/ifs-posix.tests
+ tests/posix2.tests
+Copyright: (C) 2005 Glen Fowler
+ Copyright (c) 1995 Stephen Gildea
+License: GPL-3+
+
+License: GPL-3+
+ Bash is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free
+ Software Foundation; either version 3, or (at your option) any later
+ version.
+ .
+ Bash is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+Comment:
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in `/usr/share/common-licenses/GPL-3'.
+
+Files: y.tab.*
+Copyright: (C) 1984, 1989-1990, 2000-2015, 2018-2021 Free Software Foundation,
+   Inc.
+License: GPL-3+ with Bison exception
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+ .
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+ .
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ .
+   As a special exception, you may create a larger work that contains
+   part or all of the Bison parser skeleton and distribute that work
+   under terms of your choice, so long as that work isn't itself a
+   parser generator using the skeleton or a modified version thereof
+   as a parser skeleton.  Alternatively, if you modify or redistribute
+   the parser skeleton itself, you may (at your option) remove this
+   special exception, which will cause the skeleton and the resulting
+   Bison output files to be licensed under the GNU General Public
+   License without this special exception.
+ .
+   This special exception was added by the Free Software Foundation in
+   version 2.2 of Bison.
+Comment:
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in `/usr/share/common-licenses/GPL-3'.
+
+Files:
+ examples/functions/array-stuff
+ examples/functions/fstty
+ examples/functions/func
+ examples/functions/inetaddr
+ examples/functions/isnum2
+ examples/functions/ksh*
+ examples/functions/notify.bash
+ examples/functions/seq*
+ examples/functions/sort-pos-params
+ examples/functions/substr*
+ examples/functions/substr2
+ examples/functions/w*
+ tests/complete.tests
+Copyright: 1992-2020 Chester Ramey
+License: GPL-2+
+
+Files:
+ debian/clear_console.c
+ examples/complete/bash_completion
+Copyright:
+ Copyright (C) 2006-2019 Canonical Ltd.
+ Copyright (C) Ian Macdonald <ian@caliban.org>
+License: GPL-2+
+
+License: GPL-2+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+ .
+   TThis program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+ .
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Comment:
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in `/usr/share/common-licenses/GPL-2'.
+
+Files:
+ doc/bashref.texi
+ lib/readline/doc/history.texi
+ lib/readline/doc/rl*man.texi
+Copyright: (c) 1988-2022 Free Software Foundation, Inc.
+License: GFDL-NIV-1.3
+ Permission is granted to copy, distribute and/or modify this document
+ under the terms of the GNU Free Documentation License, Version 1.3 or
+ any later version published by the Free Software Foundation; with no
+ Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+ A copy of the license is included in the section entitled
+ ``GNU Free Documentation License''.
+Comment:
+ On Debian systems, the complete text of the GNU Free Documentation License
+ version 1.3 can be found in `/usr/share/common-licenses/GFDL-1.3'.
+
+Files:
+ lib/readline/doc/rltech.texi
+ lib/readline/doc/rluser.texi
+ lib/readline/doc/hs*.texi
+Copyright: (C) 1988-2022 Free Software Foundation, Inc.
+License: Latex2e
+ Permission is granted to make and distribute verbatim copies of
+ this manual provided the copyright notice and this permission notice
+ pare preserved on all copies.
+ .
+ Permission is granted to process this file through TeX and print the
+ results, provided the printed document carries copying permission
+ notice identical to this one except for the removal of this paragraph
+ (this paragraph not being relevant to the printed manual).
+ .
+ Permission is granted to copy and distribute modified versions of this
+ manual under the conditions for verbatim copying, provided that the entire
+ resulting derived work is distributed under the terms of a permission
+ notice identical to this one.
+ .
+ Permission is granted to copy and distribute translations of this manual
+ into another language, under the above conditions for modified versions,
+ except that this permission notice may be stated in a translation approved
+ by the Foundation.
+
+Files: lib/sh/inet_aton.c
+Copyright:
+ * Copyright (c) 1983, 1990, 1993
+ *    The Regents of the University of California.  All rights reserved.
+ * Portions Copyright (c) 1993 by Digital Equipment Corporation.
+License: BSD-4-clause-UC and MIT-like
+
+License: BSD-4-clause-UC
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. <removed>
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+
+License: MIT-like
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies, and that
+ * the name of Digital Equipment Corporation not be used in advertising or
+ * publicity pertaining to distribution of the document or software without
+ * specific, written prior permission.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
+ * CORPORATION BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+ * SOFTWARE.
+
+Files: support/man2html.c
+Copyright: Richard Verhoeven
+License: permissive
+ * This program was written by Richard Verhoeven (NL:5482ZX35)
+ * at the Eindhoven University of Technology. Email: rcb5@win.tue.nl
+ *
+ * Permission is granted to distribute, modify and use this program as long
+ * as this comment is not removed or changed.
+ *
+ * THIS IS A MODIFIED VERSION.  IT WAS MODIFIED BY chet@po.cwru.edu FOR
+ * USE BY BASH.

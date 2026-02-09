@@ -1,0 +1,16 @@
+[Unit]
+Description=Discard unused blocks on filesystems from /etc/fstab
+Documentation=man:fstrim(8)
+ConditionVirtualization=!container
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/fstrim --listed-in /etc/fstab:/proc/self/mountinfo --verbose --quiet-unsupported
+PrivateDevices=no
+PrivateNetwork=yes
+PrivateUsers=no
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@default @file-system @basic-io @system-service

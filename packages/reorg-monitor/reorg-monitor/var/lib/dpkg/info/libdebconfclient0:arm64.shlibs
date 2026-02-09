@@ -1,0 +1,2 @@
+libdebconfclient 0 libdebconfclient0 (>= 0.270)
+udeb: libdebconfclient 0 libdebconfclient0-udeb (>= 0.270)

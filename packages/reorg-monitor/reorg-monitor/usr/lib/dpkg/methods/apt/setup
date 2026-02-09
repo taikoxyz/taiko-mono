@@ -1,0 +1,286 @@
+#!/usr/bin/perl -w
+#                              -*- Mode: Perl -*- 
+# setup.pl --- 
+# Author           : Manoj Srivastava ( srivasta@tiamat.datasync.com ) 
+# Created On       : Wed Mar  4 15:11:47 1998
+# Created On Node  : tiamat.datasync.com
+# Last Modified By : Manoj Srivastava
+# Last Modified On : Tue May 19 11:25:32 1998
+# Last Machine Used: tiamat.datasync.com
+# Update Count     : 87
+# Status           : Unknown, Use with caution!
+# HISTORY          : 
+# Description      : 
+# This file is designed to go into /usr/lib/apt/methods/setup
+# 
+
+#use strict;
+#use diagnostics;
+#printf STDERR "DEBUG: Arguments $ARGV[0];$ARGV[1];$ARGV[2];\n";
+
+
+# Handle the arguments
+my $vardir=$ARGV[0];
+my $method=$ARGV[1];
+my $option=$ARGV[2];
+my $config_file = '/etc/apt/sources.list';
+
+my $boldon=`setterm -bold on`;
+my $boldoff=`setterm -bold off`;
+
+my @known_types           = ('deb');
+my @known_access         = ('http', 'ftp', 'file');
+my @typical_distributions = ('stable', 'unstable', 'testing');
+my @typical_components    = ('main', 'contrib', 'non-free', 'non-free-firmware');
+
+my %known_access           = map {($_,$_)} @known_access;
+my %typical_distributions  = map {($_,$_)} @typical_distributions;
+
+# Read the config file, creating source records
+sub read_config {
+  my %params = @_;
+  my @Config = ();
+  
+  die "Required parameter Filename Missing" unless
+    $params{'Filename'};
+  
+  open (CONFIG, "$params{'Filename'}") ||
+    die "Could not open $params{'Filename'}: $!";
+  while (<CONFIG>) {
+    chomp;
+    my $rec = {};
+    my ($type, $urn, $distribution, $components) = 
+      m/^\s*(\S+)\s+(\S+)\s+(\S+)\s*(?:\s+(\S.*))?$/o;
+    $rec->{'Type'}          = $type;
+    $rec->{'URN'}           = $urn;
+    $rec->{'Distribution'}  = $distribution;
+    $rec->{'Components'}    = $components;
+    push @Config, $rec;
+  }
+  close(CONFIG);
+  
+  return @Config;
+}
+
+# write the config file; writing out the current set of source records
+sub write_config {
+  my %params = @_;
+  my $rec;
+  my %Seen = ();
+  
+  die "Required parameter Filename Missing" unless
+    $params{'Filename'};
+  die "Required parameter Config Missing" unless
+    $params{'Config'};
+  
+  open (CONFIG, ">$params{'Filename'}") ||
+    die "Could not open $params{'Filename'} for writing: $!";
+  for $rec (@{$params{'Config'}}) {
+        my $line = "$rec->{'Type'} $rec->{'URN'} $rec->{'Distribution'} ";
+    $line .= "$rec->{'Components'}" if $rec->{'Components'};
+    $line .= "\n";
+    print CONFIG $line unless $Seen{$line}++;
+  }
+  close(CONFIG);
+}
+
+# write the config file; writing out the current set of source records
+sub print_config {
+  my %params = @_;
+  my $rec;
+  my %Seen = ();
+  
+  die "Required parameter Config Missing" unless
+    $params{'Config'};
+  
+  for $rec (@{$params{'Config'}}) {
+    next unless $rec;
+    
+    my $line = "$rec->{'Type'} " if $rec->{'Type'};
+    $line .= "$rec->{'URN'} " if $rec->{'URN'};
+    $line .= "$rec->{'Distribution'} " if $rec->{'Distribution'};
+    $line .= "$rec->{'Components'}" if $rec->{'Components'};
+    $line .= "\n";
+    print $line unless $Seen{$line}++;
+  }
+}
+
+# Ask for and add a source record
+sub get_source {
+  my %params = @_;
+  my $rec = {};
+  my $answer;
+  my ($type, $urn, $distribution, $components);
+  
+  if ($params{'Default'}) {
+    ($type, $urn, $distribution, $components) = 
+      $params{'Default'} =~ m/^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S.*)$/o;
+  }
+
+  $type         = 'deb';
+  $urn          = "http://deb.debian.org/debian" unless $urn;
+  $distribution = "stable" unless $distribution;
+  $components   = "main contrib non-free non-free-firmware" unless $components;
+
+    
+  $rec->{'Type'} = 'deb';
+  $| = 1;
+
+  my $done = 0;
+  
+  while (!$done) {
+    print "\n";
+    print "$boldon URL [$urn]: $boldoff";
+    
+    $answer=<STDIN>;
+    chomp ($answer);
+    $answer =~ s/\s*//og;
+    
+    if ($answer =~ /^\s*$/o) {
+      $rec->{'URN'} = $urn;
+      last;
+    }
+    else {
+      my ($scheme) = $answer =~ /^\s*([^:]+):/o;
+      if (! defined $known_access{$scheme}) {
+	print "Unknown access scheme $scheme in $answer\n";
+	print "    The available access methods known to me are\n";
+	print join (' ', @known_access), "\n";
+	print "\n";
+      }
+      else {
+	$rec->{'URN'} = $answer;
+	last;
+      }
+    }
+  }
+
+  print "\n";
+  
+  print " Please give the distribution tag to get or a path to the\n";
+  print " package file ending in a /. The distribution\n";
+  print " tags are typically something like:$boldon ";
+  print join(' ', @typical_distributions), "$boldoff\n";
+  print "\n";
+  print "$boldon Distribution [$distribution]:$boldoff ";
+  $answer=<STDIN>;
+  chomp ($answer);
+  $answer =~ s/\s*//og;
+  
+  if ($answer =~ /^\s*$/o) {
+    $rec->{'Distribution'} = $distribution;
+    $rec->{'Components'}   = &get_components($components);
+  }
+  elsif ($answer =~ m|/$|o) {
+    $rec->{'Distribution'} = "$answer";
+    $rec->{'Components'}   = "";
+  }
+  else {
+    # A distribution tag, eh?
+    warn "$answer does not seem to be a typical distribution tag\n"
+      unless defined $typical_distributions{$answer};
+    
+    $rec->{'Distribution'} = "$answer";
+    $rec->{'Components'}   = &get_components($components);
+  }
+
+  return $rec;
+}
+
+sub get_components {
+  my $default = shift;
+  my $answer;
+  
+  print "\n";
+  print " Please give the components to get\n";
+  print " The components are typically something like:$boldon ";
+  print join(' ', @typical_components), "$boldoff\n";
+  print "\n";
+  print "$boldon Components [$default]:$boldoff ";
+  $answer=<STDIN>;
+  chomp ($answer);
+  $answer =~ s/\s+/ /og;
+  
+  if ($answer =~ /^\s*$/o) {
+    return $default;
+  }
+  else {
+    return $answer;
+  }
+}
+
+sub get_sources {
+  my @Config = ();
+  my $done = 0;
+
+  my @Oldconfig = ();
+  
+  if (-e $config_file) {
+    @Oldconfig = &read_config('Filename' => $config_file)
+  }
+
+  print "\t$boldon Set up a list of distribution source locations $boldoff \n";
+  print "\n";
+
+  print " Please give the base URL of the debian distribution.\n";
+  print " The access schemes I know about are:$boldon ";
+  print join (' ', @known_access), "$boldoff\n";
+#  print " The mirror scheme is special  that it does not specify the\n";
+#  print " location of a debian archive but specifies the location\n";
+#  print " of a list of mirrors to use to access the archive.\n";
+  print "\n";
+  print " For example:\n";
+  print "              file:/mnt/debian,\n";
+  print "              ftp://ftp.debian.org/debian,\n";
+  print "              http://ftp.de.debian.org/debian,\n";
+#  print " and the special mirror scheme,\n";
+#  print "              mirror:http://www.debian.org/archivemirrors \n";
+  print "\n";
+
+  my $index = 0;
+  while (!$done) {
+    if ($Oldconfig[$index]) {
+      push (@Config, &get_source('Default' => $Oldconfig[$index++]));
+    }
+    else {
+      push (@Config, &get_source());
+    }
+    print "\n";
+    print "$boldon Would you like to add another source?[y/N]$boldoff ";
+    my $answer = <STDIN>;
+    chomp ($answer);
+    $answer =~ s/\s+/ /og;
+    if ($answer =~ /^\s*$/o) {
+      last;
+    }
+    elsif ($answer !~ m/\s*y/io) {
+      last;
+    } 
+  }
+  
+  return @Config;
+}
+
+sub main {
+  if (-e $config_file) {
+    my @Oldconfig = &read_config('Filename' => $config_file);
+    
+    print "$boldon I see you already have a source list.$boldoff\n";
+    print "-" x 72, "\n";
+    &print_config('Config' => \@Oldconfig);
+    print "-" x 72, "\n";
+    print "$boldon Do you wish to overwrite it? [y/N]$boldoff ";
+    my $answer = <STDIN>;
+    chomp ($answer);
+    $answer =~ s/\s+/ /og;
+    exit 0 unless $answer =~ m/\s*y/io;
+  }
+  # OK. They want to be here.
+  my @Config = &get_sources();
+  #&print_config('Config' => \@Config);
+  &write_config('Config' => \@Config, 'Filename' => $config_file);  
+}
+
+&main();
+
+

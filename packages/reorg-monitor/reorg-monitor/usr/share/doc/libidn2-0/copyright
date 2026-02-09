@@ -1,0 +1,113 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Libidn2
+Upstream-Contact: Simon Josefsson <simon@josefsson.org>
+Source: https://www.gnu.org/software/libidn/#libidn2
+
+Files: *
+Copyright: Copyright (C) 2011-2014 Simon Josefsson
+License: GPL-3+
+
+Files: *.c *.h
+Copyright: Copyright (C) 2011-2014 Simon Josefsson
+License: LGPL-3+ or GPL-2+
+
+Files: build-aux/* lib/* GNUmakefile maint.mk
+Copyright: Copyright (C) 2001-2011 Free Software Foundation, Inc.
+License: GPL-3+
+
+Files: doc/gdoc
+Copyright: Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Simon Josefsson
+           Copyright (c) 2001, 2002 Nikos Mavrogiannopoulos
+           Copyright (c) 1998 Michael Zucchi
+License: GPL-3+
+
+Files: lib/IdnaMappingTable.txt lib/DerivedNormalizationProps.txt tests/IdnaTest.txt
+Copyright: Copyright (c) 1991-2010 Unicode, Inc.
+License: Unicode
+
+License: GPL-3+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU General Public
+ License version 3 can be found in /usr/share/common-licenses/GPL-3.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU General Public
+ License version 2 can be found in /usr/share/common-licenses/GPL-2.
+
+License: LGPL-3+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published
+ by the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU Lesser General
+ Public License version 3 can be found in /usr/share/common-licenses/LGPL-3.
+
+License: Unicode
+ For terms of use, see http://www.unicode.org/terms_of_use.html
+ Copyright © 1991-2011 Unicode, Inc. All rights reserved. Distributed
+ under the Terms of Use in http://www.unicode.org/copyright.html.
+ .
+ Permission is hereby granted, free of charge, to any person obtaining
+ a copy of the Unicode data files and any associated documentation
+ (the "Data Files") or Unicode software and any associated
+ documentation (the "Software") to deal in the Data Files or Software
+ without restriction, including without limitation the rights to use,
+ copy, modify, merge, publish, distribute, and/or sell copies of the
+ Data Files or Software, and to permit persons to whom the Data Files
+ or Software are furnished to do so, provided that (a) the above
+ copyright notice(s) and this permission notice appear with all copies
+ of the Data Files or Software, (b) both the above copyright notice(s)
+ and this permission notice appear in associated documentation, and
+ (c) there is clear notice in each modified Data File or in the
+ Software as well as in the documentation associated with the Data
+ File(s) or Software that the data or software has been modified.
+ .
+ THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF
+ ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE
+ COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE BE LIABLE FOR ANY
+ CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY
+ DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+ OF THE DATA FILES OR SOFTWARE.
+ .
+ Except as contained in this notice, the name of a copyright holder
+ shall not be used in advertising or otherwise to promote the sale,
+ use or other dealings in these Data Files or Software without prior
+ written authorization of the copyright holder.

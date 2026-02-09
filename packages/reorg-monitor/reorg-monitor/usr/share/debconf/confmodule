@@ -1,0 +1,95 @@
+#!/bin/sh
+# This is a shell library to interface to the Debian configuration management
+# system.
+
+###############################################################################
+# Initialization.
+
+# Check to see if a FrontEnd is running.
+if [ ! "${DEBIAN_HAS_FRONTEND:-}" ]; then
+	PERL_DL_NONLAZY=1
+	export PERL_DL_NONLAZY
+	# Since there is no FrontEnd, this program execs a FrontEnd.
+	# It will then run a new copy of $0 that can talk to it.
+	if [ "${DEBCONF_USE_CDEBCONF:-}" ]; then
+		exec /usr/lib/cdebconf/debconf $0 "$@"
+	else
+		exec /usr/share/debconf/frontend $0 "$@"
+	fi
+fi
+
+# Only do this once.
+if [ -z "${DEBCONF_REDIR:-}" ]; then
+	# Redirect standard output to standard error. This prevents common
+	# mistakes by making all the output of the postinst or whatever
+	# script is using this library not be parsed as confmodule commands.
+	#
+	# To actually send something to standard output, send it to fd 3.
+	exec 3>&1
+	if [ "${DEBCONF_USE_CDEBCONF:-}" ]; then
+		exec 1>&5
+	else
+		exec 1>&2
+	fi
+	DEBCONF_REDIR=1
+	export DEBCONF_REDIR
+fi
+
+###############################################################################
+# Commands.
+
+_db_cmd () {
+	_db_internal_IFS="$IFS"
+	IFS=' '
+	printf '%s\n' "$*" >&3
+	# Set to newline to get whole line.
+	IFS='
+'
+	read -r _db_internal_line
+	IFS="$_db_internal_IFS"
+	# Disgusting, but it's the only good way to split the line,
+	# preserving all other whitespace.
+	RET="${_db_internal_line#[! 	][ 	]}"
+	case ${_db_internal_line%%[ 	]*} in
+		1)	# escaped data
+			RET="$(printf '%s' "$RET" | debconf-escape -u)"
+			return 0
+			;;
+	esac
+	return ${_db_internal_line%%[ 	]*}
+}
+
+db_capb ()	{ _db_cmd "CAPB $@"; }
+db_set ()	{ _db_cmd "SET $@"; }
+db_reset ()	{ _db_cmd "RESET $@"; }
+db_title ()	{ _db_cmd "TITLE $@"; }
+db_input ()	{ _db_cmd "INPUT $@"; }
+db_beginblock () { _db_cmd "BEGINBLOCK $@"; }
+db_endblock () 	{ _db_cmd "ENDBLOCK $@"; }
+db_go ()	{ _db_cmd "GO $@"; }
+db_get ()	{ _db_cmd "GET $@"; }
+db_register ()	{ _db_cmd "REGISTER $@"; }
+db_unregister () { _db_cmd "UNREGISTER $@"; }
+db_subst ()	{ _db_cmd "SUBST $@"; }
+db_fset ()	{ _db_cmd "FSET $@"; }
+db_fget ()	{ _db_cmd "FGET $@"; }
+db_purge ()	{ _db_cmd "PURGE $@"; }
+db_metaget ()	{ _db_cmd "METAGET $@"; }
+db_version ()	{ _db_cmd "VERSION $@"; }
+db_clear ()	{ _db_cmd "CLEAR $@"; }
+db_settitle ()	{ _db_cmd "SETTITLE $@"; }
+db_previous_module () { _db_cmd "PREVIOUS_MODULE $@"; }
+db_info ()	{ _db_cmd "INFO $@"; }
+db_progress ()	{ _db_cmd "PROGRESS $@"; }
+db_data ()	{ _db_cmd "DATA $@"; }
+db_x_loadtemplatefile ()	{ _db_cmd "X_LOADTEMPLATEFILE $@"; }
+
+# An old alias for input.
+db_text () {
+	db_input $@
+}
+
+# Cannot read a return code, since there is none and it would block.
+db_stop () {
+	echo STOP >&3
+}

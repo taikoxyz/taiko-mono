@@ -1,0 +1,287 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: systemd
+Upstream-Contact: systemd-devel@lists.freedesktop.org
+Source: https://www.freedesktop.org/wiki/Software/systemd/
+
+Files: *
+Copyright: 2008-2015 Kay Sievers <kay@vrfy.org>
+           2010-2015 Lennart Poettering
+           2012-2015 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
+           2013-2015 Tom Gundersen <teg@jklm.no>
+           2013-2015 Daniel Mack
+           2010-2015 Harald Hoyer
+           2013-2015 David Herrmann
+           2013, 2014 Thomas H.P. Andersen
+           2013, 2014 Daniel Buch
+           2014 Susant Sahani
+           2009-2015 Intel Corporation
+           2000, 2005 Red Hat, Inc.
+           2009 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+           2010 ProFUSION embedded systems
+           2010 Maarten Lankhorst
+           1995-2004 Miquel van Smoorenburg
+           1999 Tom Tromey
+           2011 Michal Schmidt
+           2012 B. Poettering
+           2012 Holger Hans Peter Freyther
+           2012 Dan Walsh
+           2012 Roberto Sassu
+           2013 David Strauss
+           2013 Marius Vollmer
+           2013 Jan Janssen
+           2013 Simon Peeters
+License: LGPL-2.1+
+
+Files: src/basic/siphash24.h
+       src/basic/siphash24.c
+Copyright: 2012 Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+           2012 Daniel J. Bernstein <djb@cr.yp.to>
+License: CC0-1.0
+
+Files: src/shared/linux/*
+       src/basic/linux/*
+Copyright: 2004-2009 Red Hat, Inc.
+           2011-2014 PLUMgrid
+           2001-2003 Sistina Software (UK) Limited.
+           2008 Ian Kent <raven@themaw.net>
+           1998 David S. Miller >davem@redhat.com>
+           2001 Jeff Garzik <jgarzik@pobox.com>
+           2006-2010 Johannes Berg <johannes@sipsolutions.net
+           2008 Michael Wu <flamingice@sourmilk.net>
+           2008 Luis Carlos Cobo <luisca@cozybit.com>
+           2008 Michael Buesch <m@bues.ch>
+           2008, 2009 Luis R. Rodriguez <lrodriguez@atheros.com>
+           2008 Jouni Malinen <jouni.malinen@atheros.com>
+           2008 Colin McCabe <colin@cozybit.com>
+           2018-2019 Intel Corporation
+           2007 Oracle.
+           2009 Wolfgang Grandegger <wg@grandegger.com>
+           1999 Thomas Davis <tadavis@lbl.gov>
+           2015 Sabrina Dubroca <sd@queasysnail.net>
+           1999-2000 Maxim Krasnyansky <max_mk@yahoo.com>
+           2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>
+License: GPL-2 with Linux-syscall-note exception
+
+Files: src/basic/sparse-endian.h
+Copyright: 2012 Josh Triplett <josh@joshtriplett.org>
+License: Expat
+
+Files: src/basic/MurmurHash2.c
+       src/basic/MurmurHash2.h
+       src/libsystemd/sd-journal/lookup3.c
+       src/libsystemd/sd-journal/lookup3.h
+Copyright: none
+License: public-domain
+ You can use this free for any purpose. It's in the public domain. It has no
+ warranty.
+
+Files: src/udev/ata_id/ata_id.c
+       src/udev/cdrom_id/cdrom_id.c
+       src/udev/dmi_memory_id/dmi_memory_id.c
+       src/udev/mtd_probe/mtd_probe.c
+       src/udev/mtd_probe/mtd_probe.h
+       src/udev/mtd_probe/probe_smartmedia.c
+       src/udev/scsi_id/scsi.h
+       src/udev/scsi_id/scsi_id.c
+       src/udev/scsi_id/scsi_id.h
+       src/udev/scsi_id/scsi_serial.c
+       src/udev/udevadm.c
+       src/udev/udevadm-control.c
+       src/udev/udevadm.h
+       src/udev/udevadm-info.c
+       src/udev/udevadm-monitor.c
+       src/udev/udevadm-settle.c
+       src/udev/udevadm-test-builtin.c
+       src/udev/udevadm-test.c
+       src/udev/udevadm-trigger.c
+       src/udev/udevadm-util.c
+       src/udev/udevadm-util.h
+       src/udev/udev-builtin-blkid.c
+       src/udev/udev-builtin.h
+       src/udev/udev-builtin-input_id.c
+       src/udev/udev-builtin-kmod.c
+       src/udev/udev-builtin-path_id.c
+       src/udev/udev-builtin-uaccess.c
+       src/udev/udev-builtin-usb_id.c
+       src/udev/udev-ctrl.h
+       src/udev/udevd.c
+       src/udev/udevd.h
+       src/udev/udev-event.c
+       src/udev/udev-event.h
+       src/udev/udev-node.c
+       src/udev/udev-node.h
+       src/udev/udev-rules.c
+       src/udev/udev-rules.h
+       src/udev/udev-watch.c
+       src/udev/udev-watch.h
+       src/udev/v4l_id/v4l_id.c
+Copyright: 2003-2012 Kay Sievers <kay@vrfy.org>
+           2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+           2004 Chris Friesen <chris_friesen@sympatico.ca>
+           2004, 2009, 2010 David Zeuthen <david@fubar.dk>
+           2005, 2006 SUSE Linux Products GmbH
+           2003 IBM Corp.
+           2007 Hannes Reinecke <hare@suse.de>
+           2009 Canonical Ltd.
+           2009 Scott James Remnant <scott@netsplit.com>
+           2009 Martin Pitt <martin.pitt@ubuntu.com>
+           2009 Piter Punk <piterpunk@slackware.com>
+           2009, 2010 Lennart Poettering
+           2009 Filippo Argiolas <filippo.argiolas@gmail.com>
+           2010 Maxim Levitsky
+           2011 ProFUSION embedded systems
+           2011 Karel Zak <kzak@redhat.com>
+           2014 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
+           2014 David Herrmann <dh.herrmann@gmail.com>
+           2014 Carlos Garnacho <carlosg@gnome.org>
+License: GPL-2+
+
+Files: debian/*
+Copyright: 2010-2013 Tollef Fog Heen <tfheen@debian.org>
+           2011 Josh Triplett <josh@joshtriplett.org>
+           2013-2014 Michael Stapelberg <stapelberg@debian.org>
+           2013-2020 Martin Pitt <martin.pitt@ubuntu.com>
+           2013-2022 Michael Biebl <biebl@debian.org>
+           2013 Daniel Schaal <farbing@web.de>
+           2013 Guido Günther <agx@sigxcpu.org>
+           2014-2015 Didier Roche <didrocks@ubuntu.com>
+           2014-2015 Marco d'Itri <md@linux.it>
+           2014-2017 Sjoerd Simons <sjoerd.simons@collabora.co.uk>
+           2014 Ansgar Burchardt <ansgar@debian.org>
+           2014 Jon Severinsson <jon@severinsson.net>
+           2015-2019 Felipe Sateler <fsateler@debian.org>
+           2015 Adam Conrad <adconrad@debian.org>
+           2015 Andreas Henriksson <andreas@fatal.se>
+           2015 Christian Seiler <christian@iwakd.de>
+           2015 Julian Wollrath <jwollrath@web.de>
+           2016-2018 Evgeny Vereshchagin <evvers@ya.ru>
+           2016,2018 Laurent Bigonville <bigon@debian.org>
+           2016-2019 Dimitri John Ledkov <xnox@ubuntu.com>
+           2016,2019 Michael Prokop <mika@debian.org>
+           2016 Alexander Kurtz <alexander@kurtz.be>
+           2016 Antonio Ospite <ao2@ao2.it>
+           2016 Iain Lane <iain@orangesquash.org.uk>
+           2016 Simon McVittie <simon.mcvittie@collabora.co.uk>
+           2017-2018 Nicolas Braud-Santoni <nicolas@braud-santoni.eu>
+           2017-2019 Martin Pitt <mpitt@debian.org>
+           2017 Cyril Brulebois <kibi@debian.org>
+           2017 Ondřej Nový <onovy@debian.org>
+           2018-2019 Mert Dirik <mertdirik@gmail.com>
+           2018 Adam Borowski <kilobyte@angband.pl>
+           2018 Alf Gaida <agaida@siduction.org>
+           2018 Benjamin Drung <benjamin.drung@profitbricks.com>
+           2018 Gunnar Hjalmarsson <gunnarhj@ubuntu.com>
+           2018 Manuel A. Fernandez Montecelo <manuel.montezelo@gmail.com>
+           2019-2021 Balint Reczey <balint.reczey@canonical.com>
+           2019-2021 Dan Streetman <ddstreet@canonical.com>
+           2019 Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+           2020-2021 Helmut Grohne <helmut@subdivi.de>
+           2020 Topi Miettinen <toiwoton@gmail.com>
+           2020 Youfu Zhang <zhangyoufu@gmail.com>
+           2020 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
+           2020 наб <nabijaczleweli@nabijaczleweli.xyz>
+           2021-2022 Luca Boccassi <bluca@debian.org>
+           2021-2022 Lukas Märdian <slyon@ubuntu.com>
+           2021 Frantisek Sumsal <frantisek@sumsal.cz>
+           2021 Ioanna Alifieraki <ioanna-maria.alifieraki@canonical.com>
+           2021 Jan Kiszka <jan.kiszka@web.de>
+           2021 Matthias Klumpp <matthias@tenstral.net>
+           2021 Salvatore Bonaccorso <carnil@debian.org>
+License: LGPL-2.1+
+
+License: Expat
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to
+ deal in the Software without restriction, including without limitation the
+ rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ sell copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ IN THE SOFTWARE.
+
+License: GPL-2 with Linux-syscall-note exception
+ NOTE! This copyright does *not* cover user programs that use kernel services
+ by normal system calls - this is merely considered normal use of the kernel,
+ and does *not* fall under the heading of "derived work". Also note that the
+ GPL below is copyrighted by the Free Software Foundation, but the instance of
+ code that it refers to (the Linux kernel) is copyrighted by me and others who
+ actually wrote it.
+ .
+ Also note that the only valid version of the GPL as far as the kernel is
+ concerned is _this_ particular version of the license (ie v2, not v2.2 or v3.x
+ or whatever), unless explicitly otherwise stated.
+ .
+ Linus Torvalds
+ .
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 of the License.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian and systems the full text of the GNU General Public
+ License version 2 can be found in the file
+ `/usr/share/common-licenses/GPL-2`
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2, or (at your option)
+ any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along
+ with this program; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in ‘/usr/share/common-licenses/GPL-2’.
+
+License: LGPL-2.1+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation; either version 2.1, or (at your option)
+ any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public License along
+ with this program; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the complete text of the GNU Lesser General Public
+ License version 2.1 can be found in ‘/usr/share/common-licenses/LGPL-2.1’.
+
+License: CC0-1.0
+ To the extent possible under law, the author(s) have dedicated all copyright
+ and related and neighboring rights to this software to the public domain
+ worldwide. This software is distributed without any warranty.
+ .
+ You should have received a copy of the CC0 Public Domain Dedication along with
+ this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ .
+ On Debian systems, the complete text of the CC0 1.0 Universal license can be
+ found in ‘/usr/share/common-licenses/CC0-1.0’.

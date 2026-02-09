@@ -1,0 +1,3 @@
+application/x-tar; /bin/tar tvf %s; print=/bin/tar tvf - | print text/plain:-; copiousoutput ; priority=1
+application/x-gtar; /bin/tar tvf %s; print=/bin/tar tvf - | print text/plain:-; copiousoutput ; priority=1
+application/x-ustar; /bin/tar tvf %s; print=/bin/tar tvf - | print text/plain:-; copiousoutput ; priority=1

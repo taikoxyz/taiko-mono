@@ -1,0 +1,47 @@
+_taskset_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-c'|'--cpu-list')
+			local prefix realcur CPULIST_ALL CPULIST
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			CPULIST_ALL=$(sed 's/^/{/; s/-/../g; s/,/} {/g; s/$/}/' /sys/devices/system/cpu/online)
+			for WORD in $(eval echo $CPULIST_ALL); do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					CPULIST="$WORD ${CPULIST:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$CPULIST" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-p'|'--pid')
+			local PIDS
+			# FIXME: the pid argument is ambiguous.  When
+			# setting an affinity the optarg has to be cpu
+			# mask.  The following is good only for getting
+			# affinity.
+			PIDS=$(cd /proc && echo [0-9]*)
+			COMPREPLY=( $(compgen -W "$PIDS" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--all-tasks --pid --cpu-list --help --version"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault
+	COMPREPLY=( $(compgen -c -- $cur) )
+	return 0
+}
+complete -F _taskset_module taskset

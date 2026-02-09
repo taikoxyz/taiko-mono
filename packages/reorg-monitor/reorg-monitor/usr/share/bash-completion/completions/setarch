@@ -1,0 +1,44 @@
+_setarch_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	if [ $COMP_CWORD -eq 1 ]; then
+		COMPREPLY=( $(compgen -W "$($1 --list)" -- $cur) )
+		return 0
+	fi
+	case $cur in
+		-*)
+			OPTS="
+				--32bit
+				--fdpic-funcptrs
+				--short-inode
+				--addr-compat-layout
+				--addr-no-randomize
+				--whole-seconds
+				--sticky-timeouts
+				--read-implies-exec
+				--mmap-page-zero
+				--3gb
+				--4gb
+				--uname-2.6
+				--verbose
+				--list
+				--help
+				--version
+			"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault
+	COMPREPLY=( $(compgen -c -- $cur) )
+	return 0
+}
+complete -F _setarch_module setarch

@@ -1,0 +1,78 @@
+_lslogins_module()
+{
+	local cur prev OPTS LSLOGINS_COLS_ALL
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	LSLOGINS_COLS_ALL="
+		USER UID GECOS HOMEDIR SHELL NOLOGIN PWD-LOCK PWD-EMPTY
+		PWD-DENY GROUP GID SUPP-GROUPS SUPP-GIDS LAST-LOGIN LAST-TTY
+		LAST-HOSTNAME FAILED-LOGIN FAILED-TTY HUSHED PWD-WARN
+		PWD-CHANGE PWD-MIN PWD-MAX PWD-EXPIR CONTEXT PROC
+	"
+	case $prev in
+		'-g'|'--groups')
+			COMPREPLY=( $(compgen -W "$(getent group | awk -F: '{print $1}')" -- $cur) )
+			return 0
+			;;
+		'-l'|'--logins')
+			COMPREPLY=( $(compgen -W "$(getent passwd | awk -F: '{print $1}')" -- $cur) )
+			return 0
+			;;
+		'--time-format')
+			COMPREPLY=( $(compgen -W "short full iso" -- $cur) )
+			return 0
+			;;
+		'--wtmp-file'|'--btmp-file'|'--lastlog')
+			local IFS=$'\n'
+			compopt -o filenames
+			COMPREPLY=( $(compgen -f -- $cur) )
+			return 0
+			;;
+		'-o'|'--output')
+			local prefix realcur LSLOGINS_COLS
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			for WORD in $LSLOGINS_COLS_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					LSLOGINS_COLS="$WORD ${LSLOGINS_COLS:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$LSLOGINS_COLS" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	COMPREPLY=( $(compgen -W "
+			--acc-expiration
+			--colon-separate
+			--export
+			--failed
+			--supp-groups
+			--groups
+			--last
+			--logins
+			--newline
+			--noheadings
+			--notruncate
+			--output
+			--output-all
+			--pwd
+			--raw
+			--system-accs
+			--time-format
+			--user-accs
+			--context
+			--print0
+			--wtmp-file
+			--btmp-file
+			--lastlog
+			--help
+			--version
+		" -- $cur) )
+	return 0
+}
+complete -F _lslogins_module lslogins

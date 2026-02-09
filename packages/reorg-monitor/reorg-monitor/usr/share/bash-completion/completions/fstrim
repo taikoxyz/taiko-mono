@@ -1,0 +1,38 @@
+_fstrim_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-o'|'--offset'|'-l'|'--length'|'-m'|'--minimum')
+			COMPREPLY=( $(compgen -W "num" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--all
+				--fstab
+				--listed-in
+				--quiet-unsupported
+				--offset
+				--length
+				--minimum
+				--verbose
+				--dry-run
+				--help
+				--version"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local MPOINTS
+	MPOINTS=$(findmnt -rno SOURCE,TARGET | awk '/^\/dev/{print $2}')
+	COMPREPLY=( $(compgen -W "$MPOINTS" -- $cur) )
+	return 0
+}
+complete -F _fstrim_module fstrim

@@ -1,0 +1,55 @@
+#!/bin/sh
+
+set -e
+
+# Systemd systems use a systemd timer unit which is preferable to
+# run. We want to randomize the apt update and unattended-upgrade
+# runs as much as possible to avoid hitting the mirrors all at the
+# same time. The systemd time is better at this than the fixed
+# cron.daily time
+if [ -d /run/systemd/system ]; then
+    exit 0
+fi
+
+check_power()
+{
+    # laptop check, on_ac_power returns:
+    #       0 (true)    System is on main power
+    #       1 (false)   System is not on main power
+    #       255 (false) Power status could not be determined
+    # Desktop systems always return 255 it seems
+    if command -v on_ac_power >/dev/null; then
+        if on_ac_power; then
+            :
+        elif [ $? -eq 1 ]; then
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# sleep for a random interval of time (default 30min)
+# (some code taken from cron-apt, thanks)
+random_sleep()
+{
+    RandomSleep=1800
+    eval $(apt-config shell RandomSleep APT::Periodic::RandomSleep)
+    if [ $RandomSleep -eq 0 ]; then
+	return
+    fi
+    if [ -z "$RANDOM" ] ; then
+        # A fix for shells that do not have this bash feature.
+	RANDOM=$(( $(dd if=/dev/urandom bs=2 count=1 2> /dev/null | cksum | cut -d' ' -f1) % 32767 ))
+    fi
+    TIME=$(($RANDOM % $RandomSleep))
+    sleep $TIME
+}
+
+# delay the job execution by a random amount of time
+random_sleep
+
+# ensure we don't do this on battery
+check_power || exit 0
+
+# run daily job
+exec /usr/lib/apt/apt.systemd.daily

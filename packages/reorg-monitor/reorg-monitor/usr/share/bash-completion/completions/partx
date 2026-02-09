@@ -1,0 +1,66 @@
+_partx_module()
+{
+	local cur prev OPTS OUTPUT_ALL
+	COMPREPLY=()
+	OUTPUT_ALL="NR START END SECTORS SIZE NAME UUID TYPE FLAGS SCHEME"
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-n'|'--nr')
+			return 0
+			;;
+		'-o'|'--output')
+			local realcur prefix OUTPUT
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			for WORD in $OUTPUT_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					OUTPUT="$WORD ${OUTPUT:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$OUTPUT" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-S'|'--sector-size')
+			COMPREPLY=( $(compgen -W "size" -- $cur) )
+			return 0
+			;;
+		'-t'|'--type')
+			COMPREPLY=( $(compgen -W "$(partx --list-types)" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="
+				--add
+				--delete
+				--update
+				--show
+				--bytes
+				--noheadings
+				--nr
+				--output
+				--output-all
+				--pairs
+				--raw
+				--sector-size
+				--type
+				--list-types
+				--verbose
+				--help
+				--version
+			"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault -o default
+	COMPREPLY=( $(compgen -W "$(lsblk -pnro name)" -- $cur) )
+	return 0
+}
+complete -F _partx_module partx

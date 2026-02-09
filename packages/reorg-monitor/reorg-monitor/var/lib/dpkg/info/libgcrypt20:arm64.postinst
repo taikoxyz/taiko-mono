@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+cleanup () {
+	/usr/share/libgcrypt20/clean-up-unmanaged-libraries \
+		--bug-ref=984884 \
+		"$@" \
+		aarch64-linux-gnu \
+		libgcrypt.so.20
+}
+
+# Clean up stale shared libraries on upgrades if necessary.
+if [ -n "$2" ] && ! cleanup; then
+	echo "$0: Trying cleanup again with more logging..."
+	cleanup --verbose
+fi
+
+
+

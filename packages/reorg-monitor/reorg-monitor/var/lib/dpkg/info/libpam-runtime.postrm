@@ -1,0 +1,19 @@
+#!/bin/sh -e
+
+if [ "$1" = "purge" ]; then
+	rm -f /etc/pam.d/common-auth /etc/pam.d/common-account \
+	      /etc/pam.d/common-session /etc/pam.d/common-password \
+	      /etc/pam.d/common-session-noninteractive
+	rm -f /var/lib/pam/auth /var/lib/pam/account /var/lib/pam/session \
+	      /var/lib/pam/password /var/lib/pam/seen \
+	      /var/lib/pam/session-noninteractive
+	rmdir --ignore-fail-on-non-empty /var/lib/pam ||true
+fi
+
+# Automatically added by dh_installdebconf/13.11.4
+if [ "$1" = purge ] && [ -e /usr/share/debconf/confmodule ]; then
+	. /usr/share/debconf/confmodule
+	db_purge
+fi
+# End automatically added section
+

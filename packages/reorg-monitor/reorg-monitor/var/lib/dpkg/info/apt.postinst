@@ -1,0 +1,67 @@
+#! /bin/sh
+set -e
+
+if [ "$1" = 'configure' ] && [ -z "$DPKG_ROOT" ] && ! getent passwd _apt >/dev/null; then
+	# add unprivileged user for the apt methods
+	adduser --force-badname --system --home /nonexistent  \
+	    --no-create-home --quiet _apt || true
+fi
+
+if [ "$1" = "configure" ] && [ -n "$2" ] && dpkg --compare-versions -- "$2" le-nl "2.4.5~"; then
+    rm -f /etc/apt/apt.conf.d/01autoremove-kernels
+fi
+
+
+# Automatically added by dh_installdeb/13.11.4
+dpkg-maintscript-helper rm_conffile /etc/apt/apt.conf.d/20changelog 1.2.4\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/cron.daily/apt 1.2.10\~ -- "$@"
+dpkg-maintscript-helper rm_conffile /etc/kernel/postinst.d/apt-auto-removal 2.4.5\~ -- "$@"
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	# The following line should be removed in trixie or trixie+1
+	deb-systemd-helper unmask 'apt-daily-upgrade.timer' >/dev/null || true
+
+	# was-enabled defaults to true, so new installations run enable.
+	if deb-systemd-helper --quiet was-enabled 'apt-daily-upgrade.timer'; then
+		# Enables the unit on first installation, creates new
+		# symlinks on upgrades if the unit file has changed.
+		deb-systemd-helper enable 'apt-daily-upgrade.timer' >/dev/null || true
+	else
+		# Update the statefile to add new symlinks (if any), which need to be
+		# cleaned up on purge. Also remove old symlinks.
+		deb-systemd-helper update-state 'apt-daily-upgrade.timer' >/dev/null || true
+	fi
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	# The following line should be removed in trixie or trixie+1
+	deb-systemd-helper unmask 'apt-daily.timer' >/dev/null || true
+
+	# was-enabled defaults to true, so new installations run enable.
+	if deb-systemd-helper --quiet was-enabled 'apt-daily.timer'; then
+		# Enables the unit on first installation, creates new
+		# symlinks on upgrades if the unit file has changed.
+		deb-systemd-helper enable 'apt-daily.timer' >/dev/null || true
+	else
+		# Update the statefile to add new symlinks (if any), which need to be
+		# cleaned up on purge. Also remove old symlinks.
+		deb-systemd-helper update-state 'apt-daily.timer' >/dev/null || true
+	fi
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	if [ -d /run/systemd/system ]; then
+		systemctl --system daemon-reload >/dev/null || true
+		if [ -n "$2" ]; then
+			_dh_action=restart
+		else
+			_dh_action=start
+		fi
+		deb-systemd-invoke $_dh_action 'apt-daily-upgrade.timer' 'apt-daily.timer' >/dev/null || true
+	fi
+fi
+# End automatically added section
+

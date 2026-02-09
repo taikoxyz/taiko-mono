@@ -1,0 +1,65 @@
+_nsenter_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-S'|'--uid')
+			COMPREPLY=( $(compgen -W "uid" -- $cur) )
+			return 0
+			;;
+		'-G'|'--gid')
+			COMPREPLY=( $(compgen -W "gid" -- $cur) )
+			return 0
+			;;
+		'-t'|'--target')
+			local PIDS
+			PIDS=$(cd /proc && echo [0-9]*)
+			COMPREPLY=( $(compgen -W "$PIDS" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		'=')
+			# FIXME: --root and --wd should use get only
+			# directories as compgen output.  If $cur is
+			# overwrote the same way as below in case segment
+			# for $prev the command-line will get mangled.
+			cur=${cur#=}
+			;;
+		-*)
+			OPTS="
+				--all
+				--target
+				--mount=
+				--uts=
+				--ipc=
+				--net=
+				--pid=
+				--cgroup=
+				--user=
+				--time=
+				--setuid
+				--setgid
+				--preserve-credentials
+				--root=
+				--wd=
+				--wdns=
+				--no-fork
+				--help
+				--version
+			"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local IFS=$'\n'
+	compopt -o filenames
+	COMPREPLY=( $(compgen -f -- $cur) )
+	return 0
+}
+complete -F _nsenter_module nsenter

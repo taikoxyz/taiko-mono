@@ -1,0 +1,14 @@
+/.
+/lib
+/lib/aarch64-linux-gnu
+/lib/aarch64-linux-gnu/libbz2.so.1.0.4
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/doc/libbz2-1.0
+/usr/share/doc/libbz2-1.0/changelog.Debian.arm64.gz
+/usr/share/doc/libbz2-1.0/changelog.Debian.gz
+/usr/share/doc/libbz2-1.0/changelog.gz
+/usr/share/doc/libbz2-1.0/copyright
+/lib/aarch64-linux-gnu/libbz2.so.1
+/lib/aarch64-linux-gnu/libbz2.so.1.0

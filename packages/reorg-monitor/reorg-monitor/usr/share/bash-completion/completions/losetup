@@ -1,0 +1,79 @@
+_losetup_module()
+{
+	local cur prev OPTS ARG
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-d'|'--detach')
+			ARG="$($1 --output NAME | awk '{if (1 < NR) {print}}')"
+			COMPREPLY=( $(compgen -W "$ARG" -- $cur) )
+			return 0
+			;;
+		'-j'|'--associated')
+			ARG="$($1 --output BACK-FILE | awk '{if (1 < NR) {print}}')"
+			COMPREPLY=( $(compgen -W "$ARG" -- $cur) )
+			return 0
+			;;
+		'-c'|'--set-capacity')
+			ARG="$(for I in /dev/loop[0-9]*; do if [ -e $I ]; then echo $I; fi; done)"
+			COMPREPLY=( $(compgen -W "$ARG" -- $cur) )
+			return 0
+			;;
+		'-o'|'--offset'|'--sizelimit')
+			COMPREPLY=( $(compgen -W "number" -- $cur) )
+			return 0
+			;;
+		'-O'|'--output')
+			local prefix realcur OUTPUT_ALL OUTPUT
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			OUTPUT_ALL="NAME AUTOCLEAR BACK-FILE BACK-INO
+				BACK-MAJ:MIN MAJ:MIN OFFSET PARTSCAN RO
+				SIZELIMIT DIO"
+			for WORD in $OUTPUT_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					OUTPUT="$WORD ${OUTPUT:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$OUTPUT" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--all
+				--detach
+				--detach-all
+				--find
+				--set-capacity
+				--associated
+				--nooverlap
+				--offset
+				--sizelimit
+				--partscan
+				--read-only
+				--show
+				--verbose
+				--json
+				--list
+				--noheadings
+				--output
+				--output-all
+				--raw
+				--help
+				--version"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local IFS=$'\n'
+	compopt -o filenames
+	COMPREPLY=( $(compgen -f -- $cur) )
+	return 0
+}
+complete -F _losetup_module losetup

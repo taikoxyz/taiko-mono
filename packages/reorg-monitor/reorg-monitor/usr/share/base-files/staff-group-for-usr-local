@@ -1,0 +1,16 @@
+Current policy mandates that directories in /usr/local should be owned
+by group staff and mode 2775.
+
+The purpose of this file is to tell the system, when it's removed, that we
+want directories in /usr/local to be 755 and owned by group root.
+
+At this moment, this does not work at all, but the plan is to modify
+packages during the development stage of wheezy+1, so that whenever we
+release wheezy+1 as stable, all packages that need it check that this
+file exists before using those special permissions for /usr/local.
+
+This file is created by base-files on the initial install, and it's
+also created on upgrades from any base-files release before 6.10, which
+means it will be created on upgrades from squeeze to wheezy.
+
+See https://bugs.debian.org/299007 for details.

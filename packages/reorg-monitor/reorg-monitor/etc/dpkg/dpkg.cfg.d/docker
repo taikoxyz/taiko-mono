@@ -1,0 +1,78 @@
+# This is the "slim" variant of the Debian base image.
+# Many files which are normally unnecessary in containers are excluded,
+# and this configuration file keeps them that way.
+
+# dpkg -S '/usr/share/doc/*'
+#  adduser apt base-files base-passwd bash bsdutils coreutils dash debconf 
+#  debian-archive-keyring debianutils diffutils dpkg e2fsprogs findutils 
+#  gcc-12-base:arm64 gpgv grep gzip hostname init-system-helpers libacl1:arm64 
+#  libapt-pkg6.0:arm64 libattr1:arm64 libaudit-common libaudit1:arm64 
+#  libblkid1:arm64 libbz2-1.0:arm64 libc-bin libc6:arm64 libcap-ng0:arm64 
+#  libcap2:arm64 libcom-err2:arm64 libcrypt1:arm64 libdb5.3:arm64 
+#  libdebconfclient0:arm64 libext2fs2:arm64 libffi8:arm64 libgcc-s1:arm64 
+#  libgcrypt20:arm64 libgmp10:arm64 libgnutls30:arm64 libgpg-error0:arm64 
+#  libhogweed6:arm64 libidn2-0:arm64 liblz4-1:arm64 liblzma5:arm64 
+#  libmd0:arm64 libmount1:arm64 libnettle8:arm64 libp11-kit0:arm64 
+#  libpam-modules-bin libpam-modules:arm64 libpam-runtime libpam0g:arm64 
+#  libpcre2-8-0:arm64 libseccomp2:arm64 libselinux1:arm64 libsemanage-common 
+#  libsemanage2:arm64 libsepol2:arm64 libsmartcols1:arm64 libss2:arm64 
+#  libstdc++6:arm64 libsystemd0:arm64 libtasn1-6:arm64 libtinfo6:arm64 
+#  libudev1:arm64 libunistring2:arm64 libuuid1:arm64 libxxhash0:arm64 
+#  libzstd1:arm64 login logsave mawk mount ncurses-base ncurses-bin passwd 
+#  perl-base sed sysvinit-utils tar tzdata usr-is-merged util-linux 
+#  util-linux-extra zlib1g:arm64
+path-exclude /usr/share/doc/*
+
+# dpkg -S '/usr/share/doc/kde/HTML/*/*'
+#  dpkg-query: no path found matching pattern /usr/share/doc/kde/HTML/*/*
+path-exclude /usr/share/doc/kde/HTML/*/*
+
+# dpkg -S '/usr/share/gnome/help/*/*'
+#  dpkg-query: no path found matching pattern /usr/share/gnome/help/*/*
+path-exclude /usr/share/gnome/help/*/*
+
+# dpkg -S '/usr/share/info/*'
+#  coreutils diffutils findutils grep gzip sed
+path-exclude /usr/share/info/*
+
+# dpkg -S '/usr/share/linda/*'
+#  dpkg-query: no path found matching pattern /usr/share/linda/*
+path-exclude /usr/share/linda/*
+
+# dpkg -S '/usr/share/lintian/overrides/*'
+#  apt base-files base-passwd bash bsdutils dash debconf dpkg e2fsprogs 
+#  init-system-helpers libacl1:arm64 libattr1:arm64 libblkid1:arm64 libc-bin 
+#  libc6:arm64 libdb5.3:arm64 libgcc-s1:arm64 libidn2-0:arm64 libmount1:arm64 
+#  libpam-modules-bin libpam-modules:arm64 libpam-runtime libpam0g:arm64 
+#  libsmartcols1:arm64 login mount ncurses-base passwd perl-base tzdata 
+#  util-linux
+path-exclude /usr/share/lintian/overrides/*
+
+# dpkg -S '/usr/share/locale/*'
+#  adduser apt bash coreutils diffutils dpkg findutils grep 
+#  libapt-pkg6.0:arm64 libgnutls30:arm64 libidn2-0:arm64 libpam-runtime login 
+#  sed tar
+path-exclude /usr/share/locale/*
+
+# dpkg -S '/usr/share/man/*'
+#  adduser apt base-passwd bash bsdutils coreutils dash debconf debianutils 
+#  diffutils diversion by dash from diversion by dash to dpkg e2fsprogs 
+#  findutils gpgv grep gzip hostname init-system-helpers libaudit-common 
+#  libc-bin libpam-modules-bin libpam-modules:arm64 libpam-runtime 
+#  libsemanage-common login logsave mawk mount ncurses-bin passwd perl-base 
+#  sed sysvinit-utils tar util-linux util-linux-extra
+path-exclude /usr/share/man/*
+
+# dpkg -S '/usr/share/omf/*/*-*.emf'
+#  dpkg-query: no path found matching pattern /usr/share/omf/*/*-*.emf
+path-exclude /usr/share/omf/*/*-*.emf
+
+path-include /usr/share/doc/*/copyright
+path-include /usr/share/doc/kde/HTML/C/*
+path-include /usr/share/gnome/help/*/C/*
+path-include /usr/share/locale/all_languages
+path-include /usr/share/locale/currency/*
+path-include /usr/share/locale/l10n/*
+path-include /usr/share/locale/languages
+path-include /usr/share/locale/locale.alias
+path-include /usr/share/omf/*/*-C.emf

@@ -1,0 +1,9 @@
+/etc/security/access.conf
+/etc/security/faillock.conf
+/etc/security/group.conf
+/etc/security/limits.conf
+/etc/security/namespace.conf
+/etc/security/namespace.init
+/etc/security/pam_env.conf
+/etc/security/sepermit.conf
+/etc/security/time.conf

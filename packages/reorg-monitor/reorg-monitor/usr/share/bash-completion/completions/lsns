@@ -1,0 +1,57 @@
+_lsns_module()
+{
+	local cur prev OPTS LSNS_COLS_ALL
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	LSNS_COLS_ALL="
+		NS TYPE PATH NPROCS PID PPID COMMAND UID USER
+	"
+	case $prev in
+		'-o'|'--output')
+			local prefix realcur LSNS_COLS
+			realcur="${cur##*,}"
+			prefix="${cur%$realcur}"
+			for WORD in $LSNS_COLS_ALL; do
+				if ! [[ $prefix == *"$WORD"* ]]; then
+					LSNS_COLS="$WORD ${LSNS_COLS:-""}"
+				fi
+			done
+			compopt -o nospace
+			COMPREPLY=( $(compgen -P "$prefix" -W "$LSNS_COLS" -S ',' -- $realcur) )
+			return 0
+			;;
+		'-p'|'--task')
+			COMPREPLY=( $(compgen -W "$(cd /proc && echo [0-9]*)" -- $cur) )
+			return 0
+			;;
+		'-t'|'--type')
+			COMPREPLY=( $(compgen -W "mnt net ipc user pid uts cgroup" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			COMPREPLY=( $(compgen -W "
+					--json
+					--list
+					--noheadings
+					--output
+					--output-all
+					--task
+					--raw
+					--notruncate
+					--type
+					--help
+					--version
+				" -- $cur) )
+			return 0
+			;;
+	esac
+	COMPREPLY=( $(compgen -W "mnt net pid uts ipc user" -- $cur ) )
+	return 0
+}
+complete -F _lsns_module lsns

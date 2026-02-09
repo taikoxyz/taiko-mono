@@ -1,0 +1,1 @@
+^[[:alpha:]]{3} [ :[:digit:]]{11} [._[:alnum:]\-]+ fstrim\[[0-9]+\]: [^[:space:]]+: [.[:digit:]]+ [KMG]iB \([[:digit:]]+ bytes\) trimmed on [^[:space:]]+$

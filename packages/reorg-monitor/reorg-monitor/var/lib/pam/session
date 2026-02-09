@@ -1,0 +1,4 @@
+Module: null
+[default=1]			pam_permit.so
+Module: unix
+required	pam_unix.so

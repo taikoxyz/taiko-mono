@@ -1,0 +1,1321 @@
+Template: debconf/frontend
+Type: select
+Choices: Dialog, Readline, Gnome, Kde, Editor, Noninteractive
+Choices-ar.UTF-8: Dialog, Readline, Gnome, Kde, محرّر, لاتفاعلي
+Choices-ast.UTF-8: Diálogos, Consola, Gnome, Kde, Editor, Non interautiva
+Choices-be.UTF-8: Дыялог, Чытанне радкоў, Gnome, Kde, Рэдактар, Неінтэрактыўна
+Choices-bg.UTF-8: Диалози, Readline, Gnome, Kde, Редактор, Без намеса
+Choices-bn.UTF-8: ডায়ালগ, রিডলাইন, Gnome, Kde, সম্পাদক, ক্রিয়া-প্রতিক্রিয়াহীন
+Choices-bs.UTF-8: Dijaloški, Readline, Gnome, Kde, Uređivač, Neinteraktivni
+Choices-ca.UTF-8: Dialog, Readline, Gnome, Kde, Editor, No interactiva
+Choices-cs.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Neinteraktivní
+Choices-cy.UTF-8: Dialog, Readline, Gnome, Kde, Golygydd, An-rhyngweithiol
+Choices-da.UTF-8: Dialogboks, Overskrift, Gnome, Kde, Editor, Ikke-interaktiv
+Choices-de.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Nicht-interaktiv
+Choices-dz.UTF-8: ཌའི་ལོག, ལྷག་ཐིག, Gnome, Kde, ཞུན་དགཔ།, ཕན་ཚུན་འབྲེལ་ལྡན་མ་ཡིན་པ།
+Choices-el.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Μη-διαδραστικά
+Choices-eo.UTF-8: Dialog, Readline, Gnome, Kde, Redaktilo, Neinteraga
+Choices-es.UTF-8: Diálogos, Consola, Gnome, Kde, Editor, No interactiva
+Choices-et.UTF-8: Dialoogiaknad, Reapõhine, Gnome, Kde, Redaktor, Mitte-interaktiivne
+Choices-eu.UTF-8: Elkarrizketa, Irakurketa lerroa, Gnome, Kde, Editorea, Ez interaktiboa
+Choices-fa.UTF-8: Dialog, Readline, Gnome, Kde, ویرایشگر, غیر محاوره ای
+Choices-fi.UTF-8: Valintaikkuna, Readline, Gnome, Kde, Teksturi, ei vuorovaikutteinen
+Choices-fr.UTF-8: Dialogue, Readline, Gnome, Kde, Éditeur, Non interactive
+Choices-ga.UTF-8: Dialóg, Gnáth-théacs, Gnome, Kde, Eagarthóir, Neamh-idirghníomhach
+Choices-gl.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Non interactiva
+Choices-gu.UTF-8: સંવાદ, રીડલાઈન, Gnome, Kde, સંપાદક, અસક્રિય
+Choices-he.UTF-8: דיאלוג, שורת פקודה, Gnome, Kde, עורך טקסט, לא אינטראקטיבי
+Choices-hi.UTF-8: डायलॉग, रीडलाइन, Gnome, Kde, एडिटर, नॉनइन्टरैक्टिव
+Choices-hr.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Neinteraktivno
+Choices-hu.UTF-8: Párbeszédes, Egysoros, Gnome, Kde, Szerkesztő, Néma
+Choices-id.UTF-8: Dialog, Bacabaris (Readline), Gnome, Kde, Penyunting, Tak-Interaktif
+Choices-is.UTF-8: Samskiptagluggi, Leslína, Gnome, Kde, Ritill, Ógagnvirkt
+Choices-it.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Non-interattiva
+Choices-ja.UTF-8: ダイアログ, Readline, Gnome, Kde, エディタ, 非対話的
+Choices-kk.UTF-8: Сұхбат, Жолды оқу, Gnome, Kde, Түзетуші, Интерактивті емес
+Choices-km.UTF-8: ប្រអប់, បន្ទាត់អាន, Gnome, Kde, កម្មវិធី​និពន្ធ, គ្មាន​អន្តរកម្ម
+Choices-ko.UTF-8: 다이얼로그 방식, 리드라인 방식, Gnome, Kde, 편집기 방식, 물어보지 않음 방식
+Choices-lt.UTF-8: Dialogai, Tekstinė eilutė, Gnome, Kde, Tekstų redaktorius, Neinteraktyvi
+Choices-lv.UTF-8: Dialoglodziņš, Readline, Gnome, Kde, Teksta redaktora, Neinteraktīvā
+Choices-mg.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Noninteractive
+Choices-mk.UTF-8: Дијалог, Readline, Gnome, Kde, Уредувач, Неинтерактивно
+Choices-ml.UTF-8: ഡയലോഗ്, റീഡ്ലൈന്‍, Gnome, Kde, എഡിറ്റര്‍, ഇന്ററാക്റ്റീവല്ലാതെ
+Choices-mr.UTF-8: संवाद, वाचण्याची ओळ, Gnome, Kde, मजकूर लेखक, सुसंवादप्रक्रियाहीन
+Choices-nb.UTF-8: Dialog, Readline, Gnome, Kde, Redigering, Ikke-interaktiv
+Choices-ne.UTF-8: संवाद, रिडलाइन, Gnome, Kde, सम्पादक, अन्तरक्रियात्मकता विहिन
+Choices-nl.UTF-8: Tekst-Dialoog (dialog), commando-regel (Readline), Gnome, Kde, Teksteditor, Niet-interactief
+Choices-no.UTF-8: Dialog, Readline, Gnome, Kde, Redigering, Ikke-interaktiv
+Choices-pa.UTF-8: ਵਾਰਤਾਲਾਪ, ਲਾਇਨ ਪੜ੍ਹੋ, Gnome, Kde, ਸੰਪਾਦਕ, ਕਮਾਂਡ ਰਾਹੀਂ
+Choices-pl.UTF-8: Dialog, Readline, Gnome, Kde, Edytor, Nieinteraktywny
+Choices-pt.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Não-interactivo
+Choices-pt_BR.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Noninteractive
+Choices-ro.UTF-8: Dialog, Linie interactivă, Gnome, Kde, Editor, Non-interactiv
+Choices-ru.UTF-8: диалоговый, из командной строки, Gnome, Kde, из текстового редактора, пакетный
+Choices-si.UTF-8: සංවාදය, කියවීම් පේළිය, Gnome, Kde, සකසනය, අන්තර්ක්‍රියාකාරී නොවන
+Choices-sk.UTF-8: Dialóg, Readline, Gnome, Kde, Editor, Neinteraktívne
+Choices-sl.UTF-8: dialog, bralnovrstični (readline) vmesnik, Gnome, Kde, urejevalni vmesnik, neinteraktiven vmesnik
+Choices-sq.UTF-8: Dialog, Linjë leximi, Gnome, Kde, Editues, Jointeraktive
+Choices-sr.UTF-8: Дијалог, Линијски, Gnome, Kde, Едитор, Неинтерактивно
+Choices-sr@latin.UTF-8: Dijalog, Linijski, Gnome, Kde, Editor, Neinteraktivno
+Choices-sv.UTF-8: Dialog, Readline, Gnome, Kde, Redigerare, Icke-interaktivt
+Choices-ta.UTF-8: உரையாடல், ரீட்லைன், Gnome, Kde, திருத்தர், ஊடாடல் இல்லாத
+Choices-te.UTF-8: భాషణ , రీడ్లైన్ , Gnome, Kde, సరిచేయునది, ప్రశ్నలు వేయక
+Choices-th.UTF-8: กล่องโต้ตอบ, อ่านจากบรรทัด, Gnome, Kde, แก้ไขข้อความ, ไม่โต้ตอบ
+Choices-tl.UTF-8: Diyalogo, Readline, Gnome, Kde, Editor, Hindi interaktibo
+Choices-tr.UTF-8: Diyalog, Readline, Gnome, Kde, Düzenleyici, Etkileşimsiz
+Choices-ug.UTF-8: سۆزلەشكۈ, Readline, Gnome, Kde, تەھرىرلىگۈچ, غەيرىي تەسىرلىشىشچان
+Choices-uk.UTF-8: Діалоговий, Рядок вводу, Gnome, Kde, Редактор, Неінтерактивний
+Choices-vi.UTF-8: Hộp thoại, Readline, Gnome, Kde, Trình hiệu chỉnh, Không tương tác
+Choices-wo.UTF-8: Dialog, Readline, Gnome, Kde, Editor, Noninteractive
+Choices-zh_CN.UTF-8: 字符对话框, 纯文本界面, Gnome, Kde, 编辑器, 非交互方式
+Choices-zh_TW.UTF-8: Dialog, Readline, Gnome, Kde, 編輯器, 非互動式
+Default: Dialog
+Description: Interface to use:
+ Packages that use debconf for configuration share a common look and feel.
+ You can select the type of user interface they use.
+ .
+ The dialog frontend is a full-screen, character based interface, while the
+ readline frontend uses a more traditional plain text interface, and both the
+ gnome and kde frontends are modern X interfaces, fitting the respective
+ desktops (but may be used in any X environment). The editor frontend lets you
+ configure things using your favorite text editor. The noninteractive
+ frontend never asks you any questions.
+Description-ar.UTF-8: الواجهة المراد استخدامها:
+ الحزم التي تستخدم debconf لتهيئتها تشترك بنفس المظهر. يمكن اختيار نوع واجهة المستخدم التي تستخدمها.
+ .
+ dialog هي واجهة بملء الشاشة، ذات واجهة نصيّة، بينما واجهة readline تستخدم واجهة نصيّة مجرّدة تقليديّة، وكل من واجهتي جنوم وكيدي هي حديثة، تلائم سطح المكتب المعني (لكن قد يمكن استخدامها في أي بيئة X). واجهة المحرّر تسمح لك بتهيئة الأمور باستخدام محرّر النصوص المفضل لديك. والواجهة اللاتفاعليّة لا تسألك أية أسئلة.
+Description-ast.UTF-8: Interface a usar:
+ Paquetes qu'usen debconf pa configurase comparten un aspeutu común. Puedes seleicionar la triba d'interface d'usuariu qu'ellos usen.
+ .
+ El frontend dialog ye a pantalla completa, mientres que la de readline ye más tradicional, de sólo testu, y gnome y kde son interfaces X más modernes, adautaes a cada ún de dichos escritorios (pero pueden usar cualisquier entornu X). Editor permítete configurar coses usando'l to editor de testu favoritu. El frontend non interautivu enxamás entrugárate.
+Description-be.UTF-8: Ужываць інтэрфейс:
+ Пакеты, што выкарыстоўваюць debconf для наладак, маюць агульны выгляд. Вы можаце вылучыць тып карыстальніцкага інтэрфейсу, з якім будзеце працаваць.
+ .
+ Дыялогавае кіраванне ёсць поўнаэкранным сімвальным інтэрфейсам, а кіраванне чытаннем радкоў выкарыстоўвае больш традыцыйную схему інтэрфейсу простага тэксту, і gnome- і kde-кіраванні ёсць навейшымі X-інтэрфейсамі, што запускаюцца ў адпаведнай графічнай сістэме (але могуць быць выкарыставаны ў любым асяроддзі X). Кіраванне рэдактарам дазваляе вам наладжваць рэчы, выкарыстоўвая ваш улюбёны тэкставы рэдактар. Неінтэрактыўнае кіраванне ніколі не задае вам ніякіх пытанняў.
+Description-bg.UTF-8: Интерфейс за настройка на пакетите:
+ Пакетите, които използват debconf за настройване, споделят един и същи изглед и начин на работа. Можете да изберете вида на потребителския интерфейс, който да се използва при настройване.
+ .
+ Интерфейсът „dialog“ е пълноекранен знаково-ориентиран интерфейс, докато интерфейсът „readline“ използва традиционния текстов интерфейс, а „gnome“ и „kde“ използват съвременни графични интерфейси, подходящи за съответните работни плотове, но могат да се използват и в други графични среди. Интерфейсът „редактор“ позволява настройване чрез редактиране с текстов редактор. Интерфейсът „без намеса“ никога не задава въпроси.
+Description-bn.UTF-8: যে ইন্টারফেস ব্যবহার করা হবে:
+ যে সকল প্যাকেজ কনফিগারেশনের জন্য debconf ব্যবহার করে তারা একই রকম চেহারা ধারন করে। তারা কি ধরনের ব্যবহারকারী ইন্টারফেস ব্যবহার করবে তা আপনি নির্বাচন করে দিতে পারেন।
+ .
+ ডায়ালগ ফ্রন্টএন্ড একটি পূর্ণ পর্দা, অক্ষর ভিত্তিক ইন্টারফেস, কিন্তু রিডলাইন ফ্রন্টএন্ড অধিক সনাতন সরল টেক্সট ইন্টারফেস ব্যবহার করে, এবং জিনোম ও কেডিই ফ্রন্টএন্ড উভয়ই আধুনিক X ইন্টারফেস, যা ডেস্কটপে মানানসই হয় (কিন্তু যেকোন X এনভায়রনমেন্টে ব্যবহার করা যেতে পারে)। সম্পাদক ফ্রন্টএন্ড আপনাকে আপনার পছন্দসই টেক্সট সম্পাদকের মাধ্যমে সবকিছু কনফিগার করতে দেবে। ক্রিয়া-প্রতিক্রিয়াহীন ফ্রন্টএন্ড আপনাকে কখনই কোন প্রশ্ন করবে না।
+Description-bs.UTF-8: Interfejs koji će se koristiti:
+ Paketi koji koriste debconf za konfiguraciju dijele zajednički izgled i način podešavanja. Možete odabrati tip korisničkog interfejsa koji će koristiti.
+ .
+ Dijaloški frontend je cijeloekranski, znakovno bazirani interfejs, dok readline frontend koristi tradicionalniji čisti tekstualni interfejs, dok su gnome i kde frontends moderni X interfejsi, koji nadopunjavaju respektivne desktope (ali se mogu koristiti u bilo kojem X okruženju). Uređivački frontend vam omogućuje da podesite stvari koristeći vaš omiljeni uređivač teksta. Neinteraktivni frontend nikad ne postavlja pitanja.
+Description-ca.UTF-8: Interfície a emprar:
+ Els paquets que utilitzen debconf per a configurar-se comparteixen un aspecte comú. Podeu triar el tipus d'interfície d'usuari que voleu que empren.
+ .
+ «dialog» és una interfície de text a pantalla completa, mentre que «readline» és més tradicional, en text simple, i tant «gnome» com «kde» són interfícies modernes per a X, que s'integren als escriptoris corresponents (tot i que es poden utilitzar en qualsevol entorn d'X). La interfície «editor» us permet configurar el sistema utilitzant el vostre editor preferit. La interfície «no interactiva» no fa cap pregunta.
+Description-cs.UTF-8: Použít rozhraní:
+ Balíky, které pro svou konfiguraci využívají debconf, používají stejný vzhled a ovládání. Nyní si můžete zvolit typ uživatelského rozhraní, které budou používat.
+ .
+ Dialog je celoobrazovkové textové rozhraní, readline používá tradiční textové prostředí a gnome s kde jsou moderní grafická rozhraní (samozřejmě je můžete použít v libovolném jiném X prostředí). Editor vás nechá nastavit věci prostřednictvím vašeho oblíbeného textového editoru. Neinteraktivní rozhraní se nikdy na nic neptá.
+Description-cy.UTF-8: Rhyngwyneb i ddefnyddio:
+ Mae pecynnau sy'n defnyddio debconf ar gyfer cyfluniad yn rhannu edrychiad a teimlad cyffredin. Fe allwch chi ddewis y math o ryngwyneb maent yn ddefnyddio.
+ .
+ Mae pen blaen dialog yn ryngwyneb sgrîn-lawn testun graffigol, tra fod y pen blaen readline yn defnyddio rhyngwyneb testun plaen mwy traddodiadol, tra fod pen blaen gnome a kde yn ryngwynebau X modern, yn gweddu i'r pen bwrdd perthnasol (ond gellir ei defnyddio mewn unrhyw amgylchedd X). Mae'r rhyngwyneb golygydd yn eich caniatau i gyflunio pethau gan ddefnyddio eich hoff olygydd testun. Nid yw'r pen blaen an-rhyngweithiol yn gofyn unrhyw gwestiynau o gwbl.
+Description-da.UTF-8: Brugerflade at benytte:
+ Pakker der bruger debconf til opsætning, fremtræder på samme måde. Du kan vælge hvilken brugerflade de skal bruge.
+ .
+ Dialog er en fuldskærms, tekstbaseret brugerflade, mens readline er en mere traditionel tekstbrugerflade. Både gnome og kde er moderne X-brugerflader. Editor lader dig svare på spørgsmålene via din foretrukne editor. Ikke-interaktivt brugerflade vil aldrig stille dig spørgsmål.
+Description-de.UTF-8: Zu nutzende Schnittstellenoberfläche:
+ Pakete, die Debconf für die Konfiguration verwenden, haben ein gemeinsames »look and feel«. Sie können wählen, welche Benutzerschnittstelle sie nutzen.
+ .
+ Die Dialog-Oberfläche nutzt eine zeichen-basierte Vollbildschirmdarstellung, während die Readline-Oberfläche eine eher traditionelle einfache Textschnittstelle verwendet. Die GNOME- wie auch die KDE-Oberfläche sind moderne X-Schnittstellen, die in den jeweiligen Desktop eingepasst sind (aber in beliebigen X-Umgebungen verwendet werden können). Die Editor-Oberfläche gibt Ihnen die Möglichkeit, die Dinge mit Ihrem Lieblingseditor zu konfigurieren. Die nicht-interaktive Oberfläche stellt Ihnen keine Fragen.
+Description-dz.UTF-8: ལག་ལེན་འཐབ་ནི་ལུ་ངོས་པར་དགོ་:
+ རིམ་སྒྲིག་དོན་ལུ་debconf ལག་ལེན་འཐབ་མི་ཐུམ་སྒྲིལ་ཚུ་གིས་ ཐུན་མོང་གི་མཐོང་སྣང་དང་ཚོར་སྣང་ རུབ་སྤྱོད་འབདཝ་ཨིན། ཁྱོད་ཀྱིས་ ཁོང་གིས་ལག་ལེན་འཐབ་པའི་ལག་ལེན་པ་ངོས་འདྲ་བའི་དབྱེ་བ་ སེལ་འཐུ་འབད།
+ .
+ ལྷག་ཐིག་གདོང་མཐའ་གིས་ སྔར་སྲོལ་ཚིག་ཡིག་ཉག་རྐྱང་གི་ངོས་འདྲ་བ་ལེ་ཤ་ཅིག་ ལག་ལེན་འཐབ་ཨིནམ་དང་ཇི་ནོམ་དང་ཀེ་ཌི་ཨི་གདོང་མཐའ་གཉིས་ཆ་ར་ དེང་སང་གི་ ཨེགསི་ ངོོོས་འདྲ་བ་ཚུ་ཨིན་ མ་ལྟོས་པའི་ཌེཀསི་ཊོཔསི་ ཚུད་སྒྲིག་འབད་བའི་སྐབས་ལུ་(དེ་འབདཝ་ད་ ཨེགསི་ མཐའ་འཁོར་གང་རུང་ཅིག་ནང་ ལག་ལེན་འཐབ་འཐབ་འོང་) ཌའི་ལོག་གདོང་མཐའ་འདི་ གསལ་གཞི་གང་བ་དང་ ཡིག་འབྲུ་ལུ་གཞི་བཞག་པའི་ངོས་འདྲ་བ་ཨིན། ཞུན་དགཔ་གདོང་མཐའ་གིས་ཁྱོད་ལུ་ ཁྱོའ་རང་གིས་དགའ་མི་ ཚིག་ཡིག་ཞུན་དགཔ་ལག་ལེན་གྱི་ཐོག་ལས་ ཅ་ལ་དེ་ཚུ་རིམ་སྒྲིག་འབད་བཅུགཔ་ཨིན། ཕན་ཚུན་འབྲེལ་ལྡན་མ་ཡིན་པའི་གདོང་མཐའ་གིས་ ནམ་ར་ཨིན་རུང་ འདྲི་བ་ག་ཅི་ཡང་མི་འདྲིཝ་ཨིན།
+Description-el.UTF-8: Διεπαφή που θα χρησιμοποιηθεί:
+ Τα πακέτα που χρησιμοποιούν το debconf για τη ρύθμισή τους έχουν μια κοινή εμφάνιση και "αίσθηση". Μπορείτε να επιλέξετε τον τύπο διεπαφής χρήστη που θα χρησιμοποιούν.
+ .
+ Ο διαλογικός τρόπος εμφανίζει τις ερωτήσεις σε μία πλήρη οθόνη κονσόλας, ενώ η γραμμή εντολών (readline) χρησιμοποιεί απλό κείμενο, και αμφότεροι οι τρόποι αλληλεπίδρασης gnome και kde χρησιμοποιούν τα αντίστοιχα περιβάλλοντα (ή ακόμη και διαφορετικά περιβάλλοντα X) για να απεικονίζουν τις ερωτήσεις με γραφικό τρόπο. Ο κειμενογράφος σας επιτρέπει να παραμετροποιήσετε το πακέτο χρησιμοποιώντας τον προτιμώμενο επεξεργαστή κειμένου σας. Ο μη διαλογικός τρόπος δεν εμφανίζει καμία ερώτηση.
+Description-eo.UTF-8: Uzota interfaco:
+ Pakoj kiuj uzas debconf por agordo kunhavas komunan aspekton. Vi povas elekti la tipon de interfaco kiun ili uzos.
+ .
+ La interfaco Dialog estas tutekrana, signo-aspekta interfaco, dum la interfaco Readline uzas pli tradician pur-tekstan interfacon, kaj la interfacoj Gnome kaj Kde estas modernaj X-interfacoj, konformaj al la respektivaj labortabloj (sed ili uzeblas en iu ajn X-medio). La interfaco Redaktilo ebligas akomodi aferojn per via preferata teksto-redaktilo. La Neinteraga interfaco neniam demandos vin pri io ajn.
+Description-es.UTF-8: Interfaz a utilizar:
+ Los paquetes que usan debconf para configurarse comparten un aspecto común. Puede elegir el tipo de interfaz de usuario que quiere que usen.
+ .
+ Dialog es una interfaz de texto a pantalla completa, mientras que la de readline es más tradicional, de sólo texto, y gnome y kde son modernas interfaces para X adaptadas a cada uno de dichos escritorios (aunque pueden usarse en cualquier entorno gráfico). Editor le permite configurar el sistema usando su editor favorito. El interfaz no interactivo no hace ninguna pregunta.
+Description-et.UTF-8: Kasutatav liides:
+ Seadistamiseks debconf'i kasutavatel pakkidel on ühtne välimus ja tunnetus. Võid valida nende poolt kasutatava kasutajaliidese.
+ .
+ Dialoog on täis-ekraani, tähepõhine liides, samas kui readline on traditsioonilisem vaba tekstiga liides. Nii kde kui ka gnome on moodsad X-liidesed, sobides vastavate töölaudadega (kuigi neid võib kasutad igas X keskkonnas). Redaktoriliides võimaldab seadistust oma lemmik tekstiredaktori aknast. Mitteinteraktiivne liides ei küsi iial küsimusi.
+Description-eu.UTF-8: Erabiliko den interfazea:
+ Konfiguratzeko debconf erabiltzen duten paketeek itxura eta portaera bateratu bat dute. Zein interfaze mota erabili aukeratu dezakezu.
+ .
+ Elkarrizketa pantaila osoko karakteretan oinarritutako interfaze bat da, Komando lerroa berriz testu laueko ohizko interfaze bat da. bai gnome eta bai kde interfazeak X-etan oinarritutako eta mahaigain horretarako prestaturik daude (naiz edozein X ingurunetan erabil daitezke). Editoreak konfiguraketak zure lehenetsitako testu editorea erabiliaz egingo ditu. Ez-interaktiboak ez dizu inoiz galderarik egingo.
+Description-fa.UTF-8: رابط کاربری مورد استفاده:
+ بشته هایی که از debconf برای پیکربندی استفاده می کنند، شکل و حس مشترکی دارند. شما می توانید رابط کاربری که برای آنها مورد استفاده قرار می گیرد را انتخاب کنید.
+ .
+ رابط dialog یک رابط کاربری تمام صفحه بر مبنای کاراکتر است، در حالی که readline بیشتر از رابط کاربری متنی استفاده می کند، و gnome و kde رابط های ،رابط کاربری X هستند که میزکارهای مناسبی را در اختیار می گذارند (اما ممکن است هر کدام از محیط های تحت X استفاده شود). ویرایشکر رابط به شما اجازه می دهد تا چیز ها را با ویرایشگر متن مورد علاقه خود ویرایش کنید. رابط های غیر محاوره ای هیچگاه از شما سؤالی نمی پرسند.
+Description-fi.UTF-8: Käytettävä liittymä:
+ Debconf yhdenmukaistaa sitä käyttävien pakettien asetuskäyttöliittymän. Voit itse valita mieluisesi liittymän muutamasta vaihtoehdosta.
+ .
+ Valintaikkuna on ruudun täyttävä merkkipohjainen liittymä, kun taas readline on perinteisempi pelkkää tekstiä käyttävä liittymä. Sekä Gnome että KDE ovat nykyaikaisia X-pohjaisia liittymiä. Teksturi käyttää asetusten säätöön lempiteksturiasi. Ei-vuorovaikutteinen liittymä ei koskaan kysy kysymyksiä.
+Description-fr.UTF-8: Interface à utiliser :
+ Les paquets utilisant debconf pour leur configuration ont une interface et une ergonomie communes. Vous pouvez choisir leur interface utilisateur.
+ .
+ « Dialogue » est une interface couleur en mode caractère et en plein écran, alors que l'interface « Readline » est une interface plus traditionnelle en mode texte. Les interfaces « Gnome » et « KDE » sont des interfaces X modernes, adaptées respectivement à ces environnements (mais peuvent être utilisées depuis n'importe quel environnement X). L'interface « Éditeur » vous permet de faire vos configurations depuis votre éditeur favori. Si vous choisissez « Non-interactive », le système ne vous posera jamais de question.
+Description-ga.UTF-8: Comhéadan le húsáid:
+ Tá cosúlacht ag na pacáistí a úsáideann debconf lena chéile.  Is féidir leat cineál an chomhéadain úsáideora anseo.
+ .
+ Is comhéadan lánscáileáin bunaithe ar charachtair é an comhéadan 'dialóg', agus is comhéadan téacs níos traidisiúnta é 'gnáth-théacs'.  Is comhéadain ghrafacha nua-aimseartha iad na comhéadain 'gnome' agus 'kde', oiriúnaithe do na deasca sin faoi seach (ach atá inúsáidte i dtimpeallacht X ar bith). Ligeann an comhéadan 'eagarthóir' duit gach rud a chumrú san eagarthóir téacs is ansa leat. Ní chuireann an comhéadan 'neamh-idirghníomhach' ceist ar bith ort.
+Description-gl.UTF-8: Interface a empregar:
+ Os paquetes que empregan debconf para a configuración comparten unha aparencia común. Pode escoller o tipo de interface de usuario que empregan.
+ .
+ A interface dialog é unha interface de pantalla completa en modo texto, mentres que a interface readline emprega unha interface de texto simple máis traicional; as interfaces gnome e kde son interfaces modernas de X, que encaixan cos respectivos escritorios (pero que se poden empregar en calquera ambiente X). A interface editor permítelle configurar as cousas empregando o seu editor de texto favorito. A interface non interactiva nunca lle fai preguntas.
+Description-gu.UTF-8: વાપરવા માટેનો દેખાવ:
+ જે પેકેજો રુપરેખાંકન માટે ડેબકોન્ફ વાપરે છે તેઓ સમાન દેખાવ ધરાવે છે. તમે તેઓ જે દેખાવ વાપરે છે તે પસંદ કરી શકો છો.
+ .
+ સંવાદ દેખાવ એ પૂર્ણ-સ્ક્રિન, અક્ષર પર આધારિત દેખાવ છે, જ્યારે રીડલાઈન દેખાવ પરંપરાગત સામાન્ય લખાણ દેખાવ વાપરે છે, અને ગ્નોમ અને કેડીઈ દેખાવો તાજેતરનાં X દેખાવો છે, જે સંબંધિત ડેસ્કટોપ્સમાં મેળ ખાય છે (પણ કોઈપણ X વાતાવરણમાં ઉપયોગી છે). સંપાદક દેખાવ તમને તમારા પસંદગીનાં સંપાદકમાં રુપરેખાંકન કરવા દેશે. અસક્રિય દેખાવ તમને ક્યારેય પ્રશ્નો પૂછશે નહી.
+Description-he.UTF-8: ממשק לשימוש:
+ חבילות משתמשות ב-debconf לקונפיגורציה בן בעלות מראה וממשק משותף. תוכל לבחור את סוג הממשק משתמש שבו הן ישתמשו.
+ .
+ ממשק הדיאלוג נפרש על מסך מלא, ומובסס על ממשק תווי, בזמן שממשק ה-readline משתמש בממשק טקסט יותר מסורתי. גם ממשקי גנום ו-KDE הם ממשקים גרפיים מודרניים. ממשק העורך מאפשר לך להגדיר דברים דרך עורך הטקסט החביב עליך. והממשק הלא אינטראקטיבי פשוט אף פעם לא שואל אותך שאלות.
+Description-hi.UTF-8: किस माध्यम का उपयोग किया जाए
+ वे पैकेज जो कॉन्फ़िगरेशन के लिए डीबीकॉन्फ का इस्तेमाल करते हैं उनमें एक सामान्य रूप होता है. उनके द्वारा इस्तेमाल में लिए जाने वाले उपयोक्ता इंटरफ़ेस को आप चुन सकते हैं.
+ .
+ संवाद फ्रन्टएण्ड पूरे स्क्रीन पर अक्षर आधारित इंटरफेस है, जबकि रीडलाइन फ्रन्टएण्ड में पारंपरिक पाठ इंटरफेस इस्तेमाल होता है तथा गनोम व केडीई के फ्रन्टएण्ड में आधुनिक X इंटरफेस हैं जो संबंधित डेस्कटॉप में फिट होते हैं (परंतु किसी भी X वातावरण में इस्तेमाल में लिए जा सकते हैं). संपादन फ्रन्टएण्ड आपको पाठ संपादक के जरिए बहुत सी चीज़ों को कॉन्फ़िगर करने का अवसर प्रदान करता है. नॉनइंटरेक्टिव इंटरफ़ेस आपको कभी भी कोई प्रश्न नहीं पूछता है.
+Description-hr.UTF-8: Koristiti sučelje:
+ Paketi koji koriste debconf za postavke dijele zajednički izgled i način rada. Možete odabrati vrstu korisničkog sučelja koji oni koriste.
+ .
+ Sučelje 'Dialog' je tekstualno preko cijelog ekrana, dok je sučelje 'Readline' više tradicionalno tekstualno sučelje. I 'Gnome' i 'KDE' sučelja su moderna X sučelja, koja se uklapaju u odgovarajuća grafička radna okruženja (iako se mogu koristiti u bilo kojem X okruženju). Sučelje 'Editor' vam omogućuje podešavanje stvari u vašem omiljenom programu za uređivanje teksta. Neinteraktivno sučelje nikad ne pita nikakva pitanja.
+Description-hu.UTF-8: Használandó felület:
+ A debconf-ot használó csomagok egységes felületet használnak. Itt lehet kiválasztani, melyik legyen az.
+ .
+ A párbeszéd felület egy teljes-képernyős, karakteres felület, az egysoros viszont a sokkal hagyományosabb egyszerű szöveges felület, a gnome és kde felületek pedig korszerű X felületek, melyek e 2 munkakörnyezetbe illenek (de bármilyen X környezetben használhatók). A szerkesztő felülettel a kedvenc szövegszerkesztővel lehet dolgozni. A néma felület soha nem kérdez.
+Description-id.UTF-8: Antarmuka yang dipakai: 
+ Paket-paket yang dikonfigurasi lewat debconf memakai antar muka yang seragam. Anda dapat memilih jenis antarmuka pengguna yang dipakai.
+ .
+ Antarmuka dialog berbasis karakter layar penuh, sementara bacabaris memakai teks yang lebih tradisional, baik gnome dan kde menggunakan antar muka grafis (X). Antarmuka penyunting memungkinkan anda mengkonfigurasi sesuatu dengan penyunting naskah kesayangan anda. Antarmuka tak-iteraktif tak pernah menanyakan apapun.
+Description-is.UTF-8: Viðmót sem nota skal:
+ Forrit sem nota debconf sem stillingaviðmót deila með sér svipuðu útliti og áferð. Þú getur valið hverskonar notandaviðmót þau nota.
+ .
+ Viðmót samskiptagluggans er textaviðmót á heilskjá (DOS-líkt), á meðan leslína er meira í ætt við hefðbundna skipanalínu. Bæði GNOME og KDE viðmótin eru nútíma gluggaviðmót sem samsvara samnefndum skjáborðsumhverfum (en sem hægt er að nota í hvaða gluggaumhverfi sem er). Ritilsviðmótið gerir þér kleift að stilla hluti með því að nota þann ritil sem þér finnst þægilegast að vinna með. Ógagnvirkt viðmót spyr þig ekki neinna spurninga.
+Description-it.UTF-8: Interfaccia da utilizzare:
+ I pacchetti che usano debconf per la configurazione condividono un aspetto comune. È possibile selezionare il tipo di interfaccia utente da usare.
+ .
+ Il fronted "dialog" è un'interfaccia a schermo pieno a caratteri mentre il frontend "readline" usa un'interfaccia più tradizionale, in puro testo. Entrambi i frontend "gnome" e "kde" sono interfacce moderne basate su X che si adattano ai rispettivi ambienti grafici (ma possono essere usati in qualsiasi ambiente X). Il frontend "editor" permette di eseguire la configurazione utilizzando il proprio editor preferito. Il frontend "noninteractive" non pone alcuna domanda.
+Description-ja.UTF-8: 利用するインターフェイス:
+ 設定に debconf を用いるパッケージは、共通のルック＆フィールを用います。どの種類のユーザインターフェイスを用いるかを選んでください。
+ .
+ 「ダイアログ」は全画面の文字ベースのインターフェイスです。「readline」はより伝統的なプレーンテキストのインターフェイスです。「gnome」と「kde」は近代的な X のインターフェイスで、それぞれのデスクトップに適しています (ほかの X 環境で利用することもできます)。「エディタ」を用いるとあなたの好きなテキストエディタを用いることができます。「非対話的」を選ぶとまったく質問をしなくなります。
+Description-kk.UTF-8: Қолданылатын интерфейс:
+ Бапталу үшін debconf қолданылатын дестелерде бапталу түрі бірдей болады. Олар қолданатын интерфейсті таңдай аласыз.
+ .
+ Сұхбат интерфейсі толық экрандық, таңбалық құралы болып келеді, жолды оқу дегеніміз - дәстүрлі қалыпты мәтіндік интерфейс, gnome мен kde нұсқалардың екеуі де жаңа, X интерфейсіне негізделген, түрлі X жұмыс үстел орталарында қолданыла алады. Түзетуші - сізге нәрселерді таңдаулы мәтін түзетуші қолданбасы көмегімен баптауға мүмкіндік береді. Интерактивті емес нұсқасы сізге ешқашан да сұрақтарды қоймайды.
+Description-km.UTF-8: ចំណុច​ប្រទាក់​ត្រូវ​ប្រើ ៖
+ កញ្ចប់​ដែល​ប្រើ​ debconf សម្រាប់​ការកំណត់​រចនាសម្ព័ន្ធ ចែករំលែក​រូបរាង​និង​អារម្មណ៍ ។ អ្នក​អាច​ជ្រើស​ប្រភេទ​ចំណុច​ប្រទាក់​អ្នក​ប្រើ​ដែល​ពួក​គេ​ប្រើ ។
+ .
+ ប្រអប់​ផ្នែក​ខាងមុខ​ គឺអេក្រង់ពេញមួយ តួអក្សរបានផ្អែកលើ​​​ចំណុច​ប្រទាក់​ នៅខណៈ​ពេល​ដែលបន្ទាត់​អាន​​ផ្នែក​ខាង​មុខ​ប្រើ​ចំណុច​ប្រទាក់​អត្ថបទ​ធម្មតាដែលចាស់ជាង ហើយផ្នែកខាងមុខ​ gnome និង​ kde ជា​ចំណុច​ប្រទាក់​ X ដែលថ្មីទំនើប, ដែលសម​ត្រឹមត្រូវទៅនឹង​ផ្ទៃតុ​​ (ប៉ុន្តែ​ ប្រហែល​ត្រូវបាន​ប្រើនៅក្នុង​បរិដ្ឋាន X ណាមួយ) ។ ផ្នែកខាងមុខ​នៃ​កម្មវិធី​និពន្ធ ​អនុញ្ញាត​ឲ្យ​អ្នក​កំណត់​រចនាសម្ព័ន្ធ​វត្ថុ​ដោយ​ប្រើកម្មវិធី​និពន្ធ​អត្ថបទ​ដែលអ្នក​ដែល​ចូលចិត្ត ។ ផ្ទៃខាងមុខ​ដែល​មិនមែនជា​អន្តរកម្ម ​មិន​ដែល​សួរ​សំណួរ​អ្នកឡើយ​ ។
+Description-ko.UTF-8: 사용할 인터페이스:
+ 설정할 때 debconf를 사용하는 패키지는 비슷한 모양의 인터페이스를 사용합니다. 여기서 어떤 종류의 인터페이스를 사용할 지 선택할 수 있습니다.
+ .
+ 다이얼로그 프론트엔드는 문자 기반의 전체 화면 인터페이스이고, 리드라인 프론트엔드는 더 전통적인 일반 텍스트 인터페이스를 사용하고, 그놈과 KDE는 현대적인 X 인터페이스로 해당 데스크톱에 적합합니다 (하지만 X 환경에서만 사용할 수 있습니다). 편집기 프론트엔드는 본인이 자주 사용하는 텍스트 편집기를 이용해서 설정합니다. 물어보지 않음 프론트엔드의 경우 어떤 설정도 물어보지 않습니다.
+Description-lt.UTF-8: Naudotina sąsaja:
+ Paketai, naudojantys „debconf“, konfigūracijai naudoja vienodą naudotojo sąsają. Galite pasirinkti Jums tinkamiausią sąsajos tipą.
+ .
+ Dialogai – tai visaekranė tekstinė sąsaja, o Tekstinė eilutė („Readline“) – labiau tradicinė tekstinė sąsaja. „Gnome“ ir „Kde“ yra šiuolaikinės grafinės naudotojo sąsajos, skirtos dirbti atitinkamose grafinėse aplinkose (bet gali būti naudojamos bet kurioje X aplinkoje). Tekstų redaktoriaus sąsaja leidžia atlikti konfigūravimą Jūsų mėgiamame tekstų redaktoriuje. Neinteraktyvi sąsaja niekuomet nepateiks Jums jokių klausimų.
+Description-lv.UTF-8: Lietojamā saskarne:
+ Pakām, kas lieto debconf konfigurācijas jautājumu uzdošanai, ir vienota lietotāja saskarne. Lūdzu, izvēlieties, kādu lietotāja saskarnes tipu jūs vēlaties lietot.
+ .
+ Dialoga saskarne ir pilnekrāna teksta bāzēta saskarne, bet readline saskarne ir tradicionālāka tīra teksta rindu saskarne, savukārt gan Gnome gan KDE saskarnes lieto X grafisko vidi un ir piemērojami attiecīgajām darba vidēm (un var tik lietoti arī ārpus tām - jebkurā X vidē). Teksta redaktora saskarsme ļauj jums konfigurēt lietas, izmantojot jūsu iecienīto teksta redaktoru. Neinteraktīvā saskarne nekad neuzdod nekādus jautājumus.
+Description-mg.UTF-8: Interface ampiasaina :
+ Ny fonosana izay tefeny amin'ny alalan'ny debconf dia mitovy tarehy sy fihetsika. Afaka mifidy izany tarehy sy fihetsika izany ianao.
+ .
+ The dialog frontend is a full-screen, character based interface, while the readline frontend uses a more traditional plain text interface, and both the gnome and kde frontends are modern X interfaces, fitting the respective desktops (but may be used in any X environment). The editor frontend lets you configure things using your favorite text editor. The noninteractive frontend never asks you any questions.
+Description-mk.UTF-8: Интерфејс кој ќе се корисити:
+ Пакетите кои го користат debconf за конфигурација делат заеднички изглед. Може да го избереш типот на кориснички интерфејс кои ќе го користат.
+ .
+ Интерфејсот dialog  е интерфејс на цел екран со текст и графика, додека readline интерфејсот е потрадиционален текстуален интерфејс,a гном и кде интерфејсите се модерни Х графички интерфејси. Editor интерфејсот ти овоможува да ги конфигурираш работите со твојот омилен тексутален уредувач. Неинтерактивниот интерфејст никогаш не те прашува никакви прашања.
+Description-ml.UTF-8: ഉപയോഗിക്കേണ്ട ഇന്റര്ഫേസ്:
+ ക്രമീകരണത്തിനായി ഡെബ്കോണ്‍ഫ്  ഉപയോഗിക്കുന്ന പാക്കേജുകള്‍ ഒരു പൊതുവായ കാഴ്ചയും അനുഭവവും നല്കുന്നു. അവ ഉപയോഗിക്കുന്ന ഇന്റര്‍ഫേസിന്റെ തരം നിങ്ങളള്‍ക്ക് തിരഞ്ഞെടുക്കാം.
+ .
+ ഡയലോഗ് ഫ്രണ്ടെന്റ് ഒരു ഫുള്സ്ക്രീന്‍
+Description-mr.UTF-8: वापरण्यासाठी आंतराफलक
+ संरचनेसाठी डेबकॉन्फ एकत्रितरित्या वापरणारी पॅकेजेस दिसावयास व वापरण्यास सारखी आहेतवापरकर्ता त्यामध्ये उपलब्ध असणारा कोणताही आंतराफलक वापरण्यासाठी निवडु शकतो
+ .
+ सामोरा येणारा संवादफलक संपूर्ण स्क्रीन व्यापणारा व अक्षराधारित असून वाचन ओळीचा आंतराफलक मात्र साध्या मजकूरावर आधारित आहे तर जीनोम आणि केडीईचे संवादफलक आधुनिक X पध्दतीवर आधारलेले आंतराफलक आहेत जे संपूर्ण डेस्कटॉप व्यापतात (परंतू त्यांचा वापर तुम्ही फक्त X वरील आधारित परिवेशांमध्येच करू शकता)। सामो-या येणा-या मजकूर लेखन संवादफलकामध्ये तुम्हाला तुमच्या आवडत्या संवाद लेखन साधनातील सुविधांनुसार संरचना करण्याचे स्वातंत्र्य देतो तर सामोरा येणारा संवादप्रक्रियाहीन संवादफलक तुम्हाला कोणतेही प्रश्न विचारीत नाही
+Description-nb.UTF-8: Ønsket brukerflate:
+ Pakker som bruker debconf til innstillinger har felles utseende og oppførsel. Du kan velge hva slags brukerflate de bruker.
+ .
+ Dialog-flaten er et tegnbasert grensesnitt som bruker hele skjermen, mens readline-flaten er et mer tradisjonelt tekst-grensesnitt, og både Gnome og KDE er moderne X-brukerflater som passer de respektive skrivebordene (men kan brukes i alle X-miljøer). Redigeringen gjør at du kan sette opp innstillingene med det redigeringsprogrammet du liker best. Den ikke-interaktive flaten stiller aldri noen spørsmål.
+Description-ne.UTF-8: प्रयोग गरिने इन्टरफेस:
+ कनफिगरेसनको लागि debconf प्रयोग गर्ने प्याकेजहरुले साझा हेराई र अनुभव बाँड्छ । तपाईँ तिनीहरुले प्रयोग गर्ने प्रयोगकर्ता इन्टरफेसको प्रकार चयन गर्न सक्नुहुन्छ ।
+ .
+ संवाद सामने भएको पूरा पर्दामा आधारित क्यारेक्टर इन्टरफेस हो, जब सामने भएको पढ्ने पंक्तिले धेरै पुरानो खाली पाठ इन्टरफेस प्रयोग गर्छ, सम्बन्धित डेस्कटपहरू फिट गर्दा ( तर कुनै X परिवेशमा प्रयोग हुन सक्ने) दुवै जिनोम र kde सामनेहरू आधुनिक X इन्टरफेसहरू हुन्छन् । सामुने भएको सम्पादकले तपाईँलाई मन परेको पाठ सम्पादक प्रयोग गरेर चीजहरू कनफिगर गर्नु दिन्छ । सामुने पारस्पारिक क्रियात्मक नभएकाहरुले तपाईँलाई कुनै प्रश्नहरू सोधदैन ।ुने दन
+Description-nl.UTF-8: Te gebruiken interface:
+ Alle pakketten die voor configuratie gebruik maken van debconf werken op dezelfde manier. U kunt hier het type interface instellen dat door deze programma's gebruikt zal worden.
+ .
+ De dialog-frontend is een niet-grafische (karaktergebaseerde) interface die het volledige scherm overneemt, terwijl de ReadLine-frontend in een meer tradionele tekstinterface voorziet. De KDE en Gnome frontends zijn moderne grafische interfaces, die bij de betreffende desktops horen (maar in elke X-omgeving werken). De editor-frontend laat toe om dingen in te stellen met behulp van uw favoriete tekst-editor. De niet-interactieve frontend, tenslotte vraagt helemaal niks.
+Description-no.UTF-8: Ønsket brukerflate:
+ Pakker som bruker debconf til innstillinger har felles utseende og oppførsel. Du kan velge hva slags brukerflate de bruker.
+ .
+ Dialog-flaten er et tegnbasert grensesnitt som bruker hele skjermen, mens readline-flaten er et mer tradisjonelt tekst-grensesnitt, og både Gnome og KDE er moderne X-brukerflater som passer de respektive skrivebordene (men kan brukes i alle X-miljøer). Redigeringen gjør at du kan sette opp innstillingene med det redigeringsprogrammet du liker best. Den ikke-interaktive flaten stiller aldri noen spørsmål.
+Description-pa.UTF-8: ਵਰਤਣ ਲਈ ਇੰਟਰਫੇਸ:
+ ਪੈਕੇਜ, ਜੋ ਕਿ debconf ਨੂੰ ਇੱਕ ਸਾਂਝੀ ਦਿੱਖ ਅਤੇ ਰਵੱਈਆ ਸਾਂਝਾ ਕਰਨ ਲਈ ਸੰਰਚਿਤ ਕੀਤੇ ਜਾਂਦੇ ਹਨ। ਤੁਸੀਂ ਉਹਨਾਂ ਵਲੋਂ ਵਰਤੇ ਜਾਣ ਵਾਲੇ ਉਪਭੋਗੀ ਇੰਟਰਫੇਸ ਦੀ ਕਿਸਮ ਚੁਣ ਸਕਦੇ ਹੋ।
+ .
+ ਇੱਕ ਵਾਰਤਾਲਾਪ ਦਿੱਖ ਪੂਰੇ ਪਰਦੇ ਉੱਤੇ, ਅੱਖਰ ਅਧਾਰਿਤ ਇੰਟਰਫੇਸ ਹੈ, ਜਦੋਂ ਉਪਭੋਗੀ ਵਲੋਂ ਪੁਰਾਣੇ ਪਾਠ ਇੰਟਰਫੇਸ ਰਾਹੀਂ ਇੰਪੁੱਟ ਲੈਂਦਾ ਹੈ, ਅਤੇ ਦੋਵੇਂ ਗਨੋਮ ਅਤੇ ਕੇਡੀਈ ਮੁੱਖ ਮਾਡਰਨ X ਇੰਟਰਫੇਸ ਹਨ, ਜੋਂ ਆਪਣੇ ਆਪਣੇ ਵੇਹੜਿਆਂ ਵਿੱਚ ਆਉਦੇ ਹਨ (ਪਰ ਹੋਰ X ਵਾਤਾਵਰਣ ਵਿੱਚ ਵੀ ਵਰਤੇ ਜਾ ਸਕਦੇ ਹਨ)। ਸੰਪਾਦਕ ਮੁੱਖ ਭੂਮੀ ਤੁਹਾਨੂੰ ਆਪਣਾ ਪਸੰਦੀਦਾ ਪਾਠ ਸੰਪਾਦਕ ਦੀ ਵਰਤੋਂ ਕਰਨ ਲਈ ਸਹਾਇਕ ਹੈ। ਨਾ-ਦਿਲ-ਖਿੱਚਵਾਂ ਤੁਹਾਨੂੰ ਕੋਈ ਸਵਾਲ ਨਹੀਂ ਪੁੱਛਦਾ ਹੈ।
+Description-pl.UTF-8: Interfejs:
+ Pakiety korzystające do konfiguracji z debconfa współdzielą jeden wygląd i sposób użycia. Możesz wybrać rodzaj interfejsu wykorzystywanego do tego.
+ .
+ Nakładka dialog jest pełnoekranowa i wyświetla menu w trybie tekstowym podczas gdy nakładka readline jest bardziej tradycyjnym interfejsem i korzysta ze zwykłego tekstu. Zarówno nakładka Gnome jak i Kde są nowoczesnymi interfejsami dostosowanymi do poszczególnych środowisk (ale mogą zostać użyte w jakimkolwiek środowisku X). Nakładka edytor pozwala konfigurować z wykorzystaniem ulubionego edytora tekstowego. Nakładka nieinteraktywna nigdy nie zadaje żadnych pytań.
+Description-pt.UTF-8: Interface a utilizar:
+ Os pacotes que utilizam debconf para a configuração partilham um aspecto e comportamento idênticos. Você pode escolher o tipo de interface com o utilizador que eles utilizam.
+ .
+ O frontend dialog é um interface de caracteres, de ecrã completo, enquanto que o frontend readline utiliza um interface mais tradicional de texto simples, e ambos os frontend gnome e kde são interfaces modernos com o X, cabendo nos respectivos desktop (embora possam ser utilizados em qualquer ambiente X). O frontend editor deixa-o configurar as coisas utilizando o seu editor de texto favorito. O frontend não-interactivo nunca pergunta quaisquer questões.
+Description-pt_BR.UTF-8: Interface a ser usada:
+ Pacotes que usam o debconf para configurações compartilham uma interface e um modo de usar comuns. Você pode selecionar o tipo de interface que eles usarão.
+ .
+ A interface dialog é em tela cheia e baseada em texto, enquanto a interface readline usa uma interface mais tradicional de texto puro e as interfaces gnome e kde são interfaces X modernas, se adequando aos respectivos ambientes (mas podem ser usadas em qualquer ambiente X). A interface editor permite que você configure os pacotes usando seu editor de textos favorito. A interface não-interativa ("noninteractive") nunca faz perguntas a você.
+Description-ro.UTF-8: Interfața folosită:
+ Pachetele care folosesc debconf pentru configurare, sunt asemănătoare în aspect și comportament. Puteți selecta tipul de interfață utilizat de ele.
+ .
+ Interfața dialog este o interfață în mod text, pe tot ecranul, în timp ce linia de comandă folosește o interfață în mod text, mai tradițională, și, atât interfața gnome cât și kde sunt interfețe moderne în X, care se încadrează în mediile respective (dar pot fi folosite în orice mediu X). Interfața editor vă permite sa configurați lucrurile folosind editorul de text preferat de dvs. Interfața non-interactivă nu vă întreabă niciodată nimic.
+Description-ru.UTF-8: Интерфейс настройки пакетов:
+ Пакеты, использующие debconf, обладают единообразным интерфейсом настройки. Вы можете выбрать наиболее подходящий.
+ .
+ Диалоговый интерфейс представляет собой текстовое полноэкранное приложение, «командная строка» использует более традиционный простой текстовый интерфейс, а Gnome и Kde — современные X-интерфейсы, встроенные в соответствующие рабочие столы (но могут использоваться в любом X-окружении). Интерфейс «из текстового редактора» позволяет задавать настройки в вашем любимом редакторе. Пакетный интерфейс вообще избавляет от необходимости отвечать на вопросы.
+Description-si.UTF-8: භාවිත කරන අතුරුමුහුණත
+ සැකසුම් සඳහා debconf හවුල් කරගන්නා සෑම පැකේජයක්ම පොදු පෙනුමක් දරයි. කරුණාකර ඒවා භාවිත කරන පරිශීලක අතුරුමුහුණත් වර්‍ගය තෝරන්න.
+ .
+ සංවාද ඉදිරි ඉම, සම්පූර්ණ තිරැති, අක්‍ෂර මූලික අතුරුමුහුනතක් භාවිත කරන විට කියවීම් පේළි වඩා සාම්ප්‍රදායික පැතලි පෙළ අතුරුමුහුණතක් භාවිත කරයි, gnome හා kde යන ඉදිරි ඉම් දෙකම බොහෝ දර්ශක හා ගැලපෙන (ඕනෑම x පරිසරයක භාවිත වන) නූතන X අතුරුමුහුණත් වේ. සකසන ඉදිරි ඉම ඔබට කැමතිම පෙළ සකසනය භාවිතයෙන් සැකසුම් සිදු කිරීමට ඉඩ දෙයි. අන්තර්ක්‍රියාකාරී නොවන ඉදිරි ඉම ඔබෙන් කිසිවිට ප්‍රශ්න නොඅසයි.
+Description-sk.UTF-8: Použité rozhranie:
+ Balíky, ktoré využívajú pre svoje nastavenie debconf, majú rovnaký vzhľad a ovládanie. Teraz si môžete zvoliť typ používateľského rozhrania, ktoré sa bude používať.
+ .
+ Dialóg je celoobrazovkové textové rozhranie, readline používa tradičné textové prostredie a gnome s kde sú moderné grafické rozhrania (samozrejme ich môžete použiť v ľubovoľnom inom X prostredí). Editor vám umožní úpravu nastavení pomocou vášho obľúbeného textového editora. Neinteraktívne rozhranie sa nikdy na nič nepýta.
+Description-sl.UTF-8: Vmesnik, ki ga želite uporabiti:
+ Paketi, ki uporabljajo debconf za nastavitve si delijo enak uporabniški vmesnik in izgled. Nastavite lahko tip uporabniškega vmesnika, ki ga uporabljajo.
+ .
+ Vmesnik dialog je celozaslonski vmesnik, ki deluje v znakovnem načinu. Bralnovrstični (readline) vmesnik uporablja bolj tradicionalen tekstovni vmesnik. Tako Gnome kot KDE vmesnika sta sodobna X vmesnika, ki ustrezata vsak svojemu namizju (vendar ju je mogoče uporabljati v vsakem X okolju). Urejevalni vmesnik vam omogoča nastavljanje stvari s pomočjo vašega priljubljenega tekstovnega urejevalnika. Neinteraktiven vmesnik vas nikoli ne sprašuje.
+Description-sq.UTF-8: Ndërfaqe për tu përdorur:
+ Paketat që përdorin debconfg për konfigurim ndajnë një pamje dhe ndjesi të njëjtë. Ju mund të zgjidhni tipin e ndërfaqes së përdoruesit që ata përdorin.
+ .
+ Frontend-i dialog është ndërfaqe në ekran të plotë, e bazuar në karaktere ndërsa frontend-i i linjës së leximit përdor një ndërfaqës të teksit të thjeshtë më tradicional dhe të dy frontend-et, gnome dhe kde, janë ndërfaqës X modern, qe u përmbahen desktopëve respektivë (por mund të përdoren në çdo mjedis X). Frontend-i editues të lejon të konfigurosh gjëra duke përdorur cdo editor teksti. Frontend-i jointeraktiv nuk të pyet asnjëherë për pyetje.
+Description-sr.UTF-8: Интерфејс за употребу:
+ Пакети који користе debconf за конфигурацију користе заједнички интерфејс. Можете изабрати тип интерфејса за употребу.
+ .
+ Интерфејс у облику дијалога је текстуални који се приказује преко целог екрана, док је линијски више традиционалног облика. Интерфејси gnome и kde су модерни X интерфјеси у оквиру одговарајућих десктоп окружења (могу се користити у било ком X окружењу). Користећи едитор интерфејс, можете вршити конфигурацију помоћу вашег омиљеног едитора. Неинтераквивни интерфејс никад не поставља питања.
+Description-sr@latin.UTF-8: Interfejs za upotrebu:
+ Paketi koji koriste debconf za konfiguraciju koriste zajednički interfejs. Možete izabrati tip interfejsa za upotrebu.
+ .
+ Interfejs u obliku dijaloga je tekstualni koji se prikazuje preko celog ekrana, dok je linijski više tradicionalnog oblika. Interfejsi gnome i kde su moderni X interfjesi u okviru odgovarajućih desktop okruženja (mogu se koristiti u bilo kom X okruženju). Koristeći editor interfejs, možete vršiti konfiguraciju pomoću vašeg omiljenog editora. Neinterakvivni interfejs nikad ne postavlja pitanja.
+Description-sv.UTF-8: Gränssnitt att använda:
+ Paket som använder debconf för konfigurering delar ett gemensamt utseende. Du kan välja vilken sorts användargränssnitt de skall använda.
+ .
+ Dialogskalet är ett textbaserat fullskärmsgränssnitt medan readline-skalet använder ett mer traditionellt ren text-gränssnitt, och både Gnome- och KDE-skalen är moderna X-gränssnitt passande respektive skrivbordsmiljöer (men kan användas i vilken X-miljö som helst). Textredigeringsskalet låter dig konfigurera saker med ditt favorittextredigeringsprogram. Det icke-interaktiva skalet ställer aldrig några frågor till dig.
+Description-ta.UTF-8: பயனர் பயன்படுத்த இடைமுகம்
+ வடிவமைப்புக்கு டெப்கான்ஃப் ஐ பயன்படுத்தும் பொதிகள் ஒரு பொது தோற்றமும் உணர்வும் உள்ளவை. அவை பயன்படுத்தும் பயனர் இடைமுகத்தை நீங்கள் தேர்ந்தெடுக்கலாம்.
+ .
+ உரையாடல் முன் முனை முழுத்திரை, எழுத்துரு கொண்ட இடைமுகமாகும்.பயனர் பயன்படுத்தும் ரீட் லைன் மேலும் பாரம்பரிய வெற்று உரை இடைமுகமாகும்.க்னோம், கேடிஈ முன்முனைகள் இரண்டும் நவீன எக்ஸ் இடைமுகங்களாகும். அவை அவற்றின் மேல்மேசை சூழலில் பொருந்தினாலும் எந்த எக்ஸ் சூழலிலும் இயங்கக்கூடும். உங்கள் அபிமான உரை திருத்தியை பயன்படுத்தி நீங்கள் வடிவமைப்பை செய்யலாம்.ஊடாடல் இல்லா முன்முனை உங்களை கேள்வியே கேட்காது!
+Description-te.UTF-8: ఉపయోగించాల్సిన అంతరవర్తి:
+ అమరికలకోసం డెబ్కాన్ఫ్ ని వాడే    పాకేజీలు, ఏకరూపాన్ని, అనుభూతిని కలిగిస్తాయి. అవి  వాడే అంతరవర్తి ని(UI) ఎంచుకోవచ్చు 
+ .
+  భాషణ  (Dialog)అక్షరాల  అంతర్ముఖముగా గల పూర్తి తెర రూపము, రీడ్లైన్(Readline)  సాంప్రదాయక పాఠ్య రూపము, గ్నోమ్ (Gnome), కెడిఇ(KDE)  రంగస్థలానికి సరిపడే ఆధునిక  ఎక్స్  రూపాలు (ఏ ఎక్స్ పర్యావరణంలో అయిన వాడవచ్చు). సరిచేయునది (Editor) రూపముతో  మీ కు ఇష్టమైన సరిచేయు అనువర్తనము వాడిఅమరికలు చేయవచ్చు. ప్రశ్నలు వేయక(Noninteractive) రూపము ప్రశ్నలు వేయకుండా ఏకబిగిన పనిచేయటానికి
+Description-th.UTF-8: อินเทอร์เฟซที่จะใช้:
+ แพกเกจต่างๆ ที่ใช้ debconf ในการตั้งค่า จะมีรูปลักษณ์และการใช้งานเหมือนๆ กัน คุณสามารถเลือกชนิดของการติดต่อผู้ใช้ที่จะใช้ได้
+ .
+ การติดต่อผ่านกล่องโต้ตอบ เป็นอินเทอร์เฟซเต็มจอในโหมดตัวอักษร ในขณะที่การติดต่อแบบอ่านจากบรรทัด (readline) เป็นอินเทอร์เฟซแบบดั้งเดิมในโหมดตัวอักษร และการติดต่อทั้งของ GNOME และ KDE จะใช้อินเทอร์เฟซแบบกราฟิกส์ผ่าน X สมัยใหม่ ตามเดสก์ท็อปที่ใช้ (แต่ก็สามารถใช้ในสภาพแวดล้อม X ใดๆ ก็ได้) การติดต่อแบบแก้ไขข้อความ จะให้คุณตั้งค่าต่างๆ โดยใช้เครื่องมือแก้ไขข้อความที่คุณเลือกไว้ ส่วนการติดต่อแบบไม่โต้ตอบ จะไม่ถามคำถามใดๆ กับคุณเลย
+Description-tl.UTF-8: Mukha na gagamitin:
+ Ang mga pakete na gumagamit ng debconf para sa pagsasaayos ay magkatulad ng hitsura at pakiramdam. Maaari niyong piliin ang uri ng user interface na gagamitin nila.
+ .
+ Ang mukha na dialog ay buong-tabing na interface na batay sa mga karakter, samantalang ang mukha na readline ay gumagamit ng tradisyonal na payak na interface na gumagamit lamang ng teksto, at parehong ang mukha na gnome at kde naman ay makabagong X interface, na bagay sa kanilang mga desktop (ngunit maaari silang gamitin sa kahit anong kapaligirang X). Ang mukha na editor naman ay binibigyan kayo ng pagkakataon na isaayos ang mga bagay-bagay na gamit ang inyong paboritong editor ng teksto. Ang mukha na hindi-interactive ay hindi nagtatanong ng anumang tanong sa inyo.
+Description-tr.UTF-8: Kullanılacak arayüz:
+ Yapılandırma için debconf kullanan paketler ortak bir görüntü ve izlenim verirler. Paketlerin yapılandırmada kullanacağı arayüz tipini seçebilirsiniz.
+ .
+ Diyalog arayüzü tam ekran, metin tabanlı bir arayüz sunarken; Readline daha geleneksel bir salt metin arayüzü, gnome ve kde ise kendi masaüstü ortamlarına uygun şekilde (fakat herhangi bir X ortamı içinde de kullanılabilecek) daha çağdaş X arayüzleri sunmaktadır. Düzenleyici arayüzü, kullanmayı tercih ettiğiniz metin düzenleyici ile elle yapılandırmaya olanak sağlar. Etkileşimsiz arayüz seçeneğinde herhangi bir soru sorulmaz.
+Description-ug.UTF-8: ئىشلىتىدىغان ئارايۈز:
+ debconf ئىشلىتىپ تەڭشىلىدىغان بوغچىلار ئورتاق كۆرۈنۈشنى ئىشلىتىدۇ. تەڭشەش جەريانى ئىشلىتىدىغان ئىشلەتكۈچى ئارايۈزى تۈرىنى تاللاڭ.
+ .
+ سۆزلەشكۈ ئالدى ئۇچى — بىر خىل پۈتۈن ئېكرانلىق ھەرپ كۆرۈنۈشى، readline ئالدى ئۇچى — تېخىمۇ ئەنئەنىۋى بولغان تېكىست كۆرۈنۈشى، gnome ۋە kde ئالدى ئۇچى — ئۆزىنىڭ ئۈستەلئۈستى سىستېمىسى(ئەمما باشقا ھەر قانداق X مۇھىتىغا ماس كېلىشى مۇمكىن)غا ماس كېلىدىغان يېڭى تىپتىكى X ئارايۈز. تەھرىرلىگۈچ ئالدى ئۈچى — سىزنىڭ ئەڭ ياخشى كۆرىدىغان تېكىست تەھرىرلىگۈچتە سەپلەپ خىزمىتى ئېلىپ بېرىشىڭىزغا يول قويىدۇ. غەيرىي تەسىرلىشىشچان ئالدى ئۇچى — سىزگە ھېچقانداق مەسىلە ئوتتۇرىغا قويمايدۇ.
+Description-uk.UTF-8: Використовувати інтерфейс:
+ Пакунки, що використовують debconf для налаштування, мають спільний інтерфейс. Ви можете вибрати тип інтерфейсу, що вам підходить.
+ .
+ Діалогова оболонка - повноекранна, в той час як "рядок вводу" використовує більш традиційний простий текстовий інтерфейс, a KDE та Gnome - сучасний X інтерфейс. Режим редактора дозволить вам задавати налаштування в текстовому редакторі, який ви використовуєте. Неінтерактивний режим позбавить вас від необхідності відповідати на будь-які запитання.
+Description-vi.UTF-8: Giao diện cần dùng:
+ Mọi gói sử dụng debconf để cấu hình thì có giao diện và cảm nhận rất tương tự. Bạn có khả năng chọn kiểu giao diện được dùng.
+ .
+ Tiền tiêu hộp thoại là giao diện dựa vào ký tự trên toàn màn hình, còn tiền tiêu readline dùng giao diện chữ thô truyền thống hơn, và cả hai giao diện GNOME và KDE đều là giao diện X hiện đại, thích hợp với từng môi trường làm việc (nhưng mà có thể được sử dụng trong bất cứ môi trường X nào). Tiền tiêu trình hiệu chỉnh cho bạn có khả năng cấu hình tùy chọn bằng trình hiệu chỉnh văn bản ưa thích. Tiền tiêu khác tương tác không bao giờ hỏi câu nào.
+Description-wo.UTF-8: Interfaas biñuy jëfandikoo:
+ Paket yiy jëfandikoo debconfg ci seen komfiguraasioŋ, dañuy niróo jëmmu ak melo. Man ngaa tann fasoŋu interfaas bi nga bëgg ñukoy jëfandikoo.
+ .
+ Dialog ab interfaas bu karakteer la buy fees ekraŋ bi, readline bi moom dafay jëfandikoo tekst ordineer bu cosaan, gnome ak kde nak ñoom yu interfaas X yu jamonoo lañu, dëppóo ak seeni biro (waaye maneesna leena jëfandikoo ci béppu barab X). Editor nak dana la may nga jëfandikoo sa editoru tekst bila daxal kir komfigure linga bëgg. noninteractive nak dula laaj mukk benn laaj.
+Description-zh_CN.UTF-8: 要使用的界面：
+ 使用 debconf 进行设置的软件包共享一个通用的外观。请选择设置过程将使用的用户界面种类。
+ .
+ Dialog 前端是一种全屏的字符界面，readline 前端则是一种更传统的纯文本界面，而 gnome 和 kde 前端则是适合其各自桌面系统(但可能也适用于任何 X 环境)的新型 X 界面。编辑器前端则允许您使用您最喜爱的文本编辑器进行配置工作。非交互式前端则不会向您提出任何问题。
+Description-zh_TW.UTF-8: 要使用的介面：
+ 使用 debconf 來進行設定的套件有著共同的外觀及風格。您可以指定它們將會使用的使用者介面類型。
+ .
+ Dialog 前端是一種全螢幕的文字介面，readline 前端則使用了一種更傳統的純文字介面，而 gnome 和 kde 前端則是適合其各自桌面系統（但可能也適用於任何 X 環境）的新型 X 介面。編輯器前端則允許您使用您最喜愛的文字編輯器進行配置工作。非互動式前端則不會向您提出任何問題。
+
+Template: debconf/priority
+Type: select
+Choices: critical, high, medium, low
+Choices-ar.UTF-8: حرج, مرتفع, متوسّط, منخفض
+Choices-ast.UTF-8: crítica, alta, media, baxa
+Choices-be.UTF-8: крытычны, высокі, сярэдні, нізкі
+Choices-bg.UTF-8: критичен, висок, среден, нисък
+Choices-bn.UTF-8: জটিল, উচ্চ, মাঝারি, নিম্ন
+Choices-bs.UTF-8: kritični, visoki, srednji, niski
+Choices-ca.UTF-8: crítica, alta, mitjana, baixa
+Choices-cs.UTF-8: kritická, vysoká, střední, nízká
+Choices-cy.UTF-8: hanfodol, uchel, canolig, isel
+Choices-da.UTF-8: kritisk, høj, mellem, lav
+Choices-de.UTF-8: kritisch, hoch, mittel, niedrig
+Choices-dz.UTF-8: ཚབས་ཆེན, མཐོ, འབྲིང་མ, དམའ
+Choices-el.UTF-8: κρίσιμη, υψηλή, μεσαία, χαμηλή
+Choices-eo.UTF-8: altega, alta, meza, malalta
+Choices-es.UTF-8: crítica, alta, media, baja
+Choices-et.UTF-8: kriitiline, kõrge, keskmine, madal
+Choices-eu.UTF-8: kritikoa, handia, ertaina, txikia
+Choices-fa.UTF-8: بحرانی, بالا, متوسط, پایین
+Choices-fi.UTF-8: kriittinen, korkea, keskitaso, matala
+Choices-fr.UTF-8: critique, élevée, intermédiaire, basse
+Choices-ga.UTF-8: criticiúil, ard, gnách, íseal
+Choices-gl.UTF-8: crítica, alta, media, baixa
+Choices-gu.UTF-8: અત્યંત જરુરી, ઉચ્ચ, મધ્યમ, નીચું
+Choices-he.UTF-8: קריטית, גבוהה, בינונית, נמוכה
+Choices-hi.UTF-8: नाजुक, उच्च, मध्यम, निम्न
+Choices-hr.UTF-8: kritične, visoke, srednje, niske
+Choices-hu.UTF-8: kritikus, magas, közepes, alacsony
+Choices-id.UTF-8: kritis, tinggi, sedang, rendah
+Choices-is.UTF-8: mikilvægt, mikill, miðlungs, lítill
+Choices-it.UTF-8: critica, alta, media, bassa
+Choices-ja.UTF-8: 重要, 高, 中, 低
+Choices-kk.UTF-8: қатаң, жоғары, орташа, төмен
+Choices-km.UTF-8: សំខាន់បំផុត, ខ្ពស់, មធ្យម, ទាប
+Choices-ko.UTF-8: 중요, 높음, 중간, 낮음
+Choices-lt.UTF-8: kritinis, aukštas, vidutinis, žemas
+Choices-lv.UTF-8: kritiska, augsta, vidēja, zema
+Choices-mg.UTF-8: critical, high, medium, low
+Choices-mk.UTF-8: критично, високо, средно, ниско
+Choices-ml.UTF-8: ഗുരുതരം, ഉയര്‍ന്ന, ഇടയ്കുള്ള, താഴ്ന്ന
+Choices-mr.UTF-8: गंभीर, अधिक, मध्यम, निम्न
+Choices-nb.UTF-8: kritisk, høy, middels, lav
+Choices-ne.UTF-8: असामान्य , उच्च, मध्यम, कम
+Choices-nl.UTF-8: kritiek, hoog, gemiddeld, laag
+Choices-nn.UTF-8: kritisk, høg, middels, låg
+Choices-no.UTF-8: kritisk, høy, middels, lav
+Choices-pa.UTF-8: ਨਾਜ਼ੁਕ, ਜਿਆਦਾ, ਮੱਧਮ, ਘੱਟ
+Choices-pl.UTF-8: krytyczny, wysoki, średni, niski
+Choices-pt.UTF-8: crítica, elevada, média, baixa
+Choices-pt_BR.UTF-8: crítica, alta, média, baixa
+Choices-ro.UTF-8: critic, ridicat, mediu, scăzut
+Choices-ru.UTF-8: критический, высокий, средний, низкий
+Choices-si.UTF-8: දරුණු, ඉහළ, මධ්‍යම, අඩු
+Choices-sk.UTF-8: kritická, vysoká, stredná, nízka
+Choices-sl.UTF-8: kritična, visoka, srednja, nizka
+Choices-sq.UTF-8: kritike, i lartë, medium, ulët
+Choices-sr.UTF-8: критично, високо, средње, ниско
+Choices-sr@latin.UTF-8: kritično, visoko, srednje, nisko
+Choices-sv.UTF-8: kritisk, hög, medel, låg
+Choices-ta.UTF-8: மிக முக்கியமான, உயர், நடுத்தரம், குறைவு
+Choices-te.UTF-8: కీలకం, ఉన్నతం, మధ్యమం, అధమం
+Choices-th.UTF-8: วิกฤติ, สูง, กลาง, ต่ำ
+Choices-tl.UTF-8: kritikal, mataas, kainaman, mababa
+Choices-tr.UTF-8: kritik, yüksek, orta, düşük
+Choices-ug.UTF-8: ھالقىلىق, يۇقىرى, ئوتتۇرا, تۆۋەن
+Choices-uk.UTF-8: критичний, високий, середній, низький
+Choices-vi.UTF-8: tới hạn, cao, vừa, thấp
+Choices-wo.UTF-8: bu garaaw, bu kawe, bu diggdóomu, bu suufe
+Choices-xh.UTF-8: ibalulekile, iphezulu, iphakathi, iphantsi
+Choices-zh_CN.UTF-8: 关键, 高, 中, 低
+Choices-zh_TW.UTF-8: 關鍵, 高, 中, 低
+Default: high
+Description: Ignore questions with a priority less than:
+ Debconf prioritizes the questions it asks you. Pick the lowest priority of
+ question you want to see:
+   - 'critical' only prompts you if the system might break.
+     Pick it if you are a newbie, or in a hurry.
+   - 'high' is for rather important questions
+   - 'medium' is for normal questions
+   - 'low' is for control freaks who want to see everything
+ .
+ Note that no matter what level you pick here, you will be able to see
+ every question if you reconfigure a package with dpkg-reconfigure.
+Description-ar.UTF-8: تجاهل الأسئلة التي لها أولوية أقل من:
+ يقوم Debconf يتعيين أولوية الأسئلة التي يسألك إياها. الرجاء اختيار أقل أولوية للأسئلة التي تود رؤيتها:
+   - 'حرجة' تسألك فقط إن كان هناك احتمال عطب النظام.
+     اخترها إن كنت مستخدماً جديداً، أو مستعجلاً.
+   - 'مرتفعة' للأسئلة الأكثر أهميّة.
+   - 'متوسطة' للأسئلة العادية.
+   - 'منخفضة' لمهووسي التحكّم الذين يريدون رؤية كل شيء.
+ .
+ لاحظ أنه بغض النظر عن المستوى الذي تختاره هنا، ستكون قادراً على رؤية جميع الأسئلة إن قمت بإعادة تهيئة حزمة ما باستخدام dpkg-reconfigure.
+Description-ast.UTF-8: Inorar entrugues con una prioridá menor a:
+ Debconf prioriza les entrugues. Escueye la prioridá más baxa d'entruga que quies ver:
+   - 'crítica' sólo entrugárate si'l sistema puede frayar.
+     Escuéyelo si tas deprendiendo, o una urxencia.
+   - 'alta' ye pa les entrugues más importantes
+   - 'media' ye pa entrugues normales
+   - 'baxa' ye pa quien quier remanar tolo que ve
+ .
+ Ten en cuenta qu'a espenses de los qu'escueyas, podrás ver cualisquier entruga si reconfigures un paquete con dpkg-reconfigure.
+Description-be.UTF-8: Ігнараваць пытанні з прыярытэтам менш за:
+ Debconf надае прыярытэт пытанням, што пытае ў вас. Выберыце найніжэйшы прыярытэт пытанняў, што хочаце бачыць:
+   - 'крытычны' чакае вашай рэакцыі, толькі калі сістэма можа пашкодзіцца.
+     Выберыце яго, калі вы навічок, або маеце няшмат вольнага часу.
+   - 'высокі' для пераважна ўплывовых пытанняў
+   - 'medium' для звычайных пытанняў
+   - 'low' для тых, хто хоча кантраляваць усё
+ .
+ Заўважце, што няма розніцы, які ўзровень вы выбралі, вы зможаце бачыць любое пытанне, калі зробіце пераналадку пакета з дапамогай dpkg-reconfigure.
+Description-bg.UTF-8: Игнориране на въпросите с приоритет, по-нисък от:
+ Debconf подрежда въпросите, които задава по приоритет. Изберете най-ниския приоритет на въпросите, които искате да виждате:
+ - „критичен“ се показва само ако има опасност системата може да се повреди.
+   Изберете ако сте новак или много бързате.
+ - „висок“ е за доста важни въпроси.
+ - „среден“ е за нормални въпроси.
+ - „нисък“ е за техничари, които искат да виждат всичко
+ .
+ Каквото и да изберете тук, ще можете да видите всеки въпрос при пренастройване на пакети чрез dpkg-reconfigure.
+Description-bn.UTF-8: এর চেয়ে কম অগ্রাধিকারের প্রশ্ন উপেক্ষা করা হবে:
+ আপনাকে যে প্রশ্নগুলো জিজ্ঞেস করা হয় তা Debconf অগ্রাধিকার ভিত্তিতে সাজায়। আপনি সর্বনিম্ন যে অগ্রাধিকারের প্রশ্ন দেখতে চান তা নির্বাচন করুন:
+   - 'জটিল' আপনাকে শুধুমাত্র তখনই জিজ্ঞেস করবে যদি সিস্টেমটি ভেঙ্গে যাওয়ার সম্ভাবনা থাকে।
+     যদি আপনি নতুন হোন, বা তাড়া থাকে তাহলে এটি পছন্দ করুন।
+   - 'উচ্চ' হচ্ছে তুলনামূলক প্রয়োজনীয় প্রশ্নের জন্য
+   - 'মাঝারি' হল সাধারণ প্রশ্নের জন্য
+   - 'নিম্ন' হল নিয়ন্ত্রন পাগলদের জন্য যারা সবকিছু দেখতে চায়
+ .
+ মনে রাখবেন, আপনি এখানে যে স্তরই পছন্দ করুন না কেন, আপনি সকল প্রশ্ন দেখতে পারবেন যদি আপনি কোন প্যাকেজ dpkg-reconfigure দ্বারা পুনরায় কনফিগার করেন।
+Description-bs.UTF-8: Ignoriši pitanja prioriteta manjeg od:
+ Debconf prioritizuje pitanja koja vam postavlja. Izaberite najniži prioritet pitanja koja želite vidjeti:
+   - 'kritični' samo pita ako se sistem može pokvariti.
+     Odaberite ako ste početnik, ili ako vam se žuri.
+   - 'visoki' je za važnija pitanja
+   - 'srednji' je za normalna pitanja
+   - 'niski' je za one koji žele sve da kontrolišu
+ .
+ Bez obzira koji nivo izaberete ovdje, moći ćete vidjeti svako pitanje ako rekonfigurišete paket naredbom dpkg-reconfigure <ime paketa>.
+Description-ca.UTF-8: Ignora les preguntes amb una prioritat menor que:
+ Debconf priorititza les preguntes que vos pregunta. Escolliu la prioritat més baixa per a les preguntes que voleu veure:
+  - «crítica» només pregunta si es pot trencar el sistema. Escolliu-la si sou novells, o teniu pressa.
+  - «alta» és per a preguntes prou importants.
+  - «mitjana» és per a preguntes normals.
+  - «baixa» és per als bojos pel control que ho volen veure tot.
+ .
+ Teniu en compte que independentment del què escolliu ací, podreu veure totes les preguntes si reconfigureu un paquet amb dpkg-reconfigure.
+Description-cs.UTF-8: Ignorovat otázky s prioritou menší než:
+ Otázky kladené programem debconf mají různou prioritu. Můžete si zvolit nejnižší prioritu otázek, které chcete vidět:
+   - „kritická“ se ptá pouze, pokud by se mohl systém porušit.
+                Volba je vhodná pro začátečníky, nebo pokud nemáte čas.
+   - „vysoká“   obsahuje spíše důležité otázky
+   - „střední“  slouží pro běžné otázky
+   - „nízká“    je pro nadšence, kteří chtějí vidět vše
+ .
+ Všimněte si, že při rekonfiguraci balíku programem dpkg-reconfigure uvidíte všechny otázky bez ohledu na to, jakou prioritu zde zvolíte.
+Description-cy.UTF-8: Anwybyddu cwestiynau gyda blaenoriaeth llai na:
+ Mae debconf yn blaenoriaethu'r cwestiynau mae'n ofyn i chi. Dewiswch y flaenoriaeth isaf o gwestiynau hoffech chi eu gweld:
+   - 'hanfodol' - mae'n eich holi dim ond os allai'r system dorri.
+     Dewiswch hwn os ydych yn ddechreuwr, neu mewn brys
+   - 'uchel' - mae'n gofyn cwestiynau tra bwysig
+   - 'canolig' - mae'n gofyn cwestiynau cyffredin
+   - 'isel' - ar gyfer creaduriaid od sydd eisiau gweld popeth
+ .
+ Nodwch fod dim ots pa lefel rydych yn ddewis yma, fe allwch chi weld pob cwestiwn os ydych yn ail-gyflunio pecyn gyda dpkg-reconfigure.
+Description-da.UTF-8: Ignorér spørgsmål med en prioritet lavere end:
+ Debconf prioriterer de spørgsmål, den stiller dig. Vælg den laveste spørgsmåls-prioritet, du ønsker at se:
+  - 'kritisk' spørger dig kun hvis systemet potentielt kommer i uorden.
+     Vælg dette, hvis du er nybegynder eller har travlt. 
+   - 'høj' for ret vigtige spørgsmål 
+   - 'mellem' for almindelige spørgmål 
+   - 'lav' for kontrolnarkomaner, der vil have alt at se
+ .
+ Bemærk at uanset hvilket niveau du vælger her, vil du kunne se samtlige spørgsmål, hvis du genopsætter pakken med kommandoen dpkg-reconfigure.
+Description-de.UTF-8: Ignoriere Fragen mit einer Priorität niedriger als:
+ Abhängig von der gewählten Priorität stellt Debconf Ihnen Fragen oder unterdrückt diese. Wählen Sie die niedrigste Prioritätsstufe der Fragen, die Sie sehen möchten:
+   - »kritisch« fragt Sie nur, wenn das System beschädigt werden könnte.
+     Wählen Sie dies, falls Sie Linux-Neuling sind oder es eilig haben.
+   - »hoch« ist für ziemlich wichtige Fragen.
+   - »mittel« ist für normale Fragen.
+   - »niedrig« ist für Kontroll-Freaks, die alles sehen möchten.
+ .
+ Beachten Sie, dass Sie unabhängig von der hier gewählten Stufe jede Frage sehen können, wenn Sie ein Paket mit dpkg-reconfigure neu konfigurieren.
+Description-dz.UTF-8: གཙོ་རིམ་ དེ་ལས་ཉུང་མི་འདྲི་བ་ཚུ་སྣང་མེད་སྦེ་བཞག་:
+ Debconf གིས་ ཁྱོད་ལུ་འདྲི་མི་འདྲི་བ་ཚུ་ གཙོ་རིམ་སྦེ་བཀོདཔ་ཨིན། ཁྱོད་ཀྱིས་བལྟ་དགོ་མནོ་མི་འདྲི་བའི་གཙོ་རིམ་དམའ་ཤོས་འདི་འཐུ་:
+ -རིམ་ལུགས་འདི་རྒྱུན་ཆད་པ་ཅིན་ 'ཚབས་ཆེན་'རྐྱངམ་ཅིག་གིས་ ནུས་པ་སྤེལཝ་ཨིན།
+  ཁྱོད་ གསར་གཏོགས་པ་ ཡང་ན་ ཚབ་ཚབ་ཨིན་པ་ཅིན་ འདི་འཐུ།
+ -'མཐོ་བ་' འདི་ ལྷག་པར་གལ་ཆེ་བའི་འདྲི་བ་ཚུའི་དོན་ལུ་ཨིན།
+ -'བར་ནམ་' འདི་ སྤྱིར་བཏང་འདྲི་བ་ཚུའི་དོན་ལུ་ཨིན།
+ -'དམའ་བ་' འདི་ ག་ཅི་ཡང་བལྟ་དགོ་མནོ་མི་ ཀུན་དང་མི་མཐུན་པ་ཚད་འཛིན་གྱི་དོན་ལུ་ཨིན།
+ .
+ ཁྱོད་ཀྱིས་ནཱ་ལས་གནས་རིམ་ག་ཅི་འཐུ་ནི་ཨིན་རུང་ ཁྱད་མེདཔ་སེམས་ཁར་དྲན་ ཁྱོད་ཀྱིས་ ཌི་པི་ཀེ་ཇི་-སླར་རིམ་སྒྲིག་གི་ཐོག་ལས་ ཐུམ་སྒྲིལ་ཅིག་སླར་རིམ་སྒྲིག་འབད་བ་ཅིན་ འདྲི་བ་ཚུ་གེ་ར་མཐོང་ཚུགས།
+Description-el.UTF-8: Να αγνοηθούν οι ερωτήσεις με προτεραιότητα μικρότερη από:
+ Το debconf ορίζει προτεραιότητες για τις ερωτήσεις που σας κάνει. Επιλέξτε την μικρότερη προτεραιότητα των ερωτήσεων που θέλετε να εμφανίζονται:
+   - 'κρίσιμη', εμφανίζει τις ερωτήσεις που είναι απολύτως απαραίτητες να απαντηθούν.
+     επιλέξτε αυτό αν είστε νέος χρήστης ή βιάζεστε.
+   - 'υψηλή', εμφανίζει τις σημαντικές ερωτήσεις.
+   - 'μεσαία', εμφανίζει τις μέτριας σπουδαιότητας ερωτήσεις.
+   - 'χαμηλή', εμφανίζει όλες τις ερωτήσεις για αυτούς που θέλουν να τα ελέγχουν όλα
+ .
+ Σημειωτέον ότι οποιαδήποτε προτεραιότητα επιλέξετε, όλες οι ερωτήσεις θα εμφανιστούν αν πραγματοποιήσετε επαναρύθμιση ενός πακέτου με το dpkg-reconfigure.
+Description-eo.UTF-8: Preterpasi demandojn kun prioritato malpli granda ol:
+ Debconf prioritatigas farotajn demandojn. Elektu la plej malaltan prioritaton por la demandoj kiujn vi volas vidi:
+   - 'altega' demandos vin nur kiam via sistemo povos fiaski.
+     Elektu ĝin se vi estas novulo, aŭ se vi hastas.
+   - 'alta' faros nur gravajn demandojn.
+   - 'meza', faros normalajn demandojn.
+   - 'malalta' estas por "reg-maniuloj", kiuj volas vidi ĉion detalege
+ .
+ Rimarku ke, kia ajn estas via elekto, ĉiel vi povos vidi ĉiujn demandojn, se vi re-agordas pakon per 'dpkg-reconfigure'.
+Description-es.UTF-8: Ignorar preguntas con una prioridad menor que:
+ Debconf prioriza las preguntas que le presenta. Escoja la prioridad más baja de las preguntas que desea ver:
+   - «crítica» es para asuntos vitales, que pueden romper el sistema.
+     Escójala si es novato o tiene prisa.
+   - «alta» es para preguntas muy importantes
+   - «media» es para asuntos normales
+   - «baja» es para quienes quieran tener el máximo control del sistema
+ .
+ Observe que independientemente del nivel que elija, puede ver todas las preguntas de un paquete usando dpkg-reconfigure.
+Description-et.UTF-8: Ignoreeri küsimusi, mille prioriteet on madalam, kui:
+ Debconfi küsimused on prioritiseeritud. Vali küsimuste madalaim prioriteet, millele veel vastata soovid:
+  - 'kriitiline' tülitab sind ainult süsteemi rikkuda võivate küsimustega.
+    Vali, kui oled algaja või kui sul on kiire.
+  - 'kõrge' prioriteet on küllalt tähtsatel küsimustel
+  - 'keskmine' on tavalised küsimused
+  - 'madal' on erilistele pedantidele, kes tahavad kõike ise juhtida
+ .
+ Võid arvestada, et sõltumata siinkohal valitud tasemest võid dpkg-reconfigure abil pakki ümber seadistades vastata kõigile küsimustele.
+Description-eu.UTF-8: Ez ikusia egin hau baino lehentasun txikiagoa duten galderei:
+ Debconf-ek egingo dizkizun galderak lehentasun mailetan sailkatzen ditu. Aukeratu ikusi nahi dituzun galderen lehentasun baxuena:
+   - 'kritikoa'-k sistema hondatu dezaketen galderak egingo ditu .
+     Erabiltzaile berria edo presa baduzu hau aukeratu.
+   - 'handia'-k galdera garrantzitsuak egingo ditu.
+   - 'ertaina'-k galdera arruntak egingo ditu. 
+   - 'txikia' dena ikusi nahi baduzu
+ .
+ Kontutan izan hemen zein aukera egiten duzun axola gabe galdera guztiak ikusi ahal izango dituzula paketea dpkg-reconfigure erabiliaz konfiguratzen baduzu.
+Description-fa.UTF-8: از سوالات با اولویت کمتر از مقدار روبرو صرف نظر کن:
+ Debconf سؤالهایی را که از شما می پرسد اولویت بندی می کند. پایین ترین اولویت هایی را که می خواهیید ببینید انتخاب کنید:
+   - 'بحرانی' تنها در صورتی که احتمال شکست در سیستم باشد به شما نمایش داده می شود.
+     در صورتی که تازه کار هستید و یا عجله دارید آن را انتخاب کنید.
+   - 'بالا' برای سؤالات نسبتاً مهم است.
+   - 'متوسط' سؤالات معمولی
+   - 'پایین' برای کنترل زیاد برای کسی که می خواهد همه چیز را ببیند
+ .
+ توجه داشته باشید، که هیچ اهمیتی ندارد که چه گزینه ای را انتخاب می کنید، شما می توانید در صورتی که یک بسته را با دستور dpkg-reconfigure مجدداً پیکربندی کردید، تمام سؤال ها را دوباره ببینید.
+Description-fi.UTF-8: Ohita kysymykset, joiden prioriteetti on pienempi kuin:
+ Debconf priorisoi esittämänsä kysymykset. Valitse alin prioriteetti, jonka kysymykset haluat nähdä:
+   - "kriittinen" kysyy vain jos järjestelmä voi hajota.
+     Valitse tämä jos olet uusi tai sinulla on kiire.
+   - "tärkeä" on kohtuullisen tärkeille kysymyksille
+   - "tavallinen" on normaaleille kysymyksille
+   - "vähäpätöinen" on säätöfriikeille, jotka haluavat nähdä kaiken
+ .
+ Huomaa, että riippumatta tässä valitsemastasi tasosta näet kaikki kysymykset uudelleensäätämällä paketin "dpkg-reconfigure"-ohjelmalla.
+Description-fr.UTF-8: Ignorer les questions de priorité inférieure à :
+ Debconf gère les priorités des questions qu'il vous pose. Choisissez la priorité la plus basse des questions que vous souhaitez voir :
+   - « critique » n'affiche que les questions pouvant casser le système.
+     Choisissez-la si vous êtes peu expérimenté ou pressé ;
+   - « élevée » affiche les questions plutôt importantes ;
+   - « intermédiaire » affiche les questions normales ;
+   - « basse » est destinée à ceux qui veulent tout contrôler.
+ .
+ Quel que soit le niveau de votre choix, vous pourrez revoir toutes les questions si vous reconfigurez le paquet avec « dpkg-reconfigure ».
+Description-ga.UTF-8: Déan neamhaird de cheisteanna le tosaíocht níos lú ná:
+ Cuireann Debconf tosaíocht ar gach ceist a chuireann sé ort. Roghnaigh an tosaíocht is ísle do na ceisteanna ba mhaith leat feiceáil:
+   - 'criticiúil': cuireann sé ceist ort más féidir an córas a bhriseadh.
+     Roghnaigh é más deargnúíosach thú, nó má tá deifir ort.
+   - 'ard': ceisteanna tábhachtacha
+   - 'gnách': gnáthcheisteanna
+   - 'íseal': d'úsáideoirí aisteacha atá ag iarraidh chuile rud a fheiceáil
+ .
+ Is cuma cén leibhéal a roghnaíonn tú anseo, beidh tú in ann gach ceist a fheiceáil má dhéanann tú cumraíocht nua ar phacáiste le dpkg-reconfigure.
+Description-gl.UTF-8: Ignorar as preguntas cunha prioridade inferior a:
+ Debconf asígnalle prioridades ás preguntas que lle fai. Escolla a prioridade mínima das preguntas que quere ver:
+   - "crítica" só lle pregunta se o sistema pode romper.
+     Escóllaa se non ten experiencia o se ten présa.
+   - "alta" é para preguntas máis ben importantes
+   - "media" é para preguntas normais
+   - "baixa" é para fanáticos do control que o queren ver todo
+ .
+ Teña en conta que, sen importar o nivel que escolla aquí, ha poder ver tódalas preguntas se reconfigura un paquete con dpkg-reconfigure.
+Description-gu.UTF-8: આની કરતા ઓછી પ્રાથમિકતા વાળા પ્રશ્નો અવગણો:
+ ડેબકોન્ફ તમને પૂછવામાં આવતા પ્રશ્નની પ્રાથમિકતા આપશે. તમારે જોઈતા પ્રશ્નની નીચામાં નીચી પ્રાથમિકતા પસંદ કરો:
+   - 'અત્યંત જરુરી' ત્યારે જ પૂછશે જ્યારે તમારી સિસ્ટમમાં ભંગાણ થઈ શકે છે.
+     આ પસંદ કરો જો તમે નવા હોવ, અથવા જલ્દીમાં હોવ.
+   - 'ઉચ્ચ' એ મહત્વનાં પ્રશ્નો માટે છે.
+   - 'મધ્યમ' એ સામાન્ય પ્રશ્નો માટે છે
+   - 'નીચું' એ નિયંત્રણ પસંદ કરતાં લોકો માટે છે જે બધું જોવા માંગે છે
+ .
+ અહીં કોઈ પણ સ્તર પસંદ કર્યા છતાં, પેકેજને dpkg-reconfigure સાથે ફરી રુપરેખાંકિત કરતા તમે દરેક પ્રશ્ન જોઈ શકશો.
+Description-he.UTF-8: התעלם משאלות בעדיפות נמוכה מאשר:
+ Debconf מתעדף את השאלות שהוא שואל, בחר את הרמה הכי נמוכה של שאלות שברצונך לראות:
+   - 'קריטית' דיווח רק אם המערכת עלולה להשבר.
+     בחר באפשרות זאת אם אתה משתמש חדש, או שאתה ממהר מאוד.
+   - 'גבוהה' בשביל שאלות דיי חשובות.
+   - 'בינונית' בשביל שאלות נורמליות.
+   - 'נמוכה' בשביל חולי שליטה שרוצים לראות הכל.
+ .
+ שיב לב, לא משנה איזה רמה תבחר כאן, תוכל לראות את כל השאלות אם תגדיר מחדש את החבילה עם dpkg-reconfigure.
+Description-hi.UTF-8: उन प्रश्नों की उपेक्षा करें जिसमें प्राथमिकता इससे कम है:
+ आपको पूछे जाने प्रश्नों को डीबीकॉन्फ प्राथमिकता में रखता है. निम्नतम प्राथमिकता वाला प्रश्न जो आप देखना चाहते हैं उसे चुनें:
+   - 'नाजुक' तभी पूछेगा जब तंत्र खराब होने को होगा.
+    इसे तभी चुनें यदि आप नौसिखिए हैं, या जल्दी में हैं.
+   - 'उच्च' महत्वपूर्ण प्रश्नों के लिए है
+   - 'मध्यम' सामान्य प्रश्नों के लिए है
+   - 'निम्न' उन मनमौजियों के लिए है जो हर चीज देखना चाहते हैं
+ .
+ यदि आप किसी पैकेज को डीपीकेजी-रीकॉन्फ़िगर से फिर से कॉन्फ़िगर करते हैं तो टीप लें कि इससे कोई फ़र्क़ नहीं पड़ता कि आप कौन सा स्तर यहाँ चुनते हैं, आपको हमेशा ही प्रत्येक प्रश्न दिखाई देगा.
+Description-hr.UTF-8: Preskoči pitanja razine važnosti niže od:
+ Debconf slaže pitanja koja vas pita po prioritetu odn. razini važnosti. Odaberite najnižu razinu važnosti pitanja koja želite vidjeti:
+  - 'kritična' znači da će neodgovaranje na to pitanje može pokvariti sustav.
+     Odaberite ovu razinu ako ste početnik, ili ako vam se žuri.
+  - 'visoka' je za prilično bitna pitanja
+  - 'srednja' je za uobičajena pitanja
+  - 'niska' je za one opsjednute kontrolom, koji žele vidjeti sve
+ .
+ Imajte na umu da neovisno o tome koji nivo ovdje odaberete, moći ćete vidjeti svako pitanje ako pokrenete ponovo podešavanje nekog paketa koristeći 'dpkg-reconfigure'.
+Description-hu.UTF-8: A kevésbé fontos kérdések átugrása, mint:
+ A Debconf eltérően fontos kérdéseket kezel. Melyik legyen a legalacsonyabb szintű kérdés?
+  - A 'kritikus' csak a rendszerveszélyek esetén kérdez.
+     Csak kezdők vagy sietők válasszák.
+   - A 'magas' a fontos kérdésektől kérdez.
+   - A 'közepes' a hétköznapiaktól.
+   - Az 'alacsony' a részletguruk kedvence.
+ .
+ Függetlenül az itt beállított szinttől minden kérdés megjelenik a csomagok dpkg-reconfigure eszközzel való újrakonfigurálásakor.
+Description-id.UTF-8: Abaikan pertanyaan dengan prioritas kurang dari: 
+ Debconf memprioritaskan pertanyaan yang ditanyakan pada anda. Pilih prioritas pertanyaan terendah yang ingin anda lihat:
+   - 'kritis' hanya akan menampilkan prompt bila sistem akan rusak.
+     Pilih ini bila anda pengguna baru, atau sedang terburu-buru.
+   - 'tinggi' untuk pertanyaan yang cukup penting.
+   - 'sedang' untuk pertanyaan-pertanyaan normal
+   - 'rendah' untuk melihat segalanya
+ .
+ Perhatikan bahwa apapun tingkatan yang anda pilih saat ini, anda akan dapat melihat semua pertanyaan bila anda mengkonfigurasi ulang sebuah paket dengan dpkg-reconfigure.
+Description-is.UTF-8: Sleppa spurningum sem hafa lægri forgang en:
+ Debconf forgangsraðar spurningunum sem þú verður beðin(n) um að svara. Veldu þann lægsta forgang spurninga sem þú vilt sjá:
+   - 'mikilvægt' spyr þig einungis ef að kerfið gæti orðið óstarfhæft.
+     Veldu þetta ef þú ert byrjandi eða að flýta þér.
+   - 'mikill' er fyrir frekar mikilvægar spurningar
+   - 'miðlungs' er fyrir venjulegar spurningar
+   - 'lítill' er fyrir fullkomnunarsinna sem vilja stilla allt sjálfir
+ .
+ Athugaðu að það er sama hvaða stig þú velur hérna, ef þú endurstillir pakka með dpkg-reconfigure þá muntu geta séð allar viðkomandi spurningar aftur.
+Description-it.UTF-8: Ignorare domande con priorità inferiore a:
+ Debconf assegna priorità alle domande da porre. Scegliere la più bassa priorità della domanda che verrà visualizzata:
+   - "critica" chiede solo se il sistema potrebbe danneggiarsi.
+      Scegliere questo se non si è molto esperti o di fretta.
+   - "alta" visualizza solo le domande abbastanza importanti.
+   - "media" visualizza solo le domande normali.
+   - "bassa" è per i fanatici del controllo che vogliono vedere tutto.
+ .
+ Notare che qualunque livello si selezioni, sarà possibile visualizzare tutte le domande se il pacchetto viene riconfigurato dpkg-reconfigure.
+Description-ja.UTF-8: より低い優先度の質問を無視:
+ あなたが答えたい質問のうち、最低の優先度のものを選択してください。
+  - 「重要」は、ユーザが介在しないとシステムを破壊しかねないような項目用です。
+    あなたが初心者か、あるいは急いでいるのであればこれを選んでください。
+  - 「高」は、適切なデフォルトの回答がないような項目用です。
+  - 「中」は、適切なデフォルトの回答があるような普通の項目用です。
+  - 「低」は、ほとんどの場合にデフォルトの回答でかまわないような、ささいな項目用です。
+ .
+ 注意: ここで何を選択しても、以前に行った質問は dpkg-reconfigure プログラムを使用して表示できます。
+Description-kk.UTF-8: Приоритеті келесіден төмен сұрақтарды елемеу:
+ Debconf сізге қойылатын сұрақтарды маңызы бойынша келесідей бөледі. Көргіңіз келетін ең төмен дәрежені таңдаңыз:
+   - 'катаң' тек жүйеңізге зақым келтіру қауіпі болса ғана сұрайды.
+     Бастауыш болсаңыз не асықсаңыз, осыны таңдаңыз.
+   - 'жоғары' тек маңызды сұрақтар үшін
+   - 'орташа' қалыпты сұрақтар үшін
+   - 'төмен' егжей-тегжейін көргісі келетіндер үшін
+ .
+ Осында не таңдасаңыз да, егер дестені dpkg-reconfigure көмегімен қайта баптасаңыз, ол десте үшін барлық сұрақтарды көре алатыныңызды есте сақтаңыз.
+Description-km.UTF-8: មិនអើពើ​នឹង​សំណួរ​ដែល​មាន​អាទិភាព​ទាប​ជាង ។
+ Debconf ធ្វើអទិភាព​​សំណួរ​ដែល​​វា​សួរ​អ្នក ។ ជ្រើស​យក​អាទិភាព​ទាប​បំផុតនៃ​សំណួរ​ដែល​អ្នក​ចង់​មើល​ ៖
+   - 'សំខាន់បំផុត' បានតែ​រំលឹក​អ្នកប៉ុណ្ណោះ ប្រសិនបើ​ប្រព័ន្ធ​ខូច​ ។
+     ជ្រើសយក​វា ប្រសិន​បើ​អ្នក​ជា​ newbie, ឬ មាន​ការប្រញាប់ ។
+   - 'ខ្ពស់' គឺសម្រាប់​សំណួរ​ដែល​សំខាន់​ផងដែរ
+   - 'កណ្ដាល' គឺ​សម្រាប់​សំណួរ​ធម្មតា​
+   - 'ទាប' គឺត្រួត​ពិនិត្យលក្ខណៈចម្លែក​ ដែល​រ​នណា​ចង់​មើល​អ្វីៗ
+ .
+ ចំណាំ​ថា គ្មានបញ្ហា​ដែលកម្រិត​អ្វី​ដែលអ្នកជ្រើស​នៅទីនេះ អ្នក​នឹង​អាចឃើញ​គ្រប់​សំណួរ​ បើ​អ្នក​បាន​កំណត់​រចនាសម្ព័ន្ធ​កញ្ចប់​ឡើង​វិញ ជា​មួយ dpkg-recofigure ។
+Description-ko.UTF-8: 이보다 우선 순위가 낮은 질문은 무시:
+ debconf의 질문은 우선 순위가 있습니다. 질문을 보고 싶은 최저 우선 순위를 고르십시오:
+  - '중요'는 설정하지 않으면 시스템이 제대로 동작하지 않는 경우입니다.
+   초보자이거나, 긴급한 경우에 사용하십시오.
+  - '높음'은 상당히 중요한 질문인 경우
+  - '중간'은 일반적인 질문의 경우
+  - '낮음'은 모든 설정 사항을 보고 조정하려는 괴짜들이 사용합니다
+ .
+ 기억해 두십시오. 여기에서 어떤 우선 순위를 선택하든지 간에, dpkg-reconfigure로 패키지를 설정하면 모든 질문을 볼 수 있습니다.
+Description-lt.UTF-8: Ignoruoti klausimus, kurių prioritetas žemesnis negu:
+ „Debconf“ skiria jums pateikiamų klausimų prioritetus. Pasirinkite žemiausią norimų matyti klausimų prioritetą:
+  - „kritinis“ – klausti tik tų klausimų, kurių neatsakius, 
+     iškiltų didelė sistemos strigimo grėsmė.
+     Rinkitės šį variantą, jei esate naujokas(-ė) arba skubate.
+  - „aukštas“ – gan svarbūs klausimai.
+  - „vidutinis“ – įprasti klausimai.
+  - „žemas“ – norintiems kontroliuoti viską, ką tik įmanoma.
+ .
+ Nepriklausomai nuo to, kurį prioritetą pasirinksite, Jūs visada galėsite pamatyti visus klausimus, įvykdydami komandą „dpkg-reconfigure“.
+Description-lv.UTF-8: Ignorēt jautājumus ar prioritāti zemāku par:
+ Debconf ir paredzētas jautājumu prioritātes. Izvēlieties, kāda ir zemākā prioritāte, kuras jautājumus jūs vēl vēlaties redzēt:
+   - 'kritiska' tikai uzdod jautājumus, ja sistēma var salūzt.
+     Izvēlieties šo opciju, ja esat iesācējs, vai vienkārši steidzaties.
+   - 'augsta' ir paredzēts svarīgiem jautājumiem
+   - 'vidēja' ir paredzēts parastiem jautājumiem
+   - 'zema' ir domāts cilvēkiem, kas grib kontrolēt pilnīgi visu.
+ .
+ Neatkarīgi no šeit izvēlētā līmeņa, jūs varēsiet redzēt visu līmeņu jautājumus, ja pārkonfigurēsiet paku ar dpkg-reconfigure palīdzību.
+Description-mg.UTF-8: Adinoy ny fanontaniana manana laharana ambanin'ny :
+ Debconf dia manome laharana ny fanontaniana izay hapetrany aminao. Fidio eto ny laharan'ny fanontaniana ambany indrindra izay tianao hiseo:
+ -'critical' tsy manontany raha tsy misy zavatra mety hanimba ny system.
+  Io fidina raha toa ka tsy mbola zatra ianao na somary maika.
+ -'high' raha ireo fanontaniana important ihany no apetraka.
+ -'medium' ho an'ireo fanontaniana mahazatra.
+ -'low' raha tianao jerena daholo ny zavatra rehetra
+ .
+ Tadidio fa na inona na inona ny laharana fidinao eto dia ho hitanao daholo ny fanontaniana rehetra rehefa mametraka ny fonosana miaraka amin'ny dpkg-reconfigure ianao.
+Description-mk.UTF-8: Игнорирај ги прашањата со приоритет помал од:
+ Debconf ги приоритизира прашањата кои те прашува. Избери го најниското ниво на приоритет на прашањата што сакаш да ги видиш: 
+ - „критично“ е за делови кои најверојатно ќе го расипат системот 
+ Избери го ова ако си нов корисник, или се брзаш
+ - „висок“ е поприлично важни прашања
+ - „среден“ е за нормални прашањ
+ - „низок“ е за оние кои сакаат да ги видат баш сите прашања 
+ .
+ Имај на ум дека било кое ниво што ќе го одбереш тука, ќе бидеш во можност да ги гледаш сите прашања ако гопреконфигурираш пакетот со dpkg-reconfigure.
+Description-ml.UTF-8: ഇതിനേക്കാള്‍ മുന്‍ഗണന കുറഞ്ഞ ചോദ്യങ്ങള്‍ അവഗണിക്കുക:
+ ഡെബ്കോണ്‍ഫ് നിങ്ങളോട് ചോദിക്കുന്ന ചോദ്യങ്ങള്‍ക്ക് അത് മുന്‍ഗണനാ ക്രമം നിശ്ചയിക്കും. നിങ്ങള്‍ കാണാനാഗ്രഹിക്കുന്ന ചോദ്യങ്ങളുടെ ഏറ്റവും താഴ്ന്ന മുന്‍ഗണന തിരഞ്ഞെടുക്കുക:
+   - 'ഗുരുതരം' സിസ്റ്റം കുഴപ്പത്തിലാക്കാന്‍ സാധ്യതയുള്ള ചോദ്യങ്ങള്‍ മാത്രം.
+     നിങ്ങള്‍ പുതുമുഖമാണെങ്കില്‍, അല്ലെങ്കില്‍ തിരക്കിലാണെങ്കില്‍ ഇത് തിരഞ്ഞെടുക്കുക.
+   - 'ഉയര്‍ന്ന' എന്നത് പ്രാധാന്യമുള്ള ചോദ്യങ്ങള്‍ക്കാണ്
+   - 'ഇടയ്കുള്ള' എന്നത് സാധാരണ ചോദ്യങ്ങള്‍ക്കാണ്
+   - 'താഴ്ന്ന' എന്നത് എല്ലാം കാണണം എന്നാഗ്രഹിക്കുന്നവര്‍ക്കാണ്
+ .
+ ഇവിടെ നിങ്ങള്‍ ഏത്  ലെവല്‍ തിരഞ്ഞെടുക്കുന്നു എന്നതിനെ ആശ്രയിക്കാതെ തന്നെ ഒരു പാക്കേജ് dpkg-reconfigure ഉപയോഗിച്ച് പുനക്രമീകരിക്കുകയാണെങ്കില്‍, നിങ്ങള്‍ക്ക് എല്ലാ ചോദ്യങ്ങളും കാണാവുന്നതാണ്.
+Description-mr.UTF-8: प्राधान्यक्रमानुसार कमी महत्वाचे प्रश्नांकडे दुर्लक्ष करा
+ डेबकॉन्फ प्रश्नांचा प्राधान्यक्रम ठरवितो। तुमच्या प्राधान्यक्रमातील सर्वात कमी महत्वाचा प्रश्न निवडा
+  - गंभीर हा शब्द एवढेच दर्शवितो की संगणकामध्ये कदाचित बिघाड संभवतो। 
+  तुम्ही नवखे असाल वा घाईत असाल तरच याची निवड करा। 
+   'अधिक' हा शब्द जास्त महत्वाचे प्रश्नांसाठी आहे 
+   'मध्यम' हा शब्द साधारण प्रश्नांसाठी आहे 
+   'निम्न' हा शब्द अधिक अधिकार गाजवू पहाणा-यांसाठी आहे ज्यांना प्रत्येक गोष्ट पहावयाची असते
+ .
+ जर तुम्ही पॅकेजची संरचना डिपीकेजी वापरून पुन्हा करणार असाल तर कृपया ध्यानात घ्या की तुम्हीकोणतीही पातळी निवडलीत तरी तुम्ही प्रत्येक प्रश्न पाहु शकाल
+Description-nb.UTF-8: Hopp over spørsmål med lavere prioritet enn:
+ Debconf setter en prioritet for hvert spørsmål som stilles. Velg laveste prioritet på spørsmål du vil se:
+   - «kritisk» spør deg bare hvis systemet kan bli ødelagt.
+ ... Velg dette om du er nybegynner eller har det travelt.
+ ..- «høy» gjelder ganske viktige spørsmål
+ ..- .«middels» er for normale spørsmål
+ .. -«lav» er for kontrollfriker som vil se alt
+ .
+ Merk at uansett hvilket nivå du velger her, vil du kunne få se alle spørsmål hvis du setter opp en pakke på nytt med dpkg-reconfigure.
+Description-ne.UTF-8: यस भन्दा कम प्राथमिकता भएका प्रश्नहरू उपेक्षा गर्नुहोस्:
+ यसले तपाईँलाई सोधिएका प्रश्नहरुलाई Debconf ले प्राथमिकता दिन्छ । तपाईँले हेर्न चाहनु भएको कम प्राथमिकताको प्रश्न झिक्नुहोस्:
+   - यदि प्रणाली विच्छेदन भएमा 'critical' ले मात्र तपाईँलाई प्रोम्प्ट गर्दछ ।
+     यदि तपाईँ newbie, वा हतारमा हुनुहुन्छ भने, यसलाई झिक्नुहोस् ।
+    - 'high' खास गरेर महत्वपूर्ण प्रश्नहरुको लागि हो
+    - 'medium' सामन्य प्रश्नहरुको लागि हो
+    - 'low' नियन्त्रण लहरहरुको लागि हो जसले सबै चीज हेर्न चाहन्छ
+ .
+ याद गर्नुहोस् तपाईँले यहाँ कुन स्तर झिक्नु भएको थियो त्यसले केही फरक पार्दैन, यदि तपाईँले dpkg-reconfigure संगै प्याकेज पुन: कनफिगर गर्नु भयो भने तपाईँ प्रत्येक प्रश्न हेर्न सक्नुहुनेछ ।
+Description-nl.UTF-8: Negeer vragen met een prioriteit lager dan:
+ Debconf vragen zijn geordend volgens prioriteit. Kies de laagste prioriteit die u wilt zien:
+   - 'kritiek' is voor vragen die noodzaakelijk zijn om het systeem in werkbare staat te houden
+     Kies dit indien alles nieuw voor u is, of wanneer u haast heeft.
+   - 'hoog' is voor relatief belangrijke vragen
+   - 'gemiddeld' is voor normale vragen
+   - 'laag' is voor controle-freaks die alles willen zien
+ .
+ Merk op dat u met dpkg-reconfigure in staat bent om elke vraag te zien, onafhankelijk van wat u hier kiest.
+Description-no.UTF-8: Hopp over spørsmål med lavere prioritet enn:
+ Debconf setter en prioritet for hvert spørsmål som stilles. Velg laveste prioritet på spørsmål du vil se:
+   - «kritisk» spør deg bare hvis systemet kan bli ødelagt.
+ ... Velg dette om du er nybegynner eller har det travelt.
+ ..- «høy» gjelder ganske viktige spørsmål
+ ..- .«middels» er for normale spørsmål
+ .. -«lav» er for kontrollfriker som vil se alt
+ .
+ Merk at uansett hvilket nivå du velger her, vil du kunne få se alle spørsmål hvis du setter opp en pakke på nytt med dpkg-reconfigure.
+Description-pa.UTF-8: ਘੱਟ ਦਰਜੇ ਵਾਲੇ ਸਵਾਲਾਂ ਨੂੰ ਅਣਡਿੱਠਾ ਕਰ ਦਿਓ:
+ Debconf ਤੁਹਾਨੂੰ ਇਹ ਸਵਾਲ ਪੁੱਛੇਦੀ ਹੈ। ਸਭ ਤੋਂ ਘੱਟ ਤਰਜੀਹ ਵਾਲੇ ਸਵਾਲਾਂ ਦੀ ਚੋਣ ਕਰੋ, ਜਿੰਨਾਂ ਨੂੰ ਤੁਸੀਂ ਵੇਖਣਾ ਚਾਹੁੰਦੇ ਹੋ:
+   - 'critical' ਸਿਰਫ਼ ਤਾਂ ਹੀ, ਜੇਕਰ ਸਿਸਟਮ ਵਿਗੜ ਸਕਦੇ ਹੈ।
+     ਇਸ ਦੀ ਚੋਣ ਤਾਂ ਹੀ ਕਰੋ, ਜੇਕਰ ਤੁਸੀਂ ਨਵੇਂ ਹੋ ਜਾਂ ਕਾਹਲੀ ਵਿੱਚ ਹੋ।
+   - 'high' ਖਾਸ ਸਵਾਲਾਂ ਲਈ ਹੈ।
+   - 'medium' ਆਮ ਸਵਾਲਾਂ ਲਈ ਹੈ।
+   - 'low' ਕੰਟਰੋਲ ਉਹਨਾਂ ਲਈ ਹੈ, ਜੋ ਕਿ ਹਰੇਕ ਚੀਜ਼ ਵੇਖਣੀ ਚਾਹੁੰਦੇ ਹਨ।
+ .
+ ਯਾਦ ਰੱਖੋ ਕਿ ਇਸ ਦਾ ਕੋਈ ਫ਼ਰਕ ਨਹੀਂ ਪੈਂਦਾ ਹੈ ਕਿ ਤੁਸੀਂ ਕੀ ਚੋਣ ਕੀਤੀ ਹੈ, ਬਲਕਿ ਤੁਸੀਂ dpkg-reconfigureਨਾਲ ਇੱਕ ਪੈਕੇਜ ਨੂੰ ਮੁੜ-ਸੰਰਚਿਤ ਕਰਨ ਕੀਤਾ ਤਾਂ ਹਰੇਕ ਸਵਾਲ ਵੇਖੋਗੇ।
+Description-pl.UTF-8: Ignoruj pytania z priorytetem niższym niż:
+ Debconf używa priorytetów dla zadawanych pytań. Wybierz najniższy priorytet pytań jakie chcesz zobaczyć:
+   - 'krytyczny' zadaje pytania tylko jeśli istnieje niebezpieczeństwo 
+ uszkodzenia systemu. Zalecane dla początkujących
+   - 'wysoki' dla raczej istotnych pytań
+   - 'średni' dla zwyczajnych pytań
+   - 'niski' dla tych, którzy chcą kontrolować każdy szczegół
+ .
+ Pamiętaj, że bez względu na to jaki poziom wybierzesz, istnieje możliwość ujrzenia wszystkich pytań po przekonfigurowaniu pakietu z użyciem dpkg-reconfigure.
+Description-pt.UTF-8: Ignorar perguntas com uma prioridade inferior a:
+ O debconf atribui prioridades às questões que lhe coloca. Escolha a prioridade mais baixa da questão que deseja ver:
+   - 'crítica' apenas faz perguntas se o sistema se pode estragar.
+     Escolha-a se for um novato, ou se estiver com pressa.
+   - 'alta' é para questões importantes
+   - 'média' é para questões normais
+   - 'baixa' é para maníacos do controle que querem ver tudo
+ .
+ Note que qualquer que seja o nível que escolher aqui, poderá ver todas as questões se reconfigurar o pacote com dpkg-reconfigure.
+Description-pt_BR.UTF-8: Ignorar perguntas com uma prioridade menor que:
+ O debconf dá prioridade para as perguntas que faz. Escolha a menor prioridade das questões que você deseja ver:
+   - 'crítica' somente pergunta algo caso o sistema possa sofrer danos.
+     Escolha essa opção caso você seja iniciante ou esteja com pressa.
+   - 'alta' é para perguntas importantes
+   - 'média' é para perguntas normais
+   - 'baixa' é para malucos por controle que desejam ver tudo
+ .
+ Note que, independentemente do que você escolher aqui, você poderá ver todas as perguntas caso você reconfigure um pacote com o comando dpkg-reconfigure.
+Description-ro.UTF-8: Ignoră întrebările cu prioritatea mai mică decât:
+ Debconf prioritizează întrebările pe care vi le adresează. Alegeți cea mai  mică prioritate a întrebărilor pe care doriți să le vedeți:
+   - 'critic' apare doar când sistemul se poate să se strice.
+      Alegeți-o dacă sunteți începător, sau vă grăbiți.
+   - 'ridicat' este pentru întrebări destul de importante
+   - 'mediu' este pentru întrebări normale
+   - 'scăzut' este pentru obsedații de control care vor să vadă tot
+ .
+ A se nota că indiferent ce nivel alegeți aici, veți putea să vedeți fiecare întrebare dacă reconfigurați un pachet cu dpkg-reconfigure.
+Description-ru.UTF-8: Не задавать вопросы с приоритетом менее чем:
+ Debconf различает степень важности задаваемых вам вопросов. Выберите наименьший уровень вопросов, которые хотите видеть: 
+   - «критический» — Выдает только вопросы, критичные для работы системы.
+      Выберите этот уровень, если вы новичок или если торопитесь.
+   - «высокий»     — Выдает наиболее важные вопросы.
+   - «средний»     — Только обычные вопросы.
+   - «низкий»      — Для тех, кто хочет видеть все вопросы.
+ .
+ Заметим, что независимо от выбранной сейчас степени важности, вы всегда сможете увидеть все вопросы при перенастройке пакета с помощью программы dpkg-reconfigure.
+Description-si.UTF-8: වඩා අඩු ප්‍රමුඛතා සහිත ප්‍රශ්ණ මඟ හරින්න:
+ Debconf ඔබෙන් අසන ගැටළු ප්‍රමුඛතාවන්ට අනුව පෙළ ගසයි. ඔබට දැකීමට ඇවැසි අඩුම ප්‍රමුඛතාව තෝරන්න:
+   - 'දරුණු' පද්ධතිය බිඳවැටේනම් පමණක් ඔබෙන් අසයි.
+     ඔබ නවකයෙක් හෝ හදිසි නම් එය තෝරන්න.
+   - 'ඉහළ' වඩා වැදගත් ගැටළු වලටයි
+   - 'මධ්‍යම' සාමාන්‍ය ගැටළු සඳහා
+   - 'අඩු' සියල්ල දැකීමට කැමැත්තන්ටයි
+ .
+ ඔබ මෙහි කුමක් සඳහන් කලද, ඔබ පැකේජය  dpkg-reconfigure මගින් නැවත සැකසුව හොත් ඔබ සියළු ගැටළු නැවත දකින බව දැනගන්න.
+Description-sk.UTF-8: Ignorovať otázky s prioritou menšou ako:
+ Otázky kladené programom debconf majú rôznu prioritu. Môžete si zvoliť najnižšiu prioritu otázok, ktoré chcete vidieť:
+   - „kritická“ sa pýta iba vtedy, ak by sa mohol systém narušiť.
+                Voľba je vhodná pre začiatočníkov alebo ak nemáte čas.
+   - „vysoká“   zahŕňa dôležité otázky
+   - „stredná“  slúži pre normálne otázky
+   - „nízka“    je pre nadšencov, ktorí chcú vidieť všetko
+ .
+ Všimnite si, že pri opätovnom nastavovaní balíka programom dpkg-reconfigure uvidíte všetky otázky bez ohľadu na to, akú prioritu si tu zvolíte.
+Description-sl.UTF-8: Prezri vprašanja s prioriteto nižjo od:
+ Debconf ločuje postavljena vprašanja glede na pomembnost. Izberite najnižjo stopnjo pomembnosti vprašanj, ki jih želite videti:
+   - 'kritična' za tista vprašanja, ki se nanašajo na stvari, ki lahko pokvarijo vaš sistem.
+     Izberite če ste začetnik ali pa se vam mudi.
+   - 'visoka' je za zelo pomembna vprašanja
+   - 'srednja' je za navadna vprašanja
+   - 'nizka' je za uporabnike, ki želijo videti vse
+ .
+ Ne glede na to kateri nivo izberete boste lahko videli vsa vprašanja, če ponovno nastavite paket z dpkg-reconfigure.
+Description-sq.UTF-8: Injoro pyetjet me prioritet më të vogël se:
+ Debconf u vë prioritet pyetjeve që ai ju bën juve. Zgjidh prioritetin më të ulët të pyetjes që ju doni të shihni:
+   - 'kritike' ju lajmeron vetëm nësë sistemi bie.
+     Pick it if you are a newbie, or in a hurry.
+   - 'i lartë' është për pyetje të rëndësishme
+   - 'medium' është për pyetje normale
+   - 'ulët' është për fanatikët e kontrollit që duan të shohin gjithcka
+ .
+ Vini re se pavarësisht se cilin nivel ju zgjidhni, ju do të jeni në gjendje të shihni çdo pyetje në qoftë se ju konfiguroni një pakete me rekonfigurim-dpkg.
+Description-sr.UTF-8: Игнорисати питања мањег приоритета од:
+ Debconf разврстава питања по приоритету. Изаберите најнижи приоритет питања који желите да видите:
+   - 'критично' пита само ако систем може да се сруши.
+     Изаберите ако сте почетник или у журби.
+   - 'високо' пита битна питања
+   - 'средње' пита нормална питања
+   - 'ниско' пита најбаналнија питања и објашњава све.
+ .
+ Било шта да изаберете, моћиће те да видите свако питање ако реконфигуришете пакет помоћу dpkg-reconfigure.
+Description-sr@latin.UTF-8: Ignorisati pitanja manjeg prioriteta od:
+ Debconf razvrstava pitanja po prioritetu. Izaberite najniži prioritet pitanja koji želite da vidite:
+   - 'kritično' pita samo ako sistem može da se sruši.
+     Izaberite ako ste početnik ili u žurbi.
+   - 'visoko' pita bitna pitanja
+   - 'srednje' pita normalna pitanja
+   - 'nisko' pita najbanalnija pitanja i objašnjava sve.
+ .
+ Bilo šta da izaberete, moćiće te da vidite svako pitanje ako rekonfigurišete paket pomoću dpkg-reconfigure.
+Description-sv.UTF-8: Ignorera frågor med lägre prioritet än:
+ Debconf prioriterar frågor den ställer till dig. Välj den lägsta prioritetsnivån för frågor du vill se:
+   - "kritisk" frågar dig endast om systemet kan skadas.
+     Välj den om du är nybörjare eller har bråttom..
+   - "hög" är för ganska viktiga frågor
+   - "medel" är för normala frågor
+   - "låg" är för kontrolltokar som vill se allt som händer
+ .
+ Notera att oavsett vilken nivå du väljer här är det möjligt att se varje fråga om du konfigurerar om ett paket med dpkg-reconfigure.
+Description-ta.UTF-8: இதைவிட முன்னுரிமை குறைந்த கேள்விகளைத் தவிர்.
+ டெப்கான்ஃப்  அது உங்களை கேட்கும் கேள்விகளை முன்னுரிமை படுத்துகிறது.  நீங்கள் பார்க்க விரும்பும் கேள்விகளின் மிகக்குறைந்த முன்னுரிமையை தேர்ந்தெடுங்கள்:
+   - 'மிக முக்கியமான' என்பது அது இல்லாமல் கணினி இயங்கா கேள்விகள்.
+     நீங்கள் மிகப்புதியவராக இருந்தாலோ அல்லது மிக அவசரத்தில் இருந்தாலோ இதை தேர்ந்தெடுக்கவும்.
+   - 'உயர்' மிக முக்கியமான கேள்விகளுக்கு
+   - 'நடுத்தரம்' வழக்கமான கேள்விகளுக்கு
+   - 'குறைவு' எல்லாவற்றையும் பார்க்க விரும்பும் நபருக்கு.
+ .
+ ஒரு விஷயம் இங்கு நினைவு கொள்ளலாம். நீங்கள் எந்த மட்டத்தை இப்போது தேர்ந்தெடுத்தாலும் ஒரு பொதியை மறு வடிவமைப்பு செய்ய dpkg-reconfigure  கட்டளை கொடுத்தல் எல்லா கேள்விகளையும் காணலாம்.
+Description-te.UTF-8: ఇంత కంటే తక్కువ ప్రాధాన్యత ఉన్న ప్రశ్నలను వదిలివేయి:
+ డెబ్కాన్ఫ్  మిమ్ములను  ప్రాధాన్యత ప్రకారము  ప్రశ్నలను అడుగుతుంది. మీరు చూడాలనుకునే కనిష్ఠ స్థాయిని ఎంచుకో  :
+   - 'కీలకం'  మీ వ్యవస్థ చెడిపోయే అవకాశముండే ప్రశ్నలుమాత్రము.
+     మీరు కొత్త  వాడుకరి లేక తొందరలో వుంటే  ఎంచుకో .
+   - 'ఉన్నతం' ముఖ్యమైన ప్రశ్నలు
+   - 'మధ్యమం'  సాధారణ  ప్రశ్నలు
+   - 'అధమం'  ప్రతీది పరీక్షగా చూద్దామనేవారికి
+ .
+ మీరు ఏ స్థాయి ఎంచుకున్నా, మీరు dpkg-reconfigure  వాడితే, ప్రతి ప్రశ్న చూడవచ్చని గమనించండి
+Description-th.UTF-8: ไม่ต้องถามคำถามที่มีระดับความสำคัญต่ำกว่า:
+ debconf จะจัดระดับความสำคัญของคำถามที่จะถามคุณ กรุณาเลือกระดับความสำคัญของคำถามที่ต่ำที่สุดที่คุณต้องการเห็น:
+   - 'วิกฤติ' จะถามคุณเฉพาะคำถามที่คำตอบมีโอกาสทำให้ระบบพังได้
+     คุณอาจเลือกตัวเลือกนี้ถ้าคุณเป็นมือใหม่ หรือกำลังรีบ
+   - 'สูง' สำหรับคำถามที่สำคัญพอสมควร
+   - 'กลาง' สำหรับคำถามปกติ
+   - 'ต่ำ' สำหรับผู้อยากรู้อยากเห็นที่อยากปรับละเอียดทุกตัวเลือก
+ .
+ สังเกตว่า ไม่ว่าคุณจะเลือกระดับคำถามใดตรงนี้ คุณจะยังเห็นคำถามทุกข้อถ้าคุณตั้งค่าแพกเกจใหม่ด้วย dpkg-reconfigure
+Description-tl.UTF-8: Huwag pansinin ang mga tanong na mas-mababa ang antas kaysa sa:
+ Binibigyan ng debconf ng iba't ibang antas ang mga tanong. Piliin ang pinakamababang antas ng tanong na nais niyong makita:
+   - 'kritikal' ay tinatanong kung maaaring makapinsala sa sistema.
+     Piliin ito kung kayo'y baguhan, o nagmamadali.
+   - 'mataas' ay para sa mga importanteng mga tanong
+   - 'kainaman' ay para mga pangkaraniwang mga tanong
+   - 'mababa' ay para sa control freak na gustong makita ang lahat
+ .
+ Unawain na kahit anong antas ang piliin ninyo dito, maaari niyong makita ang bawat tanong kung inyong isasaayos muli ang isang pakete gamit ang dpkg-reconfigure.
+Description-tr.UTF-8: Aşağıdakinden daha düşük önceliğe sahip soruları göz ardı et:
+ Debconf görüntülediği sorulara öncelikler verir. Görmek istediğiniz sorular için en düşük önceliği seçin:
+   - 'kritik': sadece sistemi bozabilecek durumlarda soru sorar.
+      Yeni başlayan ya da aceleci birisiyseniz bunu seçin.
+   - 'yüksek': önemi daha yüksek sorular
+   - 'orta': normal düzeyde sorular
+   - 'düşük': bütün seçenekleri görmek isteyen denetim düşkünleri için
+ .
+ Unutmayın ki paketlerin dpkg-reconfigure komutu ile tekrar yapılandırılması sırasında burada seçtiğiniz öncelik seviyesi ne olursa olsun bütün soruları görebileceksiniz.
+Description-ug.UTF-8: مۇھىملىقى تۆۋەنرەك بولغان سوئاللارغا پەرۋا قىلما:
+ Debconf ئوتتۇرىغا قويۇلىدىغان مەسىلىلەرنى كۆپ دەرىجىگە ئايرىيدۇ. سىز كۆرمەكچى بولغان ئەڭ تۆۋەن دەرىجىلىك مەسىلىنى تاللاڭ:
+ - ھالقىلىق		پەقەت سىستېما بۇزۇلۇشىنى كەلتۈرۈپ چىقىرىدىغان مەسىلىلەرنىلا ئەسكەرتىدۇ
+ سىز يېڭىياچى ياكى بەك ئالدىراش بولسىڭىز، بۇ تۈرنى تاللاشنى ئويلاشسىڭىز بولىدۇ.
+ - يۇقىرى		ناھايىتى مۇھىم بولغان مەسىلىلەرگە قارىتىلىدۇ
+ - ئوتتۇرا		ئادەتتىكى مەسىلىلەرگە قارىتىلىدۇ
+ - تۆۋەن		ھەممىنى كۆرۈپ تۇرۇشنى خالايدىغان تىزگىنلىگۈچىلەرگە ماس كېلىدۇ
+ .
+ دىققەت: سىز بۇ يەردە قايسى دەرىجىنى تاللىشىڭىزدىن قەتئىينەزەر، سىز dpkg-reconfigure ئىشلىتىپ بوغچىلارنى قايتا تەڭشىگەندە ھەممە مەسىلىلەرنى كۆرەلەيسىز.
+Description-uk.UTF-8: Ігнорувати питання з пріоритетом меншим ніж:
+ Debconf розрізняє пріоритети для питань, що задає. Виберіть найменший пріоритет питань, які ви хочете бачити:
+   - "критичний" видавати запитання критичні для роботи системи.
+     Виберіть цей пункт, якщо ви не знайомі з системою, або не можете чекати.
+   - "високий" - для важливих питань
+   - "середній" - для нормальних питань
+   - "низький" - для тих, хто хоче бачити всі питання
+ .
+ Зауважте, що незалежно від вибраного зараз рівня пріоритету, ви завжди зможете побачити всі питання, за допомогою програми dpkg-reconfigure.
+Description-vi.UTF-8: Bỏ qua các câu hỏi có cấp ưu tiên thấp hơn so với:
+ Trình debconf định quyền ưu tiên cho mỗi câu hỏi cấu hình. Bạn có muốn xem câu hỏi có ưu tiên nào?
+  • tới hạn	nhắc bạn chỉ khi hệ thống sắp bị hỏng
+ 					Hãy chọn điều này nếu bạn là người dùng mới, hoặc nếu bạn vội
+  • cao			cho câu hỏi hơi quan trọng
+  • vừa			cho câu hỏi bình thường
+  • thấp			cho người dùng muốn xem hết.
+ .
+ Ghi chú rằng bất chấp cấp được chọn ở đây, bạn vẫn có khả năng xem mọi câu hỏi bằng cách cấu hình lại gói nào bằng lệnh « dpkg-reconfigure ten_gói ».
+Description-wo.UTF-8: jéllalé laaj yi am piriyorite yu yées:
+ Debconf dafay jox laaj yimu lay laaj ay piritorite. Tannal piriyorite bi gëna suufe bi ngay bëgg diko gis:
+   -'bu garaaw' dula laaj dara fiiyak sistem bi nekkul di bëgga dammu.
+    Tann ko bu fekkee ab saabees nga, walla nga yàkkamti.
+   -'bu kawe' ngir rekk laaj yi am solo lool.
+   'bu diggdóomu' ngir laaj yu ordineer
+   'bu suufe' ngir ñi nga xam ne dañuy bëgg di konturle leppu
+ .
+ Xamal ne tolluwaay boo man di tann fii, du tee ngay mana gis laaj yéppu, bu fekkee dangay komfigure ab paket ak dpkg-reconfigure.
+Description-zh_CN.UTF-8: 忽略问题，如果它的优先级低于：
+ Debconf 将需要提出的问题分成多个级别。请选择您想看到的最低级别的问题：
+   - “关键” 仅提示您那些可能会造成系统损坏的问题
+      如果您是新手或非常匆忙，可以考虑选择此项。
+   - “高” 针对那些相当重要的问题
+   - “中” 针对那些普通问题
+   - “低” 适用于想看到一切的控制狂
+ .
+ 注意：不管您在此处选择哪种级别，当您使用 dpkg-reconfigure 重新设置软件包时都将能看到所有的问题。
+Description-zh_TW.UTF-8: 忽略問題，如果它的優先級低於：
+ Debconf 把將會提出的問題分成多個級別。請選擇您想回答的問題的最低級別：
+   - 【關鍵】僅提示您那些可能會造成系統損壞的問題。
+     如果您是新手或時間緊迫，可以考慮選擇此項。
+   - 【高】針對那些相當重要的問題
+   - 【中】針對那些普通問題
+   - 【低】適用於對一切細節控制上癮的使用者
+ .
+ 注意：不管您在此處選擇了哪種級別，當您使用 dpkg-reconfigure 重新設定套件時都將能看到所有的問題。
+
+Template: debconf-apt-progress/title
+Type: text
+Description: Installing packages
+Description-ar.UTF-8: تثبيت الحزم
+Description-ast.UTF-8: Instalando paquetes
+Description-be.UTF-8: Усталяванне пакетаў
+Description-bg.UTF-8: Инсталиране на пакети
+Description-bn.UTF-8: প্যাকেজ ইন্সটল করা হচ্ছে
+Description-bs.UTF-8: Instaliram pakete
+Description-ca.UTF-8: S'estan instal·lant els paquets
+Description-cs.UTF-8: Instalují se balíky
+Description-cy.UTF-8: Yn gosod pecynnau
+Description-da.UTF-8: Installerer pakker
+Description-de.UTF-8: Installiere Pakete
+Description-dz.UTF-8: ཐུམ་སྒྲིལ་ཚུ་གཞི་བཙུགས་འབད་དོ།
+Description-el.UTF-8: Εγκατάσταση πακέτων
+Description-eo.UTF-8: Instalado de pakoj
+Description-es.UTF-8: Instalando paquetes
+Description-et.UTF-8: Pakkide paigaldamine
+Description-eu.UTF-8: Paketeak instalatzen
+Description-fa.UTF-8: نصب بسته ها
+Description-fi.UTF-8: Asennetaan paketteja
+Description-fr.UTF-8: Installation des paquets
+Description-ga.UTF-8: Pacáistí á suiteáil
+Description-gl.UTF-8: A instalar os paquetes
+Description-gu.UTF-8: પેકેજો સ્થાપન કરે છે
+Description-he.UTF-8: מתקין חבילות
+Description-hi.UTF-8: पैकेजों की संस्थापना की जा रही है
+Description-hr.UTF-8: Instaliranje paketa
+Description-hu.UTF-8: Csomagok telepítése
+Description-id.UTF-8: Memasang paket-paket
+Description-is.UTF-8: Set upp pakka
+Description-it.UTF-8: Installazione dei pacchetti in corso
+Description-ja.UTF-8: パッケージをインストールしています
+Description-kk.UTF-8: Дестелерді орнату
+Description-km.UTF-8: កំពុង​ដំឡើង​កញ្ចប់​
+Description-ko.UTF-8: 패키지를 설치하는 중입니다
+Description-lt.UTF-8: Diegiami paketai
+Description-lv.UTF-8: Instalē pakas
+Description-mg.UTF-8: Mametraka fonosana
+Description-mk.UTF-8: Инсталирање пакети
+Description-ml.UTF-8: പാക്കേജുകള്‍ ഇന്സ്റ്റാള്‍ ചെയ്തുകൊണ്ടിരിക്കുന്നു
+Description-mr.UTF-8: पॅकेजची स्थापना चालू आहे
+Description-nb.UTF-8: Installerer pakker
+Description-ne.UTF-8: प्याकेजहरू स्थापना गरिदैछ
+Description-nl.UTF-8: Paketten worden geïnstalleerd
+Description-no.UTF-8: Installerer pakker
+Description-pa.UTF-8: ਪੈਕੇਜ ਇੰਸਟਾਲ ਕੀਤੇ ਜਾ ਰਹੇ ਹਨ
+Description-pl.UTF-8: Instalowanie pakietów
+Description-pt.UTF-8: A instalar pacotes
+Description-pt_BR.UTF-8: Instalando pacotes
+Description-ro.UTF-8: Se instalează pachete
+Description-ru.UTF-8: Устанавливаются пакеты
+Description-si.UTF-8: පැකේජ ස්ථාපනය කරමින්
+Description-sk.UTF-8: Inštalujú sa balíky
+Description-sl.UTF-8: Nameščam pakete
+Description-sq.UTF-8: Duke instaluar paketat
+Description-sr.UTF-8: Инсталирање пакета
+Description-sr@latin.UTF-8: Instaliranje paketa
+Description-sv.UTF-8: Installerar paket
+Description-ta.UTF-8: நிறுவும் தொகுப்புகள்
+Description-te.UTF-8: ప్యాకేజీలను స్థాపిస్తున్నాం
+Description-th.UTF-8: กำลังติดตั้งแพกเกจ
+Description-tl.UTF-8: Nagluluklok ng mga pakete
+Description-tr.UTF-8: Paketler kuruluyor
+Description-ug.UTF-8: بوغچىلارنى ئورنىتىۋاتىدۇ
+Description-uk.UTF-8: Встановлення пакунків
+Description-vi.UTF-8: Đang cài đặt gói
+Description-wo.UTF-8: Mi ngi istale paket yi
+Description-zh_CN.UTF-8: 正在安装软件包
+Description-zh_TW.UTF-8: 安裝套件
+
+Template: debconf-apt-progress/preparing
+Type: text
+Description: Please wait...
+Description-ar.UTF-8: الرجاء الانتظار...
+Description-ast.UTF-8: Por favor, espera...
+Description-be.UTF-8: Калі ласка, чакайце...
+Description-bg.UTF-8: Моля, изчакайте...
+Description-bn.UTF-8: অনুগ্রহ করে অপেক্ষা করুন...
+Description-bs.UTF-8: Molim čekajte...
+Description-ca.UTF-8: Si us plau, espereu...
+Description-cs.UTF-8: Čekejte prosím...
+Description-cy.UTF-8: Arhoswch os gwelwch yn dda...
+Description-da.UTF-8: Vent venligst...
+Description-de.UTF-8: Bitte warten ...
+Description-dz.UTF-8: བསྒུག་གནང་...
+Description-el.UTF-8: Παρακαλώ περιμένετε...
+Description-eo.UTF-8: Bonvolu atendi...
+Description-es.UTF-8: Por favor, espere...
+Description-et.UTF-8: Palun oota...
+Description-eu.UTF-8: Itxoin mesedez...
+Description-fa.UTF-8: لطفاً صبر کنید ...
+Description-fi.UTF-8: Odota...
+Description-fr.UTF-8: Veuillez patienter...
+Description-ga.UTF-8: Fan go fóill...
+Description-gl.UTF-8: Agarde...
+Description-gu.UTF-8: મહેરબાની કરી રાહ જુઓ...
+Description-he.UTF-8: המתן בבקשה...
+Description-hi.UTF-8: कृपया इंतजार करें...
+Description-hr.UTF-8: Molim pričekajte...
+Description-hu.UTF-8: Türelem...
+Description-id.UTF-8: Mohon menunggu...
+Description-is.UTF-8: Bíddu aðeins...
+Description-it.UTF-8: Attendere...
+Description-ja.UTF-8: しばらくお待ちください...
+Description-kk.UTF-8: Күте тұрыңыз...
+Description-km.UTF-8: សូម​រង់ចាំ...
+Description-ko.UTF-8: 잠시 기다리십시오...
+Description-lt.UTF-8: Palaukite...
+Description-lv.UTF-8: Lūdzu, uzgaidiet...
+Description-mg.UTF-8: Miandrasa kely azafady ...
+Description-mk.UTF-8: Те молам почекај...
+Description-ml.UTF-8: ദയവായി കാത്തിരിക്കൂ...
+Description-mr.UTF-8: कृपया वाट पहा
+Description-nb.UTF-8: Vent litt ...
+Description-ne.UTF-8: कृपया पर्खनुहोस्...
+Description-nl.UTF-8: Even geduld alstublieft ...
+Description-no.UTF-8: Vent litt ...
+Description-pa.UTF-8: ਕਿਰਪਾ ਕਰਕੇ ਉਡੀਕੋ...
+Description-pl.UTF-8: Proszę czekać...
+Description-pt.UTF-8: Por favor aguarde...
+Description-pt_BR.UTF-8: Por favor, aguarde...
+Description-ro.UTF-8: Vă rugăm, așteptați...
+Description-ru.UTF-8: Подождите…
+Description-si.UTF-8: කරුණාකර රැඳෙන්න...
+Description-sk.UTF-8: Počkajte, prosím...
+Description-sl.UTF-8: Prosim počakajte ...
+Description-sq.UTF-8: Ju lutem prit...
+Description-sr.UTF-8: Сачекајте...
+Description-sr@latin.UTF-8: Sačekajte...
+Description-sv.UTF-8: Var god vänta...
+Description-ta.UTF-8: தயவு செய்து பொறுத்திருக்கவும் ...
+Description-te.UTF-8: దయచేసి వేచివుండండి...
+Description-th.UTF-8: กรุณารอสักครู่...
+Description-tl.UTF-8: Maghintay po lamang...
+Description-tr.UTF-8: Lütfen bekleyin...
+Description-ug.UTF-8: سەل كۈتۈڭ…
+Description-uk.UTF-8: Зачекайте, будь ласка...
+Description-vi.UTF-8: Hãy chờ...
+Description-wo.UTF-8: Muñal tuut...
+Description-zh_CN.UTF-8: 请稍候...
+Description-zh_TW.UTF-8: 請稍候...
+
+Template: debconf-apt-progress/info
+Type: text
+Description: ${DESCRIPTION}
+
+Template: debconf-apt-progress/media-change
+Type: text
+Description: Media change
+ ${MESSAGE}
+Description-ar.UTF-8: تغيير القرص
+ ${MESSAGE}
+Description-ast.UTF-8: Camudar media
+ ${MESSAGE}
+Description-be.UTF-8: Змена носьбіта
+ ${MESSAGE}
+Description-bg.UTF-8: Смяна на носителя
+ ${MESSAGE}
+Description-bn.UTF-8: মিডিয়া পরিবর্তন
+ ${MESSAGE}
+Description-bs.UTF-8: Promjena medija
+ ${MESSAGE}
+Description-ca.UTF-8: Canvi de medi
+ ${MESSAGE}
+Description-cs.UTF-8: Výměna média
+ ${MESSAGE}
+Description-cy.UTF-8: Newid cyfrwng
+ ${MESSAGE}
+Description-da.UTF-8: Nyt medie
+ ${MESSAGE}
+Description-de.UTF-8: Datenträgerwechsel
+ ${MESSAGE}
+Description-dz.UTF-8: མི་ཌི་ཡ་ བསྒྱུར་བཅོས།
+ ${MESSAGE}
+Description-el.UTF-8: Αλλαγή μέσου
+ ${MESSAGE}
+Description-eo.UTF-8: Ŝanĝo de datumportilo
+ ${MESSAGE}
+Description-es.UTF-8: Cambio de medio
+ ${MESSAGE}
+Description-eu.UTF-8: Euskarri aldaketa
+ ${MESSAGE}
+Description-fa.UTF-8: تغییر رسانه
+ ${MESSAGE}
+Description-fi.UTF-8: Taltion vaihto
+ ${MESSAGE}
+Description-fr.UTF-8: Changement de support
+ ${MESSAGE}
+Description-ga.UTF-8: Athrú meáin
+ ${MESSAGE}
+Description-gl.UTF-8: Cambio de soporte
+ ${MESSAGE}
+Description-gu.UTF-8: માધ્યમ બદલાવ
+ ${MESSAGE}
+Description-he.UTF-8: החלפת מדיה
+ ${MESSAGE}
+Description-hi.UTF-8: मीडिया परिवर्तन
+ ${MESSAGE}
+Description-hr.UTF-8: Promjena medija
+ ${MESSAGE}
+Description-id.UTF-8: Media Berubah
+ ${MESSAGE}
+Description-is.UTF-8: Skipti á miðli
+ ${MESSAGE}
+Description-it.UTF-8: Cambio supporto
+ ${MESSAGE}
+Description-ja.UTF-8: メディアの変更
+ ${MESSAGE}
+Description-kk.UTF-8: Дискті ауыстыру
+ ${MESSAGE}
+Description-km.UTF-8: ផ្លាស់ប្ដូរ​មេឌៀ
+ ${MESSAGE}
+Description-ko.UTF-8: 미디어 교체
+ ${MESSAGE}
+Description-lt.UTF-8: Laikmenos keitimas
+ ${MESSAGE}
+Description-lv.UTF-8: Datu nesēja maiņa
+ ${MESSAGE}
+Description-ml.UTF-8: മീഡിയയില്‍ മാറ്റം .
+ ${MESSAGE}
+Description-nb.UTF-8: Skift CD/DVD
+ ${MESSAGE}
+Description-nl.UTF-8: Verwissel medium
+ ${MESSAGE}
+Description-no.UTF-8: Skift CD/DVD
+ ${MESSAGE}
+Description-pl.UTF-8: Zmiana nośnika
+ ${MESSAGE}
+Description-pt.UTF-8: Mudança de meio de instalação
+ ${MESSAGE}
+Description-pt_BR.UTF-8: Troca de mídia
+ ${MESSAGE}
+Description-ro.UTF-8: Schimbare de disc
+ ${MESSAGE}
+Description-ru.UTF-8: Смена носителя
+ ${MESSAGE}
+Description-si.UTF-8: මාධ්‍ය වෙනසක්
+ ${MESSAGE}
+Description-sk.UTF-8: Výmena nosiča
+ ${MESSAGE}
+Description-sl.UTF-8: Sprememba nosilca
+ ${MESSAGE}
+Description-sq.UTF-8: Ndryshim media
+ ${MESSAGE}
+Description-sr.UTF-8: Промена медија
+ ${MESSAGE}
+Description-sr@latin.UTF-8: Promena medija
+ ${MESSAGE}
+Description-sv.UTF-8: Byte av källmedium
+ ${MESSAGE}
+Description-ta.UTF-8: ஊடக மாற்றம்
+ ${MESSAGE}
+Description-te.UTF-8: మాధ్యమ మార్పు
+ ${MESSAGE}
+Description-th.UTF-8: เปลี่ยนแผ่น
+ ${MESSAGE}
+Description-tr.UTF-8: Ortamı(CD,DVD) değişimi
+ ${MESSAGE}
+Description-ug.UTF-8: ۋاسىتە ئالماشتۇر
+ ${MESSAGE}
+Description-vi.UTF-8: Đổi vật chứa
+ ${MESSAGE}
+Description-zh_CN.UTF-8: 更换媒介
+ ${MESSAGE}
+Description-zh_TW.UTF-8: 變更媒體
+ ${MESSAGE}

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+# Packages including pam configurations need to include a block like
+# the following to arrange for removal of the PAM profile prior to
+# package removale.  Libpam-runtime is special because it includes the
+# machinery for managing the profiles and because there is a check to
+# make sure at least one profile is enabled.  Libpam-runtime can only
+# be removed in a situation where dpkg checks are being overriden; in
+# that case the resulting PAM config is likely to be broken anyway.
+# But we prefer to permit the removal if enough dpkg force options are
+# given than to create an infinite loop.  So, this block is commented
+# out, left here as an example for other packages.
+
+
+# if [ "$1" = remove ] ; then
+# 	pam-auth-update --package --remove unix
+# fi
+
+

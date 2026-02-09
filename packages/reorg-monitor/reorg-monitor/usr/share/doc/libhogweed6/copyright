@@ -1,0 +1,733 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Nettle
+Upstream-Contact: Niels Möller <nisse@lysator.liu.se>
+Source: http://www.lysator.liu.se/~nisse/nettle/
+Copyright: © 2001-2020 Niels Möller
+ Some parts are Copyright © the Free Software Foundation and various
+ people. See below and source code comments for details.
+License: LGPL-3+ or GPL-2+
+Comment:
+ Nettle is dual licenced under the GNU General Public License version
+ 2 or later, and the GNU Lesser General Public License version 3 or
+ later.  When using Nettle, you must comply fully with all conditions
+ of at least one of these licenses. A few of the individual files are
+ licensed under more permissive terms, or in the public domain. To
+ find the current status of particular files, you have to read the
+ copyright notices at the top of the files.
+ .
+ 8X--------- AUTHORS file -----------------------------------------
+ Authors of GNU Nettle
+ .
+ The oldest code in Nettle was copied into precursors of the Nettle
+ library from other public domain or LGPLv2 sources.
+ .
+ Steve Reid		Original CAST128 implementation
+ Dana L. How		Original DES implementation,
+ Colin Plumb		Original MD5 implementation
+ Peter Gutmann		Original SHA1 implementation
+ Andrew Kuchling		Original MD2 implementation
+ .
+ Free Software Foundation
+ 			Holds copyrights on code ported from
+ 			libgcrypt, written by Werner Koch and others.
+ .
+ J.H.M. Dassen		Original port of blowfish to GNU lsh, later
+ 			split off into Nettle. (This blowfish
+ 			implementation was replaced later).
+ 			Twofish tests.
+ .
+ Ruud de Rooij		Twofish implementation for GNU lsh, later split off into Nettle.
+ .
+ Rafael Sevilla		AES C and x86 implementation, original port of
+ 			Serpent, for GNU lsh, later split off into Nettle.
+ .
+ Authors of Nettle (in roughly chronological order of initial contribution)
+ .
+ Niels Möller		Main author.
+ .
+ Dan Egnor		Base64 conversion.
+ .
+ Andreas Sigfridsson	Port of MD2, from Andrew Kuchling's python
+ 			cryptography toolkit.
+ .
+ Marcus Comstedt		Implemented MD4.
+ .
+ D. J. Bernstein		Salsa20 public domain reference implementation.
+ .
+ Simon Josefsson		Port of Arctwo, from GnuTLS and libgcrypt. New
+ 			ports of LGPL Serpent and Blowfish code, from
+ 			libgcrypt. Port of Salsa20, based on djb's
+ 			reference. Implementation of PBKDF2 (RFC
+ 			2898).
+ .
+ Henrik Grubbström	AES assembly for Sparc64.
+ .
+ Magnus Holmgren		Conversion of DSA keys from DER format to SEXP
+ 			format.
+ .
+ Daniel Kahn Gillmor	Added the lists for nettle_get_ciphers,
+ 			nettle_get_hashes and nettle_get_armors. Test
+ 			vectors for hashes and hmac.
+ .
+ Nippon Telegraph and Telephone Corporation
+ 			LGPL:ed reference implementation of the
+ 			Camellia cipher.
+ .
+ Andrew M. (floodyberry)
+ 			The poly1305 code nettle's C implementation is
+ 			derived from.
+ .
+ Aleksey Kravchenko	The gosthash94 implementation in rhash library.
+ .
+ Stefan Metzmacher, Jeremy Allison, Michael Adam
+ 			Contributed to the CMAC code, which was added
+ 			to Nettle by Nikos Mavroyanopoulos.
+ .
+ Nikos Mavroyanopoulos	GCM implementation, RSA blinding code,
+ 			interface for general rsa-pkcs1 signatures.
+ 			Port of gosthash94 implementation from rhash. Port of
+ 			poly1305. Salsa20r12 variant. HKDF (RFC 5869)
+ 			implementation. CMAC and SIV-CMAV
+ 			implementation. CTR and GCM optimizations.
+ 			Implementation of versioned symbols. Setup of
+ 			.gitlab-ci.yml. Large number of smaller fixes.
+ .
+ Andres Mejia		Ported Ripemd160 from libgcrypt.
+ .
+ Martin Storsjö		Implemented m4 macrology to make x86_64
+ 			assembly files work with the windows ABI.
+ 			Several other portability improvements.
+ .
+ Jeronimo Pellegrini	Documentation for base16 and base64 functions.
+ .
+ Tim Ruehsen		Several smaller cleanups and bugfixes.
+ .
+ Fredrik Thulin		Test vectors for pbkdf2-hmac-sha512.
+ .
+ Joachim Strömbergson	Chacha implementation. Support for sha512_224
+ 			and sha512_256.
+ .
+ Owen Kirby		Implementation of CCM mode.
+ .
+ Amos Jeffries		Implementation of base64url encoding.
+ .
+ Daiki Ueno		Implementation of RSA-PSS signatures,
+ 			curve448, shake256, ed448-shake256 signatures,
+ 			chacha functions for 32-bit nonce, struct
+ 			nettle_mac interface.
+ .
+ Dmitry Baryshkov	CFB and CFB8 modes, CMAC64. gosthash94cp and
+ 			Streebog hash functions, GOST DSA signatures
+ 			and curves GC256B and GC512A. Various bug
+ 			fixes and cleanups.
+ .
+ Simo Sorce		Side-channel silent RSA functions. XTS
+ 			implementation.
+ .
+ H.J. Lu			Assembly annotations for Intel "Control-flow
+ 			Enforcement Technology".
+ .
+ Stephen R. van den Berg
+ 			Port of bcrypt.
+ .
+ Mamone Tarsha Kurdi	Powerpc64 assembly and fat build setup,
+ 			including AES and GCM. Arm64 assembly and fat
+ 			build setup, including AES, Chacha, GCM, SHA1,
+ 			SHA256. S390x assembly and fat build setup,
+ 			including AES, Chacha, memxor, memxor3, SHA1,
+ 			SHA256, SHA512, SHA3.
+ .
+ Nicolas Mora		RFC 3394 keywrap.
+ .
+ Tianjia Zhang		SM3 hash function.
+ .
+ Amitay Isaacs		Powerpc64 assembly for secp192r1, secp224r1
+ 			and secp256r1.
+ .
+ Martin Schwenke		Powerpc64 assembly for secp384r1, secp521r1,
+ 			curve25519 and curve448.
+ 8X--------- end of AUTHORS file ------------------------------------
+
+Files: *
+Copyright: 2001-2022 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: aes-invert-internal.c aes-set-decrypt-key.c
+ aes-set-encrypt-key.c aes-set-key-internal.c
+Copyright: 2013, Niels Möller
+ 2000-2002, Rafael R. Sevilla, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: x86*/aes-*-internal.asm
+Copyright: 2001, 2002, 2005 Rafael R. Sevilla, Niels Möller
+           2008, 2013 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: arctwo.c
+Copyright: 2003 Nikos Mavroyanopoulos
+ 2004 Simon Josefsson
+ 2004 Free Software Foundation, Inc.
+ 2002, 2004, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: arctwo-meta.c pbkdf2.c
+ salsa20-128-set-key.c salsa20-256-set-key.c
+ salsa20-core-internal.c
+ salsa20-set-key.c salsa20-set-nonce.c
+Copyright: 2012-2014 Niels Möller
+ 2004, 2012 Simon Josefsson
+License: LGPL-3+ or GPL-2+
+
+Files: arctwo.h
+ salsa20-internal.h salsa20.h
+Copyright: 2004, 2012 Simon Josefsson
+ 2001, 2002, 2004, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: arm64/chacha-2core.asm arm64/chacha-4core.asm
+ arm64/chacha-core-internal.asm s390x/vf/chacha-2core.asm
+ s390x/vf/chacha-4core.asm s390x/vf/chacha-core-internal.asm
+Copyright: 2020 Niels Möller and Torbjörn Granlund
+ 2022 Mamone Tarsha
+License: LGPL-3+ or GPL-2+
+
+Files: arm64/crypto/aes128-decrypt.asm arm64/crypto/aes128-encrypt.asm
+ arm64/crypto/aes192-decrypt.asm arm64/crypto/aes192-encrypt.asm
+ arm64/crypto/aes256-decrypt.asm arm64/crypto/aes256-encrypt.asm
+ arm64/crypto/sha1-compress.asm arm64/crypto/sha256-compress.asm
+ arm64/fat/aes128-decrypt-2.asm arm64/fat/aes128-encrypt-2.asm
+ arm64/fat/aes192-decrypt-2.asm arm64/fat/aes192-encrypt-2.asm
+ arm64/fat/aes256-decrypt-2.asm arm64/fat/aes256-encrypt-2.asm
+ arm64/fat/ghash-set-key-2.asm arm64/fat/ghash-update-2.asm
+ arm64/fat/sha1-compress-2.asm arm64/fat/sha256-compress-2.asm
+ fat-arm64.c fat-s390x.c powerpc64/fat/ghash-set-key-2.asm
+ powerpc64/fat/ghash-update-2.asm s390x/fat/aes128-decrypt-2.asm
+ s390x/fat/aes128-encrypt-2.asm s390x/fat/aes128-set-decrypt-key-2.asm
+ s390x/fat/aes128-set-encrypt-key-2.asm
+ s390x/fat/aes192-decrypt-2.asm s390x/fat/aes192-encrypt-2.asm
+ s390x/fat/aes192-set-decrypt-key-2.asm
+ s390x/fat/aes192-set-encrypt-key-2.asm s390x/fat/aes256-decrypt-2.asm
+ s390x/fat/aes256-encrypt-2.asm s390x/fat/aes256-set-decrypt-key-2.asm
+ s390x/fat/aes256-set-encrypt-key-2.asm s390x/fat/chacha-2core.asm
+ s390x/fat/chacha-4core.asm s390x/fat/chacha-core-internal-2.asm
+ s390x/fat/cpu-facility.asm s390x/fat/ghash-set-key-2.asm
+ s390x/fat/ghash-update-2.asm s390x/fat/memxor3-2.asm
+ s390x/fat/sha1-compress-2.asm s390x/fat/sha256-compress-2.asm
+ s390x/fat/sha3-permute-2.asm s390x/fat/sha512-compress-2.asm
+ s390x/memxor.asm s390x/msa/sha1-compress.asm
+ s390x/msa_x1/aes128-decrypt.asm s390x/msa_x1/aes128-encrypt.asm
+ s390x/msa_x1/aes128-set-decrypt-key.asm
+ s390x/msa_x1/aes128-set-encrypt-key.asm s390x/msa_x1/sha256-compress.asm
+ s390x/msa_x2/aes192-decrypt.asm s390x/msa_x2/aes192-encrypt.asm
+ s390x/msa_x2/aes192-set-decrypt-key.asm
+ s390x/msa_x2/aes192-set-encrypt-key.asm s390x/msa_x2/aes256-decrypt.asm
+ s390x/msa_x2/aes256-encrypt.asm s390x/msa_x2/aes256-set-decrypt-key.asm
+ s390x/msa_x2/aes256-set-encrypt-key.asm s390x/msa_x2/sha512-compress.asm
+ s390x/msa_x4/ghash-set-key.asm s390x/msa_x4/ghash-update.asm
+ s390x/vf/memxor3.asm
+Copyright: 2020, 2021 Mamone Tarsha
+License: LGPL-3+ or GPL-2+
+
+Files: arm64/crypto/ghash-set-key.asm arm64/crypto/ghash-update.asm
+ powerpc64/p8/ghash-set-key.asm powerpc64/p8/ghash-update.asm
+Copyright: 2020 Niels Möller and Mamone Tarsha
+ 2021 Michael Weiser
+License: LGPL-3+ or GPL-2+
+
+Files: base64.h base64-meta.c
+Copyright: 2002 Dan Egnor, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: base64url-decode.c base64url-encode.c
+Copyright: 2015 Amos Jeffries, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: block-internal.h
+Copyright: 2019 Dmitry Eremin-Solenikov
+ 2018 Red Hat, Inc.
+ 2011 Katholieke Universiteit Leuven
+ 2011, 2013, 2018 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: blowfish.c
+Copyright: 1998, 2001, 2002, 2003 Free Software Foundation, Inc.
+           2010 Simon Josefsson
+License: LGPL-3+ or GPL-2+
+
+Files: blowfish.h
+Copyright: 1998, 2001 Free Software Foundation, Inc.
+           1998, 2001 Ray Dassen
+           1998, 2001 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: camellia-table.c camellia-crypt-internal.c camellia.h camellia-internal.h
+ camellia128-set-encrypt-key.c camellia256-set-encrypt-key.c camellia-absorb.c
+Copyright: 2006, 2007 NTT (Nippon Telegraph and Telephone Corporation)
+	   2010, 2013 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: ccm.c ccm.h ccm-aes128.c
+ ccm-aes192.c ccm-aes256.c
+Copyright: 2014 Owen Kirby
+ 2014 Exegin Technologies Limited
+License: LGPL-3+ or GPL-2+
+
+Files: cfb.c
+ cfb.h
+ ecc-gostdsa-sign.c
+ ecc-gostdsa-verify.c
+ gostdsa-sign.c
+ gostdsa-verify.c
+Copyright: 2015, 2017 Dmitry Eremin-Solenikov
+ 2001, 2011, 2013, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: chacha-core-internal.c chacha-crypt.c
+ chacha-internal.h chacha.h chacha-set-nonce.c
+Copyright: 2012 Simon Josefsson
+ 2013 Joachim Strömbergson
+ 2012, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: cmac-aes128.c cmac-aes256.c
+ cmac.h hkdf.c hkdf.h
+ xts-aes128.c xts-aes256.c xts.c
+Copyright: 2017, 2018 Red Hat, Inc.
+License: LGPL-3+ or GPL-2+
+
+Files: cmac-des3-meta.c
+Copyright: 2020 Dmitry Baryshkov
+License: LGPL-3+ or GPL-2+
+
+Files: cmac-des3.c
+ ecc-gost-gc256b.c ecc-gost-gc512a.c
+ gost28147-internal.h gostdsa-vko.c
+ hmac-gosthash94.c pbkdf2-hmac-gosthash94.c
+Copyright: 2016-2020 Dmitry Eremin-Solenikov
+License: LGPL-3+ or GPL-2+
+
+Files: cmac.c cmac64.c
+Copyright: 2012 Stefan Metzmacher, Michael Adam, Jeremy Allison
+ 2017 Red Hat Inc.
+ 2019 Dmitry Eremin-Solenikov
+License: LGPL-3+ or GPL-2+
+
+Files: ctr16.c
+ pkcs1-internal.h pkcs1-sec-decrypt.c
+ version.h.in xts.h
+Copyright: 2015, 2017, 2018 Red Hat, Inc.
+ 2001, 2002, 2005-2018 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: curve448-eh-to-x.c curve448.h
+ curve448-mul-g.c curve448-mul.c
+ ecc-curve448.c  ed448-shake256-pubkey.c
+ ed448-shake256-sign.c ed448-shake256-verify.c
+ shake256.c
+Copyright: 2017 Red Hat, Inc.
+ 2017 Daiki Ueno
+License: LGPL-3+ or GPL-2+
+
+Files: der2dsa.c
+Copyright: 2005, 2009, 2014 Niels Möller
+ 2009 Magnus Holmgren
+License: LGPL-3+ or GPL-2+
+
+Files: desCode.h descore.README desdata.c
+Copyright: © 2002 Dana L. How
+License: LGPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU Library General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Library General Public License for more details.
+ .
+ You should have received a copy of the GNU Library General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU Library
+ General Public License, version 2, can be found in
+ /usr/share/common-licenses/LGPL-2.
+
+Files: des.c des.h
+Copyright: 1992 Dana L. How
+ 1997, 2001 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: dsa2sexp.c
+Copyright: 2002, 2009, 2014 Niels Möller
+ 2009 Magnus Holmgren
+License: LGPL-3+ or GPL-2+
+
+Files: eccdata.c eddsa-hash.c
+Copyright: 2017 Red Hat, Inc.
+ 2017 Daiki Ueno
+ 2013, 2014, 2017, 2019 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: ecc-secp192r1.c
+Copyright: 2013, 2014, 2019, 2021 Niels Möller
+ 2019 Wim Lewis
+License: LGPL-3+ or GPL-2+
+
+Files: examples/base16dec.c examples/base16enc.c
+ examples/base64dec.c examples/base64enc.c
+Copyright: 2006, 2012, Jeronimo Pellegrini, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: examples/nettle-openssl.c
+Copyright: 2015, 2017, 2018, Red Hat, Inc.
+ 2001, 2002, 2005-2018, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: gcm.c gcm.h ghash-set-key.c ghash-update.c
+Copyright: 2011 Katholieke Universiteit Leuven
+ 2011, 2013, 2018, 2022 Niels Möller
+ 2018 Red Hat, Inc.
+License: LGPL-3+ or GPL-2+
+
+Files: gmp-glue.c
+ gmp-glue.h
+Copyright: 2013 Red Hat, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: gost28147.c gosthash94.c
+Copyright: 2019 Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+ 2009-2012 Aleksey Kravchenko <rhash.admin@gmail.com>
+License: Expat
+
+Files: gostdsa.h
+Copyright: 2015, Dmity Eremin-Solenikov
+ 2013, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: gosthash94-meta.c
+Copyright: 2012, Nikos Mavrogiannopoulos, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: gosthash94.h
+Copyright: 2012, Nikos Mavrogiannopoulos, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: hmac-md5-meta.c hmac-ripemd160-meta.c
+ hmac-sha1-meta.c hmac-sha224-meta.c
+ hmac-sha256-meta.c hmac-sha384-meta.c
+ hmac-sha512-meta.c nettle-meta-macs.c
+ pss-mgf1.c pss-mgf1.h pss.c pss.h
+ rsa-pss-sha256-sign-tr.c rsa-pss-sha256-verify.c
+ rsa-pss-sha512-sign-tr.c rsa-pss-sha512-verify.c
+Copyright: 2017, 2020 Daiki Ueno
+License: LGPL-3+ or GPL-2+
+
+Files: hmac-sm3.c hmac-sm3-meta.c
+Copyright: 2021 Tianjia Zhang
+License: LGPL-3+ or GPL-2+
+
+Files: md2.c
+Copyright: ? Andrew Kuchling
+           2003 Andreas Sigfridsson
+           2003 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: md4.c
+Copyright: 2003 Marcus Comstedt
+ 2003 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: md5.c md5-compress.c
+Copyright: Colin Plumb, Andrew Kuchling
+           2001 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: memxor.c
+Copyright: 1991,1993, 1995 Free Software Foundation, Inc.
+           2010 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: nettle-meta-armors.c
+ nettle-meta-ciphers.c
+ nettle-meta-hashes.c
+Copyright: 2011 Daniel Kahn Gillmor
+License: LGPL-3+ or GPL-2+
+
+Files: nist-keywrap.c nist-keywrap.h
+Copyright: 2021 Nicolas Mora
+ 2021 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: pbkdf2-hmac-sha1.c
+ pbkdf2-hmac-sha256.c
+ pbkdf2.h
+ salsa20-crypt.c
+Copyright: 2012, Simon Josefsson
+License: LGPL-3+ or GPL-2+
+
+Files: pbkdf2-hmac-sha384.c pbkdf2-hmac-sha512.c
+Copyright: 2012 Simon Josefsson
+ 2021 Nicolas Mora
+License: LGPL-3+ or GPL-2+
+
+Files: poly1305-aes.c
+Copyright: 2014 Niels Möller
+ 2013 Nikos Mavrogiannopoulos
+License: LGPL-3+ or GPL-2+
+
+Files: poly1305-internal.c
+Copyright: 2013, Nikos Mavrogiannopoulos
+ 2013 Niels Möller
+ 2012, 2013 Andrew M. (floodyberry)
+License: LGPL-3+ or GPL-2+
+
+Files: poly1305-internal.h
+ poly1305.h
+Copyright: 2013, Nikos Mavrogiannopoulos
+ 2013, 2014, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: powerpc64/ecc-curve25519-modp.asm powerpc64/ecc-curve448-modp.asm
+ powerpc64/ecc-secp521r1-modp.asm
+Copyright: 2021 Martin Schwenke & Alastair D´Silva, IBM Corporation
+License: LGPL-3+ or GPL-2+
+
+Files: powerpc64/ecc-secp192r1-modp.asm powerpc64/ecc-secp224r1-modp.asm
+Copyright: 2021 Amitay Isaacs, IBM Corporation
+License: LGPL-3+ or GPL-2+
+
+Files: powerpc64/ecc-secp256r1-redc.asm
+Copyright: 2021 Amitay Isaacs & Martin Schwenke, IBM Corporation
+License: LGPL-3+ or GPL-2+
+
+Files: powerpc64/ecc-secp384r1-modp.asm
+Copyright: 2021 Martin Schwenke, Amitay Isaacs & Alastair D´Silva, IBM Corporation
+License: LGPL-3+ or GPL-2+
+
+Files: ripemd160.c ripemd160-compress.c
+Copyright: 1998, 2001, 2002, 2003 Free Software Foundation, Inc.
+License: LGPL-3+ or GPL-2+
+
+Files: ripemd160-meta.c ripemd160.h ripemd160-internal.h
+Copyright: 2011 Andres Mejia
+License: LGPL-3+ or GPL-2+
+
+Files: rsa-blind.c rsa-decrypt-tr.c
+Copyright: 2001, 2012, Niels Möller, Nikos Mavrogiannopoulos
+License: LGPL-3+ or GPL-2+
+
+Files: rsa-pkcs1-sign-tr.c salsa20r12-crypt.c
+ siv-cmac-aes128.c siv-cmac-aes256.c
+ siv-cmac.c siv-cmac.h
+Copyright: 2012, 2013, 2017, 2018, Nikos Mavrogiannopoulos
+License: LGPL-3+ or GPL-2+
+
+Files: rsa-sec-compute-root.c
+Copyright: 2018 Red Hat, Inc
+ 2018 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: rsa-sec-decrypt.c
+Copyright: 2018, Red Hat, Inc.
+ 2001, 2012, Niels Möller, Nikos Mavrogiannopoulos
+License: LGPL-3+ or GPL-2+
+
+Files: rsa-sign-tr.c
+Copyright: 2018, Red Hat Inc.
+ 2012, Nikos Mavrogiannopoulos
+ 2001, 2015, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: s390x/vf/sha3-permute.asm
+Copyright: 2012 Niels Möller
+ 2021 Mamone Tarsha
+License: LGPL-3+ or GPL-2+
+
+Files: serpent-encrypt.c serpent-decrypt.c serpent-set-key.c serpent-internal.h
+Copyright: 1998 Ross Anderson, Eli Biham, Lars Knudsen
+ 2003, 2004, 2005 Free Software Foundation, Inc.
+ 2010, 2011 Simon Josefsson
+ 2011, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: sha1-compress.c
+Copyright: 2001, 2004 Peter Gutmann, Andrew Kuchling, Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: sha512.c
+Copyright: 2013, 2014 Joachim Strömbergson
+ 2001, 2010, 2012, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: sm3.c sm3.h sm3-meta.c
+Copyright: 2017 Jia Zhang
+ 2021 Tianjia Zhang
+License: LGPL-3+ or GPL-2+
+
+Files: testsuite/arctwo-test.c
+Copyright: 2004, 2012 Simon Josefsson
+ 2001, 2002, 2004, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: testsuite/ccm-test.c
+Copyright: 2014 Owen Kirby
+ 2014 Exegin Technologies Limited
+License: LGPL-3+ or GPL-2+
+
+Files: testsuite/chacha-test.c
+Copyright: 2013, 2014 Joachim Strömbergson
+ 2001, 2010, 2012, 2014 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: testsuite/curve448-dh-test.c
+ testsuite/ed448-test.c
+ testsuite/shake256-test.c
+Copyright: 2017, Red Hat, Inc.
+ 2017, Daiki Ueno
+License: LGPL-3+ or GPL-2+
+
+Files: testsuite/siv-test.c
+Copyright: 2012, 2013, 2017, 2018 Nikos Mavrogiannopoulos
+License: LGPL-3+ or GPL-2+
+
+Files: texinfo.tex
+Copyright: 1985, 1986, 1988, 1990-2009, Free Software Foundation, Inc.
+License: GPL-3+
+ This texinfo.tex file is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ .
+ This texinfo.tex file is distributed in the hope that it will be
+ useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ .
+ As a special exception, when this file is read by TeX when processing
+ a Texinfo source document, you may use the result without
+ restriction.  (This has been our intent since Texinfo was invented.)
+
+Files: twofish*
+Copyright: 1999 Ruud de Rooij <ruud@debian.org>
+ 1999 J.H.M. Dassen (Ray) <jdassen@wi.LeidenUniv.nl>
+ 2001 Niels Möller
+License: LGPL-3+ or GPL-2+
+
+Files: tools/pkcs1-conv.c
+Copyright: 2005, 2009, 2014 Niels Möller
+ 2009 Magnus Holmgren
+License: LGPL-3+ or GPL-2+
+
+Files: getopt*
+Copyright: 1987-2001 Free Software Foundation, Inc.
+License: GPL-2+
+
+Files: config.guess config.sub
+Copyright: © 1992-2020 Free Software Foundation, Inc.
+License: GPL-3+ with Autoconf exception
+ As a special exception to the GNU General Public License, if you
+ distribute this file as part of a program that contains a
+ configuration script generated by Autoconf, you may include it under
+ the same distribution terms that you use for the rest of that program.
+
+Files: debian/*
+Copyright: none
+License: public-domain
+ I believe that most files in debian/ hardly contains any creative
+ expression eligible for copyright.
+
+Files: debian/sexp-conv.1
+Copyright: 2002 Timshel Knoll <timshel@debian.org>
+ 2007 Magnus Holmgren
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 dated June. 1991.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ 02110-1301 USA.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU General
+ Public License, version 2, can be found in
+ /usr/share/common-licenses/GPL-2.
+Comment:
+ This manpage was copied from the lsh-utils package. Timshel didn't
+ explicitly select a license for his packaging work, but I think that
+ it can be considered released under the same license as LSH itself.
+
+Files: debian/pkcs1-conv.1 debian/nettle-lfib-stream.1
+Copyright: 2007 Magnus Holmgren
+License: GAP
+ Copying and distribution of this file, with or without modification,
+ are permitted in any medium without royalty provided the copyright
+ notice and this notice are preserved.
+
+License: LGPL-3+
+ The nettle library is free software; you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or (at your
+ option) any later version.
+ .
+ GNU Nettle is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library; if not, see http://www.gnu.org/licenses/.
+ .
+ On Debian GNU/Linux systems, the complete text of the newest version
+ of the GNU Lesser General Public License can be found in
+ /usr/share/common-licenses/LGPL.
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ GNU Nettle is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ 02110-1301 USA.
+ .
+ On Debian GNU/Linux systems, the complete text of the newest version
+ of the GNU General Public License can be found in
+ /usr/share/common-licenses/GPL.
+
+License: Expat
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included
+ in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

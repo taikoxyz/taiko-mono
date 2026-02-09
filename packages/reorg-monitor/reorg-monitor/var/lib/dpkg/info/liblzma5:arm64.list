@@ -1,0 +1,15 @@
+/.
+/lib
+/lib/aarch64-linux-gnu
+/lib/aarch64-linux-gnu/liblzma.so.5.4.1
+/usr
+/usr/share
+/usr/share/doc
+/usr/share/doc/liblzma5
+/usr/share/doc/liblzma5/AUTHORS
+/usr/share/doc/liblzma5/NEWS.gz
+/usr/share/doc/liblzma5/THANKS
+/usr/share/doc/liblzma5/changelog.Debian.gz
+/usr/share/doc/liblzma5/changelog.gz
+/usr/share/doc/liblzma5/copyright
+/lib/aarch64-linux-gnu/liblzma.so.5

@@ -1,0 +1,2 @@
+libcom_err 2 libcom-err2 (>= 1.47.0)
+udeb: libcom_err 2 e2fsprogs-udeb (>= 1.47.0)

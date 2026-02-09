@@ -1,0 +1,2 @@
+text/plain; more %s; needsterminal; priority=5
+text/*; more %s; needsterminal; priority=1

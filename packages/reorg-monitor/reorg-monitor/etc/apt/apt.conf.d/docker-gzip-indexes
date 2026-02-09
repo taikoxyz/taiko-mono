@@ -1,0 +1,10 @@
+# Since Docker users using "RUN apt-get update && apt-get install -y ..." in
+# their Dockerfiles don't go delete the lists files afterwards, we want them to
+# be as small as possible on-disk, so we explicitly request that Apt keep them
+# compressed on-disk too instead of decompressing them.
+
+# For comparison, an "apt-get update" layer without this on a pristine
+# "debian:wheezy" base image was "29.88 MB", where with this it was only
+# "8.273 MB".
+
+Acquire::GzipIndexes "true";

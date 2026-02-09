@@ -1,0 +1,3 @@
+libpam 0 libpam0g (>= 1.5.2)
+libpam_misc 0 libpam0g (>= 1.5.2)
+libpamc 0 libpam0g (>= 1.5.2)

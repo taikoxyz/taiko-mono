@@ -1,0 +1,45 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: grep
+Upstream-Contact: bug-grep@gnu.org
+Source: https://savannah.gnu.org/projects/grep 
+ git://git.savannah.gnu.org/grep.git
+
+Files: *
+Copyright: 1992, 1997-2002, 2004-2012 Free Software Foundation, Inc.
+ 2004, Stepan Kasal <kasal@ucw.cz> 
+ 2007, Tony Abou-Assaleh <taa@acm.org>
+ 2009-2012, Jim Meyering <jim@meyering.net> and Paolo Bonzini <bonzini@gnu.org>
+License: GPL-3+
+
+Files: debian/*
+Copyright: 2005-2013 Anibal Monsalve Salazar <anibal@debian.org> and Santiago Ruano Rincón <santiago@debian.org>
+ 2003-2004 Ryan M. Golbeck <rmgolbeck@debian.org>
+ 2003, Jeff Bailey <jbailey@nisa.net>
+ 2003, Clint Adams <schizo@debian.org>  Mon, 10 Mar 2003 02:10:32 -0500
+ 2001 Robert van der Meulen <rvdm@debian.org>
+ 1996-2000 Wichert Akkerman <wakkerma@debian.org>
+License: GPL-3+
+
+License: GPL-3+
+ Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2004,
+ 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
+ .
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3, or (at your option)
+ any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA
+ 02110-1301, USA.  
+ .
+ Comment:
+ .
+ On a Debian system you can find a copy of this license in
+ /usr/share/common-licenses/GPL-3.

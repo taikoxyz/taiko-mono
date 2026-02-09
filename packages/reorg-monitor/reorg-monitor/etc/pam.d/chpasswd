@@ -1,0 +1,5 @@
+# The PAM configuration file for the Shadow 'chpasswd' service
+#
+
+@include common-password
+

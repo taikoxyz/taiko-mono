@@ -1,0 +1,27 @@
+#! /bin/sh
+set -e
+
+if [ "$1" = remove ]; then
+    # When both the multiarch and the corresponding biarch packages are
+    # installed, removing the multiarch package will remove the dynamic
+    # linker. Recreate it in the postinst.
+    ARCH=${DPKG_MAINTSCRIPT_ARCH}
+    target=$(dpkg-query -L libc6-${ARCH} 2>/dev/null | grep -E '/lib.+/(ld\.so|ld-linux-aarch64.so.1)$' || true)
+    if [ -f "$target" ] && ! [ -f /lib/ld-linux-aarch64.so.1 ] ; then
+        ln -sf ${target#/lib/} /lib/ld-linux-aarch64.so.1
+    fi
+fi
+
+if [ "$1" = deconfigure ]; then
+    :; # blah, do something useful with ldso
+fi
+
+# Automatically added by dh_installdebconf/13.11.4
+if [ "$1" = purge ] && [ -e /usr/share/debconf/confmodule ]; then
+	. /usr/share/debconf/confmodule
+	db_purge
+fi
+# End automatically added section
+
+
+exit 0

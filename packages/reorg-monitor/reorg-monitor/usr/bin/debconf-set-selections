@@ -1,0 +1,147 @@
+#!/usr/bin/perl
+# This file was preprocessed, do not edit!
+
+
+sub usage {
+	print STDERR <<EOF;
+Usage: debconf-set-selections [-vcu] [file]
+  -v, --verbose     verbose output
+  -c, --checkonly   only check the input file format
+  -u, --unseen      do not set the 'seen' flag when preseeding values
+EOF
+	exit(1);
+}
+
+
+use warnings;
+use strict;
+use Debconf::Db;
+use Debconf::Template;
+use Getopt::Long;
+
+use vars qw(%opts $filename $debug $error $checkonly $unseen);
+
+sub info {
+	my $msg = shift;
+	print STDERR "info: $msg\n" if $debug;
+}
+
+sub warning {
+	my $msg = shift;
+	print STDERR "warning: $msg\n";
+}
+
+sub error {
+	my $msg = shift;
+	print STDERR "error: $msg\n";
+	$error++
+}
+
+sub load_answer {
+	my ($owner, $label, $type, $content) = @_;
+	
+	info "Loading answer for '$label'";
+
+	my $template=Debconf::Template->get($label);
+	if (! $template) {
+		$template=Debconf::Template->new($label, $owner, $type);
+		$template->description("Dummy template");
+		$template->extended_description("This is a fake template used to pre-seed the debconf database. If you are seeing this, something is probably wrong.");
+	}
+	$template->type($type);
+	
+	my $question=Debconf::Question->get($label);
+	if (! $question) {
+		error("Cannot find a question for $label");
+		return;
+	}
+	$question->addowner($owner, $type);
+	$question->value($content);
+	if (! $unseen) {
+		$question->flag("seen", "true");
+	}
+}
+
+sub set_flag {
+	my ($owner, $label, $flag, $content) = @_;
+
+	info "Setting $flag flag";
+
+	my $question=Debconf::Question->get($label);
+	if (! $question) {
+		error("Cannot find a question for $label");
+		return;
+	}
+	$question->flag($flag, $content);
+}
+
+my @knowntypes = qw(select boolean string multiselect note password text title);
+my @knownflags = qw(seen);
+
+sub ok_format {
+	my ($owner, $label, $type, $content) = @_;
+	if (! defined $owner || ! defined $label || ! defined $content) {
+		error "parse error on line $.: '$_'";
+		return;
+	}
+	elsif (! grep { $_ eq $type } @knowntypes, @knownflags) {
+		warning "Unknown type $type, skipping line $.";
+		return;
+	}
+	else {
+		return 1;
+	}
+}
+
+sub mungeline ($) {
+	my $line=shift;
+	chomp $line;
+	$line=~s/\r$//;
+	return $line;
+}
+
+
+GetOptions(
+	"verbose|v" => \$debug,
+	"checkonly|c" => \$checkonly,
+	"unseen|u" => \$unseen,
+) || usage();
+
+{
+	local $ENV{DEBCONF_NOWARNINGS} = 'yes' if $checkonly;
+	Debconf::Db->load;
+}
+
+$error = 0;
+
+while (<>) {
+	$_=mungeline($_);
+	while (/\\$/ && ! eof) {
+		s/\\$//;
+		$_.=mungeline(<>);
+	}
+	next if /^\s*$/ || /^\s*\#/;
+	my ($owner, $label, $type, $content) = /^\s*(\S+)\s+(\S+)\s+(\S+)(?:\s(.*))?/;
+	if (! defined $content) {
+		$content='';
+	}
+	if (ok_format($owner, $label, $type, $content)) {
+		if (grep { $_ eq $type } @knownflags) {
+			info "Trying to set '$type' flag to '$content'";
+			set_flag($owner, $label, $type, $content);
+		}
+		else {
+			info "Trying to set '$label' [$type] to '$content'";
+			load_answer($owner, $label, $type, $content);
+		}
+	}
+}
+
+if (! $checkonly) {
+	Debconf::Db->save;
+}
+
+if ($error) {
+	exit 1;
+}
+

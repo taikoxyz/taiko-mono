@@ -1,0 +1,28 @@
+_whereis_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-B'|'-M'|'-S')
+			local IFS=$'\n'
+			compopt -o filenames
+			COMPREPLY=( $(compgen -o dirnames -- ${cur:-"/"}) )
+			return 0
+			;;
+		'-h'|'-V')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="-b -B -m -M -s -S -f -u -l"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	COMPREPLY=( $(compgen -c -- $cur) )
+	return 0
+}
+complete -F _whereis_module whereis

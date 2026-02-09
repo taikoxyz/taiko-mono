@@ -1,0 +1,48 @@
+_scriptreplay_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-c'|'--cr-mode')
+			COMPREPLY=( $(compgen -W "auto never always" -- $cur) )
+			return 0
+			;;
+		'-d'|'--divisor'|'-m'|'--maxdelay')
+			COMPREPLY=( $(compgen -W "digit" -- $cur) )
+			return 0
+			;;
+		'-x'|'--stream')
+			COMPREPLY=( $(compgen -W "out in signal info" -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--timing
+				--log-in
+				--log-out
+				--log-io
+				--log-timing
+				--summary
+				--stream
+				--cr-mode
+				--typescript
+				--divisor
+				--maxdelay
+				--version
+				--help"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	local IFS=$'\n'
+	compopt -o filenames
+	COMPREPLY=( $(compgen -f -- $cur) )
+	return 0
+}
+complete -F _scriptreplay_module scriptreplay

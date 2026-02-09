@@ -1,0 +1,9 @@
+auto
+/usr/bin/pager
+pager.1.gz
+/usr/share/man/man1/pager.1.gz
+
+/bin/more
+50
+/usr/share/man/man1/more.1.gz
+

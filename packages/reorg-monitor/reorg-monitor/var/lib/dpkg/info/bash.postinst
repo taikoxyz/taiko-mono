@@ -1,0 +1,24 @@
+#! /bin/bash
+
+set -e
+
+# This should never happen.
+if [ ! -e /bin/sh ]; then
+    ln -s bash /bin/sh
+fi
+
+update-alternatives --install \
+    /usr/share/man/man7/builtins.7.gz \
+    builtins.7.gz \
+    /usr/share/man/man7/bash-builtins.7.gz \
+    10 \
+  || true
+
+# Automatically added by dh_installmenu/13.11.4
+if [ "$1" = "configure" ] && [ -x "`command -v update-menus`" ] && [ -x "$DPKG_ROOT`command -v update-menus`" ]; then
+	update-menus
+fi
+# End automatically added section
+
+
+exit 0

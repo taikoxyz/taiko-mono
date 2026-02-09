@@ -1,0 +1,485 @@
+#!/usr/bin/perl -w
+# This file was preprocessed, do not edit!
+
+
+use strict;
+use POSIX;
+use Fcntl;
+use Getopt::Long;
+use Debconf::Client::ConfModule ();
+
+my ($config, $start, $from, $to, $stop);
+my $progress=1;
+my $dlwaypoint=15;
+my ($logfile, $logstderr);
+my $had_frontend;
+
+sub checkopen (@) {
+	my $file = $_[0];
+	my $fd = POSIX::open($file, &POSIX::O_RDONLY);
+	defined $fd or die "$0: can't open $_[0]: $!\n";
+	return $fd;
+}
+
+sub checkclose ($) {
+	my $fd = $_[0];
+	unless (POSIX::close($fd)) {
+		return if $! == &POSIX::EBADF;
+		die "$0: can't close fd $fd: $!\n";
+	}
+}
+
+sub checkdup2 ($$) {
+	my ($oldfd, $newfd) = @_;
+	checkclose($newfd);
+	POSIX::dup2($oldfd, $newfd)
+		or die "$0: can't dup fd $oldfd to $newfd: $!\n";
+}
+
+sub nocloexec (*) {
+	my $fh = shift;
+	my $flags = fcntl($fh, F_GETFD, 0);
+	fcntl($fh, F_SETFD, $flags & ~FD_CLOEXEC);
+}
+
+sub nonblock (*) {
+	my $fh = shift;
+	my $flags = fcntl($fh, F_GETFL, 0);
+	fcntl($fh, F_SETFL, $flags | O_NONBLOCK);
+}
+
+sub reservefds (@) {
+	my $null = checkopen('/dev/null');
+	my $close = 1;
+	for my $fd (@_) {
+		if ($null == $fd) {
+			$close = 0;
+		} else {
+			checkclose($fd);
+			checkdup2($null, $fd);
+		}
+	}
+	if ($close) {
+		checkclose($null);
+	}
+}
+
+sub envnonempty ($) {
+	my $name = shift;
+	return (exists $ENV{$name} and $ENV{$name} ne '');
+}
+
+sub start_debconf (@) {
+	if (! $ENV{DEBIAN_HAS_FRONTEND}) {
+		if (envnonempty('DEBCONF_DB_REPLACE')) {
+			$ENV{DEBCONF_APT_PROGRESS_DB_REPLACE} =
+				$ENV{DEBCONF_DB_REPLACE};
+		}
+		if (envnonempty('DEBCONF_DB_OVERRIDE')) {
+			$ENV{DEBCONF_APT_PROGRESS_DB_OVERRIDE} =
+				$ENV{DEBCONF_DB_OVERRIDE};
+		}
+
+		$ENV{DEBCONF_DB_REPLACE} = 'configdb';
+		$ENV{DEBCONF_DB_OVERRIDE} = 'Pipe{infd:none outfd:none}';
+
+		$ENV{DEBCONF_APT_PROGRESS_NO_FRONTEND} = 1;
+
+		@ARGV = @_;
+	}
+
+	import Debconf::Client::ConfModule;
+}
+
+sub passthrough (@) {
+	my $priority = Debconf::Client::ConfModule::get('debconf/priority');
+
+	defined(my $pid = fork) or die "$0: can't fork: $!\n";
+	if (!$pid) {
+		close STATUS_READ;
+		close COMMAND_WRITE;
+		close DEBCONF_COMMAND_READ;
+		close DEBCONF_REPLY_WRITE;
+		$^F = 6; # avoid close-on-exec
+		if (fileno(COMMAND_READ) != 0) {
+			checkdup2(fileno(COMMAND_READ), 0);
+			close COMMAND_READ;
+		}
+		if (fileno(APT_LOG) != 1) {
+			checkclose(1);
+			checkdup2(fileno(APT_LOG), 1);
+		}
+		if (fileno(APT_LOG) != 2) {
+			checkclose(2);
+			checkdup2(fileno(APT_LOG), 2);
+		}
+		close APT_LOG;
+		delete $ENV{DEBIAN_HAS_FRONTEND};
+		delete $ENV{DEBCONF_REDIR};
+		delete $ENV{DEBCONF_SYSTEMRC};
+		delete $ENV{DEBCONF_PIPE}; # just in case ...
+		$ENV{DEBIAN_FRONTEND} = 'passthrough';
+		$ENV{DEBIAN_PRIORITY} = $priority;
+		$ENV{DEBCONF_READFD} = 5;
+		$ENV{DEBCONF_WRITEFD} = 6;
+		$ENV{APT_LISTCHANGES_FRONTEND} = 'none';
+		if ($had_frontend) {
+			$ENV{DEBCONF_DB_REPLACE} = 'configdb';
+			$ENV{DEBCONF_DB_OVERRIDE} = 'Pipe{infd:none outfd:none}';
+		}
+		exec @_;
+	}
+
+	close STATUS_WRITE;
+	close COMMAND_READ;
+	close DEBCONF_COMMAND_WRITE;
+	close DEBCONF_REPLY_READ;
+	return $pid;
+}
+
+sub handle_status ($$$) {
+	my ($from, $to, $line) = @_;
+	my ($status, $pkg, $percent, $description) = split ':', $line, 4;
+
+	my ($min, $len);
+	if ($status eq 'dlstatus') {
+		$min = 0;
+		$len = $dlwaypoint;
+	}
+	elsif ($status eq 'pmstatus') {
+		$min = $dlwaypoint;
+		$len = 100 - $dlwaypoint;
+	}
+	elsif ($status eq 'media-change') {
+		Debconf::Client::ConfModule::subst(
+			'debconf-apt-progress/media-change', 'MESSAGE',
+			$description);
+		my @ret = Debconf::Client::ConfModule::input(
+			'critical', 'debconf-apt-progress/media-change');
+		$ret[0] == 0 or die "Can't display media change request!\n";
+		Debconf::Client::ConfModule::go();
+		print COMMAND_WRITE "\n" || die "can't talk to command fd: $!";
+		return;
+	}
+	else {
+		return;
+	}
+
+	$percent = ($percent * $len / 100 + $min);
+	$percent = ($percent * ($to - $from) / 100 + $from);
+	$percent =~ s/\..*//;
+	if ($progress) {
+		my @ret=Debconf::Client::ConfModule::progress('SET', $percent);
+		if ($ret[0] eq '30') {
+			cancel();
+		}
+	}
+	Debconf::Client::ConfModule::subst(
+		'debconf-apt-progress/info', 'DESCRIPTION', $description);
+	my @ret=Debconf::Client::ConfModule::progress(
+		'INFO', 'debconf-apt-progress/info');
+	if ($ret[0] eq '30') {
+		cancel();
+	}
+}
+
+sub handle_debconf_command ($) {
+	my $line = shift;
+
+	print "$line\n" || die "can't write to stdout: $!";
+	my $ret = <STDIN>;
+	chomp $ret;
+	print DEBCONF_REPLY_WRITE "$ret\n" ||
+		die "can't write to DEBCONF_REPLY_WRITE: $!";
+}
+
+my $pid;
+sub run_progress ($$@) {
+	my $from = shift;
+	my $to = shift;
+	my $command = shift;
+	local (*STATUS_READ, *STATUS_WRITE);
+	local (*COMMAND_READ, *COMMAND_WRITE);
+	local (*DEBCONF_COMMAND_READ, *DEBCONF_COMMAND_WRITE);
+	local (*DEBCONF_REPLY_READ, *DEBCONF_REPLY_WRITE);
+	local *APT_LOG;
+	use IO::Handle;
+
+	if ($progress) {
+		my @ret=Debconf::Client::ConfModule::progress(
+			'INFO', 'debconf-apt-progress/preparing');
+		if ($ret[0] eq '30') {
+			cancel();
+			return 30;
+		}
+	}
+
+	reservefds(4, 5, 6);
+
+	pipe STATUS_READ, STATUS_WRITE
+		or die "$0: can't create status pipe: $!";
+	nonblock(\*STATUS_READ);
+	checkdup2(fileno(STATUS_WRITE), 4);
+	open STATUS_WRITE, '>&=4'
+		or die "$0: can't reopen STATUS_WRITE as fd 4: $!";
+	nocloexec(\*STATUS_WRITE);
+
+	pipe COMMAND_READ, COMMAND_WRITE
+		or die "$0: can't create command pipe: $!";
+	nocloexec(\*COMMAND_READ);
+	COMMAND_WRITE->autoflush(1);
+
+	pipe DEBCONF_COMMAND_READ, DEBCONF_COMMAND_WRITE
+		or die "$0: can't create debconf command pipe: $!";
+	nonblock(\*DEBCONF_COMMAND_READ);
+	checkdup2(fileno(DEBCONF_COMMAND_WRITE), 6);
+	open DEBCONF_COMMAND_WRITE, '>&=6'
+		or die "$0: can't reopen DEBCONF_COMMAND_WRITE as fd 6: $!";
+	nocloexec(\*DEBCONF_COMMAND_WRITE);
+
+	pipe DEBCONF_REPLY_READ, DEBCONF_REPLY_WRITE
+		or die "$0: can't create debconf reply pipe: $!";
+	checkdup2(fileno(DEBCONF_REPLY_READ), 5);
+	open DEBCONF_REPLY_READ, '<&=5'
+		or die "$0: can't reopen DEBCONF_REPLY_READ as fd 5: $!";
+	nocloexec(\*DEBCONF_REPLY_READ);
+	DEBCONF_REPLY_WRITE->autoflush(1);
+
+	if (defined $logfile) {
+		open APT_LOG, '>>', $logfile
+			or die "$0: can't open $logfile: $!";
+	} elsif ($logstderr) {
+		open APT_LOG, '>&STDERR'
+			or die "$0: can't duplicate stderr: $!";
+	} else {
+		open APT_LOG, '>', '/dev/null'
+			or die "$0: can't open /dev/null: $!";
+	}
+	nocloexec(\*APT_LOG);
+
+	$pid = passthrough $command,
+		'-o', 'APT::Status-Fd=4',
+		'-o', 'APT::Keep-Fds::=5',
+		'-o', 'APT::Keep-Fds::=6',
+		@_;
+
+	my $status_eof = 0;
+	my $debconf_command_eof = 0;
+	my $status_buf = '';
+	my $debconf_command_buf = '';
+
+	while (not $status_eof) {
+		my $rin = '';
+		my $rout;
+		vec($rin, fileno(STATUS_READ), 1) = 1;
+		vec($rin, fileno(DEBCONF_COMMAND_READ), 1) = 1
+			unless $debconf_command_eof;
+		my $sel = select($rout = $rin, undef, undef, undef);
+		if ($sel < 0) {
+			next if $! == &POSIX::EINTR;
+			die "$0: select failed: $!";
+		}
+
+		if (vec($rout, fileno(STATUS_READ), 1) == 1) {
+			while (1) {
+				my $r = sysread(STATUS_READ, $status_buf, 4096,
+						length $status_buf);
+				if (not defined $r) {
+					next if $! == &POSIX::EINTR;
+					last if $! == &POSIX::EAGAIN or
+						$! == &POSIX::EWOULDBLOCK;
+					die "$0: read STATUS_READ failed: $!";
+				}
+				elsif ($r == 0) {
+					if ($status_buf ne '' and
+					    $status_buf !~ /\n$/) {
+						$status_buf .= "\n";
+					}
+					$status_eof = 1;
+					last;
+				}
+				last if $status_buf =~ /\n/;
+			}
+
+			while ($status_buf =~ /\n/) {
+				my $status_line;
+				($status_line, $status_buf) =
+					split /\n/, $status_buf, 2;
+				handle_status $from, $to, $status_line;
+			}
+		}
+
+		if (vec($rout, fileno(DEBCONF_COMMAND_READ), 1) == 1) {
+			while (1) {
+				my $r = sysread(DEBCONF_COMMAND_READ,
+						$debconf_command_buf, 4096,
+						length $debconf_command_buf);
+				if (not defined $r) {
+					next if $! == &POSIX::EINTR;
+					last if $! == &POSIX::EAGAIN or
+						$! == &POSIX::EWOULDBLOCK;
+					die "$0: read DEBCONF_COMMAND_READ " .
+					    "failed: $!";
+				}
+				elsif ($r == 0) {
+					if ($debconf_command_buf ne '' and
+					    $debconf_command_buf !~ /\n$/) {
+						$debconf_command_buf .= "\n";
+					}
+					$debconf_command_eof = 1;
+					last;
+				}
+				last if $debconf_command_buf =~ /\n/;
+			}
+
+			while ($debconf_command_buf =~ /\n/) {
+				my $debconf_command_line;
+				($debconf_command_line, $debconf_command_buf) =
+					split /\n/, $debconf_command_buf, 2;
+				handle_debconf_command $debconf_command_line;
+			}
+		}
+	}
+
+	waitpid $pid, 0;
+	undef $pid;
+	my $status = $?;
+
+	if ($progress) {
+		my @ret=Debconf::Client::ConfModule::progress('SET', $to);
+		if ($ret[0] eq '30') {
+			cancel();
+		}
+	}
+
+	if ($status & 127) {
+		return 127;
+	}
+
+	return ($status >> 8);
+}
+
+my $cancelled=0;
+my $cancel_sent_signal=0;
+sub cancel () {
+	$cancelled++;
+	if (defined $pid) {
+		$cancel_sent_signal++;
+		if ($cancel_sent_signal == 1) {
+			kill INT => $pid;
+		}
+		else {
+			kill KILL => $pid;
+		}
+	}
+}
+
+sub start_bar ($$) {
+	my ($from, $to) = @_;
+	if ($progress) {
+		Debconf::Client::ConfModule::progress(
+			'START', $from, $to, 'debconf-apt-progress/title');
+		my @ret=Debconf::Client::ConfModule::progress(
+			'INFO', 'debconf-apt-progress/preparing');
+		if ($ret[0] eq '30') {
+			cancel();
+		}
+	}
+}
+
+sub stop_bar () {
+	Debconf::Client::ConfModule::progress('STOP') if $progress;
+	Debconf::Client::ConfModule::stop() unless $had_frontend;
+}
+
+if (envnonempty('DEBCONF_APT_PROGRESS_DB_REPLACE')) {
+	$ENV{DEBCONF_DB_REPLACE} = $ENV{DEBCONF_APT_PROGRESS_DB_REPLACE};
+} else {
+	delete $ENV{DEBCONF_DB_REPLACE};
+}
+if (envnonempty('DEBCONF_APT_PROGRESS_DB_OVERRIDE')) {
+	$ENV{DEBCONF_DB_OVERRIDE} = $ENV{DEBCONF_APT_PROGRESS_DB_OVERRIDE};
+} else {
+	delete $ENV{DEBCONF_DB_OVERRIDE};
+}
+$had_frontend = 1 unless $ENV{DEBCONF_APT_PROGRESS_NO_FRONTEND};
+delete $ENV{DEBCONF_APT_PROGRESS_NO_FRONTEND}; # avoid inheritance
+
+my @saved_argv = @ARGV;
+
+my $result = GetOptions('config'       => \$config,
+			'start'        => \$start,
+			'from=i'       => \$from,
+			'to=i'         => \$to,
+			'stop'         => \$stop,
+			'logfile=s'    => \$logfile,
+			'logstderr'    => \$logstderr,
+			'progress!'    => \$progress,
+			'dlwaypoint=i' => \$dlwaypoint,
+);
+
+if (! $progress && ($start || $from || $to || $stop)) {
+	die "--no-progress cannot be used with --start, --from, --to, or --stop\n";
+}
+
+unless ($start) {
+	if (defined $from and not defined $to) {
+		die "$0: --from requires --to\n";
+	} elsif (defined $to and not defined $from) {
+		die "$0: --to requires --from\n";
+	}
+}
+
+my $mutex = 0;
+++$mutex if $config;
+++$mutex if $start;
+++$mutex if $stop;
+if ($mutex > 1) {
+	die "$0: must use only one of --config, --start, or --stop\n";
+}
+
+if (($config or $stop) and (defined $from or defined $to)) {
+	die "$0: cannot use --from or --to with --config or --stop\n";
+}
+
+start_debconf(@saved_argv) unless $config;
+
+my $status = 0;
+
+if ($config) {
+	print <<'EOF';
+DEBCONF_APT_PROGRESS_DB_REPLACE="$DEBCONF_DB_REPLACE"
+DEBCONF_APT_PROGRESS_DB_OVERRIDE="$DEBCONF_DB_OVERRIDE"
+export DEBCONF_APT_PROGRESS_DB_REPLACE DEBCONF_APT_PROGRESS_DB_OVERRIDE
+DEBCONF_DB_REPLACE=configdb
+DEBCONF_DB_OVERRIDE='Pipe{infd:none outfd:none}'
+export DEBCONF_DB_REPLACE DEBCONF_DB_OVERRIDE
+EOF
+} elsif ($start) {
+	$from = 0 unless defined $from;
+	$to = 100 unless defined $to;
+	start_bar($from, $to);
+} elsif (defined $from) {
+	$status = run_progress($from, $to, @ARGV);
+} elsif ($stop) {
+	stop_bar();
+} else {
+	start_bar(0, 100);
+	if (! $cancelled) {
+		$status = run_progress(0, 100, @ARGV);
+		stop_bar();
+	}
+}
+
+if ($cancelled) {
+	Debconf::Client::ConfModule::get("debconf/priority");
+
+	exit 30;
+}
+elsif ($status == 30) {
+	exit 3;
+}
+else {
+	exit $status;
+}
+

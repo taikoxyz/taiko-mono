@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+# begin-remove-after: released:forky
+# Workaround for live-build issue #1111039 which affects some rootfs
+# installed by the installer flavor that copies the livefs onto the rootfs
+# instead of bootstrapping from packages
+if [ "$1" = "configure" ] && [ -n "$2" ] && dpkg-divert --list /etc/os-release | grep -q os-release.debootstrap; then
+    dpkg-divert --quiet --local --remove --no-rename /etc/os-release
+    rm -f /etc/os-release
+    ln -s ../usr/lib/os-release /etc/os-release
+fi
+# end-remove-after
+
+

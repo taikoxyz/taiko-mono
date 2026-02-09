@@ -40,6 +40,7 @@ jobs:
             preconfirmation-p2p
             protocol
             relayer
+            reorg-monitor
             urcindexer-rs
             nfts
             ui-lib

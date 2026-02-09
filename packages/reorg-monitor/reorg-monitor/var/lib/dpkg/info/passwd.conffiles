@@ -1,0 +1,6 @@
+/etc/default/useradd
+/etc/pam.d/chfn
+/etc/pam.d/chpasswd
+/etc/pam.d/chsh
+/etc/pam.d/newusers
+/etc/pam.d/passwd

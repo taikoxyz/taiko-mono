@@ -1,0 +1,538 @@
+#!/bin/sh
+#set -e
+#
+# This file understands the following apt configuration variables:
+# Values here are the default.
+# Create /etc/apt/apt.conf.d/10periodic file to set your preference.
+#
+# All of the n-days interval options also accept the suffixes
+# s for seconds, m for minutes, h for hours, d for days or
+# the "always" value to do the action for every job run,
+# which can be used with systemd OnCalendar overrides to
+# define custom schedules for the apt update/upgrade jobs.
+#
+#  Dir "/";
+#  - RootDir for all configuration files
+#
+#  Dir::Cache "var/cache/apt/";
+#  - Set apt package cache directory
+#
+#  Dir::Cache::Archives "archives/";
+#  - Set package archive directory
+#
+#  APT::Periodic::Enable "1";
+#  - Enable the update/upgrade script (0=disable)
+#
+#  APT::Periodic::BackupArchiveInterval "0";
+#  - Backup after n-days if archive contents changed.(0=disable)
+#
+#  APT::Periodic::BackupLevel "3";
+#  - Backup level.(0=disable), 1 is invalid.
+#
+#  Dir::Cache::Backup "backup/";
+#  - Set periodic package backup directory
+#
+#  APT::Archives::MaxAge "0"; (old, deprecated)
+#  APT::Periodic::MaxAge "0"; (new)
+#  - Set maximum allowed age of a cache package file. If a cache 
+#    package file is older it is deleted (0=disable)
+#
+#  APT::Archives::MinAge "2"; (old, deprecated)
+#  APT::Periodic::MinAge "2"; (new)
+#  - Set minimum age of a package file. If a file is younger it
+#    will not be deleted (0=disable). Useful to prevent races
+#    and to keep backups of the packages for emergency.
+#
+#  APT::Archives::MaxSize "0"; (old, deprecated)
+#  APT::Periodic::MaxSize "0"; (new)
+#  - Set maximum size of the cache in MB (0=disable). If the cache
+#    is bigger, cached package files are deleted until the size
+#    requirement is met (the oldest packages will be deleted 
+#    first).
+#
+#  APT::Periodic::Update-Package-Lists "0";
+#  - Do "apt-get update" automatically every n-days (0=disable)
+#    
+#  APT::Periodic::Download-Upgradeable-Packages "0";
+#  - Do "apt-get upgrade --download-only" every n-days (0=disable)
+#
+#  APT::Periodic::Download-Upgradeable-Packages-Debdelta "1";
+#  - Use debdelta-upgrade to download updates if available (0=disable)
+#
+#  APT::Periodic::Unattended-Upgrade "0";
+#  - Run the "unattended-upgrade" security upgrade script 
+#    every n-days (0=disabled)
+#    Requires the package "unattended-upgrades" and will write
+#    a log in /var/log/unattended-upgrades
+# 
+#  APT::Periodic::AutocleanInterval "0";
+#  - Do "apt-get autoclean" every n-days (0=disable)
+#
+#  APT::Periodic::CleanInterval "0";
+#  - Do "apt-get clean" every n-days (0=disable)
+#
+#  APT::Periodic::Verbose "0";
+#  - Send report mail to root
+#      0:  no report             (or null string)
+#      1:  progress report       (actually any string)
+#      2:  + command outputs     (remove -qq, remove 2>/dev/null, add -d)
+#      3:  + trace on            
+#
+
+check_stamp()
+{
+    stamp="$1"
+    interval="$2"
+
+    if [ "$interval" = always ]; then
+	debug_echo "check_stamp: ignoring time stamp file, interval set to always"
+	# treat as enough time has passed
+        return 0
+    fi
+
+    if [ "$interval" = 0 ]; then
+	debug_echo "check_stamp: interval=0"
+	# treat as no time has passed
+        return 1
+    fi
+
+    if [ ! -f "$stamp" ]; then
+	debug_echo "check_stamp: missing time stamp file: $stamp."
+	# treat as enough time has passed
+        return 0
+    fi
+
+    # compare midnight today to midnight the day the stamp was updated
+    stamp_file="$stamp"
+    stamp=$(date --date="$(date -r "$stamp_file" --iso-8601)" +%s 2>/dev/null)
+    if [ "$?" != "0" ]; then
+        # Due to some timezones returning 'invalid date' for midnight on
+        # certain dates (e.g. America/Sao_Paulo), if date returns with error
+        # remove the stamp file and return 0. See coreutils bug:
+        # http://lists.gnu.org/archive/html/bug-coreutils/2007-09/msg00176.html
+        rm -f "$stamp_file"
+        return 0
+    fi
+
+    now=$(date --date="$(date --iso-8601)" +%s 2>/dev/null)
+    if [ "$?" != "0" ]; then
+        # As above, due to some timezones returning 'invalid date' for midnight
+        # on certain dates (e.g. America/Sao_Paulo), if date returns with error
+        # return 0.
+        return 0
+    fi
+
+    delta=$((now-stamp))
+
+    # Calculate the interval in seconds depending on the unit specified
+    if [ "${interval%s}" != "$interval" ] ; then
+        interval="${interval%s}"
+    elif [ "${interval%m}" != "$interval" ] ; then
+        interval="${interval%m}"
+        interval=$((interval*60))
+    elif [ "${interval%h}" != "$interval" ] ; then
+        interval="${interval%h}"
+        interval=$((interval*60*60))
+    else
+        interval="${interval%d}"
+        interval=$((interval*60*60*24))
+    fi
+
+    debug_echo "check_stamp: interval=$interval, now=$now, stamp=$stamp, delta=$delta (sec)"
+
+    # remove timestamps a day (or more) in the future and force re-check
+    if [ "$stamp" -gt $((now+86400)) ]; then
+         echo "WARNING: file $stamp_file has a timestamp in the future: $stamp"
+         rm -f "$stamp_file"
+         return 0
+    fi
+
+    if [ $delta -ge $interval ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+update_stamp()
+{
+    stamp="$1"
+    touch "$stamp"
+}
+
+# we check here if autoclean was enough sizewise
+check_size_constraints()
+{
+    MaxAge=0
+    eval $(apt-config shell MaxAge APT::Archives::MaxAge)
+    eval $(apt-config shell MaxAge APT::Periodic::MaxAge)
+
+    MinAge=2
+    eval $(apt-config shell MinAge APT::Archives::MinAge)
+    eval $(apt-config shell MinAge APT::Periodic::MinAge)
+
+    MaxSize=0
+    eval $(apt-config shell MaxSize APT::Archives::MaxSize)
+    eval $(apt-config shell MaxSize APT::Periodic::MaxSize)
+
+    Cache="/var/cache/apt/archives/"
+    eval $(apt-config shell Cache Dir::Cache::archives/d)
+
+    # sanity check
+    if [ -z "$Cache" ]; then
+	echo "empty Dir::Cache::archives, exiting"
+	exit
+    fi
+
+    # check age
+    if [ ! $MaxAge -eq 0 ] && [ ! $MinAge -eq 0 ]; then
+	debug_echo "aged: ctime <$MaxAge and mtime <$MaxAge and ctime>$MinAge and mtime>$MinAge"
+	find $Cache -name "*.deb"  \( -mtime +$MaxAge -and -ctime +$MaxAge \) -and -not \( -mtime -$MinAge -or -ctime -$MinAge \) -print0 | xargs -r -0 rm -f
+    elif [ ! $MaxAge -eq 0 ]; then
+	debug_echo "aged: ctime <$MaxAge and mtime <$MaxAge only"
+	find $Cache -name "*.deb"  -ctime +$MaxAge -and -mtime +$MaxAge -print0 | xargs -r -0 rm -f
+    else
+	debug_echo "skip aging since MaxAge is 0"
+    fi
+    
+    # check size
+    if [ ! $MaxSize -eq 0 ]; then
+	# maxSize is in MB
+	MaxSize=$((MaxSize*1024))
+
+	#get current time
+	now=$(date --date="$(date --iso-8601)" +%s)
+	MinAge=$((MinAge*24*60*60))
+
+	# reverse-sort by mtime
+	for file in $(ls -rt $Cache/*.deb 2>/dev/null); do 
+	    du=$(du -s $Cache)
+	    size=${du%%/*}
+	    # check if the cache is small enough
+	    if [ $size -lt $MaxSize ]; then
+		debug_echo "end remove by archive size:  size=$size < $MaxSize"
+		break
+	    fi
+
+	    # check for MinAge of the file
+	    if [ $MinAge -ne 0 ]; then 
+		# check both ctime and mtime 
+		mtime=$(stat -c %Y "$file")
+		ctime=$(stat -c %Z "$file")
+		if [ "$mtime" -gt "$ctime" ]; then
+		    delta=$((now-mtime))
+		else
+		    delta=$((now-ctime))
+		fi
+		if [ $delta -le $MinAge ]; then
+		    debug_echo "skip remove by archive size:  $file, delta=$delta < $MinAge"
+		    break
+		else
+		    # delete oldest file
+		    debug_echo "remove by archive size: $file, delta=$delta >= $MinAge (sec), size=$size >= $MaxSize"
+		    rm -f "$file"
+		fi
+	    fi
+	done
+    fi
+}
+
+# deal with the Apt::Periodic::BackupArchiveInterval
+do_cache_backup()
+{
+    BackupArchiveInterval="$1"
+    if [ "$BackupArchiveInterval" = always ]; then
+        :
+    elif [ "$BackupArchiveInterval" = 0 ]; then
+        return
+    fi
+
+    # Set default values and normalize
+    CacheDir="/var/cache/apt"
+    eval $(apt-config shell CacheDir Dir::Cache/d)
+    CacheDir=${CacheDir%/}
+    if [ -z "$CacheDir" ]; then
+	debug_echo "practically empty Dir::Cache, exiting"
+	return 0
+    fi
+
+    Cache="${CacheDir}/archives/"
+    eval $(apt-config shell Cache Dir::Cache::Archives/d)
+    if [ -z "$Cache" ]; then
+	debug_echo "practically empty Dir::Cache::archives, exiting"
+	return 0
+    fi
+
+    BackupLevel=3
+    eval $(apt-config shell BackupLevel APT::Periodic::BackupLevel)
+    if [ $BackupLevel -le 1 ]; then 
+	BackupLevel=2 ; 
+    fi
+    
+    Back="${CacheDir}/backup/"
+    eval $(apt-config shell Back Dir::Cache::Backup/d)
+    if [ -z "$Back" ]; then
+	echo "practically empty Dir::Cache::Backup, exiting" 1>&2
+	return
+    fi
+
+    CacheArchive="$(basename "${Cache}")"
+    test -n "${CacheArchive}" || CacheArchive="archives"
+    BackX="${Back}${CacheArchive}/"
+    for x in $(seq 0 1 $((BackupLevel-1))); do
+	eval "Back${x}=${Back}${x}/"
+    done
+    
+    # backup after n-days if archive contents changed.
+    # (This uses hardlink to save disk space)
+    BACKUP_ARCHIVE_STAMP=/var/lib/apt/periodic/backup-archive-stamp
+    if check_stamp $BACKUP_ARCHIVE_STAMP "$BackupArchiveInterval"; then
+	if [ $({ (cd $Cache 2>/dev/null; find . -name "*.deb"); (cd $Back0 2>/dev/null;find . -name "*.deb") ;}| sort|uniq -u|wc -l) -ne 0 ]; then
+	    mkdir -p $Back
+	    rm -rf $Back$((BackupLevel-1))
+	    for y in $(seq $((BackupLevel-1)) -1 1); do
+		eval BackY=${Back}$y
+		eval BackZ=${Back}$((y-1))
+		if [ -e $BackZ ]; then 
+		    mv -f $BackZ $BackY ; 
+		fi
+	    done
+	    cp -la $Cache $Back ; mv -f $BackX $Back0
+	    update_stamp $BACKUP_ARCHIVE_STAMP
+	    debug_echo "backup with hardlinks. (success)"
+	else
+	    debug_echo "skip backup since same content."
+	fi
+    else
+	debug_echo "skip backup since too new."
+    fi
+}
+
+debug_echo()
+{
+    # Display message if $VERBOSE >= 1
+    if [ "$VERBOSE" -ge 1 ]; then
+        echo "$1" 1>&2
+    fi
+}
+
+# ------------------------ main ----------------------------
+if [ "$1" = "lock_is_held" ]; then
+    shift
+else
+    # Maintain a lock on fd 3, so we can't run the script twice at the same
+    # time.
+    eval $(apt-config shell StateDir Dir::State/d)
+    exec 3>${StateDir}/daily_lock
+    if ! flock -w 3600 3; then
+        echo "E: Could not acquire lock" >&2
+        exit 1
+    fi
+
+    # We hold the lock.  Rerun this script as a child process, which
+    # can run without propagating an extra fd to all of its children.
+    "$0" lock_is_held "$@" 3>&-
+    exit $?
+fi
+
+if test -r /var/lib/apt/extended_states; then
+    # Backup the 7 last versions of APT's extended_states file
+    # shameless copy from dpkg cron
+    if cd /var/backups ; then
+	if ! cmp -s apt.extended_states.0 /var/lib/apt/extended_states; then
+	    cp -p /var/lib/apt/extended_states apt.extended_states
+	    savelog -c 7 apt.extended_states >/dev/null
+	fi
+    fi
+fi
+
+# check apt-config existence
+if ! command -v apt-config >/dev/null; then
+	exit 0
+fi
+
+# check if the user really wants to do something
+AutoAptEnable=1  # default is yes
+eval $(apt-config shell AutoAptEnable APT::Periodic::Enable)
+
+if [ $AutoAptEnable -eq 0 ]; then
+    exit 0
+fi
+
+# Set VERBOSE mode from  apt-config (or inherit from environment)
+VERBOSE=0
+eval $(apt-config shell VERBOSE APT::Periodic::Verbose)
+debug_echo "verbose level $VERBOSE"
+if [ "$VERBOSE" -le 1 ]; then
+    # quiet for 0/1
+    XSTDOUT=">/dev/null"
+    XSTDERR="2>/dev/null"
+    XAPTOPT="-qq"
+    XUUPOPT=""
+else
+    XSTDOUT=""
+    XSTDERR=""
+    XAPTOPT=""
+    XUUPOPT="-d"
+fi
+if [ "$VERBOSE" -ge 3 ]; then
+    # trace output
+    set -x
+fi
+
+# check if we can lock the cache and if the cache is clean
+if command -v apt-get >/dev/null && ! eval apt-get check $XAPTOPT $XSTDERR ; then
+    debug_echo "error encountered in cron job with \"apt-get check\"."
+    exit 0
+fi
+
+# Global current time in seconds since 1970-01-01 00:00:00 UTC
+now=$(date +%s)
+
+# Support old Archive for compatibility.
+# Document only Periodic for all controlling parameters of this script.
+
+UpdateInterval=0
+eval $(apt-config shell UpdateInterval APT::Periodic::Update-Package-Lists)
+
+DownloadUpgradeableInterval=0
+eval $(apt-config shell DownloadUpgradeableInterval APT::Periodic::Download-Upgradeable-Packages)
+
+UnattendedUpgradeInterval=0
+eval $(apt-config shell UnattendedUpgradeInterval APT::Periodic::Unattended-Upgrade)
+
+AutocleanInterval=0
+eval $(apt-config shell AutocleanInterval APT::Periodic::AutocleanInterval)
+
+CleanInterval=0
+eval $(apt-config shell CleanInterval APT::Periodic::CleanInterval)
+
+BackupArchiveInterval=0
+eval $(apt-config shell BackupArchiveInterval APT::Periodic::BackupArchiveInterval)
+
+Debdelta=1
+eval $(apt-config shell Debdelta APT::Periodic::Download-Upgradeable-Packages-Debdelta)
+
+# check if we actually have to do anything that requires locking the cache
+if [ $UpdateInterval = always ] ||
+   [ $DownloadUpgradeableInterval = always ] ||
+   [ $UnattendedUpgradeInterval = always ] ||
+   [ $BackupArchiveInterval = always ] ||
+   [ $AutocleanInterval = always ] ||
+   [ $CleanInterval = always ] ; then
+    :
+elif [ $UpdateInterval = 0 ] &&
+     [ $DownloadUpgradeableInterval = 0 ] &&
+     [ $UnattendedUpgradeInterval = 0 ] &&
+     [ $BackupArchiveInterval = 0 ] &&
+     [ $AutocleanInterval = 0 ] &&
+     [ $CleanInterval = 0 ] ; then
+
+    # check cache size
+    check_size_constraints
+
+    exit 0
+fi
+
+if [ "$1" = "update" ] || [ -z "$1" ] ; then
+    # deal with BackupArchiveInterval
+    do_cache_backup $BackupArchiveInterval
+
+    # include default system language so that "apt-get update" will
+    # fetch the right translated package descriptions
+    if [ -r /etc/default/locale ]; then
+	. /etc/default/locale
+	export LANG LANGUAGE LC_MESSAGES LC_ALL
+    fi
+
+    # update package lists
+    UPDATED=0
+    UPDATE_STAMP=/var/lib/apt/periodic/update-stamp
+    if check_stamp $UPDATE_STAMP $UpdateInterval; then
+	if eval apt-get $XAPTOPT -y update $XSTDERR; then
+	    debug_echo "download updated metadata (success)."
+	    update_stamp $UPDATE_STAMP
+	    UPDATED=1
+	else
+	    debug_echo "download updated metadata (error)"
+	fi
+    else
+	debug_echo "download updated metadata (not run)."
+    fi
+	    
+    # download all upgradeable packages (if it is requested)
+    DOWNLOAD_UPGRADEABLE_STAMP=/var/lib/apt/periodic/download-upgradeable-stamp
+    if [ $UPDATED -eq 1 ] && check_stamp $DOWNLOAD_UPGRADEABLE_STAMP $DownloadUpgradeableInterval; then
+	if [ $Debdelta -eq 1 ]; then
+	    debdelta-upgrade >/dev/null 2>&1 || true
+	fi
+	if  eval apt-get $XAPTOPT -y -d dist-upgrade $XSTDERR; then
+	    update_stamp $DOWNLOAD_UPGRADEABLE_STAMP
+	    debug_echo "download upgradable (success)"
+	else
+	    debug_echo "download upgradable (error)"
+	fi
+    else
+	debug_echo "download upgradable (not run)"
+    fi
+
+    if command -v unattended-upgrade >/dev/null && env LC_ALL=C.UTF-8 unattended-upgrade --help | grep -q download-only && check_stamp $DOWNLOAD_UPGRADEABLE_STAMP $UnattendedUpgradeInterval; then
+	if unattended-upgrade --download-only $XUUPOPT; then
+	    update_stamp $DOWNLOAD_UPGRADEABLE_STAMP
+	    debug_echo "unattended-upgrade -d (success)"
+	else
+	    debug_echo "unattended-upgrade -d (error)"
+	fi
+    else
+	debug_echo "unattended-upgrade -d (not run)"
+    fi
+fi
+
+if [ "$1" = "install" ] || [ -z "$1" ] ; then
+    # auto upgrade all upgradeable packages
+    UPGRADE_STAMP=/var/lib/apt/periodic/upgrade-stamp
+    if command -v unattended-upgrade >/dev/null && check_stamp $UPGRADE_STAMP $UnattendedUpgradeInterval; then
+	if unattended-upgrade $XUUPOPT; then
+	    update_stamp $UPGRADE_STAMP
+	    debug_echo "unattended-upgrade (success)"
+	else
+	    debug_echo "unattended-upgrade (error)"
+	fi
+    else
+	debug_echo "unattended-upgrade (not run)"
+    fi
+
+    # clean package archive
+    CLEAN_STAMP=/var/lib/apt/periodic/clean-stamp
+    if check_stamp $CLEAN_STAMP $CleanInterval; then
+	if  eval apt-get $XAPTOPT -y clean $XSTDERR; then
+	    debug_echo "clean (success)."
+	    update_stamp $CLEAN_STAMP
+	else
+	    debug_echo "clean (error)"
+	fi
+    else
+	debug_echo "clean (not run)"
+    fi
+
+    # autoclean package archive
+    AUTOCLEAN_STAMP=/var/lib/apt/periodic/autoclean-stamp
+    if check_stamp $AUTOCLEAN_STAMP $AutocleanInterval; then
+	if  eval apt-get $XAPTOPT -y autoclean $XSTDERR; then
+	    debug_echo "autoclean (success)."
+	    update_stamp $AUTOCLEAN_STAMP
+	else
+	    debug_echo "autoclean (error)"
+	fi
+    else
+	debug_echo "autoclean (not run)"
+    fi
+
+    # check cache size 
+    check_size_constraints
+fi
+
+#
+#     vim: set sts=4 ai :
+#
+

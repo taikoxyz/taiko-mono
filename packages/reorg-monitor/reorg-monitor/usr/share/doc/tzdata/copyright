@@ -1,0 +1,9 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://www.iana.org/time-zones
+Upstream-Contact: The Internet Assigned Numbers Authority (IANA)
+                  Commentary should be addressed to tz@iana.org
+
+Files: *
+Copyright: The Internet Assigned Numbers Authority (IANA)
+License: public-domain
+ This database is in the public domain.

@@ -1,0 +1,25 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: base-passwd
+Upstream-Contact: Colin Watson <cjwatson@debian.org>
+
+Files: *
+Copyright: Copyright 1999-2002 Wichert Akkerman <wichert@deephackmode.org>
+ Copyright 2002, 2003, 2004 Colin Watson <cjwatson@debian.org>
+License: GPL-2
+
+Files:
+ passwd.master
+ group.master
+License: public-domain
+Copyright: PD; Originally written by Ian Murdock <imurdock@debian.org> and
+ Bruce Perens <bruce@pixar.com>.
+
+Files: doc/*
+Copyright: Copyright 2001, 2002 Joey Hess
+ Copyright 2002, 2003, 2004, 2005, 2007 Colin Watson
+ Copyright 2007 David Mandelberg
+License: GPL-2
+
+License: GPL-2
+ On Debian and Debian-based systems, a copy of the GNU General Public
+ License version 2 is available in /usr/share/common-licenses/GPL-2.

@@ -1,0 +1,33 @@
+_mkfs.minix_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-i'|'--inodes')
+			COMPREPLY=( $(compgen -W "inodes" -- $cur) )
+			return 0
+			;;
+		'-l'|'--badblocks')
+			compopt -o filenames
+			COMPREPLY=( $(compgen -f -- $cur) )
+			return 0
+			;;
+		'-n'|'--namelength')
+			COMPREPLY=( $(compgen -W "14 30 60" -- $cur) )
+			return 0
+			;;
+	esac
+	case $cur in
+		-*)
+			OPTS="--namelength --inodes --check --badblocks --help --version -1 -2 -3"
+			COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+			return 0
+			;;
+	esac
+	compopt -o bashdefault -o default
+	COMPREPLY=( $(compgen -W "$(lsblk -pnro name)" -- $cur) )
+	return 0
+}
+complete -F _mkfs.minix_module mkfs.minix

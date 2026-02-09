@@ -1,0 +1,11 @@
+/.
+/usr
+/usr/lib
+/usr/lib/aarch64-linux-gnu
+/usr/lib/aarch64-linux-gnu/libsemanage.so.2
+/usr/share
+/usr/share/doc
+/usr/share/doc/libsemanage2
+/usr/share/doc/libsemanage2/changelog.Debian.arm64.gz
+/usr/share/doc/libsemanage2/changelog.Debian.gz
+/usr/share/doc/libsemanage2/copyright

@@ -1,0 +1,3 @@
+libtinfo 6 libtinfo6 (>= 6.3+20220423)
+libtic 6 libtinfo6 (>= 6.3+20220423)
+udeb: libtinfo 6 libtinfo6-udeb (>= 6.3+20220423)

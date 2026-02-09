@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+	remove)
+		;;
+
+	purge)
+		rm -f /etc/adjtime
+		;;
+
+	*)
+		;;
+esac
+
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = remove ] && [ -d /run/systemd/system ] ; then
+	systemctl --system daemon-reload >/dev/null || true
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = remove ] && [ -d /run/systemd/system ] ; then
+	systemctl --system daemon-reload >/dev/null || true
+fi
+# End automatically added section
+# Automatically added by dh_installsystemd/13.11.4
+if [ "$1" = "purge" ]; then
+	if [ -x "/usr/bin/deb-systemd-helper" ]; then
+		deb-systemd-helper purge 'fstrim.timer' >/dev/null || true
+	fi
+fi
+# End automatically added section
+

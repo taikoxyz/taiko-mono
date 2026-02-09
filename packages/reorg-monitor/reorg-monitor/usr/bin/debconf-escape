@@ -1,0 +1,47 @@
+#!/usr/bin/perl -w
+# This file was preprocessed, do not edit!
+
+
+use strict;
+use Getopt::Long;
+
+use vars qw($escape $unescape);
+
+sub usage {
+	print STDERR <<EOF;
+Usage: debconf-unescape -e|-u < input-text
+  -e, --escape      escape text
+  -u, --unescape    unescape text
+
+Exactly one of -e or -u must be used.
+EOF
+	exit(1);
+}
+
+$escape=0;
+$unescape=0;
+
+GetOptions(
+	"escape|e" => \$escape,
+	"unescape|u" => \$unescape,
+) || usage();
+
+if ($escape == $unescape) {
+	usage();
+}
+
+if ($escape) {
+	while (<>) {
+		s/\\/\\\\/g;
+		s/\n/\\n/g;
+		print;
+	}
+} else {
+	while (<>) {
+		for (split /(\\.)/) {
+			s/\\(.)/$1 eq "n" ? "\n" : $1/eg;
+			print;
+		}
+	}
+}
+

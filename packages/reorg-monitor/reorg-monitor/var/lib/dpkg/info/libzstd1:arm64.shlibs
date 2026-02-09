@@ -1,0 +1,2 @@
+libzstd 1 libzstd1 (>= 1.5.2)
+udeb: libzstd 1 libzstd1-udeb (>= 1.5.2)

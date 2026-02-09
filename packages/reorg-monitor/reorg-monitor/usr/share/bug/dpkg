@@ -1,0 +1,12 @@
+#!/bin/sh
+
+for d in /bin /sbin /lib /lib32 /libo32 /libx32 /lib64; do
+  linkname="$(readlink $d)"
+  if [ "$linkname" = "usr$d" ] || [ "$linkname" = "/usr$d" ]; then
+    echo "This system uses merged-usr-via-aliased-dirs, going behind dpkg's" >&3
+    echo "back, breaking its core assumptions. This can cause silent file" >&3
+    echo "overwrites and disappearances, and its general tools misbehavior." >&3
+    echo "See <https://wiki.debian.org/Teams/Dpkg/FAQ#broken-usrmerge>." >&3
+    break
+  fi
+done

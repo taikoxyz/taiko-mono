@@ -1,0 +1,140 @@
+#! /bin/sh
+
+set -e
+
+# Load the debconf confmodule if it is available.  It may not be because this
+# package is essential and therefore can't depend on debconf directly.
+if [ -f /usr/share/debconf/confmodule ]; then
+	# shellcheck disable=SC1091
+	. /usr/share/debconf/confmodule
+fi
+
+changes=0
+
+askyesno () {
+	if [ "$DEBIAN_FRONTEND" = "noninteractive" ] ; then
+		a=y
+		return
+	fi
+
+	while : ; do
+		printf '%s ' "$1"
+		read -r a || true
+		if [ "$a" = "" ] ; then
+			a="y"
+		fi
+		a=$(echo $a | tr '[:upper:]' '[:lower:]')
+		if [ "$a" = "y" ] || [ "$a" = "n" ] ; then
+			break
+		fi
+		echo "Illegal answer"
+	done
+}
+
+# A cut-down version of 'which' from debianutils.
+searchpath () {
+	PROGRAM="$1"
+	IFS_SAVE="$IFS"
+	IFS=:
+	RET=1
+	for ELEMENT in $PATH; do
+		if [ -z "$ELEMENT" ]; then
+			ELEMENT=.
+		fi
+		if [ -f "$ELEMENT/$PROGRAM" ] && \
+		   [ -x "$ELEMENT/$PROGRAM" ]; then
+			RET=0
+			break
+		fi
+	done
+	IFS="$IFS_SAVE"
+	return "$RET"
+}
+
+
+if [ ! "$1" = "configure" ] ; then
+    exit 0
+fi
+
+if [ ! -e "$DPKG_ROOT/etc/passwd" ] ; then
+	cp "$DPKG_ROOT/usr/share/base-passwd/passwd.master" "$DPKG_ROOT/etc/passwd"
+fi
+
+if [ ! -e "$DPKG_ROOT/etc/group" ] ; then
+	cp "$DPKG_ROOT/usr/share/base-passwd/group.master" "$DPKG_ROOT/etc/group"
+fi
+
+if [ "$2" = "3.2.2" ] && [ -f /etc/passwd.org ] ; then
+	cat <<EOF
+
+You are upgrading from version 3.2.2 of base-passwd which had a nasty
+bug: it swapped the uid and gid of local accounts.  If you have not
+fixed this problem manually I can undo the changes by restoring your
+previous passwd file from the backup /etc/passwd.org.
+
+EOF
+
+	askyesno "Should I restore your passwd? [Y/n]"
+
+	if [ "$a" = "y" ] ; then
+		cat /etc/passwd.org > /etc/passwd
+		changes=1
+	fi
+fi
+
+tmp=$(mktemp)
+if [ -n "$2" ] && ! update-passwd --dry-run > "$tmp" ; then
+	if [ -f /usr/share/debconf/confmodule ] ; then
+		db_version 2.0
+		update-passwd --verbose
+		changes=1
+	else
+		cat <<EOF
+
+update-passwd has found some differences between your system accounts
+and the current Debian defaults.  It is advisable to allow update-passwd
+to change your system; without those changes some packages might not work
+correctly.  For more documentation on the Debian account policies, please
+see /usr/share/doc/base-passwd/README.
+
+The list of proposed changes is:
+
+EOF
+
+		cat "$tmp"
+		cat <<EOF
+
+It is highly recommended that you allow update-passwd to make these changes
+(a backup file of modified files is made with the extension .org so you can
+always restore the current settings).
+
+EOF
+		askyesno "May I update your system? [Y/n]"
+	fi
+
+	if [ "$a" = "y" ] ; then
+		echo "Okay, I am going to make the necessary updates now"
+		update-passwd --verbose
+		changes=1
+	elif [ "$a" = "n" ] ; then
+		cat <<EOF
+
+Okay, I will not update your system.  If you want to make this update later
+please check the update-passwd utility.
+
+EOF
+
+	fi
+fi
+
+rm -f "$tmp"
+
+if [ "$changes" -gt 0 ] ; then
+	if searchpath nscd; then
+		nscd -i passwd -i group || true
+	fi
+fi
+
+
+
+exit 0

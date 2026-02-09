@@ -1,0 +1,207 @@
+Name: base-passwd/group-add
+Template: base-passwd/group-add
+Owners: base-passwd
+
+Name: base-passwd/group-change-gid
+Template: base-passwd/group-change-gid
+Owners: base-passwd
+
+Name: base-passwd/group-move
+Template: base-passwd/group-move
+Owners: base-passwd
+
+Name: base-passwd/group-remove
+Template: base-passwd/group-remove
+Owners: base-passwd
+
+Name: base-passwd/user-add
+Template: base-passwd/user-add
+Owners: base-passwd
+
+Name: base-passwd/user-change-gecos
+Template: base-passwd/user-change-gecos
+Owners: base-passwd
+
+Name: base-passwd/user-change-gid
+Template: base-passwd/user-change-gid
+Owners: base-passwd
+
+Name: base-passwd/user-change-home
+Template: base-passwd/user-change-home
+Owners: base-passwd
+
+Name: base-passwd/user-change-shell
+Template: base-passwd/user-change-shell
+Owners: base-passwd
+
+Name: base-passwd/user-change-uid
+Template: base-passwd/user-change-uid
+Owners: base-passwd
+
+Name: base-passwd/user-move
+Template: base-passwd/user-move
+Owners: base-passwd
+
+Name: base-passwd/user-remove
+Template: base-passwd/user-remove
+Owners: base-passwd
+
+Name: debconf-apt-progress/info
+Template: debconf-apt-progress/info
+Owners: debconf
+
+Name: debconf-apt-progress/media-change
+Template: debconf-apt-progress/media-change
+Owners: debconf
+
+Name: debconf-apt-progress/preparing
+Template: debconf-apt-progress/preparing
+Owners: debconf
+
+Name: debconf-apt-progress/title
+Template: debconf-apt-progress/title
+Owners: debconf
+
+Name: debconf/frontend
+Template: debconf/frontend
+Value: Dialog
+Owners: debconf
+
+Name: debconf/priority
+Template: debconf/priority
+Value: high
+Owners: debconf
+
+Name: glibc/disable-screensaver
+Template: glibc/disable-screensaver
+Owners: libc6, libc6:arm64
+
+Name: glibc/kernel-not-supported
+Template: glibc/kernel-not-supported
+Owners: libc6, libc6:arm64
+
+Name: glibc/kernel-too-old
+Template: glibc/kernel-too-old
+Owners: libc6, libc6:arm64
+
+Name: glibc/restart-failed
+Template: glibc/restart-failed
+Owners: libc6, libc6:arm64
+
+Name: glibc/restart-services
+Template: glibc/restart-services
+Owners: libc6, libc6:arm64
+
+Name: glibc/upgrade
+Template: glibc/upgrade
+Owners: libc6, libc6:arm64
+
+Name: libpam-modules/deprecate-tally
+Template: libpam-modules/deprecate-tally
+Owners: libpam-modules
+
+Name: libpam-modules/disable-screensaver
+Template: libpam-modules/disable-screensaver
+Owners: libpam-modules
+
+Name: libpam-modules/profiles-disabled
+Template: libpam-modules/profiles-disabled
+Owners: libpam-modules
+
+Name: libpam-runtime/conflicts
+Template: libpam-runtime/conflicts
+Owners: libpam-runtime
+
+Name: libpam-runtime/no_profiles_chosen
+Template: libpam-runtime/no_profiles_chosen
+Owners: libpam-runtime
+
+Name: libpam-runtime/override
+Template: libpam-runtime/override
+Value: false
+Owners: libpam-runtime
+
+Name: libpam-runtime/profiles
+Template: libpam-runtime/profiles
+Value: unix
+Owners: libpam-runtime
+Variables:
+ profile_names = unix, mkhomedir
+ profiles = Unix authentication, Create home directory on login
+
+Name: libpam-runtime/title
+Template: libpam-runtime/title
+Owners: libpam-runtime
+
+Name: libpam0g/restart-failed
+Template: libpam0g/restart-failed
+Owners: libpam0g:arm64
+
+Name: libpam0g/restart-services
+Template: libpam0g/restart-services
+Owners: libpam0g:arm64
+
+Name: libpam0g/xdm-needs-restart
+Template: libpam0g/xdm-needs-restart
+Owners: libpam0g:arm64
+
+Name: libraries/restart-without-asking
+Template: libraries/restart-without-asking
+Owners: libc6, libc6:arm64, libpam0g:arm64
+
+Name: tzdata/Areas
+Template: tzdata/Areas
+Value: Etc
+Owners: tzdata
+Flags: seen
+
+Name: tzdata/Zones/Africa
+Template: tzdata/Zones/Africa
+Owners: tzdata
+
+Name: tzdata/Zones/America
+Template: tzdata/Zones/America
+Owners: tzdata
+
+Name: tzdata/Zones/Antarctica
+Template: tzdata/Zones/Antarctica
+Owners: tzdata
+
+Name: tzdata/Zones/Arctic
+Template: tzdata/Zones/Arctic
+Owners: tzdata
+
+Name: tzdata/Zones/Asia
+Template: tzdata/Zones/Asia
+Owners: tzdata
+
+Name: tzdata/Zones/Atlantic
+Template: tzdata/Zones/Atlantic
+Owners: tzdata
+
+Name: tzdata/Zones/Australia
+Template: tzdata/Zones/Australia
+Owners: tzdata
+
+Name: tzdata/Zones/Etc
+Template: tzdata/Zones/Etc
+Value: UTC
+Owners: tzdata
+Flags: seen
+
+Name: tzdata/Zones/Europe
+Template: tzdata/Zones/Europe
+Owners: tzdata
+
+Name: tzdata/Zones/Indian
+Template: tzdata/Zones/Indian
+Owners: tzdata
+
+Name: tzdata/Zones/Pacific
+Template: tzdata/Zones/Pacific
+Owners: tzdata
+
+Name: tzdata/Zones/US
+Template: tzdata/Zones/US
+Owners: tzdata
+

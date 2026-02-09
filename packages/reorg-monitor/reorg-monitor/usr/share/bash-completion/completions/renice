@@ -1,0 +1,41 @@
+_renice_module()
+{
+	local cur prev OPTS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	case $prev in
+		'-g'|'--pgrp')
+			local PGRP
+			PGRP=$(ps -ax -opgrp | sed '1d')
+			COMPREPLY=( $(compgen -W "$PGRP" -- $cur) )
+			return 0
+			;;
+		'-n'|'--priority')
+			COMPREPLY=( $(compgen -W "{-20..20}" -- $cur) )
+			return 0
+			;;
+		'-p'|'--pid')
+			local PIDS
+			PIDS=$(cd /proc && echo [0-9]*)
+			COMPREPLY=( $(compgen -W "$PIDS" -- $cur) )
+			return 0
+			;;
+		'-u'|'--user')
+			COMPREPLY=( $(compgen -u -- $cur) )
+			return 0
+			;;
+		'-h'|'--help'|'-V'|'--version')
+			return 0
+			;;
+	esac
+	OPTS="--pgrp
+		--priority
+		--pid
+		--user
+		--help
+		--version"
+	COMPREPLY=( $(compgen -W "${OPTS[*]}" -- $cur) )
+	return 0
+}
+complete -F _renice_module renice

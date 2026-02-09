@@ -1,0 +1,15 @@
+#! /bin/sh
+
+set -e
+
+case "$1" in
+    (purge)
+	rm -f "${DPKG_ROOT:-}/etc/shells" "${DPKG_ROOT:-}/var/lib/shells.state"
+    ;;
+    (remove|disappear|upgrade|failed-upgrade|abort-install|abort-upgrade)
+    ;;
+    (*)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
