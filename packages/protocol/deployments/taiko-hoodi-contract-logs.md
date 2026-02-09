@@ -92,12 +92,13 @@
 ### PacayaInbox
 
 - proxy: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`
-- impl: `0x28dA65D1B6ceFab4BF9Fb7f7C5438604d438552C`
+- impl: `0x355dFebFa8234412D86EE0e2493580F60666758A`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
-  - updated on Dec 3, 2025 at commit ``
+  - updated on Dec 3, 2025 at commit `379f5cb`
+  - updated on Feb 9, 2026 at commit `8051523`
 
 ### ShastaInbox
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
