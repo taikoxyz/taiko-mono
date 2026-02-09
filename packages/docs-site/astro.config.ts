@@ -1,5 +1,5 @@
-import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { defineConfig } from "astro/config";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
 
@@ -16,6 +16,7 @@ export default defineConfig({
     starlight({
       plugins: [
         starlightLinksValidator({
+          errorOnLocalLinks: false,
           exclude: [
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
@@ -48,12 +49,28 @@ export default defineConfig({
         dark: "./src/assets/logo-dark.svg",
         light: "./src/assets/logo-light.svg",
       },
-      social: {
-        github: "https://github.com/taikoxyz",
-        "x.com": "https://x.com/taikoxyz",
-        discord: "https://discord.gg/taikoxyz",
-        youtube: "https://youtube.com/@taikoxyz",
-      },
+      social: [
+        {
+          icon: "github",
+          label: "GitHub",
+          href: "https://github.com/taikoxyz",
+        },
+        {
+          icon: "x.com",
+          label: "X (formerly Twitter)",
+          href: "https://x.com/taikoxyz",
+        },
+        {
+          icon: "discord",
+          label: "Discord",
+          href: "https://discord.gg/taikoxyz",
+        },
+        {
+          icon: "youtube",
+          label: "YouTube",
+          href: "https://youtube.com/@taikoxyz",
+        },
+      ],
       sidebar: [
         {
           label: "Start Here",
@@ -216,8 +233,8 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-node-for-taiko-alethia/",
                 },
                 {
-                  label: "Run a node for Taiko Hekla",
-                  link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
+                  label: "Run a node for Taiko Hoodi",
+                  link: "/guides/node-operators/run-a-node-for-taiko-hoodi/",
                 },
                 {
                   label: "Enable a prover",

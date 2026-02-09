@@ -13,7 +13,7 @@ interface ILookaheadStore {
         // The preconfer operator's committer address that is fetched from the slashing commitment.
         address committer;
         // Timestamp of the slot.
-        uint256 slotTimestamp;
+        uint256 timestamp;
         // URC registration root of the operator
         bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator for the
@@ -28,7 +28,7 @@ interface ILookaheadStore {
         bytes26 lookaheadHash;
     }
 
-    struct Config {
+    struct LookaheadStoreConfig {
         // The size of the lookahead buffer.
         uint16 lookaheadBufferSize;
         // The minimum collateral for a registered operator to post the lookahead.
@@ -37,40 +37,44 @@ interface ILookaheadStore {
         uint80 minCollateralForPreconfing;
     }
 
-    error CommitmentSignerMismatch();
-    error CommitterMismatch();
-    error InvalidLookaheadEpoch();
-    error InvalidSlotTimestamp();
-    error InvalidValidatorLeafIndex();
-    error LookaheadNotRequired();
-    error NotProtectorOrPreconfRouter();
-    error OperatorHasBeenSlashed();
-    error OperatorHasInsufficientCollateral();
-    error OperatorHasNotOptedIn();
-    error OperatorHasNotRegistered();
-    error OperatorHasUnregistered();
-    error PosterHasBeenSlashed();
-    error PosterHasInsufficientCollateral();
-    error PosterHasNotOptedIn();
-    error PosterHasUnregistered();
-    error SlasherIsNotProtector();
-    error SlotTimestampIsNotIncrementing();
+    struct LookaheadData {
+        /// @notice Index of the slot of the proposer in the current lookahead.
+        /// @dev Must be set to type(uint256).max if the proposer is from the next epoch
+        uint256 slotIndex;
+        /// @notice URC registration root of the lookahead poster
+        bytes32 registrationRoot;
+        /// @notice Current epoch lookahead slots. It is only used for validation
+        /// @dev Must be provided exactly as originally posted by the previous lookahead poster
+        LookaheadSlot[] currLookahead;
+        /// @notice Next epoch lookahead slots. If there's no lookahead stored for next epoch, it
+        /// will be updated with this value
+        /// @dev IMPORTANT: Must take into account blacklist status as of one slot before the
+        /// current epoch start
+        /// @dev Can be empty for same-epoch proposers when next epoch lookahead already exists
+        /// on-chain (gas optimization). Must be provided for cross-epoch proposers (need slot
+        /// info) and fallback preconfers (responsible for posting/validation)
+        LookaheadSlot[] nextLookahead;
+        /// @notice Commitment signature for the lookahead poster
+        /// @dev Must be set to an empty bytes if the lookahead poster is a whitelisted preconfer
+        bytes commitmentSignature;
+    }
+
+    struct ProposerContext {
+        // `True` if the expected proposer is the fallback preconfer
+        bool isFallback;
+        // Address of the expected proposer (opted-in or fallback)
+        address proposer;
+        // Starting timestamp of the preconfing window
+        uint256 submissionWindowStart;
+        // Ending timestamp of the preconfing window
+        uint256 submissionWindowEnd;
+        // The lookahead slot covering the current preconfing window
+        LookaheadSlot lookaheadSlot;
+    }
 
     event LookaheadPosted(
-        uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlot
+        uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlots
     );
-
-    /// @notice Allows a registered operator to post the lookahead for the next epoch.
-    /// @param _registrationRoot The registration root of the posting-operator in the URC.
-    /// @param _data The signed commitment containing the lookahead data, or the lookahead data if
-    /// posted by the protector or a whitelist preconfer (via preconf router).
-    /// @return lookaheadHash_ The lookahead hash.
-    function updateLookahead(
-        bytes32 _registrationRoot,
-        bytes calldata _data
-    )
-        external
-        returns (bytes26 lookaheadHash_);
 
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
     /// @param _epochTimestamp The timestamp of the epoch.
@@ -84,6 +88,19 @@ interface ILookaheadStore {
         pure
         returns (bytes26);
 
+    /// @notice Returns the proposer context for the given lookahead input and epoch.
+    /// @dev Useful for off-chain nodes to determine the next proposer/preconfer.
+    /// @param _data The lookahead data for the proposer's epoch, plus the next epoch.
+    /// @param _epochTimestamp The timestamp of the proposer's epoch.
+    /// @return context_ The proposer context, including the proposer and submission window bounds.
+    function getProposerContext(
+        LookaheadData memory _data,
+        uint256 _epochTimestamp
+    )
+        external
+        view
+        returns (ProposerContext memory context_);
+
     /// @notice Returns true if the lookahead is required for the next epoch.
     /// @return True if the lookahead is required for the next epoch, false otherwise.
     function isLookaheadRequired() external view returns (bool);
@@ -95,5 +112,31 @@ interface ILookaheadStore {
 
     /// @notice Returns the configuration of the lookahead store.
     /// @return The configuration of the lookahead store.
-    function getConfig() external pure returns (Config memory);
+    function getLookaheadStoreConfig() external pure returns (LookaheadStoreConfig memory);
+
+    /// @notice Checks if a lookahead operator is valid for the next epoch.
+    /// @dev Reverts if the operator is not valid
+    /// @param _epochTimestamp The timestamp of the epoch for which the lookahead is posted.
+    /// @param _registrationRoot The URC registration root of the operator.
+    /// @return True if the operator is valid
+    function isLookaheadOperatorValid(
+        uint256 _epochTimestamp,
+        bytes32 _registrationRoot
+    )
+        external
+        view
+        returns (bool);
+
+    /// @notice Checks if a lookahead poster is valid for the next epoch.
+    /// @dev Reverts if the operator is not valid
+    /// @param _epochTimestamp The timestamp of the next epoch.
+    /// @param _registrationRoot The URC registration root of the poster.
+    /// @return True if the poster is valid
+    function isLookaheadPosterValid(
+        uint256 _epochTimestamp,
+        bytes32 _registrationRoot
+    )
+        external
+        view
+        returns (bool);
 }

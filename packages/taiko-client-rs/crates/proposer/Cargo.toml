@@ -1,0 +1,47 @@
+[package]
+name = "proposer"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+# async
+tokio = { workspace = true }
+
+# observability
+metrics = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# ethereum
+alloy = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-hardforks = { workspace = true }
+alloy-network = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+
+# taiko
+alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["serde"] }
+bindings = { path = "../bindings" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+# types
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+# serialization
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness" }
+test-log = { workspace = true }
+tracing-subscriber = { workspace = true }

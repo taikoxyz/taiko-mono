@@ -18,7 +18,6 @@ type FilterFunc func(
 	filterOpts *bind.FilterOpts,
 ) error
 
-// nolint
 func filterFunc(
 	ctx context.Context,
 	chainID *big.Int,
@@ -150,7 +149,7 @@ func (i *Indexer) filter(
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
 		end := min(j+i.blockBatchSize-1, endBlockID)
 
-		if !i.isPostPacayaForkHeightReached && i.taikol1 != nil && i.pacayaForkHeight > i.latestIndexedBlockNumber && i.pacayaForkHeight < end {
+		if !i.isPostPacayaForkHeightReached && i.taikol1 != nil && i.pacayaForkHeight > i.latestIndexedBlockNumber && i.pacayaForkHeight <= end {
 			slog.Info("pacaya fork height reached", "height", i.pacayaForkHeight)
 
 			i.isPostPacayaForkHeightReached = true
@@ -164,7 +163,7 @@ func (i *Indexer) filter(
 				"endBlockID", end,
 				"isPostPacayaForkHeightReached", i.isPostPacayaForkHeightReached,
 			)
-		} else if !i.isPostOntakeForkHeightReached && i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < end {
+		} else if !i.isPostOntakeForkHeightReached && i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight <= end {
 			slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
 
 			i.isPostOntakeForkHeightReached = true
@@ -199,8 +198,29 @@ func (i *Indexer) filter(
 			filter = filterFunc
 		}
 
-		if err := filter(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
-			return errors.Wrap(err, "filter")
+		wg, ctx := errgroup.WithContext(ctx)
+
+		wg.Go(func() error {
+			if err := filter(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
+				return errors.Wrap(err, "filter")
+			}
+
+			return nil
+		})
+		// runs shasta filter concurrently with pacaya filter which will result in more RPC requests, but allows for
+		// graceful transition without the forkHeight set.
+		if i.shastaInbox != nil {
+			wg.Go(func() error {
+				if err := filterFuncShasta(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
+					return errors.Wrap(err, "filterFuncShasta")
+				}
+
+				return nil
+			})
+		}
+
+		if err := wg.Wait(); err != nil {
+			return err
 		}
 
 		i.latestIndexedBlockNumber = end

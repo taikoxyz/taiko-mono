@@ -15,6 +15,15 @@
     "not-rely-on-time": "off",
     "gas-custom-errors": "off",
     "immutable-vars-naming": "off",
-    "one-contract-per-file": "off"
+    "one-contract-per-file": "off",
+    "use-natspec": "off",
+    "gas-indexed-events": "off",
+    "gas-strict-inequalities": "off",
+    "gas-increment-by-one": "off",
+    "gas-struct-packing": "off",
+    "gas-small-strings": "off",
+    "gas-calldata-parameters": "off",
+    "function-max-lines": "off",
+    "import-path-check": "off"
   }
 }

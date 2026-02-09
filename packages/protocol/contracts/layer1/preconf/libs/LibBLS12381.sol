@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Functions in this library have been adapted from:
 // https://github.com/ethyla/bls12-381-hash-to-curve/blob/main/src/HashToCurve.sol
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 /// @title LibBLS12381
 /// @custom:security-contact security@taiko.xyz
 library LibBLS12381 {
     using LibBLS12381 for *;
+
+    error LEN_IN_BYTES_TOO_LARGE();
+    error DST_TOO_LONG();
 
     struct FieldPoint2 {
         uint256[2] u;
@@ -322,11 +325,11 @@ library LibBLS12381 {
         uint256 ell = (lenInBytes - 1) / 32 + 1;
 
         // 2.  ABORT if ell > 255 or len_in_bytes > 65535 or len(DST) > 255
-        require(ell <= 255, "len_in_bytes too large for sha256");
+        require(ell <= 255, LEN_IN_BYTES_TOO_LARGE());
         // Not really needed because of parameter type
         // require(lenInBytes <= 65535, "len_in_bytes too large");
         // no length normalizing via hashing
-        require(dst.length <= 255, "dst too long");
+        require(dst.length <= 255, DST_TOO_LONG());
 
         bytes memory dstPrime = bytes.concat(dst, bytes1(uint8(dst.length)));
 
@@ -426,7 +429,14 @@ library LibBLS12381 {
      * This functions also assumes that the passed values are 48-byte long BLS pub keys that have
      * 16 functional bytes in the first word, and 32 bytes in the second.
      */
-    function _greaterThan(uint256[2] memory a, uint256[2] memory b) internal pure returns (bool) {
+    function _greaterThan(
+        uint256[2] memory a,
+        uint256[2] memory b
+    )
+        internal
+        pure
+        returns (bool)
+    {
         uint256 wordA;
         uint256 wordB;
         uint256 mask;

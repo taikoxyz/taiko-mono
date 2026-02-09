@@ -12,7 +12,7 @@ import (
 func (s *PreconfBlockAPIServerTestSuite) TestCacheGet() {
 	cache := newEnvelopeQueue()
 	s.Nil(cache.get(uint64(testutils.RandomPort()), testutils.RandomHash()))
-	s.False(cache.has(uint64(testutils.RandomPort()), testutils.RandomHash()))
+	s.False(cache.hasExact(uint64(testutils.RandomPort()), testutils.RandomHash()))
 
 	payload := &preconf.Envelope{
 		Payload: &eth.ExecutionPayload{
@@ -23,7 +23,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGet() {
 	cache.put(uint64(payload.Payload.BlockNumber), payload)
 	payloadCached := cache.get(uint64(payload.Payload.BlockNumber), payload.Payload.BlockHash)
 	s.Equal(payload, payloadCached)
-	s.True(cache.has(uint64(payload.Payload.BlockNumber), payload.Payload.BlockHash))
+	s.True(cache.hasExact(uint64(payload.Payload.BlockNumber), payload.Payload.BlockHash))
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {

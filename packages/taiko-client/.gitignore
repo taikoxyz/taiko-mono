@@ -26,3 +26,7 @@ dbdata
 integration_test/nodes/deployments/mainnet.json
 .env
 .claude/
+.code/
+.bmad/
+# Generated NMC chainspec (generated from template at runtime)
+internal/docker/nodes/nmc/chainspec/taiko-devnet.json

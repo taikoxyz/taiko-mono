@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -74,7 +74,8 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
@@ -131,7 +132,8 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 		s.p.rpc,
 		s.p.L1ProposerPrivKey,
 		s.TestAddr,
-		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.HexToAddress(os.Getenv("PROVER_SET")),
 		10_000_000,
@@ -150,10 +152,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 
 	s.SetIntervalMining(1)
 
-	metaHash, err := s.p.GetParentMetaHash(context.Background())
-	s.Nil(err)
-
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -165,6 +164,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	if os.Getenv("L2_NODE") != "l2_geth" {
 		s.T().Skip("This test is only applicable for L2 Geth node")
 	}
+	s.ForkIntoShasta(s.p, s.s)
 	var (
 		txsCountForEachSender = 300
 		sendersCount          = 5
@@ -313,6 +313,7 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
+	s.ForkIntoShasta(s.p, s.s)
 
 	var (
 		p              = s.p
@@ -372,9 +373,11 @@ func (s *ProposerTestSuite) TestName() {
 }
 
 func (s *ProposerTestSuite) TestProposeOp() {
+	s.ForkIntoShasta(s.p, s.s)
+
 	// Propose txs in L2 execution engine's mempool
-	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
-	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
+	sink1 := make(chan *shastaBindings.ShastaInboxClientProposed)
+	sub1, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink1, nil, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -389,8 +392,11 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	s.Nil(s.p.ProposeOp(context.Background()))
 
 	event := <-sink1
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(event)
-	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
+	header, err := s.RPCClient.L1.HeaderByNumber(context.Background(), big.NewInt(int64(event.Raw.BlockNumber)))
+	s.Nil(err)
+	s.NotNil(header)
+
+	meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
 	s.Nil(err)
@@ -402,6 +408,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
+	s.ForkIntoShasta(s.p, s.s)
 	s.p.MinProposingInternal = 1 * time.Second
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
@@ -416,6 +423,8 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 }
 
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
+	s.ForkIntoShasta(s.p, s.s)
+
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -441,13 +450,17 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 				[]byte{1},
 			)
 			if err != nil {
-				s.Equal("replacement transaction underpriced", err.Error())
+				if os.Getenv("L2_NODE") == "l2_nmc" {
+					s.Equal("ReplacementNotAllowed", err.Error())
+				} else {
+					s.Equal("replacement transaction underpriced", err.Error())
+				}
 			}
 			txsBatch[i] = append(txsBatch[i], tx)
 		}
 	}
 
-	s.Nil(s.p.ProposeTxListPacaya(context.Background(), txsBatch, common.Hash{}))
+	s.Nil(s.p.ProposeTxLists(context.Background(), txsBatch))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	l2Head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)

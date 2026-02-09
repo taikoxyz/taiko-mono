@@ -22,11 +22,8 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git
-
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -47,6 +44,6 @@ jobs:
         run: pnpm layout &&  pnpm lint:sol
 
       - name: Commit contract layout table
-        uses: stefanzweifel/git-auto-commit-action@v6
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "forge fmt & update contract layout table"

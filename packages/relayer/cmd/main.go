@@ -20,7 +20,7 @@ func main() {
 	app := cli.NewApp()
 
 	log.SetOutput(os.Stdout)
-	// attempt to load a .env file to overwrite CLI flags, but allow it to not
+	// Attempt to load a .env file to overwrite CLI flags, but allow it to not
 	// exist.
 
 	envFile := os.Getenv("RELAYER_ENV_FILE")
@@ -42,8 +42,8 @@ func main() {
 		{
 			Name:        "api",
 			Flags:       flags.APIFlags,
-			Usage:       "Starts the relayer http API software",
-			Description: "Taiko relayer http API software",
+			Usage:       "Starts the relayer HTTP API software",
+			Description: "Taiko relayer HTTP API software",
 			Action:      utils.SubcommandAction(new(api.API)),
 		},
 		{

@@ -63,7 +63,8 @@ func (s *ClientTestSuite) SetupTest() {
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
@@ -74,6 +75,11 @@ func (s *ClientTestSuite) SetupTest() {
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
+
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Less(l1Head.Time, s.RPCClient.ShastaClients.ForkTime)
+	s.SetBlockTimestampInterval(12 * time.Second)
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
@@ -148,7 +154,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 
 	var (
 		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
-		taikoInboxAddress = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+		taikoInboxAddress = common.HexToAddress(os.Getenv("PACAYA_INBOX"))
 	)
 
 	log.Info("Deposit tokens", "address", crypto.PubkeyToAddress(key.PublicKey).Hex())
@@ -157,7 +163,7 @@ func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
 	s.Nil(err)
 	s.Greater(balance.Cmp(common.Big0), 0)
 
-	data, err := encoding.TaikoTokenABI.Pack("approve", common.HexToAddress(os.Getenv("TAIKO_INBOX")), balance)
+	data, err := encoding.TaikoTokenABI.Pack("approve", common.HexToAddress(os.Getenv("PACAYA_INBOX")), balance)
 	s.Nil(err)
 
 	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoTokenAddress})
@@ -327,6 +333,15 @@ func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
 	s.True(revertRes)
 }
 
+func (s *ClientTestSuite) SetBlockTimestampInterval(interval time.Duration) {
+	s.Nil(s.RPCClient.L1.CallContext(
+		context.Background(),
+		nil,
+		"anvil_setBlockTimestampInterval",
+		interval.Seconds(),
+	))
+}
+
 func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHash common.Hash) {
 	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
 		context.Background(),
@@ -354,4 +369,20 @@ func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHas
 	s.Nil(err)
 
 	s.Equal(attributes.L1Origin.BlockID.Uint64(), head.Number.Uint64())
+
+	// For Nethermind: clear txpool state after chain reorg
+	// After a reorg, stale txpool caches would reject transaction resubmissions
+	// with "already known" or "nonce too low". This clears hash cache, account cache, and pending txs.
+	// Pending txs must be cleared because tests resubmit transactions with the same hash/nonce,
+	// which would be rejected as "ReplacementNotAllowed" if they remain in the pool.
+	if os.Getenv("L2_NODE") == "l2_nmc" {
+		var cleared bool
+		err := s.RPCClient.L2Engine.CallContext(
+			context.Background(),
+			&cleared,
+			"taikoDebug_clearTxPoolForReorg",
+		)
+		s.Nil(err)
+		s.True(cleared, "TxPool clear failed after forkTo")
+	}
 }

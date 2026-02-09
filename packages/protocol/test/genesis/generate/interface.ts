@@ -8,8 +8,8 @@ export interface Config {
     predeployERC20: boolean;
     contractAddresses: Object;
     param1559: Object;
-    pacayaForkHeight: number;
-    shastaForkHeight: number;
+    remoteSignalService: string;
+    pacayaTaikoAnchor: string;
 }
 
 export interface Result {

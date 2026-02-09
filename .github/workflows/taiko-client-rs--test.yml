@@ -1,0 +1,127 @@
+name: "CI"
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/taiko-client-rs/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/taiko-client-rs/**"
+      - "!**/*.md"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    name: Lint
+    runs-on: [ubuntu-latest]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+          components: clippy, rustfmt
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - name: Install cargo-sort
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-sort
+
+      - name: Check formatting
+        working-directory: packages/taiko-client-rs
+        run: just fmt-check
+
+      - name: Check clippy
+        working-directory: packages/taiko-client-rs
+        run: just clippy
+
+  test:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    name: Tests
+    runs-on: [ubuntu-latest]
+    timeout-minutes: 15
+    env:
+      PROTOCOL_FORK_DIR: protocol-taiko-mono
+
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v6
+      - uses: rui314/setup-mold@v1
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+          components: clippy, rustfmt
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Checkout protocol for testing
+        uses: actions/checkout@v6
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.PROTOCOL_FORK_DIR }}
+          ref: taiko-alethia-protocol-v3.0.0
+
+      - name: Install pnpm dependencies for protocol taiko-mono for testing
+        working-directory: ${{ env.PROTOCOL_FORK_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
+      - name: Run tests
+        working-directory: packages/taiko-client-rs
+        env:
+          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
+        run: just test

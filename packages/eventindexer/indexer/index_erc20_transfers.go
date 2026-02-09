@@ -93,7 +93,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	// Parse the Transfer event ABI
 	parsedABI, err := abi.JSON(strings.NewReader(transferEventABI))
 	if err != nil {
-		return errors.Wrap(err, "abi.JSON(strings.NewReader")
+		return errors.Wrap(err, "abi.JSON(strings.NewReader)")
 	}
 
 	err = parsedABI.UnpackIntoInterface(&event, "Transfer", vLog.Data)
@@ -159,14 +159,18 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		}
 	}
 
-	// increment To address's balance
+	// increment To address's balance (skip if burn to zero address)
 	// decrement From address's balance
-	increaseOpts := eventindexer.UpdateERC20BalanceOpts{
-		ERC20MetadataID: int64(pk),
-		ChainID:         chainID.Int64(),
-		Address:         to,
-		ContractAddress: vLog.Address.Hex(),
-		Amount:          amount,
+	increaseOpts := eventindexer.UpdateERC20BalanceOpts{}
+
+	if to != ZeroAddress.Hex() {
+		increaseOpts = eventindexer.UpdateERC20BalanceOpts{
+			ERC20MetadataID: int64(pk),
+			ChainID:         chainID.Int64(),
+			Address:         to,
+			ContractAddress: vLog.Address.Hex(),
+			Amount:          amount,
+		}
 	}
 
 	decreaseOpts := eventindexer.UpdateERC20BalanceOpts{}
@@ -233,13 +237,13 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 	// Parse the ERC20 contract ABI
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "abi.JSON")
 	}
 
 	// Prepare the call message
 	callData, err := parsedABI.Pack("decimals")
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "parsedABI.Pack")
 	}
 
 	msg := ethereum.CallMsg{
@@ -249,14 +253,14 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 
 	result, err := client.CallContract(ctx, msg, nil)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "client.CallContract")
 	}
 
 	var decimals uint8
 
 	err = parsedABI.UnpackIntoInterface(&decimals, "decimals", result)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "parsedABI.UnpackIntoInterface")
 	}
 
 	return decimals, nil

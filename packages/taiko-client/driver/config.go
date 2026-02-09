@@ -33,7 +33,6 @@ type Config struct {
 	PreconfBlockServerCORSOrigins string
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
-	PreconfHandoverSkipSlots      uint64
 	PreconfOperatorAddress        common.Address
 }
 
@@ -64,7 +63,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if blobServerEndpoint, err = url.Parse(
 			c.String(flags.BlobServerEndpoint.Name),
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create blob data source: %w", err)
 		}
 	}
 
@@ -88,12 +87,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L1BeaconEndpoint:        beaconEndpoint,
 			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
 			L2CheckPoint:            l2CheckPoint,
-			TaikoInboxAddress:       common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+			PacayaInboxAddress:      common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
+			ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 			TaikoAnchorAddress:      common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:               string(jwtSecret),
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
+			TaikoWrapperAddress:     common.HexToAddress(c.String(flags.DriverTaikoWrapperAddress.Name)),
+			ShastaForkTime:          c.Uint64(flags.ShastaForkTime.Name),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup
@@ -102,7 +104,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Create a new RPC client to get the chain IDs.
 	rpc, err := rpc.NewClient(context.Background(), clientConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create RPC client: %w", err)
 	}
 	// Create a new P2P config.
 	if p2pConfigs, err = p2pCli.NewConfig(c, &rollup.Config{
@@ -110,28 +112,19 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2ChainID: rpc.L2.ChainID,
 		Taiko:     true,
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create P2P config: %w", err)
 	}
 
 	// Create a new P2P signer setup.
 	if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
-		return nil, err
-	}
-
-	preconfHandoverSkipSlots := c.Uint64(flags.PreconfHandoverSkipSlots.Name)
-	if rpc.L1Beacon != nil && preconfHandoverSkipSlots > rpc.L1Beacon.SlotsPerEpoch {
-		return nil, fmt.Errorf(
-			"preconfirmation handover skip slots %d is greater than slots per epoch %d",
-			preconfHandoverSkipSlots,
-			rpc.L1Beacon.SlotsPerEpoch,
-		)
+		return nil, fmt.Errorf("failed to load P2P signer setup: %w", err)
 	}
 
 	var preconfOperatorAddress common.Address
 	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
 		sequencerP2PKey, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse sequencer P2P key: %w", err)
 		}
 
 		preconfOperatorAddress = crypto.PubkeyToAddress(sequencerP2PKey.PublicKey)
@@ -148,7 +141,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
-		PreconfHandoverSkipSlots:      preconfHandoverSkipSlots,
 		PreconfOperatorAddress:        preconfOperatorAddress,
 	}, nil
 }

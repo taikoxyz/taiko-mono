@@ -23,6 +23,11 @@ type ProposeBatchTransactionBuilder interface {
 		parentMetahash common.Hash,
 		preconfRouterAddress common.Address,
 	) (*txmgr.TxCandidate, error)
+	BuildShasta(
+		ctx context.Context,
+		txBatch []types.Transactions,
+		preconfRouterAddress common.Address,
+	) (*txmgr.TxCandidate, error)
 }
 
 // buildParamsForForcedInclusion builds the blob params and the block params

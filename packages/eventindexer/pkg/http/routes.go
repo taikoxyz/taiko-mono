@@ -13,6 +13,8 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/blockProvenBy", srv.GetBlockProvenBy)
 	srv.echo.GET("/blockProposedBy", srv.GetBlockProposedBy)
 	srv.echo.GET("/erc20ByAddress", srv.GetERC20BalancesByAddressAndChainID)
+	srv.echo.GET("/proposalProposedBy", srv.GetProposalProposedBy)
+	srv.echo.GET("/proposalProvedBy", srv.GetProposalProvedBy)
 
 	galaxeAPI := srv.echo.Group("/api")
 

@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/console2.sol";
 
-import "src/shared/libs/LibBytes.sol";
 import "../CommonTest.sol";
+import "src/shared/libs/LibBytes.sol";
 
 /// forge-config: default.allow_internal_expect_revert = true
 contract TestLibBytes is CommonTest {

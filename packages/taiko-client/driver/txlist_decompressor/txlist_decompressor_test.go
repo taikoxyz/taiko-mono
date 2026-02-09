@@ -31,10 +31,7 @@ type TxListDecompressorTestSuite struct {
 
 func (s *TxListDecompressorTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	s.d = NewTxListDecompressor(
-		params.MaxGasLimit,
-		rpc.BlockMaxTxListBytes,
-	)
+	s.d = NewTxListDecompressor(rpc.BlockMaxTxListBytes)
 }
 
 func (s *TxListDecompressorTestSuite) TestZeroBytes() {

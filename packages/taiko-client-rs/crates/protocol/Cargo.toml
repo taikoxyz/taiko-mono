@@ -1,0 +1,61 @@
+[package]
+name = "protocol"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[features]
+default = ["net"]
+net = [
+    "tokio",
+    "tokio-retry",
+    "tokio-stream",
+    "alloy-provider",
+    "event-scanner",
+]
+
+[dependencies]
+# async
+async-trait = { workspace = true }
+tokio = { workspace = true, optional = true }
+tokio-retry = { workspace = true, optional = true }
+tokio-stream = { workspace = true, optional = true }
+
+# observability
+tracing = { workspace = true }
+
+# ethereum
+alloy = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-hardforks = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true, optional = true }
+alloy-rlp = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-sol-types = { workspace = true }
+event-scanner = { workspace = true, optional = true }
+
+# crypto
+k256 = { workspace = true }
+
+# taiko
+alethia-reth-consensus = { workspace = true }
+alethia-reth-evm = { workspace = true }
+bindings = { path = "../bindings" }
+
+# types
+anyhow = { workspace = true }
+arc-swap = "1.7"
+dashmap = { workspace = true }
+flate2 = { workspace = true }
+thiserror = { workspace = true }
+
+# serialization
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+rand = { workspace = true, features = ["std", "std_rng"] }

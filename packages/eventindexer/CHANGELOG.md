@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2026-01-20)
+
+
+### Features
+
+* **eventindexer:** init update eventindexer for shasta ([#21199](https://github.com/taikoxyz/taiko-mono/issues/21199)) ([ab6331b](https://github.com/taikoxyz/taiko-mono/commit/ab6331bacdad2ea10dc3f7075efb0871b551abf1))
+* **taiko-client:** the strategy of proof submission ([#21071](https://github.com/taikoxyz/taiko-mono/issues/21071)) ([bee558d](https://github.com/taikoxyz/taiko-mono/commit/bee558d8b5ae0104fa3036a042b95ff1ac5aac5f))
+
+
+### Bug Fixes
+
+* **eventindexer:** avoid increasing zero-address balances on ERC20 burns; skip no-op increases ([#20161](https://github.com/taikoxyz/taiko-mono/issues/20161)) ([206e560](https://github.com/taikoxyz/taiko-mono/commit/206e560473139f2eb2a7706aca5da008446b8b37))
+* **eventindexer:** correct error message function names ([#20139](https://github.com/taikoxyz/taiko-mono/issues/20139)) ([4f9110d](https://github.com/taikoxyz/taiko-mono/commit/4f9110db73e7dd3ba5f54f4031d67152157f9b97))
+* **eventindexer:** correct typos and grammar issues ([#20177](https://github.com/taikoxyz/taiko-mono/issues/20177)) ([fac3e30](https://github.com/taikoxyz/taiko-mono/commit/fac3e30da5b827c25f91939fe4e4c28a4938f571))
+* **eventindexer:** ensure fork block is processed post-fork by making boundary inclusive ([#20097](https://github.com/taikoxyz/taiko-mono/issues/20097)) ([a012eb7](https://github.com/taikoxyz/taiko-mono/commit/a012eb7248e1661f883d2de5b0af145826b3f0dd))
+* **eventindexer:** replace empty URL with valid path in http.NewRequest for pagination tests ([#20109](https://github.com/taikoxyz/taiko-mono/issues/20109)) ([6a90b59](https://github.com/taikoxyz/taiko-mono/commit/6a90b598e4c15b5211ee54691091e6d3eec804f5))
+* **eventindexer:** use Scan for unique proposers/provers queries ([#21155](https://github.com/taikoxyz/taiko-mono/issues/21155)) ([70c4c5e](https://github.com/taikoxyz/taiko-mono/commit/70c4c5edeba36b71dd626141698fa96aa51d478b))
+* **relayer:** improve MySQL container test reliability ([#20328](https://github.com/taikoxyz/taiko-mono/issues/20328)) ([8f72a97](https://github.com/taikoxyz/taiko-mono/commit/8f72a97f0b8fb0b36e4402501e3b8bd012dd236c))
+* **taiko-client:** use correct value for LastBlockIDByBatchID ([#21121](https://github.com/taikoxyz/taiko-mono/issues/21121)) ([f2ca521](https://github.com/taikoxyz/taiko-mono/commit/f2ca52143f8dca00d400f84c94d65a0597b3db9f))
+
+
+### Chores
+
+* **ejector,repo,taiko-client-rs:** improve code comments clarity ([#21055](https://github.com/taikoxyz/taiko-mono/issues/21055)) ([486a6e3](https://github.com/taikoxyz/taiko-mono/commit/486a6e3b1aee009bb963d16e8482643c9a868730))
+
+
+### Documentation
+
+* **eventindexer:** fix README mixed with relayer package ([#20470](https://github.com/taikoxyz/taiko-mono/issues/20470)) ([7c43387](https://github.com/taikoxyz/taiko-mono/commit/7c4338736cfa0b1b722cac3b99e89fce52c268f2))
+
+
+### Code Refactoring
+
+* **balance-monitor, eventindexer, relayer:** replace exp/slog with standard log/slog ([#19861](https://github.com/taikoxyz/taiko-mono/issues/19861)) ([ab4ac99](https://github.com/taikoxyz/taiko-mono/commit/ab4ac9901352db2639eaa0b57c665c66f7d7d615))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
@@ -11,7 +46,7 @@
 ### Bug Fixes
 
 * **eventindexer:** update config tests ([#14912](https://github.com/taikoxyz/taiko-mono/issues/14912)) ([beab49b](https://github.com/taikoxyz/taiko-mono/commit/beab49bd8f085b1e285fb3a16e9b493f3c5f5932))
-* **eventindexer:** upodate indexnfts flag to bool ([#14905](https://github.com/taikoxyz/taiko-mono/issues/14905)) ([a4a982e](https://github.com/taikoxyz/taiko-mono/commit/a4a982ec15a11f207c5b14c3a0b5fb2caffd2c1b))
+* **eventindexer:** update indexnfts flag to bool ([#14905](https://github.com/taikoxyz/taiko-mono/issues/14905)) ([a4a982e](https://github.com/taikoxyz/taiko-mono/commit/a4a982ec15a11f207c5b14c3a0b5fb2caffd2c1b))
 
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.11.0...eventindexer-v0.12.0) (2023-09-25)
 

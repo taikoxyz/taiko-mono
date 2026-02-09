@@ -98,13 +98,14 @@ func requestHTTPProofResponse[T any](
 	apiKey string,
 	reqBody T,
 ) (*http.Response, error) {
-	client := &http.Client{}
+	client := http.DefaultClient
 
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
 
+	log.Debug("Requesting proof", "url", url, "body", string(jsonValue))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
@@ -120,6 +121,11 @@ func requestHTTPProofResponse[T any](
 	}
 
 	if res.StatusCode != http.StatusOK {
+		// Check for rate limiting (429 Too Many Requests)
+		if res.StatusCode == http.StatusTooManyRequests {
+			log.Error("Rate limit on L2 RPC has been reached. Using your own Taiko L2 node as RPC for Raiko is recommended")
+		}
+
 		return nil, fmt.Errorf(
 			"failed to request proof, url: %s, statusCode: %d",
 			url,

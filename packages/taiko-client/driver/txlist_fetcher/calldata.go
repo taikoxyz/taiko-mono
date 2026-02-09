@@ -16,8 +16,8 @@ type CalldataFetcher struct {
 	rpc *rpc.Client
 }
 
-// NewCalldataFetch creates a new CalldataFetcher instance based on the given rpc client.
-func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
+// NewCalldataFetcher creates a new CalldataFetcher instance based on the given rpc client.
+func NewCalldataFetcher(rpc *rpc.Client) *CalldataFetcher {
 	return &CalldataFetcher{rpc: rpc}
 }
 
@@ -33,7 +33,7 @@ func (d *CalldataFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBa
 		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create batch proposed filter: %w", err)
 	}
 	for iter.Next() {
 		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {

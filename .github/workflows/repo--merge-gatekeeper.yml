@@ -2,8 +2,7 @@ name: Merge Gatekeeper
 
 on:
   pull_request:
-    branches:
-      - main
+    types: [synchronize, opened, reopened, edited, ready_for_review]
   merge_group: # Trigger in merge queue to pass the required status check
 
 concurrency:
@@ -21,6 +20,7 @@ jobs:
       - name: Run Merge Gatekeeper
         uses: upsidr/merge-gatekeeper@v1
         with:
-          timeout: 1800 
+          timeout: 1800
           interval: 60
           token: ${{ secrets.GITHUB_TOKEN }}
+          ignored: "Integration tests (l2_nmc)"

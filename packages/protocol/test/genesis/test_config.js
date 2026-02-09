@@ -96,6 +96,7 @@ module.exports = {
       // Rollup Contracts
       TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
+      AnchorForkRouterImpl: getConstantAddress(`0${this.chainId}`, 10004),
       // ============ Proxies ============
       // Shared Contracts
       Bridge: getConstantAddress(this.chainId, 1),
@@ -105,7 +106,7 @@ module.exports = {
       SignalService: getConstantAddress(this.chainId, 5),
       SharedResolver: getConstantAddress(this.chainId, 6),
       // Rollup Contracts
-      TaikoL2: getConstantAddress(this.chainId, 10001),
+      TaikoAnchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
     };
   },
@@ -113,8 +114,8 @@ module.exports = {
     gasExcess: 0,
   },
   predeployERC20: true,
-  pacayaForkHeight: 1024,
-  shastaForkHeight: 2048,
+  remoteSignalService: "0x0000000000000000000000000000000000000000",
+  pacayaTaikoAnchor: "0x0000000000000000000000000000000000000000",
 };
 
 function getConstantAddress(prefix, suffix) {

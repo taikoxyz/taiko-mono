@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"math/big"
 	"math/rand"
@@ -24,14 +25,23 @@ func NewEventRepository() *EventRepository {
 	}
 }
 func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventOpts) (*eventindexer.Event, error) {
-	r.events = append(r.events, &eventindexer.Event{
+	e := &eventindexer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		Data:    datatypes.JSON(opts.Data),
 		ChainID: opts.ChainID.Int64(),
 		Name:    opts.Name,
 		Event:   opts.Event,
 		Address: opts.Address,
-	})
+	}
+
+	if opts.BatchID != nil {
+		e.BatchID = sql.NullInt64{
+			Valid: true,
+			Int64: *opts.BatchID,
+		}
+	}
+
+	r.events = append(r.events, e)
 
 	return nil, nil
 }
@@ -152,7 +162,7 @@ func (r *EventRepository) DeleteAllAfterBlockID(ctx context.Context, blockID uin
 	return nil
 }
 
-// FindLatestBlockID get latest block id
+// FindLatestBlockID gets the latest block id
 func (r *EventRepository) FindLatestBlockID(
 	ctx context.Context,
 	srcChainID uint64,
@@ -184,4 +194,24 @@ func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (
 	}
 
 	return nil, errors.New("not found")
+}
+
+func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if int(e.BatchID.Int64) == proposalID && e.Event == eventindexer.EventNameProposed {
+			return e, nil
+		}
+	}
+
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+	for _, e := range r.events {
+		if int(e.BatchID.Int64) == proposalID && e.Event == eventindexer.EventNameProved {
+			return e, nil
+		}
+	}
+
+	return nil, gorm.ErrRecordNotFound
 }

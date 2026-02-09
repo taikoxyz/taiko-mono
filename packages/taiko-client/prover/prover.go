@@ -18,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -41,8 +42,7 @@ type eventHandlers struct {
 // Prover keeps trying to prove newly proposed blocks.
 type Prover struct {
 	// Configurations
-	cfg     *Config
-	backoff backoff.BackOffContext
+	cfg *Config
 
 	// Clients
 	rpc *rpc.Client
@@ -58,10 +58,13 @@ type Prover struct {
 
 	// Proof submitters
 	proofSubmitterPacaya proofSubmitter.Submitter
+	proofSubmitterShasta proofSubmitter.Submitter
 
-	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
-	proveNotify              chan struct{}
-	batchesAggregationNotify chan proofProducer.ProofType
+	assignmentExpiredCh            chan metadata.TaikoProposalMetaData
+	proveNotify                    chan struct{}
+	batchesAggregationNotifyPacaya chan proofProducer.ProofType
+	batchesAggregationNotifyShasta chan proofProducer.ProofType
+	flushCacheNotify               chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -96,23 +99,20 @@ func InitFromConfig(
 	p.ctx = ctx
 	// Initialize state which will be shared by event handlers.
 	p.sharedState = state.New()
-	p.backoff = backoff.WithContext(
-		backoff.WithMaxRetries(
-			backoff.NewConstantBackOff(p.cfg.BackOffRetryInterval),
-			p.cfg.BackOffMaxRetries,
-		),
-		p.ctx,
-	)
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
 		L1Endpoint:         cfg.L1WsEndpoint,
 		L2Endpoint:         cfg.L2WsEndpoint,
-		TaikoInboxAddress:  cfg.TaikoInboxAddress,
+		L2EngineEndpoint:   cfg.L2EngineEndpoint,
+		JwtSecret:          cfg.JwtSecret,
+		PacayaInboxAddress: cfg.PacayaInboxAddress,
+		ShastaInboxAddress: cfg.ShastaInboxAddress,
 		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
 		TaikoTokenAddress:  cfg.TaikoTokenAddress,
 		ProverSetAddress:   cfg.ProverSetAddress,
 		Timeout:            cfg.RPCTimeout,
+		ShastaForkTime:     cfg.ShastaForkTime,
 	}); err != nil {
 		return err
 	}
@@ -129,7 +129,9 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotify = make(chan proofProducer.ProofType, 1)
+	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.flushCacheNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
 	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -137,7 +139,8 @@ func InitFromConfig(
 
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
-		p.cfg.TaikoInboxAddress,
+		p.cfg.PacayaInboxAddress,
+		p.cfg.ShastaInboxAddress,
 		p.cfg.ProverSetAddress,
 	)
 	if txMgr != nil {
@@ -173,6 +176,9 @@ func InitFromConfig(
 	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
 		return err
 	}
+	if err := p.initShastaProofSubmitter(ctx, txBuilder); err != nil {
+		return err
+	}
 
 	// Initialize event handlers.
 	if err := p.initEventHandlers(); err != nil {
@@ -185,13 +191,13 @@ func InitFromConfig(
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
 	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.TaikoInboxAddress} {
+	for _, contract := range []common.Address{p.cfg.PacayaInboxAddress} {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
 	}
 
-	// 3. Start the main event loop of the prover.
+	// 2. Start the main event loop of the prover.
 	go p.eventLoop()
 
 	return nil
@@ -225,14 +231,21 @@ func (p *Prover) eventLoop() {
 	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
 	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
 	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
+	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
+	shastaProvedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
+
 	// Subscriptions
 	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
 	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
 	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
+	shastaProposedSub := rpc.SubscribeProposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
+	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
 	defer func() {
 		batchProposedSub.Unsubscribe()
 		batchesVerifiedSub.Unsubscribe()
 		batchesProvedSub.Unsubscribe()
+		shastaProposedSub.Unsubscribe()
+		shastaProvedSub.Unsubscribe()
 	}()
 
 	for {
@@ -247,8 +260,12 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case proofType := <-p.batchesAggregationNotify:
-			p.withRetry(func() error { return p.aggregateOpPacaya(proofType) })
+		case proofType := <-p.batchesAggregationNotifyPacaya:
+			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
+		case proofType := <-p.batchesAggregationNotifyShasta:
+			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
+		case proofType := <-p.flushCacheNotify:
+			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
 		case e := <-batchesVerifiedCh:
 			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
@@ -259,6 +276,10 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-batchProposedCh:
 			reqProving()
+		case <-shastaProposedCh:
+			reqProving()
+		case e := <-shastaProvedCh:
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -273,8 +294,7 @@ func (p *Prover) Close(_ context.Context) {
 // proveOp iterates through BatchProposed events.
 func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
-		Client:               p.rpc.L1,
-		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
+		RpcClient:            p.rpc,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
@@ -287,9 +307,15 @@ func (p *Prover) proveOp() error {
 	return iter.Iter()
 }
 
-// aggregateOpPacaya aggregates all proofs in buffer for Pacaya.
-func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
-	if err := p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType); err != nil {
+// aggregateOp aggregates all proofs in buffer.
+func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) error {
+	var err error
+	if isShasta {
+		err = p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
+	} else {
+		err = p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType)
+	}
+	if err != nil {
 		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
 	}
@@ -298,6 +324,9 @@ func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
 
 // requestProofOp requests a new proof generation operation.
 func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
+	if meta.IsShasta() {
+		return p.proofSubmitterShasta.RequestProof(p.ctx, meta)
+	}
 	if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
 		log.Error("Request new batch proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
 		return err
@@ -308,7 +337,13 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
 
 // submitProofAggregationOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
+	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
+		return fmt.Errorf("empty batch proof")
+	}
 	submitter := p.proofSubmitterPacaya
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		submitter = p.proofSubmitterShasta
+	}
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
@@ -358,7 +393,15 @@ func (p *Prover) withRetry(f func() error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		if err := backoff.Retry(f, p.backoff); err != nil {
+		// Create a fresh, per-call backoff policy to avoid shared state across goroutines.
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(p.cfg.BackOffRetryInterval),
+				p.cfg.BackOffMaxRetries,
+			),
+			p.ctx,
+		)
+		if err := backoff.Retry(f, bo); err != nil {
 			log.Error("Operation failed", "error", err)
 		}
 	}()

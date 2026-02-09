@@ -1,95 +1,90 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import "../common/EssentialResolverContract.sol";
+import "../common/EssentialContract.sol";
 import "../libs/LibTrieProof.sol";
-import "../libs/LibNames.sol";
+import "./ICheckpointStore.sol";
 import "./ISignalService.sol";
-import "./LibSignals.sol";
+
+import "./SignalService_Layout.sol"; // DO NOT DELETE
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
 /// @dev Labeled in address resolver as "signal_service".
+/// This contract will be initially deployed behind the fork router, which uses 151 slots [0..150].
+/// The storage layout of this contract is compatible and aligned with both the Pacaya version and the fork router.
+/// (e.g. the owner slot is in the same position).
 /// @custom:security-contact security@taiko.xyz
-contract SignalService is EssentialResolverContract, ISignalService {
-    /// @notice Mapping to store the top blockId.
-    /// @dev Slot 1.
-    mapping(uint64 chainId => mapping(bytes32 kind => uint64 blockId)) public topBlockId;
+contract SignalService is EssentialContract, ISignalService {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
 
-    /// @notice Mapping to store the authorized addresses.
-    /// @dev Slot 2.
-    mapping(address addr => bool authorized) public isAuthorized;
-
-    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
-
-    uint256[47] private __gap;
-
-    struct CacheAction {
-        bytes32 rootHash;
-        bytes32 signalRoot;
-        uint64 chainId;
-        uint64 blockId;
-        bool isFullProof;
-        bool isLastHop;
-        CacheOption option;
+    /// @notice Storage-optimized checkpoint record with only persisted fields
+    struct CheckpointRecord {
+        /// @notice The block hash for the end (last) block in this proposal.
+        bytes32 blockHash;
+        /// @notice The state root for the end (last) block in this proposal.
+        bytes32 stateRoot;
     }
 
-    error SS_EMPTY_PROOF();
-    error SS_INVALID_HOPS_WITH_LOOP();
-    error SS_INVALID_LAST_HOP_CHAINID();
-    error SS_INVALID_MID_HOP_CHAINID();
-    error SS_INVALID_STATE();
-    error SS_SIGNAL_NOT_FOUND();
-    error SS_SIGNAL_NOT_RECEIVED();
-    error SS_UNAUTHORIZED();
+    // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
 
-    constructor(address _resolver) EssentialResolverContract(_resolver) { }
+    /// @dev Address that can save checkpoints to this contract.
+    /// @dev This is the `inbox` on L1 and the `anchor` on L2.
+    address internal immutable _authorizedSyncer;
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @dev Address of the remote signal service.
+    address internal immutable _remoteSignalService;
+
+    // ---------------------------------------------------------------
+    // Storage variables
+    // ---------------------------------------------------------------
+
+    /// @dev Slots used by the Pacaya signal service.
+    // slot1: topBlockId
+    // slot2: isAuthorized
+    uint256[2] private _slotsUsedByPacaya;
+
+    /// @dev Cache for received signals.
+    /// @dev Once written, subsequent verifications can skip the merkle proof validation.
+    /// Does NOT reuse the pacaya slot.
+    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
+
+    /// @notice Storage for checkpoints persisted via the SignalService.
+    /// @dev Maps block number to checkpoint data
+    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
+
+    uint256[46] private __gap;
+
+    // ---------------------------------------------------------------
+    // Constructor and Initialization
+    // ---------------------------------------------------------------
+
+    constructor(address authorizedSyncer, address remoteSignalService) {
+        require(authorizedSyncer != address(0), ZERO_ADDRESS());
+        require(remoteSignalService != address(0), ZERO_ADDRESS());
+
+        _authorizedSyncer = authorizedSyncer;
+        _remoteSignalService = remoteSignalService;
+    }
+
+    /// @notice Initializes the SignalService contract for upgradeable deployments.
+    /// @param _owner Address that will own the contract.
     function init(address _owner) external initializer {
+        require(_owner != address(0), ZERO_ADDRESS());
         __Essential_init(_owner);
     }
 
-    /// @dev Authorize or deauthorize an address for calling syncChainData.
-    /// @dev Note that addr is supposed to be Taiko and Taiko contracts deployed locally.
-    /// @param _addr The address to be authorized or deauthorized.
-    /// @param _authorize True if authorize, false otherwise.
-    function authorize(address _addr, bool _authorize) external onlyOwner {
-        if (isAuthorized[_addr] == _authorize) revert SS_INVALID_STATE();
-        isAuthorized[_addr] = _authorize;
-        emit Authorized(_addr, _authorize);
-    }
-
-    /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
-    /// @param _signalSlots The signal slots to mark as received.
-    function receiveSignals(bytes32[] calldata _signalSlots)
-        external
-        onlyFromNamed(LibNames.B_TAIKO)
-    {
-        for (uint256 i; i < _signalSlots.length; ++i) {
-            _receivedSignals[_signalSlots[i]] = true;
-        }
-        emit SignalsReceived(_signalSlots);
-    }
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
 
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 _signal) external returns (bytes32) {
         return _sendSignal(msg.sender, _signal, _signal);
-    }
-
-    /// @inheritdoc ISignalService
-    function syncChainData(
-        uint64 _chainId,
-        bytes32 _kind,
-        uint64 _blockId,
-        bytes32 _chainData
-    )
-        external
-        returns (bytes32)
-    {
-        if (!isAuthorized[msg.sender]) revert SS_UNAUTHORIZED();
-        return _syncChainData(_chainId, _kind, _blockId, _chainData);
     }
 
     /// @inheritdoc ISignalService
@@ -103,15 +98,11 @@ contract SignalService is EssentialResolverContract, ISignalService {
         external
         virtual
         whenNotPaused
-        nonReentrant
-        returns (uint256 numCacheOps_)
+        returns (uint256)
     {
-        CacheAction[] memory actions = // actions for caching
-         _verifySignalReceived(_chainId, _app, _signal, _proof, true);
-
-        for (uint256 i; i < actions.length; ++i) {
-            numCacheOps_ += _cache(actions[i]);
-        }
+        _verifySignalReceived(_chainId, _app, _signal, _proof);
+        _receivedSignals[getSignalSlot(_chainId, _app, _signal)] = true;
+        return 0;
     }
 
     /// @inheritdoc ISignalService
@@ -124,24 +115,10 @@ contract SignalService is EssentialResolverContract, ISignalService {
     )
         external
         view
+        virtual
+        whenNotPaused
     {
-        _verifySignalReceived(_chainId, _app, _signal, _proof, false);
-    }
-
-    /// @inheritdoc ISignalService
-    function isChainDataSynced(
-        uint64 _chainId,
-        bytes32 _kind,
-        uint64 _blockId,
-        bytes32 _chainData
-    )
-        public
-        view
-        nonZeroBytes32(_chainData)
-        returns (bool)
-    {
-        bytes32 signal = signalForChainData(_chainId, _kind, _blockId);
-        return _loadSignalValue(address(this), signal) == _chainData;
+        _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
 
     /// @inheritdoc ISignalService
@@ -152,38 +129,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
     /// @inheritdoc ISignalService
     function isSignalSent(bytes32 _signalSlot) public view returns (bool) {
         return _loadSignalValue(_signalSlot) != 0;
-    }
-
-    /// @inheritdoc ISignalService
-    function getSyncedChainData(
-        uint64 _chainId,
-        bytes32 _kind,
-        uint64 _blockId
-    )
-        public
-        view
-        returns (uint64 blockId_, bytes32 chainData_)
-    {
-        blockId_ = _blockId != 0 ? _blockId : topBlockId[_chainId][_kind];
-
-        if (blockId_ != 0) {
-            bytes32 signal = signalForChainData(_chainId, _kind, blockId_);
-            chainData_ = _loadSignalValue(address(this), signal);
-            if (chainData_ == 0) revert SS_SIGNAL_NOT_FOUND();
-        }
-    }
-
-    /// @inheritdoc ISignalService
-    function signalForChainData(
-        uint64 _chainId,
-        bytes32 _kind,
-        uint64 _blockId
-    )
-        public
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_chainId, _kind, _blockId));
     }
 
     /// @notice Returns the slot for a signal.
@@ -200,53 +145,52 @@ contract SignalService is EssentialResolverContract, ISignalService {
         pure
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 
-    function _verifyHopProof(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes32 _value,
-        HopProof memory _hop,
-        address _signalService
-    )
-        internal
-        view
-        virtual
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        nonZeroBytes32(_value)
-        returns (bytes32)
-    {
-        return LibTrieProof.verifyMerkleProof(
-            _hop.rootHash,
-            _signalService,
-            getSignalSlot(_chainId, _app, _signal),
-            _value,
-            _hop.accountProof,
-            _hop.storageProof
-        );
+    /// @inheritdoc ICheckpointStore
+    function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
+        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+        if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
+        if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
+
+        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
+            blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
+        });
+
+        emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
 
-    function _authorizePause(address, bool) internal pure override notImplemented { }
-
-    function _syncChainData(
-        uint64 _chainId,
-        bytes32 _kind,
-        uint64 _blockId,
-        bytes32 _chainData
-    )
-        private
-        returns (bytes32 signal_)
+    /// @inheritdoc ICheckpointStore
+    function getCheckpoint(uint48 _blockNumber)
+        external
+        view
+        override
+        returns (Checkpoint memory checkpoint)
     {
-        signal_ = signalForChainData(_chainId, _kind, _blockId);
-        _sendSignal(address(this), signal_, _chainData);
+        return _getCheckpoint(_blockNumber);
+    }
 
-        if (topBlockId[_chainId][_kind] < _blockId) {
-            topBlockId[_chainId][_kind] = _blockId;
-        }
-        emit ChainDataSynced(_chainId, _blockId, _kind, _chainData, signal_);
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Gets a checkpoint by block number
+    /// @param _blockNumber The block number of the checkpoint
+    /// @return checkpoint_ The checkpoint
+    function _getCheckpoint(uint48 _blockNumber)
+        private
+        view
+        returns (Checkpoint memory checkpoint_)
+    {
+        CheckpointRecord storage record = _checkpoints[_blockNumber];
+        bytes32 blockHash = record.blockHash;
+        if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
+
+        checkpoint_ = Checkpoint({
+            blockNumber: _blockNumber, blockHash: blockHash, stateRoot: record.stateRoot
+        });
     }
 
     function _sendSignal(
@@ -255,11 +199,12 @@ contract SignalService is EssentialResolverContract, ISignalService {
         bytes32 _value
     )
         private
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        nonZeroBytes32(_value)
         returns (bytes32 slot_)
     {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+        require(_value != bytes32(0), ZERO_VALUE());
+
         slot_ = getSignalSlot(uint64(block.chainid), _app, _signal);
         assembly {
             sstore(slot_, _value)
@@ -267,40 +212,10 @@ contract SignalService is EssentialResolverContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _cache(CacheAction memory _action) private returns (uint256 numCacheOps_) {
-        // cache state root
-        bool cacheStateRoot = _action.option == CacheOption.CACHE_BOTH
-            || _action.option == CacheOption.CACHE_STATE_ROOT;
+    function _loadSignalValue(address _app, bytes32 _signal) private view returns (bytes32) {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
 
-        if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
-            numCacheOps_ = 1;
-            _syncChainData(
-                _action.chainId, LibSignals.STATE_ROOT, _action.blockId, _action.rootHash
-            );
-        }
-
-        // cache signal root
-        bool cacheSignalRoot = _action.option == CacheOption.CACHE_BOTH
-            || _action.option == CacheOption.CACHE_SIGNAL_ROOT;
-
-        if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
-            numCacheOps_ += 1;
-            _syncChainData(
-                _action.chainId, LibSignals.SIGNAL_ROOT, _action.blockId, _action.signalRoot
-            );
-        }
-    }
-
-    function _loadSignalValue(
-        address _app,
-        bytes32 _signal
-    )
-        private
-        view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        returns (bytes32)
-    {
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
         return _loadSignalValue(slot);
     }
@@ -315,87 +230,57 @@ contract SignalService is EssentialResolverContract, ISignalService {
         uint64 _chainId,
         address _app,
         bytes32 _signal,
-        bytes calldata _proof,
-        bool _prepareCaching
+        bytes calldata _proof
     )
         private
         view
-        nonZeroAddr(_app)
-        nonZeroBytes32(_signal)
-        returns (CacheAction[] memory actions)
     {
+        require(_app != address(0), ZERO_ADDRESS());
+        require(_signal != bytes32(0), ZERO_VALUE());
+
+        bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(
-                _receivedSignals[getSignalSlot(_chainId, _app, _signal)], SS_SIGNAL_NOT_RECEIVED()
-            );
-            return new CacheAction[](0);
+            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
+            return;
         }
 
-        HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
-        if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
+        HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
+        if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
 
-        uint64[] memory trace = new uint64[](hopProofs.length - 1);
+        HopProof memory proof = proofs[0];
 
-        actions = new CacheAction[](_prepareCaching ? hopProofs.length : 0);
-
-        uint64 chainId = _chainId;
-        address app = _app;
-        bytes32 signal = _signal;
-        bytes32 value = _signal;
-        address signalService = resolve(chainId, LibNames.B_SIGNAL_SERVICE, false);
-        if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
-
-        HopProof memory hop;
-        bytes32 signalRoot;
-        bool isFullProof;
-        bool isLastHop;
-
-        for (uint256 i; i < hopProofs.length; ++i) {
-            hop = hopProofs[i];
-
-            for (uint256 j; j < i; ++j) {
-                if (trace[j] == hop.chainId) revert SS_INVALID_HOPS_WITH_LOOP();
-            }
-
-            signalRoot = _verifyHopProof(chainId, app, signal, value, hop, signalService);
-            isLastHop = i == trace.length;
-            if (isLastHop) {
-                if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
-                signalService = address(this);
-            } else {
-                trace[i] = hop.chainId;
-
-                if (hop.chainId == 0 || hop.chainId == block.chainid) {
-                    revert SS_INVALID_MID_HOP_CHAINID();
-                }
-                signalService = resolve(hop.chainId, LibNames.B_SIGNAL_SERVICE, false);
-                if (signalService == address(this)) revert SS_INVALID_MID_HOP_CHAINID();
-            }
-
-            isFullProof = hop.accountProof.length != 0;
-
-            if (_prepareCaching) {
-                actions[i] = CacheAction(
-                    hop.rootHash,
-                    signalRoot,
-                    chainId,
-                    hop.blockId,
-                    isFullProof,
-                    isLastHop,
-                    hop.cacheOption
-                );
-            }
-
-            signal = signalForChainData(
-                chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
-            );
-            value = hop.rootHash;
-            chainId = hop.chainId;
-            app = signalService;
+        if (proof.accountProof.length == 0 || proof.storageProof.length == 0) {
+            revert SS_EMPTY_PROOF();
         }
 
-        if (value == 0 || value != _loadSignalValue(address(this), signal)) {
-            revert SS_SIGNAL_NOT_FOUND();
+        if (proof.blockId > type(uint48).max) {
+            revert SS_INVALID_BLOCK_ID();
         }
+
+        Checkpoint memory checkpoint = _getCheckpoint(uint48(proof.blockId));
+        if (checkpoint.stateRoot != proof.rootHash) {
+            revert SS_INVALID_CHECKPOINT();
+        }
+
+        LibTrieProof.verifyMerkleProof(
+            checkpoint.stateRoot,
+            _remoteSignalService,
+            slot,
+            _signal,
+            proof.accountProof,
+            proof.storageProof
+        );
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error SS_CHECKPOINT_NOT_FOUND();
+    error SS_EMPTY_PROOF();
+    error SS_INVALID_BLOCK_ID();
+    error SS_INVALID_CHECKPOINT();
+    error SS_INVALID_PROOF_LENGTH();
+    error SS_SIGNAL_NOT_RECEIVED();
+    error SS_UNAUTHORIZED();
 }

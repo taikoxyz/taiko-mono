@@ -1,11 +1,11 @@
 ---
-title: Run a Holesky node
-description: This guide will help you get a Holesky archive node up and running.
+title: Run a Hoodi node
+description: This guide will help you get a Hoodi node up and running.
 ---
 
-import { Steps } from '@astrojs/starlight/components';
+import { Aside, Steps } from "@astrojs/starlight/components";
 
-This guide will help you get a Holesky archive node up and running.
+This guide will help you get a Hoodi archive node up and running.
 
 ## Prerequisites
 
@@ -17,14 +17,14 @@ This guide will help you get a Holesky archive node up and running.
 
 <Steps>
 
-1. Clone eth-docker
+1.  Clone eth-docker
 
     ```bash
     git clone https://github.com/ethstaker/eth-docker
     cd eth-docker
     ```
 
-2. Do the eth-docker quickstart config
+2.  Do the eth-docker quickstart config
 
     Complete the [eth-docker quickstart](https://eth-docker.net/Usage/QuickStart/). You will need to run the config command:
 
@@ -32,9 +32,10 @@ This guide will help you get a Holesky archive node up and running.
     ./ethd config
     ```
 
+    Select the Hoodi testnet and follow the quickstart guide.
     Make sure to enable Grafana dashboards.
 
-3. Expose RPC ports
+3.  Expose RPC ports
 
     To expose the node's RPC and REST ports (for a Taiko node to make calls to it), you can append `el-shared.yml` and `cl-shared.yml` to the list of files in the `COMPOSE_FILE` variable in your `.env` file:
 
@@ -44,13 +45,30 @@ This guide will help you get a Holesky archive node up and running.
 
     Keep in mind this is **not encrypted**, so you should not expose it to the internet. eth-docker offers a few other options that you can read about [here](https://ethdocker.com/Usage/Advanced/SharedPorts/#sharing-rpc-and-rest-ports).
 
-4. Start Docker containers
+4.  Start Docker containers
+
+          <Aside type="tip">
+
+    As of October 28, 2025, at slot 1,622,016, the Fusaka upgrade has rolled out to Ethereum Hoodi. With this upgrade comes [EIP-7594](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7594.md),
+    which introduces data sampling instead of full downloads; this means that if you are not running an Ethereum Hoodi semi-supernode or supernode beacon client,
+    you L2 node may experience blob unavailability or chain divergence.
+
+    Please configure your beacon client with the respective flags (detailed below) before the Fusaka hard fork date to avoid interruptions!
+    - Lighthouse: **`--semi-supernode` or `--supernode`**
+    - Teku: **`--p2p-subscribe-all-custody-subnets-enabled`**
+    - Grandine: **`--subscribe-all-data-column-subnets`**
+    - Lodestar: **`--supernode`**
+    - Nimbus: **`--debug-peerdas-supernode`**
+
+    This can be done by searching for the respective `{beacon_client_name}.yml` file in `eth-docker` and adding the above listed flags under the `entrypoint` field before starting the docker containers.
+
+          </Aside>
 
     ```bash
     ./ethd up
     ```
 
-5. Check your node is running properly
+5.  Check your node is running properly
 
     You can visit the [Grafana dashboard](https://eth-docker.net/Usage/Dashboards/#connecting-to-local-grafana) which should be running on `localhost:3000` to verify if your node is running correctly. You should see the chain head increasing.
 
@@ -58,4 +76,4 @@ This guide will help you get a Holesky archive node up and running.
 
 ## Video tutorial
 
-See [Run a Sepolia L1 archive node (YouTube)](https://www.youtube.com/watch?v=7Lg_cY7iP2o), the only difference is you need to select **Holesky testnet**.
+See [Run a Sepolia L1 archive node (YouTube)](https://www.youtube.com/watch?v=7Lg_cY7iP2o), the only difference is you need to select **Hoodi testnet**.

@@ -2,6 +2,8 @@ package state
 
 import (
 	"context"
+	"crypto/rand"
+	"math"
 	"math/big"
 	"testing"
 
@@ -9,7 +11,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 type DriverStateTestSuite struct {
@@ -28,6 +29,7 @@ func (s *DriverStateTestSuite) SetupTest() {
 }
 
 func (s *DriverStateTestSuite) TearDownTest() {
+	defer s.ClientTestSuite.TearDownTest()
 	if s.ctx.Err() == nil {
 		s.cancel()
 	}
@@ -44,7 +46,7 @@ func (s *DriverStateTestSuite) TestClose() {
 }
 
 func (s *DriverStateTestSuite) TestGetL2Head() {
-	testHeight := utils.RandUint64(nil)
+	testHeight := RandUint64(nil)
 
 	s.s.setL2Head(nil)
 	s.s.setL2Head(&types.Header{Number: new(big.Int).SetUint64(testHeight)})
@@ -73,4 +75,15 @@ func (s *DriverStateTestSuite) TestDriverInitContextErr() {
 
 func TestDriverStateTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverStateTestSuite))
+}
+
+// RandUint64 returns a random uint64 number.
+func RandUint64(max *big.Int) uint64 {
+	if max == nil {
+		max = new(big.Int)
+		max.SetUint64(math.MaxUint64)
+	}
+	num, _ := rand.Int(rand.Reader, max)
+
+	return num.Uint64()
 }

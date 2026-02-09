@@ -72,7 +72,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
 			L2Endpoint:                  c.String(flags.L2WSEndpoint.Name),
-			TaikoInboxAddress:           common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+			PacayaInboxAddress:          common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
+			ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 			TaikoWrapperAddress:         common.HexToAddress(c.String(flags.TaikoWrapperAddress.Name)),
 			ForcedInclusionStoreAddress: common.HexToAddress(c.String(flags.ForcedInclusionStoreAddress.Name)),
 			TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
@@ -81,6 +82,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+			ShastaForkTime:              c.Uint64(flags.ShastaForkTime.Name),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),

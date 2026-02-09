@@ -167,11 +167,16 @@ func (r *EventRepository) FindUniqueProvers(
 ) ([]eventindexer.UniqueProversResponse, error) {
 	addrs := make([]eventindexer.UniqueProversResponse, 0)
 
+	events := []string{
+		eventindexer.EventNameTransitionProved,
+		eventindexer.EventNameBatchesProven,
+		eventindexer.EventNameProved,
+	}
+
 	if err := r.db.GormDB().WithContext(ctx).
-		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?, ?) GROUP BY address",
-			eventindexer.EventNameTransitionProved, eventindexer.EventNameBatchesProven).
-		FirstOrInit(&addrs).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.FirstOrInit")
+		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?) GROUP BY address", events).
+		Scan(&addrs).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Scan")
 	}
 
 	return addrs, nil
@@ -182,11 +187,16 @@ func (r *EventRepository) FindUniqueProposers(
 ) ([]eventindexer.UniqueProposersResponse, error) {
 	addrs := make([]eventindexer.UniqueProposersResponse, 0)
 
+	events := []string{
+		eventindexer.EventNameBlockProposed,
+		eventindexer.EventNameBatchProposed,
+		eventindexer.EventNameProposed,
+	}
+
 	if err := r.db.GormDB().WithContext(ctx).
-		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?, ?) GROUP BY address",
-			eventindexer.EventNameBlockProposed, eventindexer.EventNameBatchProposed).
-		FirstOrInit(&addrs).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
+		Raw("SELECT address, count(*) AS count FROM events WHERE event IN (?) GROUP BY address", events).
+		Scan(&addrs).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Scan")
 	}
 
 	return addrs, nil
@@ -277,7 +287,7 @@ WHERE block_id >= ? AND chain_id = ?`
 	return r.db.GormDB().WithContext(ctx).Table("events").Exec(query, blockID, srcChainID).Error
 }
 
-// FindLatestBlockID get latest block id
+// FindLatestBlockID gets the latest block id
 func (r *EventRepository) FindLatestBlockID(
 	ctx context.Context,
 	srcChainID uint64,
@@ -296,7 +306,7 @@ func (r *EventRepository) FindLatestBlockID(
 
 func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]*eventindexer.Event, error) {
 	e := []*eventindexer.Event{}
-
+	// First, try to find a direct TransitionProved event
 	err := r.db.GormDB().WithContext(ctx).
 		Where("block_id = ?", blockID).
 		Where("event = ?", eventindexer.EventNameTransitionProved).
@@ -348,7 +358,7 @@ func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (
 	if err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
-
+	// Then, try to find a Batch that the block belongs to
 	if err := r.db.GormDB().WithContext(ctx).
 		Where("event = ?", eventindexer.EventNameBatchProposed).
 		Where("? BETWEEN (block_id - num_blocks + 1) AND block_id", blockID).
@@ -357,4 +367,43 @@ func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (
 	}
 
 	return e, nil
+}
+
+// shasta exclusive api, since proposals reset to id = 1 after genesis in Shasta and reusing GetBlockProposedBy will overlap
+func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+	// try to find direct Proposed event
+	err := r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameProposed).
+		Where("batch_id = ?", proposalID).
+		First(&e).Error
+
+	if err == nil {
+		return e, nil
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return nil, gorm.ErrRecordNotFound
+}
+
+func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+	// try to find direct Proposed event
+	err := r.db.GormDB().WithContext(ctx).
+		Where("event = ?", eventindexer.EventNameProved).
+		Where("batch_id = ?", proposalID).
+		First(&e).Error
+
+	if err == nil {
+		return e, nil
+	}
+
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return nil, gorm.ErrRecordNotFound
 }

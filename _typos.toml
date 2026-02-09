@@ -11,7 +11,9 @@ extend-ignore-identifiers-re = [
   "Groth",
   "groth",
   "GROTH",
-  "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8"
+  "TTKOt",
+  "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
+  "consts",
 ]
 
 [files]
@@ -26,6 +28,9 @@ extend-exclude = [
   "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md",
   "packages/protocol/contracts/layer1/automata-attestation/**",
   "packages/protocol/deployments/**",
-  # TODO: fix typos and remove these
-  "packages/taiko-client/**",
+  # Auto-generated bindings
+  "packages/taiko-client-rs/crates/bindings/**",
+  "packages/taiko-client/bindings/ontake/**",
+  "packages/taiko-client/bindings/pacaya/**",
+  "packages/taiko-client/bindings/shasta/**",
 ]

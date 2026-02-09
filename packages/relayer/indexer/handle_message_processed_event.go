@@ -25,7 +25,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 
 	message := event.Message
 
-	// if the destination doesnt match our source chain, we dont want to handle this event.
+	// if the destination doesn't match our source chain, we dont want to handle this event.
 	if new(big.Int).SetUint64(message.DestChainId).Cmp(i.srcChainId) != 0 {
 		slog.Info("skipping event, wrong chainID",
 			"messageDestChainID",

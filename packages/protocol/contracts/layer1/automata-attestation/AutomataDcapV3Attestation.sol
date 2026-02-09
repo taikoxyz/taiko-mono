@@ -1,18 +1,20 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "solady/src/utils/Base64.sol";
-import "solady/src/utils/LibString.sol";
-import "src/shared/common/EssentialContract.sol";
-import "./lib/QuoteV3Auth/V3Struct.sol";
-import "./lib/QuoteV3Auth/V3Parser.sol";
-import "./lib/interfaces/IPEMCertChainLib.sol";
-import "./lib/PEMCertChainLib.sol";
-import "./lib/TCBInfoStruct.sol";
-import "./lib/EnclaveIdStruct.sol";
-import "./interfaces/IAttestation.sol";
-import "./utils/BytesUtils.sol";
-import "./interfaces/ISigVerifyLib.sol";
+import { IAttestation } from "./interfaces/IAttestation.sol";
+import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
+import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
+import { PEMCertChainLib } from "./lib/PEMCertChainLib.sol";
+import { V3Parser } from "./lib/QuoteV3Auth/V3Parser.sol";
+import { V3Struct } from "./lib/QuoteV3Auth/V3Struct.sol";
+import { TCBInfoStruct } from "./lib/TCBInfoStruct.sol";
+import { IPEMCertChainLib } from "./lib/interfaces/IPEMCertChainLib.sol";
+import { BytesUtils } from "./utils/BytesUtils.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
+import { LibString } from "solady/src/utils/LibString.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+
+import "./AutomataDcapV3Attestation_Layout.sol"; // DO NOT DELETE
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
@@ -42,7 +44,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     // 0 = Quote PCKCrl
     // 1 = RootCrl
     mapping(uint256 idx => mapping(bytes serialNum => bool revoked)) public serialNumIsRevoked; // slot
-        // 6
+    // 6
     // fmspc => tcbInfo
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
@@ -56,8 +58,6 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     event LocalReportCheckToggled(bool checkLocalEnclaveReport);
     event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
-
-    constructor() EssentialContract() { }
 
     // @notice Initializes the contract.
     /// @param sigVerifyLibAddr Address of the signature verification library.
@@ -289,11 +289,13 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 issuer = certs[i + 1];
                 if (i == n - 2) {
                     // this cert is expected to be signed by the root
-                    certRevoked = serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.ROOT)][certs[i]
-                        .serialNumber];
+                    certRevoked = serialNumIsRevoked[
+                        uint256(IPEMCertChainLib.CRL.ROOT)
+                    ][certs[i].serialNumber];
                 } else if (certs[i].isPck) {
-                    certRevoked =
-                        serialNumIsRevoked[uint256(IPEMCertChainLib.CRL.PCK)][certs[i].serialNumber];
+                    certRevoked = serialNumIsRevoked[
+                        uint256(IPEMCertChainLib.CRL.PCK)
+                    ][certs[i].serialNumber];
                 }
                 if (certRevoked) {
                     break;
@@ -313,9 +315,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
                 break;
             }
 
-            bytes32 issuerPubKeyHash = keccak256(issuer.pubKey);
-
-            if (issuerPubKeyHash == ROOTCA_PUBKEY_HASH) {
+            if (EfficientHashLib.hash(issuer.pubKey) == ROOTCA_PUBKEY_HASH) {
                 certChainCanBeTrusted = true;
                 break;
             }
@@ -394,9 +394,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
         // // Step 1: Parse the quote input = 152k gas
         (
-            bool successful,
-            ,
-            ,
+            bool successful,,,
             bytes memory signedQuoteData,
             V3Struct.ECDSAQuoteV3AuthData memory authDataV3
         ) = V3Parser.validateParsedInput(v3quote);
@@ -428,7 +426,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             }
             if (
                 !verifiedEnclaveIdSuccessfully
-                    || qeTcbStatus == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
+                    || qeTcbStatus
+                        == EnclaveIdStruct.EnclaveIdStatus.SGX_ENCLAVE_REPORT_ISVSVN_REVOKED
             ) {
                 return (false, retData);
             }

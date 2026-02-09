@@ -150,7 +150,7 @@ export abstract class Bridge {
 
     // Are we connected to the correct chain?
     if (connectedChainId !== srcChainId) {
-      throw new WrongChainError('wallet must be connected to the destination chain');
+      throw new WrongChainError('wallet must be connected to the source chain');
     }
 
     log(`Claiming message with status ${messageStatus}`);

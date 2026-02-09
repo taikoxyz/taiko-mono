@@ -769,7 +769,7 @@ Overall, I'm excited to see where the Taiko project will go, and I'm confident t
 - https://github.com/code-423n4/2024-03-taiko
 - https://docs.taiko.xyz/start-here/getting-started
 - https://taiko.mirror.xyz/oRy3ZZ_4-6IEQcuLCMMlxvdH6E-T3_H7UwYVzGDsgf4
-- https://www.datawallet.com/crypto/what-is-taiko
+- https://blog.thirdweb.com/what-is-taiko
 - https://medium.com/@mustafa.hourani/interview-with-taiko-a-leading-type-1-zkevm-ddf71eb4eabe
 - https://taiko.mirror.xyz/y_47kIOL5kavvBmG0zVujD2TRztMZt-xgM5d4oqp4_Y?ref=bankless.ghost.io
 

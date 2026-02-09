@@ -8,20 +8,20 @@ Taiko Alethia protocol's client software implementation in Go. Learn more about 
 
 ## Project structure
 
-| Path                | Description                                                                                                                              |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `bindings/`         | [Go contract bindings](https://geth.ethereum.org/docs/dapp/native-bindings) for Taiko smart contracts, and few related utility functions |
-| `cmd/`              | Main executable for this project                                                                                                         |
-| `docs/`             | Documentation                                                                                                                            |
-| `driver/`           | Driver sub-command                                                                                                                       |
-| `integration_test/` | Scripts to do the integration testing of all client software                                                                             |
-| `metrics/`          | Metrics related                                                                                                                          |
-| `pkg/`              | Library code which used by all sub-commands                                                                                              |
-| `proposer/`         | Proposer sub-command                                                                                                                     |
-| `prover/`           | Prover sub-command                                                                                                                       |
-| `scripts/`          | Helpful scripts                                                                                                                          |
-| `testutils/`        | Test utils                                                                                                                               |
-| `version/`          | Version information                                                                                                                      |
+| Path                  | Description                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `bindings/`           | [Go contract bindings](https://geth.ethereum.org/docs/dapp/native-bindings) for Taiko smart contracts, and few related utility functions |
+| `cmd/`                | Main executable for this project                                                                                                         |
+| `docs/`               | Documentation                                                                                                                            |
+| `driver/`             | Driver sub-command                                                                                                                       |
+| `integration_test/`   | Scripts to do the integration testing of all client software                                                                             |
+| `internal/metrics/`   | Metrics related                                                                                                                          |
+| `pkg/`                | Library code which used by all sub-commands                                                                                              |
+| `proposer/`           | Proposer sub-command                                                                                                                     |
+| `prover/`             | Prover sub-command                                                                                                                       |
+| `scripts/`            | Helpful scripts                                                                                                                          |
+| `internal/testutils/` | Test utils                                                                                                                               |
+| `internal/version/`   | Version information                                                                                                                      |
 
 ## Build the source
 

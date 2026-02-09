@@ -213,7 +213,7 @@ struct Some {
 
 #### For-loop
 
-The variable in the for-loop shall not be initialized with 0, and we enforce using `++var` instead of `var++``.
+The variable in the for-loop shall not be initialized with 0, and we enforce using `++var` instead of `var++`.
 
 This is **correct**:
 

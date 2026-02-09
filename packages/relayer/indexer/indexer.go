@@ -25,6 +25,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
 	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
+	v4Inbox "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/inbox"
+	v4 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -43,7 +45,7 @@ var (
 	Filter WatchMode = "filter"
 	// Subscribe ignores all past blocks, only subscibes to new events from latest block.
 	Subscribe WatchMode = "subscribe"
-	// FilterAndSubscribe filters up til latest block, then subscribes to new events. This is the
+	// FilterAndSubscribe filters up to latest block, then subscribes to new events. This is the
 	// default mode.
 	FilterAndSubscribe WatchMode = "filter-and-subscribe"
 	// CrawlPastBlocks filters through the past N blocks on a loop, when it reaches `latestBlock - N`,
@@ -91,7 +93,8 @@ type Indexer struct {
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
 
-	signalService relayer.SignalService
+	signalService   relayer.ChainDataSignalService
+	signalServiceV4 *v4.SignalService
 
 	blockBatchSize      uint64
 	numGoroutines       int
@@ -100,6 +103,7 @@ type Indexer struct {
 	taikol1      *taikol1.TaikoL1
 	taikoL1V2    *v2.TaikoL1
 	taikoInboxV3 *v3.TaikoInbox
+	shastaInbox  *v4Inbox.ShastaInboxClient
 
 	queue queue.Queue
 
@@ -183,6 +187,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var taikoInboxV3 *v3.TaikoInbox
 
+	var shastaInbox *v4Inbox.ShastaInboxClient
+
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
 
@@ -200,9 +206,16 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "v3.NewTaikoInbox")
 		}
+
+		shastaInbox, err = v4Inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v4Inbox.NewShastaInboxClient")
+		}
 	}
 
-	var signalService relayer.SignalService
+	var signalService relayer.ChainDataSignalService
+
+	var signalServiceV4 *v4.SignalService
 
 	if cfg.SrcSignalServiceAddress != ZeroAddress {
 		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
@@ -210,6 +223,26 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
+		}
+	}
+
+	if cfg.SrcSignalServiceForkRouterAddress != ZeroAddress {
+		slog.Info("setting srcSignalServiceForkRouterAddress", "addr", cfg.SrcSignalServiceForkRouterAddress.Hex())
+
+		signalServiceV4, err = v4.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "signalservice.NewSignalService")
+		}
+
+		if cfg.SrcSignalServiceAddress == ZeroAddress {
+			slog.Info("using fork router address for chainDataSynced events",
+				"addr", cfg.SrcSignalServiceForkRouterAddress.Hex(),
+			)
+
+			signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceForkRouterAddress, srcEthClient)
+			if err != nil {
+				return errors.Wrap(err, "signalservice.NewSignalService")
+			}
 		}
 	}
 
@@ -229,9 +262,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.bridge = srcBridge
 	i.destBridge = destBridge
 	i.signalService = signalService
+	i.signalServiceV4 = signalServiceV4
 	i.taikol1 = taikoL1
 	i.taikoL1V2 = taikoL1V2
 	i.taikoInboxV3 = taikoInboxV3
+	i.shastaInbox = shastaInbox
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)
@@ -362,9 +397,15 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
 
-			i.latestIndexedBlockNumber = *i.targetBlockNumber
+			if *i.targetBlockNumber == 0 {
+				slog.Error("invalid targetBlockNumber, must be greater than 0", "targetBlockNumber", *i.targetBlockNumber)
 
-			endBlockID = i.latestIndexedBlockNumber + 1
+				return errors.New("targetBlockNumber must be greater than 0")
+			}
+
+			i.latestIndexedBlockNumber = *i.targetBlockNumber - 1
+
+			endBlockID = *i.targetBlockNumber
 		} else {
 			// set the initial processing block back to either 0 or the genesis block again.
 			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
@@ -425,10 +466,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
 				}
 
-				// we also want to index chain data synced events.
-				if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
-					slog.Error("i.indexChainDataSyncedEvents", "error", err)
-					relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
+				if i.signalService != nil {
+					// we also want to index chain data synced events.
+					if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
+						slog.Error("i.indexChainDataSyncedEvents", "error", err)
+						relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
+					}
+				}
+
+				if i.signalServiceV4 != nil {
+					if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
+						slog.Error("i.indexCheckpointSavedEvents", "error", err)
+						relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
+					}
 				}
 			}
 		case relayer.EventNameMessageProcessed:
@@ -622,7 +672,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		group.Go(func() error {
 			err := i.handleChainDataSyncedEvent(ctx, event, true)
 			if err != nil {
-				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+				relayer.ChainDataSyncedEventsIndexingErrors.Inc()
 
 				// log error but always return nil to keep other goroutines active
 				slog.Error("error handling chainDataSynced", "err", err.Error())
@@ -635,6 +685,49 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	}
 
 	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	if i.signalServiceV4 == nil {
+		return nil
+	}
+
+	slog.Info("indexing checkpointSaved events")
+
+	checkpointEvents, err := i.signalServiceV4.FilterCheckpointSaved(
+		filterOpts,
+		nil,
+	)
+	if err != nil {
+		return errors.Wrap(err, "signalServiceV4.FilterCheckpointSaved")
+	}
+
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for checkpointEvents.Next() {
+		event := checkpointEvents.Event
+
+		group.Go(func() error {
+			err := i.handleCheckpointSavedEvent(ctx, event, true)
+			if err != nil {
+				relayer.CheckpointSavedEventsIndexingErrors.Inc()
+				slog.Error("error handling checkpointSaved", "err", err.Error())
+
+				return err
+			}
+
+			return nil
+		})
+	}
+
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}

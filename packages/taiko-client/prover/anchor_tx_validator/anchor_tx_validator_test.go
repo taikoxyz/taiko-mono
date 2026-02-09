@@ -21,7 +21,11 @@ type AnchorTxValidatorTestSuite struct {
 func (s *AnchorTxValidatorTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	validator, err := New(common.HexToAddress(os.Getenv("TAIKO_ANCHOR")), s.RPCClient.L2.ChainID, s.RPCClient)
+	validator, err := New(
+		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		s.RPCClient.L2.ChainID,
+		s.RPCClient,
+	)
 	s.Nil(err)
 	s.v = validator
 }
@@ -39,7 +43,7 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 		0,
 		common.BytesToAddress(testutils.RandomBytes(1024)), common.Big0, 0, common.Big0, []byte{},
 	)
-	s.ErrorContains(s.v.ValidateAnchorTx(tx), "invalid TaikoAnchor.anchorV3 transaction to")
+	s.ErrorContains(s.v.ValidateAnchorTx(tx), "invalid anchor transaction recipient")
 
 	// invalid sender
 	dynamicFeeTxTx := &types.DynamicFeeTx{
@@ -58,12 +62,12 @@ func (s *AnchorTxValidatorTestSuite) TestValidateAnchorTx() {
 	tx = types.MustSignNewTx(wrongPrivKey, signer, dynamicFeeTxTx)
 
 	s.ErrorContains(
-		s.v.ValidateAnchorTx(tx), "invalid TaikoAnchor.anchorV3 transaction sender",
+		s.v.ValidateAnchorTx(tx), "invalid anchor transaction sender",
 	)
 
 	// invalid method selector
 	tx = types.MustSignNewTx(goldenTouchPriKey, signer, dynamicFeeTxTx)
-	s.ErrorContains(s.v.ValidateAnchorTx(tx), "failed to get TaikoAnchor.anchorV3 transaction method")
+	s.ErrorContains(s.v.ValidateAnchorTx(tx), "failed to get anchor transaction method")
 }
 
 func TestAnchorTxValidatorTestSuite(t *testing.T) {

@@ -9,16 +9,21 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
 
 <CardGrid>
   <LinkCard
-    title="Taiko BCR Explorer"
-    description="An explorer page for viewing the status of Taiko's BCR rollups."
-    href="https://taikonow.xyz"
+    title="Taiko Alethia Status"
+    description="Taiko Alethia status page."
+    href="https://status.taiko.xyz/"
   />
   <LinkCard
-    title="Dune Dashboard (BCR)"
-    description="A Dune dashboard to track Taiko BCR mainnet, built by Taiko Labs."
-    href="https://dune.com/taiko_xyz/taikobcr"
+    title="Dune Dashboard for Taiko Alethia"
+    description="A Dune dashboard giving an overview of Taiko Alethia."
+    href="https://dune.com/house_of_wizard/taiko-alethia-overview"
   />
-    <LinkCard
+  <LinkCard
+    title="Taiko Alethia on growthepie"
+    description="Taiko Analytics: Realtime TPS, transaction costs, fundamentals metrics, events, and much more."
+    href="https://www.growthepie.com/chains/taiko"
+  />
+  <LinkCard
     title="Tenderly Developer Explorer"
     description="Developer Explorer allows you to monitor and inspect transactions, providing high level of details and additional tools such as debugger, simulator, alerts, Virtual TestNets and more."
     href="https://docs.tenderly.co/developer-explorer?mtm_campaign=ext-docs&mtm_kwd=taiko"
@@ -29,12 +34,11 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
 
 <CardGrid>
   <LinkCard
-    title="Tenderly"
+    title="Tenderly Debugger"
     description="Debugger is the complete debugging solution for analyzing, testing, and optimizing smart contracts and transactions. It brings visibility to transaction details to enhance the debugging experience, with features like step-by-step execution, expression evaluation, and more."
     href="https://tenderly.co?mtm_campaign=ext-docs&mtm_kwd=taiko"
   />
 </CardGrid>
-
 
 ## Node running
 
@@ -57,13 +61,17 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
   <LinkCard
     title="Pyth Network"
     description="Pyth Network is the largest first-party Oracle network, delivering real-time data across a vast number of chains. Pyth introduces an innovative low-latency pull oracle design, where users can pull price updates on-chain when needed, enabling everyone in the blockchain environment to access that data point most efficiently. Pyth network updates the prices every 400ms, making Pyth the fastest on-chain oracle."
-    href="https://docs.pyth.network/price-feeds/use-real-time-data/evm"
+    href="https://docs.pyth.network/price-feeds/core/use-real-time-data/pull-integration/evm"
   />
-
   <LinkCard
     title="APRO"
     description="APRO Data Service provides Data Push, empowering smart contracts with accurate, reliable data for a wide range of DeFi applications and beyond."
     href="https://www.apro.com/data-push?chain=taiko-main"
+  />
+  <LinkCard
+    title="Supra"
+    description="Supra Oracles delivers a decentralized, high-performance oracle infrastructure that connects real-world data with smart contracts. Supra's robust oracle services make it easy to access and automate critical external data flows."
+    href="https://docs.supra.com/oracles"
   />
 </CardGrid>
 
@@ -71,33 +79,31 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
 
 <CardGrid>
   <LinkCard
-    title="Porters TKN Api"
-    description="PORTERS provides Web3 DePIN infrastructure through the POKT Network. The PORTERS Token Name Service API provides API access to token metadata, including TAIKO, through REST endpoints that may be accessed through the user's PORTERS App."
-    href="https://docs.porters.xyz/"
-  />
-  <LinkCard
-    title="Tenderly"
+    title="Tenderly RPC"
     description="Tenderly offers a highly performant and reliable production infrastructure, equipped with custom RPC methods for gas price prediction, simulations, tracing, and more."
-    href="https://docs.tenderly.co/node/rpc-reference/taiko-hekla?mtm_campaign=ext-docs&mtm_kwd=taiko"
+    href="https://docs.tenderly.co/node/rpc-reference/taiko"
   />
   <LinkCard
-    title="BlockPI"
-    description="BlockPI is a high-performance, global Web3 infrastructure provider offering reliable RPC endpoints and developer APIs. Designed for dApp builders, BlockPI delivers fast, low-latency access to both real-time and historical chain data."
-    href="https://blockpi.io/chain/taiko"
-  />
-  <LinkCard
-    title="ankr"
+    title="Ankr"
     description="Ankr is a decentralized Web3 infrastructure provider that powers developers and enterprises. Through its global node network of RPC andAPI endpoints, Ankr enables seamless dApp development, staking, and staking-node hosting — all without requiring users to manage complex infrastructure."
     href="https://www.ankr.com/rpc/taiko/"
   />
   <LinkCard
-    title="dRPC"
-    description="dRPC is a decentralized, high‑performance RPC provider powering access to EVM‑based chains via a global, multi‑provider network. It offers latency‑optimized routing, usage-based pricing, detailed dev analytics dashboards, and strong decentralization principles."
-    href="https://drpc.org/chainlist/taiko#taiko"
+    title="Thirdweb"
+    description="Thirdweb is a Web3 development platform that lets you easily build, deploy, and scale blockchain apps with prebuilt smart contracts, wallet infrastructure, and developer tools."
+    href="https://thirdweb.com/chainlist?service=rpc-edge&query=taiko"
   />
 </CardGrid>
 
 ## Indexers
+
+<CardGrid>
+  <LinkCard
+    title="GoldRush (powered by Covalent)"
+    description="GoldRush offers the most comprehensive Blockchain Data API suite for developers, analysts, and enterprises. Whether you are building a DeFi dashboard, a wallet, a trading bot, an AI agent or a compliance platform, the Data APIs provide fast, accurate, and developer-friendly access to   the essential on-chain data you need."
+    href="https://goldrush.dev/docs/chains/taiko?utm_source=taiko&utm_medium=partner-docs"
+  />
+</CardGrid>
 
 <CardGrid>
   <LinkCard
@@ -120,7 +126,9 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
     title="Tenderly Web3 Actions"
     description="Tenderly Web3 Actions are the serverless backend for smart contracts, enabling you to automate responses to different smart contract interactions, build runtime invariant checks, circuit breakers, and more."
     href="https://docs.tenderly.co/alerts/intro-to-alerts?mtm_campaign=ext-docs&mtm_kwd=taiko"
-  />
+
+/>
+
 </CardGrid>
 
 ## Simulations
@@ -150,5 +158,13 @@ import { LinkCard, CardGrid } from "@astrojs/starlight/components";
     title="Thirdweb"
     description="Thirdweb is a Web3 development platform that lets you easily build, deploy, and scale blockchain apps with prebuilt smart contracts, wallet infrastructure, and developer tools."
     href="https://thirdweb.com/taiko"
+  />
+</CardGrid>
+
+<CardGrid>
+  <LinkCard
+    title="Openfort"
+    description="Openfort is an open-source wallet infrastructure solution that support AA infrastructure with 7702, 4337 and paymasters and bundlers."
+    href="https://openfort.io"
   />
 </CardGrid>
