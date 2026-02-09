@@ -7,7 +7,7 @@ Stuck on something? Need some assistance? Here are a few different places you ca
 
 ### Tech support / general questions
 
-Visit our [Discord](https://discord.gg/taikoxyz) for tech support and general questions.
+Visit our [Discord](https://discord.gg/aGZYtKqMjj) for tech support and general questions.
 
 ### Reporting security vulnerabilities
 

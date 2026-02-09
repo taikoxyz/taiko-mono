@@ -19,7 +19,7 @@
 		{
 			icon: 'DiscordLogo',
 			label: 'discord',
-			href: 'https://discord.gg/7cAp9kQ8'
+			href: 'https://discord.gg/aGZYtKqMjj'
 		},
 		{
 			icon: 'TwitterLogo',
