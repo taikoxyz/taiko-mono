@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Encodable2718;
 use alloy_primitives::{B256, Bytes, U256};
@@ -128,13 +130,11 @@ where
     /// Publish an envelope response on `responsePreconfBlocks`.
     pub(super) async fn publish_unsafe_response(
         &self,
-        envelope: WhitelistExecutionPayloadEnvelope,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
     ) {
         let hash = envelope.execution_payload.block_hash;
-        if let Err(err) = self
-            .network_command_tx
-            .send(NetworkCommand::PublishUnsafeResponse { envelope: Box::new(envelope) })
-            .await
+        if let Err(err) =
+            self.network_command_tx.send(NetworkCommand::PublishUnsafeResponse { envelope }).await
         {
             warn!(
                 hash = %hash,

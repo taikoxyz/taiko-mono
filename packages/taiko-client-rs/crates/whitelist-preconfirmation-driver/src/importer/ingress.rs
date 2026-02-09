@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_primitives::B256;
 use alloy_provider::Provider;
 
@@ -32,6 +34,7 @@ where
             self.chain_id,
             self.anchor_address,
         )?;
+        let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
         self.recent_cache.insert_recent(envelope);
 
@@ -59,6 +62,7 @@ where
             self.chain_id,
             self.anchor_address,
         )?;
+        let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
         self.recent_cache.insert_recent(envelope);
         Ok(())
@@ -95,6 +99,7 @@ where
             hash = %hash,
             "serving whitelist preconfirmation response from local l2 block lookup"
         );
+        let envelope = Arc::new(envelope);
         self.recent_cache.insert_recent(envelope.clone());
         self.publish_unsafe_response(envelope).await;
         Ok(())

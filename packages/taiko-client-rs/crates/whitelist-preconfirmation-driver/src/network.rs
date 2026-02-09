@@ -1,6 +1,6 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
@@ -73,7 +73,7 @@ pub(crate) enum NetworkCommand {
     /// Publish an unsafe-block response to the `responsePreconfBlocks` topic.
     PublishUnsafeResponse {
         /// Envelope to publish.
-        envelope: Box<WhitelistExecutionPayloadEnvelope>,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
     },
     /// Shutdown the network loop.
     Shutdown,
@@ -938,7 +938,7 @@ mod tests {
                     _ = interval.tick(), if subscribed => {
                         command_tx
                             .send(NetworkCommand::PublishUnsafeResponse {
-                                envelope: Box::new(expected_to_publish.clone()),
+                                envelope: Arc::new(expected_to_publish.clone()),
                             })
                             .await
                             .expect("publish response command");

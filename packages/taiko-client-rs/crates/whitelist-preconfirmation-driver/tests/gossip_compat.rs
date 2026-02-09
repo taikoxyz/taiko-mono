@@ -7,7 +7,7 @@ mod error;
 #[path = "../src/network.rs"]
 mod network;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
@@ -288,7 +288,7 @@ async fn whitelist_network_publishes_to_go_style_response_topic() {
                 _ = interval.tick(), if subscribed => {
                     command_tx
                         .send(NetworkCommand::PublishUnsafeResponse {
-                            envelope: Box::new(expected_to_publish.clone()),
+                            envelope: Arc::new(expected_to_publish.clone()),
                         })
                         .await
                         .expect("publish response command");

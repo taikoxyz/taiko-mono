@@ -6,7 +6,7 @@ use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use driver::{
-    DriverConfig, SyncStage,
+    DriverConfig,
     sync::{SyncError, event::EventSyncer},
 };
 use rpc::client::Client;
@@ -33,7 +33,7 @@ impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
         let client = Client::new(config.client.clone()).await?;
         let event_syncer = Arc::new(EventSyncer::new(config, client.clone()).await?);
         let event_syncer_task = event_syncer.clone();
-        let handle = tokio::spawn(async move { event_syncer_task.run().await });
+        let handle = tokio::spawn(async move { driver::SyncStage::run(&*event_syncer_task).await });
 
         Ok(Self { client, event_syncer, handle })
     }

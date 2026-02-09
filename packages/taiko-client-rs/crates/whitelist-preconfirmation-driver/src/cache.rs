@@ -2,6 +2,7 @@
 
 use std::{
     collections::HashMap,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -20,7 +21,7 @@ const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
 /// Simple in-memory cache keyed by block hash with bounded capacity.
 pub(crate) struct EnvelopeCache {
     /// Fast lookup table keyed by payload block hash.
-    entries: LinkedHashMap<B256, WhitelistExecutionPayloadEnvelope>,
+    entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
     /// Maximum number of envelopes to retain.
     capacity: usize,
 }
@@ -40,7 +41,7 @@ impl EnvelopeCache {
     }
 
     /// Insert or replace a cached envelope.
-    pub fn insert(&mut self, envelope: WhitelistExecutionPayloadEnvelope) {
+    pub fn insert(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let hash = envelope.execution_payload.block_hash;
         self.entries.remove(&hash);
         self.entries.insert(hash, envelope);
@@ -55,7 +56,7 @@ impl EnvelopeCache {
     }
 
     /// Remove a cached envelope by block hash.
-    pub fn remove(&mut self, hash: &B256) -> Option<WhitelistExecutionPayloadEnvelope> {
+    pub fn remove(&mut self, hash: &B256) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.remove(hash)
     }
 
@@ -71,7 +72,7 @@ impl EnvelopeCache {
     }
 
     /// Get a cached envelope by block hash.
-    pub fn get(&self, hash: &B256) -> Option<&WhitelistExecutionPayloadEnvelope> {
+    pub fn get(&self, hash: &B256) -> Option<&Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.get(hash)
     }
 
@@ -85,7 +86,7 @@ impl EnvelopeCache {
 #[derive(Debug)]
 pub(crate) struct RecentEnvelopeCache {
     /// Fast lookup table keyed by payload block hash.
-    entries: LinkedHashMap<B256, WhitelistExecutionPayloadEnvelope>,
+    entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
     /// Maximum number of envelopes to retain.
     capacity: usize,
 }
@@ -105,7 +106,7 @@ impl RecentEnvelopeCache {
     }
 
     /// Insert or replace a recent envelope.
-    pub fn insert_recent(&mut self, envelope: WhitelistExecutionPayloadEnvelope) {
+    pub fn insert_recent(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let hash = envelope.execution_payload.block_hash;
         self.entries.remove(&hash);
         self.entries.insert(hash, envelope);
@@ -120,12 +121,12 @@ impl RecentEnvelopeCache {
     }
 
     /// Get a recent envelope by block hash.
-    pub fn get_recent(&self, hash: &B256) -> Option<WhitelistExecutionPayloadEnvelope> {
+    pub fn get_recent(&self, hash: &B256) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.get(hash).cloned()
     }
 
     /// Get the most recently inserted end-of-sequencing envelope.
-    pub fn latest_end_of_sequencing(&self) -> Option<WhitelistExecutionPayloadEnvelope> {
+    pub fn latest_end_of_sequencing(&self) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.iter().rev().find_map(|(_, envelope)| {
             envelope.end_of_sequencing.unwrap_or(false).then(|| envelope.clone())
         })
@@ -168,6 +169,8 @@ impl RequestThrottle {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use alloy_primitives::{Address, Bloom, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
 
@@ -205,12 +208,12 @@ mod tests {
         let h2 = B256::from([0x02u8; 32]);
         let h3 = B256::from([0x03u8; 32]);
 
-        recent.insert_recent(sample_envelope(h1, 1));
-        recent.insert_recent(sample_envelope(h2, 2));
+        recent.insert_recent(Arc::new(sample_envelope(h1, 1)));
+        recent.insert_recent(Arc::new(sample_envelope(h2, 2)));
         assert!(recent.get_recent(&h1).is_some());
         assert!(recent.get_recent(&h2).is_some());
 
-        recent.insert_recent(sample_envelope(h3, 3));
+        recent.insert_recent(Arc::new(sample_envelope(h3, 3)));
         assert!(recent.get_recent(&h1).is_none());
         assert!(recent.get_recent(&h2).is_some());
         assert!(recent.get_recent(&h3).is_some());
@@ -225,12 +228,12 @@ mod tests {
 
         let mut first = sample_envelope(h1, 1);
         first.end_of_sequencing = Some(true);
-        recent.insert_recent(first);
-        recent.insert_recent(sample_envelope(h2, 2));
+        recent.insert_recent(Arc::new(first));
+        recent.insert_recent(Arc::new(sample_envelope(h2, 2)));
 
         let mut second = sample_envelope(h3, 3);
         second.end_of_sequencing = Some(true);
-        recent.insert_recent(second);
+        recent.insert_recent(Arc::new(second));
 
         let latest = recent.latest_end_of_sequencing().expect("latest EOS envelope");
         assert_eq!(latest.execution_payload.block_hash, h3);
@@ -254,9 +257,9 @@ mod tests {
         let h2 = B256::from([0x20u8; 32]);
         let h3 = B256::from([0x30u8; 32]);
 
-        cache.insert(sample_envelope(h1, 1));
-        cache.insert(sample_envelope(h2, 2));
-        cache.insert(sample_envelope(h3, 3));
+        cache.insert(Arc::new(sample_envelope(h1, 1)));
+        cache.insert(Arc::new(sample_envelope(h2, 2)));
+        cache.insert(Arc::new(sample_envelope(h3, 3)));
 
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h2, h3]);
@@ -269,13 +272,13 @@ mod tests {
         let h2 = B256::from([0x50u8; 32]);
         let h3 = B256::from([0x60u8; 32]);
 
-        cache.insert(sample_envelope(h1, 1));
-        cache.insert(sample_envelope(h2, 2));
-        cache.insert(sample_envelope(h3, 3));
+        cache.insert(Arc::new(sample_envelope(h1, 1)));
+        cache.insert(Arc::new(sample_envelope(h2, 2)));
+        cache.insert(Arc::new(sample_envelope(h3, 3)));
         let removed = cache.remove(&h2);
         assert!(removed.is_some());
 
-        cache.insert(sample_envelope(B256::from([0x70u8; 32]), 4));
+        cache.insert(Arc::new(sample_envelope(B256::from([0x70u8; 32]), 4)));
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h1, h3, B256::from([0x70u8; 32])]);
     }
@@ -287,9 +290,9 @@ mod tests {
         let h2 = B256::from([0x22u8; 32]);
         let h3 = B256::from([0x33u8; 32]);
 
-        cache.insert(sample_envelope(h2, 7));
-        cache.insert(sample_envelope(h1, 7));
-        cache.insert(sample_envelope(h3, 8));
+        cache.insert(Arc::new(sample_envelope(h2, 7)));
+        cache.insert(Arc::new(sample_envelope(h1, 7)));
+        cache.insert(Arc::new(sample_envelope(h3, 8)));
 
         assert_eq!(cache.sorted_hashes_by_block_number(), vec![h1, h2, h3]);
     }
@@ -301,10 +304,10 @@ mod tests {
         let h2 = B256::from([0x55u8; 32]);
         let h3 = B256::from([0x66u8; 32]);
 
-        cache.insert(sample_envelope(h1, 1));
-        cache.insert(sample_envelope(h2, 2));
-        cache.insert(sample_envelope(h1, 3));
-        cache.insert(sample_envelope(h3, 4));
+        cache.insert(Arc::new(sample_envelope(h1, 1)));
+        cache.insert(Arc::new(sample_envelope(h2, 2)));
+        cache.insert(Arc::new(sample_envelope(h1, 3)));
+        cache.insert(Arc::new(sample_envelope(h3, 4)));
 
         assert!(cache.get(&h1).is_some());
         assert!(cache.get(&h2).is_none());
