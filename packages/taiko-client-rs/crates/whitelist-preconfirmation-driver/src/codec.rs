@@ -150,9 +150,9 @@ pub(crate) fn encode_unsafe_request_message(hash: B256) -> Vec<u8> {
 /// Encode Taiko whitelist preconfirmation SSZ envelope bytes.
 pub(crate) fn encode_envelope_ssz(envelope: &WhitelistExecutionPayloadEnvelope) -> Vec<u8> {
     let mut out = Vec::with_capacity(
-        ENVELOPE_HEADER_LEN
-            + envelope.execution_payload.as_ssz_bytes().len()
-            + envelope.signature.map(|_| SIGNATURE_LEN).unwrap_or_default(),
+        ENVELOPE_HEADER_LEN +
+            envelope.execution_payload.as_ssz_bytes().len() +
+            envelope.signature.map(|_| SIGNATURE_LEN).unwrap_or_default(),
     );
 
     let mut flags0 = 0u8;
