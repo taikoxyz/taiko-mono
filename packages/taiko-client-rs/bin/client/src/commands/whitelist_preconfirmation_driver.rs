@@ -37,6 +37,12 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
+    /// Optional listen address for the whitelist preconfirmation JSON-RPC server.
+    #[clap(long = "whitelist.rpc-addr", env = "WHITELIST_RPC_ADDR")]
+    pub whitelist_rpc_addr: Option<std::net::SocketAddr>,
+    /// Optional hex-encoded private key for P2P block signing.
+    #[clap(long = "whitelist.p2p-signer-key", env = "WHITELIST_P2P_SIGNER_KEY")]
+    pub whitelist_p2p_signer_key: Option<String>,
 }
 
 impl WhitelistPreconfirmationDriverSubCommand {
@@ -139,8 +145,13 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
         let driver_config = self.build_driver_config()?;
         let p2p_config = self.build_p2p_config();
 
-        let runner_config =
-            RunnerConfig::new(driver_config, p2p_config, self.shasta_preconf_whitelist_address);
+        let runner_config = RunnerConfig::new(
+            driver_config,
+            p2p_config,
+            self.shasta_preconf_whitelist_address,
+            self.whitelist_rpc_addr,
+            self.whitelist_p2p_signer_key.clone(),
+        );
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;
         Ok(())

@@ -16,8 +16,8 @@ use tracing::{debug, warn};
 use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_unsafe_payload_message,
-        decode_unsafe_response_message, encode_unsafe_request_message,
-        encode_unsafe_response_message,
+        decode_unsafe_response_message, encode_eos_request_message, encode_unsafe_payload_message,
+        encode_unsafe_request_message, encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -75,6 +75,18 @@ pub(crate) enum NetworkCommand {
     PublishUnsafeResponse {
         /// Envelope to publish.
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    },
+    /// Publish a signed unsafe payload to the `preconfBlocks` topic.
+    PublishUnsafePayload {
+        /// 65-byte secp256k1 signature.
+        signature: [u8; 65],
+        /// Envelope to publish.
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    },
+    /// Publish an end-of-sequencing request to the `requestEndOfSequencingPreconfBlocks` topic.
+    PublishEndOfSequencingRequest {
+        /// Epoch number.
+        epoch: u64,
     },
     /// Shutdown the network loop.
     Shutdown,
@@ -232,14 +244,18 @@ impl WhitelistNetwork {
             dial_once(&mut swarm, &mut dialed_addrs, addr, "bootnode");
         }
 
-        let mut discovery_rx = if cfg.enable_discovery {
+        let mut discovery_rx = if cfg.enable_discovery && !bootnodes.discovery_enrs.is_empty() {
             spawn_discovery(cfg.discovery_listen, bootnodes.discovery_enrs)
                 .map_err(|err| {
                     warn!(error = %err, "failed to start whitelist preconfirmation discovery");
                 })
                 .ok()
         } else {
-            if !bootnodes.discovery_enrs.is_empty() {
+            if cfg.enable_discovery && bootnodes.discovery_enrs.is_empty() {
+                tracing::info!(
+                    "discovery enabled but no ENR bootnodes provided; skipping discv5 bootstrap"
+                );
+            } else if !cfg.enable_discovery && !bootnodes.discovery_enrs.is_empty() {
                 warn!(
                     count = bootnodes.discovery_enrs.len(),
                     "discovery is disabled; skipping ENR bootnodes"
@@ -330,6 +346,77 @@ impl WhitelistNetwork {
                                             "failed to encode whitelist preconfirmation response"
                                         );
                                     }
+                                }
+                            }
+                            NetworkCommand::PublishUnsafePayload { signature, envelope } => {
+                                let hash = envelope.execution_payload.block_hash;
+                                match encode_unsafe_payload_message(&signature, &envelope) {
+                                    Ok(payload) => {
+                                        if let Err(err) = swarm
+                                            .behaviour_mut()
+                                            .gossipsub
+                                            .publish(topics.preconf_blocks.clone(), payload)
+                                        {
+                                            metrics::counter!(
+                                                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                                "topic" => "preconf_blocks",
+                                                "result" => "publish_failed",
+                                            )
+                                            .increment(1);
+                                            warn!(
+                                                hash = %hash,
+                                                error = %err,
+                                                "failed to publish whitelist preconfirmation payload"
+                                            );
+                                        } else {
+                                            metrics::counter!(
+                                                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                                "topic" => "preconf_blocks",
+                                                "result" => "published",
+                                            )
+                                            .increment(1);
+                                        }
+                                    }
+                                    Err(err) => {
+                                        metrics::counter!(
+                                            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                            "topic" => "preconf_blocks",
+                                            "result" => "encode_failed",
+                                        )
+                                        .increment(1);
+                                        warn!(
+                                            hash = %hash,
+                                            error = %err,
+                                            "failed to encode whitelist preconfirmation payload"
+                                        );
+                                    }
+                                }
+                            }
+                            NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
+                                let payload = encode_eos_request_message(epoch);
+                                if let Err(err) = swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(topics.eos_request.clone(), payload)
+                                {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_eos_preconf_blocks",
+                                        "result" => "publish_failed",
+                                    )
+                                    .increment(1);
+                                    warn!(
+                                        epoch,
+                                        error = %err,
+                                        "failed to publish end-of-sequencing request"
+                                    );
+                                } else {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_eos_preconf_blocks",
+                                        "result" => "published",
+                                    )
+                                    .increment(1);
                                 }
                             }
                             NetworkCommand::Shutdown => {

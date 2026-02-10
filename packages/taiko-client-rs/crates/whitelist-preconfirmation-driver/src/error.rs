@@ -62,6 +62,12 @@ pub enum WhitelistPreconfirmationDriverError {
     /// Failed to resolve preconfirmation whitelist operators.
     #[error("whitelist operator lookup failed: {0}")]
     WhitelistLookup(String),
+    /// RPC server error.
+    #[error("rpc server error: {0}")]
+    RpcServer(String),
+    /// Signing error.
+    #[error("signing error: {0}")]
+    Signing(String),
     /// P2P network error.
     #[error("p2p error: {0}")]
     P2p(String),

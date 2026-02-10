@@ -1,10 +1,12 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::time::Instant;
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
 use alloy_primitives::Address;
 use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
+use protocol::signer::FixedKSigner;
+use rpc::beacon::BeaconClient;
 use tracing::{info, warn};
 
 use crate::{
@@ -14,6 +16,8 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
+    rpc::{WhitelistRpcServer, WhitelistRpcServerConfig},
+    rpc_handler::WhitelistRpcHandler,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -25,6 +29,10 @@ pub struct RunnerConfig {
     pub p2p_config: P2pConfig,
     /// Whitelist contract address used for signer validation.
     pub whitelist_address: Address,
+    /// Optional listen address for the JSON-RPC server.
+    pub rpc_listen_addr: Option<SocketAddr>,
+    /// Optional hex-encoded private key for P2P block signing.
+    pub p2p_signer_key: Option<String>,
 }
 
 impl RunnerConfig {
@@ -33,8 +41,10 @@ impl RunnerConfig {
         driver_config: DriverConfig,
         p2p_config: P2pConfig,
         whitelist_address: Address,
+        rpc_listen_addr: Option<SocketAddr>,
+        p2p_signer_key: Option<String>,
     ) -> Self {
-        Self { driver_config, p2p_config, whitelist_address }
+        Self { driver_config, p2p_config, whitelist_address, rpc_listen_addr, p2p_signer_key }
     }
 }
 
@@ -74,6 +84,48 @@ impl WhitelistPreconfirmationDriverRunner {
             chain_id = self.config.p2p_config.chain_id,
             "whitelist preconfirmation p2p subscriber started"
         );
+
+        // Optionally start the JSON-RPC server when both rpc_listen_addr and p2p_signer_key
+        // are configured.
+        let _rpc_server = if let (Some(listen_addr), Some(signer_key)) =
+            (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
+        {
+            let beacon_client = Arc::new(
+                BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
+                    .await
+                    .map_err(|err| {
+                        WhitelistPreconfirmationDriverError::RpcServer(format!(
+                            "failed to initialize beacon client: {err}"
+                        ))
+                    })?,
+            );
+
+            let signer = FixedKSigner::new(signer_key).map_err(|e| {
+                WhitelistPreconfirmationDriverError::Signing(format!(
+                    "failed to create P2P signer: {e}"
+                ))
+            })?;
+
+            let handler = WhitelistRpcHandler::new(
+                preconf_ingress_sync.event_syncer(),
+                preconf_ingress_sync.client().clone(),
+                self.config.p2p_config.chain_id,
+                signer,
+                beacon_client,
+                network.command_tx.clone(),
+                network.local_peer_id.to_string(),
+            );
+
+            let rpc_config = WhitelistRpcServerConfig { listen_addr };
+            let server = WhitelistRpcServer::start(rpc_config, Arc::new(handler)).await?;
+            info!(
+                addr = %server.local_addr(),
+                "whitelist preconfirmation RPC server started"
+            );
+            Some(server)
+        } else {
+            None
+        };
 
         let mut importer = WhitelistPreconfirmationImporter::new(
             preconf_ingress_sync.event_syncer(),
