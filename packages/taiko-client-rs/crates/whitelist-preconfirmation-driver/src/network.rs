@@ -373,6 +373,20 @@ pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
     gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, config).map_err(to_p2p_err)
 }
 
+/// Parse an `enode://` URL into a multiaddr for direct dialing.
+///
+/// Accepts `enode://<hex-pubkey>@<ip>:<tcp-port>[?discport=<udp>]` and returns
+/// `/ip4/{ip}/tcp/{port}` (or `/ip6/…`). The pubkey and optional discport query
+/// are intentionally ignored — we only need the TCP dial address.
+fn parse_enode_url(url: &str) -> Option<Multiaddr> {
+    let rest = url.strip_prefix("enode://")?;
+    let (_, host_part) = rest.split_once('@')?;
+    let host_port = host_part.split('?').next()?;
+    let sock: std::net::SocketAddr = host_port.parse().ok()?;
+    let scheme = if sock.ip().is_ipv4() { "ip4" } else { "ip6" };
+    format!("/{scheme}/{}/tcp/{}", sock.ip(), sock.port()).parse().ok()
+}
+
 /// Classify bootnodes into direct-dial multiaddrs and discovery ENRs.
 fn classify_bootnodes(bootnodes: Vec<String>) -> ClassifiedBootnodes {
     let mut classified = ClassifiedBootnodes::default();
@@ -388,13 +402,21 @@ fn classify_bootnodes(bootnodes: Vec<String>) -> ClassifiedBootnodes {
             continue;
         }
 
+        if value.starts_with("enode://") {
+            match parse_enode_url(value) {
+                Some(addr) => classified.dial_addrs.push(addr),
+                None => warn!(bootnode = %value, "failed to parse enode:// URL"),
+            }
+            continue;
+        }
+
         match value.parse::<Multiaddr>() {
             Ok(addr) => classified.dial_addrs.push(addr),
             Err(err) => {
                 warn!(
                     bootnode = %value,
                     error = %err,
-                    "invalid bootnode entry; expected ENR or multiaddr"
+                    "invalid bootnode entry; expected ENR, enode://, or multiaddr"
                 );
             }
         }
@@ -727,19 +749,48 @@ mod tests {
     }
 
     #[test]
+    fn parse_enode_url_valid_ipv4() {
+        let url = "enode://a3f84d16471e6d8a0dc1e2d62f7a9c5b3e4f5678901234567890abcdef123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567@10.0.1.5:30303?discport=30304";
+        let addr = parse_enode_url(url).expect("should parse valid enode URL");
+        assert_eq!(addr.to_string(), "/ip4/10.0.1.5/tcp/30303");
+    }
+
+    #[test]
+    fn parse_enode_url_valid_ipv4_no_query() {
+        let url = "enode://abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890@192.168.1.1:30303";
+        let addr = parse_enode_url(url).expect("should parse enode URL without query");
+        assert_eq!(addr.to_string(), "/ip4/192.168.1.1/tcp/30303");
+    }
+
+    #[test]
+    fn parse_enode_url_invalid_inputs() {
+        assert!(parse_enode_url("enr:-IS4QO3Qh8n0").is_none(), "ENR should not parse as enode");
+        assert!(parse_enode_url("enode://no-at-sign").is_none(), "missing @ should fail");
+        assert!(
+            parse_enode_url("enode://abc@not-a-socket-addr").is_none(),
+            "bad host:port should fail"
+        );
+        assert!(parse_enode_url("/ip4/127.0.0.1/tcp/9000").is_none(), "multiaddr should fail");
+        assert!(parse_enode_url("").is_none(), "empty string should fail");
+    }
+
+    #[test]
     fn classify_bootnodes_splits_enr_and_multiaddr_entries() {
         let input = vec![
             "/ip4/127.0.0.1/tcp/9000/p2p/12D3KooWEhXfLw7BrTHr2VfVki6jPiKG8AqfXw3hNziR6mM2Mz4s"
                 .to_string(),
             "enr:-IS4QO3Qh8n0cxb5KJ9f5Xx8t9wq2fS28uFh8gJQ6KxJxRk6J1V1kWQ5g6nAiJmK8P8e9Z5hY3rP0mFf6vM1Sxg6W4qGAYN1ZHCCdl8"
                 .to_string(),
+            "enode://a3f84d16471e6d8a0dc1e2d62f7a9c5b3e4f5678901234567890abcdef123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567@10.0.1.5:30303?discport=30304"
+                .to_string(),
             "not-a-valid-bootnode".to_string(),
         ];
 
         let parsed = classify_bootnodes(input);
 
-        assert_eq!(parsed.dial_addrs.len(), 1);
+        assert_eq!(parsed.dial_addrs.len(), 2, "should have multiaddr + enode dial addresses");
         assert_eq!(parsed.discovery_enrs.len(), 1);
+        assert_eq!(parsed.dial_addrs[1].to_string(), "/ip4/10.0.1.5/tcp/30303");
     }
 
     #[tokio::test]
