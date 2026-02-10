@@ -712,14 +712,13 @@ async fn handle_gossipsub_event(
     }
 
     if *topic == topics.eos_request.hash() {
-        if message.data.len() <= 8 {
+        if let Some(epoch) = decode_eos_epoch(&message.data) {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                 "topic" => "request_eos_preconf_blocks",
                 "result" => "decoded",
             )
             .increment(1);
-            let epoch = message.data.iter().fold(0u64, |acc, byte| (acc << 8) | u64::from(*byte));
             forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await?;
         } else {
             metrics::counter!(
@@ -738,6 +737,17 @@ async fn handle_gossipsub_event(
     }
 
     Ok(())
+}
+
+/// Decode an end-of-sequencing request epoch from fixed-width big-endian bytes.
+fn decode_eos_epoch(payload: &[u8]) -> Option<u64> {
+    if payload.len() != std::mem::size_of::<u64>() {
+        return None;
+    }
+
+    let mut bytes = [0u8; std::mem::size_of::<u64>()];
+    bytes.copy_from_slice(payload);
+    Some(u64::from_be_bytes(bytes))
 }
 
 /// Forward one decoded event to the importer with backpressure.
@@ -859,6 +869,19 @@ mod tests {
         );
         assert!(parse_enode_url("/ip4/127.0.0.1/tcp/9000").is_none(), "multiaddr should fail");
         assert!(parse_enode_url("").is_none(), "empty string should fail");
+    }
+
+    #[test]
+    fn decode_eos_epoch_accepts_u64_be_bytes() {
+        let epoch = 42u64;
+        assert_eq!(decode_eos_epoch(&epoch.to_be_bytes()), Some(epoch));
+    }
+
+    #[test]
+    fn decode_eos_epoch_rejects_non_u64_lengths() {
+        assert_eq!(decode_eos_epoch(&[]), None);
+        assert_eq!(decode_eos_epoch(&[0u8; 7]), None);
+        assert_eq!(decode_eos_epoch(&[0u8; 9]), None);
     }
 
     #[test]

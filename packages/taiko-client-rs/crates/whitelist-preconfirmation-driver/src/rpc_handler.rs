@@ -24,6 +24,7 @@ use tracing::debug;
 use crate::{
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
+    importer::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
     network::NetworkCommand,
     rpc::{
         WhitelistRpcApi,
@@ -154,6 +155,14 @@ where
                 ))
             })?;
 
+        let expected_block_number = parent.header.number.saturating_add(1);
+        if block_number != expected_block_number {
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "block number {block_number} must follow parent number {}",
+                parent.header.number
+            )));
+        }
+
         let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
         Ok(calculate_shasta_difficulty(parent_difficulty, block_number))
     }
@@ -188,6 +197,19 @@ where
             .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(
                 request.block_number,
             ))?;
+
+        if inserted_block.header.parent_hash != request.parent_hash {
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "inserted block parent hash mismatch at block {}: expected {}, got {}",
+                request.block_number, request.parent_hash, inserted_block.header.parent_hash
+            )));
+        }
+        if inserted_block.header.number != request.block_number {
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "inserted block number mismatch: expected {}, got {}",
+                request.block_number, inserted_block.header.number
+            )));
+        }
 
         let block_hash = inserted_block.header.hash;
         let block_number = inserted_block.header.number;
@@ -302,13 +324,30 @@ where
 
 /// Decompress a zlib-compressed transaction list.
 fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
-    let mut decoder = flate2::read::ZlibDecoder::new(bytes);
+    if bytes.len() > MAX_COMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            "compressed tx list exceeds maximum size: {} > {}",
+            bytes.len(),
+            MAX_COMPRESSED_TX_LIST_BYTES
+        )));
+    }
+
+    let decoder = flate2::read::ZlibDecoder::new(bytes);
     let mut out = Vec::new();
-    decoder.read_to_end(&mut out).map_err(|err| {
+    let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
+    decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
         WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "failed to decompress tx list from payload: {err}"
         ))
     })?;
+
+    if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            "decompressed tx list exceeds maximum size: {} > {}",
+            out.len(),
+            MAX_DECOMPRESSED_TX_LIST_BYTES
+        )));
+    }
 
     if out.is_empty() {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
@@ -322,4 +361,52 @@ fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
 /// Convert a provider error into a driver error.
 fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
     WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use flate2::{Compression, write::ZlibEncoder};
+
+    use super::*;
+
+    fn compress(payload: &[u8]) -> Vec<u8> {
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(payload).expect("write zlib payload");
+        encoder.finish().expect("finish zlib encoding")
+    }
+
+    #[test]
+    fn decompress_tx_list_rejects_oversized_compressed_payload() {
+        let oversized = vec![0u8; MAX_COMPRESSED_TX_LIST_BYTES + 1];
+        let err =
+            decompress_tx_list(&oversized).expect_err("oversized compressed payload must fail");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("compressed tx list exceeds maximum size")
+        ));
+    }
+
+    #[test]
+    fn decompress_tx_list_rejects_oversized_decompressed_payload() {
+        let oversized = vec![0x11u8; MAX_DECOMPRESSED_TX_LIST_BYTES + 1];
+        let compressed = compress(&oversized);
+        let err = decompress_tx_list(&compressed)
+            .expect_err("oversized decompressed payload must fail before use");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("decompressed tx list exceeds maximum size")
+        ));
+    }
+
+    #[test]
+    fn decompress_tx_list_accepts_non_empty_payload_within_limits() {
+        let expected = vec![0xAA, 0xBB, 0xCC];
+        let compressed = compress(&expected);
+        let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
+        assert_eq!(decoded, expected);
+    }
 }
