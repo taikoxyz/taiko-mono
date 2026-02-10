@@ -8,7 +8,9 @@ use driver::{DriverConfig, metrics::DriverMetrics};
 use preconfirmation_net::P2pConfig;
 use rpc::{SubscriptionSource, client::ClientConfig};
 use tracing::warn;
-use whitelist_preconfirmation_driver::{RunnerConfig, WhitelistPreconfirmationDriverRunner};
+use whitelist_preconfirmation_driver::{
+    RunnerConfig, WhitelistPreconfirmationDriverMetrics, WhitelistPreconfirmationDriverRunner,
+};
 
 use crate::{
     commands::Subcommand,
@@ -125,6 +127,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
     /// Registers driver metrics with the global registry.
     fn register_metrics(&self) -> Result<()> {
         DriverMetrics::init();
+        WhitelistPreconfirmationDriverMetrics::init();
         Ok(())
     }
 

@@ -1,5 +1,7 @@
 //! Whitelist preconfirmation runner orchestration.
 
+use std::time::Instant;
+
 use alloy_primitives::Address;
 use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
@@ -9,6 +11,7 @@ use crate::{
     Result,
     error::WhitelistPreconfirmationDriverError,
     importer::WhitelistPreconfirmationImporter,
+    metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
 };
@@ -49,14 +52,28 @@ impl WhitelistPreconfirmationDriverRunner {
 
     /// Run until either event syncer or whitelist network exits.
     pub async fn run(self) -> Result<()> {
-        info!("starting whitelist preconfirmation driver");
+        metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL).increment(1);
+        info!(
+            chain_id = self.config.p2p_config.chain_id,
+            whitelist_address = %self.config.whitelist_address,
+            "starting whitelist preconfirmation driver"
+        );
 
         let mut preconf_ingress_sync =
             PreconfIngressSync::start(&self.config.driver_config).await?;
+        let wait_start = Instant::now();
         preconf_ingress_sync.wait_preconf_ingress_ready().await?;
+        metrics::histogram!(
+            WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
+        )
+        .record(wait_start.elapsed().as_secs_f64());
 
         let network = WhitelistNetwork::spawn(self.config.p2p_config.clone())?;
-        info!(peer_id = %network.local_peer_id, "whitelist preconfirmation p2p subscriber started");
+        info!(
+            peer_id = %network.local_peer_id,
+            chain_id = self.config.p2p_config.chain_id,
+            "whitelist preconfirmation p2p subscriber started"
+        );
 
         let mut importer = WhitelistPreconfirmationImporter::new(
             preconf_ingress_sync.event_syncer(),
@@ -75,25 +92,72 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut node_handle => {
                     event_syncer_handle.abort();
                     return match result {
-                        Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                            "whitelist preconfirmation network exited unexpectedly".to_string(),
-                        )),
-                        Ok(Err(err)) => Err(err),
-                        Err(err) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string())),
+                        Ok(Ok(())) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                                "reason" => "node_exit_unexpected",
+                            )
+                            .increment(1);
+                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                "whitelist preconfirmation network exited unexpectedly".to_string(),
+                            ))
+                        }
+                        Ok(Err(err)) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                                "reason" => "node_error",
+                            )
+                            .increment(1);
+                            Err(err)
+                        }
+                        Err(err) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                                "reason" => "node_join_error",
+                            )
+                            .increment(1);
+                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string()))
+                        }
                     };
                 }
                 result = &mut *event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
                     return match result {
-                        Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
-                        Ok(Err(err)) => Err(WhitelistPreconfirmationDriverError::Sync(err)),
-                        Err(err) => Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
+                        Ok(Ok(())) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                                "reason" => "event_syncer_exit",
+                            )
+                            .increment(1);
+                            Err(WhitelistPreconfirmationDriverError::EventSyncerExited)
+                        }
+                        Ok(Err(err)) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                                "reason" => "event_syncer_error",
+                            )
+                            .increment(1);
+                            Err(WhitelistPreconfirmationDriverError::Sync(err))
+                        }
+                        Err(err) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                                "reason" => "event_syncer_join_error",
+                            )
+                            .increment(1);
+                            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string()))
+                        }
                     };
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         event_syncer_handle.abort();
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+                            "reason" => "network_event_channel_closed",
+                        )
+                        .increment(1);
                         return Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                             "whitelist preconfirmation event channel closed".to_string(),
                         ));
