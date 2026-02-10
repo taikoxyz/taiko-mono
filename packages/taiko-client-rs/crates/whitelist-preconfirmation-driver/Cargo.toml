@@ -13,10 +13,8 @@ alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
-alloy-rpc-client = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
-alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 bindings = { path = "../bindings" }
 driver = { path = "../driver" }
@@ -31,7 +29,6 @@ rpc = { path = "../rpc" }
 sha2 = { workspace = true }
 snap = "1.1"
 ssz = { package = "ethereum_ssz", version = "0.9.1" }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
