@@ -2,7 +2,7 @@
 
 use std::io::{Read, Write};
 
-use alloy_rlp::Decodable;
+use alloy_rlp::{Bytes as RlpBytes, Decodable};
 use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use thiserror::Error;
 
@@ -67,7 +67,8 @@ impl ZlibTxListCodec {
     /// Encode a list of raw transactions into zlib-compressed bytes.
     pub fn encode(&self, transactions: &[Vec<u8>]) -> Result<Vec<u8>> {
         let mut rlp_encoded = Vec::new();
-        alloy_rlp::encode_list::<_, Vec<u8>>(transactions, &mut rlp_encoded);
+        // Encode tx-lists as an RLP list of byte strings (`types.Transactions`).
+        alloy_rlp::encode_list::<_, [u8]>(transactions, &mut rlp_encoded);
 
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(&rlp_encoded).map_err(|e| TxListCodecError::ZlibEncode(e.to_string()))?;
@@ -108,25 +109,39 @@ impl ZlibTxListCodec {
             });
         }
 
-        Vec::<Vec<u8>>::decode(&mut decoded.as_slice())
+        let mut payload = decoded.as_slice();
+        Vec::<RlpBytes>::decode(&mut payload)
+            .map(|txs| txs.into_iter().map(|tx| tx.to_vec()).collect())
             .map_err(|err| TxListCodecError::RlpDecode(err.to_string()))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::io::{Read, Write};
 
-    use flate2::{Compression, write::ZlibEncoder};
+    use alloy_rlp::Bytes as RlpBytes;
+    use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 
     use super::ZlibTxListCodec;
+
+    fn compress_payload(payload: &[u8]) -> Vec<u8> {
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(payload).expect("write zlib payload");
+        encoder.finish().expect("finish zlib encoding")
+    }
+
+    fn decompress_payload(payload: &[u8]) -> Vec<u8> {
+        let mut decoder = ZlibDecoder::new(payload);
+        let mut decoded = Vec::new();
+        decoder.read_to_end(&mut decoded).expect("read zlib payload");
+        decoded
+    }
 
     #[test]
     fn txlist_codec_roundtrip_placeholder() {
         let rlp_payload = vec![0xC0];
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(&rlp_payload).expect("write rlp payload");
-        let compressed = encoder.finish().expect("finish zlib encoding");
+        let compressed = compress_payload(&rlp_payload);
 
         let codec = ZlibTxListCodec::new(1024);
         let txs = codec.decode(&compressed).expect("decode txlist");
@@ -136,14 +151,66 @@ mod tests {
     #[test]
     fn txlist_codec_rejects_oversized_decompressed_payload() {
         let oversized_decoded = vec![0u8; 2 * 1024 * 1024 + 1];
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(&oversized_decoded).expect("write oversized payload");
-        let compressed = encoder.finish().expect("finish zlib encoding");
+        let compressed = compress_payload(&oversized_decoded);
 
         let codec = ZlibTxListCodec::new(2 * 1024 * 1024);
         let err = codec
             .decode(&compressed)
             .expect_err("oversized decompressed payload must fail before rlp decode");
         assert!(err.to_string().contains("decompressed txlist exceeds max size"));
+    }
+
+    #[test]
+    fn txlist_codec_decodes_go_style_rlp_transaction_byte_strings() {
+        let tx = vec![
+            0x02, 0xeb, 0x81, 0xa7, 0x80, 0x80, 0x84, 0x3b, 0x9a, 0xca, 0x00, 0x82, 0x52, 0x08,
+            0x94, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
+            0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x80, 0x84, 0x52, 0x3e, 0x68, 0x54, 0xc0, 0x80,
+            0x80, 0x80,
+        ];
+        let mut rlp_encoded = Vec::new();
+        alloy_rlp::encode_list::<_, RlpBytes>(&[RlpBytes::from(tx.clone())], &mut rlp_encoded);
+        let compressed = compress_payload(&rlp_encoded);
+
+        let codec = ZlibTxListCodec::new(1024);
+        let decoded =
+            codec.decode(&compressed).expect("go-style tx-list should decode successfully");
+        assert_eq!(decoded, vec![tx]);
+    }
+
+    #[test]
+    fn txlist_codec_rejects_legacy_rust_list_of_u8_encoding() {
+        let tx = vec![
+            0x02, 0xeb, 0x81, 0xa7, 0x80, 0x80, 0x84, 0x3b, 0x9a, 0xca, 0x00, 0x82, 0x52, 0x08,
+            0x94, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
+            0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x80, 0x84, 0x52, 0x3e, 0x68, 0x54, 0xc0, 0x80,
+            0x80, 0x80,
+        ];
+        let mut rlp_encoded = Vec::new();
+        alloy_rlp::encode_list::<_, Vec<u8>>(&[tx.clone()], &mut rlp_encoded);
+        let compressed = compress_payload(&rlp_encoded);
+
+        let codec = ZlibTxListCodec::new(1024);
+        let err =
+            codec.decode(&compressed).expect_err("legacy rust tx-list encoding should be rejected");
+        assert!(matches!(err, super::TxListCodecError::RlpDecode(_)));
+    }
+
+    #[test]
+    fn txlist_codec_encodes_go_style_rlp_transaction_byte_strings() {
+        let tx = vec![
+            0x02, 0xeb, 0x81, 0xa7, 0x80, 0x80, 0x84, 0x3b, 0x9a, 0xca, 0x00, 0x82, 0x52, 0x08,
+            0x94, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
+            0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x80, 0x84, 0x52, 0x3e, 0x68, 0x54, 0xc0, 0x80,
+            0x80, 0x80,
+        ];
+        let codec = ZlibTxListCodec::new(1024);
+
+        let compressed = codec.encode(&[tx.clone()]).expect("encode tx-list");
+        let decoded = decompress_payload(&compressed);
+
+        let mut expected_rlp = Vec::new();
+        alloy_rlp::encode_list::<_, RlpBytes>(&[RlpBytes::from(tx)], &mut expected_rlp);
+        assert_eq!(decoded, expected_rlp);
     }
 }
