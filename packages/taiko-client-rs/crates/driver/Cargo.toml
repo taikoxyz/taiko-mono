@@ -3,6 +3,7 @@ name = "driver"
 version.workspace = true
 edition.workspace = true
 publish = false
+license.workspace = true
 
 [dependencies]
 alethia-reth-consensus = { workspace = true }
