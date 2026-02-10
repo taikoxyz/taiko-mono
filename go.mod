@@ -13,7 +13,7 @@ require (
 	github.com/ethereum-optimism/optimism v1.7.4
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/ethereum/hive v0.0.0-20240822135954-91829ccfb2c5
-	github.com/go-git/go-git/v5 v5.16.4
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-resty/resty/v2 v2.17.1
 	github.com/gomarkdown/markdown v0.0.0-20231222211730-1d6d20845b47
 	github.com/google/uuid v1.6.0

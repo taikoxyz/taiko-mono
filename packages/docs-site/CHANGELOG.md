@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.33.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.2...docs-site-v1.33.3) (2026-02-09)
+
+
+### Chores
+
+* **docs-site:** add erc 8004 addresses to docs ([#21283](https://github.com/taikoxyz/taiko-mono/issues/21283)) ([b5c868c](https://github.com/taikoxyz/taiko-mono/commit/b5c868cf2d5681ffcc9415fd2dad5eac83bd23df))
+* **docs-site:** fix release version ([#21269](https://github.com/taikoxyz/taiko-mono/issues/21269)) ([df82dc7](https://github.com/taikoxyz/taiko-mono/commit/df82dc7ee10dc95a3e6d697f03680867d3a3dc9e))
+* **docs-site:** replace ERCXXXVault placeholder with actual vault names ([#21303](https://github.com/taikoxyz/taiko-mono/issues/21303)) ([3e48a4c](https://github.com/taikoxyz/taiko-mono/commit/3e48a4c6e301eeefb4c3cb0e8f0ce289ff614268))
+
+
+### Documentation
+
+* **docs-site:** update zk coverage and rpc explorer entries ([#21288](https://github.com/taikoxyz/taiko-mono/issues/21288)) ([19948bf](https://github.com/taikoxyz/taiko-mono/commit/19948bf7e768a58b7c93f6690ef6dc043eae0fd7))
+
 ## [1.33.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.1...docs-site-v1.33.2) (2026-02-01)
 
 

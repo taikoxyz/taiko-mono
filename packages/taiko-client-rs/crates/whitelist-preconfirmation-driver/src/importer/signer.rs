@@ -6,7 +6,10 @@ use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::operatorsReturn;
 use tracing::debug;
 
-use crate::error::{Result, WhitelistPreconfirmationDriverError};
+use crate::{
+    error::{Result, WhitelistPreconfirmationDriverError},
+    metrics::WhitelistPreconfirmationDriverMetrics,
+};
 
 use super::WhitelistPreconfirmationImporter;
 
@@ -183,12 +186,12 @@ where
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await
             .map_err(|err| {
-                WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                whitelist_lookup_err(format!(
                     "failed to fetch latest block for whitelist snapshot: {err}"
                 ))
             })?
             .ok_or_else(|| {
-                WhitelistPreconfirmationDriverError::WhitelistLookup(
+                whitelist_lookup_err(
                     "missing latest block while fetching whitelist snapshot".to_string(),
                 )
             })?;
@@ -204,7 +207,7 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    whitelist_lookup_err(format!(
                         "failed to fetch current operator at block {block_number}: {err}"
                     ))
                 })
@@ -216,7 +219,7 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    whitelist_lookup_err(format!(
                         "failed to fetch next operator at block {block_number}: {err}"
                     ))
                 })
@@ -228,7 +231,7 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    whitelist_lookup_err(format!(
                         "failed to fetch epochStartTimestamp at block {block_number}: {err}"
                     ))
                 })
@@ -244,7 +247,7 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    whitelist_lookup_err(format!(
                         "failed to fetch current operators() entry at block {block_number}: {err}"
                     ))
                 })
@@ -256,7 +259,7 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    whitelist_lookup_err(format!(
                         "failed to fetch next operators() entry at block {block_number}: {err}"
                     ))
                 })
@@ -267,7 +270,7 @@ where
                 .get_block_by_number(BlockNumberOrTag::Number(block_number))
                 .await
                 .map_err(|err| {
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    whitelist_lookup_err(format!(
                         "failed to fetch pinned block {block_number} for whitelist verification: \
                          {err}"
                     ))
@@ -278,13 +281,13 @@ where
             tokio::try_join!(current_sequencer_fut, next_sequencer_fut, pinned_block_fut)?;
 
         let pinned_block = pinned_block_opt.ok_or_else(|| {
-            WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+            whitelist_lookup_err(format!(
                 "missing pinned block {block_number} while verifying whitelist batches"
             ))
         })?;
         let pinned_block_hash = pinned_block.hash();
         if pinned_block_hash != block_hash {
-            return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+            return Err(whitelist_lookup_err(format!(
                 "block hash changed between whitelist batches at block {block_number}"
             )));
         }
@@ -292,7 +295,7 @@ where
         if current_seq.sequencerAddress == Address::ZERO ||
             next_seq.sequencerAddress == Address::ZERO
         {
-            return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
+            return Err(whitelist_lookup_err(
                 "received zero address for whitelist sequencer".to_string(),
             ));
         }
@@ -306,12 +309,18 @@ where
     }
 }
 
+fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
+    metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
+        .increment(1);
+    WhitelistPreconfirmationDriverError::WhitelistLookup(message)
+}
+
 fn ensure_not_too_early_for_epoch(
     block_timestamp: u64,
     current_epoch_start_timestamp: u64,
 ) -> Result<()> {
     if block_timestamp < current_epoch_start_timestamp {
-        return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+        return Err(whitelist_lookup_err(format!(
             "whitelist batch returned block timestamp {block_timestamp} before epoch start \
              {current_epoch_start_timestamp}"
         )));

@@ -20,6 +20,7 @@ use crate::{
         encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
+    metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
 /// Maximum allowed gossip payload size after decompression.
@@ -267,11 +268,24 @@ impl WhitelistNetwork {
                                     .gossipsub
                                     .publish(topics.preconf_request.clone(), payload)
                                 {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_preconf_blocks",
+                                        "result" => "publish_failed",
+                                    )
+                                    .increment(1);
                                     warn!(
                                         hash = %hash,
                                         error = %err,
                                         "failed to publish whitelist preconfirmation request"
                                     );
+                                } else {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_preconf_blocks",
+                                        "result" => "published",
+                                    )
+                                    .increment(1);
                                 }
                             }
                             NetworkCommand::PublishUnsafeResponse { envelope } => {
@@ -283,14 +297,33 @@ impl WhitelistNetwork {
                                             .gossipsub
                                             .publish(topics.preconf_response.clone(), payload)
                                         {
+                                            metrics::counter!(
+                                                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                                "topic" => "response_preconf_blocks",
+                                                "result" => "publish_failed",
+                                            )
+                                            .increment(1);
                                             warn!(
                                                 hash = %hash,
                                                 error = %err,
                                                 "failed to publish whitelist preconfirmation response"
                                             );
+                                        } else {
+                                            metrics::counter!(
+                                                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                                "topic" => "response_preconf_blocks",
+                                                "result" => "published",
+                                            )
+                                            .increment(1);
                                         }
                                     }
                                     Err(err) => {
+                                        metrics::counter!(
+                                            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                            "topic" => "response_preconf_blocks",
+                                            "result" => "encode_failed",
+                                        )
+                                        .increment(1);
                                         warn!(
                                             hash = %hash,
                                             error = %err,
@@ -421,7 +454,18 @@ fn dial_once(
         return;
     }
 
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
+        "source" => source.to_string(),
+    )
+    .increment(1);
+
     if let Err(err) = swarm.dial(addr.clone()) {
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_FAILURES_TOTAL,
+            "source" => source.to_string(),
+        )
+        .increment(1);
         warn!(%addr, source, error = %err, "failed to dial address");
     }
 }
@@ -476,9 +520,28 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_blocks.hash() {
         match decode_unsafe_payload_message(&message.data) {
             Ok(payload) => {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "preconf_blocks",
+                    "result" => "decoded",
+                )
+                .increment(1);
                 forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await?
             }
-            Err(err) => debug!(error = %err, "failed to decode unsafe payload"),
+            Err(err) => {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "preconf_blocks",
+                    "result" => "decode_failed",
+                )
+                .increment(1);
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                    "topic" => "preconf_blocks",
+                )
+                .increment(1);
+                debug!(error = %err, "failed to decode unsafe payload");
+            }
         }
         return Ok(());
     }
@@ -486,18 +549,54 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_response.hash() {
         match decode_unsafe_response_message(&message.data) {
             Ok(envelope) => {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "response_preconf_blocks",
+                    "result" => "decoded",
+                )
+                .increment(1);
                 forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope }).await?
             }
-            Err(err) => debug!(error = %err, "failed to decode unsafe response"),
+            Err(err) => {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "response_preconf_blocks",
+                    "result" => "decode_failed",
+                )
+                .increment(1);
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                    "topic" => "response_preconf_blocks",
+                )
+                .increment(1);
+                debug!(error = %err, "failed to decode unsafe response");
+            }
         }
         return Ok(());
     }
 
     if *topic == topics.preconf_request.hash() {
         if message.data.len() == 32 {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                "topic" => "request_preconf_blocks",
+                "result" => "decoded",
+            )
+            .increment(1);
             let hash = B256::from_slice(&message.data);
             forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
         } else {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                "topic" => "request_preconf_blocks",
+                "result" => "invalid_length",
+            )
+            .increment(1);
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                "topic" => "request_preconf_blocks",
+            )
+            .increment(1);
             debug!(len = message.data.len(), "invalid preconf request payload length");
         }
         return Ok(());
@@ -505,9 +604,26 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.eos_request.hash() {
         if message.data.len() <= 8 {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                "topic" => "request_eos_preconf_blocks",
+                "result" => "decoded",
+            )
+            .increment(1);
             let epoch = message.data.iter().fold(0u64, |acc, byte| (acc << 8) | u64::from(*byte));
             forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await?;
         } else {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                "topic" => "request_eos_preconf_blocks",
+                "result" => "invalid_length",
+            )
+            .increment(1);
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                "topic" => "request_eos_preconf_blocks",
+            )
+            .increment(1);
             debug!(len = message.data.len(), "invalid end-of-sequencing payload length");
         }
     }
@@ -518,6 +634,8 @@ async fn handle_gossipsub_event(
 /// Forward one decoded event to the importer with backpressure.
 async fn forward_event(event_tx: &mpsc::Sender<NetworkEvent>, event: NetworkEvent) -> Result<()> {
     event_tx.send(event).await.map_err(|err| {
+        metrics::counter!(WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL)
+            .increment(1);
         warn!(error = %err, "whitelist preconfirmation event channel closed");
         WhitelistPreconfirmationDriverError::P2p(format!(
             "whitelist preconfirmation event channel closed: {err}"
