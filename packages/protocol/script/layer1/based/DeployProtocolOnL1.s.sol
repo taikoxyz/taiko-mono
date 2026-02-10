@@ -334,7 +334,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (oldFork == address(0)) {
             oldFork = address(
                 new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
+                    167_014,
                     DEVNET_COOLDOWN_WINDOW,
                     address(0),
                     proofVerifier,
@@ -363,7 +363,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             newFork = address(
                 new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
+                    167_014,
                     DEVNET_COOLDOWN_WINDOW,
                     address(0),
                     proofVerifier,
@@ -560,7 +560,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (oldFork == address(0)) {
             oldFork = address(
                 new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
+                    167_014,
                     DEVNET_COOLDOWN_WINDOW,
                     address(0),
                     verifier,
@@ -590,7 +590,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else {
             newFork = address(
                 new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
+                    167_014,
                     DEVNET_COOLDOWN_WINDOW,
                     taikoWrapper,
                     verifier,
