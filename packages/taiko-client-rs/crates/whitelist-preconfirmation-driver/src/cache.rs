@@ -17,8 +17,10 @@ const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
+/// One L1 epoch (32 slots x 12 seconds).
+pub(crate) const L1_EPOCH_DURATION_SECS: u64 = 12 * 32;
 /// Default TTL for cached whitelist sequencer addresses (one L1 epoch = 32 slots).
-const DEFAULT_SEQUENCER_CACHE_TTL_SECS: u64 = 12 * 32;
+const DEFAULT_SEQUENCER_CACHE_TTL_SECS: u64 = L1_EPOCH_DURATION_SECS;
 /// Minimum interval between forced signer-miss refreshes from L1.
 const DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS: u64 = 2;
 
@@ -203,6 +205,8 @@ pub(crate) struct WhitelistSequencerCache {
     current: Option<(Address, Instant)>,
     /// Cached next-epoch sequencer address and fetch time.
     next: Option<(Address, Instant)>,
+    /// Cached current epoch start timestamp for the stored sequencer pair.
+    current_epoch_start_timestamp: Option<u64>,
 }
 
 impl Default for WhitelistSequencerCache {
@@ -222,7 +226,14 @@ impl WhitelistSequencerCache {
     /// `miss_refresh_cooldown` only gates forced refreshes triggered by signer mismatches.
     /// Normal TTL expiry refreshes are still allowed even when `miss_refresh_cooldown > ttl`.
     pub fn with_cooldowns(ttl: Duration, miss_refresh_cooldown: Duration) -> Self {
-        Self { ttl, miss_refresh_cooldown, last_miss_refresh_at: None, current: None, next: None }
+        Self {
+            ttl,
+            miss_refresh_cooldown,
+            last_miss_refresh_at: None,
+            current: None,
+            next: None,
+            current_epoch_start_timestamp: None,
+        }
     }
 
     /// Return the cached current-epoch sequencer if still fresh.
@@ -254,16 +265,69 @@ impl WhitelistSequencerCache {
     pub fn invalidate(&mut self) {
         self.current = None;
         self.next = None;
+        self.current_epoch_start_timestamp = None;
     }
 
-    /// Store the current-epoch sequencer address.
-    pub fn set_current(&mut self, addr: Address, now: Instant) {
-        self.current = Some((addr, now));
+    /// Store a paired current/next sequencer snapshot and the corresponding epoch start timestamp.
+    pub fn set_pair(
+        &mut self,
+        current: Address,
+        next: Address,
+        current_epoch_start_timestamp: u64,
+        now: Instant,
+    ) {
+        self.current = Some((current, now));
+        self.next = Some((next, now));
+        self.current_epoch_start_timestamp = Some(current_epoch_start_timestamp);
     }
 
-    /// Store the next-epoch sequencer address.
-    pub fn set_next(&mut self, addr: Address, now: Instant) {
-        self.next = Some((addr, now));
+    /// Return stale current/next pair only when both entries are not older than `max_stale`.
+    pub fn get_stale_pair_within(
+        &self,
+        now: Instant,
+        max_stale: Duration,
+    ) -> Option<(Address, Address)> {
+        let (current, current_fetched_at) = self.current?;
+        let (next, next_fetched_at) = self.next?;
+        if now.saturating_duration_since(current_fetched_at) > max_stale {
+            return None;
+        }
+        if now.saturating_duration_since(next_fetched_at) > max_stale {
+            return None;
+        }
+        Some((current, next))
+    }
+
+    /// Return the cached current epoch start timestamp, if a sequencer pair is present.
+    pub fn current_epoch_start_timestamp(&self) -> Option<u64> {
+        self.current_epoch_start_timestamp
+    }
+
+    /// Return true if `l1_block_timestamp` is in a later epoch than the cached pair.
+    pub fn should_invalidate_for_l1_timestamp(
+        &self,
+        l1_block_timestamp: u64,
+        epoch_duration_secs: u64,
+    ) -> bool {
+        self.current_epoch_start_timestamp
+            .map(|cached_epoch_start| {
+                l1_block_timestamp >= cached_epoch_start.saturating_add(epoch_duration_secs)
+            })
+            .unwrap_or(false)
+    }
+
+    /// Return `true` if a snapshot taken at `block_timestamp` can replace cached values.
+    ///
+    /// This prevents a lagging RPC node from overwriting a newer-epoch cached snapshot and
+    /// rejects implausibly far-future timestamps from a misbehaving node.
+    pub fn should_accept_block_timestamp(&self, block_timestamp: u64) -> bool {
+        self.current_epoch_start_timestamp
+            .map(|cached_epoch_start| {
+                let max_reasonable_timestamp =
+                    cached_epoch_start.saturating_add(L1_EPOCH_DURATION_SECS.saturating_mul(2));
+                block_timestamp >= cached_epoch_start && block_timestamp < max_reasonable_timestamp
+            })
+            .unwrap_or(true)
     }
 }
 
@@ -430,8 +494,7 @@ mod tests {
         let now = Instant::now();
         let addr = Address::from([0xaau8; 20]);
 
-        cache.set_current(addr, now);
-        cache.set_next(addr, now);
+        cache.set_pair(addr, addr, 0, now);
 
         assert_eq!(cache.get_current(now + Duration::from_secs(5)), Some(addr));
         assert_eq!(cache.get_next(now + Duration::from_secs(5)), Some(addr));
@@ -443,8 +506,7 @@ mod tests {
         let now = Instant::now();
         let addr = Address::from([0xbbu8; 20]);
 
-        cache.set_current(addr, now);
-        cache.set_next(addr, now);
+        cache.set_pair(addr, addr, 0, now);
 
         assert!(cache.get_current(now + Duration::from_secs(11)).is_none());
         assert!(cache.get_next(now + Duration::from_secs(11)).is_none());
@@ -456,8 +518,7 @@ mod tests {
         let now = Instant::now();
         let addr = Address::from([0xccu8; 20]);
 
-        cache.set_current(addr, now);
-        cache.set_next(addr, now);
+        cache.set_pair(addr, addr, 0, now);
         assert!(cache.get_current(now).is_some());
         assert!(cache.get_next(now).is_some());
 
@@ -473,11 +534,35 @@ mod tests {
         let addr1 = Address::from([0x11u8; 20]);
         let addr2 = Address::from([0x22u8; 20]);
 
-        cache.set_current(addr1, now);
+        cache.set_pair(addr1, addr1, 100, now);
         assert_eq!(cache.get_current(now), Some(addr1));
 
-        cache.set_current(addr2, now + Duration::from_secs(1));
+        cache.set_pair(addr2, addr2, 101, now + Duration::from_secs(1));
         assert_eq!(cache.get_current(now + Duration::from_secs(1)), Some(addr2));
+    }
+
+    #[test]
+    fn sequencer_cache_set_pair_updates_distinct_current_and_next() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let current = Address::from([0x31u8; 20]);
+        let next = Address::from([0x42u8; 20]);
+
+        cache.set_pair(current, next, 777, now);
+
+        assert_eq!(cache.get_current(now), Some(current));
+        assert_eq!(cache.get_next(now), Some(next));
+    }
+
+    #[test]
+    fn sequencer_cache_invalidate_resets_timestamp_guard() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        cache.set_pair(Address::from([0x51u8; 20]), Address::from([0x52u8; 20]), 1_500, now);
+        assert!(!cache.should_accept_block_timestamp(1_499));
+
+        cache.invalidate();
+        assert!(cache.should_accept_block_timestamp(1_000));
     }
 
     #[test]
@@ -491,6 +576,96 @@ mod tests {
         assert!(cache.allow_miss_refresh(now));
         assert!(!cache.allow_miss_refresh(now + Duration::from_secs(1)));
         assert!(cache.allow_miss_refresh(now + Duration::from_secs(3)));
+    }
+
+    #[test]
+    fn sequencer_cache_stale_values_are_available_after_ttl_expiry() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let current = Address::from([0xddu8; 20]);
+        let next = Address::from([0xeeu8; 20]);
+
+        cache.set_pair(current, next, 1_000, now);
+
+        assert!(cache.get_current(now + Duration::from_secs(11)).is_none());
+        assert!(cache.get_next(now + Duration::from_secs(11)).is_none());
+        assert_eq!(
+            cache.get_stale_pair_within(now + Duration::from_secs(11), Duration::from_secs(15)),
+            Some((current, next))
+        );
+    }
+
+    #[test]
+    fn sequencer_cache_stale_pair_within_allows_recent_entries() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        let current = Address::from([0x81u8; 20]);
+        let next = Address::from([0x82u8; 20]);
+
+        cache.set_pair(current, next, 1_000, now);
+        assert_eq!(
+            cache.get_stale_pair_within(now + Duration::from_secs(5), Duration::from_secs(7)),
+            Some((current, next))
+        );
+    }
+
+    #[test]
+    fn sequencer_cache_stale_pair_within_rejects_old_entries() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        cache.set_pair(Address::from([0x91u8; 20]), Address::from([0x92u8; 20]), 1_000, now);
+        assert_eq!(
+            cache.get_stale_pair_within(now + Duration::from_secs(9), Duration::from_secs(8)),
+            None
+        );
+    }
+
+    #[test]
+    fn sequencer_cache_rejects_regressive_block_timestamp_updates() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+
+        cache.set_pair(Address::from([0x01u8; 20]), Address::from([0x02u8; 20]), 1_200, now);
+        assert!(!cache.should_accept_block_timestamp(1_199));
+        assert!(cache.should_accept_block_timestamp(1_200));
+        assert!(cache.should_accept_block_timestamp(1_201));
+    }
+
+    #[test]
+    fn sequencer_cache_rejects_implausibly_future_block_timestamp_updates() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        cache.set_pair(Address::from([0x01u8; 20]), Address::from([0x02u8; 20]), 1_200, now);
+
+        let boundary = 1_200 + (L1_EPOCH_DURATION_SECS * 2);
+        assert!(cache.should_accept_block_timestamp(boundary - 1));
+        assert!(!cache.should_accept_block_timestamp(boundary));
+    }
+
+    #[test]
+    fn sequencer_cache_reports_cached_epoch_start_timestamp() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        assert_eq!(cache.current_epoch_start_timestamp(), None);
+
+        cache.set_pair(Address::from([0x01u8; 20]), Address::from([0x02u8; 20]), 1_234, now);
+        assert_eq!(cache.current_epoch_start_timestamp(), Some(1_234));
+    }
+
+    #[test]
+    fn sequencer_cache_invalidate_for_l1_timestamp_requires_epoch_crossing() {
+        let mut cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        let now = Instant::now();
+        cache.set_pair(Address::from([0x01u8; 20]), Address::from([0x02u8; 20]), 1_000, now);
+
+        assert!(!cache.should_invalidate_for_l1_timestamp(1_383, 384));
+        assert!(cache.should_invalidate_for_l1_timestamp(1_384, 384));
+    }
+
+    #[test]
+    fn sequencer_cache_invalidate_for_l1_timestamp_is_false_when_empty() {
+        let cache = WhitelistSequencerCache::new(Duration::from_secs(10));
+        assert!(!cache.should_invalidate_for_l1_timestamp(1_384, 384));
     }
 
     #[test]
