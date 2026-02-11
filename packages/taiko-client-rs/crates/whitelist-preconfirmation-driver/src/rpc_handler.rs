@@ -1,17 +1,23 @@
 //! Whitelist preconfirmation RPC API handler implementation.
 
-use std::{io::Read, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    io::Read,
+    sync::Arc,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
 };
-use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{B256, Bloom, FixedBytes, U256};
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes};
 use async_trait::async_trait;
+use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use metrics::histogram;
 use protocol::{
@@ -19,7 +25,7 @@ use protocol::{
     signer::FixedKSigner,
 };
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::debug;
 
 use crate::{
@@ -33,10 +39,16 @@ use crate::{
     rpc::{
         WhitelistRpcApi,
         types::{
-            BuildPreconfBlockRequest, BuildPreconfBlockResponse, HealthResponse, WhitelistStatus,
+            BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
+            HealthResponse, LookaheadStatus, SlotRange, WhitelistStatus,
         },
     },
 };
+
+/// Go default handover-skip slots used for sequencing window split.
+const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
+/// Maximum number of pending EOS notifications retained for `/ws` subscribers.
+const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 
 /// Implements the whitelist preconfirmation RPC API.
 pub(crate) struct WhitelistRpcHandler<P>
@@ -59,6 +71,14 @@ where
     local_peer_id: String,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
+    /// Preconf whitelist contract used for operator checks.
+    whitelist: PreconfWhitelistInstance<P>,
+    /// Highest unsafe payload block ID tracked by this node.
+    highest_unsafe_l2_payload_block_id: Mutex<u64>,
+    /// End-of-sequencing hash cache keyed by epoch.
+    end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
+    /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
+    eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
 impl<P> WhitelistRpcHandler<P>
@@ -72,15 +92,25 @@ where
         chain_id: u64,
         signer: FixedKSigner,
         beacon_client: Arc<BeaconClient>,
+        whitelist_address: Address,
+        initial_highest_unsafe_l2_payload_block_id: u64,
         network_command_tx: mpsc::Sender<NetworkCommand>,
         local_peer_id: String,
     ) -> Self {
+        let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
+        let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             event_syncer,
             rpc,
             chain_id,
             signer,
             beacon_client,
+            whitelist,
+            highest_unsafe_l2_payload_block_id: Mutex::new(
+                initial_highest_unsafe_l2_payload_block_id,
+            ),
+            end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
+            eos_notification_tx,
             network_command_tx,
             local_peer_id,
             build_preconf_lock: Mutex::new(()),
@@ -203,6 +233,108 @@ where
             *self.rpc.shasta.anchor.address(),
         )
     }
+
+    /// Check fee recipient against current/next whitelist operator addresses.
+    async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
+        let (current, next) = self.fetch_current_next_sequencers().await?;
+        if fee_recipient == current || fee_recipient == next {
+            return Ok(());
+        }
+
+        Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            "fee recipient {fee_recipient} is not current ({current}) or next ({next}) operator"
+        )))
+    }
+
+    /// Fetch current and next sequencer addresses pinned to a single L1 block number.
+    async fn fetch_current_next_sequencers(&self) -> Result<(Address, Address)> {
+        let latest_block = self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(provider_err)?
+            .ok_or_else(|| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(
+                    "missing latest L1 block while fetching whitelist operators".to_string(),
+                )
+            })?;
+
+        let block_id = BlockId::Number(latest_block.header.number.into());
+        let current_proposer = self
+            .whitelist
+            .getOperatorForCurrentEpoch()
+            .block(block_id.clone())
+            .call()
+            .await
+            .map_err(provider_err)?;
+        let next_proposer = self
+            .whitelist
+            .getOperatorForNextEpoch()
+            .block(block_id.clone())
+            .call()
+            .await
+            .map_err(provider_err)?;
+
+        let current = self
+            .whitelist
+            .operators(current_proposer)
+            .block(block_id.clone())
+            .call()
+            .await
+            .map_err(provider_err)?
+            .sequencerAddress;
+        let next = self
+            .whitelist
+            .operators(next_proposer)
+            .block(block_id)
+            .call()
+            .await
+            .map_err(provider_err)?
+            .sequencerAddress;
+
+        if current == Address::ZERO || next == Address::ZERO {
+            return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
+                "received zero address while fetching whitelist operators".to_string(),
+            ));
+        }
+
+        Ok((current, next))
+    }
+
+    /// Build best-effort Go-compatible lookahead status.
+    async fn current_lookahead_status(&self) -> Option<LookaheadStatus> {
+        let (curr_operator, next_operator) = self.fetch_current_next_sequencers().await.ok()?;
+        let current_epoch = self.beacon_client.current_epoch();
+        let slots_per_epoch = self.beacon_client.slots_per_epoch();
+        let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
+        let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
+        let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
+
+        let curr_ranges =
+            vec![SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) }];
+        let next_ranges = vec![SlotRange {
+            start: epoch_start.saturating_add(threshold),
+            end: epoch_start.saturating_add(slots_per_epoch),
+        }];
+
+        let updated_at =
+            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
+
+        Some(LookaheadStatus {
+            curr_operator,
+            next_operator,
+            curr_ranges,
+            next_ranges,
+            updated_at,
+            last_updated_epoch: current_epoch,
+        })
+    }
+
+    /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
+    async fn update_highest_unsafe(&self, block_number: u64) {
+        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
+    }
 }
 
 #[async_trait]
@@ -223,6 +355,8 @@ where
                 driver::DriverError::EngineSyncing(request.block_number),
             ));
         }
+
+        self.ensure_fee_recipient_allowed(request.fee_recipient).await?;
 
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;
@@ -260,6 +394,7 @@ where
 
         let block_hash = inserted_block.header.hash;
         let block_number = inserted_block.header.number;
+        let block_header = inserted_block.header.clone();
         let base_fee_per_gas =
             inserted_block.header.base_fee_per_gas.unwrap_or(request.base_fee_per_gas);
         let block_hash_signature =
@@ -271,6 +406,7 @@ where
                 FixedBytes::<65>::from(block_hash_signature),
             )
             .await?;
+        self.update_highest_unsafe(block_number).await;
 
         let execution_payload = ExecutionPayloadV1 {
             parent_hash: inserted_block.header.parent_hash,
@@ -323,6 +459,11 @@ where
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
+            self.end_of_sequencing_by_epoch.lock().await.insert(epoch, block_hash);
+            let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
+                current_epoch: epoch,
+                end_of_sequencing: true,
+            });
             self.network_command_tx
                 .send(NetworkCommand::PublishEndOfSequencingRequest { epoch })
                 .await
@@ -338,34 +479,41 @@ where
         )
         .record(started_at.elapsed().as_secs_f64());
 
-        Ok(BuildPreconfBlockResponse { block_hash, block_number })
+        Ok(BuildPreconfBlockResponse { block_hash, block_number, block_header: Some(block_header) })
     }
 
     async fn get_status(&self) -> Result<WhitelistStatus> {
         let head_l1_origin_block_id =
             self.rpc.head_l1_origin().await?.map(|h| h.block_id.to::<u64>());
-
-        let highest_unsafe_block_number = self
-            .rpc
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
+        let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+        let current_epoch = self.beacon_client.current_epoch();
+        let end_of_sequencing_block_hash = self
+            .end_of_sequencing_by_epoch
+            .lock()
             .await
-            .ok()
-            .flatten()
-            .map(|block| block.header.number);
-
+            .get(&current_epoch)
+            .copied()
+            .map(|hash| hash.to_string());
         let sync_ready = head_l1_origin_block_id.is_some();
 
         Ok(WhitelistStatus {
             head_l1_origin_block_id,
-            highest_unsafe_block_number,
+            highest_unsafe_block_number: Some(highest_unsafe),
             peer_id: self.local_peer_id.clone(),
             sync_ready,
+            lookahead: self.current_lookahead_status().await,
+            total_cached: Some(0),
+            highest_unsafe_l2_payload_block_id: Some(highest_unsafe),
+            end_of_sequencing_block_hash,
         })
     }
 
     async fn healthz(&self) -> Result<HealthResponse> {
         Ok(HealthResponse { ok: true })
+    }
+
+    fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
+        self.eos_notification_tx.subscribe()
     }
 }
 

@@ -2,7 +2,9 @@
 
 use std::{net::SocketAddr, sync::Arc, time::Instant};
 
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
+use alloy_provider::Provider;
 use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
@@ -31,6 +33,8 @@ pub struct RunnerConfig {
     pub whitelist_address: Address,
     /// Optional listen address for the JSON-RPC server.
     pub rpc_listen_addr: Option<SocketAddr>,
+    /// Optional shared secret used for Bearer JWT authentication on RPC/REST routes.
+    pub rpc_jwt_secret: Option<Vec<u8>>,
     /// Optional hex-encoded private key for P2P block signing.
     pub p2p_signer_key: Option<String>,
 }
@@ -42,9 +46,17 @@ impl RunnerConfig {
         p2p_config: P2pConfig,
         whitelist_address: Address,
         rpc_listen_addr: Option<SocketAddr>,
+        rpc_jwt_secret: Option<Vec<u8>>,
         p2p_signer_key: Option<String>,
     ) -> Self {
-        Self { driver_config, p2p_config, whitelist_address, rpc_listen_addr, p2p_signer_key }
+        Self {
+            driver_config,
+            p2p_config,
+            whitelist_address,
+            rpc_listen_addr,
+            rpc_jwt_secret,
+            p2p_signer_key,
+        }
     }
 }
 
@@ -103,6 +115,22 @@ impl WhitelistPreconfirmationDriverRunner {
                     "failed to create P2P signer: {e}"
                 ))
             })?;
+            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
+                .client()
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await
+            {
+                Ok(Some(block)) => block.header.number,
+                Ok(None) => 0,
+                Err(err) => {
+                    warn!(
+                        error = %err,
+                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
+                    );
+                    0
+                }
+            };
 
             let handler = WhitelistRpcHandler::new(
                 preconf_ingress_sync.event_syncer(),
@@ -110,11 +138,17 @@ impl WhitelistPreconfirmationDriverRunner {
                 self.config.p2p_config.chain_id,
                 signer,
                 beacon_client,
+                self.config.whitelist_address,
+                initial_highest_unsafe_l2_payload_block_id,
                 network.command_tx.clone(),
                 network.local_peer_id.to_string(),
             );
 
-            let rpc_config = WhitelistRpcServerConfig { listen_addr, ..Default::default() };
+            let rpc_config = WhitelistRpcServerConfig {
+                listen_addr,
+                jwt_secret: self.config.rpc_jwt_secret.clone(),
+                ..Default::default()
+            };
             let server = WhitelistRpcServer::start(rpc_config, Arc::new(handler)).await?;
             info!(
                 addr = %server.local_addr(),

@@ -1,9 +1,11 @@
 //! Whitelist preconfirmation RPC API trait definition.
 
 use async_trait::async_trait;
+use tokio::sync::broadcast;
 
 use super::types::{
-    BuildPreconfBlockRequest, BuildPreconfBlockResponse, HealthResponse, WhitelistStatus,
+    BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
+    HealthResponse, WhitelistStatus,
 };
 use crate::Result;
 
@@ -24,4 +26,7 @@ pub trait WhitelistRpcApi: Send + Sync {
 
     /// Health check endpoint.
     async fn healthz(&self) -> Result<HealthResponse>;
+
+    /// Subscribe to end-of-sequencing notifications for the REST `/ws` endpoint.
+    fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification>;
 }

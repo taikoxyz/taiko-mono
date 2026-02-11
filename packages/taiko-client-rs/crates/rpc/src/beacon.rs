@@ -330,6 +330,11 @@ impl BeaconClient {
     pub fn current_epoch(&self) -> u64 {
         self.current_slot() / self.slots_per_epoch
     }
+
+    /// Return configured slots per epoch from the beacon spec.
+    pub const fn slots_per_epoch(&self) -> u64 {
+        self.slots_per_epoch
+    }
 }
 
 fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
