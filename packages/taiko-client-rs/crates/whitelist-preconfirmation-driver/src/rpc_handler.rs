@@ -49,6 +49,8 @@ use crate::{
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
+/// Minimum bytes required to decode a Shasta proposal ID from header extra data.
+const SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN: usize = 7;
 
 /// Implements the whitelist preconfirmation RPC API.
 pub(crate) struct WhitelistRpcHandler<P>
@@ -199,6 +201,14 @@ where
                 "block number {block_number} must follow parent number {}",
                 parent.header.number
             )));
+        }
+
+        // Mirror Go's stale/reorg guard: reject if caller builds on a parent proposal
+        // that is older than the latest canonical proposal seen from L1 events.
+        let latest_seen_proposal_id = self.event_syncer.last_canonical_proposal_id();
+        if latest_seen_proposal_id > 0 {
+            let parent_proposal_id = decode_shasta_proposal_id(parent.header.extra_data.as_ref())?;
+            ensure_parent_proposal_not_stale(parent_proposal_id, latest_seen_proposal_id)?;
         }
 
         let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
@@ -550,6 +560,34 @@ fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
+/// Decode Shasta proposal ID from header extra data.
+fn decode_shasta_proposal_id(extra_data: &[u8]) -> Result<u64> {
+    if extra_data.len() < SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN {
+        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            "parent extra_data too short for proposal id: {} < {SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN}",
+            extra_data.len()
+        )));
+    }
+
+    let mut proposal_id_bytes = [0u8; 8];
+    proposal_id_bytes[2..8].copy_from_slice(&extra_data[1..7]);
+    Ok(u64::from_be_bytes(proposal_id_bytes))
+}
+
+/// Ensure parent proposal ID is not older than latest canonical event-seen proposal ID.
+fn ensure_parent_proposal_not_stale(
+    parent_proposal_id: u64,
+    latest_seen_proposal_id: u64,
+) -> Result<()> {
+    if parent_proposal_id >= latest_seen_proposal_id {
+        return Ok(());
+    }
+
+    Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+        "latest proposal id seen in events: {latest_seen_proposal_id}, parent proposal id: {parent_proposal_id}"
+    )))
+}
+
 /// Convert a provider error into a driver error.
 fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
     WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
@@ -600,5 +638,41 @@ mod tests {
         let compressed = compress(&expected);
         let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
         assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn decode_shasta_proposal_id_rejects_short_extra_data() {
+        let err =
+            decode_shasta_proposal_id(&[0x00, 0x01, 0x02]).expect_err("short extra_data must fail");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("parent extra_data too short for proposal id")
+        ));
+    }
+
+    #[test]
+    fn decode_shasta_proposal_id_decodes_expected_value() {
+        let extra_data = [0xAA, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+        let proposal_id =
+            decode_shasta_proposal_id(&extra_data).expect("proposal id should decode");
+        assert_eq!(proposal_id, 0x0102_0304_0506);
+    }
+
+    #[test]
+    fn ensure_parent_proposal_not_stale_rejects_older_parent() {
+        let err = ensure_parent_proposal_not_stale(5, 6).expect_err("stale parent must fail");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("latest proposal id seen in events")
+        ));
+    }
+
+    #[test]
+    fn ensure_parent_proposal_not_stale_allows_equal_or_newer_parent() {
+        ensure_parent_proposal_not_stale(6, 6).expect("equal parent proposal id must pass");
+        ensure_parent_proposal_not_stale(7, 6).expect("newer parent proposal id must pass");
+        ensure_parent_proposal_not_stale(1, 0).expect("zero latest proposal id must skip check");
     }
 }
