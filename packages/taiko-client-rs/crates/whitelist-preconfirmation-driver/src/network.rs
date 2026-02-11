@@ -29,6 +29,10 @@ use crate::{
 };
 use hashlink::LinkedHashMap;
 
+/// Gossipsub behaviour type with an explicit topic allowlist filter.
+type WhitelistGossipsub =
+    gossipsub::Behaviour<gossipsub::IdentityTransform, gossipsub::WhitelistSubscriptionFilter>;
+
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
 /// Prefix used in Go-compatible message-id hashing for valid snappy payloads.
@@ -390,7 +394,7 @@ impl Topics {
 #[behaviour(to_swarm = "BehaviourEvent")]
 struct Behaviour {
     /// Gossip transport for whitelist preconfirmation topics.
-    gossipsub: gossipsub::Behaviour,
+    gossipsub: WhitelistGossipsub,
     /// Ping protocol for liveness.
     ping: ping::Behaviour,
     /// Identify protocol for peer metadata exchange.
@@ -451,7 +455,7 @@ impl WhitelistNetwork {
         let local_peer_id = local_key.public().to_peer_id();
 
         let topics = Topics::new(cfg.chain_id);
-        let mut gossipsub = build_gossipsub()?;
+        let mut gossipsub = build_gossipsub(&topics)?;
         gossipsub.subscribe(&topics.preconf_blocks).map_err(to_p2p_err)?;
         gossipsub.subscribe(&topics.preconf_request).map_err(to_p2p_err)?;
         gossipsub.subscribe(&topics.preconf_response).map_err(to_p2p_err)?;
@@ -725,7 +729,7 @@ impl WhitelistNetwork {
                         }
                     }
                     event = swarm.select_next_some() => {
-                        handle_swarm_event(event, &topics, &event_tx, &mut inbound_validation)
+                        handle_swarm_event(&mut swarm, event, &topics, &event_tx, &mut inbound_validation)
                             .await?;
                     }
                 }
@@ -737,8 +741,9 @@ impl WhitelistNetwork {
 }
 
 /// Build the gossipsub behaviour.
-pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
+fn build_gossipsub(topics: &Topics) -> Result<WhitelistGossipsub> {
     let config = gossipsub::ConfigBuilder::default()
+        .validate_messages()
         .validation_mode(gossipsub::ValidationMode::Anonymous)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
@@ -747,7 +752,22 @@ pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
         .build()
         .map_err(to_p2p_err)?;
 
-    gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, config).map_err(to_p2p_err)
+    let allowlisted_topics = [
+        topics.preconf_blocks.hash(),
+        topics.preconf_request.hash(),
+        topics.preconf_response.hash(),
+        topics.eos_request.hash(),
+    ]
+    .into_iter()
+    .collect::<HashSet<_>>();
+    let subscription_filter = gossipsub::WhitelistSubscriptionFilter(allowlisted_topics);
+
+    gossipsub::Behaviour::new_with_subscription_filter(
+        gossipsub::MessageAuthenticity::Anonymous,
+        config,
+        subscription_filter,
+    )
+    .map_err(to_p2p_err)
 }
 
 /// Parse an `enode://` URL into a multiaddr for direct dialing.
@@ -896,6 +916,7 @@ async fn recv_discovered_multiaddr(
 
 /// Handle a swarm event.
 async fn handle_swarm_event(
+    swarm: &mut Swarm<Behaviour>,
     event: libp2p::swarm::SwarmEvent<BehaviourEvent>,
     topics: &Topics,
     event_tx: &mpsc::Sender<NetworkEvent>,
@@ -903,7 +924,14 @@ async fn handle_swarm_event(
 ) -> Result<()> {
     match event {
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
-            handle_gossipsub_event(*event, topics, event_tx, inbound_validation).await?;
+            handle_gossipsub_event(
+                &mut swarm.behaviour_mut().gossipsub,
+                *event,
+                topics,
+                event_tx,
+                inbound_validation,
+            )
+            .await?;
         }
         libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
             debug!(%address, "whitelist preconfirmation network listening");
@@ -924,12 +952,13 @@ async fn handle_swarm_event(
 
 /// Handle a gossipsub event.
 async fn handle_gossipsub_event(
+    gossipsub: &mut WhitelistGossipsub,
     event: gossipsub::Event,
     topics: &Topics,
     event_tx: &mpsc::Sender<NetworkEvent>,
     inbound_validation: &mut InboundValidationState,
 ) -> Result<()> {
-    let gossipsub::Event::Message { propagation_source, message, .. } = event else {
+    let gossipsub::Event::Message { propagation_source, message_id, message } = event else {
         return Ok(());
     };
 
@@ -944,6 +973,12 @@ async fn handle_gossipsub_event(
                 if inbound_validation.admit_preconf_payload(block_number, block_hash)
                     != AdmissionDecision::Accept
                 {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                         "topic" => "preconf_blocks",
@@ -958,9 +993,31 @@ async fn handle_gossipsub_event(
                     "result" => "decoded",
                 )
                 .increment(1);
-                forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await?
+                if let Err(err) =
+                    forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
+                {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
+                    return Err(err);
+                }
+                report_message_validation(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    gossipsub::MessageAcceptance::Accept,
+                );
             }
             Err(err) => {
+                report_message_validation(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    gossipsub::MessageAcceptance::Reject,
+                );
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                     "topic" => "preconf_blocks",
@@ -989,6 +1046,12 @@ async fn handle_gossipsub_event(
                     Instant::now(),
                 ) != AdmissionDecision::Accept
                 {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                         "topic" => "response_preconf_blocks",
@@ -1003,9 +1066,31 @@ async fn handle_gossipsub_event(
                     "result" => "decoded",
                 )
                 .increment(1);
-                forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope }).await?
+                if let Err(err) =
+                    forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope }).await
+                {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
+                    return Err(err);
+                }
+                report_message_validation(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    gossipsub::MessageAcceptance::Accept,
+                );
             }
             Err(err) => {
+                report_message_validation(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    gossipsub::MessageAcceptance::Reject,
+                );
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                     "topic" => "response_preconf_blocks",
@@ -1029,6 +1114,12 @@ async fn handle_gossipsub_event(
             match inbound_validation.admit_preconf_request(from, hash, Instant::now()) {
                 AdmissionDecision::Accept => {}
                 AdmissionDecision::DuplicateLimited => {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                         "topic" => "request_preconf_blocks",
@@ -1038,6 +1129,12 @@ async fn handle_gossipsub_event(
                     return Ok(());
                 }
                 AdmissionDecision::RateLimited => {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                         "topic" => "request_preconf_blocks",
@@ -1053,8 +1150,30 @@ async fn handle_gossipsub_event(
                 "result" => "decoded",
             )
             .increment(1);
-            forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
+            if let Err(err) =
+                forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await
+            {
+                report_message_validation(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    gossipsub::MessageAcceptance::Ignore,
+                );
+                return Err(err);
+            }
+            report_message_validation(
+                gossipsub,
+                &message_id,
+                &from,
+                gossipsub::MessageAcceptance::Accept,
+            );
         } else {
+            report_message_validation(
+                gossipsub,
+                &message_id,
+                &from,
+                gossipsub::MessageAcceptance::Reject,
+            );
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                 "topic" => "request_preconf_blocks",
@@ -1076,6 +1195,12 @@ async fn handle_gossipsub_event(
             match inbound_validation.admit_eos_request(from, epoch, Instant::now()) {
                 AdmissionDecision::Accept => {}
                 AdmissionDecision::DuplicateLimited => {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                         "topic" => "request_eos_preconf_blocks",
@@ -1085,6 +1210,12 @@ async fn handle_gossipsub_event(
                     return Ok(());
                 }
                 AdmissionDecision::RateLimited => {
+                    report_message_validation(
+                        gossipsub,
+                        &message_id,
+                        &from,
+                        gossipsub::MessageAcceptance::Ignore,
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                         "topic" => "request_eos_preconf_blocks",
@@ -1100,8 +1231,30 @@ async fn handle_gossipsub_event(
                 "result" => "decoded",
             )
             .increment(1);
-            forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await?;
+            if let Err(err) =
+                forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await
+            {
+                report_message_validation(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    gossipsub::MessageAcceptance::Ignore,
+                );
+                return Err(err);
+            }
+            report_message_validation(
+                gossipsub,
+                &message_id,
+                &from,
+                gossipsub::MessageAcceptance::Accept,
+            );
         } else {
+            report_message_validation(
+                gossipsub,
+                &message_id,
+                &from,
+                gossipsub::MessageAcceptance::Reject,
+            );
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                 "topic" => "request_eos_preconf_blocks",
@@ -1124,8 +1277,25 @@ async fn handle_gossipsub_event(
         "result" => "ignored",
     )
     .increment(1);
+    report_message_validation(gossipsub, &message_id, &from, gossipsub::MessageAcceptance::Ignore);
     debug!(topic = topic.as_str(), "ignoring message on unknown whitelist topic");
     Ok(())
+}
+
+/// Report gossipsub message validation result for a previously received message.
+fn report_message_validation(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    acceptance: gossipsub::MessageAcceptance,
+) {
+    if !gossipsub.report_message_validation_result(message_id, from, acceptance) {
+        debug!(
+            message_id = %message_id,
+            peer = %from,
+            "gossipsub message no longer in validation cache when reporting outcome"
+        );
+    }
 }
 
 /// Decode an end-of-sequencing request epoch from fixed-width big-endian bytes.
@@ -1496,7 +1666,7 @@ mod tests {
         #[behaviour(to_swarm = "TestBehaviourEvent")]
         struct TestBehaviour {
             /// Gossipsub behaviour under test.
-            gossipsub: gossipsub::Behaviour,
+            gossipsub: WhitelistGossipsub,
             /// Ping behaviour required by the composite behaviour.
             ping: ping::Behaviour,
             /// Identify behaviour required by the composite behaviour.
@@ -1548,7 +1718,7 @@ mod tests {
             .multiplex(yamux::Config::default())
             .boxed();
 
-        let mut gs = build_gossipsub().expect("gossipsub config");
+        let mut gs = build_gossipsub(&Topics::new(chain_id)).expect("gossipsub config");
         gs.subscribe(&topic).expect("topic subscribe");
 
         let behaviour = TestBehaviour {
@@ -1687,7 +1857,7 @@ mod tests {
         #[behaviour(to_swarm = "TestBehaviourEvent")]
         struct TestBehaviour {
             /// Gossipsub behaviour under test.
-            gossipsub: gossipsub::Behaviour,
+            gossipsub: WhitelistGossipsub,
             /// Ping behaviour required by the composite behaviour.
             ping: ping::Behaviour,
             /// Identify behaviour required by the composite behaviour.
@@ -1740,7 +1910,7 @@ mod tests {
             .multiplex(yamux::Config::default())
             .boxed();
 
-        let mut gs = build_gossipsub().expect("gossipsub config");
+        let mut gs = build_gossipsub(&Topics::new(chain_id)).expect("gossipsub config");
         gs.subscribe(&topic).expect("topic subscribe");
 
         let behaviour = TestBehaviour {
@@ -1838,7 +2008,7 @@ mod tests {
         #[derive(NetworkBehaviour)]
         struct TestBehaviour {
             /// Gossipsub behaviour under test.
-            gossipsub: gossipsub::Behaviour,
+            gossipsub: WhitelistGossipsub,
             /// Ping behaviour required by the composite behaviour.
             ping: ping::Behaviour,
             /// Identify behaviour required by the composite behaviour.
@@ -1858,7 +2028,7 @@ mod tests {
             .multiplex(yamux::Config::default())
             .boxed();
 
-        let mut gs = build_gossipsub().expect("gossipsub config");
+        let mut gs = build_gossipsub(&Topics::new(chain_id)).expect("gossipsub config");
         gs.subscribe(&topic).expect("topic subscribe");
 
         let behaviour = TestBehaviour {
