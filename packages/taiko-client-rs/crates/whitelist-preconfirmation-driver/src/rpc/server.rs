@@ -170,12 +170,12 @@ fn api_error_to_rpc(err: WhitelistPreconfirmationDriverError) -> ErrorObjectOwne
             WhitelistRpcErrorCode::SigningFailed.code()
         }
         WhitelistPreconfirmationDriverError::P2p(_) => WhitelistRpcErrorCode::PublishFailed.code(),
-        WhitelistPreconfirmationDriverError::EventSyncerExited
-        | WhitelistPreconfirmationDriverError::PreconfIngressNotReady
-        | WhitelistPreconfirmationDriverError::Driver(
+        WhitelistPreconfirmationDriverError::EventSyncerExited |
+        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
+        WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
-        )
-        | WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
+        ) |
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             WhitelistRpcErrorCode::NotSynced.code()
         }
         _ => WhitelistRpcErrorCode::InternalError.code(),
