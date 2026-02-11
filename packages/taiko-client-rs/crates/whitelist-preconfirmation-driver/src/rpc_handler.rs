@@ -7,8 +7,9 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{B256, FixedBytes, U256};
+use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
+use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes};
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
@@ -18,13 +19,16 @@ use protocol::{
     signer::FixedKSigner,
 };
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 use tracing::debug;
 
 use crate::{
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
-    importer::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
+    importer::{
+        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
+        validate_execution_payload_for_preconf,
+    },
     network::NetworkCommand,
     rpc::{
         WhitelistRpcApi,
@@ -53,6 +57,8 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Local peer ID string.
     local_peer_id: String,
+    /// Serializes build requests to avoid concurrent insertion/signing races.
+    build_preconf_lock: Mutex<()>,
 }
 
 impl<P> WhitelistRpcHandler<P>
@@ -77,6 +83,7 @@ where
             beacon_client,
             network_command_tx,
             local_peer_id,
+            build_preconf_lock: Mutex::new(()),
         }
     }
 
@@ -166,6 +173,36 @@ where
         let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
         Ok(calculate_shasta_difficulty(parent_difficulty, block_number))
     }
+
+    /// Validate request payload shape before expensive insertion and signing operations.
+    fn validate_request_payload(
+        &self,
+        request: &BuildPreconfBlockRequest,
+        prev_randao: B256,
+    ) -> Result<()> {
+        let payload = ExecutionPayloadV1 {
+            parent_hash: request.parent_hash,
+            fee_recipient: request.fee_recipient,
+            state_root: B256::ZERO,
+            receipts_root: B256::ZERO,
+            logs_bloom: Bloom::default(),
+            prev_randao,
+            block_number: request.block_number,
+            gas_limit: request.gas_limit,
+            gas_used: 0,
+            timestamp: request.timestamp,
+            extra_data: request.extra_data.clone(),
+            base_fee_per_gas: U256::from(request.base_fee_per_gas),
+            block_hash: B256::ZERO,
+            transactions: vec![request.transactions.clone()],
+        };
+
+        validate_execution_payload_for_preconf(
+            &payload,
+            self.chain_id,
+            *self.rpc.shasta.anchor.address(),
+        )
+    }
 }
 
 #[async_trait]
@@ -178,8 +215,18 @@ where
         request: BuildPreconfBlockRequest,
     ) -> Result<BuildPreconfBlockResponse> {
         let started_at = Instant::now();
+        let _build_guard = self.build_preconf_lock.lock().await;
+
+        let sync_status = self.rpc.l2_provider.syncing().await.map_err(provider_err)?;
+        if matches!(sync_status, SyncStatus::Info(_)) {
+            return Err(WhitelistPreconfirmationDriverError::Driver(
+                driver::DriverError::EngineSyncing(request.block_number),
+            ));
+        }
+
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;
+        self.validate_request_payload(&request, prev_randao)?;
 
         // Insert the preconfirmation payload locally first, mirroring the Go flow, to
         // obtain the canonical block hash before gossiping.

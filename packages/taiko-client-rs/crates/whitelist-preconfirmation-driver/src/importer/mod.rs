@@ -31,6 +31,8 @@ mod validation;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use validation::validate_execution_payload_for_preconf;
+
 /// Maximum compressed tx-list size accepted from a preconfirmation payload.
 pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 /// Maximum decompressed tx-list size accepted from a preconfirmation payload.
