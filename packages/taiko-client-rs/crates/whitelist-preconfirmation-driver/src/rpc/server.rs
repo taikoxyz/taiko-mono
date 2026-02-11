@@ -197,10 +197,10 @@ where
         let path = req.uri().path().to_string();
         let method = req.method().clone();
 
-        if let Some(jwt_auth) = self.jwt_auth.as_ref() {
-            if let Err(err) = jwt_auth.validate_headers(req.headers()) {
-                return async move { Ok(error_response(StatusCode::UNAUTHORIZED, err)) }.boxed();
-            }
+        if let Some(jwt_auth) = self.jwt_auth.as_ref() &&
+            let Err(err) = jwt_auth.validate_headers(req.headers())
+        {
+            return async move { Ok(error_response(StatusCode::UNAUTHORIZED, err)) }.boxed();
         }
 
         if method == Method::GET && (path == "/" || path == "/healthz") {
@@ -413,7 +413,7 @@ async fn serve_websocket_notifications(
                     Ok(notification) => {
                         match serde_json::to_string(&notification) {
                             Ok(payload) => {
-                                if websocket.send(Message::Text(payload.into())).await.is_err() {
+                                if websocket.send(Message::Text(payload)).await.is_err() {
                                     break;
                                 }
                             }
@@ -434,10 +434,10 @@ async fn serve_websocket_notifications(
                         if message.is_close() {
                             break;
                         }
-                        if let Message::Ping(payload) = message {
-                            if websocket.send(Message::Pong(payload)).await.is_err() {
-                                break;
-                            }
+                        if let Message::Ping(payload) = message
+                            && websocket.send(Message::Pong(payload)).await.is_err()
+                        {
+                            break;
                         }
                     }
                     Some(Err(_)) | None => break,

@@ -86,6 +86,7 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Create a new RPC handler.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         event_syncer: Arc<EventSyncer<P>>,
         rpc: Client<P>,
@@ -264,14 +265,14 @@ where
         let current_proposer = self
             .whitelist
             .getOperatorForCurrentEpoch()
-            .block(block_id.clone())
+            .block(block_id)
             .call()
             .await
             .map_err(provider_err)?;
         let next_proposer = self
             .whitelist
             .getOperatorForNextEpoch()
-            .block(block_id.clone())
+            .block(block_id)
             .call()
             .await
             .map_err(provider_err)?;
@@ -279,7 +280,7 @@ where
         let current = self
             .whitelist
             .operators(current_proposer)
-            .block(block_id.clone())
+            .block(block_id)
             .call()
             .await
             .map_err(provider_err)?

@@ -267,7 +267,7 @@ impl WhitelistNetwork {
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, mut command_rx) = mpsc::channel(512);
-        let local_peer_id_for_events = local_peer_id.clone();
+        let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
             loop {
