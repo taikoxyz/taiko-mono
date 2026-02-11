@@ -39,14 +39,14 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
-    /// Optional listen address for the whitelist preconfirmation JSON-RPC server.
+    /// Optional listen address for the whitelist preconfirmation REST/WS server.
     #[clap(
         long = "preconfirmation.rpc-addr",
         visible_alias = "whitelist.rpc-addr",
         env = "PRECONFIRMATION_RPC_ADDR"
     )]
     pub preconfirmation_rpc_addr: Option<std::net::SocketAddr>,
-    /// Optional path to JWT secret used to authenticate whitelist preconfirmation RPC/REST calls.
+    /// Optional path to JWT secret used to authenticate whitelist preconfirmation REST/WS calls.
     #[clap(long = "preconfirmation.jwt-secret", env = "PRECONFIRMATION_SERVER_JWT_SECRET")]
     pub preconfirmation_jwt_secret: Option<PathBuf>,
     /// Optional hex-encoded private key for P2P block signing.
@@ -145,7 +145,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
         }
     }
 
-    /// Resolve and parse optional JWT secret used by the whitelist RPC/REST server.
+    /// Resolve and parse optional JWT secret used by the whitelist REST/WS server.
     fn resolve_rpc_jwt_secret(&self) -> Result<Option<Vec<u8>>> {
         let Some(path) = self.preconfirmation_jwt_secret.as_ref() else {
             return Ok(None);

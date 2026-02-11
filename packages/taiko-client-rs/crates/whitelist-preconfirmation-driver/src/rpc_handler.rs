@@ -40,7 +40,7 @@ use crate::{
         WhitelistRpcApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-            HealthResponse, LookaheadStatus, SlotRange, WhitelistStatus,
+            LookaheadStatus, SlotRange, WhitelistStatus,
         },
     },
 };
@@ -506,10 +506,6 @@ where
             highest_unsafe_l2_payload_block_id: Some(highest_unsafe),
             end_of_sequencing_block_hash,
         })
-    }
-
-    async fn healthz(&self) -> Result<HealthResponse> {
-        Ok(HealthResponse { ok: true })
     }
 
     fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {

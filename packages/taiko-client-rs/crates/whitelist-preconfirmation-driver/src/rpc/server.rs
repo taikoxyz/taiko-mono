@@ -1,4 +1,4 @@
-//! JSON-RPC server for the whitelist preconfirmation driver.
+//! HTTP server for the whitelist preconfirmation driver.
 
 use std::{
     future::Future,
@@ -8,7 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{FutureExt, SinkExt, StreamExt, TryFutureExt};
+use futures::{FutureExt, SinkExt, StreamExt};
 use http::{
     Method, StatusCode,
     header::{
@@ -22,10 +22,8 @@ use jsonrpsee::{
     RpcModule,
     core::BoxError,
     server::{HttpBody, HttpRequest, HttpResponse, ServerBuilder, ServerConfig, ServerHandle},
-    types::ErrorObjectOwned,
 };
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
-use metrics::{counter, histogram};
 use tokio::sync::broadcast;
 use tokio_tungstenite::{
     WebSocketStream,
@@ -36,31 +34,18 @@ use tracing::{info, warn};
 
 use super::{
     WhitelistRpcApi,
-    types::{
-        BuildPreconfBlockRequest, BuildPreconfBlockRestRequest, EndOfSequencingNotification,
-        RestStatus, WhitelistRpcErrorCode,
-    },
+    types::{BuildPreconfBlockRestRequest, EndOfSequencingNotification, RestStatus},
 };
-use crate::{
-    Result, error::WhitelistPreconfirmationDriverError,
-    metrics::WhitelistPreconfirmationDriverMetrics,
-};
-
-/// JSON-RPC method name for building a preconfirmation block.
-pub const METHOD_BUILD_PRECONF_BLOCK: &str = "whitelist_buildPreconfBlock";
-/// JSON-RPC method name for querying whitelist driver status.
-pub const METHOD_GET_STATUS: &str = "whitelist_getStatus";
-/// JSON-RPC method name for health check.
-pub const METHOD_HEALTHZ: &str = "whitelist_healthz";
+use crate::{Result, error::WhitelistPreconfirmationDriverError};
 
 /// Configuration for the whitelist preconfirmation RPC server.
 #[derive(Debug, Clone)]
 pub struct WhitelistRpcServerConfig {
     /// Socket address to listen on.
     pub listen_addr: SocketAddr,
-    /// Whether HTTP JSON-RPC transport is enabled.
+    /// Whether HTTP transport is enabled.
     pub enable_http: bool,
-    /// Whether WebSocket JSON-RPC transport is enabled.
+    /// Whether WebSocket transport is enabled.
     pub enable_ws: bool,
     /// Optional shared secret used to validate `Authorization: Bearer <jwt>` on all routes.
     pub jwt_secret: Option<Vec<u8>>,
@@ -77,9 +62,9 @@ impl Default for WhitelistRpcServerConfig {
     }
 }
 
-/// Running JSON-RPC server for whitelist preconfirmation operations.
+/// Running HTTP server for whitelist preconfirmation operations.
 ///
-/// The server accepts both HTTP and WebSocket transports on the same socket.
+/// The server serves Go-compatible REST routes and `/ws` notifications on one socket.
 #[derive(Debug)]
 pub struct WhitelistRpcServer {
     /// Socket address bound by the server.
@@ -89,7 +74,7 @@ pub struct WhitelistRpcServer {
 }
 
 impl WhitelistRpcServer {
-    /// Start the JSON-RPC server.
+    /// Start the HTTP server.
     pub async fn start(
         config: WhitelistRpcServerConfig,
         api: Arc<dyn WhitelistRpcApi>,
@@ -126,7 +111,8 @@ impl WhitelistRpcServer {
             WhitelistPreconfirmationDriverError::RpcServerLocalAddr { reason: e.to_string() }
         })?;
 
-        let handle = server.start(build_rpc_module(api));
+        // Non-REST methods are intentionally disabled for strict Go parity.
+        let handle = server.start(RpcModule::new(()));
 
         info!(
             addr = %addr,
@@ -135,7 +121,7 @@ impl WhitelistRpcServer {
             jwt_enabled = config.jwt_secret.is_some(),
             http_url = %format!("http://{addr}"),
             ws_url = %format!("ws://{addr}"),
-            "started whitelist preconfirmation RPC server"
+            "started whitelist preconfirmation HTTP server"
         );
         Ok(Self { addr, handle })
     }
@@ -158,18 +144,11 @@ impl WhitelistRpcServer {
     /// Stop the server gracefully.
     pub async fn stop(self) {
         if let Err(err) = self.handle.stop() {
-            warn!(error = %err, "whitelist preconfirmation RPC server already stopped");
+            warn!(error = %err, "whitelist preconfirmation HTTP server already stopped");
         }
         let _ = self.handle.stopped().await;
-        info!("whitelist preconfirmation RPC server stopped");
+        info!("whitelist preconfirmation HTTP server stopped");
     }
-}
-
-/// Internal context passed to all RPC method handlers.
-#[derive(Clone)]
-struct RpcContext {
-    /// The API implementation backing RPC calls.
-    api: Arc<dyn WhitelistRpcApi>,
 }
 
 /// HTTP middleware layer that adds Go-compatible REST routes.
@@ -313,12 +292,13 @@ where
             .boxed();
         }
 
-        let req = req.map(HttpBody::new);
-        self.service.call(req).map_err(Into::into).boxed()
+        let _ = req;
+        async move { Ok(error_response(StatusCode::NOT_FOUND, "route not found".to_string())) }
+            .boxed()
     }
 }
 
-/// Optional Bearer JWT validation shared by REST/RPC routes.
+/// Optional Bearer JWT validation shared by REST/WS routes.
 struct JwtAuth {
     decoding_key: DecodingKey,
     validation: Validation,
@@ -521,97 +501,12 @@ where
     Ok(bytes)
 }
 
-/// Builds the JSON-RPC module with all whitelist methods registered.
-fn build_rpc_module(api: Arc<dyn WhitelistRpcApi>) -> RpcModule<RpcContext> {
-    let mut module = RpcModule::new(RpcContext { api });
-
-    rpc::register_rpc_method!(
-        module,
-        METHOD_BUILD_PRECONF_BLOCK,
-        RpcContext,
-        |params, ctx| {
-            let request: BuildPreconfBlockRequest = params.one()?;
-            ctx.api.build_preconf_block(request).await
-        },
-        record_metrics,
-        api_error_to_rpc,
-        "received whitelist RPC request"
-    );
-
-    rpc::register_rpc_method!(
-        module,
-        METHOD_GET_STATUS,
-        RpcContext,
-        |ctx| ctx.api.get_status().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received whitelist RPC request"
-    );
-    rpc::register_rpc_method!(
-        module,
-        METHOD_HEALTHZ,
-        RpcContext,
-        |ctx| ctx.api.healthz().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received whitelist RPC request"
-    );
-
-    module
-}
-
-/// Record request metrics for a single RPC call.
-fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
-    histogram!(
-        WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
-        "method" => method.to_string(),
-    )
-    .record(duration_secs);
-    counter!(
-        WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
-        "method" => method.to_string(),
-    )
-    .increment(1);
-
-    if let Err(err) = result {
-        counter!(
-            WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
-            "method" => method.to_string(),
-        )
-        .increment(1);
-        warn!(method, ?err, duration_secs, "whitelist RPC request failed");
-    }
-}
-
-/// Map a domain error into a JSON-RPC error object.
-fn api_error_to_rpc(err: WhitelistPreconfirmationDriverError) -> ErrorObjectOwned {
-    let code = match &err {
-        WhitelistPreconfirmationDriverError::InvalidPayload(_) => {
-            WhitelistRpcErrorCode::InvalidPayload.code()
-        }
-        WhitelistPreconfirmationDriverError::Signing(_) => {
-            WhitelistRpcErrorCode::SigningFailed.code()
-        }
-        WhitelistPreconfirmationDriverError::P2p(_) => WhitelistRpcErrorCode::PublishFailed.code(),
-        WhitelistPreconfirmationDriverError::EventSyncerExited
-        | WhitelistPreconfirmationDriverError::PreconfIngressNotReady
-        | WhitelistPreconfirmationDriverError::Driver(
-            driver::DriverError::PreconfIngressNotReady,
-        )
-        | WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
-            WhitelistRpcErrorCode::NotSynced.code()
-        }
-        _ => WhitelistRpcErrorCode::InternalError.code(),
-    };
-
-    ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::rpc::types::{
-        BuildPreconfBlockResponse, EndOfSequencingNotification, HealthResponse, WhitelistStatus,
+        BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
+        WhitelistStatus,
     };
     use alloy_primitives::B256;
     use async_trait::async_trait;
@@ -644,10 +539,6 @@ mod tests {
             })
         }
 
-        async fn healthz(&self) -> Result<HealthResponse> {
-            Ok(HealthResponse { ok: true })
-        }
-
         fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
             let (_tx, rx) = broadcast::channel(1);
             rx
@@ -677,30 +568,5 @@ mod tests {
         assert!(config.enable_http);
         assert!(config.enable_ws);
         assert!(config.jwt_secret.is_none());
-    }
-
-    #[test]
-    fn error_code_mapping() {
-        let err = WhitelistPreconfirmationDriverError::InvalidPayload("bad".to_string());
-        let rpc_err = api_error_to_rpc(err);
-        assert_eq!(rpc_err.code(), WhitelistRpcErrorCode::InvalidPayload.code());
-
-        let err = WhitelistPreconfirmationDriverError::Signing("fail".to_string());
-        let rpc_err = api_error_to_rpc(err);
-        assert_eq!(rpc_err.code(), WhitelistRpcErrorCode::SigningFailed.code());
-
-        let err = WhitelistPreconfirmationDriverError::P2p("network".to_string());
-        let rpc_err = api_error_to_rpc(err);
-        assert_eq!(rpc_err.code(), WhitelistRpcErrorCode::PublishFailed.code());
-
-        let err = WhitelistPreconfirmationDriverError::EventSyncerExited;
-        let rpc_err = api_error_to_rpc(err);
-        assert_eq!(rpc_err.code(), WhitelistRpcErrorCode::NotSynced.code());
-
-        let err = WhitelistPreconfirmationDriverError::Driver(
-            driver::DriverError::PreconfIngressNotReady,
-        );
-        let rpc_err = api_error_to_rpc(err);
-        assert_eq!(rpc_err.code(), WhitelistRpcErrorCode::NotSynced.code());
     }
 }

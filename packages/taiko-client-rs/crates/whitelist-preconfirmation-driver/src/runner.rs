@@ -31,9 +31,9 @@ pub struct RunnerConfig {
     pub p2p_config: P2pConfig,
     /// Whitelist contract address used for signer validation.
     pub whitelist_address: Address,
-    /// Optional listen address for the JSON-RPC server.
+    /// Optional listen address for the whitelist preconfirmation REST/WS server.
     pub rpc_listen_addr: Option<SocketAddr>,
-    /// Optional shared secret used for Bearer JWT authentication on RPC/REST routes.
+    /// Optional shared secret used for Bearer JWT authentication on REST/WS routes.
     pub rpc_jwt_secret: Option<Vec<u8>>,
     /// Optional hex-encoded private key for P2P block signing.
     pub p2p_signer_key: Option<String>,
@@ -97,7 +97,7 @@ impl WhitelistPreconfirmationDriverRunner {
             "whitelist preconfirmation p2p subscriber started"
         );
 
-        // Optionally start the JSON-RPC server when both rpc_listen_addr and p2p_signer_key
+        // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
         let mut rpc_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
@@ -154,7 +154,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
                 ws_url = %server.ws_url(),
-                "whitelist preconfirmation RPC server started"
+                "whitelist preconfirmation REST server started"
             );
             Some(server)
         } else {

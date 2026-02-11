@@ -1,10 +1,10 @@
-//! Whitelist preconfirmation JSON-RPC request and response types.
+//! Whitelist preconfirmation REST/WS request and response types.
 
 use alloy_primitives::{Address, B256, Bytes};
 use alloy_rpc_types::Header as RpcHeader;
 use serde::{Deserialize, Serialize};
 
-/// Request body for `whitelist_buildPreconfBlock`.
+/// Internal request body used by `POST /preconfBlocks`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildPreconfBlockRequest {
@@ -30,7 +30,7 @@ pub struct BuildPreconfBlockRequest {
     pub is_forced_inclusion: Option<bool>,
 }
 
-/// Response body for `whitelist_buildPreconfBlock`.
+/// Internal response body returned by the build-preconf flow.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildPreconfBlockResponse {
@@ -149,7 +149,7 @@ pub struct EndOfSequencingNotification {
     pub end_of_sequencing: bool,
 }
 
-/// Response body for `whitelist_getStatus`.
+/// Internal status model used by `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitelistStatus {
@@ -173,36 +173,6 @@ pub struct WhitelistStatus {
     /// End-of-sequencing block hash for current epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_of_sequencing_block_hash: Option<String>,
-}
-
-/// Response body for `whitelist_healthz`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HealthResponse {
-    /// Whether the server is healthy.
-    pub ok: bool,
-}
-
-/// Custom JSON-RPC error codes for whitelist preconfirmation operations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(i32)]
-pub enum WhitelistRpcErrorCode {
-    /// Internal server error.
-    InternalError = -32000,
-    /// Invalid payload format.
-    InvalidPayload = -32001,
-    /// Node is not synced.
-    NotSynced = -32002,
-    /// Signing failed.
-    SigningFailed = -32003,
-    /// P2P publish failed.
-    PublishFailed = -32004,
-}
-
-impl WhitelistRpcErrorCode {
-    /// Get the integer code for this error.
-    pub const fn code(self) -> i32 {
-        self as i32
-    }
 }
 
 #[cfg(test)]
@@ -252,14 +222,5 @@ mod tests {
         assert!(json.contains("syncReady"));
         assert!(json.contains("highestUnsafeL2PayloadBlockId"));
         assert!(json.contains("endOfSequencingBlockHash"));
-    }
-
-    #[test]
-    fn error_codes() {
-        assert_eq!(WhitelistRpcErrorCode::InternalError.code(), -32000);
-        assert_eq!(WhitelistRpcErrorCode::InvalidPayload.code(), -32001);
-        assert_eq!(WhitelistRpcErrorCode::NotSynced.code(), -32002);
-        assert_eq!(WhitelistRpcErrorCode::SigningFailed.code(), -32003);
-        assert_eq!(WhitelistRpcErrorCode::PublishFailed.code(), -32004);
     }
 }

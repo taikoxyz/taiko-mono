@@ -1,4 +1,4 @@
-//! Whitelist preconfirmation JSON-RPC API.
+//! Whitelist preconfirmation REST/WS server surface.
 
 mod api;
 mod server;
