@@ -1,14 +1,14 @@
 //! HTTP JSON-RPC server for the whitelist preconfirmation driver.
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, sync::Arc};
 
 use jsonrpsee::{
     RpcModule,
     server::{ServerBuilder, ServerHandle},
-    types::{ErrorObjectOwned, Params},
+    types::ErrorObjectOwned,
 };
 use metrics::{counter, histogram};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use super::{WhitelistRpcApi, types::WhitelistRpcErrorCode};
 use crate::{
@@ -74,38 +74,6 @@ impl WhitelistRpcServer {
     }
 }
 
-/// Macro to register an RPC method with metrics and error handling.
-macro_rules! register_method {
-    ($module:expr, $method:expr, |$params:ident, $ctx:ident| $call:expr) => {
-        $module
-            .register_async_method(
-                $method,
-                |$params: Params<'static>, $ctx: Arc<RpcContext>, _| async move {
-                    let start = Instant::now();
-                    debug!(method = $method, "received whitelist RPC request");
-                    let result = $call;
-                    record_metrics($method, &result, start.elapsed().as_secs_f64());
-                    result.map_err(api_error_to_rpc)
-                },
-            )
-            .expect("method registration should succeed");
-    };
-    ($module:expr, $method:expr, |$ctx:ident| $call:expr) => {
-        $module
-            .register_async_method(
-                $method,
-                |_: Params<'static>, $ctx: Arc<RpcContext>, _| async move {
-                    let start = Instant::now();
-                    debug!(method = $method, "received whitelist RPC request");
-                    let result = $call;
-                    record_metrics($method, &result, start.elapsed().as_secs_f64());
-                    result.map_err(api_error_to_rpc)
-                },
-            )
-            .expect("method registration should succeed");
-    };
-}
-
 /// Internal context passed to all RPC method handlers.
 #[derive(Clone)]
 struct RpcContext {
@@ -117,13 +85,37 @@ struct RpcContext {
 fn build_rpc_module(api: Arc<dyn WhitelistRpcApi>) -> RpcModule<RpcContext> {
     let mut module = RpcModule::new(RpcContext { api });
 
-    register_method!(module, METHOD_BUILD_PRECONF_BLOCK, |params, ctx| {
-        let request: BuildPreconfBlockRequest = params.one()?;
-        ctx.api.build_preconf_block(request).await
-    });
+    rpc::register_rpc_method!(
+        module,
+        METHOD_BUILD_PRECONF_BLOCK,
+        RpcContext,
+        |params, ctx| {
+            let request: BuildPreconfBlockRequest = params.one()?;
+            ctx.api.build_preconf_block(request).await
+        },
+        record_metrics,
+        api_error_to_rpc,
+        "received whitelist RPC request"
+    );
 
-    register_method!(module, METHOD_GET_STATUS, |ctx| ctx.api.get_status().await);
-    register_method!(module, METHOD_HEALTHZ, |ctx| ctx.api.healthz().await);
+    rpc::register_rpc_method!(
+        module,
+        METHOD_GET_STATUS,
+        RpcContext,
+        |ctx| ctx.api.get_status().await,
+        record_metrics,
+        api_error_to_rpc,
+        "received whitelist RPC request"
+    );
+    rpc::register_rpc_method!(
+        module,
+        METHOD_HEALTHZ,
+        RpcContext,
+        |ctx| ctx.api.healthz().await,
+        record_metrics,
+        api_error_to_rpc,
+        "received whitelist RPC request"
+    );
 
     module
 }
