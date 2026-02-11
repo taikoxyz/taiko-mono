@@ -87,7 +87,7 @@ impl WhitelistPreconfirmationDriverRunner {
 
         // Optionally start the JSON-RPC server when both rpc_listen_addr and p2p_signer_key
         // are configured.
-        let _rpc_server = if let (Some(listen_addr), Some(signer_key)) =
+        let mut rpc_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
             let beacon_client = Arc::new(
@@ -114,7 +114,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 network.local_peer_id.to_string(),
             );
 
-            let rpc_config = WhitelistRpcServerConfig { listen_addr };
+            let rpc_config = WhitelistRpcServerConfig { listen_addr, ..Default::default() };
             let server = WhitelistRpcServer::start(rpc_config, Arc::new(handler)).await?;
             info!(
                 addr = %server.local_addr(),
@@ -143,6 +143,9 @@ impl WhitelistPreconfirmationDriverRunner {
             tokio::select! {
                 result = &mut node_handle => {
                     event_syncer_handle.abort();
+                    if let Some(server) = rpc_server.take() {
+                        server.stop().await;
+                    }
                     return match result {
                         Ok(Ok(())) => {
                             metrics::counter!(
@@ -175,6 +178,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut *event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
+                    if let Some(server) = rpc_server.take() {
+                        server.stop().await;
+                    }
                     return match result {
                         Ok(Ok(())) => {
                             metrics::counter!(
@@ -205,6 +211,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         event_syncer_handle.abort();
+                        if let Some(server) = rpc_server.take() {
+                            server.stop().await;
+                        }
                         metrics::counter!(
                             WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
                             "reason" => "network_event_channel_closed",

@@ -4,7 +4,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use jsonrpsee::{
     RpcModule,
-    server::{ServerBuilder, ServerHandle},
+    server::{ServerBuilder, ServerConfig, ServerHandle},
     types::ErrorObjectOwned,
 };
 use metrics::{counter, histogram};
@@ -28,11 +28,19 @@ pub const METHOD_HEALTHZ: &str = "whitelist_healthz";
 pub struct WhitelistRpcServerConfig {
     /// Socket address to listen on.
     pub listen_addr: SocketAddr,
+    /// Whether HTTP JSON-RPC transport is enabled.
+    pub enable_http: bool,
+    /// Whether WebSocket JSON-RPC transport is enabled.
+    pub enable_ws: bool,
 }
 
 impl Default for WhitelistRpcServerConfig {
     fn default() -> Self {
-        Self { listen_addr: "127.0.0.1:8552".parse().expect("valid default address") }
+        Self {
+            listen_addr: "127.0.0.1:8552".parse().expect("valid default address"),
+            enable_http: true,
+            enable_ws: true,
+        }
     }
 }
 
@@ -44,7 +52,7 @@ pub struct WhitelistRpcServer {
     /// Socket address bound by the server.
     addr: SocketAddr,
     /// Keep-alive handle for the running server.
-    _handle: ServerHandle,
+    handle: ServerHandle,
 }
 
 impl WhitelistRpcServer {
@@ -53,12 +61,23 @@ impl WhitelistRpcServer {
         config: WhitelistRpcServerConfig,
         api: Arc<dyn WhitelistRpcApi>,
     ) -> Result<Self> {
-        let server = ServerBuilder::new().build(config.listen_addr).await.map_err(|e| {
-            WhitelistPreconfirmationDriverError::RpcServerBind {
-                listen_addr: config.listen_addr,
-                reason: e.to_string(),
+        let server_config = match (config.enable_http, config.enable_ws) {
+            (true, true) => ServerConfig::builder().build(),
+            (true, false) => ServerConfig::builder().http_only().build(),
+            (false, true) => ServerConfig::builder().ws_only().build(),
+            (false, false) => {
+                warn!("both HTTP and WebSocket transports are disabled; defaulting to both enabled");
+                ServerConfig::builder().build()
             }
-        })?;
+        };
+
+        let server =
+            ServerBuilder::with_config(server_config).build(config.listen_addr).await.map_err(
+                |e| WhitelistPreconfirmationDriverError::RpcServerBind {
+                    listen_addr: config.listen_addr,
+                    reason: e.to_string(),
+                },
+            )?;
 
         let addr = server.local_addr().map_err(|e| {
             WhitelistPreconfirmationDriverError::RpcServerLocalAddr { reason: e.to_string() }
@@ -68,11 +87,13 @@ impl WhitelistRpcServer {
 
         info!(
             addr = %addr,
+            enable_http = config.enable_http,
+            enable_ws = config.enable_ws,
             http_url = %format!("http://{addr}"),
             ws_url = %format!("ws://{addr}"),
             "started whitelist preconfirmation RPC server"
         );
-        Ok(Self { addr, _handle: handle })
+        Ok(Self { addr, handle })
     }
 
     /// Return the bound socket address.
@@ -88,6 +109,15 @@ impl WhitelistRpcServer {
     /// Return the WebSocket URL for this server.
     pub fn ws_url(&self) -> String {
         format!("ws://{}", self.addr)
+    }
+
+    /// Stop the server gracefully.
+    pub async fn stop(self) {
+        if let Err(err) = self.handle.stop() {
+            warn!(error = %err, "whitelist preconfirmation RPC server already stopped");
+        }
+        let _ = self.handle.stopped().await;
+        info!("whitelist preconfirmation RPC server stopped");
     }
 }
 
@@ -218,7 +248,10 @@ mod tests {
 
     #[tokio::test]
     async fn server_start_stop() {
-        let config = WhitelistRpcServerConfig { listen_addr: "127.0.0.1:0".parse().unwrap() };
+        let config = WhitelistRpcServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            ..Default::default()
+        };
         let api: Arc<dyn WhitelistRpcApi> = Arc::new(MockApi);
 
         let server = WhitelistRpcServer::start(config, api).await.expect("server should start");
@@ -226,12 +259,15 @@ mod tests {
         assert_ne!(server.local_addr().port(), 0);
         assert!(server.http_url().starts_with("http://127.0.0.1:"));
         assert!(server.ws_url().starts_with("ws://127.0.0.1:"));
+        server.stop().await;
     }
 
     #[test]
     fn default_config() {
         let config = WhitelistRpcServerConfig::default();
         assert_eq!(config.listen_addr.port(), 8552);
+        assert!(config.enable_http);
+        assert!(config.enable_ws);
     }
 
     #[test]
