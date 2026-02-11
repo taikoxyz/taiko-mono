@@ -52,6 +52,9 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Optional hex-encoded private key for P2P block signing.
     #[clap(long = "whitelist.p2p-signer-key", env = "WHITELIST_P2P_SIGNER_KEY")]
     pub whitelist_p2p_signer_key: Option<String>,
+    /// Optional hex-encoded 32-byte ed25519 private key for persistent libp2p peer identity.
+    #[clap(long = "whitelist.p2p-network-private-key", env = "WHITELIST_P2P_NETWORK_PRIVATE_KEY")]
+    pub whitelist_p2p_network_private_key: Option<String>,
 }
 
 impl WhitelistPreconfirmationDriverSubCommand {
@@ -196,6 +199,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
             self.resolve_rpc_addr(),
             self.resolve_rpc_jwt_secret()?,
             self.whitelist_p2p_signer_key.clone(),
+            self.whitelist_p2p_network_private_key.clone(),
         );
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;

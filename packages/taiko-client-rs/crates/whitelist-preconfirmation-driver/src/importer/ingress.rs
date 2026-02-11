@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
+use tracing::warn;
 
 use crate::{
     codec::{
@@ -59,9 +60,10 @@ where
             .increment(1);
             return Err(err);
         }
+        let eos_epoch = self.end_of_sequencing_epoch(&envelope);
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope);
+        self.recent_cache.insert_recent_with_epoch_hint(envelope, eos_epoch);
         self.update_cache_gauges();
 
         Ok(())
@@ -118,9 +120,10 @@ where
             return Err(err);
         }
 
+        let eos_epoch = self.end_of_sequencing_epoch(&envelope);
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope);
+        self.recent_cache.insert_recent_with_epoch_hint(envelope, eos_epoch);
         self.update_cache_gauges();
         Ok(())
     }
@@ -177,5 +180,30 @@ where
         self.update_cache_gauges();
         self.publish_unsafe_response(envelope).await;
         Ok(())
+    }
+
+    /// Derive EOS epoch from envelope timestamp when possible.
+    fn end_of_sequencing_epoch(&self, envelope: &WhitelistExecutionPayloadEnvelope) -> Option<u64> {
+        if !envelope.end_of_sequencing.unwrap_or(false) {
+            return None;
+        }
+
+        let Some(beacon_client) = self.beacon_client.as_ref() else {
+            return None;
+        };
+
+        match beacon_client.epoch_for_timestamp(envelope.execution_payload.timestamp) {
+            Ok(epoch) => Some(epoch),
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    block_number = envelope.execution_payload.block_number,
+                    block_hash = %envelope.execution_payload.block_hash,
+                    timestamp = envelope.execution_payload.timestamp,
+                    "failed to derive end-of-sequencing epoch from payload timestamp"
+                );
+                None
+            }
+        }
     }
 }

@@ -37,6 +37,8 @@ pub struct RunnerConfig {
     pub rpc_jwt_secret: Option<Vec<u8>>,
     /// Optional hex-encoded private key for P2P block signing.
     pub p2p_signer_key: Option<String>,
+    /// Optional hex-encoded 32-byte ed25519 private key for persistent libp2p peer identity.
+    pub p2p_network_private_key: Option<String>,
 }
 
 impl RunnerConfig {
@@ -48,6 +50,7 @@ impl RunnerConfig {
         rpc_listen_addr: Option<SocketAddr>,
         rpc_jwt_secret: Option<Vec<u8>>,
         p2p_signer_key: Option<String>,
+        p2p_network_private_key: Option<String>,
     ) -> Self {
         Self {
             driver_config,
@@ -56,6 +59,7 @@ impl RunnerConfig {
             rpc_listen_addr,
             rpc_jwt_secret,
             p2p_signer_key,
+            p2p_network_private_key,
         }
     }
 }
@@ -90,7 +94,32 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network = WhitelistNetwork::spawn(self.config.p2p_config.clone())?;
+        let mut beacon_client_init_error = None;
+        let beacon_client = match BeaconClient::new(
+            self.config.driver_config.l1_beacon_endpoint.clone(),
+        )
+        .await
+        {
+            Ok(client) => Some(Arc::new(client)),
+            Err(err) => {
+                let reason = err.to_string();
+                beacon_client_init_error = Some(reason.clone());
+                warn!(
+                    error = %reason,
+                    "failed to initialise beacon metadata client; EOS epoch-indexed cache lookups are disabled"
+                );
+                None
+            }
+        };
+
+        let network = if self.config.p2p_network_private_key.is_some() {
+            WhitelistNetwork::spawn_with_identity(
+                self.config.p2p_config.clone(),
+                self.config.p2p_network_private_key.clone(),
+            )?
+        } else {
+            WhitelistNetwork::spawn(self.config.p2p_config.clone())?
+        };
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
@@ -102,13 +131,13 @@ impl WhitelistPreconfirmationDriverRunner {
         let mut rpc_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
-            let beacon_client = Arc::new(
-                BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
-                    .await
-                    .map_err(|err| WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
-                        reason: err.to_string(),
-                    })?,
-            );
+            let beacon_client = beacon_client.clone().ok_or_else(|| {
+                WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
+                    reason: beacon_client_init_error.clone().unwrap_or_else(|| {
+                        "beacon metadata client initialisation failed".to_string()
+                    }),
+                }
+            })?;
 
             let signer = FixedKSigner::new(signer_key).map_err(|e| {
                 WhitelistPreconfirmationDriverError::Signing(format!(
@@ -166,6 +195,7 @@ impl WhitelistPreconfirmationDriverRunner {
             preconf_ingress_sync.client().clone(),
             self.config.whitelist_address,
             self.config.p2p_config.chain_id,
+            beacon_client.clone(),
             network.command_tx.clone(),
         );
         let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();

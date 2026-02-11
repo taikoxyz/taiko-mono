@@ -1,6 +1,10 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
@@ -23,6 +27,7 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
+use hashlink::LinkedHashMap;
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -30,6 +35,211 @@ const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 /// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
+/// Capacity used for bounded in-memory duplicate guards.
+const DUPLICATE_TRACKER_CAPACITY: usize = 1000;
+/// Duplicate suppression window for repeated `requestPreconfBlocks` hashes.
+const PRECONF_REQUEST_DUPLICATE_WINDOW: Duration = Duration::from_secs(45);
+/// Per-peer request bucket refill rate, in tokens per minute.
+const REQUEST_REFILL_PER_MIN: u32 = 200;
+/// Per-peer request bucket max burst.
+const REQUEST_MAX_TOKENS: f64 = REQUEST_REFILL_PER_MIN as f64;
+/// Maximum acceptable duplicate sightings per block height for `preconfBlocks`.
+const MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT: u64 = 10;
+/// Maximum acceptable duplicate sightings per block height for `responsePreconfBlocks`.
+const MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT: u64 = 3;
+/// Maximum acceptable sightings per EOS epoch before ignoring further requests.
+const MAX_EOS_REQUESTS_PER_EPOCH: u64 = 3;
+/// Interval for reconnect attempts to configured static peers.
+const STATIC_PEER_REDIAL_INTERVAL: Duration = Duration::from_secs(60);
+
+/// Validation decision for inbound gossip message admission at network edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AdmissionDecision {
+    /// Message should be forwarded to importer.
+    Accept,
+    /// Message should be ignored as an inbound duplicate.
+    DuplicateLimited,
+    /// Message should be ignored due to per-peer token-bucket throttling.
+    RateLimited,
+}
+
+/// Per-peer token bucket state.
+#[derive(Debug, Clone, Copy)]
+struct RateBucket {
+    /// Available token credit.
+    credit: f64,
+    /// Last refill timestamp.
+    last_refill: Instant,
+}
+
+impl RateBucket {
+    /// Create a full bucket at `now`.
+    fn new(now: Instant) -> Self {
+        Self { credit: REQUEST_MAX_TOKENS, last_refill: now }
+    }
+
+    /// Refill bucket credit based on elapsed time.
+    fn refill(&mut self, now: Instant) {
+        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
+        let refill_rate = f64::from(REQUEST_REFILL_PER_MIN) / 60.0;
+        self.credit = (self.credit + (elapsed * refill_rate)).min(REQUEST_MAX_TOKENS);
+        self.last_refill = now;
+    }
+
+    /// Consume one token from the bucket.
+    fn consume_one(&mut self) -> bool {
+        if self.credit < 1.0 {
+            return false;
+        }
+        self.credit -= 1.0;
+        true
+    }
+}
+
+/// Bounded per-height duplicate tracker.
+#[derive(Debug, Default)]
+struct PerHeightDuplicateTracker {
+    /// Duplicate counters keyed by block height and hash.
+    by_height: LinkedHashMap<u64, HashMap<B256, u64>>,
+}
+
+impl PerHeightDuplicateTracker {
+    /// Record a `(height, hash)` observation and decide whether to admit.
+    fn record_with_cap(&mut self, height: u64, hash: B256, cap: u64) -> AdmissionDecision {
+        let mut seen = self.by_height.remove(&height).unwrap_or_default();
+        let count = seen.get(&hash).copied().unwrap_or_default();
+        if count > cap {
+            self.by_height.insert(height, seen);
+            self.evict_oldest();
+            return AdmissionDecision::DuplicateLimited;
+        }
+        seen.insert(hash, count.saturating_add(1));
+        self.by_height.insert(height, seen);
+        self.evict_oldest();
+        AdmissionDecision::Accept
+    }
+
+    /// Keep tracker bounded by height cardinality.
+    fn evict_oldest(&mut self) {
+        while self.by_height.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.by_height.pop_front();
+        }
+    }
+}
+
+/// Inbound validation and anti-spam state mirroring Go topic validators.
+#[derive(Debug, Default)]
+struct InboundValidationState {
+    /// Per-peer request token buckets shared across request topics.
+    request_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Last-seen time for hash-based preconf requests.
+    preconf_request_seen: LinkedHashMap<B256, Instant>,
+    /// Per-epoch seen counters for EOS requests.
+    eos_request_seen: LinkedHashMap<u64, u64>,
+    /// Duplicate tracker for `preconfBlocks`.
+    preconf_payload_seen: PerHeightDuplicateTracker,
+    /// Duplicate tracker for `responsePreconfBlocks`.
+    preconf_response_seen: PerHeightDuplicateTracker,
+}
+
+impl InboundValidationState {
+    /// Decide if an inbound `requestPreconfBlocks` should be admitted.
+    fn admit_preconf_request(
+        &mut self,
+        from: PeerId,
+        hash: B256,
+        now: Instant,
+    ) -> AdmissionDecision {
+        self.prune_expired_request_hashes(now);
+        if let Some(last_seen) = self.preconf_request_seen.get(&hash)
+            && now.saturating_duration_since(*last_seen) < PRECONF_REQUEST_DUPLICATE_WINDOW
+        {
+            return AdmissionDecision::DuplicateLimited;
+        }
+
+        if !self.consume_request_token(from, now) {
+            return AdmissionDecision::RateLimited;
+        }
+
+        self.preconf_request_seen.remove(&hash);
+        self.preconf_request_seen.insert(hash, now);
+        self.evict_oldest_seen_hashes();
+        AdmissionDecision::Accept
+    }
+
+    /// Decide if an inbound `requestEndOfSequencingPreconfBlocks` should be admitted.
+    fn admit_eos_request(&mut self, from: PeerId, epoch: u64, now: Instant) -> AdmissionDecision {
+        let seen_count = self.eos_request_seen.get(&epoch).copied().unwrap_or_default();
+        if seen_count > MAX_EOS_REQUESTS_PER_EPOCH {
+            return AdmissionDecision::DuplicateLimited;
+        }
+
+        if !self.consume_request_token(from, now) {
+            return AdmissionDecision::RateLimited;
+        }
+
+        self.eos_request_seen.remove(&epoch);
+        self.eos_request_seen.insert(epoch, seen_count.saturating_add(1));
+        self.evict_oldest_seen_epochs();
+        AdmissionDecision::Accept
+    }
+
+    /// Decide if an inbound `preconfBlocks` payload should be admitted.
+    fn admit_preconf_payload(&mut self, block_number: u64, block_hash: B256) -> AdmissionDecision {
+        self.preconf_payload_seen.record_with_cap(
+            block_number,
+            block_hash,
+            MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT,
+        )
+    }
+
+    /// Decide if an inbound `responsePreconfBlocks` payload should be admitted.
+    fn admit_preconf_response(&mut self, block_number: u64, block_hash: B256) -> AdmissionDecision {
+        self.preconf_response_seen.record_with_cap(
+            block_number,
+            block_hash,
+            MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT,
+        )
+    }
+
+    /// Consume one token from the per-peer request bucket.
+    fn consume_request_token(&mut self, peer: PeerId, now: Instant) -> bool {
+        let mut bucket = self.request_buckets.remove(&peer).unwrap_or_else(|| RateBucket::new(now));
+        bucket.refill(now);
+        let allowed = bucket.consume_one();
+        self.request_buckets.insert(peer, bucket);
+        self.evict_oldest_request_buckets();
+        allowed
+    }
+
+    /// Remove expired hash-window entries.
+    fn prune_expired_request_hashes(&mut self, now: Instant) {
+        let window = PRECONF_REQUEST_DUPLICATE_WINDOW;
+        self.preconf_request_seen
+            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < window);
+    }
+
+    /// Keep request buckets bounded.
+    fn evict_oldest_request_buckets(&mut self) {
+        while self.request_buckets.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.request_buckets.pop_front();
+        }
+    }
+
+    /// Keep seen-hash map bounded.
+    fn evict_oldest_seen_hashes(&mut self) {
+        while self.preconf_request_seen.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.preconf_request_seen.pop_front();
+        }
+    }
+
+    /// Keep epoch-seen map bounded.
+    fn evict_oldest_seen_epochs(&mut self) {
+        while self.eos_request_seen.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.eos_request_seen.pop_front();
+        }
+    }
+}
 
 /// Inbound network event for whitelist preconfirmation processing.
 #[derive(Debug)]
@@ -190,7 +400,15 @@ struct ClassifiedBootnodes {
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
     pub fn spawn(cfg: P2pConfig) -> Result<Self> {
-        let local_key = identity::Keypair::generate_ed25519();
+        Self::spawn_with_identity(cfg, None)
+    }
+
+    /// Spawn the whitelist preconfirmation network task with an optional fixed identity key.
+    pub fn spawn_with_identity(cfg: P2pConfig, local_identity_key: Option<String>) -> Result<Self> {
+        let local_key = match local_identity_key {
+            Some(raw) => parse_ed25519_private_key(&raw)?,
+            None => identity::Keypair::generate_ed25519(),
+        };
         let local_peer_id = local_key.public().to_peer_id();
 
         let topics = Topics::new(cfg.chain_id);
@@ -237,7 +455,8 @@ impl WhitelistNetwork {
         let bootnodes = classify_bootnodes(cfg.bootnodes);
         let mut dialed_addrs = HashSet::new();
 
-        for peer in cfg.pre_dial_peers {
+        let static_peers = cfg.pre_dial_peers.clone();
+        for peer in static_peers.clone() {
             dial_once(&mut swarm, &mut dialed_addrs, peer, "static peer");
         }
 
@@ -268,8 +487,13 @@ impl WhitelistNetwork {
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, mut command_rx) = mpsc::channel(512);
         let local_peer_id_for_events = local_peer_id;
+        let mut inbound_validation = InboundValidationState::default();
 
         let handle = tokio::spawn(async move {
+            let mut static_peer_redial_tick = tokio::time::interval(STATIC_PEER_REDIAL_INTERVAL);
+            static_peer_redial_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            let _ = static_peer_redial_tick.tick().await;
+
             loop {
                 let has_discovery = discovery_rx.is_some();
 
@@ -450,8 +674,20 @@ impl WhitelistNetwork {
                             }
                         }
                     }
+                    _ = static_peer_redial_tick.tick(), if !static_peers.is_empty() => {
+                        for addr in static_peers.iter().cloned() {
+                            let is_connected = peer_id_from_multiaddr(&addr)
+                                .map(|peer| swarm.is_connected(&peer))
+                                .unwrap_or(false);
+                            if is_connected {
+                                continue;
+                            }
+                            dial_retry(&mut swarm, addr, "static peer redial");
+                        }
+                    }
                     event = swarm.select_next_some() => {
-                        handle_swarm_event(event, &topics, &event_tx).await?;
+                        handle_swarm_event(event, &topics, &event_tx, &mut inbound_validation)
+                            .await?;
                     }
                 }
             }
@@ -578,6 +814,16 @@ fn dial_once(
         return;
     }
 
+    dial_addr(swarm, addr, source);
+}
+
+/// Dial a peer address, recording metrics regardless of prior attempts.
+fn dial_retry(swarm: &mut Swarm<Behaviour>, addr: Multiaddr, source: &str) {
+    dial_addr(swarm, addr, source);
+}
+
+/// Shared dial path with metrics/logging.
+fn dial_addr(swarm: &mut Swarm<Behaviour>, addr: Multiaddr, source: &str) {
     metrics::counter!(
         WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
         "source" => source.to_string(),
@@ -594,6 +840,14 @@ fn dial_once(
     }
 }
 
+/// Extract a `PeerId` from a `/p2p/<peer-id>` multiaddr suffix.
+fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
+    addr.iter().find_map(|protocol| match protocol {
+        libp2p::multiaddr::Protocol::P2p(peer_id) => Some(peer_id),
+        _ => None,
+    })
+}
+
 /// Receive one discovery event, if discovery is enabled.
 async fn recv_discovered_multiaddr(
     discovery_rx: &mut Option<mpsc::Receiver<Multiaddr>>,
@@ -606,10 +860,11 @@ async fn handle_swarm_event(
     event: libp2p::swarm::SwarmEvent<BehaviourEvent>,
     topics: &Topics,
     event_tx: &mpsc::Sender<NetworkEvent>,
+    inbound_validation: &mut InboundValidationState,
 ) -> Result<()> {
     match event {
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
-            handle_gossipsub_event(*event, topics, event_tx).await?;
+            handle_gossipsub_event(*event, topics, event_tx, inbound_validation).await?;
         }
         libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
             debug!(%address, "whitelist preconfirmation network listening");
@@ -633,6 +888,7 @@ async fn handle_gossipsub_event(
     event: gossipsub::Event,
     topics: &Topics,
     event_tx: &mpsc::Sender<NetworkEvent>,
+    inbound_validation: &mut InboundValidationState,
 ) -> Result<()> {
     let gossipsub::Event::Message { propagation_source, message, .. } = event else {
         return Ok(());
@@ -644,6 +900,19 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_blocks.hash() {
         match decode_unsafe_payload_message(&message.data) {
             Ok(payload) => {
+                let block_number = payload.envelope.execution_payload.block_number;
+                let block_hash = payload.envelope.execution_payload.block_hash;
+                if inbound_validation.admit_preconf_payload(block_number, block_hash)
+                    != AdmissionDecision::Accept
+                {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "preconf_blocks",
+                        "result" => "duplicate_limited",
+                    )
+                    .increment(1);
+                    return Ok(());
+                }
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                     "topic" => "preconf_blocks",
@@ -673,6 +942,19 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_response.hash() {
         match decode_unsafe_response_message(&message.data) {
             Ok(envelope) => {
+                let block_number = envelope.execution_payload.block_number;
+                let block_hash = envelope.execution_payload.block_hash;
+                if inbound_validation.admit_preconf_response(block_number, block_hash)
+                    != AdmissionDecision::Accept
+                {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "response_preconf_blocks",
+                        "result" => "duplicate_limited",
+                    )
+                    .increment(1);
+                    return Ok(());
+                }
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                     "topic" => "response_preconf_blocks",
@@ -701,13 +983,34 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.preconf_request.hash() {
         if message.data.len() == 32 {
+            let hash = B256::from_slice(&message.data);
+            match inbound_validation.admit_preconf_request(from, hash, Instant::now()) {
+                AdmissionDecision::Accept => {}
+                AdmissionDecision::DuplicateLimited => {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "request_preconf_blocks",
+                        "result" => "duplicate_limited",
+                    )
+                    .increment(1);
+                    return Ok(());
+                }
+                AdmissionDecision::RateLimited => {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "request_preconf_blocks",
+                        "result" => "rate_limited",
+                    )
+                    .increment(1);
+                    return Ok(());
+                }
+            }
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                 "topic" => "request_preconf_blocks",
                 "result" => "decoded",
             )
             .increment(1);
-            let hash = B256::from_slice(&message.data);
             forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
         } else {
             metrics::counter!(
@@ -728,6 +1031,27 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.eos_request.hash() {
         if let Some(epoch) = decode_eos_epoch(&message.data) {
+            match inbound_validation.admit_eos_request(from, epoch, Instant::now()) {
+                AdmissionDecision::Accept => {}
+                AdmissionDecision::DuplicateLimited => {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "request_eos_preconf_blocks",
+                        "result" => "duplicate_limited",
+                    )
+                    .increment(1);
+                    return Ok(());
+                }
+                AdmissionDecision::RateLimited => {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "request_eos_preconf_blocks",
+                        "result" => "rate_limited",
+                    )
+                    .increment(1);
+                    return Ok(());
+                }
+            }
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                 "topic" => "request_eos_preconf_blocks",
@@ -749,8 +1073,16 @@ async fn handle_gossipsub_event(
             .increment(1);
             debug!(len = message.data.len(), "invalid end-of-sequencing payload length");
         }
+        return Ok(());
     }
 
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+        "topic" => "unknown",
+        "result" => "ignored",
+    )
+    .increment(1);
+    debug!(topic = topic.as_str(), "ignoring message on unknown whitelist topic");
     Ok(())
 }
 
@@ -782,9 +1114,31 @@ fn to_p2p_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverErro
     WhitelistPreconfirmationDriverError::P2p(err.to_string())
 }
 
+/// Parse a hex-encoded 32-byte ed25519 secret key into a libp2p identity keypair.
+fn parse_ed25519_private_key(raw: &str) -> Result<identity::Keypair> {
+    let stripped = raw.strip_prefix("0x").unwrap_or(raw);
+    let mut bytes = alloy_primitives::hex::decode(stripped).map_err(|err| {
+        WhitelistPreconfirmationDriverError::P2p(format!(
+            "invalid hex in p2p network private key: {err}"
+        ))
+    })?;
+    if bytes.len() != 32 {
+        return Err(WhitelistPreconfirmationDriverError::P2p(format!(
+            "p2p network private key must be 32 bytes, got {}",
+            bytes.len()
+        )));
+    }
+
+    identity::Keypair::ed25519_from_bytes(bytes.as_mut_slice()).map_err(|err| {
+        WhitelistPreconfirmationDriverError::P2p(format!(
+            "failed to decode p2p network private key: {err}"
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use alloy_primitives::{Address, Bloom, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
@@ -887,6 +1241,26 @@ mod tests {
     }
 
     #[test]
+    fn parse_ed25519_private_key_accepts_hex_seed() {
+        let key_bytes = [0x11u8; 32];
+        let key_hex = alloy_primitives::hex::encode(key_bytes);
+
+        let keypair_a = parse_ed25519_private_key(&key_hex).expect("valid private key");
+        let keypair_b = parse_ed25519_private_key(&key_hex).expect("valid private key");
+        assert_eq!(keypair_a.public().to_peer_id(), keypair_b.public().to_peer_id());
+    }
+
+    #[test]
+    fn parse_ed25519_private_key_rejects_invalid_length() {
+        let err = parse_ed25519_private_key("0xdeadbeef").expect_err("short key must fail");
+        assert!(matches!(
+            err,
+            crate::error::WhitelistPreconfirmationDriverError::P2p(msg)
+                if msg.contains("must be 32 bytes")
+        ));
+    }
+
+    #[test]
     fn decode_eos_epoch_accepts_u64_be_bytes() {
         let epoch = 42u64;
         assert_eq!(decode_eos_epoch(&epoch.to_be_bytes()), Some(epoch));
@@ -897,6 +1271,76 @@ mod tests {
         assert_eq!(decode_eos_epoch(&[]), None);
         assert_eq!(decode_eos_epoch(&[0u8; 7]), None);
         assert_eq!(decode_eos_epoch(&[0u8; 9]), None);
+    }
+
+    #[test]
+    fn inbound_validation_limits_duplicate_preconf_requests() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let hash = B256::from([0xabu8; 32]);
+        let now = Instant::now();
+
+        assert_eq!(state.admit_preconf_request(peer, hash, now), AdmissionDecision::Accept);
+        assert_eq!(
+            state.admit_preconf_request(peer, hash, now + Duration::from_secs(1)),
+            AdmissionDecision::DuplicateLimited
+        );
+        assert_eq!(
+            state.admit_preconf_request(
+                peer,
+                hash,
+                now + PRECONF_REQUEST_DUPLICATE_WINDOW + Duration::from_secs(1),
+            ),
+            AdmissionDecision::Accept
+        );
+    }
+
+    #[test]
+    fn inbound_validation_rate_limits_requests_per_peer() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for index in 0..REQUEST_REFILL_PER_MIN {
+            let hash = B256::from(U256::from(index).to_be_bytes::<32>());
+            assert_eq!(state.admit_preconf_request(peer, hash, now), AdmissionDecision::Accept);
+        }
+
+        let limited_hash = B256::from([0xedu8; 32]);
+        assert_eq!(
+            state.admit_preconf_request(peer, limited_hash, now),
+            AdmissionDecision::RateLimited
+        );
+    }
+
+    #[test]
+    fn inbound_validation_limits_per_epoch_eos_duplicates() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let epoch = 77u64;
+        let now = Instant::now();
+
+        for _ in 0..=MAX_EOS_REQUESTS_PER_EPOCH {
+            assert_eq!(state.admit_eos_request(peer, epoch, now), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_eos_request(peer, epoch, now), AdmissionDecision::DuplicateLimited);
+    }
+
+    #[test]
+    fn inbound_validation_caps_duplicates_per_height() {
+        let mut state = InboundValidationState::default();
+        let height = 10;
+        let hash = B256::from([0x44u8; 32]);
+
+        for _ in 0..=MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT {
+            assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::DuplicateLimited);
+
+        for _ in 0..=MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT {
+            assert_eq!(state.admit_preconf_response(height, hash), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_preconf_response(height, hash), AdmissionDecision::DuplicateLimited);
     }
 
     #[test]

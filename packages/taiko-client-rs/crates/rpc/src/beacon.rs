@@ -335,6 +335,11 @@ impl BeaconClient {
     pub const fn slots_per_epoch(&self) -> u64 {
         self.slots_per_epoch
     }
+
+    /// Convert an L1 timestamp into a beacon epoch using cached genesis metadata.
+    pub fn epoch_for_timestamp(&self, timestamp: u64) -> Result<u64, BlobDataError> {
+        Ok(self.timestamp_to_slot(timestamp)? / self.slots_per_epoch)
+    }
 }
 
 fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {

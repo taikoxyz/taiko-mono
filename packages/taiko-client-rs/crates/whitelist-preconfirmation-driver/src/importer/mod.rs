@@ -7,6 +7,7 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
+use rpc::beacon::BeaconClient;
 use rpc::client::Client;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
@@ -62,6 +63,8 @@ where
     sequencer_cache: WhitelistSequencerCache,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Optional beacon metadata client used to derive EOS epoch from payload timestamps.
+    beacon_client: Option<Arc<BeaconClient>>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -78,6 +81,7 @@ where
         rpc: Client<P>,
         whitelist_address: Address,
         chain_id: u64,
+        beacon_client: Option<Arc<BeaconClient>>,
         network_command_tx: mpsc::Sender<NetworkCommand>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
@@ -93,6 +97,7 @@ where
             request_throttle: RequestThrottle::default(),
             sequencer_cache: WhitelistSequencerCache::default(),
             network_command_tx,
+            beacon_client,
             sync_ready: false,
             anchor_address,
         };
@@ -165,7 +170,7 @@ where
                 }
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
-                if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
+                if let Some(envelope) = self.recent_cache.end_of_sequencing_for_epoch(epoch) {
                     debug!(
                         peer = %from,
                         epoch,
@@ -180,7 +185,11 @@ where
                     )
                     .increment(1);
                 } else {
-                    debug!(peer = %from, epoch, "no recent end-of-sequencing envelope to serve");
+                    debug!(
+                        peer = %from,
+                        epoch,
+                        "no end-of-sequencing envelope found for requested epoch"
+                    );
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
                         "event_type" => "end_of_sequencing_request",
