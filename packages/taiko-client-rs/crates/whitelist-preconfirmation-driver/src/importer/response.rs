@@ -145,7 +145,7 @@ where
     pub(super) async fn publish_unsafe_response(
         &self,
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
-    ) {
+    ) -> bool {
         let hash = envelope.execution_payload.block_hash;
         if let Err(err) =
             self.network_command_tx.send(NetworkCommand::PublishUnsafeResponse { envelope }).await
@@ -161,6 +161,7 @@ where
                 error = %err,
                 "failed to queue whitelist preconfirmation response publish command"
             );
+            false
         } else {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
@@ -168,6 +169,7 @@ where
                 "result" => "queued",
             )
             .increment(1);
+            true
         }
     }
 }

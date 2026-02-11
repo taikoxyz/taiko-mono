@@ -1,12 +1,16 @@
 //! Whitelist preconfirmation envelope importer.
 
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
+use hashlink::LinkedHashMap;
 use rpc::beacon::BeaconClient;
 use rpc::client::Client;
 use tokio::sync::mpsc;
@@ -40,6 +44,10 @@ pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 ///
 /// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
 pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
+/// Retention window for hashes that already had a response observed or published.
+const RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
+/// Maximum hashes retained for response-seen dedup checks.
+const RESPONSE_SEEN_CACHE_CAPACITY: usize = 1024;
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
@@ -65,6 +73,8 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Optional beacon metadata client used to derive EOS epoch from payload timestamps.
     beacon_client: Option<Arc<BeaconClient>>,
+    /// Recently observed/published response hashes used to suppress redundant responses.
+    response_seen_cache: LinkedHashMap<B256, Instant>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -98,6 +108,7 @@ where
             sequencer_cache: WhitelistSequencerCache::default(),
             network_command_tx,
             beacon_client,
+            response_seen_cache: LinkedHashMap::with_capacity(RESPONSE_SEEN_CACHE_CAPACITY),
             sync_ready: false,
             anchor_address,
         };
@@ -177,13 +188,47 @@ where
                         hash = %envelope.execution_payload.block_hash,
                         "serving end-of-sequencing whitelist preconfirmation response from recent cache"
                     );
-                    self.publish_unsafe_response(envelope).await;
+                    let hash = envelope.execution_payload.block_hash;
+                    if self.publish_unsafe_response(envelope).await {
+                        self.mark_response_seen(hash, Instant::now());
+                    }
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
                         "event_type" => "end_of_sequencing_request",
                         "result" => "served",
                     )
                     .increment(1);
+                } else if self.beacon_client.is_none() {
+                    if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
+                        debug!(
+                            peer = %from,
+                            epoch,
+                            hash = %envelope.execution_payload.block_hash,
+                            "serving latest end-of-sequencing response without epoch index because beacon metadata is unavailable"
+                        );
+                        let hash = envelope.execution_payload.block_hash;
+                        if self.publish_unsafe_response(envelope).await {
+                            self.mark_response_seen(hash, Instant::now());
+                        }
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                            "event_type" => "end_of_sequencing_request",
+                            "result" => "served_without_beacon_epoch",
+                        )
+                        .increment(1);
+                    } else {
+                        debug!(
+                            peer = %from,
+                            epoch,
+                            "no end-of-sequencing envelope found while beacon metadata is unavailable"
+                        );
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                            "event_type" => "end_of_sequencing_request",
+                            "result" => "miss",
+                        )
+                        .increment(1);
+                    }
                 } else {
                     debug!(
                         peer = %from,
@@ -285,6 +330,30 @@ where
             .set(self.cache.len() as f64);
         metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
             .set(self.recent_cache.len() as f64);
+    }
+
+    /// Return true when a response for `hash` has been seen recently.
+    pub(super) fn response_seen_recently(&mut self, hash: B256, now: Instant) -> bool {
+        self.prune_response_seen(now);
+        self.response_seen_cache
+            .get(&hash)
+            .is_some_and(|seen_at| now.saturating_duration_since(*seen_at) < RESPONSE_SEEN_WINDOW)
+    }
+
+    /// Record a response hash as observed/published now.
+    pub(super) fn mark_response_seen(&mut self, hash: B256, now: Instant) {
+        self.prune_response_seen(now);
+        self.response_seen_cache.remove(&hash);
+        self.response_seen_cache.insert(hash, now);
+        while self.response_seen_cache.len() > RESPONSE_SEEN_CACHE_CAPACITY {
+            let _ = self.response_seen_cache.pop_front();
+        }
+    }
+
+    /// Drop expired response-seen entries.
+    fn prune_response_seen(&mut self, now: Instant) {
+        self.response_seen_cache
+            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < RESPONSE_SEEN_WINDOW);
     }
 }
 

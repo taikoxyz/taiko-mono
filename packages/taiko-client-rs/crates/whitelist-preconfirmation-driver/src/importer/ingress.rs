@@ -1,8 +1,12 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
-use tracing::warn;
+use sha2::{Digest, Sha256};
+use tracing::{debug, warn};
 
 use crate::{
     codec::{
@@ -16,6 +20,11 @@ use super::{
     WhitelistPreconfirmationImporter,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
+
+/// Maximum deterministic response jitter window used for request replies.
+const RESPONSE_JITTER_MAX: Duration = Duration::from_secs(1);
+/// Ignore requests targeting blocks more than this many blocks behind local sync tip.
+const REQUEST_SYNC_MARGIN_BLOCKS: u64 = 128;
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -122,8 +131,10 @@ where
 
         let eos_epoch = self.end_of_sequencing_epoch(&envelope);
         let envelope = Arc::new(envelope);
+        let hash = envelope.execution_payload.block_hash;
         self.cache.insert(envelope.clone());
         self.recent_cache.insert_recent_with_epoch_hint(envelope, eos_epoch);
+        self.mark_response_seen(hash, Instant::now());
         self.update_cache_gauges();
         Ok(())
     }
@@ -134,7 +145,7 @@ where
         from: libp2p::PeerId,
         hash: B256,
     ) -> Result<()> {
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+        let envelope = if let Some(envelope) = self.recent_cache.get_recent(&hash) {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
                 "result" => "cache_hit",
@@ -145,40 +156,78 @@ where
                 hash = %hash,
                 "serving whitelist preconfirmation response from recent cache"
             );
-            self.recent_cache.insert_recent(envelope.clone());
-            self.update_cache_gauges();
-            self.publish_unsafe_response(envelope).await;
+            envelope
+        } else {
+            let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                    "result" => "not_found",
+                )
+                .increment(1);
+                debug!(
+                    peer = %from,
+                    hash = %hash,
+                    "requested whitelist preconfirmation hash not found in recent cache or local l2"
+                );
+                return Ok(());
+            };
+
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                "result" => "l2_hit",
+            )
+            .increment(1);
+            debug!(
+                peer = %from,
+                hash = %hash,
+                "serving whitelist preconfirmation response from local l2 block lookup"
+            );
+            Arc::new(envelope)
+        };
+
+        if request_outside_sync_margin(
+            envelope.execution_payload.block_number,
+            self.head_l1_origin_block_id().await?,
+        ) {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                "result" => "sync_margin_ignored",
+            )
+            .increment(1);
+            debug!(
+                peer = %from,
+                hash = %hash,
+                block_number = envelope.execution_payload.block_number,
+                "ignoring preconfirmation request for block outside sync margin"
+            );
             return Ok(());
         }
 
-        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
+        let jitter = deterministic_response_jitter(from, hash, RESPONSE_JITTER_MAX);
+        if !jitter.is_zero() {
+            tokio::time::sleep(jitter).await;
+        }
+
+        let now = Instant::now();
+        if self.response_seen_recently(hash, now) {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "not_found",
+                "result" => "recent_response_seen",
             )
             .increment(1);
-            tracing::debug!(
+            debug!(
                 peer = %from,
                 hash = %hash,
-                "requested whitelist preconfirmation hash not found in recent cache or local l2"
+                "skipping response because this block hash was recently seen"
             );
             return Ok(());
-        };
+        }
 
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-            "result" => "l2_hit",
-        )
-        .increment(1);
-        tracing::debug!(
-            peer = %from,
-            hash = %hash,
-            "serving whitelist preconfirmation response from local l2 block lookup"
-        );
-        let envelope = Arc::new(envelope);
         self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
-        self.publish_unsafe_response(envelope).await;
+        if self.publish_unsafe_response(envelope).await {
+            self.mark_response_seen(hash, Instant::now());
+        }
         Ok(())
     }
 
@@ -205,5 +254,67 @@ where
                 None
             }
         }
+    }
+}
+
+/// Return true if request should be ignored because it is outside the local sync margin.
+fn request_outside_sync_margin(
+    requested_block_number: u64,
+    sync_tip_block_number: Option<u64>,
+) -> bool {
+    let Some(sync_tip_block_number) = sync_tip_block_number else {
+        return false;
+    };
+
+    sync_tip_block_number >= REQUEST_SYNC_MARGIN_BLOCKS
+        && requested_block_number
+            <= sync_tip_block_number.saturating_sub(REQUEST_SYNC_MARGIN_BLOCKS)
+}
+
+/// Deterministic jitter used before responding to preconfirmation requests.
+fn deterministic_response_jitter(peer_id: libp2p::PeerId, hash: B256, max: Duration) -> Duration {
+    if max.is_zero() {
+        return Duration::ZERO;
+    }
+
+    let mut hasher = Sha256::new();
+    hasher.update(peer_id.to_bytes());
+    hasher.update(hash.as_slice());
+    let digest = hasher.finalize();
+
+    let mut jitter_bytes = [0u8; 8];
+    jitter_bytes.copy_from_slice(&digest[..8]);
+    let jitter_seed = u64::from_le_bytes(jitter_bytes);
+    let max_nanos = max.as_nanos();
+    let jitter_nanos = (u128::from(jitter_seed) % max_nanos) as u64;
+    Duration::from_nanos(jitter_nanos)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deterministic_response_jitter_is_stable_and_bounded() {
+        let peer = libp2p::PeerId::random();
+        let hash = B256::from([0xabu8; 32]);
+        let max = Duration::from_secs(1);
+
+        let first = deterministic_response_jitter(peer, hash, max);
+        let second = deterministic_response_jitter(peer, hash, max);
+        assert_eq!(first, second, "jitter should be deterministic for the same inputs");
+        assert!(first < max, "jitter must stay below maximum window");
+    }
+
+    #[test]
+    fn request_outside_sync_margin_matches_go_style_boundaries() {
+        assert!(!request_outside_sync_margin(10, None));
+        assert!(!request_outside_sync_margin(10, Some(127)));
+        assert!(!request_outside_sync_margin(10, Some(128)));
+        assert!(!request_outside_sync_margin(1, Some(128)));
+
+        assert!(request_outside_sync_margin(1, Some(129)));
+        assert!(request_outside_sync_margin(100, Some(1_000)));
+        assert!(!request_outside_sync_margin(900, Some(1_000)));
     }
 }

@@ -39,6 +39,8 @@ const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 const DUPLICATE_TRACKER_CAPACITY: usize = 1000;
 /// Duplicate suppression window for repeated `requestPreconfBlocks` hashes.
 const PRECONF_REQUEST_DUPLICATE_WINDOW: Duration = Duration::from_secs(45);
+/// Duplicate suppression window for recently observed `responsePreconfBlocks` hashes.
+const PRECONF_RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
 /// Per-peer request bucket refill rate, in tokens per minute.
 const REQUEST_REFILL_PER_MIN: u32 = 200;
 /// Per-peer request bucket max burst.
@@ -130,10 +132,14 @@ impl PerHeightDuplicateTracker {
 /// Inbound validation and anti-spam state mirroring Go topic validators.
 #[derive(Debug, Default)]
 struct InboundValidationState {
-    /// Per-peer request token buckets shared across request topics.
-    request_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Per-peer request token buckets for `requestPreconfBlocks`.
+    preconf_request_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Per-peer request token buckets for `requestEndOfSequencingPreconfBlocks`.
+    eos_request_buckets: LinkedHashMap<PeerId, RateBucket>,
     /// Last-seen time for hash-based preconf requests.
     preconf_request_seen: LinkedHashMap<B256, Instant>,
+    /// Last-seen time for response hashes to suppress short-window reprocessing.
+    preconf_response_recent_seen: LinkedHashMap<B256, Instant>,
     /// Per-epoch seen counters for EOS requests.
     eos_request_seen: LinkedHashMap<u64, u64>,
     /// Duplicate tracker for `preconfBlocks`.
@@ -157,7 +163,7 @@ impl InboundValidationState {
             return AdmissionDecision::DuplicateLimited;
         }
 
-        if !self.consume_request_token(from, now) {
+        if !Self::consume_request_token(&mut self.preconf_request_buckets, from, now) {
             return AdmissionDecision::RateLimited;
         }
 
@@ -174,7 +180,7 @@ impl InboundValidationState {
             return AdmissionDecision::DuplicateLimited;
         }
 
-        if !self.consume_request_token(from, now) {
+        if !Self::consume_request_token(&mut self.eos_request_buckets, from, now) {
             return AdmissionDecision::RateLimited;
         }
 
@@ -194,42 +200,75 @@ impl InboundValidationState {
     }
 
     /// Decide if an inbound `responsePreconfBlocks` payload should be admitted.
-    fn admit_preconf_response(&mut self, block_number: u64, block_hash: B256) -> AdmissionDecision {
-        self.preconf_response_seen.record_with_cap(
+    fn admit_preconf_response(
+        &mut self,
+        block_number: u64,
+        block_hash: B256,
+        now: Instant,
+    ) -> AdmissionDecision {
+        self.prune_expired_response_hashes(now);
+        if let Some(last_seen) = self.preconf_response_recent_seen.get(&block_hash)
+            && now.saturating_duration_since(*last_seen) < PRECONF_RESPONSE_SEEN_WINDOW
+        {
+            return AdmissionDecision::DuplicateLimited;
+        }
+
+        let decision = self.preconf_response_seen.record_with_cap(
             block_number,
             block_hash,
             MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT,
-        )
+        );
+        if decision != AdmissionDecision::Accept {
+            return decision;
+        }
+
+        self.preconf_response_recent_seen.remove(&block_hash);
+        self.preconf_response_recent_seen.insert(block_hash, now);
+        self.evict_oldest_response_seen_hashes();
+        decision
     }
 
-    /// Consume one token from the per-peer request bucket.
-    fn consume_request_token(&mut self, peer: PeerId, now: Instant) -> bool {
-        let mut bucket = self.request_buckets.remove(&peer).unwrap_or_else(|| RateBucket::new(now));
+    /// Consume one token from a per-peer request bucket.
+    fn consume_request_token(
+        buckets: &mut LinkedHashMap<PeerId, RateBucket>,
+        peer: PeerId,
+        now: Instant,
+    ) -> bool {
+        let mut bucket = buckets.remove(&peer).unwrap_or_else(|| RateBucket::new(now));
         bucket.refill(now);
         let allowed = bucket.consume_one();
-        self.request_buckets.insert(peer, bucket);
-        self.evict_oldest_request_buckets();
+        buckets.insert(peer, bucket);
+        while buckets.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = buckets.pop_front();
+        }
         allowed
     }
 
-    /// Remove expired hash-window entries.
+    /// Remove expired request hash-window entries.
     fn prune_expired_request_hashes(&mut self, now: Instant) {
         let window = PRECONF_REQUEST_DUPLICATE_WINDOW;
         self.preconf_request_seen
             .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < window);
     }
 
-    /// Keep request buckets bounded.
-    fn evict_oldest_request_buckets(&mut self) {
-        while self.request_buckets.len() > DUPLICATE_TRACKER_CAPACITY {
-            let _ = self.request_buckets.pop_front();
-        }
+    /// Remove expired response hash-window entries.
+    fn prune_expired_response_hashes(&mut self, now: Instant) {
+        let window = PRECONF_RESPONSE_SEEN_WINDOW;
+        self.preconf_response_recent_seen
+            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < window);
     }
 
     /// Keep seen-hash map bounded.
     fn evict_oldest_seen_hashes(&mut self) {
         while self.preconf_request_seen.len() > DUPLICATE_TRACKER_CAPACITY {
             let _ = self.preconf_request_seen.pop_front();
+        }
+    }
+
+    /// Keep response seen-hash map bounded.
+    fn evict_oldest_response_seen_hashes(&mut self) {
+        while self.preconf_response_recent_seen.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.preconf_response_recent_seen.pop_front();
         }
     }
 
@@ -944,8 +983,11 @@ async fn handle_gossipsub_event(
             Ok(envelope) => {
                 let block_number = envelope.execution_payload.block_number;
                 let block_hash = envelope.execution_payload.block_hash;
-                if inbound_validation.admit_preconf_response(block_number, block_hash)
-                    != AdmissionDecision::Accept
+                if inbound_validation.admit_preconf_response(
+                    block_number,
+                    block_hash,
+                    Instant::now(),
+                ) != AdmissionDecision::Accept
                 {
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
@@ -1314,6 +1356,24 @@ mod tests {
     }
 
     #[test]
+    fn inbound_validation_uses_independent_rate_buckets_per_request_topic() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for index in 0..REQUEST_REFILL_PER_MIN {
+            let hash = B256::from(U256::from(index).to_be_bytes::<32>());
+            assert_eq!(state.admit_preconf_request(peer, hash, now), AdmissionDecision::Accept);
+        }
+
+        assert_eq!(
+            state.admit_preconf_request(peer, B256::from([0x11u8; 32]), now),
+            AdmissionDecision::RateLimited
+        );
+        assert_eq!(state.admit_eos_request(peer, 1, now), AdmissionDecision::Accept);
+    }
+
+    #[test]
     fn inbound_validation_limits_per_epoch_eos_duplicates() {
         let mut state = InboundValidationState::default();
         let peer = PeerId::random();
@@ -1331,16 +1391,51 @@ mod tests {
         let mut state = InboundValidationState::default();
         let height = 10;
         let hash = B256::from([0x44u8; 32]);
+        let now = Instant::now();
 
         for _ in 0..=MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT {
             assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::Accept);
         }
         assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::DuplicateLimited);
 
-        for _ in 0..=MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT {
-            assert_eq!(state.admit_preconf_response(height, hash), AdmissionDecision::Accept);
+        for index in 0..=MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT {
+            let at = now
+                + Duration::from_secs(
+                    (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) * (index as u64 + 1),
+                );
+            assert_eq!(state.admit_preconf_response(height, hash, at), AdmissionDecision::Accept);
         }
-        assert_eq!(state.admit_preconf_response(height, hash), AdmissionDecision::DuplicateLimited);
+        let capped_at = now
+            + Duration::from_secs(
+                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1)
+                    * (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
+            );
+        assert_eq!(
+            state.admit_preconf_response(height, hash, capped_at),
+            AdmissionDecision::DuplicateLimited
+        );
+    }
+
+    #[test]
+    fn inbound_validation_dedups_recent_response_hashes() {
+        let mut state = InboundValidationState::default();
+        let height = 99;
+        let hash = B256::from([0x66u8; 32]);
+        let now = Instant::now();
+
+        assert_eq!(state.admit_preconf_response(height, hash, now), AdmissionDecision::Accept);
+        assert_eq!(
+            state.admit_preconf_response(height, hash, now + Duration::from_secs(1)),
+            AdmissionDecision::DuplicateLimited
+        );
+        assert_eq!(
+            state.admit_preconf_response(
+                height,
+                hash,
+                now + PRECONF_RESPONSE_SEEN_WINDOW + Duration::from_secs(1),
+            ),
+            AdmissionDecision::Accept
+        );
     }
 
     #[test]
