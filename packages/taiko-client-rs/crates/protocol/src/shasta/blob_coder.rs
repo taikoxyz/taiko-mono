@@ -392,4 +392,15 @@ mod tests {
         individual_decoded.extend_from_slice(&blob2_decoded);
         assert_eq!(individual_decoded, payload);
     }
+
+    #[test]
+    fn decode_single_blob_convenience_method() {
+        let payload = vec![0xAB; 100];
+        let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
+        let blobs = builder.take();
+
+        // Test the new convenience method
+        let decoded = BlobCoder::decode_blob(&blobs[0]).unwrap();
+        assert_eq!(decoded, payload);
+    }
 }
