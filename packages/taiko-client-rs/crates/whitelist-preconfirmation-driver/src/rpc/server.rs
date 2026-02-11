@@ -90,13 +90,12 @@ impl WhitelistRestWsServer {
             return Err(WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled);
         }
 
-        let listener =
-            TcpListener::bind(config.listen_addr)
-                .await
-                .map_err(|e| WhitelistPreconfirmationDriverError::RestWsServerBind {
-                    listen_addr: config.listen_addr,
-                    reason: e.to_string(),
-                })?;
+        let listener = TcpListener::bind(config.listen_addr).await.map_err(|e| {
+            WhitelistPreconfirmationDriverError::RestWsServerBind {
+                listen_addr: config.listen_addr,
+                reason: e.to_string(),
+            }
+        })?;
 
         let addr = listener.local_addr().map_err(|e| {
             WhitelistPreconfirmationDriverError::RestWsServerLocalAddr { reason: e.to_string() }
@@ -260,11 +259,7 @@ async fn build_preconf_block_handler(State(state): State<RestWsState>, body: Byt
                 block_header: alloy_rpc_types::Header,
             }
 
-            (
-                StatusCode::OK,
-                Json(BuildPreconfBlockRestResponse { block_header }),
-            )
-                .into_response()
+            (StatusCode::OK, Json(BuildPreconfBlockRestResponse { block_header })).into_response()
         }
         Err(err) => error_response(map_rest_error_status(&err), err.to_string()),
     }
@@ -442,9 +437,7 @@ mod tests {
         }
     }
 
-    async fn start_test_server(
-        mut config: WhitelistRestWsServerConfig,
-    ) -> WhitelistRestWsServer {
+    async fn start_test_server(mut config: WhitelistRestWsServerConfig) -> WhitelistRestWsServer {
         config.listen_addr = "127.0.0.1:0".parse().unwrap();
         let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
         WhitelistRestWsServer::start(config, api).await.expect("server should start")
@@ -477,12 +470,9 @@ mod tests {
             .expect("request should complete");
         assert_eq!(unauthenticated.status(), StatusCode::UNAUTHORIZED);
 
-        let token = encode(
-            &Header::default(),
-            &json!({}),
-            &EncodingKey::from_secret(secret.as_slice()),
-        )
-        .expect("token encoding should work");
+        let token =
+            encode(&Header::default(), &json!({}), &EncodingKey::from_secret(secret.as_slice()))
+                .expect("token encoding should work");
 
         let authenticated = client
             .get(format!("{}/healthz", server.http_url()))
@@ -538,8 +528,7 @@ mod tests {
         };
         let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
 
-        let err =
-            WhitelistRestWsServer::start(config, api).await.expect_err("server should fail");
+        let err = WhitelistRestWsServer::start(config, api).await.expect_err("server should fail");
         assert!(matches!(
             err,
             WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled
