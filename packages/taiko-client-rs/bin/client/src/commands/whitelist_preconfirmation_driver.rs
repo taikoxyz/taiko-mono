@@ -38,8 +38,12 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
     /// Optional listen address for the whitelist preconfirmation JSON-RPC server.
-    #[clap(long = "whitelist.rpc-addr", env = "WHITELIST_RPC_ADDR")]
-    pub whitelist_rpc_addr: Option<std::net::SocketAddr>,
+    #[clap(
+        long = "preconfirmation.rpc-addr",
+        visible_alias = "whitelist.rpc-addr",
+        env = "PRECONFIRMATION_RPC_ADDR"
+    )]
+    pub preconfirmation_rpc_addr: Option<std::net::SocketAddr>,
     /// Optional hex-encoded private key for P2P block signing.
     #[clap(long = "whitelist.p2p-signer-key", env = "WHITELIST_P2P_SIGNER_KEY")]
     pub whitelist_p2p_signer_key: Option<String>,
@@ -117,6 +121,25 @@ impl WhitelistPreconfirmationDriverSubCommand {
         cfg
     }
 
+    /// Resolve the whitelist RPC listen address with legacy env-var fallback.
+    fn resolve_rpc_addr(&self) -> Option<std::net::SocketAddr> {
+        if let Some(addr) = self.preconfirmation_rpc_addr {
+            return Some(addr);
+        }
+
+        let raw = std::env::var("WHITELIST_RPC_ADDR").ok()?;
+        match raw.parse() {
+            Ok(addr) => {
+                warn!("WHITELIST_RPC_ADDR is deprecated, use PRECONFIRMATION_RPC_ADDR instead");
+                Some(addr)
+            }
+            Err(err) => {
+                warn!(value = %raw, error = %err, "ignoring invalid WHITELIST_RPC_ADDR value");
+                None
+            }
+        }
+    }
+
     /// Run the whitelist preconfirmation driver.
     pub async fn run(&self) -> Result<()> {
         <Self as Subcommand>::run(self).await
@@ -149,7 +172,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
             driver_config,
             p2p_config,
             self.shasta_preconf_whitelist_address,
-            self.whitelist_rpc_addr,
+            self.resolve_rpc_addr(),
             self.whitelist_p2p_signer_key.clone(),
         );
 

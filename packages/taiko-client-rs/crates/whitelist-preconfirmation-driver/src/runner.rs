@@ -118,6 +118,8 @@ impl WhitelistPreconfirmationDriverRunner {
             let server = WhitelistRpcServer::start(rpc_config, Arc::new(handler)).await?;
             info!(
                 addr = %server.local_addr(),
+                http_url = %server.http_url(),
+                ws_url = %server.ws_url(),
                 "whitelist preconfirmation RPC server started"
             );
             Some(server)

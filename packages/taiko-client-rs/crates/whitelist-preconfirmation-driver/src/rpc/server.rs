@@ -1,4 +1,4 @@
-//! HTTP JSON-RPC server for the whitelist preconfirmation driver.
+//! JSON-RPC server for the whitelist preconfirmation driver.
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -36,7 +36,9 @@ impl Default for WhitelistRpcServerConfig {
     }
 }
 
-/// Running HTTP JSON-RPC server for whitelist preconfirmation operations.
+/// Running JSON-RPC server for whitelist preconfirmation operations.
+///
+/// The server accepts both HTTP and WebSocket transports on the same socket.
 #[derive(Debug)]
 pub struct WhitelistRpcServer {
     /// Socket address bound by the server.
@@ -46,7 +48,7 @@ pub struct WhitelistRpcServer {
 }
 
 impl WhitelistRpcServer {
-    /// Start the HTTP JSON-RPC server.
+    /// Start the JSON-RPC server.
     pub async fn start(
         config: WhitelistRpcServerConfig,
         api: Arc<dyn WhitelistRpcApi>,
@@ -64,13 +66,28 @@ impl WhitelistRpcServer {
 
         let handle = server.start(build_rpc_module(api));
 
-        info!(addr = %addr, "started whitelist preconfirmation RPC server");
+        info!(
+            addr = %addr,
+            http_url = %format!("http://{addr}"),
+            ws_url = %format!("ws://{addr}"),
+            "started whitelist preconfirmation RPC server"
+        );
         Ok(Self { addr, _handle: handle })
     }
 
     /// Return the bound socket address.
     pub const fn local_addr(&self) -> SocketAddr {
         self.addr
+    }
+
+    /// Return the HTTP URL for this server.
+    pub fn http_url(&self) -> String {
+        format!("http://{}", self.addr)
+    }
+
+    /// Return the WebSocket URL for this server.
+    pub fn ws_url(&self) -> String {
+        format!("ws://{}", self.addr)
     }
 }
 
@@ -153,12 +170,12 @@ fn api_error_to_rpc(err: WhitelistPreconfirmationDriverError) -> ErrorObjectOwne
             WhitelistRpcErrorCode::SigningFailed.code()
         }
         WhitelistPreconfirmationDriverError::P2p(_) => WhitelistRpcErrorCode::PublishFailed.code(),
-        WhitelistPreconfirmationDriverError::EventSyncerExited |
-        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
-        WhitelistPreconfirmationDriverError::Driver(
+        WhitelistPreconfirmationDriverError::EventSyncerExited
+        | WhitelistPreconfirmationDriverError::PreconfIngressNotReady
+        | WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
-        ) |
-        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
+        )
+        | WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             WhitelistRpcErrorCode::NotSynced.code()
         }
         _ => WhitelistRpcErrorCode::InternalError.code(),
@@ -207,6 +224,8 @@ mod tests {
         let server = WhitelistRpcServer::start(config, api).await.expect("server should start");
         assert_eq!(server.local_addr().ip().to_string(), "127.0.0.1");
         assert_ne!(server.local_addr().port(), 0);
+        assert!(server.http_url().starts_with("http://127.0.0.1:"));
+        assert!(server.ws_url().starts_with("ws://127.0.0.1:"));
     }
 
     #[test]

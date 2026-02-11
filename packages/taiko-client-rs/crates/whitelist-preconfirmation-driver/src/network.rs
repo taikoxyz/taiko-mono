@@ -16,8 +16,9 @@ use tracing::{debug, warn};
 use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_unsafe_payload_message,
-        decode_unsafe_response_message, encode_eos_request_message, encode_unsafe_payload_message,
-        encode_unsafe_request_message, encode_unsafe_response_message,
+        decode_unsafe_response_message, encode_envelope_ssz, encode_eos_request_message,
+        encode_unsafe_payload_message, encode_unsafe_request_message,
+        encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -266,6 +267,7 @@ impl WhitelistNetwork {
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, mut command_rx) = mpsc::channel(512);
+        let local_peer_id_for_events = local_peer_id.clone();
 
         let handle = tokio::spawn(async move {
             loop {
@@ -350,6 +352,19 @@ impl WhitelistNetwork {
                             }
                             NetworkCommand::PublishUnsafePayload { signature, envelope } => {
                                 let hash = envelope.execution_payload.block_hash;
+                                // Loop back locally-built payloads so importer caches can serve
+                                // follow-up EOS catch-up requests even without peer echo.
+                                let payload_bytes = encode_envelope_ssz(&envelope);
+                                let local_event = NetworkEvent::UnsafePayload {
+                                    from: local_peer_id_for_events,
+                                    payload: DecodedUnsafePayload {
+                                        wire_signature: signature,
+                                        payload_bytes,
+                                        envelope: (*envelope).clone(),
+                                    },
+                                };
+                                forward_event(&event_tx, local_event).await?;
+
                                 match encode_unsafe_payload_message(&signature, &envelope) {
                                     Ok(payload) => {
                                         if let Err(err) = swarm
@@ -1078,6 +1093,49 @@ mod tests {
         .expect("timed out waiting for request publication");
 
         assert_eq!(received_hash, expected_hash);
+
+        let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
+        let _ = whitelist_network.handle.await;
+    }
+
+    #[tokio::test]
+    async fn whitelist_network_loopbacks_published_unsafe_payload() {
+        let mut cfg = P2pConfig::default();
+        cfg.chain_id = 167_000;
+        cfg.enable_discovery = false;
+        cfg.enable_tcp = true;
+        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
+
+        let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let expected_signature = [0x77u8; 65];
+        let expected_envelope = Arc::new(sample_response_envelope());
+
+        whitelist_network
+            .command_tx
+            .send(NetworkCommand::PublishUnsafePayload {
+                signature: expected_signature,
+                envelope: expected_envelope.clone(),
+            })
+            .await
+            .expect("queue publish payload command");
+
+        let event = tokio::time::timeout(Duration::from_secs(5), whitelist_network.event_rx.recv())
+            .await
+            .expect("timed out waiting for local unsafe payload event")
+            .expect("network event channel should stay open");
+
+        match event {
+            NetworkEvent::UnsafePayload { from, payload } => {
+                assert_eq!(from, whitelist_network.local_peer_id);
+                assert_eq!(payload.wire_signature, expected_signature);
+                assert_eq!(payload.payload_bytes, encode_envelope_ssz(&expected_envelope));
+                assert_eq!(
+                    payload.envelope.execution_payload.block_hash,
+                    expected_envelope.execution_payload.block_hash
+                );
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
 
         let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
         let _ = whitelist_network.handle.await;
