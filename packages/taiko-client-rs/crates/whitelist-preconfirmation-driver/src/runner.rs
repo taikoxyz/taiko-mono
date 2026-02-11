@@ -93,10 +93,8 @@ impl WhitelistPreconfirmationDriverRunner {
             let beacon_client = Arc::new(
                 BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
                     .await
-                    .map_err(|err| {
-                        WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
-                            reason: err.to_string(),
-                        }
+                    .map_err(|err| WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
+                        reason: err.to_string(),
                     })?,
             );
 
