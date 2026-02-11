@@ -36,7 +36,15 @@ use super::{
     WhitelistRpcApi,
     types::{BuildPreconfBlockRestRequest, EndOfSequencingNotification, RestStatus},
 };
-use crate::{Result, error::WhitelistPreconfirmationDriverError};
+use crate::{
+    Result, error::WhitelistPreconfirmationDriverError, importer::MAX_COMPRESSED_TX_LIST_BYTES,
+};
+
+/// Maximum accepted REST request body size.
+///
+/// `transactions` is hex-encoded JSON (`0x` + 2 chars/byte), so permit 2x compressed tx-list
+/// size plus fixed overhead for other fields.
+const MAX_REST_REQUEST_BODY_BYTES: usize = MAX_COMPRESSED_TX_LIST_BYTES * 2 + (64 * 1024);
 
 /// Configuration for the whitelist preconfirmation RPC server.
 #[derive(Debug, Clone)]
@@ -197,8 +205,8 @@ where
         let path = req.uri().path().to_string();
         let method = req.method().clone();
 
-        if let Some(jwt_auth) = self.jwt_auth.as_ref() &&
-            let Err(err) = jwt_auth.validate_headers(req.headers())
+        if let Some(jwt_auth) = self.jwt_auth.as_ref()
+            && let Err(err) = jwt_auth.validate_headers(req.headers())
         {
             return async move { Ok(error_response(StatusCode::UNAUTHORIZED, err)) }.boxed();
         }
@@ -242,6 +250,12 @@ where
             return async move {
                 let body = match read_request_body(req.into_body()).await {
                     Ok(body) => body,
+                    Err(ReadRequestBodyError::TooLarge { max_bytes }) => {
+                        return Ok(error_response(
+                            StatusCode::PAYLOAD_TOO_LARGE,
+                            format!("request body exceeds maximum size: {max_bytes} bytes"),
+                        ));
+                    }
                     Err(err) => {
                         return Ok(error_response(
                             StatusCode::UNPROCESSABLE_ENTITY,
@@ -380,9 +394,9 @@ where
 
 /// Return true when request headers indicate a websocket upgrade.
 fn is_websocket_upgrade_request<B>(request: &HttpRequest<B>) -> bool {
-    request.method() == Method::GET &&
-        header_contains_token(request.headers(), CONNECTION, "upgrade") &&
-        request
+    request.method() == Method::GET
+        && header_contains_token(request.headers(), CONNECTION, "upgrade")
+        && request
             .headers()
             .get(UPGRADE)
             .and_then(|value| value.to_str().ok())
@@ -471,19 +485,36 @@ fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> HttpResp
 
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
     match err {
-        WhitelistPreconfirmationDriverError::InvalidPayload(_) |
-        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
-        WhitelistPreconfirmationDriverError::Driver(
+        WhitelistPreconfirmationDriverError::InvalidPayload(_)
+        | WhitelistPreconfirmationDriverError::PreconfIngressNotReady
+        | WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
-        ) |
-        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
+        )
+        | WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             StatusCode::BAD_REQUEST
         }
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-async fn read_request_body<B>(body: B) -> std::result::Result<Vec<u8>, BoxError>
+#[derive(Debug)]
+enum ReadRequestBodyError {
+    TooLarge { max_bytes: usize },
+    Read(String),
+}
+
+impl std::fmt::Display for ReadRequestBodyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooLarge { max_bytes } => {
+                write!(f, "request body exceeds maximum size: {max_bytes} bytes")
+            }
+            Self::Read(reason) => write!(f, "{reason}"),
+        }
+    }
+}
+
+async fn read_request_body<B>(body: B) -> std::result::Result<Vec<u8>, ReadRequestBodyError>
 where
     B: http_body::Body<Data = bytes::Bytes> + Send + Unpin + 'static,
     B::Data: Send,
@@ -493,9 +524,15 @@ where
     let mut bytes = Vec::new();
     while let Some(frame) = stream.frame().await {
         let data = frame
-            .map_err(Into::into)?
+            .map_err(|err| ReadRequestBodyError::Read(err.into().to_string()))?
             .into_data()
-            .map_err(|_| std::io::Error::other("unexpected non-data frame in request body"))?;
+            .map_err(|_| {
+                ReadRequestBodyError::Read("unexpected non-data frame in request body".to_string())
+            })?;
+        let next_size = bytes.len().saturating_add(data.len());
+        if next_size > MAX_REST_REQUEST_BODY_BYTES {
+            return Err(ReadRequestBodyError::TooLarge { max_bytes: MAX_REST_REQUEST_BODY_BYTES });
+        }
         bytes.extend_from_slice(&data);
     }
     Ok(bytes)
@@ -503,6 +540,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bytes::Bytes;
+    use http_body_util::Full;
+
     use super::*;
     use crate::rpc::types::{
         BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
@@ -568,5 +608,26 @@ mod tests {
         assert!(config.enable_http);
         assert!(config.enable_ws);
         assert!(config.jwt_secret.is_none());
+    }
+
+    #[tokio::test]
+    async fn read_request_body_rejects_oversized_payload() {
+        let payload = vec![0u8; MAX_REST_REQUEST_BODY_BYTES + 1];
+        let err = read_request_body(Full::new(Bytes::from(payload)))
+            .await
+            .expect_err("oversized payload should be rejected");
+        assert!(matches!(
+            err,
+            ReadRequestBodyError::TooLarge { max_bytes }
+                if max_bytes == MAX_REST_REQUEST_BODY_BYTES
+        ));
+    }
+
+    #[tokio::test]
+    async fn read_request_body_accepts_payload_within_limit() {
+        let payload = vec![0xABu8; 64];
+        let body =
+            read_request_body(Full::new(Bytes::from(payload.clone()))).await.expect("read body");
+        assert_eq!(body, payload);
     }
 }

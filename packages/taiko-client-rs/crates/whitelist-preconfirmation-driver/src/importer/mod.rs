@@ -31,12 +31,14 @@ mod ingress;
 mod payload;
 mod response;
 mod signer;
+mod tx_list;
 mod validation;
 
 #[cfg(test)]
 mod tests;
 
-pub(crate) use validation::validate_execution_payload_for_preconf;
+pub(crate) use tx_list::decompress_tx_list;
+pub(crate) use validation::validate_execution_payload_for_preconf_with_tx_list;
 
 /// Maximum compressed tx-list size accepted from a preconfirmation payload.
 pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;

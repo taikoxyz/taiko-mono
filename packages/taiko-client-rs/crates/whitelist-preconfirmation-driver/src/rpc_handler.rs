@@ -1,8 +1,6 @@
 //! Whitelist preconfirmation RPC API handler implementation.
 
 use std::{
-    collections::HashMap,
-    io::Read,
     sync::Arc,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -19,6 +17,7 @@ use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayload
 use async_trait::async_trait;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{PreconfPayload, sync::event::EventSyncer};
+use hashlink::LinkedHashMap;
 use metrics::histogram;
 use protocol::{
     shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, payload_id_to_bytes},
@@ -31,10 +30,7 @@ use tracing::debug;
 use crate::{
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
-    importer::{
-        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
-        validate_execution_payload_for_preconf,
-    },
+    importer::{decompress_tx_list, validate_execution_payload_for_preconf_with_tx_list},
     network::NetworkCommand,
     rpc::{
         WhitelistRpcApi,
@@ -51,6 +47,8 @@ const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 /// Minimum bytes required to decode a Shasta proposal ID from header extra data.
 const SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN: usize = 7;
+/// Maximum retained epochs in the local EOS hash cache to avoid unbounded growth.
+const MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES: usize = 4096;
 
 /// Implements the whitelist preconfirmation RPC API.
 pub(crate) struct WhitelistRpcHandler<P>
@@ -78,7 +76,7 @@ where
     /// Highest unsafe payload block ID tracked by this node.
     highest_unsafe_l2_payload_block_id: Mutex<u64>,
     /// End-of-sequencing hash cache keyed by epoch.
-    end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
+    end_of_sequencing_by_epoch: Mutex<LinkedHashMap<u64, B256>>,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
@@ -112,7 +110,9 @@ where
             highest_unsafe_l2_payload_block_id: Mutex::new(
                 initial_highest_unsafe_l2_payload_block_id,
             ),
-            end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
+            end_of_sequencing_by_epoch: Mutex::new(LinkedHashMap::with_capacity(
+                MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES,
+            )),
             eos_notification_tx,
             network_command_tx,
             local_peer_id,
@@ -126,9 +126,8 @@ where
         request: &BuildPreconfBlockRequest,
         prev_randao: B256,
         signature: [u8; 65],
+        tx_list: Vec<u8>,
     ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = decompress_tx_list(request.transactions.as_ref())?;
-
         let block_metadata = TaikoBlockMetadata {
             beneficiary: request.fee_recipient,
             gas_limit: request.gas_limit,
@@ -220,7 +219,8 @@ where
         &self,
         request: &BuildPreconfBlockRequest,
         prev_randao: B256,
-    ) -> Result<()> {
+    ) -> Result<Vec<u8>> {
+        let tx_list = decompress_tx_list(request.transactions.as_ref())?;
         let payload = ExecutionPayloadV1 {
             parent_hash: request.parent_hash,
             fee_recipient: request.fee_recipient,
@@ -238,11 +238,14 @@ where
             transactions: vec![request.transactions.clone()],
         };
 
-        validate_execution_payload_for_preconf(
+        validate_execution_payload_for_preconf_with_tx_list(
             &payload,
+            &tx_list,
             self.chain_id,
             *self.rpc.shasta.anchor.address(),
-        )
+        )?;
+
+        Ok(tx_list)
     }
 
     /// Check fee recipient against current/next whitelist operator addresses.
@@ -346,6 +349,12 @@ where
     async fn update_highest_unsafe(&self, block_number: u64) {
         *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
     }
+
+    /// Insert end-of-sequencing hash indexed by beacon epoch with bounded retention.
+    async fn cache_end_of_sequencing_hash(&self, epoch: u64, block_hash: B256) {
+        let mut cache = self.end_of_sequencing_by_epoch.lock().await;
+        insert_end_of_sequencing_hash(&mut cache, epoch, block_hash);
+    }
 }
 
 #[async_trait]
@@ -371,11 +380,12 @@ where
 
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;
-        self.validate_request_payload(&request, prev_randao)?;
+        let tx_list = self.validate_request_payload(&request, prev_randao)?;
 
         // Insert the preconfirmation payload locally first, mirroring the Go flow, to
         // obtain the canonical block hash before gossiping.
-        let driver_payload = self.build_driver_payload(&request, prev_randao, [0u8; 65])?;
+        let driver_payload =
+            self.build_driver_payload(&request, prev_randao, [0u8; 65], tx_list)?;
         self.event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
             .await?;
@@ -470,7 +480,7 @@ where
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
-            self.end_of_sequencing_by_epoch.lock().await.insert(epoch, block_hash);
+            self.cache_end_of_sequencing_hash(epoch, block_hash).await;
             let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
                 current_epoch: epoch,
                 end_of_sequencing: true,
@@ -524,42 +534,6 @@ where
     }
 }
 
-/// Decompress a zlib-compressed transaction list.
-fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
-    if bytes.len() > MAX_COMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "compressed tx list exceeds maximum size: {} > {}",
-            bytes.len(),
-            MAX_COMPRESSED_TX_LIST_BYTES
-        )));
-    }
-
-    let decoder = flate2::read::ZlibDecoder::new(bytes);
-    let mut out = Vec::new();
-    let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
-    decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to decompress tx list from payload: {err}"
-        ))
-    })?;
-
-    if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "decompressed tx list exceeds maximum size: {} > {}",
-            out.len(),
-            MAX_DECOMPRESSED_TX_LIST_BYTES
-        )));
-    }
-
-    if out.is_empty() {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
-            "decompressed tx list is empty".to_string(),
-        ));
-    }
-
-    Ok(out)
-}
-
 /// Decode Shasta proposal ID from header extra data.
 fn decode_shasta_proposal_id(extra_data: &[u8]) -> Result<u64> {
     if extra_data.len() < SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN {
@@ -593,6 +567,19 @@ fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverEr
     WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
 }
 
+/// Insert/update an EOS hash in bounded epoch cache.
+fn insert_end_of_sequencing_hash(
+    cache: &mut LinkedHashMap<u64, B256>,
+    epoch: u64,
+    block_hash: B256,
+) {
+    cache.remove(&epoch);
+    cache.insert(epoch, block_hash);
+    while cache.len() > MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES {
+        let _ = cache.pop_front();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Write;
@@ -600,6 +587,7 @@ mod tests {
     use flate2::{Compression, write::ZlibEncoder};
 
     use super::*;
+    use crate::importer::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES};
 
     fn compress(payload: &[u8]) -> Vec<u8> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -674,5 +662,23 @@ mod tests {
         ensure_parent_proposal_not_stale(6, 6).expect("equal parent proposal id must pass");
         ensure_parent_proposal_not_stale(7, 6).expect("newer parent proposal id must pass");
         ensure_parent_proposal_not_stale(1, 0).expect("zero latest proposal id must skip check");
+    }
+
+    #[test]
+    fn insert_end_of_sequencing_hash_prunes_oldest_epochs() {
+        let mut cache = LinkedHashMap::new();
+        let total = MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES + 3;
+        for epoch in 0..total {
+            insert_end_of_sequencing_hash(
+                &mut cache,
+                epoch as u64,
+                B256::from_slice(&(epoch as u64).to_be_bytes().repeat(4)),
+            );
+        }
+
+        assert_eq!(cache.len(), MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES);
+        assert!(!cache.contains_key(&0));
+        assert!(!cache.contains_key(&1));
+        assert!(cache.contains_key(&((total - 1) as u64)));
     }
 }
