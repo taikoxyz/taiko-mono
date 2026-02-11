@@ -62,6 +62,8 @@ pub struct DriverChannels {
     pub input_rx: mpsc::Receiver<PreconfirmationInput>,
     /// Tx for updating the canonical proposal ID.
     pub canonical_proposal_id_tx: watch::Sender<u64>,
+    /// Tx for updating the event sync tip block number.
+    pub event_sync_tip_tx: watch::Sender<U256>,
     /// Tx for updating the preconfirmation tip.
     pub preconf_tip_tx: watch::Sender<U256>,
 }
@@ -104,11 +106,13 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
     ) -> Result<(Self, DriverChannels)> {
         let (input_tx, input_rx) = mpsc::channel(config.driver_channel_capacity);
         let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+        let (event_sync_tip_tx, event_sync_tip_rx) = watch::channel(U256::ZERO);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
         let driver_client = EmbeddedDriverClient::new(
             input_tx,
             canonical_id_rx.clone(),
+            event_sync_tip_rx,
             preconf_tip_rx.clone(),
             inbox_reader,
         );
@@ -122,7 +126,12 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
                 canonical_proposal_id_rx: canonical_id_rx,
                 preconf_tip_rx,
             },
-            DriverChannels { input_rx, canonical_proposal_id_tx: canonical_id_tx, preconf_tip_tx },
+            DriverChannels {
+                input_rx,
+                canonical_proposal_id_tx: canonical_id_tx,
+                event_sync_tip_tx,
+                preconf_tip_tx,
+            },
         ))
     }
 

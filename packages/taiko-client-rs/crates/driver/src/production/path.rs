@@ -1,6 +1,12 @@
 //! Production paths that materialise inputs into execution blocks.
 
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Instant,
+};
 
 use super::{ProductionError, ProductionInput, ProductionPathKind};
 pub use crate::sync::engine::EngineBlockOutcome;
@@ -14,7 +20,7 @@ use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
 use metrics::{counter, histogram};
 use rpc::{RpcClientError, client::Client};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 /// A block-production path capable of materialising the provided input into execution blocks.
 ///
@@ -64,6 +70,7 @@ where
     A: PayloadApplier + BlockHashReader,
 {
     applier: A,
+    canonical_block_tip: Option<Arc<AtomicU64>>,
 }
 
 impl<A> PreconfirmationPath<A>
@@ -72,7 +79,15 @@ where
 {
     /// Construct a preconfirmation path backed by the given payload applier.
     pub fn new(applier: A) -> Self {
-        Self { applier }
+        Self { applier, canonical_block_tip: None }
+    }
+
+    /// Construct a preconfirmation path with a canonical block tip boundary.
+    ///
+    /// Blocks at or below this tip are considered event-synced canonical history and must never be
+    /// rewritten by preconfirmation payloads.
+    pub fn new_with_canonical_tip(applier: A, canonical_block_tip: Arc<AtomicU64>) -> Self {
+        Self { applier, canonical_block_tip: Some(canonical_block_tip) }
     }
 }
 
@@ -96,6 +111,19 @@ where
                 let payload = preconf.payload();
                 let block_number = preconf.block_number();
                 let parent_number = block_number.saturating_sub(1);
+
+                if let Some(canonical_tip) = &self.canonical_block_tip {
+                    let canonical_block_tip = canonical_tip.load(Ordering::Relaxed);
+                    if block_number <= canonical_block_tip {
+                        counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                        warn!(
+                            block_number,
+                            canonical_block_tip,
+                            "dropping stale preconfirmation at or below canonical event-sync tip"
+                        );
+                        return Ok(Vec::new());
+                    }
+                }
 
                 // Measure parent hash lookup duration.
                 let lookup_start = Instant::now();
@@ -313,8 +341,11 @@ mod tests {
     #[async_trait]
     impl BlockHashReader for MockApplier {
         async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError> {
-            assert_eq!(block_number, self.expected_parent);
-            Ok(self.parent_hash)
+            if block_number == self.expected_parent {
+                Ok(self.parent_hash)
+            } else {
+                Err(DriverError::BlockNotFound(block_number))
+            }
         }
     }
 
@@ -392,6 +423,40 @@ mod tests {
         let outcomes = rt
             .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
             .expect("preconfirmation path should succeed");
+
+        assert_eq!(applier.calls(), 1);
+        assert_eq!(outcomes.len(), 1);
+    }
+
+    #[test]
+    fn preconfirmation_path_drops_block_at_or_below_canonical_tip() {
+        let parent_hash = B256::from([1u8; 32]);
+        let applier = MockApplier::new(0, parent_hash);
+        let canonical_tip = Arc::new(AtomicU64::new(1));
+        let path = PreconfirmationPath::new_with_canonical_tip(applier.clone(), canonical_tip);
+        let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
+
+        let rt = Runtime::new().unwrap();
+        let outcomes = rt
+            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
+            .expect("preconfirmation at canonical boundary should be dropped");
+
+        assert_eq!(applier.calls(), 0);
+        assert!(outcomes.is_empty());
+    }
+
+    #[test]
+    fn preconfirmation_path_allows_reorg_above_canonical_tip() {
+        let parent_hash = B256::from([1u8; 32]);
+        let applier = MockApplier::new(1, parent_hash);
+        let canonical_tip = Arc::new(AtomicU64::new(1));
+        let path = PreconfirmationPath::new_with_canonical_tip(applier.clone(), canonical_tip);
+        let payload = Arc::new(PreconfPayload::new(sample_payload(2)));
+
+        let rt = Runtime::new().unwrap();
+        let outcomes = rt
+            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
+            .expect("preconfirmation above canonical boundary should be allowed");
 
         assert_eq!(applier.calls(), 1);
         assert_eq!(outcomes.len(), 1);

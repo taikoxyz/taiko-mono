@@ -74,6 +74,9 @@ pub trait PreconfirmationIngress: Send + Sync {
 
     /// Subscribe to canonical proposal id updates.
     fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64>;
+
+    /// Return the highest canonical L2 block produced from event sync.
+    fn last_canonical_block_number(&self) -> u64;
 }
 
 #[async_trait]
@@ -92,6 +95,11 @@ where
     /// Subscribe to canonical proposal id updates.
     fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64> {
         self.subscribe_proposal_id()
+    }
+
+    /// Return the highest canonical L2 block produced from event sync.
+    fn last_canonical_block_number(&self) -> u64 {
+        self.last_canonical_block_number()
     }
 }
 
@@ -210,7 +218,7 @@ where
 
     /// Get the current event syncer tip block number.
     async fn event_sync_tip(&self) -> Result<U256> {
-        self.l2_provider.safe_tip().await
+        Ok(U256::from(self.event_syncer.last_canonical_block_number()))
     }
 
     /// Get the current preconfirmation tip block number.
@@ -265,6 +273,7 @@ mod tests {
 
     struct FakeIngress {
         submits: Arc<AtomicUsize>,
+        canonical_tip: u64,
     }
 
     #[async_trait::async_trait]
@@ -281,6 +290,10 @@ mod tests {
             let (_tx, rx) = tokio::sync::watch::channel(0u64);
             rx
         }
+
+        fn last_canonical_block_number(&self) -> u64 {
+            self.canonical_tip
+        }
     }
 
     #[tokio::test]
@@ -290,12 +303,12 @@ mod tests {
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider.clone());
 
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress { submits: Arc::new(AtomicUsize::new(0)) }),
+            Arc::new(FakeIngress { submits: Arc::new(AtomicUsize::new(0)), canonical_tip: 7 }),
             inbox,
             Arc::new(StubL2Provider { safe: U256::from(10), latest: U256::from(12) }),
         );
 
-        assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(10));
+        assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(7));
         assert_eq!(client.preconf_tip().await.unwrap(), U256::from(12));
     }
 
@@ -327,7 +340,7 @@ mod tests {
 
         let submits = Arc::new(AtomicUsize::new(0));
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress { submits: submits.clone() }),
+            Arc::new(FakeIngress { submits: submits.clone(), canonical_tip: 0 }),
             inbox,
             Arc::new(NoopL2Provider),
         );

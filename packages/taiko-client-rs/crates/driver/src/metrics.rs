@@ -53,6 +53,9 @@ impl DriverMetrics {
     /// Gauge tracking the last canonical proposal id from L1 events.
     pub const EVENT_LAST_CANONICAL_PROPOSAL_ID: &'static str =
         "driver_event_last_canonical_proposal_id";
+    /// Gauge tracking the last canonical L2 block number produced from L1 events.
+    pub const EVENT_LAST_CANONICAL_BLOCK_NUMBER: &'static str =
+        "driver_event_last_canonical_block_number";
 
     // Preconf queue metrics
     /// Counter for preconfirmation enqueue timeouts.
@@ -67,6 +70,8 @@ impl DriverMetrics {
     /// Counter for preconfirmation responses dropped (channel closed).
     pub const PRECONF_RESPONSE_DROPPED_TOTAL: &'static str =
         "driver_preconf_response_dropped_total";
+    /// Counter for stale preconfirmation payloads dropped before processing.
+    pub const PRECONF_STALE_DROPPED_TOTAL: &'static str = "driver_preconf_stale_dropped_total";
 
     // Production path metrics
     /// Histogram for parent hash lookup duration.
@@ -170,6 +175,11 @@ impl DriverMetrics {
             Unit::Count,
             "Last canonical proposal id processed from L1 events"
         );
+        metrics::describe_gauge!(
+            Self::EVENT_LAST_CANONICAL_BLOCK_NUMBER,
+            Unit::Count,
+            "Last canonical L2 block number produced from L1 events"
+        );
 
         // Preconf queue metrics
         metrics::describe_counter!(
@@ -191,6 +201,11 @@ impl DriverMetrics {
             Self::PRECONF_RESPONSE_DROPPED_TOTAL,
             Unit::Count,
             "Preconfirmation responses dropped due to channel closure"
+        );
+        metrics::describe_counter!(
+            Self::PRECONF_STALE_DROPPED_TOTAL,
+            Unit::Count,
+            "Stale preconfirmation payloads dropped because canonical tip already passed the block"
         );
 
         // Production path metrics
@@ -223,11 +238,13 @@ impl DriverMetrics {
         metrics::counter!(Self::PRECONF_RESPONSE_TIMEOUTS_TOTAL).absolute(0);
         metrics::counter!(Self::PRECONF_ENQUEUE_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::PRECONF_RESPONSE_DROPPED_TOTAL).absolute(0);
+        metrics::counter!(Self::PRECONF_STALE_DROPPED_TOTAL).absolute(0);
 
         // Reset production path counters
         metrics::counter!(Self::PRECONF_PARENT_HASH_LOOKUP_FAILURES_TOTAL).absolute(0);
 
         // Reset event syncer gauge
         metrics::gauge!(Self::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(0.0);
+        metrics::gauge!(Self::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
     }
 }

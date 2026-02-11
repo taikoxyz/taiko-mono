@@ -9,7 +9,6 @@
 use std::io::Write as IoWrite;
 
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::encode as rlp_encode;
 use anyhow::{Context, Result, anyhow, ensure};
 use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_types::{
@@ -53,7 +52,11 @@ fn compress_to_txlist_bytes(data: &[u8]) -> Result<TxListBytes> {
 /// Used for tests that need non-empty but deterministic transaction data.
 pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
-    let rlp_payload = rlp_encode(vec![tx_payload]);
+    let mut rlp_payload = Vec::new();
+    alloy_rlp::encode_list::<_, alloy_rlp::Bytes>(
+        &[alloy_rlp::Bytes::from(tx_payload)],
+        &mut rlp_payload,
+    );
     compress_to_txlist_bytes(&rlp_payload)
 }
 
@@ -180,15 +183,12 @@ pub fn build_publish_payloads_with_txs(
 /// Verifies round-trip decoding to catch encoding issues early.
 fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
     let tx_list_items: Vec<Vec<u8>> = raw_tx_bytes.iter().map(|tx| tx.to_vec()).collect();
-    let tx_list = rlp_encode(&tx_list_items);
-
-    let first_byte = *tx_list.first().ok_or_else(|| anyhow!("empty tx list encoding"))?;
-    ensure!(first_byte >= 0xc0, "tx list is not an RLP list (first byte 0x{first_byte:02x})");
-
-    let txlist_bytes = compress_to_txlist_bytes(&tx_list)?;
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
+    let encoded = codec.encode(&tx_list_items).context("encode txlist before publishing")?;
+    let txlist_bytes =
+        TxListBytes::try_from(encoded).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))?;
 
     // Verify round-trip decoding to catch encoding issues early.
-    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
     let decoded = codec.decode(txlist_bytes.as_ref()).context("decode txlist before publishing")?;
     ensure!(decoded.len() == raw_tx_bytes.len(), "decoded txlist length mismatch");
 
@@ -280,7 +280,9 @@ pub fn build_commitment_chain(
     for i in 0..count {
         let block_number = start_block + i as u64;
         let timestamp = base_timestamp + i as u64;
-        let txlist_bytes = build_txlist_bytes(block_number)?;
+        // Catch-up chains do not need executable transactions; keep payloads empty so tests remain
+        // independent from transaction encoding details.
+        let txlist_bytes = build_empty_txlist()?;
 
         let block = build_prepared_block(
             signer_sk,

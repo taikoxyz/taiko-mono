@@ -1,6 +1,6 @@
 //! E2E test verifying P2P gossip propagation between two drivers.
 
-use std::{io::Write as IoWrite, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use alloy_consensus::transaction::SignerRecoverable;
 use alloy_eips::{BlockNumberOrTag, Encodable2718};
@@ -8,20 +8,19 @@ use alloy_primitives::{Address, U256};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
-use alloy_rlp::encode as rlp_encode;
 use anyhow::{Context, Result, anyhow, ensure};
 use driver::{
     DriverConfig,
     sync::{SyncStage, event::EventSyncer},
 };
-use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{
-    Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
-    TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment, u256_to_uint256,
-    uint256_to_u256,
+    Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
+    SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
+    u256_to_uint256, uint256_to_u256,
 };
+use protocol::codec::ZlibTxListCodec;
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig, connect_provider_with_timeout},
@@ -108,11 +107,9 @@ impl DriverInstance {
 }
 
 fn build_txlist_bytes(raw_tx_bytes: &[Vec<u8>]) -> Result<TxListBytes> {
-    let tx_list_items: Vec<Vec<u8>> = raw_tx_bytes.to_vec();
-    let tx_list = rlp_encode(&tx_list_items);
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&tx_list)?;
-    let compressed = encoder.finish()?;
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
+    let compressed =
+        codec.encode(raw_tx_bytes).map_err(|err| anyhow!("txlist encode error: {err}"))?;
     TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
 }
 

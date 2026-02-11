@@ -19,7 +19,7 @@ use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
-use event_scanner::{EventFilter, ScannerMessage};
+use event_scanner::{EventFilter, Notification, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
@@ -73,6 +73,10 @@ where
     last_canonical_proposal_id: Arc<AtomicU64>,
     /// Sender for notifying watchers when the canonical proposal ID changes.
     proposal_id_tx: watch::Sender<u64>,
+    /// Tracks the highest canonical L2 block number produced from L1 events.
+    last_canonical_block_number: Arc<AtomicU64>,
+    /// Sender for notifying watchers when the canonical block number changes.
+    canonical_block_number_tx: watch::Sender<u64>,
     /// Indicates whether the preconfirmation ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
     /// Notifier signaled when the preconfirmation ingress loop becomes ready.
@@ -119,7 +123,10 @@ where
         // Add preconfirmation path if enabled.
         if self.cfg.preconfirmation_enabled {
             let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
+                Arc::new(PreconfirmationPath::new_with_canonical_tip(
+                    self.rpc.clone(),
+                    self.last_canonical_block_number.clone(),
+                ));
             paths.push(preconf_path);
         }
 
@@ -131,6 +138,7 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         rx: Arc<AsyncMutex<PreconfReceiver>>,
+        last_canonical_block_number: Arc<AtomicU64>,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
     ) {
@@ -147,14 +155,26 @@ where
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                let router = router.clone();
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
+                let router_guard = router.lock().await;
+                let canonical_block_tip = last_canonical_block_number.load(Ordering::Relaxed);
+                // Re-check after acquiring router lock so event-sync updates cannot race this
+                // preconfirmation submission.
+                if block_number <= canonical_block_tip {
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                    warn!(
+                        block_number,
+                        canonical_block_tip,
+                        "dropping stale preconfirmation payload in ingress loop"
+                    );
+                    let _ = job.respond_to.send(Ok(()));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
+                }
 
-                // Single-shot injection; serialise via router lock to avoid interleaving.
-                let router_call = router
-                    .lock()
-                    .await
+                // Single-shot injection while holding router lock to avoid interleaving.
+                let router_call = router_guard
                     .produce(ProductionInput::Preconfirmation(job.payload.clone()))
                     .await;
 
@@ -218,14 +238,17 @@ where
 
             let router = router.clone();
             let proposal_log = log.clone();
+            let last_canonical_block_number = self.last_canonical_block_number.clone();
+            let canonical_block_number_tx = self.canonical_block_number_tx.clone();
             let outcomes = Retry::spawn(retry_strategy, move || {
                 let router = router.clone();
                 let log = proposal_log.clone();
+                let last_canonical_block_number = last_canonical_block_number.clone();
+                let canonical_block_number_tx = canonical_block_number_tx.clone();
                 async move {
-                    router
-                        // Lock router so L1 proposals and preconf inputs cannot interleave.
-                        .lock()
-                        .await
+                    // Lock router so L1 proposals and preconf inputs cannot interleave.
+                    let router_guard = router.lock().await;
+                    let outcomes = router_guard
                         .produce(ProductionInput::L1ProposalLog(log.clone()))
                         .await
                         .map_err(|err| {
@@ -236,7 +259,29 @@ where
                                 "proposal derivation failed; retrying"
                             );
                             err
-                        })
+                        })?;
+
+                    // Publish the canonical block boundary while still holding the router lock so
+                    // preconfirmation processing cannot observe stale boundaries.
+                    if let Some(last_outcome) = outcomes.last() {
+                        let canonical_block_number = last_outcome.block_number();
+                        let previous = last_canonical_block_number
+                            .fetch_max(canonical_block_number, Ordering::Relaxed);
+                        if canonical_block_number > previous {
+                            if let Err(err) = canonical_block_number_tx.send(canonical_block_number)
+                            {
+                                error!(
+                                    ?err,
+                                    canonical_block_number,
+                                    "failed to notify canonical block tip watcher"
+                                );
+                            }
+                            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+                                .set(canonical_block_number as f64);
+                        }
+                    }
+
+                    Ok(outcomes)
                 }
             })
             .await
@@ -280,6 +325,11 @@ where
             (None, None)
         };
         let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
+        let initial_canonical_block_number = Self::bootstrap_canonical_block_number(&rpc).await;
+        let (canonical_block_number_tx, _canonical_block_number_rx) =
+            watch::channel(initial_canonical_block_number);
+        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+            .set(initial_canonical_block_number as f64);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -288,9 +338,57 @@ where
             preconf_rx,
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
             proposal_id_tx,
+            last_canonical_block_number: Arc::new(AtomicU64::new(initial_canonical_block_number)),
+            canonical_block_number_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
+    }
+
+    /// Best-effort bootstrap of the canonical L2 block boundary from inbox core state.
+    async fn bootstrap_canonical_block_number(rpc: &Client<P>) -> u64 {
+        let next_proposal_id = match rpc.shasta.inbox.getCoreState().call().await {
+            Ok(state) => state.nextProposalId.to::<u64>(),
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    "failed to query inbox core state while bootstrapping canonical block tip"
+                );
+                return 0;
+            }
+        };
+
+        if next_proposal_id == 0 {
+            return 0;
+        }
+
+        let canonical_proposal_id = next_proposal_id.saturating_sub(1);
+        match rpc.last_block_id_by_batch_id(U256::from(canonical_proposal_id)).await {
+            Ok(Some(block_id)) => {
+                let canonical_block_number = block_id.to::<u64>();
+                info!(
+                    canonical_proposal_id,
+                    canonical_block_number,
+                    "bootstrapped canonical block tip from inbox core state"
+                );
+                canonical_block_number
+            }
+            Ok(None) => {
+                warn!(
+                    canonical_proposal_id,
+                    "missing batch-to-block mapping while bootstrapping canonical block tip"
+                );
+                0
+            }
+            Err(err) => {
+                warn!(
+                    canonical_proposal_id,
+                    error = %err,
+                    "failed to query batch-to-block mapping while bootstrapping canonical block tip"
+                );
+                0
+            }
+        }
     }
 
     /// Return the latest canonical proposal id processed from L1 events.
@@ -306,13 +404,24 @@ where
         self.proposal_id_tx.subscribe()
     }
 
+    /// Return the latest canonical L2 block number produced from L1 events.
+    pub fn last_canonical_block_number(&self) -> u64 {
+        self.last_canonical_block_number.load(Ordering::Relaxed)
+    }
+
+    /// Subscribe to canonical block number changes.
+    pub fn subscribe_canonical_block_number(&self) -> watch::Receiver<u64> {
+        self.canonical_block_number_tx.subscribe()
+    }
+
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
     pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
         self.preconf_tx.clone()
     }
 
-    /// Wait until the preconfirmation ingress loop is ready to accept submissions.
+    /// Wait until preconfirmation ingress is ready to accept submissions.
     ///
+    /// Readiness means the ingress loop is running and event sync has switched to live mode.
     /// Returns `None` if preconfirmation is disabled.
     pub async fn wait_preconf_ingress_ready(&self) -> Option<()> {
         self.preconf_tx.as_ref()?;
@@ -351,6 +460,15 @@ where
         }
 
         let block_number = payload.block_number();
+        let canonical_block_tip = self.last_canonical_block_number();
+        if block_number <= canonical_block_tip {
+            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+            warn!(
+                block_number,
+                canonical_block_tip, "dropping stale preconfirmation payload before enqueue"
+            );
+            return Ok(());
+        }
 
         debug!(block_number, "submitting preconfirmation payload to queue");
 
@@ -613,15 +731,8 @@ where
 
         info!("event scanner started; listening for inbox proposals");
 
-        // Spawn preconfirmation ingress loop if enabled.
-        if let Some(rx) = self.preconf_rx.clone() {
-            self.spawn_preconf_ingress(
-                router.clone(),
-                rx,
-                self.preconf_ingress_ready.clone(),
-                self.preconf_ingress_notify.clone(),
-            );
-        }
+        // Start preconfirmation ingress only after the scanner catches up and switches to live.
+        let mut preconf_ingress_spawned = false;
 
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
@@ -633,6 +744,19 @@ where
                 }
                 Ok(ScannerMessage::Notification(notification)) => {
                     info!(?notification, "event scanner notification");
+                    if matches!(notification, Notification::SwitchingToLive) &&
+                        !preconf_ingress_spawned &&
+                        let Some(rx) = self.preconf_rx.clone()
+                    {
+                        self.spawn_preconf_ingress(
+                            router.clone(),
+                            rx,
+                            self.last_canonical_block_number.clone(),
+                            self.preconf_ingress_ready.clone(),
+                            self.preconf_ingress_notify.clone(),
+                        );
+                        preconf_ingress_spawned = true;
+                    }
                     continue;
                 }
                 Err(err) => {
@@ -745,6 +869,7 @@ mod tests {
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
         let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
+        let (canonical_block_number_tx, _canonical_block_number_rx) = watch::channel(0u64);
 
         EventSyncer {
             rpc: mock_client(),
@@ -754,6 +879,8 @@ mod tests {
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
             proposal_id_tx,
+            last_canonical_block_number: Arc::new(AtomicU64::new(0)),
+            canonical_block_number_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
@@ -769,6 +896,22 @@ mod tests {
             .expect_err("expected ingress not ready error");
 
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
+    }
+
+    #[tokio::test]
+    async fn preconf_submit_noops_when_block_is_at_or_below_canonical_tip() {
+        let syncer = build_syncer().await;
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+        syncer.last_canonical_block_number.store(5, Ordering::Relaxed);
+
+        let payload = PreconfPayload::new(sample_payload(5));
+        syncer
+            .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
+            .await
+            .expect("stale payload should be treated as no-op");
+
+        let rx = syncer.preconf_rx.as_ref().expect("preconf receiver").clone();
+        assert_eq!(rx.lock().await.len(), 0, "stale payload should not be enqueued for processing");
     }
 
     #[test]
