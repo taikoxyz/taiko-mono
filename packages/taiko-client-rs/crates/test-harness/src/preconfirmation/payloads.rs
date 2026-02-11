@@ -37,7 +37,7 @@ pub struct PreparedBlock {
 // ============================================================================
 
 /// Encode transactions into a Go-compatible zlib-compressed RLP txlist.
-fn encode_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
+fn encode_and_compress_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
     let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
     let compressed = codec
         .encode(transactions)
@@ -50,14 +50,14 @@ fn encode_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
 /// Used for tests that need non-empty but deterministic transaction data.
 pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
-    encode_txlist_bytes(&[tx_payload])
+    encode_and_compress_txlist_bytes(&[tx_payload])
 }
 
 /// Builds a minimal compressed txlist (empty RLP list).
 ///
 /// Used for tests that just need a valid but empty txlist.
 pub fn build_empty_txlist() -> Result<TxListBytes> {
-    encode_txlist_bytes(&[])
+    encode_and_compress_txlist_bytes(&[])
 }
 
 /// Computes the raw tx list hash from txlist bytes.
@@ -176,7 +176,7 @@ pub fn build_publish_payloads_with_txs(
 /// Verifies round-trip decoding to catch encoding issues early.
 fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
     let tx_list_items: Vec<Vec<u8>> = raw_tx_bytes.iter().map(|tx| tx.to_vec()).collect();
-    let txlist_bytes = encode_txlist_bytes(&tx_list_items)?;
+    let txlist_bytes = encode_and_compress_txlist_bytes(&tx_list_items)?;
 
     // Verify round-trip decoding to catch encoding issues early.
     let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);

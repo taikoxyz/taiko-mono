@@ -81,18 +81,6 @@ impl WhitelistRpcErrorCode {
     pub const fn code(self) -> i32 {
         self as i32
     }
-
-    /// Get a human-readable message for this error.
-    #[allow(dead_code)]
-    pub const fn message(self) -> &'static str {
-        match self {
-            Self::InternalError => "Internal error",
-            Self::InvalidPayload => "Invalid payload format",
-            Self::NotSynced => "Node is not synced",
-            Self::SigningFailed => "Signing failed",
-            Self::PublishFailed => "Publish to P2P network failed",
-        }
-    }
 }
 
 #[cfg(test)]

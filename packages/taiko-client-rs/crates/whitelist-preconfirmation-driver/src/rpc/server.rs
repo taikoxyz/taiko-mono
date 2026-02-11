@@ -41,8 +41,8 @@ impl Default for WhitelistRpcServerConfig {
 pub struct WhitelistRpcServer {
     /// Socket address bound by the server.
     addr: SocketAddr,
-    /// Handle used to control server lifecycle.
-    handle: ServerHandle,
+    /// Keep-alive handle for the running server.
+    _handle: ServerHandle,
 }
 
 impl WhitelistRpcServer {
@@ -52,38 +52,25 @@ impl WhitelistRpcServer {
         api: Arc<dyn WhitelistRpcApi>,
     ) -> Result<Self> {
         let server = ServerBuilder::new().build(config.listen_addr).await.map_err(|e| {
-            WhitelistPreconfirmationDriverError::RpcServer(format!("failed to bind server: {e}"))
+            WhitelistPreconfirmationDriverError::RpcServerBind {
+                listen_addr: config.listen_addr,
+                reason: e.to_string(),
+            }
         })?;
 
         let addr = server.local_addr().map_err(|e| {
-            WhitelistPreconfirmationDriverError::RpcServer(format!("failed to get local addr: {e}"))
+            WhitelistPreconfirmationDriverError::RpcServerLocalAddr { reason: e.to_string() }
         })?;
 
         let handle = server.start(build_rpc_module(api));
 
         info!(addr = %addr, "started whitelist preconfirmation RPC server");
-        Ok(Self { addr, handle })
+        Ok(Self { addr, _handle: handle })
     }
 
     /// Return the bound socket address.
     pub const fn local_addr(&self) -> SocketAddr {
         self.addr
-    }
-
-    /// Return the HTTP URL for this server.
-    #[allow(dead_code)]
-    pub fn http_url(&self) -> String {
-        format!("http://{}", self.addr)
-    }
-
-    /// Stop the server gracefully.
-    #[allow(dead_code)]
-    pub async fn stop(self) {
-        if let Err(err) = self.handle.stop() {
-            warn!(error = %err, "whitelist preconfirmation RPC server already stopped");
-        }
-        let _ = self.handle.stopped().await;
-        info!("whitelist preconfirmation RPC server stopped");
     }
 }
 
@@ -226,9 +213,8 @@ mod tests {
         let api: Arc<dyn WhitelistRpcApi> = Arc::new(MockApi);
 
         let server = WhitelistRpcServer::start(config, api).await.expect("server should start");
-        assert!(server.http_url().starts_with("http://127.0.0.1:"));
-
-        server.stop().await;
+        assert_eq!(server.local_addr().ip().to_string(), "127.0.0.1");
+        assert_ne!(server.local_addr().port(), 0);
     }
 
     #[test]

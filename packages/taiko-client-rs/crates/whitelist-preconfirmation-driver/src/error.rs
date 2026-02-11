@@ -62,9 +62,26 @@ pub enum WhitelistPreconfirmationDriverError {
     /// Failed to resolve preconfirmation whitelist operators.
     #[error("whitelist operator lookup failed: {0}")]
     WhitelistLookup(String),
-    /// RPC server error.
-    #[error("rpc server error: {0}")]
-    RpcServer(String),
+    /// Failed to bind the whitelist RPC server socket.
+    #[error("failed to bind whitelist RPC server on {listen_addr}: {reason}")]
+    RpcServerBind {
+        /// Configured listen address.
+        listen_addr: std::net::SocketAddr,
+        /// Underlying bind error description.
+        reason: String,
+    },
+    /// Failed to resolve the local address from a started whitelist RPC server.
+    #[error("failed to get whitelist RPC server local address: {reason}")]
+    RpcServerLocalAddr {
+        /// Underlying local-address error description.
+        reason: String,
+    },
+    /// Failed to initialize the beacon client used by the whitelist RPC handler.
+    #[error("failed to initialize beacon client for whitelist RPC: {reason}")]
+    RpcServerBeaconInit {
+        /// Underlying beacon initialization error description.
+        reason: String,
+    },
     /// Signing error.
     #[error("signing error: {0}")]
     Signing(String),

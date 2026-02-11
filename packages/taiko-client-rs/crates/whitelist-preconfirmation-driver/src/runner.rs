@@ -94,9 +94,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
                     .await
                     .map_err(|err| {
-                        WhitelistPreconfirmationDriverError::RpcServer(format!(
-                            "failed to initialize beacon client: {err}"
-                        ))
+                        WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
+                            reason: err.to_string(),
+                        }
                     })?,
             );
 
