@@ -142,6 +142,12 @@ impl BlobCoder {
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
         Self.decode_all(blobs)
     }
+
+    /// Decode a single blob using the Kona-compatible scheme, returning the raw payload bytes
+    /// if the encoding is valid.
+    pub fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
+        decode_blob(blob)
+    }
 }
 
 impl SidecarCoder for BlobCoder {
@@ -385,5 +391,16 @@ mod tests {
         let mut individual_decoded = blob1_decoded;
         individual_decoded.extend_from_slice(&blob2_decoded);
         assert_eq!(individual_decoded, payload);
+    }
+
+    #[test]
+    fn decode_single_blob_convenience_method() {
+        let payload = vec![0xAB; 100];
+        let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
+        let blobs = builder.take();
+
+        // Test the new convenience method
+        let decoded = BlobCoder::decode_blob(&blobs[0]).unwrap();
+        assert_eq!(decoded, payload);
     }
 }
